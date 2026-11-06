@@ -9,7 +9,13 @@ from shapely.geometry import LineString, Point, Polygon
 
 from hydromodpy.calibration.targets import declared_calibrable
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.physics.flow.cutoff_wall_shore import snap_wall_to_shore
+from hydromodpy.physics.flow.binders.barriers import (
+    _read_barrier_csv,
+    apply_flow_barriers_to_flow,
+    resolve_barrier_line,
+)
+from hydromodpy.physics.flow.binders.lakes import apply_cutoff_wall_to_flow
+from hydromodpy.physics.flow.cutoff_wall_shore import auto_dam_axis, snap_wall_to_shore
 from hydromodpy.physics.flow.sinks_sources import (
     CutoffWallConfig,
     FlowBarrierConfig,
@@ -19,13 +25,6 @@ from hydromodpy.physics.flow.sinks_sources.flow_barrier import (
     FlowBarrierConfig as FlowBarrierConfig_2,
 )
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
-from hydromodpy.physics.flow.structure_binders import (
-    _read_barrier_csv,
-    _resolve_barrier_line,
-    apply_cutoff_wall_to_flow,
-    apply_flow_barriers_to_flow,
-    auto_dam_axis,
-)
 from tests._helpers.reservoir_dam import DAM_X, Y0, reservoir, trace
 
 
@@ -61,7 +60,7 @@ def test_resolve_barrier_line_reads_a_single_linestring_file(tmp_path) -> None:
         path, driver="GeoJSON"
     )
     cfg = SimpleNamespace(line=None, line_path=str(path))
-    line = _resolve_barrier_line(cfg, where="test")
+    line = resolve_barrier_line(cfg, where="test")
     assert line.geom_type == "LineString"
     assert len(line.coords) == 2
 

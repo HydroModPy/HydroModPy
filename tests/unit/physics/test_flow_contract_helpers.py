@@ -6,14 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.physics.flow.flow_runtime_validators import (
-    normalize_bool,
-    normalize_positive_float,
-    normalize_positive_float_or_none,
-    normalize_positive_int,
-    normalize_positive_int_or_none,
-    normalize_runtime_backend,
-    normalize_surface_interaction_model,
+from hydromodpy.physics.flow.binders.climate import (
+    apply_etp_load_result_to_flow,
+    apply_oceanic_to_flow,
+    apply_recharge_load_result_to_flow,
 )
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
@@ -22,12 +18,14 @@ from hydromodpy.physics.flow.history_contract import (
     step_end_elapsed_seconds_from_payload,
     step_history_from_history,
 )
-from hydromodpy.physics.flow.sinks_sources import FlowEtpConfig
-from hydromodpy.physics.flow.structure_binders import (
-    apply_etp_load_result_to_flow,
-    apply_oceanic_to_flow,
-    apply_recharge_load_result_to_flow,
+from hydromodpy.physics.flow.runtime_config import (
+    normalize_bool,
+    normalize_positive_float,
+    normalize_positive_int,
+    normalize_runtime_backend,
+    normalize_surface_interaction_model,
 )
+from hydromodpy.physics.flow.sinks_sources import FlowEtpConfig
 from hydromodpy.physics.forcing.forcing_bridge import (
     ResolvedForcing,
     build_forcing_series,
@@ -124,14 +122,14 @@ def test_runtime_backend_normalization_accepts_known_values(raw: object, expecte
 
 def test_runtime_validator_rejects_invalid_numbers_and_booleans() -> None:
     assert normalize_surface_interaction_model(" TS_VI_OBSTACLE ") == "ts_vi_obstacle"
-    assert normalize_positive_int_or_none("", field="runtime_max_iterations") is None
+    assert normalize_positive_int("", field="runtime_max_iterations") is None
     assert normalize_positive_int("4", field="vi_substeps_per_period", default=2) == 4
     assert normalize_bool("yes", field="vi_substep_on_failure")
     assert not normalize_bool("off", field="vi_substep_on_failure")
     assert normalize_positive_float("", field="runtime_tol", default=1.0e-6) == pytest.approx(
         1.0e-6
     )
-    assert normalize_positive_float_or_none("0.25", field="runtime_tol") == pytest.approx(0.25)
+    assert normalize_positive_float("0.25", field="runtime_tol") == pytest.approx(0.25)
 
     for call in (
         lambda: normalize_runtime_backend("gpu"),
@@ -140,7 +138,7 @@ def test_runtime_validator_rejects_invalid_numbers_and_booleans() -> None:
         lambda: normalize_positive_int("1.2", field="steps", default=1),
         lambda: normalize_bool("maybe", field="flag"),
         lambda: normalize_positive_float(False, field="tol", default=1.0),
-        lambda: normalize_positive_float_or_none("0", field="tol"),
+        lambda: normalize_positive_float("0", field="tol"),
     ):
         with pytest.raises(ValueError):
             call()

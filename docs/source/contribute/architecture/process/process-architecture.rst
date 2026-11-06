@@ -65,7 +65,7 @@ the adapter?"):
 
 1. ``hydromodpy/physics/forcing/forcing_bridge.py`` (``resolve_forcing``)
 2. ``hydromodpy/physics/forcing/time_alignment.py``
-3. ``hydromodpy/physics/flow/structure_binders.py`` (the ``apply_*_to_flow``
+3. ``hydromodpy/physics/flow/binders/`` (the ``apply_*_to_flow``
    functions)
 
 **Adding a new process**: see :doc:`../how-to/add-a-process`.

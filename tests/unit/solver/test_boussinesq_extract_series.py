@@ -22,7 +22,7 @@ from shapely.geometry import box
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+from hydromodpy.simulation.catchment_aggregation import (
     _build_catchment_mask,
 )
 from hydromodpy.simulation.planning.plan import (

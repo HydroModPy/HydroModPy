@@ -65,7 +65,7 @@ from hydromodpy.results.run import Run, ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.extraction.post_run import record_run_execution_metrics
+from hydromodpy.simulation.post_run import record_run_execution_metrics
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.modflow_common.budget_components import (
     CANONICAL_BUDGET_TERMS,

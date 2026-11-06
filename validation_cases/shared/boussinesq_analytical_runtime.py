@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS
 
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"

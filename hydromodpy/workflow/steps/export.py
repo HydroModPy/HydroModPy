@@ -203,7 +203,7 @@ class ExportStep:
         plan = ctx.execution.simulation_plan if run_is_persisted(ctx) else None
         if plan is not None and ctx.sim_id is not None:
             from hydromodpy.results.exporters.request import export_data_requests
-            from hydromodpy.simulation.extraction.post_run import cleanup_solver_outputs
+            from hydromodpy.simulation.post_run import cleanup_solver_outputs
             from hydromodpy.simulation.planning.plan import RunContext
 
             with run_store(ctx) as store:

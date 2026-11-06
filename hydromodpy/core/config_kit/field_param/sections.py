@@ -1,0 +1,389 @@
+"""Pydantic schemas for field-parameter TOML sections."""
+
+from __future__ import annotations
+
+import math
+from typing import Annotated, Any, Literal, TypeAlias
+
+from pydantic import (
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.field_param.units import UnitStr, normalize_unit_token
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.scope import zone_name_refusal
+from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+
+FieldKind = Literal["homogeneous", "heterogeneous"]
+HeterogeneousValueSource = Literal["inline", "csv"]
+VerticalProfileMode = Literal["none", "exponential", "tabulated"]
+VerticalProfileInterpolation = Literal["linear", "step"]
+
+# Sentinel `default_unit` for `parse_scalar_and_unit` when no sibling `unit` is
+# declared: it lets a bare numeric string ("1e-4", no inline unit) through
+# unchanged while still detecting, from the returned unit, whether the string
+# carried its own unit ("1e-4 m/s").
+_NO_SIBLING_UNIT = "\x00hydromodpy-field-value-no-unit\x00"
+
+
+def coerce_scalar_value_with_unit(
+    value: str, unit: str | None, *, location: str
+) -> tuple[float, str | None]:
+    """Split a `'<number> <unit>'` string into `(float, unit)`.
+
+    Mirrors `_coerce_boundary_value_and_units` in
+    `hydromodpy/physics/flow/boundary_conditions.py`: a unit written inside
+    `value` fills a missing sibling `unit`, and one that disagrees with an
+    already-declared sibling `unit` is refused by `parse_scalar_and_unit`
+    itself rather than silently preferred one way or the other.
+    """
+    default_unit = unit if unit is not None else _NO_SIBLING_UNIT
+    scalar, resolved_unit = parse_scalar_and_unit(
+        value, location=location, default_unit=default_unit, explicit_unit=unit
+    )
+    if resolved_unit == _NO_SIBLING_UNIT:
+        return scalar, unit
+    if unit is None:
+        return scalar, normalize_unit_token(resolved_unit)
+    return scalar, unit
+
+
+def normalize_value(value: object, *, label: str) -> float | str:
+    """Return a number as a float and a text without its outer spaces.
+
+    ``label`` names the value in the error messages. A boolean, an empty text
+    and any other type are refused.
+    """
+    if isinstance(value, bool):
+        raise TypeError(f"{label} must be numeric or '<number> <unit>'")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        token = value.strip()
+        if token == "":
+            raise ValueError(f"{label} cannot be empty")
+        return token
+    raise TypeError(f"{label} must be numeric or '<number> <unit>'")
+
+
+def normalize_values(value: Any, *, label: str) -> dict[str, float | str] | None:
+    """Return a non-empty mapping of zone keys to values read by ``normalize_value``."""
+    if value is None:
+        return None
+    values: dict[str, float | str] = {}
+    for key, raw_value in dict(value).items():
+        key_text = str(key)
+        refusal = zone_name_refusal(key_text)
+        if refusal is not None:
+            raise ValueError(f"{label}: {refusal}")
+        values[key_text] = normalize_value(raw_value, label=f"{label}['{key_text}']")
+    if len(values) == 0:
+        raise ValueError(f"{label} cannot be empty")
+    if any(str(key).strip() == "" for key in values):
+        raise ValueError(f"{label} cannot contain empty keys")
+    return values
+
+
+def coerce_value_with_declared_unit(section: Any) -> Any:
+    """Split a ``value`` written as ``'<number> <unit>'`` into ``value`` and ``unit``."""
+    if isinstance(section.value, str):
+        scalar, resolved_unit = coerce_scalar_value_with_unit(
+            section.value, section.unit, location=f"{section.id or 'field'}.value"
+        )
+        write_resolved(section, "value", scalar)
+        write_resolved(section, "unit", resolved_unit)
+    return section
+
+
+class FieldBaseSection(HydroModelBase):
+    """Schema for `[field]` base section."""
+
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[FieldKind | None, Profile.USER] = Field(
+        default=None,
+        description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
+    )
+    unit: Annotated[UnitStr, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
+
+
+class FieldHomogeneousSection(HydroModelBase):
+    """Schema for homogeneous `[field]` payloads."""
+
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[Literal["homogeneous"], Profile.USER] = Field(
+        default="homogeneous",
+        description=(
+            "How the parameter varies in space: one value everywhere ('homogeneous') or "
+            "one value per zone ('heterogeneous')."
+        ),
+    )
+    unit: Annotated[UnitStr, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
+    value: Annotated[object | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Value of the parameter over the whole domain: a number in the unit that "
+            "unit names, or a text with its unit such as '1e-5 m/s'."
+        ),
+        examples=["1e-5 m/s"],
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                # No bounds: a conductivity range is a property of the catchment,
+                # not of the schema, so the file states it. What the schema does
+                # know is the space a search should walk, because a hydraulic
+                # property spans decades and a linear step wastes most of them.
+                search_space="log",
+                sampling="log_uniform",
+                is_the_value_of_its_instance=True,
+                description=(
+                    "Scalar value of a homogeneous field parameter. The target every "
+                    "calibration in the repository writes to."
+                ),
+            )
+        ),
+    )
+
+    @field_validator("value")
+    @classmethod
+    def _validate_value(cls, value):
+        return None if value is None else normalize_value(value, label="field.value")
+
+    @model_validator(mode="after")
+    def _coerce_value_with_declared_unit(self):
+        return coerce_value_with_declared_unit(self)
+
+
+class FieldHeterogeneousSection(HydroModelBase):
+    """Schema for heterogeneous `[field]` payloads."""
+
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[Literal["heterogeneous"], Profile.USER] = Field(
+        default="heterogeneous",
+        description=(
+            "How the parameter varies in space: one value everywhere ('homogeneous') or "
+            "one value per zone ('heterogeneous')."
+        ),
+    )
+    unit: Annotated[UnitStr, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
+    values_source: Annotated[HeterogeneousValueSource, Profile.USER] = Field(
+        default="inline",
+        description=(
+            "Source for heterogeneous values. "
+            "Use 'inline' for TOML mapping or 'csv' for external table."
+        ),
+    )
+    values: Annotated[
+        dict[str, float | str] | None, Profile.USER, VisibleWhen("values_source", "inline")
+    ] = Field(
+        default=None,
+        description=(
+            "Inline key/value mapping used when values_source='inline'. "
+            "Keys are zone/material ids, values are numeric parameter values."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                is_the_value_of_its_instance=True,
+            )
+        ),
+    )
+    values_csv_file: Annotated[
+        NonEmptyPath | None, Profile.USER, VisibleWhen("values_source", "csv")
+    ] = Field(
+        default=None,
+        description=(
+            "CSV file that maps each zone key to its value. A relative path is read "
+            "from the project root (the folder of project.toml)."
+        ),
+        examples=["k_by_unit.csv"],
+    )
+    csv_key_column: Annotated[NonEmptyStr, Profile.USER, VisibleWhen("values_source", "csv")] = (
+        Field(
+            default="zone_key",
+            description="Name of the CSV column that holds the zone keys.",
+        )
+    )
+    csv_value_column: Annotated[NonEmptyStr, Profile.USER, VisibleWhen("values_source", "csv")] = (
+        Field(
+            default="value",
+            description="Name of the CSV column that holds the values.",
+        )
+    )
+    field_spatial_id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Identifier of the spatial field used to map heterogeneous values "
+            "(must match geometry field id)."
+        ),
+    )
+
+    @field_validator("values", mode="before")
+    @classmethod
+    def _validate_values(cls, value):
+        return normalize_values(value, label="field.values")
+
+    @model_validator(mode="after")
+    def _validate_value_source_payload(self):
+        # Allow an empty section so users can keep full templates in TOML
+        # even when this heterogeneous block is not the active `field.kind`.
+        if (
+            self.values is None
+            and self.values_csv_file is None
+            and self.field_spatial_id is None
+            and self.values_source == "inline"
+            and self.csv_key_column == "zone_key"
+            and self.csv_value_column == "value"
+        ):
+            return self
+
+        if self.values_source == "inline":
+            if self.values is None:
+                raise ValueError("field.values is required when values_source='inline'")
+            if self.field_spatial_id is None:
+                raise ValueError("field.field_spatial_id is required for heterogeneous mapping")
+            return self
+
+        if self.values_source == "csv":
+            if self.values_csv_file is None:
+                raise ValueError("field.values_csv_file is required when values_source='csv'")
+            if self.field_spatial_id is None:
+                raise ValueError("field.field_spatial_id is required for heterogeneous mapping")
+            return self
+
+        return self
+
+
+FieldSection: TypeAlias = Annotated[
+    FieldHomogeneousSection | FieldHeterogeneousSection,
+    Field(discriminator="kind", description="Field section kind discriminator."),
+]
+"""Discriminated field payload."""
+
+
+class FieldVerticalProfileSection(HydroModelBase):
+    """Schema for `[field_vertical_profile]`."""
+
+    kind: Annotated[VerticalProfileMode, Profile.USER] = Field(
+        default="none",
+        description=(
+            "Depth dependency shared over the full domain. "
+            "Allowed values: 'none', 'exponential', 'tabulated'."
+        ),
+        json_schema_extra=field_metadata(renamed_from=["flow.param.field_vertical_profile.mode"]),
+    )
+    characteristic_depth: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Characteristic depth for kind 'exponential'. "
+            "Vertical factor is exp(-depth/characteristic_depth). Calibrate it with "
+            '[calibration.parameters."K.characteristic_depth"] (or the field\'s own id); '
+            "the range belongs to the site, so a file has to state it."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                units="m",
+                description="Decay length of the exponential vertical profile.",
+            )
+        ),
+    )
+    min_factor: Annotated[Probability | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional floor factor for kind 'exponential'. "
+            "If provided, factor is max(exp(-depth/characteristic_depth), min_factor). "
+            'Calibrate it with [calibration.parameters."K.min_factor"].'
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                units="-",
+                description="Floor factor of the exponential vertical profile.",
+            )
+        ),
+    )
+    depths: Annotated[list[float] | None, Profile.DEV] = Field(
+        default=None,
+        min_length=1,
+        description="Depth nodes for kind 'tabulated' (meters, first value must be 0).",
+        json_schema_extra=field_metadata(unit="m"),
+    )
+    factors: Annotated[list[float] | None, Profile.DEV] = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Multiplicative factors aligned with `depths` for kind 'tabulated' "
+            "(first value must be 1 at depth 0)."
+        ),
+        json_schema_extra=field_metadata(unit="-"),
+    )
+    interpolation: Annotated[VerticalProfileInterpolation, Profile.DEV] = Field(
+        default="linear",
+        description=(
+            "Interpolation strategy for kind 'tabulated'. Allowed values: 'linear' or 'step'."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_kind_payload(self):
+        if self.kind == "none":
+            return self
+
+        if self.kind == "exponential":
+            if self.characteristic_depth is None:
+                raise ValueError(
+                    "field_vertical_profile.characteristic_depth is required when kind='exponential'"
+                )
+            return self
+
+        if self.kind == "tabulated":
+            if self.depths is None:
+                raise ValueError("field_vertical_profile.depths is required when kind='tabulated'")
+            if self.factors is None:
+                raise ValueError("field_vertical_profile.factors is required when kind='tabulated'")
+            if len(self.depths) != len(self.factors):
+                raise ValueError("field_vertical_profile.depths and factors must have same length")
+            if any(v < 0.0 for v in self.depths):
+                raise ValueError("field_vertical_profile.depths must be >= 0")
+            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
+                raise ValueError("field_vertical_profile.depths must be strictly increasing")
+            if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
+            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
+            return self
+
+        return self

@@ -54,12 +54,14 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The calibration session report draws the best run with the registered figures, lake level included, and names each image after its figure, for example `hydrograph_sim_obs.png` instead of `best_obs_vs_sim.png`.
 - The `reporting` layer is gone. The calibration report is `hydromodpy.display.calibration_report` and the campaign summary `hydromodpy.results.export.campaign_summary`. `hmp.compare_pair` now sits beside `Catalog.diff`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.analysis.compare`.
 - `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.sites`, the check behind `hmp config check` to `hydromodpy.project.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
+- `simulation` is flat, the soil reservoir moved to `simulation/soil/` and `OutputAdapter` to `hydromodpy.simulation.post_run`. The data binders of a `Flow` moved to `physics/flow/binders/`, the field-parameter schema to `hydromodpy.core.config_kit.field_param` and the TOML examples of the dynamic flow blocks to `physics/flow/toml_examples.py`. `physics` no longer imports `spatial`, `simulation` no longer imports `data`, and the layer matrix keeps no tolerance for them.
 
 ### Removed
 
 - A network output can no longer score against `geographic.river_network`, because the DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file.
 - `hydromodpy.core.Workspace`, which never resolved. Use `Workspace` from `hydromodpy.project.accessors`. `hydromodpy.core.io.crs.haversine_km` is gone, use `hydromodpy.data.common.geo_helpers.haversine_km`.
 - The B0 network and transient case left the package for `validation_cases/calibration/network_transient_b0/`.
+- Helpers that nothing called: the re-export modules at the root of `physics/hydrology/pyhelp/`, `apply_simulation_time_to_flow_wells`, `apply_simulation_time_to_flow_boundary_conditions`, `SimulationPlan.is_empty` and the `Transport.update_*_parameters` helpers.
 
 ### Fixed
 

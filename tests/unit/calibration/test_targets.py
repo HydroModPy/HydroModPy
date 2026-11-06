@@ -26,6 +26,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -34,7 +35,6 @@ from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConf
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests.unit.calibration._factories import _Project
 from tests.unit.calibration._factories_config import sinks_project
@@ -289,7 +289,7 @@ class TestTheOrdering:
 # ``_is_a_physical_number`` in ``hydromodpy/calibration/targets.py`` requires
 # ``isinstance(value, Real)``, so a string value is filtered out of the walk
 # before it ever gets a name. Nothing coerces it earlier:
-# ``_validate_value`` in ``hydromodpy/spatial/field/field_param_sections.py``
+# ``_validate_value`` in ``hydromodpy/core/config_kit/field_param/sections.py``
 # keeps a string value as a string, unlike ``_coerce_boundary_value_and_units``
 # in ``hydromodpy/physics/flow/boundary_conditions.py`` (used for
 # ``[flow.bc.<id>]``), which already splits a string into a float plus its unit
@@ -304,7 +304,7 @@ class TestTheOrdering:
 # across ``hydromodpy/``, and whether each survives ``.value`` becoming a plain
 # float with the unit moved to the sibling ``unit``):
 #
-# - ``hydromodpy/spatial/field/field_param_config.py:94-100``
+# - ``hydromodpy/core/config_kit/field_param/config.py:94-100``
 #   (``FieldParamConfig._enforce_physical_bounds``). Today it only runs
 #   ``validate_physical_value`` when ``self.field.value`` is already
 #   ``(int, float)`` and skips the check for a string, by its own admission
@@ -320,19 +320,19 @@ class TestTheOrdering:
 #   (``parse_scalar_and_unit`` documents both forms), so it survives unchanged
 #   either way; the fix would only make its input always the bare-number branch.
 #
-# - ``hydromodpy/spatial/field/field_param_config.py:80-91``
+# - ``hydromodpy/core/config_kit/field_param/config.py:80-91``
 #   (``ResolvedFieldParam._validate_value``). An exact duplicate of the
 #   section validator above, reached through a *second*, independent
 #   production entry point:
 #   ``hydromodpy/spatial/field/field_param_io.py`` builds its merged
 #   payload straight from a raw TOML section mapping and calls
 #   ``validate_resolved_field_param_data`` directly, without ever going
-#   through ``FieldHomogeneousSection`` / ``field_param_sections.py``. That
+#   through ``FieldHomogeneousSection`` / ``core/config_kit/field_param/sections.py``. That
 #   path is used by the mesh/geology demo cases
 #   (``tools/cases/``, ``hydromodpy/spatial/mesh/*/examples/*``), not by the
 #   project ``[flow.param.*]`` pipeline the calibration catalog walks, so it
 #   does not affect the catalog either way. But fixing only
-#   ``field_param_sections.py`` would leave this duplicate validator
+#   ``core/config_kit/field_param/sections.py`` would leave this duplicate validator
 #   accepting an un-coerced string, i.e. the asymmetry would move one level
 #   down instead of closing. Coercing survives this reader (it never sees a
 #   string it didn't already accept), but a full fix costs a second file, kept
@@ -349,14 +349,14 @@ class TestTheOrdering:
 #   a numeric base value ... got '1e-4 m/s'". Coercing ``.value`` to a plain
 #   float fixes this latent bug as a side effect, it does not create a new one.
 #
-# - ``hydromodpy/config/dynamic_flow_examples.py`` renders TOML examples for
+# - ``hydromodpy/physics/flow/toml_examples.py`` renders TOML examples for
 #   ``[flow.param.<id>.field]`` but never sets a ``value`` key, so it is
 #   unaffected either way.
 #
 # No reader was found that requires ``.value`` to stay a string (no
 # ``.split()``, no ``isinstance(..., str)`` branch whose *absence* would raise,
 # no string-specific formatting). The only cost of coercing is the duplicate
-# validator in ``field_param_config.py``, and coercing also fixes an
+# validator in ``core/config_kit/field_param/config.py``, and coercing also fixes an
 # existing crash in scale-mode calibration through the legacy path form.
 #
 # Decision applied: both validators now coerce ``value = "<number> <unit>"``

@@ -17,7 +17,7 @@ def _head_initial_condition_types() -> tuple[str, ...]:
     variants the solver happened to know, which is a contradiction no reader can see.
     ``solver`` may import ``physics``, and the sibling module already does.
     """
-    from hydromodpy.physics.flow.initial_conditions_config import known_ic_types
+    from hydromodpy.physics.flow.initial_conditions import known_ic_types
 
     return tuple(sorted(known_ic_types()))
 

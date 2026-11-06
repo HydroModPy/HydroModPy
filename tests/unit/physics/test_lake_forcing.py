@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import SimpleNamespace
 
-import numpy as np
 import pandas as pd
 import pytest
 from pydantic import TypeAdapter, ValidationError
@@ -12,20 +11,21 @@ from pydantic import TypeAdapter, ValidationError
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.base.forcing import SurfaceRateForcing, VolumeRateForcing
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
-from hydromodpy.physics.flow.structure_binders import (
+from hydromodpy.physics.flow.binders.lakes import (
     apply_lake_flux_forcings_to_flow,
     apply_lake_meteo_forcings_to_flow,
+)
+from hydromodpy.physics.flow.binders.streams import (
     apply_runoff_to_sfr_networks,
     sfr_routes_catchment_runoff,
 )
+from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
 from hydromodpy.physics.flow.time_forcing import (
     compact_pre_resolved_forcings,
     resolve_period_values_from_forcing,
 )
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig, spinup_refusal
 from hydromodpy.solver.modflow6.builders._lake_outlets import _forcing_si_per_period
-from hydromodpy.solver.modflow6.builders._sfr_period import _emit_network_forcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 
 # Lake and SFR rainfall and evaporation are rates in length per time.
@@ -42,44 +42,6 @@ RATE = TypeAdapter(SurfaceRateForcing)
 
 
 VOLUME = TypeAdapter(VolumeRateForcing)
-
-
-def _lake_si(forcing: object, nper: int = 2) -> tuple[float, ...]:
-    model = SimpleNamespace(nper=nper, time_grid=None)
-    return _forcing_si_per_period(
-        model, forcing, volumetric=False, label="flow.sinks_sources.lakes.lac0.rainfall", nper=nper
-    )
-
-
-def test_two_mm_per_day_written_in_the_value_reaches_lak_in_m_per_s() -> None:
-    forcing = RATE.validate_python({"kind": "constant", "value": "2 mm/day"})
-    assert forcing.value == pytest.approx(TWO_MM_PER_DAY)
-    assert forcing.units == "m/s"
-    assert _lake_si(forcing) == pytest.approx((TWO_MM_PER_DAY, TWO_MM_PER_DAY))
-
-
-def test_two_with_units_mm_per_day_reaches_lak_in_m_per_s() -> None:
-    forcing = RATE.validate_python({"kind": "constant", "value": 2.0, "units": "mm/day"})
-    assert _lake_si(forcing) == pytest.approx((TWO_MM_PER_DAY, TWO_MM_PER_DAY))
-
-
-def test_two_mm_per_day_reaches_every_sfr_reach_in_m_per_s() -> None:
-    forcing = RATE.validate_python({"kind": "constant", "value": "2 mm/day"})
-    rows: dict[int, list[list[object]]] = {}
-    _emit_network_forcing(
-        SimpleNamespace(nper=1, time_grid=None),
-        keyword="rainfall",
-        forcing=forcing,
-        volumetric=False,
-        targets={0: 1.0, 1: 1.0},
-        location="flow.sinks_sources.sfr.main.rainfall",
-        mode="auto",
-        min_periods=120,
-        nper=1,
-        period_rows=rows,
-        ts_series=[],
-    )
-    assert [row[2] for row in rows[0]] == pytest.approx([TWO_MM_PER_DAY, TWO_MM_PER_DAY])
 
 
 def test_a_volume_per_time_is_refused_as_a_rate() -> None:
@@ -271,7 +233,7 @@ def _meteo_result(values_mm_day: list[float]) -> object:
 
 
 def test_meteo_binder_attaches_sim2_derived_rate_and_volumetric_forcings() -> None:
-    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+    from hydromodpy.physics.flow.binders.lakes import apply_lake_meteo_forcings_to_flow
 
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir_cheze": {"bedleak": 0.1}}})
     attached = apply_lake_meteo_forcings_to_flow(
@@ -294,7 +256,7 @@ def test_meteo_binder_attaches_sim2_derived_rate_and_volumetric_forcings() -> No
 
 
 def test_meteo_binder_does_not_override_a_config_forcing() -> None:
-    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+    from hydromodpy.physics.flow.binders.lakes import apply_lake_meteo_forcings_to_flow
 
     declared = {"kind": "constant", "value": 0.001, "units": "m/day"}
     flow = SimpleNamespace(
@@ -466,25 +428,6 @@ def test_compact_pre_resolved_forcings_leaves_other_lengths_alone() -> None:
     assert lakes["lake_a"]["runoff"]["values"] == [1.0, 3.0, 5.0]
 
 
-def test_steady_ic_flow_copy_has_one_period_lake_forcings() -> None:
-    from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
-        _compact_flow_forcings_to_one_period,
-    )
-
-    flow = SimpleNamespace(
-        sinks_sources={
-            "lakes": {"l": {"runoff": {"kind": "values", "values": [0.0] * 51 + [52.0]}}}
-        }
-    )
-    model = SimpleNamespace(
-        time_grid=SimpleNamespace(period_lengths_seconds=np.full(52, 7 * 86400.0))
-    )
-
-    _compact_flow_forcings_to_one_period(flow, model)
-
-    assert flow.sinks_sources["lakes"]["l"]["runoff"]["values"] == [pytest.approx(1.0)]
-
-
 def test_first_year_spinup_is_accepted_on_52_weekly_periods() -> None:
     config = SoilReservoirConfig(ru=100.0)
 
@@ -521,7 +464,7 @@ def _runoff(values_mm_day: list[float]) -> object:
 
 
 def test_two_lakes_without_sfr_share_the_basin_runoff_once() -> None:
-    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+    from hydromodpy.physics.flow.binders.lakes import apply_lake_meteo_forcings_to_flow
 
     flow = SimpleNamespace(sinks_sources={"lakes": {"a": {}, "b": {}}})
     apply_lake_meteo_forcings_to_flow(
@@ -536,7 +479,7 @@ def test_two_lakes_without_sfr_share_the_basin_runoff_once() -> None:
 
 
 def test_lake_runoff_follows_its_contributing_area() -> None:
-    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+    from hydromodpy.physics.flow.binders.lakes import apply_lake_meteo_forcings_to_flow
 
     flow = SimpleNamespace(sinks_sources={"lakes": {"a": {}, "b": {}}})
     apply_lake_meteo_forcings_to_flow(

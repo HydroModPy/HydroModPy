@@ -21,7 +21,7 @@ from hydromodpy.data.variables.soil_capacity.config import (
     CustomSoilCapacitySource,
     SoilCapacityConfig,
 )
-from hydromodpy.physics.flow.structure_binders import (
+from hydromodpy.physics.flow.binders.climate import (
     _peak_mm_day_of_a_recharge_source,
     apply_recharge_load_result_to_flow,
 )
@@ -843,7 +843,7 @@ def test_the_peak_of_a_station_source_reads_its_values() -> None:
 
 @pytest.mark.fast
 def test_a_recharge_left_out_of_the_active_list_is_said(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.physics.flow.structure_binders"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.physics.flow.binders.climate"):
         apply_recharge_load_result_to_flow(flow=_flow(["etp"]), recharge_result=_station([1.0]))
 
     assert any("receives no recharge" in r.getMessage() for r in caplog.records)
@@ -851,7 +851,7 @@ def test_a_recharge_left_out_of_the_active_list_is_said(caplog) -> None:
 
 @pytest.mark.fast
 def test_an_active_recharge_says_nothing(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.physics.flow.structure_binders"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.physics.flow.binders.climate"):
         apply_recharge_load_result_to_flow(
             flow=_flow(["recharge"]), recharge_result=_station([1.0])
         )

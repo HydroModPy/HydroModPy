@@ -19,9 +19,9 @@ from pydantic import ValidationError
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.physics.flow.binders.climate import apply_recharge_load_result_to_flow
 from hydromodpy.physics.flow.flow import Flow
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
-from hydromodpy.physics.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 from tests.unit.workflow.steps.prepare_solver.test_forcings import _runoff_field_record
 

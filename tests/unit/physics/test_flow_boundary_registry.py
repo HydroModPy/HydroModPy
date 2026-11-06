@@ -12,19 +12,17 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     FLOW_BOUNDARY_DEFINITIONS as FLOW_BOUNDARY_DEFINITIONS_2,
 )
 from hydromodpy.physics.flow.boundary_condition_registry import (
+    SIDE_DIRICHLET_BC_IDS_ORDERED,
     BoundaryConditionBundle,
     active_side_dirichlet_boundary_ids,
     boundary_condition_bundle_from_flow,
     boundary_definition,
-    canonical_dirichlet_boundary_ids,
-    side_dirichlet_boundary_ids,
     supported_boundary_ids_for_backend,
 )
-from hydromodpy.physics.flow.boundary_conditions import FORCING_CAPABLE_DIRICHLET_BC_IDS
 
 
 def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
-    assert side_dirichlet_boundary_ids() == (
+    assert SIDE_DIRICHLET_BC_IDS_ORDERED == (
         "west_side",
         "east_side",
         "north_side",
@@ -36,34 +34,21 @@ def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
     assert stream.default_type == "dirichlet"
     assert stream.support_kind == "stream"
     assert stream.backend_packages["modflow6"] == "CHD"
-    assert stream.package_for_backend("modflow6") == "CHD"
 
     assert "stream" in supported_boundary_ids_for_backend("boussinesq")
     assert "stream" not in supported_boundary_ids_for_backend("modflow_nwt")
     assert SUPPORTED_FLOW_BOUNDARY_IDS == frozenset(FLOW_BOUNDARY_DEFINITIONS)
 
 
-def test_boundary_bundle_exposes_active_defined_and_missing_ids() -> None:
+def test_boundary_bundle_orders_the_active_side_ids() -> None:
     bundle = BoundaryConditionBundle(
         conditions={"west_side": object()},
         active_ids=("west_side", "drainage"),
     )
 
     assert bundle.is_active("west_side")
-    assert bundle.get_active("west_side") is bundle.conditions["west_side"]
-    assert bundle.get_active("east_side") is None
-    assert bundle.missing_active_ids() == ("drainage",)
     assert bundle.active_side_dirichlet_ids() == ("west_side",)
-    assert [
-        (bc_id, definition.backend_packages["modflow6"])
-        for bc_id, _, definition in bundle.active_definition_items(
-            family="dirichlet",
-            backend="modflow6",
-        )
-    ] == [("west_side", "CHD")]
-
-    with pytest.raises(ValueError, match="Active boundary 'drainage' is missing"):
-        bundle.require_active("drainage")
+    assert not bundle.is_active("east_side")
 
 
 def test_flow_builds_boundary_bundle_from_config() -> None:
@@ -80,38 +65,10 @@ def test_flow_builds_boundary_bundle_from_config() -> None:
     assert bundle is flow.boundary_condition_bundle
     assert bundle.active_side_dirichlet_ids() == ("west_side", "east_side")
     assert active_side_dirichlet_boundary_ids(flow) == ("west_side", "east_side")
-    assert bundle.missing_active_ids() == ()
     assert flow.boundary_condition_application_domains == {
         "west_side": "west side",
         "east_side": "east side",
     }
-
-
-# The forcing-capable boundary ids are stated once, and the registry agrees.
-#
-# Two places say which boundaries may carry a head chronicle: the validator that
-# refuses the declaration, and the registry entry a backend reads. They drifted
-# apart once already, leaving solver code that consumed a series nobody could
-# declare. This pins them together.
-
-
-def test_every_forcing_capable_dirichlet_id_is_marked_in_the_registry() -> None:
-    for bc_id in FORCING_CAPABLE_DIRICHLET_BC_IDS:
-        assert FLOW_BOUNDARY_DEFINITIONS_2[bc_id].supports_forcing is True
-
-
-def test_no_dirichlet_boundary_is_marked_forcing_capable_behind_the_validator() -> None:
-    marked = {
-        bc_id
-        for bc_id, definition in FLOW_BOUNDARY_DEFINITIONS_2.items()
-        if definition.family == "dirichlet" and definition.supports_forcing
-    }
-    assert marked == set(FORCING_CAPABLE_DIRICHLET_BC_IDS)
-
-
-@pytest.mark.parametrize("bc_id", sorted(FORCING_CAPABLE_DIRICHLET_BC_IDS))
-def test_a_forcing_capable_boundary_is_a_dirichlet_one(bc_id: str) -> None:
-    assert FLOW_BOUNDARY_DEFINITIONS_2[bc_id].family == "dirichlet"
 
 
 # The lake entry in the flow boundary-condition registry.
@@ -136,7 +93,6 @@ def test_lake_is_a_canonical_advanced_package() -> None:
     assert definition.application_domain == "top"
     assert definition.supports_forcing is True
     assert definition.backend_packages["modflow6"] == "LAK"
-    assert definition.package_for_backend("modflow6") == "LAK"
 
 
 def test_only_modflow6_backend_supports_lakes() -> None:
@@ -151,7 +107,11 @@ def test_only_modflow6_backend_supports_lakes() -> None:
 
 def test_advanced_package_does_not_leak_into_dirichlet_helpers() -> None:
     # The canonical Dirichlet ids must stay exactly the side/stream/ocean set.
-    dirichlet = canonical_dirichlet_boundary_ids()
+    dirichlet = [
+        bc_id
+        for bc_id, definition in FLOW_BOUNDARY_DEFINITIONS.items()
+        if definition.family == "dirichlet"
+    ]
     assert "lake" not in dirichlet
     assert set(dirichlet) == {
         "west_side",

@@ -44,8 +44,6 @@ from hydromodpy.physics.base.forcing import (
 )
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellLocation
 
-_MVR_RULES = ("FACTOR", "UPTO", "EXCESS", "THRESHOLD")
-
 SFR_DIRECTED_FORCINGS: tuple[str, ...] = (
     "headwater_inflow",
     "runoff",

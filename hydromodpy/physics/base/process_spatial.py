@@ -33,9 +33,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from typing import Generic, TypeVar
 
-from hydromodpy.physics.base.boundary_conditions import BoundaryCondition
-from hydromodpy.physics.base.initial_conditions import InitialCondition
-from hydromodpy.physics.base.sinks_sources import SinkSource
+from hydromodpy.physics.base.payloads import BoundaryCondition
 
 TInitialConditions = TypeVar("TInitialConditions")
 
@@ -138,16 +136,6 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
             )
         self.parameters = selected_parameters
 
-    def add_parameter(self, parameter_id: str, parameter: object) -> None:
-        """Add or replace one single process parameter entry."""
-        normalized_id = str(parameter_id).strip()
-        if normalized_id == "":
-            raise ValueError("parameter_id cannot be empty")
-        self.parameters[normalized_id] = self._coerce_parameter_from_config(
-            normalized_id,
-            parameter,
-        )
-
     def set_initial_conditions(self, initial_conditions: object | None) -> None:
         """Build and store one process-specific initial-condition structure."""
         self.initial_conditions = self.build_initial_conditions(initial_conditions)
@@ -163,23 +151,12 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
     def set_boundary_conditions(self, boundary_conditions: dict):
         """Define or update boundary conditions."""
 
-    def add_boundary_condition(self, boundary_condition: BoundaryCondition):
-        """Add one boundary condition object."""
-        self.boundary_conditions[boundary_condition.id] = boundary_condition
-
     @abstractmethod
     def set_sinks_sources(self, sinks_sources: dict):
         """Define or update sinks/sources."""
 
-    def add_sink_source(self, sink_source: SinkSource):
-        """Add one sink/source object."""
-        self.sinks_sources[sink_source.id] = sink_source
-
 
 __all__ = [
-    "InitialCondition",
-    "BoundaryCondition",
-    "SinkSource",
     "TInitialConditions",
     "ProcessSpatial",
 ]

@@ -15,6 +15,7 @@ from the base here, so the strictness and the visibility rules are written once.
 8. `stored.py` reads a stored document, which may come from a later 2.x.
 9. `dump.py` writes a model as a commented TOML document (`dump_toml_with_comments`), the code behind `HydroModelBase.to_toml`.
 10. `registry.py` lists the root TOML sections (`root_sections`), derived from the root model through `root_config_protocol.py`, the protocol that lets core reach the root config without importing it.
+11. `field_param/` is the schema of a field-parameter TOML payload (`sections.py`, `units.py`, and `config.py` that resolves it). It lives here because `spatial` builds the field from it and `physics` embeds it in `[flow.param.<id>]`, and neither may import the other.
 
 The `[[export]]` request moved to `hydromodpy/results/exporters/export_spec.py`.
 

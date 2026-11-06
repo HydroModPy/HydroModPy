@@ -7,6 +7,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.physics.flow.binders.payloads import payloads_as_mappings
 from hydromodpy.physics.flow.boundary_conditions import DirichletBC, DrainBC
 from hydromodpy.physics.flow.flow_config import FlowConfig, FlowParam
 from hydromodpy.physics.flow.sinks_sources import (
@@ -14,7 +15,6 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowLakeConfig,
     FlowSinksSourcesConfig,
 )
-from hydromodpy.physics.flow.structure_binders import _lake_payloads_as_mappings
 
 # Native Pydantic payload tests for flow parameters.
 
@@ -292,7 +292,7 @@ def test_nests_as_lake_cutoff_wall_and_survives_the_binder_normalizer() -> None:
     assert isinstance(lake.cutoff_wall, FlowBarrierConfig)
 
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": lake}})
-    payloads = _lake_payloads_as_mappings(flow)
+    payloads = payloads_as_mappings(flow, "lakes")
     assert isinstance(payloads["reservoir"]["cutoff_wall"], FlowBarrierConfig)
 
 

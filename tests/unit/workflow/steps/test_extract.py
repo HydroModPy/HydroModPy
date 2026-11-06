@@ -40,7 +40,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
         assert budget_terms is planned
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.post_run.extract_run_outputs",
+        "hydromodpy.simulation.post_run.extract_run_outputs",
         _extract_run_outputs,
     )
 
@@ -115,7 +115,7 @@ def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> Simp
 def _stub_extraction(monkeypatch) -> list[BudgetKeep]:
     seen: list[BudgetKeep] = []
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.post_run.extract_run_outputs",
+        "hydromodpy.simulation.post_run.extract_run_outputs",
         lambda *, budget_terms, **_kwargs: seen.append(budget_terms),
     )
     monkeypatch.setattr(

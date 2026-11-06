@@ -38,11 +38,25 @@ from numbers import Real
 
 import numpy as np
 
+from hydromodpy.physics.forcing.types import FirstClimKeyword
+
 FIRST_CLIM_KEYWORDS: tuple[str, ...] = ("mean", "first")
 
 
 def _is_number(value: object) -> bool:
     return isinstance(value, Real) and not isinstance(value, bool)
+
+
+def normalize_first_clim(value: object) -> FirstClimKeyword | float:
+    """Normalize a ``first_clim`` policy: 'mean'/'first' or a numeric scalar."""
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized not in FIRST_CLIM_KEYWORDS:
+            raise ValueError("first_clim must be 'mean', 'first', or a numeric value.")
+        return normalized
+    if not _is_number(value):
+        raise TypeError("first_clim must be 'mean', 'first', or a numeric value.")
+    return float(value)
 
 
 def _check_first_clim(first_clim: object) -> None:
@@ -229,6 +243,7 @@ __all__ = [
     "apply_first_clim",
     "first_clim_on_part",
     "first_clim_sets_a_deficit",
+    "normalize_first_clim",
     "one_period_rate",
     "split_net_recharge",
     "steady_flags",

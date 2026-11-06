@@ -46,7 +46,7 @@ from hydromodpy.physics.base.forcing import (
     VolumeRateForcing,
     declared_forcing_values,
 )
-from hydromodpy.physics.flow.sinks_sources.cutoff_wall import CutoffWallConfig
+from hydromodpy.physics.flow.sinks_sources.flow_barrier import CutoffWallConfig
 
 
 class FlowLakeOutletMover(HydroModelBase):

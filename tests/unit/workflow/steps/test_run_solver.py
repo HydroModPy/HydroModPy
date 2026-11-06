@@ -13,7 +13,7 @@ import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.simulation.extraction import post_run
+from hydromodpy.simulation import post_run
 from hydromodpy.simulation.planning import plan as plan_mod
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep

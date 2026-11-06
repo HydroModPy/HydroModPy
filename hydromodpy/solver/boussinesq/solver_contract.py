@@ -10,7 +10,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_definition,
 )
-from hydromodpy.physics.flow.flow_runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,

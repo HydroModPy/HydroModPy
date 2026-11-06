@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-17 layers, 107 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+17 layers, 106 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -27,7 +27,7 @@ is forbidden and fails CI.
    * - ``data``
      - ``core``, ``schema``, ``data``, ``spatial``
    * - ``simulation``
-     - ``core``, ``physics``, ``spatial``, ``data``, ``simulation``
+     - ``core``, ``physics``, ``spatial``, ``simulation``
    * - ``solver``
      - ``core``, ``physics``, ``spatial``, ``solver``, ``simulation``
    * - ``results``
@@ -64,7 +64,7 @@ is forbidden and fails CI.
 Documented tolerances
 ---------------------
 
-2 edges are tolerated rather than granted. Each one carries its reason in the
+1 edges are tolerated rather than granted. Each one carries its reason in the
 contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
 
 .. list-table::
@@ -77,9 +77,6 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
    * - ``<root>``
      - ``project``
      - root facade lazy-resolves Project through hydromodpy.project
-   * - ``physics``
-     - ``spatial``
-     - FlowConfig embeds spatial FieldSection discriminated union
 
 Files exempt from the layer rule
 --------------------------------

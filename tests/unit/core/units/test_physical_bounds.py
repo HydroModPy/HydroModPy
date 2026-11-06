@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.config_kit.field_param.config import validate_field_param_toml_data
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.units.physical_bounds import (
     PHYSICAL_BOUNDS,
@@ -22,7 +23,6 @@ from hydromodpy.core.units.physical_bounds import (
     validate_physical_array,
     validate_physical_value,
 )
-from hydromodpy.spatial.field.field_param_config import validate_field_param_toml_data
 
 NEGLIGIBLE_STORAGE = 1e-10  # the value every unconfined benchmark writes, and the one that broke
 

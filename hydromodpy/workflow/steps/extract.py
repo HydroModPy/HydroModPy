@@ -33,7 +33,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunSto
     Observation ingestion is part of the scientific record. Failures abort
     the run instead of leaving its store half populated.
     """
-    from hydromodpy.simulation.extraction.derivation.observation_ingest import (
+    from hydromodpy.simulation.observation_ingest import (
         ingest_observations,
     )
 
@@ -113,7 +113,7 @@ class ExtractStep:
                 extraction_summary={"runs": 0},
             )
 
-        from hydromodpy.simulation.extraction.post_run import extract_run_outputs
+        from hydromodpy.simulation.post_run import extract_run_outputs
         from hydromodpy.simulation.planning.plan import RunContext
         from hydromodpy.workflow.steps.planning import step_configure_results
 

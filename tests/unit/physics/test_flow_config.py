@@ -8,8 +8,8 @@ import pytest
 from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
-from hydromodpy.physics.flow.flow_toml_loader import resolve_well_forcing_paths
+from hydromodpy.physics.flow.flow_toml_loader import resolve_forcing_paths
+from hydromodpy.physics.flow.runtime_config import FlowRuntimeConfig
 
 
 def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
@@ -158,7 +158,7 @@ def test_lake_outlet_and_sfr_csv_resolve_against_data(layout) -> None:
         },
         "sfr": {"headwater_inflow": _csv("inflow.csv")},
     }
-    out = resolve_well_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
+    out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     lac = out["lakes"]["lac0"]
     assert Path(lac["rainfall"]["path_file"]) == (data / "lakes" / "rain.csv").resolve()
     assert Path(lac["outlet"]["forcing"]["path_file"]) == (data / "lakes" / "release.csv").resolve()
@@ -172,5 +172,5 @@ def test_lake_outlet_and_sfr_csv_resolve_against_data(layout) -> None:
 def test_a_missing_lake_csv_keeps_a_predictable_path(layout) -> None:
     base, data = layout
     raw = {"lakes": {"lac0": {"rainfall": _csv("absent.csv")}}}
-    out = resolve_well_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
+    out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     assert Path(out["lakes"]["lac0"]["rainfall"]["path_file"]) == (base / "absent.csv").resolve()

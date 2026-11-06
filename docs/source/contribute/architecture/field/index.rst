@@ -17,7 +17,7 @@ Code map
 - ``hydromodpy/spatial/field/field_spatial.py``: reusable
   field-side zone/value carrier.
 - ``hydromodpy/spatial/field/field_param.py`` and
-  ``field_param_config.py``: heterogeneous parameter contract
+  ``hydromodpy/core/config_kit/field_param/config.py``: heterogeneous parameter contract
   consumed downstream by solvers.
 - ``hydromodpy/spatial/field/mesh_cells.py``: the cells of a
   ``PlanarCellMesh`` as a support samples them (``mesh_cells``), the

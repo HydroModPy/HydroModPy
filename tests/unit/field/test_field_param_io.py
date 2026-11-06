@@ -8,10 +8,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.config_kit.field_param.config import resolve_field_param_config_payload
 from hydromodpy.core.exceptions import ConfigMissingError, ConfigValidationError
 from hydromodpy.core.units.physical_bounds import PhysicalBoundsError
 from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_param_config import resolve_field_param_config_payload
 from hydromodpy.spatial.field.field_param_io import field_param_from_toml
 from tests._helpers.field_cases import write_text
 

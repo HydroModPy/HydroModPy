@@ -25,7 +25,7 @@ from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+from hydromodpy.simulation.catchment_aggregation import (
     aggregate_catchment_timeseries,
 )
 from hydromodpy.solver.boussinesq.calibration_extractors import (

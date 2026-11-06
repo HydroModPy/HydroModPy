@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+from hydromodpy.simulation.catchment_aggregation import (
     aggregate_catchment_timeseries,
 )
-from hydromodpy.simulation.extraction.post_run import _drainage_outside_routed
+from hydromodpy.simulation.post_run import _drainage_outside_routed
 
 from ._test_simulation_api_builders import runs
 

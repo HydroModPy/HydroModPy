@@ -13,9 +13,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.config_kit.field_param.config import resolve_field_param_config_payload
 from hydromodpy.core.exceptions import ConfigMissingError, ConfigValidationError
 from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_param_config import resolve_field_param_config_payload
 from hydromodpy.spatial.field.field_spatial import get_nested_section
 
 

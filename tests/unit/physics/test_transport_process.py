@@ -67,20 +67,6 @@ def test_transport_set_parameters_accepts_nested_and_flat_solver_payloads() -> N
     assert transport.parameters["custom"] == "kept"
 
 
-def test_transport_update_helpers_keep_public_parameter_mapping_in_sync() -> None:
-    transport = Transport()
-
-    transport.update_modpath_parameters(sel_slice=2)
-    transport.update_mt3dms_parameters(sconc_init=3.0)
-    transport.update_modflow6gwt_parameters(diffu_coeff=1.0e-6)
-    transport.update_modflow6prt_parameters(stop_time=20.0)
-
-    assert transport.parameters["modpath"]["sel_slice"] == 2
-    assert transport.parameters["mt3dms"]["sconc_init"] == 3.0
-    assert transport.parameters["modflow6gwt"]["diffu_coeff"] == 1.0e-6
-    assert transport.parameters["modflow6prt"]["stop_time"] == 20.0
-
-
 def test_transport_initial_conditions_are_structural_and_validated() -> None:
     transport = Transport()
 

@@ -83,6 +83,7 @@ from hydromodpy.core.code_fingerprint import (
     fingerprint_tree,
 )
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
 from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.physics.flow.flow_config import FlowConfig
@@ -101,7 +102,6 @@ from hydromodpy.results.session.descriptor import (
 from hydromodpy.results.session.journal import read_trials, trials_path
 from hydromodpy.results.session.phase import FrozenValue, read_phase
 from hydromodpy.simulation.planning.config import SimulationTimeConfig
-from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 from hydromodpy.workflow.dispatch import (
     KNOWN_WORKFLOWS,
     WorkflowUnknownError,

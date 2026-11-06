@@ -346,7 +346,7 @@ hydromodpy.physics.forcing
 hydromodpy.spatial.forcing
 hydromodpy.physics.forcing.steady_periods
 hydromodpy.physics.flow.time_forcing
-hydromodpy.physics.flow.structure_binders
+hydromodpy.physics.flow.binders
 hydromodpy.core.time
 hydromodpy.core.time.coverage
 hydromodpy.solver.modflow_common.recharge_evt_routing
@@ -362,7 +362,7 @@ hydromodpy.solver.modflow6.builders.recharge
 | The coverage rule, for every record | `hydromodpy/core/time/coverage.py` |
 | Series to periods | `hydromodpy/physics/forcing/time_alignment.py`, `hydromodpy/physics/flow/time_forcing.py` |
 | Grids and stations to cells and periods | `hydromodpy/spatial/forcing/` |
-| Units, the binders, runoff and lake forcing | `hydromodpy/physics/flow/structure_binders.py`, `hydromodpy/workflow/steps/data.py` |
+| Units, the binders, runoff and lake forcing | `hydromodpy/physics/flow/binders/`, `hydromodpy/workflow/steps/data.py` |
 | Steady periods and the split of a negative recharge | `hydromodpy/physics/forcing/steady_periods.py` |
 | The recharge and ETP packages | `hydromodpy/solver/modflow6/builders/recharge.py`, `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py`, `hydromodpy/solver/boussinesq/forcing/` |
 

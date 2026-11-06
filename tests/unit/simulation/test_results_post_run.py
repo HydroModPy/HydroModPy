@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-import hydromodpy.simulation.extraction.post_run as post_run_module
+import hydromodpy.simulation.post_run as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.simulation.post_run import post_run_results
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
@@ -109,8 +109,7 @@ def _install_post_run_stubs(
     provider = _FakeProvider(extractor=extractor)
     monkeypatch.setattr(post_run_module, "get_solver_registry_provider", lambda: provider)
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.derivation.catchment_aggregation."
-        "aggregate_catchment_timeseries",
+        "hydromodpy.simulation.catchment_aggregation.aggregate_catchment_timeseries",
         lambda sim_id, store, **kwargs: None,
     )
     return provider
@@ -208,8 +207,7 @@ class TestPostRunResults:
             raise AssertionError("lumped extractors must not aggregate spatial fields")
 
         monkeypatch.setattr(
-            "hydromodpy.simulation.extraction.derivation.catchment_aggregation."
-            "aggregate_catchment_timeseries",
+            "hydromodpy.simulation.catchment_aggregation.aggregate_catchment_timeseries",
             _fail_aggregation,
         )
 

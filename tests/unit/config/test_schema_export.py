@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config_kit.field_param.sections import FieldHeterogeneousSection
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
@@ -36,7 +37,6 @@ from hydromodpy.schema.config_schema import (
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.field.field_param_sections import FieldHeterogeneousSection
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 # Tests for the JSON Schema exporter.

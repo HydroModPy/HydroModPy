@@ -14,9 +14,9 @@ from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_SURFACES,
 )
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.simulation.post_run import extract_run_outputs
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 
@@ -43,11 +43,11 @@ class _RecordingExtractor:
 def recording(monkeypatch) -> _RecordingExtractor:
     extractor = _RecordingExtractor()
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.post_run.get_solver_registry_provider",
+        "hydromodpy.simulation.post_run.get_solver_registry_provider",
         lambda: SimpleNamespace(get_extractor_instance=lambda *_: extractor),
     )
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.post_run._finalize_run_provenance",
+        "hydromodpy.simulation.post_run._finalize_run_provenance",
         lambda **_kwargs: None,
     )
     return extractor

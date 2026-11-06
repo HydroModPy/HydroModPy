@@ -12,7 +12,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 import hydromodpy.results.exporters.request as request_module
-import hydromodpy.simulation.extraction.post_run as post_run_module
+import hydromodpy.simulation.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.calibration.runners.cli_runner import release_session_scratch
 from hydromodpy.core.exceptions import ConfigError

@@ -16,11 +16,11 @@ if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
-def _align_series_to_simulation_window(
+def align_forcing_series_to_simulation_window(
     series: pd.Series,
     *,
     simulation_window: ResolvedSimulationTimeWindow,
-    label: str,
+    label: str = "forcing",
     checked_periods: Sequence[bool] | None = None,
 ) -> pd.Series:
     """Aggregate one datetime-indexed series to simulation stress periods.
@@ -63,19 +63,3 @@ def _align_series_to_simulation_window(
     samples = data.to_numpy(dtype=float)
     values = [float(periods.value_of(samples, kper)) for kper in range(len(starts))]
     return pd.Series(values, index=starts, dtype=float)
-
-
-def align_forcing_series_to_simulation_window(
-    series: pd.Series,
-    *,
-    simulation_window: ResolvedSimulationTimeWindow,
-    label: str = "forcing",
-    checked_periods: Sequence[bool] | None = None,
-) -> pd.Series:
-    """Public wrapper for period aggregation on simulation-time boundaries."""
-    return _align_series_to_simulation_window(
-        series,
-        simulation_window=simulation_window,
-        label=label,
-        checked_periods=checked_periods,
-    )

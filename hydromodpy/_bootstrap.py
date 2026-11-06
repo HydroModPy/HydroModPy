@@ -63,15 +63,9 @@ def _register_physics_contracts() -> None:
     """
     from hydromodpy.physics import contracts
     from hydromodpy.spatial.field.field_param import FieldParam
-    from hydromodpy.spatial.field.field_param_config import (
-        resolve_field_param_config_payload,
-        validate_resolved_field_param_data,
-    )
     from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
     contracts.register_field_param_factory(FieldParam.from_dict)
-    contracts.register_field_param_payload_resolver(resolve_field_param_config_payload)
-    contracts.register_field_param_payload_validator(validate_resolved_field_param_data)
     contracts.register_field_aggregator(spatial_mean_from_fields)
 
 
@@ -213,8 +207,8 @@ def _register_dynamic_flow_examples_contract() -> None:
     example blocks to the provider declared in
     :mod:`hydromodpy.core.toml_io.dynamic_examples_protocol`.
     """
-    from hydromodpy.config.dynamic_flow_examples import DynamicFlowExamples
     from hydromodpy.core.toml_io import dynamic_examples_protocol
+    from hydromodpy.physics.flow.toml_examples import DynamicFlowExamples
 
     dynamic_examples_protocol.set_dynamic_flow_examples_provider(DynamicFlowExamples())
 

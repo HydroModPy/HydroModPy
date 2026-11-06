@@ -7,7 +7,7 @@ import pytest
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.flow_runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.assembly.residual_facade import (
     assemble_steady_residual,
 )

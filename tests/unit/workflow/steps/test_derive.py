@@ -60,7 +60,7 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
     scored: list[tuple] = []
     monkeypatch.setattr(derive_module, "run_store", _scope)
     monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.post_run.derive_run_outputs",
+        "hydromodpy.simulation.post_run.derive_run_outputs",
         lambda **kwargs: calls.append(kwargs),
     )
     monkeypatch.setattr(

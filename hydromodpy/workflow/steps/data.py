@@ -15,17 +15,21 @@ from hydromodpy.core.time import (
     resolve_simulation_time_window,
 )
 from hydromodpy.data.sites.gauge import check_run_gauge_area
-from hydromodpy.physics.flow.structure_binders import (
-    apply_cutoff_wall_to_flow,
+from hydromodpy.physics.flow.binders.barriers import apply_flow_barriers_to_flow
+from hydromodpy.physics.flow.binders.climate import (
     apply_etp_load_result_to_flow,
-    apply_flow_barriers_to_flow,
+    apply_oceanic_to_flow,
+    apply_recharge_load_result_to_flow,
+)
+from hydromodpy.physics.flow.binders.lakes import (
+    apply_cutoff_wall_to_flow,
     apply_lake_abacus_to_flow,
     apply_lake_bathymetry_to_flow,
     apply_lake_flux_forcings_to_flow,
     apply_lake_geometry_to_flow,
     apply_lake_meteo_forcings_to_flow,
-    apply_oceanic_to_flow,
-    apply_recharge_load_result_to_flow,
+)
+from hydromodpy.physics.flow.binders.streams import (
     apply_runoff_to_sfr_networks,
     apply_sfr_network_to_flow,
     sfr_routes_catchment_runoff,
@@ -36,12 +40,8 @@ from hydromodpy.physics.hydrology.soil_reservoir.config import (
     steady_start_refusal,
 )
 from hydromodpy.simulation import ensure_flow
-from hydromodpy.simulation.soil_recharge import (
-    compute_soil_forcings,
-    gauged_discharge_line,
-    ru_ladder,
-    soil_budget_lines,
-)
+from hydromodpy.simulation.soil.budget import gauged_discharge_line, soil_budget_lines
+from hydromodpy.simulation.soil.recharge import compute_soil_forcings, ru_ladder
 from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )

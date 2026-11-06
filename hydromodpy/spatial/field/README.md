@@ -1,10 +1,10 @@
 # spatial/field
 
-This package gives a parameter such as K, Sy or Ss a value in every cell. A parameter is one number for the whole domain, or one number per zone (geology class, band, ring), and it can fall with depth. The package reads the zone map on the cells of a mesh, weights each zone value by the share of the zone in the cell, and returns one value per cell. It also holds the TOML sections of a field parameter, and the unit-square mesh and two-zone field that the demos of `tools/cases/field/` and the tests use.
+This package gives a parameter such as K, Sy or Ss a value in every cell. A parameter is one number for the whole domain, or one number per zone (geology class, band, ring), and it can fall with depth. The package reads the zone map on the cells of a mesh, weights each zone value by the share of the zone in the cell, and returns one value per cell. The TOML sections of a field parameter live in `core/config_kit/field_param/`, because `physics` reads them too. This package holds the unit-square mesh and two-zone field that the demos of `tools/cases/field/` and the tests use.
 
 ## How the work flows
 
-1. A `FieldParam` (`field_param.py`) holds the values of one parameter in SI units, and its depth profile if it has one. It is read from a TOML file or a mapping by `field_param_io.py`, and checked by `field_param_config.py`.
+1. A `FieldParam` (`field_param.py`) holds the values of one parameter in SI units, and its depth profile if it has one. It is read from a TOML file or a mapping by `field_param_io.py`, and checked by `core/config_kit/field_param/config.py`.
 2. A `Field` (`field_spatial.py`) is a zone map. Its `on_mesh` method cuts a mesh into zones and returns, for each zone, the share of every cell.
 3. The shares come from sample points in each cell (`cell_sampling.py`) or from the polygons of the zones (`zone_fractions.py`).
 4. `FieldParam.to_mesh_field` weights the zone values with the shares, applies the depth factor of `vertical_profile.py`, and returns a `MeshWithValues` (`mesh_cells.py`), the mesh with one value per cell.
@@ -28,9 +28,6 @@ The bands, rings and catchment zones that a project uses are built in `spatial/d
 ```text
 field/
 ├── field_param.py          FieldParam, values per parameter and the mapping to cells
-├── field_param_config.py   the schema of a field-parameter TOML payload and its resolution
-├── field_param_sections.py the sections of that payload, including the vertical profile
-├── field_param_units.py    unit aliases and their normalization
 ├── field_param_io.py       the loader of a FieldParam from TOML and CSV
 ├── vertical_profile.py     the depth factor of a parameter
 ├── field_spatial.py        Field and FieldDiscretization, the weighted-fraction discretization
@@ -50,9 +47,9 @@ field/
 
 | To change | Open first |
 |-----------|------------|
-| a key of the field-parameter TOML | `field_param_sections.py`, then `field_param_config.py` |
-| the accepted units or their aliases | `field_param_units.py` |
-| the depth profile | `vertical_profile.py`, then `FieldVerticalProfileSection` in `field_param_sections.py` |
+| a key of the field-parameter TOML | `core/config_kit/field_param/sections.py`, then `config.py` there |
+| the accepted units or their aliases | `core/config_kit/field_param/units.py` |
+| the depth profile | `vertical_profile.py`, then `FieldVerticalProfileSection` in `core/config_kit/field_param/sections.py` |
 | how zone values become one value per cell | `FieldParam.to_mesh_field` in `field_param.py`, then `WeightedAverageFieldDiscretization` in `field_spatial.py` |
 | the sample points in a cell | `cell_sampling.py` |
 | the share of a zone in a cell | `zone_fractions.py` |
@@ -63,25 +60,24 @@ field/
 
 The package is part of the spatial layer, which may import `core`, `schema` and itself. The architecture tests check that rule.
 
-- `field_param_units.py`, `field_param_sections.py`, `field_param_config.py` and `geology_config.py` read `core` and each other, and no mesh. `field_param_io.py` reads `field_param.py`, `field_param_config.py` and `field_spatial.py`.
-- `field_param.py` reads `core.units`, `field_param_units.py`, `mesh_cells.py` and `vertical_profile.py`. `vertical_profile.py` reads `mesh_cells.py` and `core.units`.
+- `geology_config.py` reads `core` and no mesh. `field_param_io.py` reads `field_param.py`, `core.config_kit.field_param.config` and `field_spatial.py`.
+- `field_param.py` reads `core.units`, `core.config_kit.field_param.units`, `mesh_cells.py` and `vertical_profile.py`. `vertical_profile.py` reads `mesh_cells.py` and `core.units`.
 - `mesh_cells.py`, `plotting.py`, `field_spatial.py`, `zone_fractions.py` and `unit_square_mesh.py` read the mesh model in `spatial/mesh/model/`. The mesh never imports this package.
 - `cell_sampling.py` reads `mesh_cells.py`. It imports `PlanarCellMesh` only for typing.
 - `geology_field.py` reads `spatial.protocols` for the geology data source, so it imports no `data` module.
 - Nothing in this package imports `spatial/domain/`. The domain reads `Field` and `cell_sampling` from here.
-- `field_param_config.py` imports `core.units.physical_bounds` inside the validator that checks the physical bounds of a value. The other imports of HydroModPy are at the top of their module.
 
 ## What lives outside the package
 
 The geology data is managed in `hydromodpy/data/variables/geology/`, and `field.py` there builds a `GeologyField` from the loaded data. The geology demo that goes through `FieldParam` is `tools/cases/geology/run_geology_property_case.py`.
 
-The solvers read the parameter through `hydromodpy/solver/field_property_mapping.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter section (`hydromodpy/physics/flow/flow_param_config.py`), a tolerated edge in `layer_matrix.yaml`.
+The solvers read the parameter through `hydromodpy/solver/field_property_mapping.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter sections in `FlowParam` (`hydromodpy/physics/flow/flow_config.py`), read from `core/config_kit/field_param/`.
 
 The supports a project declares in `[domain.supports]` live in `spatial/domain/`: the zone maps are built there and their zone shares are computed with `cell_sampling.py` from this package.
 
 ## Changing the code
 
-The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py`, `field_param_sections.py` and `field_param_units.py` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
+The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py` and the sections and units of `core/config_kit/field_param/` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 98.7.
 
@@ -93,7 +89,7 @@ pytest tests/unit/field -q
 pytest tests/unit/architecture -q
 ```
 
-A new key of the field-parameter TOML is a field of a Pydantic model in `field_param_sections.py`, with its description. The parameter reference is built from the models.
+A new key of the field-parameter TOML is a field of a Pydantic model in `core/config_kit/field_param/sections.py`, with its description. The parameter reference is built from the models.
 
 The square demos live outside the package, in `tools/cases/field/`. To run one from the repository root:
 

@@ -70,10 +70,6 @@ class SimulationPlan:
     # Preserve the exact execution order emitted by the planner.
     runs: tuple[ProcessRun, ...] = field(default_factory=tuple)
 
-    def is_empty(self) -> bool:
-        """Return ``True`` when the planner emitted no executable run."""
-        return not self.runs
-
     def _repr_html_(self) -> str:
         header = (
             "<div><b>SimulationPlan</b> "

@@ -88,15 +88,12 @@ from hydromodpy.core.units import (
     normalize_m_per_s_unit,
 )
 from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
-from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial
 from hydromodpy.physics.flow.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowICCustom,
     FlowInitialConditions,
-)
-from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
 from hydromodpy.physics.flow.sinks_sources import (
@@ -620,43 +617,3 @@ class Flow(ProcessSpatial):
             etp,
             location_prefix="flow.sinks_sources.etp",
         )
-
-
-if __name__ == "__main__":
-    test = Flow(FlowConfig())
-    h0 = FlowICCustom(
-        value=10,
-        units="m",
-    )
-    h_ocean = BoundaryCondition(
-        id="h_ocean",
-        value=0,
-        description="Ocean boundary condition",
-        units="m",
-        type="Dirichlet",
-        data_value=False,
-    )
-    drain = BoundaryCondition(
-        id="drain",
-        value=0,
-        description="Drain boundary condition",
-        units="m",
-        type="Cauchy",
-        data_value=False,
-    )
-    well1 = SinkSource(id="W1", value=-1e-4, description="Pumping well", units="m3/s")
-    test.set_parameters_from_config(
-        {
-            "K": {"field": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"}},
-            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"}},
-        },
-        parameter_ids=["K", "Sy"],
-        context_label="flow.param",
-    )
-    test.set_initial_conditions(h0)
-    test.set_boundary_conditions({h_ocean.id: h_ocean, drain.id: drain})
-    test.set_sinks_sources(
-        FlowSinksSourcesConfig(
-            wells={well1.id: {"cell": (0, 0, 0), "flux": -1e-4}},
-        )
-    )

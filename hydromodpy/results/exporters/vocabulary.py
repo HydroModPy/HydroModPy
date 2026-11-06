@@ -45,7 +45,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-# simulation/extraction/derivation/catchment_aggregation.py (catchment series)
+# simulation/catchment_aggregation.py (catchment series)
 # and solver/modflow6/extractors/sfr.py, lake.py (reach and lake series).
 SIMULATED_SERIES: tuple[str, ...] = (
     "discharge",
@@ -76,7 +76,7 @@ SIMULATED_SERIES: tuple[str, ...] = (
 
 # The record variables of the observation families
 # (data/variables/*/manager.py RECORD_VARIABLE and their API readers), stored
-# with source = observed by simulation/extraction/derivation/observation_ingest.py.
+# with source = observed by simulation/observation_ingest.py.
 OBSERVED_VARIABLES: tuple[str, ...] = (
     "discharge",
     "water_level",
