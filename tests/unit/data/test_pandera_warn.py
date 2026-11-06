@@ -29,34 +29,7 @@ def _invalid_timeseries_df() -> pd.DataFrame:
     )
 
 
-@pytest.fixture
-def capture_hmp_logs() -> Iterator[list[logging.LogRecord]]:
-    """Capture records on the ``hydromodpy`` logger (which disables propagation).
-
-    pytest's ``caplog`` only sees records that reach the root logger; the
-    LogManager sets ``propagate=False`` on the ``hydromodpy`` parent so we
-    attach a transient handler at that node instead.
-    """
-    parent = get_logger("hydromodpy")
-    previous_level = parent.level
-    parent.setLevel(logging.DEBUG)
-
-    records: list[logging.LogRecord] = []
-
-    class _Capture(logging.Handler):
-        def emit(self, record: logging.LogRecord) -> None:
-            records.append(record)
-
-    handler = _Capture(level=logging.DEBUG)
-    parent.addHandler(handler)
-    try:
-        yield records
-    finally:
-        parent.removeHandler(handler)
-        parent.setLevel(previous_level)
-
-
-def test_validate_warn_only_returns_original_df_on_failure(capture_hmp_logs):
+def test_validate_warn_only_returns_original_df_on_failure(hmp_log_records):
     df = _invalid_timeseries_df()
 
     out = validate_warn_only(df, TimeSeriesSchema, schema_name="TimeSeriesSchema[test]")
@@ -64,11 +37,11 @@ def test_validate_warn_only_returns_original_df_on_failure(capture_hmp_logs):
     assert out is df
     assert any(
         "TimeSeriesSchema[test]" in rec.getMessage() and rec.levelno == logging.WARNING
-        for rec in capture_hmp_logs
+        for rec in hmp_log_records
     )
 
 
-def test_validate_warn_only_passthrough_on_valid_df(capture_hmp_logs):
+def test_validate_warn_only_passthrough_on_valid_df(hmp_log_records):
     df = pd.DataFrame(
         {
             "date": pd.date_range("2020-01-01", periods=3, freq="D"),
@@ -78,7 +51,7 @@ def test_validate_warn_only_passthrough_on_valid_df(capture_hmp_logs):
     out = validate_warn_only(df, TimeSeriesSchema, schema_name="TimeSeriesSchema[ok]")
 
     assert {"date", "value"}.issubset(out.columns)
-    assert not any(rec.levelno == logging.WARNING for rec in capture_hmp_logs)
+    assert not any(rec.levelno == logging.WARNING for rec in hmp_log_records)
 
 
 def test_validate_warn_only_raises_in_strict_mode(monkeypatch):
@@ -90,11 +63,11 @@ def test_validate_warn_only_raises_in_strict_mode(monkeypatch):
 
 
 @pytest.mark.parametrize("falsy", ["", "0", "false", "no", "off"])
-def test_validate_warn_only_warns_when_strict_envvar_is_falsy(monkeypatch, capture_hmp_logs, falsy):
+def test_validate_warn_only_warns_when_strict_envvar_is_falsy(monkeypatch, hmp_log_records, falsy):
     monkeypatch.setenv(STRICT_ENV_VAR, falsy)
     df = _invalid_timeseries_df()
 
     out = validate_warn_only(df, TimeSeriesSchema, schema_name="TimeSeriesSchema[falsy]")
 
     assert out is df
-    assert any(rec.levelno == logging.WARNING for rec in capture_hmp_logs)
+    assert any(rec.levelno == logging.WARNING for rec in hmp_log_records)

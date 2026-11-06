@@ -86,10 +86,6 @@ class DisvMesh:
         kwargs["nlay"] = self.nlay
         return kwargs
 
-    def npf_xt3d_options(self) -> list[str] | None:
-        """``xt3doptions`` of ``ModflowGwfnpf``: ``["XT3D"]`` or ``None``."""
-        return ["XT3D"] if self.xt3d else None
-
     def cell_containing(self, x: float, y: float) -> int:
         """Index of the planar cell that holds the point ``(x, y)``."""
         point = Point(x, y)

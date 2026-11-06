@@ -16,6 +16,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     TransientStepInputs,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_mixed import solve_transient_step
+from tests.validation.helpers.petsc import require_linux_petsc4py
 
 NOT_APPLICABLE = {
     "modflow_nwt": "The test calls the PETSc mixed-complementarity runtime (petsc_mixed.solve_transient_step) directly on a hand-built mesh and asserts its dry_deficit_rate_m_s, an output no MODFLOW backend computes. There is no MODFLOW model to swap in.",
@@ -24,12 +25,6 @@ NOT_APPLICABLE = {
     "modflow6_voronoi": "The test calls the PETSc mixed-complementarity runtime directly on a hand-built mesh and asserts its dry_deficit_rate_m_s. MF6 on a Voronoi dual outputs no deficit rate and has no lower-obstacle multiplier to compare.",
     "boussinesq_local": "The lower obstacle and its dry-deficit rate exist only in the PETSc complementarity runtime. The local engine solves the head-only regularized partition, leaves dry_deficit_rate_m_s at None, and on this single cell ends 0.4 m below the substratum.",
 }
-
-
-def _require_linux_petsc4py() -> None:
-    if platform.system().strip().lower() != "linux":
-        pytest.skip("Boussinesq PETSc runtime is Linux-only.")
-    pytest.importorskip("petsc4py")
 
 
 @dataclass
@@ -96,7 +91,7 @@ def _sloping_hillslope_mesh(n_cells: int = 8) -> _MiniMesh:
 @pytest.mark.transient
 @pytest.mark.petsc
 def test_single_cell_pumping_activates_lower_obstacle() -> None:
-    _require_linux_petsc4py()
+    require_linux_petsc4py()
     mesh = _single_cell_mesh()
 
     result = solve_transient_step(
@@ -126,7 +121,7 @@ def test_single_cell_pumping_activates_lower_obstacle() -> None:
 @pytest.mark.transient
 @pytest.mark.petsc
 def test_steep_sloping_hillslope_zero_recharge_dries_then_rewets() -> None:
-    _require_linux_petsc4py()
+    require_linux_petsc4py()
     mesh = _sloping_hillslope_mesh()
     options = NonlinearRuntimeOptions(
         regularization_radius=0.05,

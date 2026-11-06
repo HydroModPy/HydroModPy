@@ -21,6 +21,7 @@ from tests.validation.helpers import (
     assert_space_time_metrics,
     record_comparison,
 )
+from tests.validation.helpers.petsc import require_linux_petsc4py
 from validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.comparison import (
     run_linearized_unconfined_boundary_piecewise_comparison,
 )
@@ -56,12 +57,6 @@ PETSC_SCENARIOS: tuple[str, ...] = ("recharge_step", "boundary_step")
 # Every scenario runs the default Boussinesq engine: 'auto' takes the dense local
 # engine on the 160-cell strips and scipy_sparse on the 500-cell ones.
 DEFAULT_ENGINE_SCENARIOS: tuple[str, ...] = tuple(SCENARIO_RUNNERS)
-
-
-def _require_linux_petsc4py() -> None:
-    if platform.system().strip().lower() != "linux":
-        pytest.skip("Boussinesq PETSc runtime is Linux-only.")
-    pytest.importorskip("petsc4py")
 
 
 @pytest.mark.validation
@@ -148,7 +143,7 @@ def test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_pro
     solver: str,
 ) -> None:
     """Run one scenario through a PETSc obstacle solver and compare the profile matrix."""
-    _require_linux_petsc4py()
+    require_linux_petsc4py()
 
     comparison = SCENARIO_RUNNERS[scenario](caller_file=__file__, solver=solver)
     record_comparison(comparison)

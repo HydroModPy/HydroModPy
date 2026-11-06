@@ -59,6 +59,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - Contributors: one registry, `hydromodpy.core.plugin_registry`, serves the evaluator, forward-model, terrain and mesh engines. `calibration/runners/cli_runner.py` is split into `document.py`, `session_scope.py` and `search.py`.
 - The recession cloud and the Brutsaert-Nieber coefficient moved to `hydromodpy.results.derive.recession`, `particle_travel_years` to `hydromodpy.results.run.particles`, and the metric CRS helpers to `hydromodpy.core.io.crs`. `hydromodpy.display.report_blocks` and `hydromodpy.display.maps.geo` are single modules, and `GeoFigureMixin` is gone. `hydromodpy.display.catchment_report` holds nine modules instead of fourteen. Figures draw the same pixels.
 - The helpers every solver shares moved into `hydromodpy.solver.base` (`properties`, `initial_conditions`, `drain_conductance`), the MODFLOW-NWT post-processing to `hydromodpy.solver.modflow_nwt.postprocess` and the Boussinesq catalogs to `boussinesq/catalog.py`. The MODFLOW 6 build runs as named steps, its solver options live in `modflow6/builders/solver_options.py`, the LAK builder is split in four modules and `modflow6.builders` no longer re-exports names. No input file and no result changes.
+- Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
 
 ### Removed
 

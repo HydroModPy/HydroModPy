@@ -123,7 +123,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "soil_curve_number_runoff_balance_with_routing__per_day_max_residual_max_p_per_column_"
         "year_max_residual_p",
         # Soil recharge and unmet ETP reaching MODFLOW 6, asserted in
-        # tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py,
+        # tests/integration/test_soil_recharge_mf6.py,
         # which also gives the global water-budget closure row its first test.
         "soil_recharge_into_mf6_rcha__per_period_sum_q_rch_sum_pe_a_sum_pe_a",
         "soil_unmet_etp_into_mf6_evta__per_cell_and_period_q_evt_etpres_a_etpres_a",
@@ -150,7 +150,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_engine_conformance__wall_clock_time_of_one_build_on_a_closed_case",
         "mesh_engine_conformance__cell_count_at_a_uniform_cell_size_against_the_area_over_the_size_squared_relative",
         "scaffolded_demo__mound_against_the_dupuit_integral",
-        # One cell mesh acceptance, tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py.
+        # One cell mesh acceptance, tests/integration/test_one_cell_mesh.py.
         "one_cell_mesh_acceptance__recharge_against_the_hand_reference_relative",
         "one_cell_mesh_acceptance__zone_means_against_the_exact_areas_relative",
     }

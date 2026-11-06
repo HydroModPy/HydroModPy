@@ -24,7 +24,7 @@ from typing import cast
 import pytest
 
 import validation_cases.numerical.transient.lak_pleasant_transient as _case_pkg
-from tests.regression.golden_utils import update_or_assert_goldens
+from tests.regression.golden_utils import connectiondata_sha256, update_or_assert_goldens
 from validation_cases.numerical.transient.lak_pleasant_transient.comparison import (
     build_structural_comparison,
     run_pleasant_transient_scenario,
@@ -45,31 +45,6 @@ _TOLERANCES = tomllib.loads(
 _PERIOD_STAGE_ABS = float(_TOLERANCES["stage"]["period_stage_abs_error_m"])
 
 
-def _connectiondata_hash() -> str:
-    """Stable SHA-256 over the multi-layer CONNECTIONDATA geometry.
-
-    Rounding the floating geometry to 6 decimals keeps the hash stable across
-    platforms while still detecting a real change to the connection set.
-    """
-    rows = build_hmp_connectiondata()
-    serialised = [
-        [
-            int(row[0]),
-            int(row[1]),
-            [int(row[2][0]), int(row[2][1])],
-            str(row[3]),
-            round(float(row[4]), 12),
-            round(float(row[5]), 6),
-            round(float(row[6]), 6),
-            round(float(row[7]), 6),
-            round(float(row[8]), 6),
-        ]
-        for row in rows
-    ]
-    payload = json.dumps(serialised, sort_keys=True).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
-
-
 @pytest.mark.regression
 @pytest.mark.mf6
 @pytest.mark.binary
@@ -87,7 +62,7 @@ def test_lak_pleasant_transient_signature_matches_committed_reference(
             "n_horizontal": structural.n_horizontal,
             "horizontal_layer_0": structural.horizontal_by_layer.get(0, 0),
             "horizontal_layer_1": structural.horizontal_by_layer.get(1, 0),
-            "connectiondata_sha256": _connectiondata_hash(),
+            "connectiondata_sha256": connectiondata_sha256(build_hmp_connectiondata()),
             "period_stages_m": [round(s, 4) for s in scenario.period_stages_m],
             # ``+ 0.0`` normalizes a rounded ``-0.0`` to ``0.0`` so the golden has no
             # platform-dependent sign noise on near-zero budget closures.

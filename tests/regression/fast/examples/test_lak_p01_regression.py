@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.regression.golden_utils import update_or_assert_goldens
+from tests.regression.golden_utils import connectiondata_sha256, update_or_assert_goldens
 from validation_cases.numerical.steady.lak_merritt_konikow_p01.comparison import (
     build_structural_comparison,
     run_lake_p01_scenario,
@@ -30,31 +30,6 @@ from validation_cases.numerical.steady.lak_merritt_konikow_p01.runtime_lak impor
 )
 
 REFERENCE_PATH = Path(__file__).resolve().parent / "golden" / "lak_p01_signatures.json"
-
-
-def _connectiondata_hash() -> str:
-    """Stable SHA-256 over the home-grown CONNECTIONDATA geometry.
-
-    Rounding the floating geometry to 6 decimals keeps the hash stable across
-    platforms while still detecting a real change to the connection set.
-    """
-    rows = build_hmp_connectiondata()
-    serialised = [
-        [
-            int(row[0]),
-            int(row[1]),
-            [int(row[2][0]), int(row[2][1])],
-            str(row[3]),
-            round(float(row[4]), 12),
-            round(float(row[5]), 6),
-            round(float(row[6]), 6),
-            round(float(row[7]), 6),
-            round(float(row[8]), 6),
-        ]
-        for row in rows
-    ]
-    payload = json.dumps(serialised, sort_keys=True).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
 
 
 @pytest.mark.regression
@@ -72,7 +47,7 @@ def test_lak_p01_signature_matches_committed_reference(
             "n_connections": structural.n_connections,
             "n_vertical": structural.n_vertical,
             "n_horizontal": structural.n_horizontal,
-            "connectiondata_sha256": _connectiondata_hash(),
+            "connectiondata_sha256": connectiondata_sha256(build_hmp_connectiondata()),
             "final_stage_m": round(scenario.hmp_stage_m, 4),
             "lake_gwf_in_m3_s": round(scenario.hmp.lake_gwf_in, 8),
             "lake_gwf_out_m3_s": round(scenario.hmp.lake_gwf_out, 8),

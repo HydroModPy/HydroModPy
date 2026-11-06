@@ -17,6 +17,7 @@ import platform
 import numpy as np
 import pytest
 
+from tests.validation.helpers.petsc import require_linux_petsc4py
 from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d import (
     run_hillslope_overflow_scenario,
 )
@@ -41,12 +42,6 @@ _LOCAL_RUNTIME_SOLVER = "boussinesq"
 """Name the overflow runner gives the default local engine."""
 
 
-def _require_linux_petsc4py() -> None:
-    if platform.system().strip().lower() != "linux":
-        pytest.skip("Boussinesq PETSc runtime is Linux-only.")
-    pytest.importorskip("petsc4py")
-
-
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.slow
@@ -69,7 +64,7 @@ def test_hillslope_overflow_petsc_variants_activate_surface_threshold(
     forcing_preset: str | None,
 ) -> None:
     if solver != "boussinesq_local":
-        _require_linux_petsc4py()
+        require_linux_petsc4py()
 
     scenario = run_hillslope_overflow_scenario(
         caller_file=__file__,

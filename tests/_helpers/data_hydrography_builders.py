@@ -32,22 +32,6 @@ def _make_lines_gdf(crs="EPSG:4326", n=3):
     )
 
 
-def _make_polygon_gdf(crs="EPSG:4326"):
-    return gpd.GeoDataFrame(
-        {"id": [1]},
-        geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])],
-        crs=crs,
-    )
-
-
-def _make_point_gdf(crs="EPSG:4326"):
-    return gpd.GeoDataFrame(
-        {"id": [1, 2]},
-        geometry=[Point(0, 0), Point(1, 1)],
-        crs=crs,
-    )
-
-
 def _watershed_gdf(crs="EPSG:2154"):
     """Fake watershed polygon big enough to contain test data once reprojected."""
     return gpd.GeoDataFrame(

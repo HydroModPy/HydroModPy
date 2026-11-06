@@ -1,147 +1,13 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
-from typing import Any
-
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "13_transport_mf6_gwt_disv_visual_guard"
-MODULE_PATH = EXAMPLE_ROOT / "run_visual_guard.py"
-
-
-def _load_guard_module():
-    spec = importlib.util.spec_from_file_location("transport_visual_guard", MODULE_PATH)
-    assert spec is not None
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _fast_case(
-    guard: Any,
-    *,
-    name: str,
-    pattern: str,
-    mesh_seed: int,
-    k_seed: int | None = None,
-    source_schedule: str = "internal_pulse",
-    duration_days: float = 650.0,
-    n_snapshots: int = 21,
-    pulse_end_day: float = 0.0,
-    diffusion_m2_per_day: float = 0.0119,
-):
-    return guard.CaseConfig(
-        name=name,
-        title=name,
-        description="Fast numeric transport regression case without HTML output.",
-        domain=guard.DomainConfig(
-            length_m=120.0,
-            width_m=24.0,
-            nx=32,
-            ny=8,
-            perturbation_fraction=0.08,
-            seed=mesh_seed,
-            max_area_ratio=2.20,
-        ),
-        flow=guard.FlowConfig(
-            head_left_m=3.6,
-            head_right_m=0.0,
-            hydraulic_conductivity_m_per_day=1.0,
-            hydraulic_conductivity_pattern=pattern,
-            hydraulic_conductivity_factor=5.0,
-            hydraulic_conductivity_seed=k_seed,
-            porosity=0.30,
-        ),
-        transport=guard.TransportConfig(
-            duration_days=duration_days,
-            n_snapshots=n_snapshots,
-            source_concentration=1.0,
-            source_schedule=source_schedule,
-            pulse_end_day=pulse_end_day,
-            pulse_center_m=35.0,
-            pulse_width_m=2.0,
-            pulse_y_center_m=12.0,
-            pulse_y_width_m=4.0,
-            longitudinal_dispersivity_m=0.0,
-            transverse_dispersivity_m=0.0,
-            diffusion_m2_per_day=diffusion_m2_per_day,
-        ),
-        source_path=Path("<in-memory-fast-transport-case>"),
-    )
-
-
-def _fast_cases(guard: Any):
-    return [
-        _fast_case(
-            guard,
-            name="fast_01_homogeneous_k_pulse",
-            pattern="homogeneous",
-            mesh_seed=101,
-        ),
-        _fast_case(
-            guard,
-            name="fast_02_longitudinal_channel_kx5_pulse",
-            pattern="longitudinal_channel",
-            mesh_seed=202,
-        ),
-        _fast_case(
-            guard,
-            name="fast_03_transverse_bands_kx5_pulse",
-            pattern="transverse_bands",
-            mesh_seed=303,
-        ),
-        _fast_case(
-            guard,
-            name="fast_04_random_blocks_kx5_pulse",
-            pattern="random_blocks",
-            mesh_seed=404,
-            k_seed=4404,
-        ),
-        _fast_case(
-            guard,
-            name="fast_05_homogeneous_constant_upstream",
-            pattern="homogeneous",
-            mesh_seed=505,
-            source_schedule="constant",
-            duration_days=650.0,
-            n_snapshots=21,
-            pulse_end_day=650.0,
-        ),
-        _fast_case(
-            guard,
-            name="fast_06_homogeneous_upstream_pulse",
-            pattern="homogeneous",
-            mesh_seed=606,
-            source_schedule="pulse",
-            duration_days=650.0,
-            n_snapshots=21,
-            pulse_end_day=120.0,
-        ),
-        _fast_case(
-            guard,
-            name="fast_07_homogeneous_internal_pulse_pe_low",
-            pattern="homogeneous",
-            mesh_seed=707,
-            diffusion_m2_per_day=0.0476,
-        ),
-        _fast_case(
-            guard,
-            name="fast_08_homogeneous_internal_pulse_pe_high",
-            pattern="homogeneous",
-            mesh_seed=808,
-            diffusion_m2_per_day=0.00397,
-        ),
-    ]
+from tests._helpers.transport_guard import fast_case, fast_cases, load_guard_module
 
 
 def test_fast_perturbed_triangular_disv_mesh_is_bounded_and_clockwise() -> None:
-    guard = _load_guard_module()
-    case = _fast_case(
+    guard = load_guard_module()
+    case = fast_case(
         guard,
         name="fast_mesh_check",
         pattern="longitudinal_channel",
@@ -161,8 +27,8 @@ def test_fast_perturbed_triangular_disv_mesh_is_bounded_and_clockwise() -> None:
 
 
 def test_fast_homogeneous_synthetic_plume_moves_downstream() -> None:
-    guard = _load_guard_module()
-    case = _fast_case(
+    guard = load_guard_module()
+    case = fast_case(
         guard,
         name="fast_01_homogeneous_k_pulse",
         pattern="homogeneous",
@@ -185,9 +51,9 @@ def test_fast_homogeneous_synthetic_plume_moves_downstream() -> None:
 
 
 def test_fast_upstream_source_cases_stay_bounded_and_tag_ogata_banks_reference() -> None:
-    guard = _load_guard_module()
+    guard = load_guard_module()
     cases = [
-        _fast_case(
+        fast_case(
             guard,
             name="fast_05_homogeneous_constant_upstream",
             pattern="homogeneous",
@@ -195,7 +61,7 @@ def test_fast_upstream_source_cases_stay_bounded_and_tag_ogata_banks_reference()
             source_schedule="constant",
             pulse_end_day=650.0,
         ),
-        _fast_case(
+        fast_case(
             guard,
             name="fast_06_homogeneous_upstream_pulse",
             pattern="homogeneous",
@@ -216,8 +82,8 @@ def test_fast_upstream_source_cases_stay_bounded_and_tag_ogata_banks_reference()
 
 
 def test_fast_internal_pulse_conserves_mass_before_downstream_exit() -> None:
-    guard = _load_guard_module()
-    case = _fast_case(
+    guard = load_guard_module()
+    case = fast_case(
         guard,
         name="fast_01_homogeneous_k_pulse",
         pattern="homogeneous",
@@ -235,15 +101,15 @@ def test_fast_internal_pulse_conserves_mass_before_downstream_exit() -> None:
 
 
 def test_fast_peclet_variants_control_plume_spreading() -> None:
-    guard = _load_guard_module()
-    low_pe = _fast_case(
+    guard = load_guard_module()
+    low_pe = fast_case(
         guard,
         name="fast_07_homogeneous_internal_pulse_pe_low",
         pattern="homogeneous",
         mesh_seed=707,
         diffusion_m2_per_day=0.0476,
     )
-    high_pe = _fast_case(
+    high_pe = fast_case(
         guard,
         name="fast_08_homogeneous_internal_pulse_pe_high",
         pattern="homogeneous",
@@ -264,8 +130,8 @@ def test_fast_peclet_variants_control_plume_spreading() -> None:
 
 
 def test_fast_homogeneous_case_is_configured_near_cell_peclet_20() -> None:
-    guard = _load_guard_module()
-    case = _fast_case(
+    guard = load_guard_module()
+    case = fast_case(
         guard,
         name="fast_01_homogeneous_k_pulse",
         pattern="homogeneous",
@@ -281,9 +147,9 @@ def test_fast_homogeneous_case_is_configured_near_cell_peclet_20() -> None:
 
 
 def test_fast_heterogeneous_cases_keep_fixed_diffusion_and_vary_peclet() -> None:
-    guard = _load_guard_module()
+    guard = load_guard_module()
 
-    for case in _fast_cases(guard):
+    for case in fast_cases(guard):
         if case.flow.hydraulic_conductivity_pattern == "homogeneous":
             continue
         result = guard.run_synthetic_case(case)
@@ -300,8 +166,8 @@ def test_fast_heterogeneous_cases_keep_fixed_diffusion_and_vary_peclet() -> None
 
 
 def test_fast_internal_pulse_is_initialized_away_from_upstream_boundary() -> None:
-    guard = _load_guard_module()
-    case = _fast_case(
+    guard = load_guard_module()
+    case = fast_case(
         guard,
         name="fast_01_homogeneous_k_pulse",
         pattern="homogeneous",
