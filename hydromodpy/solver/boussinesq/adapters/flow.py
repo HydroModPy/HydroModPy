@@ -17,6 +17,7 @@ from typing import Any, ClassVar
 import numpy as np
 import pandas as pd
 
+from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -54,7 +55,6 @@ from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
 from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
-from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 
 
 def _published_support(ctx: RunContext) -> np.ndarray | None:

@@ -72,6 +72,7 @@ from hydromodpy.core.state.layout import RUN_DATA_CACHE_FILENAME, jobs_dir_for
 from hydromodpy.core.version import __version__
 from hydromodpy.data.provenance.sidecars import Sidecar, compute_sha256, write_sidecar
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.model.domain.job_inputs import output_records
 from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.directory import JobDirectory
@@ -81,7 +82,6 @@ from hydromodpy.schema.job.provenance import build_provenance
 from hydromodpy.schema.job.request import content_address, read_request, validate_inputs
 from hydromodpy.schema.job.worker import run_job, seal_successful
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
-from hydromodpy.spatial.job_inputs import output_records
 from hydromodpy_annex.schema.job_chain.chain import ChainRequest, run_chain
 from tests.scenarios.factory import island_files, write_project
 from tests.scenarios.launcher import isolated_env, link_binaries

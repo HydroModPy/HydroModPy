@@ -18,6 +18,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
+from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig, MeshFamiliesConfig
 from hydromodpy.mesh.planning import plan
@@ -30,7 +31,6 @@ from hydromodpy.mesh.planning.geometry_cleanup import (
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.request import BARRIER_FAMILY, InputTriangulation
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_spec, planning_inputs, square_domain
 

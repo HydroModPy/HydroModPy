@@ -76,6 +76,23 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.spatial` no longer exports `CellBlock`, `CellType` and `HydroMesh`. Import them from
   `hydromodpy.mesh.planar.hydro_mesh` and `hydromodpy.mesh.planar.cell_types`.
 - The entry-point group of mesh engines is still `hydromodpy.mesh.engine`.
+- `hydromodpy.catchment` is new. It holds what was left of `hydromodpy.spatial` once `model` and `mesh` had their own
+  package: `terrain`, `delineation`, `drainage` and `administrative`, unchanged inside, and the geographic pipeline in
+  three parts. `algorithms` was `spatial.geographic.core`, and also holds `dem_metadata`, `geographic_paths` and
+  `river_network_config`. `synthetic` was `spatial.geographic.synthetic`, with `synthetic_config`. `preprocess` is the
+  rest of `spatial.geographic` (configuration, cache, pipeline, store ingestion, subbasin, regional flow job), with
+  `pipeline_steps`. So `hydromodpy.spatial.geographic.core.pipeline_steps` is now
+  `hydromodpy.catchment.preprocess.pipeline_steps`, and `hydromodpy.spatial.geographic.synthetic_config` is now
+  `hydromodpy.catchment.synthetic.synthetic_config`.
+- `RasterSupport`, `Surface`, `PreparedSurfaceSampler` and the geology source protocol are now in
+  `hydromodpy.catchment.raster_support`, `surface`, `surface_sampling` and `protocols`. `spatial.job_inputs` is now
+  `hydromodpy.model.domain.job_inputs`, next to the `domain-build` worker.
+- `hydromodpy.spatial` is gone, with every name its package file exported. Import a name from the module that defines
+  it. `hmp.spatial` no longer opens a package.
+- `hydromodpy.catchment.terrain` no longer re-exports the terrain port. Import `TerrainEngine`, `CappedBreach` and the
+  other port names from `hydromodpy.catchment.terrain.port`, and the two engines from `numpy_engine` and
+  `whitebox_engine`. The entry-point group of terrain engines is still `hydromodpy.terrain.engine`.
+- The bundled `departement.gpkg` moved with `administrative` to `hydromodpy/catchment/administrative/`.
 
 ### Removed
 

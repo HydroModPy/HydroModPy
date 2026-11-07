@@ -1,0 +1,189 @@
+"""Shared orchestration helpers for geographic pipelines.
+
+Purpose
+-------
+Centralize reusable setup/build steps so both compact feature builders and
+runtime pipelines call the same primitives (paths, DEM metadata, catchment
+extraction, domain support polygons).
+
+Why this module matters
+-----------------------
+Keeps orchestration logic explicit and avoids duplicating fragile path/CRS
+handling across multiple runner entry points.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import rasterio
+
+from hydromodpy.catchment.algorithms.catchment_domain import (
+    CatchmentDomainProducts,
+    derive_catchment_domain,
+)
+from hydromodpy.catchment.algorithms.catchment_from_point import (
+    CatchmentFromPointProducts,
+    extract_catchment_from_point,
+    extract_catchment_from_polygon,
+)
+from hydromodpy.catchment.algorithms.dem_aggregation import (
+    RESOLUTION_TOLERANCE,
+    aggregate_dem,
+    aggregated_dem_filename,
+)
+from hydromodpy.catchment.algorithms.geographic_paths import GeographicPaths, build_geographic_paths
+from hydromodpy.catchment.algorithms.river_network import resolve_stream_threshold_cells
+from hydromodpy.catchment.delineation.registry import resolve_delineation_backend
+from hydromodpy.catchment.terrain.port import FlowAccumulation
+from hydromodpy.core.console import progress
+from hydromodpy.core.io.filesystem import create_folder
+
+if TYPE_CHECKING:
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+
+
+@dataclass(frozen=True)
+class PreparedGeographicRun:
+    """Canonical shared setup computed before geographic product generation."""
+
+    paths: GeographicPaths
+    dem_init_path: str
+    crs_project: str | None
+    epsg: int | None
+    dem_res: float
+
+
+def prepare_geographic_run(
+    *,
+    config: GeographicConfig,
+    out_dir_path: str | Path,
+) -> PreparedGeographicRun:
+    """Build canonical paths, ensure folders exist, and resolve DEM/CRS primitives."""
+    if config.dem_init_path is None:
+        raise ValueError("geographic.catchment.dem_init_path is required")
+
+    paths = build_geographic_paths(out_dir_path)
+    create_folder(paths.geographic_path)
+    create_folder(paths.correcflow_path)
+
+    dem_init_path = str(config.dem_init_path)
+    with rasterio.open(dem_init_path) as dem_src:
+        epsg = dem_src.crs.to_epsg() if dem_src.crs is not None else None
+        dem_res = float(abs(dem_src.transform.a))
+    dem_init_path, dem_res = _aggregated_if_asked(
+        config, dem_init_path=dem_init_path, dem_res=dem_res, paths=paths
+    )
+    crs_project = (
+        config.crs_project
+        if config.crs_project is not None
+        else (f"EPSG:{epsg}" if epsg is not None else None)
+    )
+
+    return PreparedGeographicRun(
+        paths=paths,
+        dem_init_path=dem_init_path,
+        crs_project=crs_project,
+        epsg=epsg,
+        dem_res=dem_res,
+    )
+
+
+def _aggregated_if_asked(
+    config: GeographicConfig,
+    *,
+    dem_init_path: str,
+    dem_res: float,
+    paths: GeographicPaths,
+) -> tuple[str, float]:
+    """Return the DEM every later step reads, aggregated when the config asks for it.
+
+    The DEM's own pixel is kept when ``dem_resolution`` is unset or names it. A
+    finer value is refused here, before any delineation, by ``aggregate_dem``.
+    """
+    target = config.dem_resolution
+    if target is None or abs(float(target) - dem_res) <= RESOLUTION_TOLERANCE * dem_res:
+        return dem_init_path, dem_res
+    out_path = Path(paths.correcflow_path) / aggregated_dem_filename(float(target))
+    with progress.status(f"Aggregating the DEM to {float(target):g} m"):
+        aggregate_dem(dem_init_path, out_path, resolution_m=float(target))
+    return str(out_path), float(target)
+
+
+def _snap_threshold_cells(config: GeographicConfig, accumulation: FlowAccumulation) -> float | None:
+    """Return the stream threshold of a Jenson snap, in cells, or None for the window snap.
+
+    The threshold is the one of ``[geographic.river_network]``, so the snap lands
+    on the network that section draws. The cell size is the one of the routing
+    grid, which is the aggregated DEM when ``dem_resolution`` asks for one.
+    """
+    if config.snap_method != "jenson":
+        return None
+    with rasterio.open(str(accumulation.path)) as src:
+        cell_size_m = float(abs(src.transform.a))
+    return resolve_stream_threshold_cells(river_network=config.river_network, dem_res_m=cell_size_m)
+
+
+def build_standard_catchment(
+    *,
+    config: GeographicConfig,
+    paths: GeographicPaths,
+    accumulation: FlowAccumulation,
+    crs_project: str | None,
+    backend: object | None = None,
+    unsupported_mode: str = "error",
+) -> CatchmentFromPointProducts | str | None:
+    """Build the canonical watershed geometry from outlet or polygon config."""
+    tool = resolve_delineation_backend(backend)
+
+    if config.catch_def == "from_outlet_coord":
+        return extract_catchment_from_point(
+            x_outlet=float(config.x_outlet),
+            y_outlet=float(config.y_outlet),
+            snap_dist=int(config.snap_dist),
+            accumulation=accumulation,
+            output_dir=paths.geographic_path,
+            crs_project=crs_project,
+            backend=tool,
+            engine_id=config.terrain_engine,
+            snap_method=config.snap_method,
+            stream_threshold_cells=_snap_threshold_cells(config, accumulation),
+        )
+
+    if config.catch_def == "from_polyg_shp":
+        return extract_catchment_from_polygon(
+            polyg_shp_path=config.polyg_shp_path,
+            output_shp_path=paths.watershed_shp,
+            crs_project=crs_project,
+        )
+
+    if unsupported_mode == "ignore":
+        return None
+
+    raise ValueError(
+        f"Unsupported catch_def for geographic pipeline: {config.catch_def!r}. "
+        "Supported values: 'from_outlet_coord', 'from_polyg_shp'."
+    )
+
+
+def build_standard_domain_polygons(
+    *,
+    config: GeographicConfig,
+    paths: GeographicPaths,
+    dem_init_path: str | Path,
+    crs_project: str | None,
+) -> CatchmentDomainProducts:
+    """Build buffered catchment, box and box-buffer polygons with canonical names."""
+    with progress.status("Building domain polygons"):
+        return derive_catchment_domain(
+            catchment_shp=paths.watershed_shp,
+            output_dir=paths.geographic_path,
+            buff_area=config.buff_area,
+            dem_init_path=dem_init_path,
+            crs_project=crs_project,
+            watershed_buff_name="watershed_buff.shp",
+            watershed_box_name=Path(paths.watershed_box_shp).name,
+            watershed_box_buff_name=Path(paths.box_buff).name,
+        )

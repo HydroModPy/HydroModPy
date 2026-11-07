@@ -20,4 +20,4 @@ runner that walks it, because both sit between the `[simulation]` table and the 
 
 The mapping of the hydraulic properties on the cells is in `model/properties/property_table.py`, and the head a run starts from is in `model/initial/heads.py`.
 
-`base` imports `core`, `model` and `spatial`, never a backend.
+`base` imports `core`, `model` and `catchment`, never a backend.

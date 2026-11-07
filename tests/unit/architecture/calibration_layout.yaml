@@ -6,7 +6,7 @@
 # it may import. A part may always import itself. "<init>" is the package
 # facade, hydromodpy/calibration/__init__.py. A part is a subpackage or a
 # module at the root of the package. What lies outside hydromodpy/calibration
-# (core, schema, model, mesh, data, spatial, solver, results) is the
+# (core, schema, catchment, mesh, model, data, results, solver) is the
 # business of layer_matrix.yaml; solver_access below narrows what
 # layer_matrix.yaml lets calibration reach inside solver.
 #

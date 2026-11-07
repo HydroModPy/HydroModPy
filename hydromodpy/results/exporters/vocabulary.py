@@ -20,6 +20,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
+)
 from hydromodpy.core.scope import OBSERVED, series_name
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
@@ -36,11 +41,6 @@ from hydromodpy.results.exporters._tables import (
 )
 from hydromodpy.results.exporters.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -90,7 +90,7 @@ OBSERVED_VARIABLES: tuple[str, ...] = (
 OBSERVED_SERIES: tuple[str, ...] = tuple(series_name(name, OBSERVED) for name in OBSERVED_VARIABLES)
 """The names an export asks for an observed series by, stored beside the simulated ones."""
 
-# spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
+# catchment/preprocess/store_ingestion.py (watershed layers), workflow/steps/
 # prepare_solver/forcings.py (reference networks), results/exporters/mesh_layers.py
 # (the layers of the cell mesh).
 VECTOR_LAYERS: tuple[str, ...] = (
@@ -104,7 +104,7 @@ VECTOR_LAYERS: tuple[str, ...] = (
 )
 """Vector layers a run holds: the geographic ones it stores and the layers of its cell mesh."""
 
-# spatial/geographic/store_ingestion.py (_RASTER_ATTRS).
+# catchment/preprocess/store_ingestion.py (_RASTER_ATTRS).
 RASTER_LAYERS: tuple[str, ...] = ("watershed_dem", "watershed_fill")
 """Geographic raster layers a run stores."""
 

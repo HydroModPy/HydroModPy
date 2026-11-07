@@ -27,7 +27,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/core/workspace/config.py``
    * - ``[geographic]``
      - ``GeographicConfig``
-     - ``hydromodpy/spatial/geographic/geographic_config.py``
+     - ``hydromodpy/catchment/preprocess/geographic_config.py``
    * - ``[domain]``
      - ``DomainConfig``
      - ``hydromodpy/model/domain/domain_config.py``

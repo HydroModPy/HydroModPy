@@ -13,6 +13,7 @@ from __future__ import annotations
 import numpy as np
 from flopy.discretization import StructuredGrid
 
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import (
@@ -20,7 +21,6 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 

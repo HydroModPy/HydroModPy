@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
+from hydromodpy.catchment.drainage.distance import downslope_distance_to_mask
+from hydromodpy.catchment.drainage.graph import cell_centroids_from_mesh
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
@@ -44,9 +47,6 @@ from hydromodpy.results.derive.stream.geometry import (
 from hydromodpy.results.derive.stream.heads import HeadsSettings
 from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.results.derive.time_alignment import run_period_edges
-from hydromodpy.spatial.drainage.distance import downslope_distance_to_mask
-from hydromodpy.spatial.drainage.graph import cell_centroids_from_mesh
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -245,10 +245,10 @@ def network_comparison_from_run(
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
+    from hydromodpy.catchment.algorithms.network_heads import network_head_candidates
     from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
     from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
     from hydromodpy.mesh.planar.geometry import cell_polygons
-    from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -407,9 +407,9 @@ def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.nd
     None for a synthetic domain, whose stored box is the domain and no catchment,
     as a trial reads it.
     """
+    from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
     from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
     from hydromodpy.results.run.geographic import geographic_metadata
-    from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 
     if geographic_metadata(sim).get("catch_def") == SYNTHETIC_CATCH_DEF:
         return None

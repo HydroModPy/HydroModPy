@@ -5,10 +5,10 @@ from __future__ import annotations
 from pyproj import CRS
 from shapely.geometry import box
 
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
-from hydromodpy.spatial.surface import Surface
 
 
 def regular_cell_mesh_of(

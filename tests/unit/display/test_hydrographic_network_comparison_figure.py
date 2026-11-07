@@ -11,11 +11,11 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
-from hydromodpy.display.figure_registry import get
-from hydromodpy.display.figures.hydrographic_network import plot_topography_background
-from hydromodpy.spatial.geographic.core.hydrographic_network_comparison import (
+from hydromodpy.catchment.algorithms.hydrographic_network_comparison import (
     compare_hydrographic_networks,
 )
+from hydromodpy.display.figure_registry import get
+from hydromodpy.display.figures.hydrographic_network import plot_topography_background
 
 
 class _StubRun:

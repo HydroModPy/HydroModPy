@@ -13,7 +13,7 @@ from hydromodpy.mesh.planning.refinement_zones import RefinementZone
 from hydromodpy.mesh.request import InputTriangulation, RasterGridSpec
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+    from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 
 __all__ = ["PlanningInputs"]
 

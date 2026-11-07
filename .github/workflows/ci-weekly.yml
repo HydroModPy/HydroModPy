@@ -77,8 +77,8 @@ jobs:
         shell: bash
         run: |
           python -m pytest tests/unit/ \
-            --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
+            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
             --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -n auto --dist loadgroup -q
 
@@ -86,8 +86,8 @@ jobs:
         shell: bash
         run: |
           python -m pytest \
-            tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/geographic/core/test_catchment_from_point.py \
+            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            tests/unit/catchment/algorithms/test_catchment_from_point.py \
             tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -q
 

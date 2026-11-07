@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
+from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
@@ -36,7 +37,6 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import worst_percent_discrepancy
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from tests._helpers.mf6_ground import leave_ground_beside
 from tests._helpers.tolerances import tol
 

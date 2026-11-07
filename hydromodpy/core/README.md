@@ -46,12 +46,12 @@ question, and each sub-package has its own `README.md`.
 
 ## What left core
 
-`bed_regularization` is now in `spatial/geographic/core/`; `solver_diagnostics` is
+`bed_regularization` is now in `catchment/algorithms/`; `solver_diagnostics` is
 `solver/boussinesq/runtimes/diagnostic_files.py`; `administrative_france` is
-`spatial/administrative/regions.py`; `units/udunits` is `results/storage/udunits.py`;
+`catchment/administrative/regions.py`; `units/udunits` is `results/storage/udunits.py`;
 `config_kit/export_spec` is `results/exporters/export_spec.py`; `migrations` is
 `data/registry/migrations/`. The drainage kernels (receiver graph, depression filling, descent D,
-downslope distance) are in `spatial/drainage/`, the mean recharge of the stream criterion is in
+downslope distance) are in `catchment/drainage/`, the mean recharge of the stream criterion is in
 `model/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
 
 ## Import rules

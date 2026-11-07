@@ -22,8 +22,8 @@ gpd = pytest.importorskip("geopandas")
 
 from shapely.geometry import LineString  # noqa: E402
 
-from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation  # noqa: E402
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig  # noqa: E402
+from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation  # noqa: E402
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig  # noqa: E402
 
 RES = 25.0
 ROWS, COLS, AXIS, ROAD_ROW = 60, 41, 20, 30

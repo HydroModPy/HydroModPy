@@ -325,9 +325,9 @@ def test_no_display_keeps_the_other_consumers() -> None:
 
 
 def _config_with_thickness(tmp_path, thickness: float):
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
         workflow={"mode": "simulation"},

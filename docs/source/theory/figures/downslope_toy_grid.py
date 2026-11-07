@@ -3,13 +3,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.spatial.drainage.distance import (
+from hydromodpy.catchment.drainage.distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
     shared_node_adjacency,
 )
-from hydromodpy.spatial.drainage.filling import fill_depressions_on_graph
-from hydromodpy.spatial.drainage.graph import domain_edge_cells
+from hydromodpy.catchment.drainage.filling import fill_depressions_on_graph
+from hydromodpy.catchment.drainage.graph import domain_edge_cells
 
 N, SIZE = 8, 10.0
 BLUE, ORANGE = "#0072B2", "#D55E00"

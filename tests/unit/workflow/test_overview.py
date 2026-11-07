@@ -9,12 +9,12 @@ from pydantic import ValidationError
 import hydromodpy.data.variables.dem.resolver as dem_resolver
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.overview as overview_module
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.crossings.resolver import fill_crossings_path
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.workflow.overview import DataOverviewLauncher
 from tests._helpers.geographic_cases import BENCH_RIVER, outlet_document
 
@@ -101,7 +101,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
         FakeLoader,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.core.derived_features.attach_reference_hydrographic_network",
+        "hydromodpy.catchment.algorithms.derived_features.attach_reference_hydrographic_network",
         fake_attach,
     )
 
@@ -226,11 +226,11 @@ def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> Non
             seen["network_map_path"] = network_map_path
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.catchment_delineation.CatchmentDelineation",
+        "hydromodpy.catchment.preprocess.catchment_delineation.CatchmentDelineation",
         _Delineation,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.core.derived_features.coerce_geographic_derived_features",
+        "hydromodpy.catchment.algorithms.derived_features.coerce_geographic_derived_features",
         lambda geographic: None,
     )
     state = SimpleNamespace(cfg=SimpleNamespace(geographic=SimpleNamespace()), workspace=None)

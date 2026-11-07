@@ -264,10 +264,10 @@ class LoadResult:
 
 ## Layer neighbors
 
-`data` imports `core`, `schema` and `spatial`
+`data` imports `core`, `schema` and `catchment`
 (`tests/unit/architecture/layer_matrix.yaml`). `config`, `calibration`,
 `workflow`, `project`, `cli` and the root facade import `data`.
-`spatial` does not import it, and `data` never imports
+`catchment` does not import it, and `data` never imports
 `results`.
 
 ## Reading path

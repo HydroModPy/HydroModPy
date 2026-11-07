@@ -10,10 +10,10 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid.discretization_spatial import StructuredGridBuilder
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 
 
 def _surface_from_array(

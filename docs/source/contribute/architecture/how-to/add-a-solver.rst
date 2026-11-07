@@ -260,7 +260,7 @@ See :doc:`add-a-test` for the full ladder.
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``solver`` may import ``model``, ``spatial`` and ``results``, but
+- ``solver`` may import ``model``, ``catchment`` and ``results``, but
   **not** ``data``, ``calibration``, ``display``, ``project``, or
   ``workflow``. If your adapter needs loaded data, take it from the
   ``ctx`` rather than importing ``data``.

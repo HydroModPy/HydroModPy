@@ -146,7 +146,7 @@ examples/projects/**/catalog.duckdb.bak-*
 hydromodpy.duckdb
 hydromodpy_debug.log
 hydromodpy/data/variables/*/outputs/**
-hydromodpy/spatial/**/outputs/**
+hydromodpy/catchment/**/outputs/**
 hydromodpy/solver/**/cases/outputs/**
 tools/cases/**/outputs/**
 **/.ipynb_checkpoints/

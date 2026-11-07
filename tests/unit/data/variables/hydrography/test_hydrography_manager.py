@@ -11,6 +11,10 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+)
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
@@ -21,10 +25,6 @@ from hydromodpy.data.variables.hydrography.config import (
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.manager import HydrographyManager
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-)
 from tests._helpers.data_hydrography_builders import (
     WhiteboxStubBackend,
     _fake_inputs,
@@ -127,7 +127,7 @@ class TestHydrographyManager:
         assert (tmp_path / PREPROCESSING_DIR / "hydrography").is_dir()
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_load_pipeline_line_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         """Full pipeline with LineString data and stub backend."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -161,7 +161,7 @@ class TestHydrographyManager:
         assert "vector_points_to_raster" not in method_names
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_load_pipeline_polygon_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -195,7 +195,7 @@ class TestHydrographyManager:
         assert isinstance(result, LoadResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_load_pipeline_point_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -220,7 +220,7 @@ class TestHydrographyManager:
         assert isinstance(result, LoadResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_synthetic_fid_field(self, mock_backend_factory, mock_fetch, tmp_path):
         """When rasterize_field doesn't exist in data, manager creates sequential FID."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -290,7 +290,7 @@ class TestHydrographyManager:
         assert 40 < lat_min < lat_max < 55
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_crs_reprojection(self, mock_backend_factory, mock_fetch, tmp_path):
         """Data in EPSG:4326 gets reprojected to project CRS before clip."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -392,7 +392,7 @@ class TestCustomLoaderTif:
 class TestManagerTifPipeline:
     """Manager should use _load_from_tif when custom returns a Path."""
 
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_tif_custom_skips_vector_pipeline(self, mock_backend_factory, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -418,7 +418,7 @@ class TestManagerTifPipeline:
         # Vector rasterization backend should NOT have been called
         backend.raster.vector_lines_to_raster.assert_not_called()
 
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
         """Negative values in the TIF should become NaN in the field array."""
         import rasterio
@@ -487,7 +487,7 @@ class TestCatalogCacheManager:
         return mgr, catalog, data_dir
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_cache_miss_then_hit(self, mock_backend_factory, mock_osm_fetch, tmp_path):
         """First call fetches API + registers; second call hits cache."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -541,7 +541,7 @@ class TestCatalogCacheManager:
         ]
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_force_refresh_bypasses_cache(self, mock_backend_factory, mock_osm_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -687,7 +687,7 @@ class TestHydrographyMetadata:
 @pytest.mark.fast
 class TestDataStoreHydrography:
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
-    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):
         from hydromodpy.data.loading.store import DataStore
 
@@ -713,7 +713,7 @@ pytestmark = pytest.mark.fast
 _FETCH = "hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source"
 
 
-_BACKEND = "hydromodpy.spatial.delineation.get_whitebox_backend"
+_BACKEND = "hydromodpy.catchment.delineation.get_whitebox_backend"
 
 
 def _reaches(permanence: list[str] | None, *, x0: float = 350000.0) -> gpd.GeoDataFrame:
@@ -1023,7 +1023,7 @@ def test_a_section_without_a_mask_is_refused_by_name(tmp_path, monkeypatch):
     """No extent is a refusal that names the field, not an AttributeError."""
     _record_the_extent(monkeypatch)
     cfg = HydrographyConfig(sources=[{"source": "osm"}])
-    with patch("hydromodpy.spatial.delineation.get_whitebox_backend"):
+    with patch("hydromodpy.catchment.delineation.get_whitebox_backend"):
         manager = HydrographyManager(config=cfg, out_path=tmp_path)
     with pytest.raises(ValueError, match="mask_path"):
         manager._fetch_from_source(cfg.sources[0])
@@ -1042,7 +1042,7 @@ def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeyp
     seen = _record_the_extent(monkeypatch)
     inputs = _fake_inputs(tmp_path, crs="EPSG:2154")
     cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
-    with patch("hydromodpy.spatial.delineation.get_whitebox_backend"):
+    with patch("hydromodpy.catchment.delineation.get_whitebox_backend"):
         manager = HydrographyManager(config=cfg, out_path=tmp_path)
 
     manager._fetch_from_source(cfg.sources[0])
@@ -1056,7 +1056,7 @@ def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeyp
 
 @pytest.mark.fast
 @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-@patch("hydromodpy.spatial.delineation.get_whitebox_backend")
+@patch("hydromodpy.catchment.delineation.get_whitebox_backend")
 def test_the_clip_happens_in_the_frame_the_mask_declares(
     mock_backend_factory, mock_fetch, tmp_path
 ):
@@ -1091,7 +1091,7 @@ def test_rasterising_without_a_reference_grid_is_refused_by_name(tmp_path):
     """``base_raster`` replaced ``geographic.watershed_dem``, and it is required."""
     inputs = _fake_inputs(tmp_path)
     cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
-    with patch("hydromodpy.spatial.delineation.get_whitebox_backend"):
+    with patch("hydromodpy.catchment.delineation.get_whitebox_backend"):
         manager = HydrographyManager(config=cfg, out_path=tmp_path)
     with pytest.raises(ValueError, match="base_raster"):
         manager._rasterize(inputs.mask_path, "FID")

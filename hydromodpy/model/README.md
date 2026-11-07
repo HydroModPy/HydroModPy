@@ -37,8 +37,7 @@ This file is the map of the package. Each folder has its own `README.md`, except
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives the model `core`, `schema`, `catchment`, `mesh` and
-itself, and keeps a temporary edge to `spatial` until that package is emptied. Two more rules hold in the
-code.
+itself. Two more rules hold in the code.
 
 1. The model never imports `data`, `results` or `solver`. It sees loaded data through `LoadResultProto`
    and a field parameter through `FieldParamLike`, both in `contracts.py`. The concrete constructors are

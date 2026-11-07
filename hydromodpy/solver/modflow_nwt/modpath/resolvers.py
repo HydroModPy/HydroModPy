@@ -53,7 +53,7 @@ def resolve_domain_raster(model_modflow: Any) -> str:
 
 def resolve_seepage_clip_raster(*, full_path: str, model_modflow: Any) -> str:
     """Build and return clipped seepage raster path for particle injection."""
-    from hydromodpy.spatial.delineation import get_whitebox_backend
+    from hydromodpy.catchment.delineation import get_whitebox_backend
 
     seepage_tif = os.path.join(
         full_path,

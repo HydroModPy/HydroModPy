@@ -163,7 +163,7 @@ hydromodpy = "hydromodpy.cli.main:main"
 # declares, and a name this build already ships is refused.
 #
 # "hydromodpy.terrain.engine" is the third, read by
-# hydromodpy.spatial.terrain.registry, under the same three rules. It is what
+# hydromodpy.catchment.terrain.registry, under the same three rules. It is what
 # [geographic] terrain_engine names, so a flow-routing
 # engine is substituted from outside without a patch to this package.
 #
@@ -209,7 +209,7 @@ hydromodpy = ["py.typed"]
 "hydromodpy.schema.results" = ["*.json"]
 # The SLURM job templates of `hmp campaign array`, read by importlib.resources.
 "hydromodpy.project.launch.templates" = ["*.sh"]
-"hydromodpy.spatial.administrative" = ["*.gpkg"]
+"hydromodpy.catchment.administrative" = ["*.gpkg"]
 # The curated CF v85 standard-name list is read at runtime by cf_validation.py.
 "hydromodpy.results.zarr_store.data" = ["*.txt"]
 
@@ -218,7 +218,7 @@ source = [
     "hydromodpy.core",
     "hydromodpy.schema",
     "hydromodpy.config",
-    "hydromodpy.spatial",
+    "hydromodpy.catchment",
     "hydromodpy.mesh",
     "hydromodpy.model",
     "hydromodpy.data",

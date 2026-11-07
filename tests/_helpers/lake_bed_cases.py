@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from tests._helpers.geotiffs import write_geotiff
 
 EXTENT = 100.0

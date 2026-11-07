@@ -1,7 +1,7 @@
 """The annotation that marks a configuration field calibrable.
 
 It lives in the kernel, and that placement is the whole point. The annotation
-used to sit in ``calibration/``, a layer that ``model`` and ``spatial`` are
+used to sit in ``calibration/``, a layer that ``model`` and ``catchment`` are
 forbidden to import, so no hydraulic property could ever carry it and the
 discovery walk written to collect them returned nothing on every configuration
 in the repository. A mechanism and a mechanism nobody can reach are not the same

@@ -162,7 +162,7 @@ elif kill_at == "setup_process":
 import numpy as np
 
 from hydromodpy.project.facade import Project
-from hydromodpy.spatial.geographic.geographic_cache import geographic_artifact_paths
+from hydromodpy.catchment.preprocess.geographic_cache import geographic_artifact_paths
 
 
 def _array_digest(values):

@@ -27,7 +27,7 @@ count among ``n_heads``, which stays the free ends the map gave. One off the
 active graph is dropped and logged.
 
 The candidates are found by the spatial layer (it owns shapely and the CRS), and
-:class:`~hydromodpy.spatial.geographic.core.network_heads.HeadCandidates` is defined
+:class:`~hydromodpy.catchment.algorithms.network_heads.HeadCandidates` is defined
 there, where they are produced.
 """
 
@@ -37,10 +37,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
+from hydromodpy.catchment.drainage.distance import DownslopeMetric
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.drainage.distance import DownslopeMetric
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 
 logger = get_logger(__name__)
 

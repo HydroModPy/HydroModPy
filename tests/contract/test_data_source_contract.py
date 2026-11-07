@@ -758,7 +758,7 @@ def test_reprojection_is_what_makes_the_dem_request_answerable() -> None:
     unchanged would not fetch the wrong tiles, it would raise ``No department
     found``.
     """
-    from hydromodpy.spatial.administrative.france import find_departments_in_bbox
+    from hydromodpy.catchment.administrative.france import find_departments_in_bbox
 
     assert find_departments_in_bbox(CALLER_EXTENT.bbox) == []
     assert find_departments_in_bbox(CALLER_EXTENT.to_crs("EPSG:2154").bbox) == [

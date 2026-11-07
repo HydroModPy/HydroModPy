@@ -1,0 +1,61 @@
+# Import rules inside hydromodpy/catchment, described in hydromodpy/catchment/README.md.
+# Checked by test_package_layouts.py.
+
+# Each part of hydromodpy/catchment lists the parts of hydromodpy/catchment it
+# may import. A part may always import itself. "<init>" is the package file,
+# hydromodpy/catchment/__init__.py. A part is a subpackage or a module at the
+# root of the package. What lies outside hydromodpy/catchment (core, schema) is
+# the business of layer_matrix.yaml.
+#
+# Rows are written lowest first: a row names only rows written above it, so
+# this table cannot allow a cycle. terrain reads delineation only inside
+# WhiteboxTerrainEngine.__init__ (test_terrain_port_stands_alone.py). The
+# algorithms read no configuration of the pipeline, so preprocess sits above
+# them and above the synthetic cases. drainage reads nothing of catchment yet.
+allowed:
+  raster_support:   []
+  surface:          [raster_support]
+  surface_sampling: []
+  protocols:        []
+  administrative:   []
+  delineation:      []
+  terrain:          [delineation]
+  algorithms:       [surface, delineation, terrain]
+  synthetic:        [raster_support, surface, algorithms]
+  preprocess:       [delineation, terrain, algorithms, synthetic]
+  drainage:         []
+  "<init>":         []
+
+# The terrain and delineation registries name their built-in engines by a
+# dotted path written as text, inside their own part, which the rows above
+# already allow. No file needs the exemption.
+text_paths: []
+
+# What another layer of hydromodpy may import from hydromodpy/catchment.
+# A pattern ending in ".*" names a package and every module under it.
+# Everything else is private to hydromodpy/catchment: the inside of the
+# geographic pipeline (pipeline, pipeline_steps, domain_rasters, subbasin,
+# regional_flow_job and the small configurations it composes).
+public:
+  # _bootstrap.py reads protocols by a from-import of the package.
+  - hydromodpy.catchment
+  - hydromodpy.catchment.raster_support
+  - hydromodpy.catchment.surface
+  - hydromodpy.catchment.surface_sampling
+  # Read by model and mesh for the geology source.
+  - hydromodpy.catchment.protocols
+  - hydromodpy.catchment.administrative.*
+  - hydromodpy.catchment.delineation.*
+  - hydromodpy.catchment.drainage.*
+  - hydromodpy.catchment.terrain.*
+  - hydromodpy.catchment.algorithms.*
+  - hydromodpy.catchment.synthetic.*
+  # config/section_loader.py reads preprocess.catchment_config by a from-import of the package.
+  - hydromodpy.catchment.preprocess
+  - hydromodpy.catchment.preprocess.capped_breach_config
+  - hydromodpy.catchment.preprocess.catchment_delineation
+  - hydromodpy.catchment.preprocess.delineated_catchment
+  - hydromodpy.catchment.preprocess.geographic_cache
+  - hydromodpy.catchment.preprocess.geographic_config
+  - hydromodpy.catchment.preprocess.preprocessing_cleanup
+  - hydromodpy.catchment.preprocess.store_ingestion

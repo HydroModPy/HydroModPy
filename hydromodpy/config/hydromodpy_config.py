@@ -36,6 +36,7 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.config_migration import (
     _raw_flow_process_solver,
     migrate_sealed_config_doc,
@@ -103,7 +104,6 @@ from hydromodpy.solver.base.solver_config import (
 )
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 logger = get_logger(__name__)
 

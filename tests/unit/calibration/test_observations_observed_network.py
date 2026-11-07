@@ -25,9 +25,9 @@ from hydromodpy.calibration.observations.observed_network import (
     observed_network_mask,
     resolve_minimal_network,
 )
+from hydromodpy.catchment.drainage import descent as core_descent
+from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow_common import catchment_basin
-from hydromodpy.spatial.drainage import descent as core_descent
-from hydromodpy.spatial.drainage.descent import DescentBasin
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
@@ -539,7 +539,7 @@ def test_a_new_placement_is_measured_again(tmp_path, caplog) -> None:
 #
 # ``minimal_observed_network = "data.hydrography"`` reads the network the
 # geographic pipeline attached under the ``reference_permanent`` role
-# (:class:`hydromodpy.spatial.geographic.core.hydrographic_network.HydrographicNetworks`),
+# (:class:`hydromodpy.catchment.algorithms.hydrographic_network.HydrographicNetworks`),
 # never the full ``reference`` one: a source that does not say which reaches are
 # permanent (a custom file with no permanence column, OSM) leaves that role
 # ``None``, and the output is refused by name rather than silently scored on the

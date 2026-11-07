@@ -37,7 +37,7 @@ wires the provider. No `schema_layout.yaml` orders the parts. Three rules hold:
 3. The schema export stays deterministic: no side effect, no field that
    depends on the environment.
 
-Who imports schema: `spatial` (job documents, capability declaration, media
+Who imports schema: `catchment` (job documents, capability declaration, media
 types), `data` (job documents, sources), `results` (sources, media types, generated
 views), `display`, `workflow`, `project` (the lockfile fingerprint) and `cli`.
 

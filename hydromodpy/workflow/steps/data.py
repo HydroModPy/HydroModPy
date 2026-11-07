@@ -6,6 +6,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.catchment.algorithms.derived_features import attach_reference_hydrographic_network
+from hydromodpy.catchment.algorithms.lake_catchments import lake_areas_or_even_split, payload_attr
+from hydromodpy.catchment.algorithms.sfr_traces import build_sfr_reach_traces
+from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
 from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import ConfigError
@@ -39,15 +43,6 @@ from hydromodpy.model.soil.budget import gauged_discharge_line, soil_budget_line
 from hydromodpy.model.soil.config import soil_reservoir_of, spinup_refusal, steady_start_refusal
 from hydromodpy.model.soil.recharge import compute_soil_forcings, ru_ladder
 from hydromodpy.solver.base.runner import ensure_flow
-from hydromodpy.spatial.geographic.core.derived_features import (
-    attach_reference_hydrographic_network,
-)
-from hydromodpy.spatial.geographic.core.lake_catchments import (
-    lake_areas_or_even_split,
-    payload_attr,
-)
-from hydromodpy.spatial.geographic.core.sfr_traces import build_sfr_reach_traces
-from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.workflow.record.run_store import run_dir_of_state
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.data_description import (

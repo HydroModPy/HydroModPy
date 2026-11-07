@@ -52,6 +52,7 @@ def configure(
     no_display: bool,
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
+    from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
@@ -65,7 +66,6 @@ def configure(
         support_provider_names,
     )
     from hydromodpy.model.soil.config import soil_reservoir_of
-    from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
 
     raw_toml = _read_config(project, config)

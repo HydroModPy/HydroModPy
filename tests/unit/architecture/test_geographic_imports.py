@@ -8,13 +8,13 @@ import pytest
 @pytest.mark.parametrize(
     ("module", "name"),
     [
-        ("hydromodpy.spatial.geographic.geographic_config", "GeographicConfig"),
-        ("hydromodpy.spatial.geographic.core.hydrographic_network", "HydrographicNetwork"),
+        ("hydromodpy.catchment.preprocess.geographic_config", "GeographicConfig"),
+        ("hydromodpy.catchment.algorithms.hydrographic_network", "HydrographicNetwork"),
         (
-            "hydromodpy.spatial.geographic.core.hydrographic_network_comparison",
+            "hydromodpy.catchment.algorithms.hydrographic_network_comparison",
             "compare_hydrographic_networks",
         ),
-        ("hydromodpy.spatial.geographic.synthetic.catchment", "build_synthetic_geographic"),
+        ("hydromodpy.catchment.synthetic.catchment", "build_synthetic_geographic"),
     ],
 )
 def test_a_geographic_name_imports_without_a_cycle(module: str, name: str) -> None:

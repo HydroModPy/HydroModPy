@@ -7,11 +7,11 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, model_validator
 
+from hydromodpy.catchment.administrative.regions import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.spatial.administrative.regions import validate_french_regions
 
 RGE_ALTI_RESOLUTIONS_M = (1.0, 5.0)
 """Pixel sizes of the RGE ALTI that the WMS-Raster serves as the product itself."""

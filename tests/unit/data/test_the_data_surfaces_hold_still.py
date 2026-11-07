@@ -75,7 +75,7 @@ def test_every_public_data_name_resolves(module: str, name: str) -> None:
     "shipped",
     [
         "hydromodpy/data/registry/migrations/0001_initial.sql",
-        "hydromodpy/spatial/administrative/departement.gpkg",
+        "hydromodpy/catchment/administrative/departement.gpkg",
     ],
 )
 def test_the_wheel_ships_the_data_files(shipped: str) -> None:

@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
+from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.sfr import (
@@ -22,7 +23,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     sfr_drain_cells_to_drop,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 

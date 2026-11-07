@@ -15,7 +15,7 @@ without one falls back on the old support ``polygon_covers``: the cells whose
 center the catchment polygon covers.
 
 The polygon is read by
-:func:`hydromodpy.spatial.geographic.delineated_catchment.catchment_outline`,
+:func:`hydromodpy.catchment.preprocess.delineated_catchment.catchment_outline`,
 against the mesh of the model: the outline the planner smoothed when the mesh
 follows it, so a cell and the polygon agree, else the delineated polygon.
 A synthetic geographic delineates no catchment: its box is the domain, so it
@@ -31,12 +31,12 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import Descent, DescentBasin, descent_basin
+from hydromodpy.catchment.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
+from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
+from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.drainage.descent import Descent, DescentBasin, descent_basin
-from hydromodpy.spatial.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
-from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
-from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 
 __all__ = [
     "catchment_cell_mask",

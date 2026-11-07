@@ -45,7 +45,7 @@ guides imports a module that is neither listed nor in the facade.
   answer.
 - ``hydromodpy.core.state.run_state``: ``RunState``, what a solver adapter reads.
 - ``hydromodpy.schema``: the JSON Schema export and the partial validator.
-- ``hydromodpy.spatial.terrain.port``: the terrain engine port.
+- ``hydromodpy.catchment.terrain.port``: the terrain engine port.
 - ``hydromodpy.mesh.port``: the mesh engine port.
 - ``hydromodpy.data.source.port``: the data source port.
 - ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
@@ -92,7 +92,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - Protocol
      - Stability
    * - ``hydromodpy.terrain.engine``
-     - ``TerrainEngine``, ``hydromodpy.spatial.terrain.port``
+     - ``TerrainEngine``, ``hydromodpy.catchment.terrain.port``
      - stable
    * - ``hydromodpy.mesh.engine``
      - ``MeshEngine``, ``hydromodpy.mesh.port``
@@ -291,7 +291,7 @@ name. A figure reads a ``Run`` and never a solver file.
 Delineation backend
 ~~~~~~~~~~~~~~~~~~~
 
-``hydromodpy/spatial/delineation/registry.py``. The integrated backend is
+``hydromodpy/catchment/delineation/registry.py``. The integrated backend is
 ``whitebox_workflows``. A backend registers with ``register_backend(name, loader)``
 and is looked up with ``get_backend(name)``. The loader imports lazily.
 

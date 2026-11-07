@@ -1,0 +1,401 @@
+"""Materialize one immutable regional flow stack for several catchments.
+
+Copy sealed regional flow products into a child geographic workspace.
+"""
+
+from __future__ import annotations
+
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from hydromodpy.catchment.algorithms.flow_products import (
+    FlowProducts,
+    build_regional_flow_products,
+    flow_products_from_paths,
+)
+from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_of
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.catchment.terrain import registry as terrain_registry
+from hydromodpy.catchment.terrain.port import CappedBreach
+from hydromodpy.core.exceptions import JobUsageError, TerrainProductError
+from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.schema.job.directory import JobDirectory
+from hydromodpy.schema.job.documents import read_document, read_versioned, write_document
+from hydromodpy.schema.job.inputset import InputResource, build_inputset, inline_resource
+from hydromodpy.schema.job.outcome import (
+    OUTCOME_VERSIONS,
+    JobOutcome,
+    OutputRecord,
+    error_record,
+    now,
+)
+from hydromodpy.schema.job.provenance import build_provenance, write_provenance
+from hydromodpy.schema.job.request import content_address
+from hydromodpy.schema.job.reuse import reuse_sealed_outcome
+from hydromodpy.schema.job.seal import seal_job, verify_job
+from hydromodpy.schema.media_types import GEOTIFF_MEDIA_TYPE, JSON_MEDIA_TYPE
+
+PROCESS_ID = "regional-flow-products"
+PROCESS_VERSION = "1.0.0"
+DESCRIPTION_PATH = "outputs/regional_flow.json"
+
+
+class CappedBreachRequest(BaseModel):
+    """Limits of a capped breach, in meters, as a request carries them."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_depth_m: float = Field(gt=0.0, description="Largest cumulative lowering of one breach, m.")
+    max_distance_m: float = Field(gt=0.0, description="Longest breach path, m.")
+
+
+class RegionalFlowRequest(BaseModel):
+    """Inputs of a regional stack, independent of catchment outlets."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    dem_init_path: Path = Field(description="DEM actually used for routing, elevations in m.")
+    dem_correc_type: Literal["fill", "breach", "capped_breach"]
+    capped_breach: CappedBreachRequest | None = Field(
+        default=None,
+        description="Limits of 'capped_breach'. Required for it, refused for the others.",
+    )
+    crs_project: str | None = None
+    engine_id: str = Field(default=terrain_registry.DEFAULT_ENGINE_ID, min_length=1)
+
+    @model_validator(mode="after")
+    def _limits_belong_to_the_capped_breach(self) -> RegionalFlowRequest:
+        if (self.dem_correc_type == "capped_breach") != (self.capped_breach is not None):
+            raise ValueError(
+                "capped_breach limits are required by dem_correc_type='capped_breach' "
+                f"and refused by the others, got dem_correc_type={self.dem_correc_type!r}."
+            )
+        return self
+
+    def breach_limits(self) -> CappedBreach | None:
+        """Return the limits as the terrain port takes them."""
+        if self.capped_breach is None:
+            return None
+        return CappedBreach(
+            max_depth_m=self.capped_breach.max_depth_m,
+            max_distance_m=self.capped_breach.max_distance_m,
+        )
+
+    def document(self) -> dict[str, Any]:
+        """Return the request as JSON, without a limit that does not apply.
+
+        A ``fill`` or ``breach`` request therefore reads as it did before the
+        capped breach existed, which keeps the unfinished jobs it addressed.
+        """
+        document = self.model_dump(mode="json")
+        if self.capped_breach is None:
+            del document["capped_breach"]
+        return document
+
+
+def _request(
+    *,
+    dem_init_path: str | Path,
+    dem_correc_type: str,
+    crs_project: str | None,
+    engine_id: str | None,
+    capped_breach: CappedBreach | None,
+) -> RegionalFlowRequest:
+    """Build the request one set of keyword arguments describes."""
+    return RegionalFlowRequest.model_validate(
+        {
+            "dem_init_path": Path(dem_init_path).expanduser().resolve(),
+            "dem_correc_type": dem_correc_type,
+            "capped_breach": (
+                None
+                if capped_breach is None
+                else {
+                    "max_depth_m": capped_breach.max_depth_m,
+                    "max_distance_m": capped_breach.max_distance_m,
+                }
+            ),
+            "crs_project": crs_project,
+            "engine_id": terrain_registry.DEFAULT_ENGINE_ID if engine_id is None else engine_id,
+        }
+    )
+
+
+@dataclass(frozen=True)
+class RegionalFlowJob:
+    """A verified flow stack and its materialization outcome."""
+
+    job_dir: Path
+    job_id: str
+    products: FlowProducts
+    outcome: JobOutcome
+
+
+def _resolved(
+    request: RegionalFlowRequest, *, backend: object | None = None
+) -> tuple[dict[str, Any], str, int]:
+    digest, size = sha256_file(request.dem_init_path)
+    engine = terrain_registry.create(request.engine_id, backend=backend)
+    inputs = {
+        "dem_sha256": digest,
+        "dem_correc_type": request.dem_correc_type,
+        "crs_project": request.crs_project,
+        "engine": {
+            "name": engine.engine_id,
+            "version": engine.engine_version,
+            "digest": engine.engine_digest(),
+        },
+    }
+    if request.capped_breach is not None:
+        # Only for the method that reads them: fill and breach keep their address.
+        inputs["capped_breach"] = request.capped_breach.model_dump(mode="json")
+    job_id = content_address(process_id=PROCESS_ID, process_version=PROCESS_VERSION, inputs=inputs)
+    return inputs, job_id, size
+
+
+def regional_flow_identity(
+    *,
+    dem_init_path: str | Path,
+    dem_correc_type: str,
+    crs_project: str | None = None,
+    engine_id: str | None = None,
+    backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
+) -> str:
+    """Address the DEM bytes, correction, CRS and resolved engine build.
+
+    The limits of a capped breach enter the address, and only for that method.
+    """
+    request = _request(
+        dem_init_path=dem_init_path,
+        dem_correc_type=dem_correc_type,
+        crs_project=crs_project,
+        engine_id=engine_id,
+        capped_breach=capped_breach,
+    )
+    return _resolved(request, backend=backend)[1]
+
+
+def load_regional_flow_job(
+    *,
+    job_dir: str | Path,
+    expected_job_id: str | None = None,
+    dem_init_path: str | Path | None = None,
+    dem_correc_type: str | None = None,
+    crs_project: str | None = None,
+    engine_id: str | None = None,
+    backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
+) -> RegionalFlowJob:
+    """Read a sealed stack after verifying every published artifact."""
+    if dem_init_path is not None:
+        if dem_correc_type is None:
+            raise ValueError("dem_correc_type is required when validating a routing DEM")
+        addressed = regional_flow_identity(
+            dem_init_path=dem_init_path,
+            dem_correc_type=dem_correc_type,
+            crs_project=crs_project,
+            engine_id=engine_id,
+            backend=backend,
+            capped_breach=capped_breach,
+        )
+        if expected_job_id is not None and addressed != expected_job_id:
+            raise JobUsageError("Regional flow inputs disagree with expected_job_id")
+        expected_job_id = addressed
+    job = JobDirectory.for_reading(job_dir)
+    verification = verify_job(job)
+    if not verification.ok:
+        raise TerrainProductError(
+            f"Regional flow job {job.root} cannot be reused: " + "; ".join(verification.problems)
+        )
+    request_document = read_document(job.resolve_output(DESCRIPTION_PATH))
+    if request_document.get("process") != {"id": PROCESS_ID, "version": PROCESS_VERSION}:
+        raise JobUsageError(f"Job {job.root} is not a {PROCESS_ID} {PROCESS_VERSION} job")
+    request = RegionalFlowRequest.model_validate(request_document["inputs"])
+    stored = JobOutcome.from_document(read_versioned(job.outcome_path, OUTCOME_VERSIONS))
+    described_id = content_address(
+        process_id=PROCESS_ID,
+        process_version=PROCESS_VERSION,
+        inputs=request_document["resolved_inputs"],
+    )
+    if described_id != stored.job_id:
+        raise TerrainProductError(f"Regional flow description disagrees with job {stored.job_id}")
+    if stored.status != "successful":
+        raise TerrainProductError(f"Regional flow job {job.root} did not succeed")
+    outcome = reuse_sealed_outcome(job, job_id=expected_job_id or stored.job_id)
+    products = flow_products_from_paths(
+        dem_out_dir_path=job.outputs_dir,
+        dem_correc_type=request.dem_correc_type,
+        capped_breach=request.breach_limits(),
+    )
+    return RegionalFlowJob(job.root, outcome.job_id, products, outcome)
+
+
+def materialize_regional_flow_job(
+    *,
+    job_dir: str | Path,
+    dem_init_path: str | Path,
+    dem_correc_type: str,
+    crs_project: str | None = None,
+    engine_id: str | None = None,
+    backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
+) -> RegionalFlowJob:
+    """Build once or read the same sealed job; callers serialize submissions."""
+    request = _request(
+        dem_init_path=dem_init_path,
+        dem_correc_type=dem_correc_type,
+        crs_project=crs_project,
+        engine_id=engine_id,
+        capped_breach=capped_breach,
+    )
+    inputs, job_id, dem_bytes = _resolved(request, backend=backend)
+    job = JobDirectory.create(job_dir)
+    if job.is_sealed:
+        return load_regional_flow_job(job_dir=job.root, expected_job_id=job_id)
+    if job.request_path.exists():
+        previous = read_document(job.request_path)
+        if previous.get("inputs") != request.document():
+            raise JobUsageError(f"Unfinished regional flow job {job.root} names other inputs")
+    job.ensure_workspace()
+    write_document(
+        job.request_path,
+        {
+            "process": {"id": PROCESS_ID, "version": PROCESS_VERSION},
+            "inputs": request.document(),
+        },
+    )
+    started_at = now()
+    try:
+        products = build_regional_flow_products(
+            dem_init_path=request.dem_init_path,
+            dem_out_dir_path=job.outputs_dir,
+            dem_correc_type=request.dem_correc_type,
+            crs_project=request.crs_project,
+            engine_id=request.engine_id,
+            backend=backend,
+            capped_breach=request.breach_limits(),
+        )
+        inputset = build_inputset(
+            [
+                InputResource(
+                    name="dem",
+                    role="dem",
+                    href=str(request.dem_init_path),
+                    media_type=GEOTIFF_MEDIA_TYPE,
+                    bytes=dem_bytes,
+                    sha256=inputs["dem_sha256"],
+                ),
+                inline_resource("parameters", role="parameters", value=inputs, pointer="/inputs"),
+            ]
+        )
+        write_document(job.inputset_path, inputset.to_document())
+        write_provenance(
+            job,
+            build_provenance(
+                job_id=job_id,
+                process_id=PROCESS_ID,
+                process_version=PROCESS_VERSION,
+                backend=inputs["engine"],
+            ),
+        )
+        description: dict[str, Any] = {
+            "process": {"id": PROCESS_ID, "version": PROCESS_VERSION},
+            "inputs": request.document(),
+            "resolved_inputs": inputs,
+            "accumulation": {"units": "cells", "transform": "ln"},
+            "pointer_convention": "d8_wbt",
+        }
+        report = products.accumulation.directions.conditioned_dem.breach_report
+        if report is not None:
+            # Measured, so outside resolved_inputs: it is an output, not an address.
+            description["conditioning_report"] = report.to_document()
+        write_document(job.resolve_output(DESCRIPTION_PATH), description)
+        records = []
+        for name, path in (
+            ("corrected_dem", products.correc),
+            ("flow_direction", products.direc),
+            ("flow_accumulation", products.acc),
+        ):
+            digest, size = sha256_file(Path(path))
+            records.append(
+                OutputRecord(
+                    id=name,
+                    path=job.relative(path),
+                    media_type=GEOTIFF_MEDIA_TYPE,
+                    bytes=size,
+                    sha256=digest,
+                )
+            )
+        digest, size = sha256_file(job.resolve_output(DESCRIPTION_PATH))
+        records.append(
+            OutputRecord(
+                id="regional_flow",
+                path=DESCRIPTION_PATH,
+                media_type=JSON_MEDIA_TYPE,
+                bytes=size,
+                sha256=digest,
+            )
+        )
+        outcome = JobOutcome(
+            job_id=job_id,
+            process_id=PROCESS_ID,
+            process_version=PROCESS_VERSION,
+            status="successful",
+            exit_code=0,
+            started_at=started_at,
+            finished_at=now(),
+            outputs=tuple(records),
+        )
+        outcome.write(job)
+        seal_job(job, job_id=job_id, inputset=inputset, outputs=records)
+    except Exception as exc:
+        JobOutcome(
+            job_id=job_id,
+            process_id=PROCESS_ID,
+            process_version=PROCESS_VERSION,
+            status="failed",
+            exit_code=1,
+            started_at=started_at,
+            finished_at=now(),
+            errors=(error_record(exc),),
+        ).write(job)
+        raise
+    return RegionalFlowJob(job.root, job_id, products, outcome)
+
+
+def copy_regional_flow_from_job(
+    *,
+    config: GeographicConfig,
+    routing_dem_path: str | Path,
+    output_dir: str | Path,
+    crs_project: str | None,
+    backend: object | None = None,
+) -> FlowProducts:
+    """Verify a regional job, then give one child its own flow rasters."""
+    if config.reg_fold is None:
+        raise ValueError("geographic.reg_fold is required")
+    if config.river_network.enabled:
+        raise ValueError("River network products cannot use a shared regional flow job")
+    job = load_regional_flow_job(
+        job_dir=config.reg_fold,
+        dem_init_path=routing_dem_path,
+        dem_correc_type=config.dem_correc_type,
+        crs_project=crs_project,
+        engine_id=config.terrain_engine,
+        backend=backend,
+        capped_breach=capped_breach_of(config),
+    )
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    for source in (job.products.correc, job.products.direc, job.products.acc):
+        source_path = Path(source)
+        shutil.copy2(source_path, destination / source_path.name)
+    return flow_products_from_paths(
+        dem_out_dir_path=destination,
+        dem_correc_type=config.dem_correc_type,
+        capped_breach=capped_breach_of(config),
+    )

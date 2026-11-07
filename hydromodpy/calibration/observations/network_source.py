@@ -225,7 +225,7 @@ def cut_to_the_catchment(
     A file is cut by the rule of the hydrography data family, in the CRS of the
     mask. A map the data layer already cut keeps its geometry. Both then name the
     outline, which is what tells an end of the cut from a head
-    (:func:`hydromodpy.spatial.geographic.core.network_heads.network_head_candidates`).
+    (:func:`hydromodpy.catchment.algorithms.network_heads.network_head_candidates`).
 
     ``map.clip_to_catchment = false`` returns the map as it arrived, and a run with
     no mask has nothing to cut it to. A map with no CRS is left as it is too: the

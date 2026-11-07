@@ -37,7 +37,7 @@ from __future__ import annotations
 import hashlib
 from typing import ClassVar
 
-from hydromodpy.spatial.terrain import NumpyTerrainEngine
+from hydromodpy.catchment.terrain.numpy_engine import NumpyTerrainEngine
 
 
 class ProbeTerrainEngine:

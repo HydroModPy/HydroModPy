@@ -10,6 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
@@ -17,8 +19,6 @@ from hydromodpy.solver.modflow_grid.discretization_spatial import (
     _build_extruded_solver_mesh_from_runtime_planar,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.cell_meshes import cell_mesh_of
 
 _EXTENT = 100.0

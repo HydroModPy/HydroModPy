@@ -9,12 +9,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget.flux import budget_outflow
-from hydromodpy.spatial.drainage.graph import (
+from hydromodpy.catchment.drainage.graph import (
     accumulate_on_downhill_graph,
     active_surface_mask,
     build_downhill_graph,
 )
+from hydromodpy.core.budget.flux import budget_outflow
 from tests._helpers.run_builders import RunBuilder, runs
 
 __all__ = ["runs"]

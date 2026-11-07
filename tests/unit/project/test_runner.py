@@ -53,9 +53,9 @@ SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" /
 
 def _declared_config(root: Path):
     """The narrow slice of a real configuration a dry run reads."""
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
         workflow={"mode": "simulation"},

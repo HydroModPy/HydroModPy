@@ -17,9 +17,9 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import build_descent
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.spatial.drainage.descent import build_descent
 from tests._helpers.run_stores import claim_run, facts_of
 
 NROW = 5

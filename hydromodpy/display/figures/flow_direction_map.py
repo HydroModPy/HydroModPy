@@ -11,12 +11,12 @@ same gray to two of the eight bearings.
 
 The octant is derived from geometry, not from a pointer table. This figure
 reads the receivers of the descent D of the run (``run.descent``, see
-:mod:`hydromodpy.spatial.drainage.descent`) and takes the vector from a cell center to its
+:mod:`hydromodpy.catchment.drainage.descent`) and takes the vector from a cell center to its
 receiver's center, so it says the same thing on a Voronoi dual as on a
 structured grid. D follows the channel tree where the run has one, so a
 receiver is not always a neighbor. In particular it is NOT a whitebox D8
 pointer: this repository uses whitebox's convention rather than ESRI's
-(``D8_WBT_OFFSETS`` in ``hydromodpy/spatial/terrain/port.py``), and a reader who
+(``D8_WBT_OFFSETS`` in ``hydromodpy/catchment/terrain/port.py``), and a reader who
 assumes a pointer code is being decoded here would look for the wrong bug.
 
 A cell with no receiver is drawn as such rather than as an arrow of zero

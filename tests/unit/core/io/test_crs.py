@@ -24,9 +24,9 @@ from pyproj import CRS, Transformer
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
 
+from hydromodpy.catchment.algorithms.metric_crs import measure_polygon_area_m2
 from hydromodpy.core.io import crs as crs_io
 from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
-from hydromodpy.spatial.geographic.core.metric_crs import measure_polygon_area_m2
 
 _KM_LINE = LineString([(0.0, 0.0), (1000.0, 0.0)])
 

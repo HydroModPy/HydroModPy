@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import line_parts
 from hydromodpy.mesh.planar.geometry import padded_rows
-from hydromodpy.spatial.geographic.core.network_heads import line_parts
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry

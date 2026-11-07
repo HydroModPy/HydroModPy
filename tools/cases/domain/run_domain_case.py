@@ -31,6 +31,9 @@ repo_root = Path(__file__).resolve().parents[3]
 if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
+from hydromodpy.catchment.algorithms.derived_features import DomainGeographicContext
+from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
+from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.workspace import WorkspaceLayout
@@ -41,9 +44,6 @@ from hydromodpy.model.domain.build import (
 )
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.structure_binders import build_catchment_zone_field_from_geographic
-from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.core.derived_features import DomainGeographicContext
-from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
 from tools.cases.plotting_utils import maximize_figure_windows
 
 

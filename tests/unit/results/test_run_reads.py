@@ -17,6 +17,8 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.catchment.drainage.descent import Descent, descent_from_stored_mesh
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
@@ -69,8 +71,6 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar,
     write_descent_sidecar_to_store,
 )
-from hydromodpy.spatial.drainage.descent import Descent, descent_from_stored_mesh
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.run_records import make_checks
 from tests._helpers.run_stores import claim_run, facts_of, open_run_store

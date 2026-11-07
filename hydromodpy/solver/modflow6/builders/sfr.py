@@ -66,8 +66,8 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.catchment.drainage.descent import Descent
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.drainage.descent import Descent
 
 logger = get_logger(__name__)
 

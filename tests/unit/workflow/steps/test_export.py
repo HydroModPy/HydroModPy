@@ -15,6 +15,8 @@ import hydromodpy.results.exporters.request as request_module
 import hydromodpy.workflow.steps.export as export_module
 import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.calibration.runners.session_scope import release_session_scratch
+from hydromodpy.catchment.preprocess import preprocessing_cleanup
+from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
@@ -32,8 +34,6 @@ from hydromodpy.results.storage.contract import (
     RUN_SOLVER_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
-from hydromodpy.spatial.geographic import preprocessing_cleanup
-from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing, step_cleanup_scratch
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
@@ -555,7 +555,7 @@ def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_t
         raise OSError("device busy")
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.preprocessing_cleanup.cleanup_stable_folder", boom
+        "hydromodpy.catchment.preprocess.preprocessing_cleanup.cleanup_stable_folder", boom
     )
     release_session_scratch(_trial_ctx(geographic))
 

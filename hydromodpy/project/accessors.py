@@ -505,7 +505,7 @@ class ProjectCatalog:
         """
         project = self._project
         if project._phase != "uninitialized":
-            from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
+            from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 
             geographic_cfg = getattr(project._ctx.cfg, "geographic", None)
             cleanup_stable_folder(

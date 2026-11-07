@@ -511,7 +511,7 @@ def test_the_geometric_fallback_warns_once_for_a_whole_range(
     sid = store.sim_id
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.spatial.drainage.graph"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
         read_field_range_or_virtual(store, sid, "seepage_mask", 0, reference.N_STEPS)
 
     assert len(_fallback_warnings(caplog)) == 1
@@ -521,7 +521,7 @@ def test_the_geometric_fallback_warns_once_for_each_step_read_alone(built, caplo
     store = built("boussinesq_no_excess")
     sid = store.sim_id
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.spatial.drainage.graph"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
         read_field_or_virtual(store, sid, "seepage_mask", 1)
         read_field_or_virtual(store, sid, "seepage_mask", 2)
 
@@ -529,7 +529,7 @@ def test_the_geometric_fallback_warns_once_for_each_step_read_alone(built, caplo
 
 
 def test_a_modflow_store_stays_quiet_and_so_does_a_surface_excess_store(built, caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.spatial.drainage.graph"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
         for kind in ("mf6", "boussinesq"):
             store = built(kind)
             sid = store.sim_id
@@ -550,7 +550,7 @@ def test_the_solute_chain_warns_once_when_it_falls_back_to_the_geometric_mask(
         sz.close()
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.spatial.drainage.graph"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
         read_field_range_or_virtual(store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS)
 
     assert len(_fallback_warnings(caplog)) == 1

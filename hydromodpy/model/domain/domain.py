@@ -17,6 +17,8 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.logging import get_logger
@@ -27,8 +29,6 @@ from hydromodpy.model.domain.depth_model_config import (
     RasterThicknessDepthModel,
 )
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 
 logger = get_logger(__name__)
 

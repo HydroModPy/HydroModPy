@@ -21,7 +21,7 @@ class RunHydrographicMixin:
 
     def available_hydrographic_network_roles(self) -> list[str]:
         """Return the canonical hydrographic-network roles stored for this run."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             canonical_feature_name_for_role,
         )
 
@@ -39,7 +39,7 @@ class RunHydrographicMixin:
 
     def hydrographic_network(self, role: str = "generated") -> gpd.GeoDataFrame:
         """Return one persisted hydrographic network by canonical role."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             canonical_feature_name_for_role,
         )
 
@@ -61,7 +61,7 @@ class RunHydrographicMixin:
 
     def hydrographic_network_naming(self, role: str = "generated") -> dict[str, str | None]:
         """Return canonical naming hints for one hydrographic-network role."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        from hydromodpy.catchment.algorithms.hydrographic_network import (
             hydrographic_network_naming_contract,
         )
 
@@ -81,7 +81,7 @@ class RunHydrographicMixin:
         tolerance_m: float = 50.0,
     ):
         """Return one tolerance-based geometric comparison between two stored networks."""
-        from hydromodpy.spatial.geographic.core.hydrographic_network_comparison import (
+        from hydromodpy.catchment.algorithms.hydrographic_network_comparison import (
             compare_hydrographic_networks,
         )
 

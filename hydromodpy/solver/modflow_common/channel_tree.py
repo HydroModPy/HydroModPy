@@ -19,7 +19,7 @@ __all__ = ["ChannelTree", "channel_tree_for_run", "project_channel_tree", "read_
 
 logger = get_logger(__name__)
 
-# File names written by spatial.geographic.core.river_network.
+# File names written by catchment.algorithms.river_network.
 _LINK_NAME = "dem_stream_link_id_full.tif"
 
 _STREAMS_NAME = "dem_streams_full.tif"
@@ -62,7 +62,7 @@ def channel_tree_for_run(
     :func:`active_channel_raster`). ``required`` is set when a network of the run
     was delineated from A, so missing rasters are an error.
     """
-    from hydromodpy.spatial.geographic.core.flow_products import DIRECTION_NAME
+    from hydromodpy.catchment.algorithms.flow_products import DIRECTION_NAME
 
     if not required and not getattr(geographic, "river_network_enabled", False):
         logger.info(
@@ -219,8 +219,8 @@ def project_channel_tree(
     largest accumulation of a cell grows strictly along its pins. A cycle means
     the pointer and the accumulation disagree, and it is refused.
     """
+    from hydromodpy.catchment.terrain.d8 import d8_receivers
     from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
-    from hydromodpy.spatial.terrain.d8 import d8_receivers
 
     on_graph = np.asarray(routable, dtype=bool).reshape(-1)
     lakes = np.asarray(lake_of, dtype=int).reshape(-1)

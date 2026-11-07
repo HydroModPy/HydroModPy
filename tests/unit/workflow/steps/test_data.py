@@ -12,6 +12,18 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString, box
 
+from hydromodpy.catchment.algorithms.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
+from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import ExecutionRegistry, LoadedDataContext, SetupContext
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
@@ -20,18 +32,6 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.boundaries.streams import apply_sfr_network_to_flow
 from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
 from hydromodpy.model.soil.config import SoilReservoirConfig, spinup_refusal, steady_start_refusal
-from hydromodpy.spatial.geographic.core.derived_features import (
-    GeographicBoundaryFeatures,
-    GeographicDerivedFeatures,
-)
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-    HydrographicNetwork,
-    HydrographicNetworks,
-)
-from hydromodpy.spatial.geographic.store_ingestion import persist_geographic_to_store
 from hydromodpy.workflow.steps import data as data_step
 from hydromodpy.workflow.steps.data import (
     apply_structural_updates_from_data,

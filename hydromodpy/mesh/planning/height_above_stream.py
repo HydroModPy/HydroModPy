@@ -22,10 +22,10 @@ from rasterio.features import rasterize
 from scipy.ndimage import binary_dilation
 from shapely.geometry import LineString
 
+from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M
+from hydromodpy.catchment.drainage.graph import active_surface_mask
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.request import RasterGridSpec
-from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M
-from hydromodpy.spatial.drainage.graph import active_surface_mask
 
 __all__ = ["height_above_stream", "stream_pixels"]
 

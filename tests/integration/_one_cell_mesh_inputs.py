@@ -30,6 +30,7 @@ import xarray as xr
 from pyproj import CRS
 from shapely.geometry import Polygon, box
 
+from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult, PointRecord, StationLocation
 from hydromodpy.data.variables.geology.field import build_geology_field
@@ -49,7 +50,6 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow6.support.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
-from hydromodpy.spatial.raster_support import RasterSupport
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ISLAND_MSH = (

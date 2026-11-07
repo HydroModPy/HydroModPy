@@ -83,7 +83,7 @@ package "hydromodpy.model" {
   }
 }
 
-package "hydromodpy.spatial.geographic" {
+package "hydromodpy.catchment.preprocess" {
   class "structure_binders" as DomainBinders <<module>> {
     +apply_geology_to_domain(domain, geology)
   }

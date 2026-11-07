@@ -18,11 +18,11 @@ import pytest
 import zarr
 
 import hydromodpy as hmp
+from hydromodpy.catchment.terrain import registry as terrain_registry
 from hydromodpy.core.code_fingerprint import RUN_LAYERS
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.data.workspace.scaffold import scaffold
 from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME, RUN_SEARCH_TABLE
-from hydromodpy.spatial.terrain import registry as terrain_registry
 from hydromodpy.workflow.steps.extract import ExtractStep
 from tests._helpers.cli_runner import CliRunner
 from tests.characterization.comparator import compare_run_dirs

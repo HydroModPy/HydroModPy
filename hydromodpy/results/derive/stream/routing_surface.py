@@ -38,19 +38,16 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.results.derive.run_memo import RunMemo
-from hydromodpy.spatial.drainage.distance import (
-    resolve_diagonal_neighbors,
-    shared_node_adjacency,
-)
-from hydromodpy.spatial.drainage.graph import (
+from hydromodpy.catchment.drainage.distance import resolve_diagonal_neighbors, shared_node_adjacency
+from hydromodpy.catchment.drainage.graph import (
     active_surface_mask,
     cell_adjacency_from_face_connectivity,
     cell_centroids_from_mesh,
     domain_edge_cells,
 )
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.results.derive.run_memo import RunMemo
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run

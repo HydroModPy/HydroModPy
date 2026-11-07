@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain import Domain
@@ -15,7 +17,6 @@ from hydromodpy.solver.modflow_grid import (
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
-from hydromodpy.spatial import RasterSupport, Surface
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 

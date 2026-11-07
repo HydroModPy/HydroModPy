@@ -24,9 +24,9 @@ from hydromodpy.calibration.protocols import (
 from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import _geographic_choices, _methods_paragraph_for
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_nwt.nwt import nwt_solver
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests.unit.calibration._factories_runners import make_report
 
 # From test_the_dem_conditioning_is_an_offered_departure.py

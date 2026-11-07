@@ -1,0 +1,186 @@
+"""Measure how far the computed flow paths stray from the mapped stream network.
+
+Seed the D8 pointer on every mapped cell of the catchment and follow it down: the
+cells reached form the downstream closure of the network. ``alpha`` is the share
+of that closure the mapped network already covers, so ``1.0`` means the computed
+paths never leave the map, and ``0.5`` means each mapped cell generates one cell
+of spurious trace, the signature of a systematic one-pixel shift.
+
+This is not a quality mark on the network, which is an input taken as given. It
+measures the disagreement between the DEM and that network. It is a diagnostic of
+the geographic step: it decides no treatment and never stops a run. It reads a local vector file only (a
+``[[data.hydrography.sources]]`` entry with ``source = "custom"``) and needs no
+calibration.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+import numpy as np
+import rasterio
+from rasterio.features import rasterize
+
+from hydromodpy.catchment.terrain.d8 import d8_receivers
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.toml_io.paths import is_declared_absolute_path
+
+logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class NetworkDemAgreement:
+    """Agreement between one D8 pointer raster and the mapped stream network."""
+
+    n_network_cells: int
+    n_closure_cells: int
+    alpha: float
+
+
+def measure_network_dem_agreement(
+    *,
+    d8_pointer_path: str | Path,
+    watershed_shp: str | Path,
+    stream_lines: list,
+) -> NetworkDemAgreement:
+    """Measure the agreement between one D8 pointer raster and a mapped network."""
+    import geopandas as gpd
+
+    with rasterio.open(str(d8_pointer_path)) as src:
+        codes = src.read(1)
+        transform = src.transform
+        shape = codes.shape
+
+    lines = [g for g in stream_lines if g is not None and not g.is_empty]
+    if not lines:
+        raise ValueError("measure_network_dem_agreement: no stream geometry to measure.")
+    network = rasterize(
+        ((g, 1) for g in lines),
+        out_shape=shape,
+        transform=transform,
+        fill=0,
+        all_touched=True,
+        dtype="uint8",
+    ).astype(bool)
+
+    catchment = gpd.read_file(str(watershed_shp))
+    core = rasterize(
+        ((g, 1) for g in catchment.geometry if g is not None and not g.is_empty),
+        out_shape=shape,
+        transform=transform,
+        fill=0,
+        all_touched=False,
+        dtype="uint8",
+    ).astype(bool)
+
+    seeds = np.flatnonzero((network & core).ravel())
+    if seeds.size == 0:
+        raise ValueError(
+            "measure_network_dem_agreement: the mapped network and the catchment "
+            "polygon do not share a single cell; check their CRS and extents."
+        )
+    closure = _downstream_closure(d8_receivers(codes, pit="none"), seeds)
+    n_closure = int(np.count_nonzero(closure.reshape(shape) & core))
+
+    return NetworkDemAgreement(
+        n_network_cells=int(seeds.size),
+        n_closure_cells=n_closure,
+        alpha=float(seeds.size) / float(n_closure) if n_closure else float("nan"),
+    )
+
+
+def read_network_map(path: str | Path, crs: object | None) -> list:
+    """Read the mapped network geometries from a local vector file.
+
+    The path is anchored once, when the configuration is loaded: relative to the
+    TOML that declares it, and a bare filename under ``<workspace>/data/``.
+    Nothing is probed here, so the run reads the same file whatever directory it
+    was launched from. A value that arrives relative was never anchored (a
+    configuration built without the loader): it is still read, from the working
+    directory, but it says so.
+    """
+    import geopandas as gpd
+
+    path = Path(path)
+    if not is_declared_absolute_path(path):
+        logger.warning(
+            "The network map path is relative (%s), so it is read from the working "
+            "directory. Loading the configuration through HydroModPyConfig anchors it "
+            "on the TOML that declares it instead.",
+            path,
+        )
+    if not path.exists():
+        raise FileNotFoundError(f"The network map points to nothing: {path}.")
+    gdf = gpd.read_file(path)
+    if crs is not None:
+        gdf = gdf.to_crs(crs)
+    return [g for g in gdf.geometry if g is not None and not g.is_empty]
+
+
+def report_network_dem_agreement(
+    setup: object,
+    *,
+    network_map_path: str | Path | None,
+    d8_pointer_path: str | Path,
+) -> NetworkDemAgreement | None:
+    """Measure, log and journal the DEM/network agreement when a map is given.
+
+    Alpha is a diagnostic and never stops a run. Returns ``None`` when no local
+    map was resolved or when the map cannot be read or measured (one warning
+    names the map and the reason). In both cases the journal of an earlier map
+    is removed, so the JSON always describes the current map.
+    """
+    summary_path = Path(setup.paths.geographic_path) / "stream_dem_agreement.json"
+    if network_map_path is None:
+        summary_path.unlink(missing_ok=True)
+        return None
+
+    try:
+        agreement = measure_network_dem_agreement(
+            d8_pointer_path=d8_pointer_path,
+            watershed_shp=setup.paths.watershed_shp,
+            stream_lines=read_network_map(network_map_path, getattr(setup, "crs_project", None)),
+        )
+    except (ValueError, OSError) as exc:
+        summary_path.unlink(missing_ok=True)
+        logger.warning(
+            "The stream/DEM agreement (alpha) was skipped: the network map %s could not be measured (%s).",
+            network_map_path,
+            exc,
+        )
+        return None
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(asdict(agreement), indent=1), encoding="utf-8")
+
+    logger.info(
+        "Stream/DEM agreement: %d mapped cells generate a downstream closure of %d (alpha %.3f).",
+        agreement.n_network_cells,
+        agreement.n_closure_cells,
+        agreement.alpha,
+    )
+    if agreement.alpha < STREAM_CRITERION_DEFAULTS.alpha_warning_threshold:
+        logger.warning(
+            "Stream/DEM agreement is low (alpha %.3f): following D8 from the mapped "
+            "network leaves it almost at once, so any length measured along those "
+            "paths reports a DEM-versus-map disagreement rather than hydrogeology. "
+            "The criterion measures on the model top, not on this pointer.",
+            agreement.alpha,
+        )
+    return agreement
+
+
+def _downstream_closure(receivers: np.ndarray, seeds: np.ndarray) -> np.ndarray:
+    """Flat boolean mask of the cells reached by following D8 from ``seeds``."""
+    reached = np.zeros(receivers.size, dtype=bool)
+    reached[seeds] = True
+    frontier = np.asarray(seeds, dtype=np.int64)
+    while frontier.size:
+        nxt = receivers[frontier]
+        nxt = nxt[nxt >= 0]
+        nxt = np.unique(nxt[~reached[nxt]])
+        reached[nxt] = True
+        frontier = nxt
+    return reached

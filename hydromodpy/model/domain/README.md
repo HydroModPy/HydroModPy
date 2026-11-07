@@ -15,7 +15,7 @@ and below each cell.
    base of the aquifer, and the raster models read a base raster first.
 3. `structure_binders.py` writes the geology and the catchment zones into the domain, once the data is
    loaded. The catchment zones are a `CatchmentZonesField`, defined in
-   `spatial/geographic/core/catchment_zones_field.py` beside the code that computes them.
+   `catchment/algorithms/catchment_zones_field.py` beside the code that computes them.
 4. The solvers read the layers. `layering.py` turns `[domain.layers]` and the two surfaces into the
    bottom and the `idomain` of every layer.
 5. A heterogeneous parameter asks for a support. A provider in `spatial_support.py` builds a support
@@ -77,24 +77,24 @@ no file. The two raster models read a raster from `[data.substratum]`, and `buil
 
 ## Rules between the modules
 
-The package reads `core`, `schema` and, until `spatial` is emptied, a few modules of `spatial/`.
+The package reads `core`, `schema` and a few modules of `catchment/`.
 
 - `depth_model_config.py`, `layers_config.py` and `spatial_support_config.py` import only `core`.
   `domain_config.py` reads these three and `core`.
 - `layering.py` reads `layers_config.py` and `core`. It works on arrays only, so it knows no `Domain`.
-- `build.py` and `domain.py` read the config modules, `spatial/surface.py` and `spatial/raster_support.py`.
+- `build.py` and `domain.py` read the config modules, `catchment/surface.py` and `catchment/raster_support.py`.
 - `support_fields.py` reads `model/properties/` (`Field` and `cell_sampling`) and
   `mesh/planar/planar_cell_mesh.py`. `spatial_support.py` reads `support_fields.py` and the support
   config.
-- `capability.py` reads `schema`, `depth_model_config.py` and `spatial/job_inputs.py`. `worker.py` reads
-  `schema` and `spatial/job_inputs.py`, and `spatial/geographic/core/surface_from_dem.py` for the top
+- `capability.py` reads `schema`, `depth_model_config.py` and `job_inputs.py`. `worker.py` reads
+  `schema` and `job_inputs.py`, and `catchment/algorithms/surface_from_dem.py` for the top
   surface.
 - `active_cells.py` reads `core` and `schema.job.refusal`. `domain_document.py` reads `capability.py` and
   nothing else from HydroModPy.
-- `structure_binders.py` reads `spatial/geographic/core/` and names `Domain` and `GeologyField` for
+- `structure_binders.py` reads `catchment/algorithms/` and names `Domain` and `GeologyField` for
   typing only.
-- `lake_bed_abacus.py` reads only `core.logging`. `lake_bed_regrid.py` reads it, `spatial/surface.py` and
-  `spatial/surface_sampling.py`, and takes the mesh as an argument.
+- `lake_bed_abacus.py` reads only `core.logging`. `lake_bed_regrid.py` reads it, `catchment/surface.py` and
+  `catchment/surface_sampling.py`, and takes the mesh as an argument.
 - Nothing in `model/properties/` imports `domain/`.
 
 ## What lives outside the package

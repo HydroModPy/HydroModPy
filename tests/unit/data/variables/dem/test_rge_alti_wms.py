@@ -251,7 +251,7 @@ def test_the_default_resolution_is_5_m(tmp_path) -> None:
 def _in_france(monkeypatch) -> None:
     # The department outlines stop short of this shore; the box is not what is tested.
     monkeypatch.setattr(
-        "hydromodpy.spatial.administrative.france.find_departments_in_bbox",
+        "hydromodpy.catchment.administrative.france.find_departments_in_bbox",
         lambda bbox: ["035"],
     )
 
@@ -361,7 +361,7 @@ def test_the_outside_france_share_is_counted_and_warned(tmp_path, monkeypatch, c
 
     _in_france(monkeypatch)
     monkeypatch.setattr(
-        "hydromodpy.spatial.administrative.france.geometry_for_departments",
+        "hydromodpy.catchment.administrative.france.geometry_for_departments",
         lambda codes, **kwargs: box(
             0.0, 6.0e6, 344100.0 - ign_dem_fr.RGE_ALTI_BORDER_BUFFER_M, 7.0e6
         ),

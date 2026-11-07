@@ -9,6 +9,12 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.catchment.preprocess.capped_breach_config import (
+    CappedBreachConfig,
+    capped_breach_of,
+)
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
@@ -23,9 +29,6 @@ from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.results.run import Run
 from hydromodpy.solver.base import registry as solver_registry
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig, capped_breach_of
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.terrain import CappedBreach
 from tests._helpers.fake_engines import fake_engine, registered
 
 DOCUMENT = """\

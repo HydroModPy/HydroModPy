@@ -36,7 +36,7 @@ PyHELP (hydromodpy_annex/physics/pyhelp/core)
 Data inside the wheel
 ---------------------
 
-hydromodpy/spatial/administrative/departement.gpkg
+hydromodpy/catchment/administrative/departement.gpkg
   Outlines of the French departments, from IGN ADMIN EXPRESS COG CARTO.
   Licence Ouverte / Etalab 2.0. Attribution: IGN.
 

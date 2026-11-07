@@ -8,16 +8,16 @@ from collections.abc import Callable
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from hydromodpy.catchment.algorithms.river_network_config import RiverNetworkConfig
+from hydromodpy.catchment.preprocess.catchment_config import OutletCatchDef, TxtCatchDef
+from hydromodpy.catchment.synthetic.synthetic_config import (
+    RadialIslandTopography,
+    SyntheticGridConfig,
+)
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.model.domain.depth_model_config import ConstantThicknessDepthModel
 from hydromodpy.model.domain.spatial_support_config import GeneratedRingsSupportConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowProcessSpecificConfig
-from hydromodpy.spatial.geographic.catchment_config import OutletCatchDef, TxtCatchDef
-from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
-from hydromodpy.spatial.geographic.synthetic_config import (
-    RadialIslandTopography,
-    SyntheticGridConfig,
-)
 
 pytestmark = pytest.mark.fast
 

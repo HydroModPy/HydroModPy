@@ -24,6 +24,7 @@ from rasterio.features import shapes
 from rasterio.transform import Affine
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box, shape
 
+from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning import catchment_outline
 from hydromodpy.mesh.planning.catchment_outline import (
@@ -35,7 +36,6 @@ from hydromodpy.mesh.planning.geometry_cleanup import CLEANUP_PIXEL_SHARE, Geome
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import plan_mesh_request, smoothed_catchment
 from hydromodpy.mesh.request import BARRIER_FAMILY
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_spec, planning_inputs, square_domain
 

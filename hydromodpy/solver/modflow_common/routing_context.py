@@ -2,7 +2,7 @@
 
 This module keeps its own raster D8 pointer on the solver-grid DEM, conditioned
 by ``dem_correc_type``. It does not read the descent D
-(:mod:`hydromodpy.spatial.drainage.descent`): mass transfer and MT3DMS accumulation trace
+(:mod:`hydromodpy.catchment.drainage.descent`): mass transfer and MT3DMS accumulation trace
 point sources down the Whitebox pointer, and stay on it until they are migrated.
 """
 
@@ -12,11 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.terrain import CappedBreach
+from hydromodpy.catchment.algorithms.flow_products import build_regional_flow_products
+from hydromodpy.catchment.terrain.port import CappedBreach
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.domain.build import (
     BINDER_ZONE_IDS,
@@ -23,7 +24,6 @@ from hydromodpy.model.domain.build import (
 from hydromodpy.model.domain.depth_model_config import RasterSubstratumDepthModel
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.domain_cases import tilted_top
 from tests._helpers.geotiffs import write_geotiff
 

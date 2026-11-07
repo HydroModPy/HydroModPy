@@ -10,10 +10,10 @@ these modules return.
 
 1. `network.py` turns a per-cell release flux into a simulated network (`build_simulated_network`, `specific_seepage_threshold`, `downstream_closure`).
 2. `extent.py` says when a cell flows and how often in a year, and builds the extent masks (`extent_masks`, `calendar_years`, `YearlyFlowCounts`, `VisibleFlow`, `parse_visible_flow`).
-3. `heads.py` draws the mapped network from its heads, down the model's own descent (`trace_from_heads`, `HeadsSettings`). The free ends themselves are found in `spatial/geographic/core/network_heads.py`, which also defines `HeadCandidates`.
+3. `heads.py` draws the mapped network from its heads, down the model's own descent (`trace_from_heads`, `HeadsSettings`). The free ends themselves are found in `catchment/algorithms/network_heads.py`, which also defines `HeadCandidates`.
 4. `geometry.py` builds the static geometry of the comparison from the topography and the mapped network (`build_network_geometry`, `NetworkGeometry`, `CriterionSupports`, `VALIDITY_PROVENANCE_BY_CODE`).
 
-The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge the criterion divides by is in `model/forcing/recharge_rates.py`. The graph, the flood and the distances are in `spatial/drainage/`.
+The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge the criterion divides by is in `model/forcing/recharge_rates.py`. The graph, the flood and the distances are in `catchment/drainage/`.
 
 ## The criterion, read from a stored run
 
@@ -26,12 +26,12 @@ The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge
 
 ## What other layers import from it
 
-`display` (all the figures of the stream criterion and of the routing surface), `calibration`, and `results` itself. `spatial`, `solver` and `model` do not: what they share with the criterion lives in `spatial/drainage/`, `model/forcing/` and `core/scoring/`.
+`display` (all the figures of the stream criterion and of the routing surface), `calibration`, and `results` itself. `catchment`, `solver` and `model` do not: what they share with the criterion lives in `catchment/drainage/`, `model/forcing/` and `core/scoring/`.
 
 ## Where to add what
 
 - A change to what counts as a stream: `network.py` or `extent.py`, then both calibration and the redraw follow.
 - A new default of the criterion: `core/scoring/stream_defaults.py`, never a literal in a caller.
-- A new computation a stream figure needs: a module here that takes a `Run`, never a figure that calls `spatial` or `core/drainage`.
+- A new computation a stream figure needs: a module here that takes a `Run`, never a figure that calls `catchment` or `core/drainage`.
 
 The tests are in `tests/unit/results/stream/` and `tests/unit/results/`. The layer rules are checked by `tests/unit/architecture/`.

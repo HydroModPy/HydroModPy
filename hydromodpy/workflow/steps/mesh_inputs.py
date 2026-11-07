@@ -9,6 +9,7 @@ import numpy as np
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
+from hydromodpy.catchment.algorithms.derived_features import resolve_river_mesh_trace
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.mesh_config import MeshConfig
@@ -19,7 +20,6 @@ from hydromodpy.mesh.planning.lake_structures import lake_structures
 from hydromodpy.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
 from hydromodpy.mesh.request import RasterGridSpec
 from hydromodpy.results.run.field_envelope import read_run_fields
-from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext

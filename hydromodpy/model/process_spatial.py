@@ -42,7 +42,7 @@ def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
     """Coerce one raw config value into a runtime parameter object.
 
     Uses the registered ``FieldParamLike`` factory so this module never
-    imports the spatial package.
+    imports ``model.properties``.
     """
     from hydromodpy.model.contracts import FieldParamLike, get_field_param_factory
 

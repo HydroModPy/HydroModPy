@@ -80,7 +80,7 @@ million pixels, 3.6 GB), which no later step could route or mesh anyway.
 
 def normalize_department_code(value: str) -> str:
     """Normalize a French department code to the Geoplateforme ``Dxxx`` form."""
-    from hydromodpy.spatial.administrative.france import department_code_to_padded
+    from hydromodpy.catchment.administrative.france import department_code_to_padded
 
     text = str(value).strip().upper()
     if text.startswith("D"):
@@ -239,14 +239,14 @@ def fetch_ign_dem(
             "resolution_m=25 and file_format='ASC'."
         )
 
+    from hydromodpy.catchment.administrative.france import (
+        department_code_to_padded,
+        find_departments_in_bbox,
+    )
     from hydromodpy.data.variables.dem.apis._bdalti_archive_index import (
         _extract_7z,
         _find_asc_files,
         _request_hash_str,
-    )
-    from hydromodpy.spatial.administrative.france import (
-        department_code_to_padded,
-        find_departments_in_bbox,
     )
 
     output_root = Path(output_dir)
@@ -403,8 +403,8 @@ def fetch_rge_alti(
     processing version.
     """
 
+    from hydromodpy.catchment.administrative.france import find_departments_in_bbox
     from hydromodpy.data.variables.dem.apis._bdalti_archive_index import _request_hash_str
-    from hydromodpy.spatial.administrative.france import find_departments_in_bbox
 
     resolution = RGE_ALTI_DEFAULT_RESOLUTION_M if resolution_m is None else float(resolution_m)
     if resolution not in RGE_ALTI_RESOLUTIONS_M:
@@ -598,7 +598,7 @@ def _mask_raster_by_strips(
     from rasterio.windows import Window
     from shapely.geometry import box
 
-    from hydromodpy.spatial.administrative.france import geometry_for_departments
+    from hydromodpy.catchment.administrative.france import geometry_for_departments
 
     rows, cols = raw.height, raw.width
     outline = None

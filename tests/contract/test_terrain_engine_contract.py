@@ -16,12 +16,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.exceptions import (
-    TerrainCapabilityError,
-    TerrainProductError,
-    TerrainRequestError,
-)
-from hydromodpy.spatial.terrain import (
+from hydromodpy.catchment.terrain import registry
+from hydromodpy.catchment.terrain.port import (
+    D8_WBT_OFFSETS,
     LN_FLOAT32_COLLISION_COUNT,
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,
@@ -33,10 +30,13 @@ from hydromodpy.spatial.terrain import (
     Outlet,
     TerrainEngine,
     missing_engine_members,
-    registry,
     snap_window_cells,
 )
-from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.core.exceptions import (
+    TerrainCapabilityError,
+    TerrainProductError,
+    TerrainRequestError,
+)
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.tolerances import tol
 
@@ -445,7 +445,7 @@ def test_a_jenson_snap_lands_on_a_stream_cell_or_the_engine_refuses_it_by_name(
     """An engine serves the snap method or says it cannot; served, it lands on the network.
 
     The two engines of this tree are held to the cell in
-    ``tests/unit/geographic/core/test_catchment_from_point.py``.
+    ``tests/unit/catchment/algorithms/test_catchment_from_point.py``.
     """
     accumulation = _accumulation(valley_chain)
     streams = engine.stream_network(accumulation, threshold=60.0, out=tmp_path / "streams.tif")

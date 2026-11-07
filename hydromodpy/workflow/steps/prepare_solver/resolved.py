@@ -221,7 +221,7 @@ def _resolved_payload(config: Any, project_root: Path) -> dict[str, Any]:
 
 def _derived_values(config: Any) -> Iterator[tuple[str, Any]]:
     """Yield the keys an unset value resolves to, by the rule the builders apply."""
-    from hydromodpy.spatial.terrain import registry as terrain_registry
+    from hydromodpy.catchment.terrain import registry as terrain_registry
 
     yield (
         "geographic.terrain_engine",

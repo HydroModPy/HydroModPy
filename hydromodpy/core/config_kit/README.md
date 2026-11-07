@@ -21,7 +21,7 @@ The `[[export]]` request moved to `hydromodpy/results/exporters/export_spec.py`.
 
 ## What other layers import from it
 
-Every layer: `data`, `spatial`, `results`, `model`, `config`, `calibration` and `solver` first.
+Every layer: `data`, `catchment`, `results`, `model`, `config`, `calibration` and `solver` first.
 
 ## Where to add what
 

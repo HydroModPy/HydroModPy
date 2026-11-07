@@ -20,6 +20,7 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     STEADY_STAGE,
     TRANSIENT_STAGE,
 )
+from hydromodpy.catchment.algorithms import network_heads
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.core.units import factor_to_m_per_s
@@ -66,7 +67,6 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.run.descent import RunDescent
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.spatial.geographic.core import network_heads
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import (
     HEAD,

@@ -20,8 +20,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.spatial.drainage.distance import DownslopeMetric
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
+from hydromodpy.catchment.drainage.distance import DownslopeMetric
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 
 
 @dataclass(frozen=True, slots=True)

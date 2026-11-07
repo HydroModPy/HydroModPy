@@ -229,8 +229,8 @@ jobs:
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/architecture \
-            --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
+            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
             --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             -n 2 --dist loadgroup \
@@ -245,8 +245,8 @@ jobs:
       - name: Run Whitebox-backed unit tests (serial)
         run: |
           python -m pytest \
-            tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/geographic/core/test_catchment_from_point.py \
+            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            tests/unit/catchment/algorithms/test_catchment_from_point.py \
             tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" --timeout=300 -q
 
@@ -291,10 +291,10 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of spatial/ and mesh/ over the unit tier, the engine contract,
+      # Branch coverage of catchment/ and mesh/ over the unit tier, the engine contract,
       # the mesh regression and the domain-build worker, which only its integration
       # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
-      - name: Run the tests that reach the spatial package
+      - name: Run the tests that reach the catchment package
         env:
           HMP_REQUIRE_GMSH: "1"
         run: |
@@ -304,14 +304,14 @@ jobs:
             tests/regression/mesh/ \
             tests/integration/domain/test_worker.py \
             --ignore=tests/unit/architecture \
-            --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
+            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
             --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
-            --cov=hydromodpy/spatial \
+            --cov=hydromodpy/catchment \
             --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
@@ -327,12 +327,12 @@ jobs:
           HMP_REQUIRE_GMSH: "1"
         run: |
           python -m pytest \
-            tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/geographic/core/test_catchment_from_point.py \
+            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            tests/unit/catchment/algorithms/test_catchment_from_point.py \
             tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             --timeout=300 \
-            --cov=hydromodpy/spatial \
+            --cov=hydromodpy/catchment \
             --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
@@ -347,23 +347,25 @@ jobs:
       # lot reaches. A floor goes down only when files enter or leave a package, or
       # covered code leaves it, with no covered line lost, and the commit says so.
       # The domain, properties, forcing and lake bed lines gate the parts of model/ that
-      # came from spatial/, on the same files as before the move.
-      # The line before the last gates the modules at the top of spatial/. The last one
-      # gates results/derive/stream, which no other job measures: its tests run in this unit tier.
-      - name: Gate the spatial coverage
+      # came from the old spatial package, on the same files as before the move. The
+      # algorithms, preprocess and synthetic line gates the old geographic files as one set.
+      # The line before the last gates the modules at the top of catchment/ and the job
+      # inputs of model/domain, the old top of spatial. The last one gates
+      # results/derive/stream, which no other job measures: its tests run in this unit tier.
+      - name: Gate the catchment coverage
         run: |
           coverage combine || true
           coverage report --include='hydromodpy/mesh/*' --precision=2 --fail-under=99.24
-          coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
-          coverage report --include='hydromodpy/model/domain/*' --omit='hydromodpy/model/domain/lake_bed_*,hydromodpy/model/domain/structure_binders.py' --precision=2 --fail-under=99.3
-          coverage report --include='hydromodpy/spatial/drainage/*' --precision=2 --fail-under=93.7
+          coverage report --include='hydromodpy/catchment/administrative/*' --precision=2 --fail-under=100.0
+          coverage report --include='hydromodpy/catchment/delineation/*' --precision=2 --fail-under=97.2
+          coverage report --include='hydromodpy/model/domain/*' --omit='hydromodpy/model/domain/lake_bed_*,hydromodpy/model/domain/structure_binders.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/catchment/drainage/*' --precision=2 --fail-under=93.7
           coverage report --include='hydromodpy/model/properties/*' --omit='hydromodpy/model/properties/physical_properties.py,hydromodpy/model/properties/property_ids.py,hydromodpy/model/properties/property_table.py' --precision=2 --fail-under=98.7
           coverage report --include='hydromodpy/model/forcing/__init__.py,hydromodpy/model/forcing/area_weights.py,hydromodpy/model/forcing/cells.py,hydromodpy/model/forcing/interpolation.py,hydromodpy/model/forcing/rasters.py,hydromodpy/model/forcing/recharge_rates.py,hydromodpy/model/forcing/sources.py,hydromodpy/model/forcing/stations.py' --precision=2 --fail-under=99.7
-          coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.4
+          coverage report --include='hydromodpy/catchment/algorithms/*,hydromodpy/catchment/preprocess/*,hydromodpy/catchment/synthetic/*' --precision=2 --fail-under=96.4
           coverage report --include='hydromodpy/model/domain/lake_bed_*' --precision=2 --fail-under=98.9
-          coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
-          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/catchment/terrain/*' --precision=2 --fail-under=94.6
+          coverage report --include='hydromodpy/catchment/*.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.2
           coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.66
 
   core-coverage:
@@ -512,7 +514,7 @@ jobs:
             -q
 
       # One floor per sub-package, the first measure rounded down to a half point.
-      # The floors only go up, by the rule of the spatial gate above. The last line
+      # The floors only go up, by the rule of the catchment gate above. The last line
       # gates the modules at the top of calibration/.
       - name: Gate the calibration coverage
         run: |

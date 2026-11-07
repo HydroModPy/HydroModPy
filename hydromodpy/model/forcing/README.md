@@ -85,8 +85,8 @@ period, and the solvers call it.
 - On the series path, `forcing_bridge.py` reads `time_alignment.py`, `types.py` and `model/contracts.py`.
   `time_forcing.py` reads `dated_forcing.py` and `time_alignment.py`, and `steady_periods.py` reads
   `types.py`. `time_alignment.py` reads only `core.time`.
-- Outside the package, `area_weights.py` reads `derive_geometry` from `mesh/planar/geometry.py`
-  until `spatial` is emptied. `HydroMesh` and `ResolvedSimulationTimeWindow` are imported for type hints
+- Outside the package, `area_weights.py` reads `derive_geometry` from `mesh/planar/geometry.py`.
+  `HydroMesh` and `ResolvedSimulationTimeWindow` are imported for type hints
   only.
 - xarray, rasterio, pyproj and the scipy interpolators are imported inside the functions that use them, so
   a run without a grid forcing does not load them.

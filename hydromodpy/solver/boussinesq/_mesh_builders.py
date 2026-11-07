@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh

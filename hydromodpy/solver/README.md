@@ -28,8 +28,7 @@ extractor carries `solver_name`, a `category` (`distributed` or `lumped`) and an
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives solver `core`, `schema`,
-`catchment`, `mesh`, `model`, `results` and itself, and keeps a temporary edge
-to `spatial`. No `solver_layout.yaml` orders the parts. The shape is:
+`catchment`, `mesh`, `model`, `results` and itself. No `solver_layout.yaml` orders the parts. The shape is:
 
 1. Backends do not import each other. `modflow6`, `modflow_nwt` and `boussinesq`
    each import `base`, and, for the first two, `modflow_common` and

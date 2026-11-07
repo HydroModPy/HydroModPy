@@ -73,7 +73,7 @@ CONTACT_X = 352_000.0  # easting of the contact between the two units of ``vecto
 
 def vector_geology_support():
     """The 30 x 30 support of 100 m pixels the vector geology is cut to, in Lambert-93."""
-    from hydromodpy.spatial.raster_support import RasterSupport
+    from hydromodpy.catchment.raster_support import RasterSupport
 
     return RasterSupport(
         crs="EPSG:2154", dx=100.0, dy=100.0, xmin=350_500.0, xmax=353_500.0,

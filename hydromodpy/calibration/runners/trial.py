@@ -56,6 +56,7 @@ from hydromodpy.calibration.runners.kept_solves import (
 )
 from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
+from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigValidationError
@@ -67,7 +68,6 @@ from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
-from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext

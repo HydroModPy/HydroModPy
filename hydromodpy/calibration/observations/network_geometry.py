@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.core.logging import get_logger
 from hydromodpy.mesh.planar.geometry import padded_rows
 from hydromodpy.model.forcing.recharge_rates import mean_recharge_m_s
@@ -24,7 +25,6 @@ from hydromodpy.results.derive.stream.heads import (
     concat_candidates,
     trace_from_heads,
 )
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork

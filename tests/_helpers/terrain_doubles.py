@@ -1,6 +1,6 @@
 """Terrain products built from bare paths, for tests that never touch a DEM.
 
-A :class:`~hydromodpy.spatial.geographic.core.flow_products.FlowProducts` is the
+A :class:`~hydromodpy.catchment.algorithms.flow_products.FlowProducts` is the
 engine's own product, so a test that stubs the builder still has to hand its
 caller one. These helpers describe files that may not exist: they are doubles,
 and nothing here reads a raster.
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.terrain import (
+from hydromodpy.catchment.algorithms.flow_products import FlowProducts
+from hydromodpy.catchment.terrain.port import (
     ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,

@@ -14,13 +14,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.mesh.mesh_config import MeshConfig
-from hydromodpy.project import phases
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.river_network_config import (
+from hydromodpy.catchment.algorithms.river_network_config import (
     RiverNetworkConfig,
     river_network_for_the_mesh,
 )
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.project import phases
 
 
 def _geographic(*, synthetic: bool = False, enabled: bool = False) -> GeographicConfig:

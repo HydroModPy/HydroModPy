@@ -42,7 +42,7 @@ COMPUTE_LAYERS: Final[tuple[str, ...]] = (
     "config",
     "model",
     "data",
-    "spatial",
+    "catchment",
     "mesh",
     "solver",
     "calibration",
@@ -74,7 +74,7 @@ OUTSIDE_SUBTREES: Final[tuple[str, ...]] = (
 )
 """Folders of a compute layer that index, copy or convert what a run already computed."""
 
-COMPUTE_DATA_FILES: Final[tuple[str, ...]] = ("spatial/administrative/departement.gpkg",)
+COMPUTE_DATA_FILES: Final[tuple[str, ...]] = ("catchment/administrative/departement.gpkg",)
 """Package data a computation reads, by path under the package. A wheel ships each of them."""
 
 OTHER_DATA_SUFFIXES: Final[tuple[str, ...]] = (".md", ".tex", ".sql", ".toml", ".txt", ".pyc")
