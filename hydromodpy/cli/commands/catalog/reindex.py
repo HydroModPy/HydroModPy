@@ -40,7 +40,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import reindex_project
+    from hydromodpy.results.catalog.indexer import reindex_project
 
     project_root = project_root_of(args)
     report = reindex_project(project_root, incremental=args.incremental)

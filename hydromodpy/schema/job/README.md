@@ -16,8 +16,9 @@ workspace.
 | `provenance.py`, `outcome.py` | how the job ran, with no instant and no host name; the typed status, which refuses to contradict its exit code |
 | `seal.py`, `reuse.py` | `seal_job` and `verify_job`; what a sealed directory is answered with when the same job comes again |
 | `worker.py` | the loop every capability worker runs around its own work: reuse or refuse a sealed directory, resolve, execute, write a failed or dismissed outcome; `seal_successful` writes and seals a success |
-| `chain.py` | running several capabilities in a row, each filling its inputs from the artifacts of an earlier one; it knows no capability |
 | `documents.py`, `digest.py` | atomic document writes, the two digests |
+
+The runner that chains several capabilities, each filling its inputs from the artifacts of an earlier one, has no verb and no caller in the wheel. It sits in `hydromodpy_annex/schema/job_chain/`.
 
 ## How a job directory is written
 

@@ -94,7 +94,7 @@ def _print_delta(title: str, delta: dict) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import diff_simulations
+    from hydromodpy.results.catalog.listing import diff_simulations
 
     workspace_root = project_root_of(args)
     result = diff_simulations(args.ref_a, args.ref_b, workspace=workspace_root)

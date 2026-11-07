@@ -21,7 +21,6 @@ rules, how a `Flow` is built, and where to add what. Each folder has its own
 | `forcing/` | how a loaded series becomes a solver-ready one: `resolve_forcing`, alignment to the simulation window, the steady-period rule shared by every solver (`steady_periods.py`) |
 | `hydrology/soil_reservoir/` | the daily soil reservoir: `config.py` is what `[flow.sinks_sources.recharge.soil]` can say, `kernel.py` is the arithmetic |
 | `hydrology/synthetic/` | synthetic precipitation, inflow and recharge series for demonstrators and tests |
-| `hydrology/pyhelp/` | the PyHELP recharge model: `core/` is the model code, `preprocessing/` stages ERA5 and grid inputs, runs it and writes NetCDF |
 | `flow/` | the groundwater-flow process: `FlowConfig` (`[flow]`), the runtime `Flow`, initial and boundary conditions, the sink/source payloads, and the binders that put loaded data on a `Flow` |
 | `transport/` | the transport process: `TransportConfig` (`[transport]`) with one parameter block per engine and the runtime `Transport` |
 
@@ -50,7 +49,7 @@ hydromodpy/physics/
   contracts.py
   base/            process_spatial.py  forcing.py  payloads.py
   forcing/         forcing_bridge.py  time_alignment.py  steady_periods.py  validation.py  types.py
-  hydrology/       soil_reservoir/  synthetic/  pyhelp/
+  hydrology/       soil_reservoir/  synthetic/
   flow/            flow.py  flow_config.py  flow_toml_loader.py  runtime_config.py
                    initial_conditions.py  boundary_conditions.py  boundary_condition_registry.py
                    time_forcing.py  history_contract.py  cutoff_wall_shore.py

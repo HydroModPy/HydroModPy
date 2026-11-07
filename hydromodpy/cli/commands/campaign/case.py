@@ -27,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.project import sites_project_root
+    from hydromodpy.core.state.result_dirs import sites_project_root
     from hydromodpy.project.launch.journal import case_for_task
 
     try:

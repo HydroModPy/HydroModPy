@@ -262,7 +262,7 @@ Pitfalls flagged by the layer matrix
 
 - ``solver`` may import ``physics``, ``spatial``, ``simulation``, but
   **not** ``data``, ``calibration``, ``results``, ``display``,
-  ``analysis``, or ``workflow``. If your adapter needs results, hand
+  ``project``, or ``workflow``. If your adapter needs results, hand
   the data through the ``ctx`` rather than importing ``results``.
 - Do **not** cross-import another backend (``solver/modflow6/`` cannot
   import ``solver/modflow_nwt/`` and vice versa). Shared helpers go

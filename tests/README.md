@@ -112,14 +112,14 @@ pytest tests/unit/ -q -n auto
 pytest tests/regression/fast/ -q -n auto
 ```
 
-The `hmp` CLI wraps the most common invocations:
+In a source checkout, `python -m tools.dev test` wraps the most common invocations:
 
 ```bash
-hmp dev test unit                # → pytest tests/unit/
-hmp dev test regression --fast   # → pytest tests/regression/fast/
-hmp dev test regression --fast --intercomparison
-hmp dev test regression --extensive
-hmp dev test regression --update-goldens
+python -m tools.dev test unit                # → pytest tests/unit/
+python -m tools.dev test regression --fast   # → pytest tests/regression/fast/
+python -m tools.dev test regression --fast --intercomparison
+python -m tools.dev test regression --extensive
+python -m tools.dev test regression --update-goldens
 ```
 
 ## Environment

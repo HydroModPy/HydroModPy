@@ -65,13 +65,7 @@ LITERAL_PATTERN = re.compile(r"""(["'])(?:application|image|text|video|audio)/[^
 # itself) -- never the surrounding line, so the entry survives a reformat of
 # code this slice does not own. A new literal in the same file still fails.
 #
-# The first two live under hydromodpy/cli/, a package another session owns.
-# Pinning the string rather than the line is what keeps that ownership from
-# reaching this gate.
 ALLOWLIST: tuple[tuple[str, str], ...] = (
-    # Content-Type a local dev server writes on its own HTTP responses.
-    ("cli/commands/dev/manage/server.py", "text/html; charset=utf-8"),
-    ("cli/commands/dev/manage/server.py", "application/json; charset=utf-8"),
     # The FORMAT name the Geoplateforme WMS-Raster GetMap request takes.
     ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
     # The column default the GeoPackage standard imposes in the gpkg_metadata DDL.
@@ -95,11 +89,11 @@ EXPECTED_MEDIA_TYPES: dict[str, str] = {
 }
 
 # Below this, the scanned tree is gutted rather than merely reorganized.
-# Set near the real count (1584 modules as of this writing), not at a
-# fraction of it: the largest single sub-package holds 328, so a floor set
-# low enough to tolerate an anchor that collapsed onto one of them would
-# tolerate losing everything else too.
-MINIMUM_SCANNED_FILES = 1400
+# Set near the real count (1371 modules once the annex and tools left the
+# package), not at a fraction of it: the largest single sub-package holds
+# about 220, so a floor set low enough to tolerate an anchor that collapsed
+# onto one of them would tolerate losing everything else too.
+MINIMUM_SCANNED_FILES = 1300
 
 
 def _is_allowlisted(path: Path, literal: str) -> bool:

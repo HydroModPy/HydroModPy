@@ -9,6 +9,7 @@ the tree no longer needs fails too, so the transitional part only shrinks.
 
 from __future__ import annotations
 
+import ast
 import functools
 import importlib.util
 import pathlib
@@ -249,3 +250,35 @@ def test_annex_one_way() -> None:
     assert annex == [], "\n".join(
         f"{e.src_file}:{e.lineno} imports {e.target_module}" for e in annex
     )
+
+
+def _imports_of_tools(path: pathlib.Path) -> list[str]:
+    """Return ``line: module`` for each import of ``tools`` written in ``path``."""
+    found = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            modules = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            modules = [node.module]
+        elif (
+            isinstance(node, ast.Call)
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+            and getattr(node.func, "attr", getattr(node.func, "id", None)) == "import_module"
+        ):
+            modules = [node.args[0].value]
+        else:
+            continue
+        found += [f"{node.lineno}: {m}" for m in modules if m == "tools" or m.startswith("tools.")]
+    return found
+
+
+def test_the_wheel_never_imports_tools() -> None:
+    """``tools/`` reads ``hydromodpy/``, never the reverse: the wheel does not ship it."""
+    offenders = [
+        f"{path.relative_to(REPO_ROOT).as_posix()}:{hit}"
+        for path in sorted(PKG_ROOT.rglob("*.py"))
+        for hit in _imports_of_tools(path)
+    ]
+    assert offenders == [], "\n".join(offenders)

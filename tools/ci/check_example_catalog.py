@@ -1,4 +1,4 @@
-"""Check that ``hydromodpy/examples/catalog.toml`` matches the files of the tree.
+"""Check that ``hydromodpy/project/examples/catalog.toml`` matches the files of the tree.
 
 Run it from a checkout of the commit to release. ``hmp example add`` fetches each
 file at the tag of the installed version and compares it to the sha256 of the
@@ -14,7 +14,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-CATALOG = Path("hydromodpy/examples/catalog.toml")
+CATALOG = Path("hydromodpy/project/examples/catalog.toml")
 
 
 def main(root: Path = Path()) -> int:

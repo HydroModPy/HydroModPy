@@ -16,9 +16,9 @@ sessions, and ``plan``, ``launch``, ``collect``, ``publish``), a
 directory is changed by the run itself (``Run.tag``, ``Run.note``,
 ``Run.delete``) or by :mod:`hydromodpy.results.trash` and
 :mod:`hydromodpy.results.annotations`, and the index is rebuilt by
-:func:`hydromodpy.results.catalog.indexer.rebuild_index`. The
-``hmp.cli._workers`` package is a CLI-private implementation detail, not a
-public API.
+:func:`hydromodpy.results.catalog.indexer.rebuild_index`. The code behind
+the other CLI verbs sits in the package each verb serves, and is not part of
+the top-level API.
 """
 
 from __future__ import annotations
@@ -43,12 +43,12 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
-    from hydromodpy.analysis.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.examples.install import InstallReport
-    from hydromodpy.examples.manifest import ExampleEntry
     from hydromodpy.project.accessors import Workspace
+    from hydromodpy.project.compare import Comparison
+    from hydromodpy.project.examples.install import InstallReport
+    from hydromodpy.project.examples.manifest import ExampleEntry
     from hydromodpy.project.facade import Project
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.spinup import SpinupResult
@@ -896,15 +896,15 @@ def compare(
 
     Returns
     -------
-    hydromodpy.analysis.compare.Comparison
+    hydromodpy.project.compare.Comparison
         ``tables`` holds the data frames ``runs``, ``parameters``, ``scores``,
         ``budget``, ``network``, ``series`` and ``maps``.
 
     Raises
     ------
-    hydromodpy.analysis.compare.ComparisonReferenceError
+    hydromodpy.project.compare.ComparisonReferenceError
         If a reference names no sealed run.
-    hydromodpy.analysis.compare.ComparisonCaseError
+    hydromodpy.project.compare.ComparisonCaseError
         If the runs model different sites or share no date.
 
     Examples
@@ -914,8 +914,8 @@ def compare(
     >>> result.tables["series"]  # doctest: +SKIP
     >>> result.write("../study")  # doctest: +SKIP
     """
-    from hydromodpy.analysis.compare import compare_references
     from hydromodpy.core.state.result_dirs import resolve_project_root
+    from hydromodpy.project.compare import compare_references
 
     start = Path(workspace or Path.cwd()).expanduser().resolve()
     root = resolve_project_root(start)
@@ -1246,9 +1246,9 @@ def doctor() -> dict:
 def example_list() -> tuple[ExampleEntry, ...]:
     """List the examples this build ships.
 
-    Read from ``hydromodpy/examples/catalog.toml`` inside the wheel, so it
-    answers offline and cannot promise what the installed version does not
-    know about.
+    Read from ``hydromodpy/project/examples/catalog.toml`` inside the wheel,
+    so it answers offline and cannot promise what the installed version does
+    not know about.
 
     Returns
     -------
@@ -1261,7 +1261,7 @@ def example_list() -> tuple[ExampleEntry, ...]:
     >>> [entry.id for entry in hmp.example_list()]  # doctest: +SKIP
     ['04']
     """
-    from hydromodpy.examples.manifest import load_catalog
+    from hydromodpy.project.examples.manifest import load_catalog
 
     return load_catalog()
 
@@ -1279,7 +1279,7 @@ def example_show(example_id: str) -> ExampleEntry:
     FileNotFoundError
         When no entry carries that id. The message names the ids that exist.
     """
-    from hydromodpy.examples.manifest import find_entry, load_catalog
+    from hydromodpy.project.examples.manifest import find_entry, load_catalog
 
     return find_entry(example_id, load_catalog())
 
@@ -1323,8 +1323,8 @@ def example_add(
     PosixPath('/home/user/hydromodpy/projects/04_streamflow_intermittence_in_transient')
     """
     from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
-    from hydromodpy.examples.blobs import resolve_source
-    from hydromodpy.examples.install import install_example
+    from hydromodpy.project.examples.blobs import resolve_source
+    from hydromodpy.project.examples.install import install_example
 
     root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
     return install_example(

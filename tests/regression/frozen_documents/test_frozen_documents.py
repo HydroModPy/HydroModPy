@@ -34,7 +34,6 @@ from hydromodpy.results.export.publish import verify
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.publication import read_publication, read_published
 from hydromodpy.results.session.trial_series import read_trial_series
-from hydromodpy.schema.job.chain import read_chain_outcome
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_versioned
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
@@ -42,6 +41,7 @@ from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, JobOutcome
 from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS
 from hydromodpy.schema.job.request import read_request
 from hydromodpy.schema.job.seal import MANIFEST_VERSIONS, verify_job
+from hydromodpy_annex.schema.job_chain.chain import read_chain_outcome
 
 FROZEN = Path(__file__).parent / "v2.0.0"
 EXPECTED: dict[str, Any] = json.loads((FROZEN / "expected.json").read_text(encoding="utf-8"))

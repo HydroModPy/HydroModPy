@@ -28,7 +28,7 @@ order they matter:
   a clean environment on Python 3.11, 3.12 and 3.13, and runs
   ``hmp doctor --format json``.
 - ``Package / example catalog`` runs ``tools/ci/check_example_catalog.py``, which
-  hashes every file ``hydromodpy/examples/catalog.toml`` names.
+  hashes every file ``hydromodpy/project/examples/catalog.toml`` names.
 - ``Typing / mypy baseline`` is advisory: it does not block a merge.
 
 Other workflows

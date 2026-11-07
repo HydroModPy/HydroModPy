@@ -69,8 +69,9 @@ class OldCliForm:
     """The version that moved it. It stays here for two minor versions, that one included."""
 
     refused: bool = False
-    """It left before the first stable version, so it has no alias: it is refused, and
-    the message names *new*, which may then hold words to fill in (``REF``, ``DIR``)."""
+    """It has no alias: it is refused, and the message names *new*, which may then hold
+    words to fill in (``REF``, ``DIR``). A form is refused when it left before the first
+    stable version, or when its command left the wheel for ``tools/`` of a checkout."""
 
 
 _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
@@ -85,7 +86,7 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp dev lock archive", "hmp data archive --to FILE"),
     ("hmp dev lock restore", "hmp data restore FILE --to DIR"),
     # Verbs that moved.
-    ("hmp test", "hmp dev test"),
+    ("hmp test", "python -m tools.dev test"),
     ("hmp project case", "hmp campaign case"),
     ("hmp project array", "hmp campaign array"),
     ("hmp project collect", "hmp campaign collect"),
@@ -127,12 +128,21 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp campaign promote --as", "hmp campaign promote CASE --trial N --name NAME"),
 )
 
+_FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
+    # The developer commands left the wheel: a source checkout runs them from tools/.
+    ("hmp dev", "python -m tools.dev"),
+    ("hmp dev test", "python -m tools.dev test"),
+    ("hmp dev run-script", "python -m tools.dev run-script SCRIPT"),
+    ("hmp dev examples", "python -m tools.dev examples manifest"),
+    ("hmp dev manage", "(no replacement yet)"),
+)
+
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(
     OldCliForm(old, new, "2.0.0", refused=True) for old, new in _FORMS_REFUSED_AT_2_0
-)
+) + tuple(OldCliForm(old, new, "2.1.0", refused=True) for old, new in _FORMS_REFUSED_AT_2_1)
 """The old forms :func:`install_old_cli_forms` puts on the tree.
 
-At 2.0.0 it only holds the forms refused because they left before that version. From
+At 2.0.0 it only held the forms refused because they left before that version. From
 then on ``tools/surface_snapshot.py`` refuses a command or a flag that leaves ``hmp``
 without an entry here, and a test fails once an entry outlives its delay.
 """
@@ -230,7 +240,8 @@ class RefusedVerb(OldVerb):
     """Stands for a command that left before the first stable version: names the new form, stops.
 
     One stands for a whole old group, ``hmp dev lock``. The words typed after it
-    choose the form to name, and a bare group names them all.
+    choose the form to name: the form typed whole, else every form of the group typed,
+    else the longest form the words start with, else them all.
     """
 
     def __init__(self, first: OldCliForm, *, prog: str) -> None:
@@ -242,8 +253,20 @@ class RefusedVerb(OldVerb):
 
     def parse_known_args(self, args=None, namespace=None) -> tuple[argparse.Namespace, list[str]]:
         typed = " ".join([self.prog, *(args or ())])
-        chosen = [form for form in self.forms if f"{typed} ".startswith(f"{form.old} ")]
-        self.error(" ".join(_refusal(form) + "." for form in chosen or self.forms))
+        self.error(" ".join(_refusal(form) + "." for form in self.chosen(typed)))
+
+    def chosen(self, typed: str) -> list[OldCliForm]:
+        """Return the forms the refusal of *typed* names."""
+        exact = [form for form in self.forms if form.old == typed]
+        if exact:
+            return exact
+        under = [form for form in self.forms if form.old.startswith(f"{typed} ")]
+        if under:
+            return under
+        heads = [form for form in self.forms if f"{typed} ".startswith(f"{form.old} ")]
+        if heads:
+            return [max(heads, key=lambda form: len(form.old))]
+        return self.forms
 
 
 def _commands_of(parser: argparse.ArgumentParser) -> dict[str, Any]:

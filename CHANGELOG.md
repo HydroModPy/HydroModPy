@@ -18,6 +18,35 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Changed
+
+- `hydromodpy.analysis.compare` is now `hydromodpy.project.compare`, and `hydromodpy.examples` is now
+  `hydromodpy.project.examples`. The rows behind `hmp example list` and `show` are `hydromodpy.project.examples.rows`.
+- `masstransfer` of MODFLOW-NWT moved to `hydromodpy.solver.modflow_nwt.mt3dms.masstransfer`.
+- `hydromodpy.solver.modflow_nwt.modpath._resolvers` is now the public module
+  `hydromodpy.solver.modflow_nwt.modpath.resolvers`.
+- The code behind `hmp catalog`, `data`, `lock`, `privacy`, `project`, `viz` and `workspace` moved from
+  `hydromodpy.cli._workers` into the package each verb serves (`results.catalog.listing`, `results.catalog.liveness`,
+  `results.catalog.privacy`, `results.catalog.indexer`, `results.catalog.federation`, `data.request.cache_verbs`,
+  `data.workspace.folders`, `project.lock`, `display.catalog_figures`). The old paths are gone. Every command prints
+  and exits as before.
+- `find_workspace`, `find_data_workspace` and `find_workspace_root` moved from `hydromodpy.cli.helpers` to
+  `hydromodpy.core.workspace.resolve`. `path_size` moved to `hydromodpy.core.io.filesystem`, `project_root_at` and
+  `sites_project_root` to `hydromodpy.core.state.result_dirs`, and `remove_for_good` to `hydromodpy.results.trash`.
+- `hmp run script.py` now says to run the script with `python`.
+- `hmp dev test`, `hmp dev run-script` and `hmp dev examples` left the wheel. In a source checkout, run
+  `python -m tools.dev test`, `python -m tools.dev run-script` or `python -m tools.dev examples manifest`. `hmp dev`
+  answers with the new form.
+
+### Removed
+
+- PyHELP, the Picard solver of Boussinesq, the TIFF maps of MODFLOW-NWT, the MODPATH post-processing and the job
+  chain moved to `hydromodpy_annex/`, which is not in the wheel. `ModflowNwt.post_processing`,
+  `Modpath.post_processing` and `Modpath.filt_processing` are gone; call `run_post_processing`, `write_shapefiles` and
+  `filter_pathlines` of the annex. `hydromodpy.physics.hydrology.pyhelp` and the chain names of `hydromodpy.schema.job`
+  are gone.
+- `hmp dev manage` is gone and has no replacement yet.
+
 ## [v2.0.0] - 2026-11-07
 
 This is version 2.0.0. It is written for a reader who comes from version 1 or from an alpha. The development notes are in

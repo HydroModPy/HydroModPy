@@ -60,8 +60,6 @@ OUTSIDE_LAYERS: Final[tuple[str, ...]] = (
     "<root>",
     "schema",
     "display",
-    "analysis",
-    "examples",
     "project",
     "cli",
 )

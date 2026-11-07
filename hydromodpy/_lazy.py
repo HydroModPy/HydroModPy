@@ -126,8 +126,8 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
 
 EXCEPTIONS_BESIDE_THEIR_CODE: dict[str, str] = {
     "AmbiguousReferenceError": "hydromodpy.results.catalog.discovery",
-    "ComparisonCaseError": "hydromodpy.analysis.compare",
-    "ComparisonReferenceError": "hydromodpy.analysis.compare",
+    "ComparisonCaseError": "hydromodpy.project.compare",
+    "ComparisonReferenceError": "hydromodpy.project.compare",
     "MixedWindowsError": "hydromodpy.results.run.sealed",
     "PointOutsideMeshError": "hydromodpy.results.run.point",
     "SimulationNotFoundError": "hydromodpy.results.catalog.discovery",
@@ -207,7 +207,6 @@ entry here, and a test fails once an entry outlives its delay. The policy is
 """
 
 MODULE_EXPORTS: dict[str, str] = {
-    "analysis": "hydromodpy.analysis",
     "calibration": "hydromodpy.calibration",
     "config": "hydromodpy.config",
     "core": "hydromodpy.core",

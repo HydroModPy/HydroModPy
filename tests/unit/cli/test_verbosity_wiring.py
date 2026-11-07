@@ -106,30 +106,3 @@ def test_spinup_flag_maps_to_level(flag: str, expected: str) -> None:
     parser = _build_parser()
     args = parser.parse_args(["spinup", "config.toml", flag])
     assert args.verbosity == expected
-
-
-def test_dev_run_script_respects_quiet(monkeypatch, tmp_path) -> None:
-    """``hmp dev run-script`` must not print its banner when quiet is set."""
-    from hydromodpy.cli.commands.dev import run_script
-
-    calls: list[None] = []
-    monkeypatch.setattr("hydromodpy.cli.banner.print_hydromodpy", lambda: calls.append(None))
-    script = tmp_path / "proto.py"
-    script.write_text("pass\n")
-
-    set_verbosity("quiet")
-    parser = argparse.ArgumentParser()
-    parsed = run_script.register(parser.add_subparsers()).parse_args([str(script)])
-    monkeypatch.setattr(
-        "hydromodpy.cli.commands.dev.run_script.subprocess.run",
-        lambda *a, **k: type("R", (), {"returncode": 0})(),
-    )
-    with pytest.raises(SystemExit):
-        run_script.run(parsed)
-    assert calls == []
-
-    set_verbosity(DEFAULT_VERBOSITY)
-    calls.clear()
-    with pytest.raises(SystemExit):
-        run_script.run(parsed)
-    assert calls == [None]

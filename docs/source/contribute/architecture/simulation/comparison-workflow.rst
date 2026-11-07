@@ -3,7 +3,7 @@ Comparison of sealed runs
 
 ``hmp report compare`` compares runs that already finished. It never runs a simulation and
 reads no comparison TOML: the runs to compare are recipes of one project (``[sites.recipes]``),
-run like any other case. All the code is one file, ``analysis/compare.py``, which
+run like any other case. All the code is one file, ``project/compare.py``, which
 reads every run through the public ``Run`` API.
 
 .. code-block:: bash
@@ -67,5 +67,5 @@ Where to add what
 -----------------
 
 A new table is one function in ``compare.py``, one line in ``compare``, and one test in
-``tests/unit/analysis/test_compare.py``. Nothing is computed here that ``Run`` can
+``tests/unit/project/test_compare.py``. Nothing is computed here that ``Run`` can
 answer, and no unit is converted: a quantity stays as the run stores it.

@@ -34,19 +34,3 @@ known_stale:
     file: hydromodpy/results/zarr_store/zarr_writer.py
     why: the text is stored in every fields.zarr, so it changes with a migration entry
     lifted_by: "4.2"
-  - text: "hydromodpy/validity_frame/*"
-    file: .github/workflows/ci-nightly.yml
-    why: COVERAGE_OMIT still lists a folder that no longer exists
-    lifted_by: "2.1"
-  - text: "hydromodpy/validity_frame/**/*"
-    file: .github/workflows/ci-nightly.yml
-    why: COVERAGE_OMIT still lists a folder that no longer exists
-    lifted_by: "2.1"
-  - text: "hydromodpy/validity_frame/*"
-    file: .github/workflows/ci-weekly.yml
-    why: COVERAGE_OMIT still lists a folder that no longer exists
-    lifted_by: "2.1"
-  - text: "hydromodpy/validity_frame/**/*"
-    file: .github/workflows/ci-weekly.yml
-    why: COVERAGE_OMIT still lists a folder that no longer exists
-    lifted_by: "2.1"

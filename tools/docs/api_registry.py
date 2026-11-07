@@ -352,31 +352,10 @@ def exit_codes() -> list[dict[str, Any]]:
 
 
 def verbs_called(command_module: types.ModuleType, verbs: set[str]) -> list[str]:
-    """Verbs of hydromodpy._api a CLI command calls, read from its source."""
-    files = []
+    """Verbs of hydromodpy._api a CLI command module calls, read from its source."""
     path = Path(command_module.__file__)
     files = sorted(path.parent.rglob("*.py")) if path.name == "__init__.py" else [path]
     found: list[str] = []
-    workers = (
-        Path(command_module.__file__).parents[1 if path.name != "__init__.py" else 2] / "_workers"
-    )
-    extra = []
-    for f in files:
-        for node in ast.walk(ast.parse(f.read_text())):
-            if (
-                isinstance(node, ast.ImportFrom)
-                and node.module
-                and node.module.startswith("hydromodpy.cli._workers")
-            ):
-                target = workers / (node.module.rsplit(".", 1)[-1] + ".py")
-                if node.module == "hydromodpy.cli._workers":
-                    for alias in node.names:
-                        cand = workers / f"{alias.name}.py"
-                        if cand.exists():
-                            extra.append(cand)
-                elif target.exists():
-                    extra.append(target)
-    files = files + [f for f in extra if f not in files]
     for f in files:
         tree = ast.parse(f.read_text())
         for node in ast.walk(tree):

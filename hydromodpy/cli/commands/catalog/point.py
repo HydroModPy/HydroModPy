@@ -1,6 +1,6 @@
 """``hmp catalog point`` - read a variable in one precise cell of a finished run.
 
-Thin wrapper around :func:`hydromodpy.cli._workers.catalog.point_simulations`.
+Thin wrapper around :func:`hydromodpy.results.catalog.listing.point_simulations`.
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import point_simulations
+    from hydromodpy.results.catalog.listing import point_simulations
 
     workspace_root = project_root_of(args)
     x, y = args.xy if args.xy else (None, None)

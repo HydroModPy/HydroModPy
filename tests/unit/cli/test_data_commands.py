@@ -7,6 +7,12 @@ import pandas as pd
 from tests._helpers.cli_runner import CliRunner
 
 
+def _workspace(tmp_path):
+    """Return ``tmp_path`` made a workspace: the commands resolve it before they call a verb."""
+    (tmp_path / "data").mkdir(exist_ok=True)
+    return tmp_path.resolve()
+
+
 def test_data_check_fix_reports_summary_and_data_error(monkeypatch, tmp_path) -> None:
     calls: dict[str, object] = {}
 
@@ -19,16 +25,18 @@ def test_data_check_fix_reports_summary_and_data_error(monkeypatch, tmp_path) ->
         }
 
     monkeypatch.setattr(
-        "hydromodpy.cli._workers.data.check_data_cache",
+        "hydromodpy.data.request.cache_verbs.check_data_cache",
         fake_check_data_cache,
     )
+
+    workspace = _workspace(tmp_path)
 
     result = CliRunner().invoke(
         ["data", "check", "--workspace", str(tmp_path), "--variable", "piezometry", "--fix"]
     )
 
     assert result.exit_code == 16
-    assert calls == {"workspace": str(tmp_path), "variable": "piezometry", "fix": True}
+    assert calls == {"workspace": workspace, "variable": "piezometry", "fix": True}
     assert "dropped 2 stale entries" in result.stdout
     assert "missing datetime" in result.stdout
 
@@ -49,9 +57,11 @@ def test_data_ls_forwards_filters_and_prints_business_columns(monkeypatch, tmp_p
         )
 
     monkeypatch.setattr(
-        "hydromodpy.cli._workers.data.list_data_cache",
+        "hydromodpy.data.request.cache_verbs.list_data_cache",
         fake_list_data_cache,
     )
+
+    workspace = _workspace(tmp_path)
 
     result = CliRunner().invoke(
         [
@@ -67,17 +77,18 @@ def test_data_ls_forwards_filters_and_prints_business_columns(monkeypatch, tmp_p
     )
 
     assert result.exit_code == 0
-    assert calls == {"workspace": str(tmp_path), "variable": "hydrometry", "provider": "custom"}
+    assert calls == {"workspace": workspace, "variable": "hydrometry", "provider": "custom"}
     assert "hydrometry" in result.stdout
     assert "internal" not in result.stdout
 
 
-def test_data_ls_distinguishes_missing_and_empty_cache(monkeypatch) -> None:
-    monkeypatch.setattr("hydromodpy.cli._workers.data.list_data_cache", lambda *a, **k: None)
+def test_data_ls_distinguishes_missing_and_empty_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("hydromodpy.cli.helpers.resolve_workspace", lambda value: tmp_path)
+    monkeypatch.setattr("hydromodpy.data.request.cache_verbs.list_data_cache", lambda *a, **k: None)
     missing = CliRunner().invoke(["data", "ls"])
 
     monkeypatch.setattr(
-        "hydromodpy.cli._workers.data.list_data_cache",
+        "hydromodpy.data.request.cache_verbs.list_data_cache",
         lambda *a, **k: pd.DataFrame(),
     )
     empty = CliRunner().invoke(["data", "ls"])
@@ -96,7 +107,7 @@ def test_data_add_requires_type_before_worker_call(monkeypatch, tmp_path) -> Non
         called = True
         return {}
 
-    monkeypatch.setattr("hydromodpy.cli._workers.data.add_data_entry", fake_add_data_entry)
+    monkeypatch.setattr("hydromodpy.data.request.cache_verbs.add_data_entry", fake_add_data_entry)
 
     result = CliRunner().invoke(["data", "add", str(tmp_path / "data.csv")])
 
@@ -108,6 +119,7 @@ def test_data_add_requires_type_before_worker_call(monkeypatch, tmp_path) -> Non
 def test_data_add_success_forwards_metadata(monkeypatch, tmp_path) -> None:
     src = tmp_path / "data.csv"
     src.write_text("datetime,value\n2020-01-01,1\n", encoding="utf-8")
+    workspace = _workspace(tmp_path)
     calls: dict[str, object] = {}
 
     def fake_add_data_entry(file, **kwargs):
@@ -120,7 +132,7 @@ def test_data_add_success_forwards_metadata(monkeypatch, tmp_path) -> None:
             "dest": tmp_path / "workspace" / "data.csv",
         }
 
-    monkeypatch.setattr("hydromodpy.cli._workers.data.add_data_entry", fake_add_data_entry)
+    monkeypatch.setattr("hydromodpy.data.request.cache_verbs.add_data_entry", fake_add_data_entry)
 
     result = CliRunner().invoke(
         [
@@ -151,7 +163,7 @@ def test_data_add_success_forwards_metadata(monkeypatch, tmp_path) -> None:
         "crs": "EPSG:2154",
         "unit": "m3/s",
         "station_id": "H1",
-        "workspace": str(tmp_path),
+        "workspace_root": workspace,
         "project": None,
         "frozen": True,
     }

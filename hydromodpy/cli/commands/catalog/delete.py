@@ -83,7 +83,8 @@ def run(args: argparse.Namespace) -> None:
     confirm(args, f"{verb} {rel_dir}?", doing=verb.lower())
 
     now = datetime.now(UTC)
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed, remove_for_good
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
+    from hydromodpy.results.trash import remove_for_good
 
     if args.now:
         trashed = remove_for_good(root, rel_dir, now=now, force=args.force)

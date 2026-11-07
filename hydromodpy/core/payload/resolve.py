@@ -1,6 +1,6 @@
 """Resolve the data a project's TOML files reference, the way a run resolves them.
 
-One resolver for the example catalog (``hmp dev examples manifest``) and for
+One resolver for the example catalog (``python -m tools.dev examples manifest``) and for
 ``hmp publish --package``: it reads every authored configuration through the
 loader of a run, so a step file that only overrides ``station_ids``
 inherits the source of its parent, and returns the files of ``data/`` each

@@ -88,7 +88,7 @@ Run only solver intercomparisons:
 
 ```powershell
 python -m pytest -m "regression and intercomparison" -q -n auto
-hmp dev test regression --fast --intercomparison -j 1
+python -m tools.dev test regression --fast --intercomparison -j 1
 ```
 
 Run one specific test:
@@ -103,42 +103,42 @@ python -m pytest tests/regression/extensive/test_simulation_regression_extensive
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q -n 1
 ```
 
-Run via the `hmp` CLI:
+Run through `tools.dev`:
 
 ```powershell
-hmp dev test regression
+python -m tools.dev test regression
 ```
 
 ```powershell
-hmp dev test regression --extensive
+python -m tools.dev test regression --extensive
 ```
 
 ```powershell
-hmp dev test regression --fast
+python -m tools.dev test regression --fast
 ```
 
 ```powershell
-hmp dev test regression --slow
+python -m tools.dev test regression --slow
 ```
 
 ```powershell
-hmp dev test regression --list
+python -m tools.dev test regression --list
 ```
 
 ```powershell
-hmp dev test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
+python -m tools.dev test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
 ```
 
 ```powershell
-hmp dev test regression simulation_regression_fast_nwt --fast --nwt -j 1
+python -m tools.dev test regression simulation_regression_fast_nwt --fast --nwt -j 1
 ```
 
 ```powershell
-hmp dev test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
+python -m tools.dev test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
 ```
 
 ```powershell
-hmp dev test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
+python -m tools.dev test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
 ```
 
 ## Parallel execution (`-n`)

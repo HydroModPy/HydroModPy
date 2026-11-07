@@ -74,10 +74,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.viz import render_figure
+    from hydromodpy.display.catalog_figures import render_figure
 
     if args.options:
-        from hydromodpy.cli._workers.viz import parse_figure_options
+        from hydromodpy.display.catalog_figures import parse_figure_options
 
         try:
             options = parse_figure_options(args.figure, args.options)

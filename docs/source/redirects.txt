@@ -31,7 +31,7 @@ api/index.rst                 reference/python/index
 cli/audit.rst                 reference/cli/index
 cli/catalog.rst               reference/cli/catalog
 cli/completion.rst            get-started/install
-cli/dev.rst                   reference/cli/dev
+cli/dev.rst                   contribute/project/tests
 cli/example.rst               reference/cli/example
 cli/exit-codes.rst            reference/cli/exit-codes
 cli/export.rst                reference/cli/export
@@ -238,7 +238,8 @@ architecture/overview/test-families-and-quality-roles.rst                       
 architecture/overview/test-inventory.rst                                          contribute/project/tests
 architecture/overview/two-databases.rst                                           contribute/architecture/data-scopes
 architecture/package-layout.rst                                                   contribute/architecture/packages/index
-architecture/packages/analysis.rst                                                contribute/architecture/packages/analysis
+architecture/packages/analysis.rst                                                contribute/architecture/packages/project
+contribute/architecture/packages/analysis.rst                                     contribute/architecture/packages/project
 architecture/packages/calibration.rst                                             contribute/architecture/packages/calibration
 architecture/packages/catalog.rst                                                 contribute/architecture/packages/project
 contribute/architecture/packages/catalog                                          contribute/architecture/packages/project
@@ -248,7 +249,8 @@ architecture/packages/core.rst                                                  
 architecture/packages/data.rst                                                    contribute/architecture/packages/data
 architecture/packages/discretization.rst                                          contribute/architecture/packages/spatial
 architecture/packages/display.rst                                                 contribute/architecture/packages/display
-architecture/packages/examples.rst                                                contribute/architecture/packages/examples
+architecture/packages/examples.rst                                                contribute/architecture/packages/project
+contribute/architecture/packages/examples.rst                                     contribute/architecture/packages/project
 architecture/packages/index.rst                                                   contribute/architecture/packages/index
 architecture/packages/physics.rst                                                 contribute/architecture/packages/physics
 architecture/packages/project.rst                                                 contribute/architecture/packages/project

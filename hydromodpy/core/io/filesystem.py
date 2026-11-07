@@ -43,4 +43,19 @@ def native_io_path(path: Path | str) -> str:
     return "\\\\?\\" + value
 
 
-__all__ = ["create_folder", "load_csv", "native_io_path"]
+def path_size(path: Path) -> int:
+    """Return the bytes of a file, or of every file under a directory; 0 when it is gone."""
+    if path.is_file():
+        return int(path.stat().st_size)
+    total = 0
+    for child in path.rglob("*"):
+        try:
+            if child.is_file():
+                total += int(child.stat().st_size)
+        except OSError:
+            # A file removed while the tree is walked frees nothing more.
+            continue
+    return total
+
+
+__all__ = ["create_folder", "load_csv", "native_io_path", "path_size"]

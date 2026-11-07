@@ -27,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.project import create_project
+    from hydromodpy.data.workspace.folders import create_project
 
     workspace = resolve_workspace(args.workspace)
     project_dir = create_project(args.project, workspace=workspace)

@@ -31,10 +31,6 @@ import hydromodpy
 import hydromodpy as hmp
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.session import open_session_dir
-from hydromodpy.cli._workers.catalog import (
-    ABANDONED_SESSION_MINUTES,
-    abandoned_calibration_session_count,
-)
 from hydromodpy.cli.commands.project.show import _summary
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.exceptions import (
@@ -87,6 +83,10 @@ from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
     META_SCHEMA_VERSION,
+)
+from hydromodpy.results.catalog.liveness import (
+    ABANDONED_SESSION_MINUTES,
+    abandoned_calibration_session_count,
 )
 from hydromodpy.results.checks import CHECKS_SCHEMA
 from hydromodpy.results.exporters.export_spec import load_export_requests
@@ -180,11 +180,6 @@ from hydromodpy.results.zarr_store.mesh_layout import (
     mesh_layout_from_cell_mesh,
 )
 from hydromodpy.results.zarr_store.zarr_writer import QUANTIZATION_VARIABLE
-from hydromodpy.schema.job.chain import (
-    CHAIN_OUTCOME_FILENAME,
-    CHAIN_OUTCOME_VERSIONS,
-    read_chain_outcome,
-)
 from hydromodpy.schema.job.documents import read_versioned
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS as JOB_OUTCOME_VERSIONS
@@ -1926,7 +1921,6 @@ JOB_WINDOWS = pytest.mark.parametrize(
         JOB_PROVENANCE_VERSIONS,
         JOB_OUTCOME_VERSIONS,
         JOB_MANIFEST_VERSIONS,
-        CHAIN_OUTCOME_VERSIONS,
     ],
     ids=lambda window: str(window.current),
 )
@@ -1962,18 +1956,6 @@ def test_a_job_document_outside_its_window_is_refused_by_what_it_is(
             read_versioned(target, window)
         assert remedy in str(refused.value)
         assert f"written by HydroModPy {WRITER}" in str(refused.value)
-
-
-def test_the_report_of_a_chain_reads_under_its_window(tmp_path: Path) -> None:
-    target = tmp_path / CHAIN_OUTCOME_FILENAME
-    target.write_text(json.dumps({"schema": CHAIN_OUTCOME_VERSIONS.current}), encoding="utf-8")
-    assert read_chain_outcome(tmp_path)["schema"] == CHAIN_OUTCOME_VERSIONS.current
-
-    target.write_text(
-        json.dumps({"schema": _bumped(CHAIN_OUTCOME_VERSIONS.current)}), encoding="utf-8"
-    )
-    with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
-        read_chain_outcome(tmp_path)
 
 
 # ``step_persist_mesh`` writes the geometry and the layout before the run. The solver

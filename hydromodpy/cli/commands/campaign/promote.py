@@ -65,7 +65,7 @@ def run(args: argparse.Namespace) -> None:
         _list_best_trials(args, project_root)
         return
     run_dir = promote_trial_from_session(project_root, args.case, args.trial, as_name=args.name)
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(project_root)
     rel_dir = run_dir_rel(run_dir.name)

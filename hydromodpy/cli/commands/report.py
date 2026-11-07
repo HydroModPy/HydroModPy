@@ -172,7 +172,7 @@ def _cmd_render(args: argparse.Namespace) -> None:
 
 def compare_folder(refs: list[str], project_root: Path | None) -> Path:
     """Return ``summary/report/compare/<refs>/`` of the project."""
-    from hydromodpy.analysis.compare import ComparisonCaseError
+    from hydromodpy.project.compare import ComparisonCaseError
 
     if project_root is None:
         raise ComparisonCaseError("No project around the runs to write into: pass --out DIR.")
@@ -184,7 +184,7 @@ def compare_folder(refs: list[str], project_root: Path | None) -> Path:
 
 
 def _cmd_compare(args: argparse.Namespace) -> None:
-    from hydromodpy.analysis.compare import (
+    from hydromodpy.project.compare import (
         ComparisonCaseError,
         ComparisonReferenceError,
         compare_by_site,

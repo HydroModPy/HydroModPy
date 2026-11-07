@@ -44,7 +44,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import query_catalog
+    from hydromodpy.results.catalog.listing import query_catalog
 
     project_root = project_root_of(args)
     try:

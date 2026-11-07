@@ -41,11 +41,9 @@ transitional:
   # and where its modules go. A row leaves with its package. These rows are
   # written lowest first too.
   leaving:
-    examples:   {reads: [core, examples], goes_to: [project]}
     physics:    {reads: [core, physics], goes_to: [model]}
     spatial:    {reads: [core, schema, spatial], goes_to: [catchment, mesh, model]}
     simulation: {reads: [core, physics, spatial, simulation], goes_to: [model, solver, results, data, workflow]}
-    analysis:   {reads: [core, results, display, analysis], goes_to: [project]}
   # Rows of the target whose package does not exist yet.
   arriving:
     model:     {comes_from: [physics, simulation, spatial, solver]}
@@ -71,18 +69,10 @@ transitional:
     - {src: project,     tgt: physics}
     - {src: project,     tgt: simulation}
     - {src: project,     tgt: spatial}
-    - {src: cli,         tgt: analysis}
-    - {src: cli,         tgt: examples}
     - {src: cli,         tgt: simulation}
     # model and mesh are built before spatial is emptied, and read it meanwhile.
     - {src: model,       tgt: spatial}
     - {src: mesh,        tgt: spatial}
-    - src: "<root>"
-      tgt: analysis
-      files: [hydromodpy/_api.py, hydromodpy/_lazy.py]
-    - src: "<root>"
-      tgt: examples
-      files: [hydromodpy/_api.py]
     - src: "<root>"
       tgt: physics
       files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
@@ -112,7 +102,6 @@ transitional:
     - src: cli
       tgt: "<root>"
       files:
-        - hydromodpy/cli/_workers/example.py
         - hydromodpy/cli/commands/calibrate.py
         - hydromodpy/cli/commands/example/add.py
         - hydromodpy/cli/commands/export.py

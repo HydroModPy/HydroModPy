@@ -431,7 +431,8 @@ and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``inde
 ``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
 ``schema_version`` row of the index. The documents of a job directory carry a ``schema`` id of
 their own, such as ``hmp-outcome/v1`` (``manifest.json``, ``inputset.json``, ``provenance.json``,
-``outcome.json``, and ``chain-outcome.json`` at the root of a chain), and follow the same rule.
+``outcome.json``, and ``chain-outcome.json`` at the root of a chain, which the annex writes), and
+follow the same rule.
 
 The rule is written once, in :mod:`hydromodpy.core.io.document_version`. Every later 2.x reads
 every 2.0.0 document. Each family of sealed documents declares a window next to its current

@@ -8,7 +8,7 @@ from hydromodpy.cli.conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import HydroModPyError
-from hydromodpy.examples.blobs import DEFAULT_BASE_URL, SOURCE_ENV, default_ref
+from hydromodpy.project.examples.blobs import DEFAULT_BASE_URL, SOURCE_ENV, default_ref
 
 NAME: str = "add"
 HELP: str = "Fetch one example's files, verify them, and write them into a workspace"
@@ -56,8 +56,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
-    from hydromodpy.cli._workers.example import human_size
     from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.project.examples.rows import human_size
 
     workspace = resolve_workspace(args.workspace)
     try:

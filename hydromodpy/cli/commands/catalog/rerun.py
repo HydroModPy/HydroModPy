@@ -121,7 +121,7 @@ def run(args: argparse.Namespace) -> None:
             source_dir=source,
         )
     )
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(root)
     new_dir = run_dir_holding(root, new_sid)

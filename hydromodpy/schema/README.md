@@ -17,7 +17,7 @@ rules, and where to add what.
 | `partial_validator.py` | `validate_field(path, value)`: the type of one field of `HydroModPyConfig`, checked on its own, with a `ValidationResult` |
 | `capability.py` | `CapabilityDecl` and `OutputDecl`: what a capability declares about itself before it runs. Standard library only |
 | `processes/` | the machine-readable description of each capability this build serves (`<id>@<major>.json`) and `index.json`, read as package data |
-| `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal, reuse, and chains of capabilities. See `job/README.md` |
+| `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal and reuse. See `job/README.md` |
 | `media_types.py`, `generated_views.py` | the media types a job document names and the file names of the generated views (RO-Crate, STAC, PROV), each spelled once |
 | `sources.py` | the licence of each data source this build reads, the sidecar a user file may carry, and how licences roll up |
 
@@ -30,9 +30,7 @@ nothing else. `config_schema.py` and `partial_validator.py` walk the root model
 wires the provider. No `schema_layout.yaml` orders the parts. Three rules hold:
 
 1. `job/` and `capability.py` stay readable by a layer that owns no engine.
-   `capability.py` carries the request model as an opaque type, and `job/chain.py`
-   takes the declarations and the runner that executes a step as arguments, so
-   it names no engine.
+   `capability.py` carries the request model as an opaque type, so it names no engine.
 2. A capability is declared next to the code that serves it, not here:
    `data/request/job.py` (`DATA_REQUEST`),
    and `spatial/domain/capability.py` (`DOMAIN_BUILD`).
@@ -52,7 +50,7 @@ hydromodpy/schema/
   capability.py  media_types.py  generated_views.py  sources.py
   processes/        index.json  <id>@<major>.json   (generated)
   job/              layout.py  directory.py  request.py  inputset.py  extent.py
-                    provenance.py  outcome.py  seal.py  reuse.py  chain.py
+                    provenance.py  outcome.py  seal.py  reuse.py
                     documents.py  digest.py  refusal.py  worker.py
 ```
 

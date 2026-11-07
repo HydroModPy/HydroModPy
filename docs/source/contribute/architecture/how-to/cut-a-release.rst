@@ -77,7 +77,7 @@ The checklist
    ``tests/unit/config/test_config_migration.py``, so remove it now.
 7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
    tag of the installed version and checks them against ``catalog.toml``. Run
-   ``hmp dev examples manifest`` and commit the result, or every download of the
+   ``python -m tools.dev examples manifest`` and commit the result, or every download of the
    release fails on a checksum. Then run ``python tools/ci/check_example_catalog.py``
    from the commit to tag. It hashes each file the catalog names, as CI and the
    release gate do.
@@ -133,7 +133,7 @@ refused and never reaches the disk under its name.
        every solver, so one digest covers them all.
    * - The HELP3O extension (``HydroModPy/HELP3O-binaries``)
      - ``HELP3O_RELEASE`` and ``HELP3O_ASSETS`` in
-       ``hydromodpy/physics/hydrology/pyhelp/core/paths.py``. One asset per platform
+       ``hydromodpy_annex/physics/pyhelp/core/paths.py``. One asset per platform
        and Python version.
 
 A new release is a number change until proven otherwise, because a new solver build

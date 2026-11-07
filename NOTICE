@@ -8,11 +8,12 @@ the licence of each.
 Code
 ----
 
-PyHELP (hydromodpy/physics/hydrology/pyhelp/core)
+PyHELP (hydromodpy_annex/physics/pyhelp/core)
   Copyright (c) PyHelp Project Contributors, https://github.com/cgq-qgc/pyhelp
   MIT License. The files keep their own licence header. The MIT licence needs
   this notice and the permission text to stay with the copies. It allows
-  distribution inside a package that is under the EPL-2.0.
+  distribution inside a package that is under the EPL-2.0. The annex is in
+  the source repository and not in the wheel.
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

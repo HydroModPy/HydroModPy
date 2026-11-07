@@ -23,6 +23,9 @@ rules, how a run goes through it, and where to add what.
 | `launch/` | the launcher of a `[sites]` project: lease, case selection, prepare, local launch, SLURM array, status, collect into `summary/`, and the plan of a `[sites]` project, `sites/`. See `launch/README.md` |
 | `exchange/` | publish a run with its inputs, install a published copy, replay it from its own bytes. See `exchange/README.md` |
 | `dispatch/` | the adapters that need `Project` and that lower layers must not import: workflow name to run function, rerun provider. See `dispatch/README.md` |
+| `compare.py` | how sealed runs of one site are compared, for `hmp report compare` and `hmp.compare`. Each run is read through the public `Run` API, so a comparison runs no simulation, opens no index and writes into no run. `hmp.compare_pair` reads the index and lives in `results/catalog/facade.py`, beside `Catalog.diff` |
+| `examples/` | the shipped examples behind `hmp example`: the catalog, the blob cache, the install into a workspace and the rows the command prints. See `examples/README.md` |
+| `lock.py` | `hmp lock update`, `hmp lock verify`, and the cache archive and restore behind `hmp data archive` and `hmp data restore`. It sits here because it reads `data`, `results` (two schema versions) and `schema` together, and only `project` may |
 | `check.py` | `check_project`, the one check behind `hmp config check`, for a run, a calibration or a `[sites]` project |
 | `spinup.py` | `run_spinup`: repeat a forcing window, each cycle restarting from the last, until heads and lake stages stop moving |
 
@@ -60,10 +63,13 @@ hydromodpy/project/
   facade.py         Project and its verbs, open_project
   calibrate.py      routing of Project.calibrate
   state.py  phases.py  runner.py  run_overrides.py  spinup.py
+  compare.py        the comparison of sealed runs
+  lock.py           the lockfile and the cache archive
   accessors.py      the read-only views and ProjectCatalog
   dispatch/         workflow.py  rerun.py                      (README.md)
   launch/           the [sites] launcher, SLURM and summary/   (README.md)
   exchange/         share.py  install.py  replay.py            (README.md)
+  examples/         catalog, blob cache, install, rows         (README.md)
 ```
 
 ## How a run goes through it
@@ -118,5 +124,7 @@ journal of the launch and indexes each case when it ends.
 | a workflow name | a `run_*` function and an entry in `DISPATCH` in `dispatch/workflow.py`; the name list itself lives in `hydromodpy/workflow/dispatch.py` |
 | a launcher step, a scheduler or a `summary/` table | `launch/`, see its README |
 | a publish, install or replay step | `exchange/`, see its README |
+| a table of `hmp report compare` | one function and one line in `compare` of `compare.py`, and one test in `tests/unit/project/test_compare.py`; nothing is computed that `Run` can answer, and no unit is converted |
+| a shipped example | an entry of `WHITELIST` in `examples/generate.py`, then `python -m tools.dev examples manifest` to write `catalog.toml` |
 | a provider for a lower layer | a class in `dispatch/`, a Protocol and a `register_*` function in the lower layer, a hook in `hydromodpy/_bootstrap.py` |
 | runtime state on `Project` | a field of `ProjectState` and its name in `PROJECT_ATTR_TO_STATE_FIELD` |

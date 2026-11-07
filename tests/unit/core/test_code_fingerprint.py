@@ -141,7 +141,7 @@ def test_the_table_has_one_digest_per_layer_and_an_edit_moves_its_own(tmp_path: 
 
 @pytest.mark.parametrize(
     "outside",
-    ["display/figure.py", "cli/main.py", "results/export/publish.py", "analysis/index.py"],
+    ["display/figure.py", "cli/main.py", "results/export/publish.py", "project/compare.py"],
 )
 def test_an_edit_outside_the_scope_keeps_the_identity(tmp_path: Path, outside: str) -> None:
     root = _tree(tmp_path / "hydromodpy")
@@ -282,7 +282,7 @@ def test_the_scope_covers_the_layer_matrix() -> None:
     declared = present_layers(load_layer_matrix())
     assert set(COMPUTE_LAYERS) | set(OUTSIDE_LAYERS) == declared
     assert not set(COMPUTE_LAYERS) & set(OUTSIDE_LAYERS)
-    assert {"display", "analysis", "cli"} <= set(OUTSIDE_LAYERS)
+    assert {"display", "project", "cli"} <= set(OUTSIDE_LAYERS)
     assert set(RUN_LAYERS) == set(COMPUTE_LAYERS) - {"calibration"}
 
 

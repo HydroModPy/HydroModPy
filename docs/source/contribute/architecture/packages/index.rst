@@ -29,10 +29,8 @@ describes the experimental observability project next to it.
    calibration
    results
    display
-   analysis
    workflow
    project
-   examples
    schema
    cli
    validity_frame

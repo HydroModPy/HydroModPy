@@ -17,7 +17,6 @@ import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
-from hydromodpy.cli._workers.catalog import rank_simulations
 from hydromodpy.cli.commands.catalog import rank
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
@@ -42,6 +41,7 @@ from hydromodpy.results.catalog.constants import (
 )
 from hydromodpy.results.catalog.facade import compare_pair
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.catalog.listing import rank_simulations
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
 from hydromodpy.results.derive.virtual_fields import (
     VIRTUAL_FIELDS,

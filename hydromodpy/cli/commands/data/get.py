@@ -27,6 +27,7 @@ from hydromodpy.cli.helpers import (
     EXIT_VALIDATION,
     exit_code_for,
     refuse,
+    resolve_workspace,
 )
 from hydromodpy.cli.output import emit
 from hydromodpy.core.console import progress
@@ -90,8 +91,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import request_data
+    from hydromodpy.data.request.cache_verbs import request_data
 
+    workspace_root = resolve_workspace(args.workspace) if args.workspace is not None else None
     stations = [code.strip() for code in args.stations.split(",")] if args.stations else None
     try:
         with progress.status(f"Serving {args.target}"):
@@ -105,7 +107,7 @@ def run(args: argparse.Namespace) -> None:
                 start=args.start,
                 end=args.end,
                 source=args.source,
-                workspace=args.workspace,
+                workspace_root=workspace_root,
             )
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)

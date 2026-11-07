@@ -16,11 +16,16 @@ run it to change a soil or vegetation parameter and see the recharge move.
 
 # %% ---- IMPORTS AND PATHS
 
+import sys
 from pathlib import Path
 
-from hydromodpy.physics.hydrology.pyhelp.preprocessing.pipeline import preprocessing_pyhelp
-
 HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from hydromodpy_annex.physics.pyhelp.preprocessing.pipeline import preprocessing_pyhelp
+
 DATA = HERE.parents[1] / "data"
 WORKDIR = HERE / ".pyhelp"
 OUT_NC = DATA / "recharge" / "recharge_pyhelp_urse.nc"

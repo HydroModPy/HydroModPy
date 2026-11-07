@@ -72,9 +72,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - Package
      - Reads today
      - Goes to
-   * - ``examples``
-     - ``core``, ``examples``
-     - ``project``
    * - ``physics``
      - ``core``, ``physics``
      - ``model``
@@ -84,9 +81,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - ``simulation``
      - ``core``, ``physics``, ``spatial``, ``simulation``
      - ``model``, ``solver``, ``results``, ``data``, ``workflow``
-   * - ``analysis``
-     - ``core``, ``results``, ``display``, ``analysis``
-     - ``project``
 
 .. list-table:: Packages to come
    :header-rows: 1
@@ -178,14 +172,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``cli``
-     - ``analysis``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
-     - ``examples``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
      - ``simulation``
      - any file
      - It goes with the package it reads.
@@ -196,14 +182,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - ``mesh``
      - ``spatial``
      - any file
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``analysis``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``examples``
-     - ``hydromodpy/_api.py``
      - It goes with the package it reads.
    * - ``<root>``
      - ``physics``
@@ -286,8 +264,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
        and project once they live in project.
    * - ``cli``
      - ``<root>``
-     - ``hydromodpy/cli/_workers/example.py``,
-       ``hydromodpy/cli/commands/calibrate.py``,
+     - ``hydromodpy/cli/commands/calibrate.py``,
        ``hydromodpy/cli/commands/example/add.py``,
        ``hydromodpy/cli/commands/export.py``,
        ``hydromodpy/cli/commands/report.py``,

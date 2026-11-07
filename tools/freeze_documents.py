@@ -57,10 +57,10 @@ import rasterio
 from pydantic import BaseModel, ConfigDict
 from rasterio.transform import from_origin
 
-import hydromodpy.schema.job.chain as chain_module
 import hydromodpy.schema.job.outcome as outcome_module
 import hydromodpy.schema.job.seal as seal_module
 import hydromodpy.schema.job.worker as worker_module
+import hydromodpy_annex.schema.job_chain.chain as chain_module
 from hydromodpy.core.payload.index import (
     InstallIndex,
     PayloadFile,
@@ -74,7 +74,6 @@ from hydromodpy.data.provenance.sidecars import Sidecar, compute_sha256, write_s
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
-from hydromodpy.schema.job.chain import ChainRequest, run_chain
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.inputset import build_inputset, inline_resource
 from hydromodpy.schema.job.outcome import JobOutcome
@@ -83,6 +82,7 @@ from hydromodpy.schema.job.request import content_address, read_request, validat
 from hydromodpy.schema.job.worker import run_job, seal_successful
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 from hydromodpy.spatial.job_inputs import output_records
+from hydromodpy_annex.schema.job_chain.chain import ChainRequest, run_chain
 from tests.scenarios.factory import island_files, write_project
 from tests.scenarios.launcher import isolated_env, link_binaries
 

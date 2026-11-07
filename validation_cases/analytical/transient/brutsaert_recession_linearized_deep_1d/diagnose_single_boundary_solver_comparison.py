@@ -26,6 +26,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -352,7 +353,8 @@ def _run_nwt_probe(
     outlet_series: tuple[float, ...] = ()
     final_head: np.ndarray | None = None
     if success:
-        model.post_processing(
+        run_post_processing(
+            model,
             options=ModflowPostprocessOptions(
                 watertable_elevation=False,
                 watertable_depth=False,
@@ -362,7 +364,7 @@ def _run_nwt_probe(
                 groundwater_flux=False,
                 groundwater_storage=False,
                 accumulation_flux=False,
-            )
+            ),
         )
         model_ws = Path(model.full_path)
         outlet_series = _load_outlet_series(model)
@@ -448,7 +450,8 @@ def _run_mf6_probe(
     outlet_series: tuple[float, ...] = ()
     final_head: np.ndarray | None = None
     if success:
-        model.post_processing(
+        run_post_processing(
+            model,
             options=ModflowPostprocessOptions(
                 watertable_elevation=False,
                 watertable_depth=False,
@@ -458,7 +461,7 @@ def _run_mf6_probe(
                 groundwater_flux=False,
                 groundwater_storage=False,
                 accumulation_flux=False,
-            )
+            ),
         )
         model_ws = Path(model.full_path)
         outlet_series = _load_outlet_series(model)

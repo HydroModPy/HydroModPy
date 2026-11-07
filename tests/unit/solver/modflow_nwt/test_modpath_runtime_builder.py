@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modpath import _resolvers
+from hydromodpy.solver.modflow_nwt.modpath import resolvers
 
 
 def test_resolve_zone_partic_returns_domain_raster(
@@ -16,7 +16,7 @@ def test_resolve_zone_partic_returns_domain_raster(
     )
 
     assert (
-        _resolvers.resolve_zone_partic(
+        resolvers.resolve_zone_partic(
             "domain",
             full_path=str(tmp_path),
             model_modflow=model_modflow,
@@ -63,7 +63,7 @@ def test_resolve_zone_partic_clips_seepage_raster(
         lambda: _FakeWhiteboxBackend(),
     )
 
-    resolved = _resolvers.resolve_zone_partic(
+    resolved = resolvers.resolve_zone_partic(
         "seepage_clip",
         full_path=str(tmp_path),
         model_modflow=model_modflow,
@@ -86,7 +86,7 @@ def test_resolve_zone_partic_fails_when_seepage_raster_missing(
     )
 
     with pytest.raises(FileNotFoundError, match="missing seepage raster"):
-        _resolvers.resolve_zone_partic(
+        resolvers.resolve_zone_partic(
             "seepage_clip",
             full_path=str(tmp_path),
             model_modflow=model_modflow,
@@ -110,7 +110,7 @@ def test_ensure_modflow_name_file_rebuilds_missing_namefile(
 
     model_modflow = SimpleNamespace(mf=_FakeMf())
 
-    resolved = _resolvers.ensure_modflow_name_file(
+    resolved = resolvers.ensure_modflow_name_file(
         full_path=str(tmp_path),
         model_name="test_model",
         model_modflow=model_modflow,

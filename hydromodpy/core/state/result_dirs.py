@@ -208,6 +208,26 @@ def resolve_project_root(start: Path) -> Path:
     return base
 
 
+def project_root_at(workspace: str | Path | None) -> Path:
+    """Return the project root at or above *workspace*, or above the current directory."""
+    return resolve_project_root(Path(workspace or Path.cwd()).expanduser().resolve())
+
+
+def sites_project_root(target: str | Path) -> Path:
+    """Return the root of the ``[sites]`` project *target* names.
+
+    *target* is the project folder, its ``project.toml`` or a folder inside
+    it. Raises :class:`FileNotFoundError` when no ``project.toml`` sits at or
+    above it.
+    """
+    path = Path(target).expanduser().resolve()
+    start = path.parent if path.is_file() else path
+    root = resolve_project_root(start)
+    if not (root / PROJECT_MARKER_FILENAME).is_file():
+        raise FileNotFoundError(f"no {PROJECT_MARKER_FILENAME} at or above {path}")
+    return root
+
+
 __all__ = (
     "RelDir",
     "RelDirKind",
@@ -215,9 +235,11 @@ __all__ = (
     "is_sealed_run_dir",
     "parse_rel_dir",
     "project_of_result_dir",
+    "project_root_at",
     "refuse_a_sealed_run_as_project",
     "resolve_project_root",
     "run_dir_rel",
     "session_dir_rel",
+    "sites_project_root",
     "trial_dir_rel",
 )

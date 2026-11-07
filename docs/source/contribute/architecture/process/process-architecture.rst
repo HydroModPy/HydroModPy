@@ -27,8 +27,8 @@ The current ``hydromodpy.physics`` stack is split into six concerns:
   typed config.
 - ``hydromodpy.physics.forcing``: helpers that turn loaded data into
   process-ready forcing payloads aligned to simulation time.
-- ``hydromodpy.physics.hydrology``: hydrological utilities, synthetic
-  forcing helpers, and the ``pyhelp`` coupling stack.
+- ``hydromodpy.physics.hydrology``: hydrological utilities and synthetic
+  forcing helpers.
 
 Runtime role:
 

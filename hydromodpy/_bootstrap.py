@@ -106,9 +106,8 @@ def _register_rerun_provider() -> None:
 def _register_solver_registry_provider() -> None:
     """Wire a single solver-registry provider for the layers below ``solver``.
 
-    The layer matrix forbids ``simulation -> solver`` and ``analysis ->
-    solver``. Their consumers reach the registry through the
-    ``SolverRegistryProvider`` Protocol declared in
+    The layer matrix forbids ``simulation -> solver``. Its consumers reach
+    the registry through the ``SolverRegistryProvider`` Protocol declared in
     :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives in
     ``core`` so every consumer shares one provider.
     """

@@ -21,14 +21,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import (
-    EXIT_NOT_FOUND,
-    EXIT_USAGE,
-    exit_code_for,
-    find_workspace_root,
-    refuse,
-)
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.core.workspace.resolve import find_workspace_root
 
 NAME: str = "ls"
 HELP: str = "List the sealed runs recorded in the project index"
@@ -185,9 +180,9 @@ def _site_of(value: Any) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import list_simulations
     from hydromodpy.results.catalog import iter_project_catalog_roots
     from hydromodpy.results.catalog.constants import UnrankedMetricError
+    from hydromodpy.results.catalog.listing import list_simulations
     from hydromodpy.results.run.ranking import rank_rows
     from hydromodpy.results.run.sealed import MixedWindowsError
 

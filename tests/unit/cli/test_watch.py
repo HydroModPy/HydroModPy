@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._workers.catalog import watch_running
+from hydromodpy.results.catalog.liveness import watch_running
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 from ._hmp import run_main as _run

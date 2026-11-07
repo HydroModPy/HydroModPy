@@ -333,31 +333,7 @@ def test_hmp_run_rejects_python_scripts(monkeypatch, tmp_path, capsys) -> None:
 
     assert exc_info.value.code == EXIT_CONFIG
     err = capsys.readouterr().err
-    assert "hmp dev run-script" in err
-
-
-def test_hmp_dev_run_script_executes_python_scripts(monkeypatch, tmp_path) -> None:
-    script = tmp_path / "prototype.py"
-    script.write_text("print('prototype')\n", encoding="utf-8")
-    captured: dict = {}
-
-    def fake_run(cmd, cwd):
-        captured["cmd"] = cmd
-        captured["cwd"] = cwd
-        return SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr("hydromodpy.cli.commands.dev.run_script.subprocess.run", fake_run)
-    monkeypatch.setattr(
-        "sys.argv",
-        ["hmp", "dev", "run-script", str(script), "--case", "demo"],
-    )
-
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-
-    assert exc_info.value.code == 0
-    assert captured["cmd"][1:] == [str(script.resolve()), "--case", "demo"]
-    assert captured["cwd"] == str(tmp_path)
+    assert "Run the script with python directly." in err
 
 
 def test_overview_config_respects_project_root_env_override(

@@ -30,7 +30,7 @@ layout is `storage/contract.py`; the full contract is
 | `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`, the UDUNITS spelling of its units in `udunits.py`), the seal (`sealing.py`), the soil columns and `soil_budget` rows of a soil run (`soil_tables.py`), the attempt protocol (`attempt.py`, `run_log.py`), the emptying of the solver scratch (`scratch.py`), digests, licence and geographic facts, layout diagnostics (`README.md`) |
 | `zarr_store/` | the per-run Zarr 3 array store `SimulationZarr`: each write is a function of `zarr_writer.py` and each read one of `zarr_reader.py`, bound on the class as its methods; the schema, the write lock, ACDD and CF metadata, chunk and shard sizes (`README.md`) |
 | `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata |
-| `manifest.py`, `annotations.py`, `trash.py`, `retention.py` | the on-disk side of the rule: the seal, the human sidecars (`annotations.json`), the trash by move and its tombstones (`trash.py`), and what `hmp catalog gc` collects, read from the tree alone (`retention.py`) |
+| `manifest.py`, `annotations.py`, `trash.py`, `retention.py` | the on-disk side of the rule: the seal, the human sidecars (`annotations.json`), the trash by move, its tombstones and `remove_for_good` (`trash.py`), and what `hmp catalog gc` collects, read from the tree alone (`retention.py`) |
 | `record.py` | `RunRecord`: the seal built in memory by the run and written by it, `simulation.parquet`, `parameters.parquet`, `provenance.json`, `inputs.json`, then `manifest.json` last and durable; never opens the index |
 | `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse) |
 | `heartbeat.py` | `logs/heartbeat.json`, the pulse of a running attempt, and the thread that writes it |
@@ -49,7 +49,7 @@ layout is `storage/contract.py`; the full contract is
 | `plan_store.py` | `plan/<hash>/` written once (plan.json, sites.parquet, cases.parquet, one TOML per case) and `plan/current`; a different content under an existing hash is refused |
 | `publication.py` | `PublicationConfig`, `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
 | `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome; `read_sealed_json` and `read_transient_json`, which refuse a document of another version by the rule of `core/io/document_version.py` |
-| `catalog/` | the index and its reader: `index_schema.py` is the DDL (one version, a change is a rebuild), `indexer.py` writes the index from the directories (full or incremental, staging and rename, the label computed and dated), `facade.py` is `Catalog`, the read-only view, with `reads.py`, `discovery.py` and `schema.py` as its concerns, `views.py` the summary views (`v_cases`, `v_simulation_summary`), `constants.py` the sense of each metric and `SIMULATIONS_FROM`, the one join of a run row to its codes, `parquet_views.py` the per-connection views over the Parquet payloads, `federation.py` the cross-project read of `simulation.parquet` files; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `registration.py` the reservation of versions and `storage_paths.py` the directory of a run |
+| `catalog/` | the index and its reader: `index_schema.py` is the DDL (one version, a change is a rebuild), `indexer.py` writes the index from the directories (full or incremental, staging and rename, the label computed and dated; `reindex_project` and `reindex_if_indexed` are what the commands call), `facade.py` is `Catalog`, the read-only view, with `reads.py`, `discovery.py` and `schema.py` as its concerns, `views.py` the summary views (`v_cases`, `v_simulation_summary`), `constants.py` the sense of each metric and `SIMULATIONS_FROM`, the one join of a run row to its codes, `parquet_views.py` the per-connection views over the Parquet payloads, `federation.py` the cross-project read of `simulation.parquet` files and the runs of a workspace (`list_workspace_runs`), `listing.py` the rows `hmp catalog ls`, `show`, `query`, `point`, `diff` and `rank` print, `liveness.py` what `hmp catalog watch` and `hmp doctor` read of running attempts from the directories, `privacy.py` the purge of a run and its certificate; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `registration.py` the reservation of versions and `storage_paths.py` the directory of a run |
 | `run/` | `Run`, one finished simulation, and the providers behind it: `geographic`, `timeseries`, `hydrographic`, `array` (xarray), `point` (one variable at one place), `periods`, `descent`, `particles`; `sealed.py` reads what the seal says (site, case, lineage, checks, inputs, label, metrics); `group.py` is `RunSet`, a view over several runs, whose metric columns are named by metric, at the gauge, in the window of each run's rule |
 | `run/field_envelope.py` | the minimum and maximum per cell of a field of an earlier sealed run, for the refinement zones of `[mesh]` (`read_run_fields`) |
 | `run/tables.py` | the Parquet tables of one run read from its directory (`read_run_table`, `has_rows`); every Run reads its rows there, never from the index |
@@ -79,7 +79,7 @@ call back into `catalog` and `zarr_store`. Rules that hold:
 3. `catalog/facade.py` opens the index read-only and wraps the connection in
    the `CatalogBackend` port (`adapters/duckdb.py`); `catalog/indexer.py` is
    the only writer. Code outside `results` reaches the index through
-   `Catalog`, the diagnostics (`hmp doctor`, `hmp dev manage`) open it raw
+   `Catalog`, the diagnostics (`hmp doctor`) open it raw
    and read-only, and the verbs that watch a project (`hmp catalog watch`,
    `hmp project status`) read the outcomes and never the index:
    `tests/unit/architecture/test_storage_boundary.py` pins the modules that
@@ -88,7 +88,7 @@ call back into `catalog` and `zarr_store`. Rules that hold:
 4. A new Parquet view or a new stored field changes the layout contract:
    `tests/unit/results/test_run_layout_contract.py` gates it.
 
-Who imports results: `display` (most), `cli`, `workflow`, `analysis`,
+Who imports results: `display` (most), `cli`, `workflow`,
 `calibration`, `project` and the package root.
 
 ## Tree
@@ -102,6 +102,7 @@ hydromodpy/results/
   run_identity.py  metric_rule.py  fit_metrics.py ...
   catalog/       index_schema.py  indexer.py  facade.py  reads.py  discovery.py  schema.py
                  views.py  parquet_views.py  federation.py  registration.py  storage_paths.py
+                 listing.py  liveness.py  privacy.py
                  ports.py  protocol.py  adapters/duckdb.py  dataset_loader.py
   run/           view.py (Run)  group.py (RunSet)  geographic.py  timeseries.py  hydrographic.py
                  array.py  point.py  periods.py  descent.py  particles.py ...

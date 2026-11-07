@@ -25,8 +25,6 @@ from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, Transpor
 from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
-from ._filt_processing import filter_pathlines
-from ._post_processing import write_shapefiles
 from ._pre_processing import (
     attach_starting_locations,
     budget_holds,
@@ -34,7 +32,7 @@ from ._pre_processing import (
     compute_seepage_zone,
     load_modflow_for_modpath,
 )
-from ._resolvers import (
+from .resolvers import (
     get_geographic,
     resolve_crs_proj,
     resolve_domain_raster,
@@ -317,51 +315,3 @@ class Modpath:
             verbose = self.verbose
             success_model, _tempo = self.mp.run_model(silent=not verbose)
         return success_model
-
-    def post_processing(
-        self,
-        model_modpath: object,
-        starting_point: bool = True,
-        ending_point: bool = True,
-        pathlines_shp: bool = True,
-        particles_shp: bool = True,
-        random_id: int | None = None,
-    ) -> None:
-        """Write the standard MODPATH shapefile outputs."""
-        self.starting_point = starting_point
-        self.ending_point = ending_point
-        self.pathlines_shp = pathlines_shp
-        self.particles_shp = particles_shp
-
-        full_path, particles_file = write_shapefiles(
-            model_modpath=model_modpath,
-            starting_point=starting_point,
-            ending_point=ending_point,
-            pathlines_shp=pathlines_shp,
-            particles_shp=particles_shp,
-            random_id=random_id,
-        )
-        self.full_path = full_path
-        self.particles_file = particles_file
-
-    def filt_processing(
-        self,
-        model_modpath: object,
-        norm_flux: bool = False,
-        filt_time: bool = True,
-        filt_seep: bool = True,
-        filt_inout: bool = True,
-        calc_rtd: bool = True,
-        random_id: int | None = None,
-    ) -> None:
-        """Filter MODPATH outputs and compute the residence time distribution."""
-        filter_pathlines(
-            modpath_runner=self,
-            model_modpath=model_modpath,
-            norm_flux=norm_flux,
-            filt_time=filt_time,
-            filt_seep=filt_seep,
-            filt_inout=filt_inout,
-            calc_rtd=calc_rtd,
-            random_id=random_id,
-        )

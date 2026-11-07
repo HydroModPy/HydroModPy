@@ -1,0 +1,127 @@
+"""Generate ``catalog.toml`` from the repository.
+
+The command behind it is ``python -m tools.dev examples manifest``. The
+generator walks an explicit whitelist, resolves each project's data references
+the way a run resolves them
+(:func:`hydromodpy.core.payload.resolve.project_data`, the resolver of
+``hmp publish --package`` too), hashes every file and writes the manifest. It
+only runs from a source checkout: a wheel does not carry ``examples/``.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from pathlib import Path
+
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.payload import PayloadFile
+from hydromodpy.core.payload.resolve import authored_files, project_data
+from hydromodpy.project.examples.manifest import ExampleEntry, catalog_path, render_catalog
+
+
+@dataclass(frozen=True, slots=True)
+class ExampleSpec:
+    """One whitelisted example and the prose the catalog carries for it."""
+
+    id: str
+    directory: str
+    title: str
+    summary: str
+    runtime: str
+    entry_config: str
+    """The config a first run should start from, a file name of the project."""
+
+
+# The whitelist is explicit, and it has ONE entry on purpose.
+#
+# examples/projects/ holds some thirty directories, most of them development
+# or gallery projects. Only 04_streamflow_intermittence_in_transient is
+# maintained and verified end to end. Announcing a catalog of thirty of which
+# one works is worse than announcing one, so `hmp example list` announces one. A project earns a
+# line here once it runs from a freshly scaffolded workspace, not before.
+WHITELIST: tuple[ExampleSpec, ...] = (
+    ExampleSpec(
+        id="04",
+        directory="04_streamflow_intermittence_in_transient",
+        title="Streamflow intermittence in transient",
+        summary=(
+            "Nancon catchment, MODFLOW 6. Six layered step files, from the shortest "
+            "config that solves to a daily run with a soil reservoir, then the "
+            "calibration files and six Python scripts."
+        ),
+        runtime="15 to 25 s for step 1, 1 to 2 min for steps 4 and 5, about 18 min for step 6",
+        entry_config="step1_minimal.toml",
+    ),
+)
+
+
+def repo_root() -> Path:
+    """Return the checkout root, found by walking up to ``examples/projects/``."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "examples" / "projects").is_dir():
+            return parent
+    raise ConfigError(
+        "No examples/projects/ above this module. The manifest generator runs "
+        "from a source checkout, not from an installed wheel."
+    )
+
+
+def build_catalog(root: Path | None = None) -> tuple[ExampleEntry, ...]:
+    """Build every whitelisted entry, hashing each file it names."""
+    base = root if root is not None else repo_root()
+    return tuple(_build_entry(spec, base) for spec in WHITELIST)
+
+
+def write_catalog(
+    root: Path | None = None,
+    destination: Path | None = None,
+) -> tuple[Path, tuple[ExampleEntry, ...]]:
+    """Render the catalog and write it, returning the path and the entries.
+
+    The entries come back with it so a caller that wants to report what was
+    written does not hash a 90 MiB DEM a second time to find out.
+    """
+    entries = build_catalog(root)
+    target = destination if destination is not None else catalog_path()
+    target.write_text(render_catalog(entries), encoding="utf-8")
+    return target, entries
+
+
+def _build_entry(spec: ExampleSpec, root: Path) -> ExampleEntry:
+    project_dir = root / "examples" / "projects" / spec.directory
+    if not project_dir.is_dir():
+        raise ConfigError(f"Whitelisted example {spec.id} has no directory at {project_dir}.")
+
+    authored = [
+        _describe(root, path, f"projects/{spec.directory}/{path.name}")
+        for path in authored_files(project_dir)
+    ]
+    data_files, stations = project_data(project_dir, root / "examples" / "data")
+    data = [_describe(root, path, f"data/{path.parent.name}/{path.name}") for path in data_files]
+    if not any(item.dest.endswith(f"/{spec.entry_config}") for item in authored):
+        raise ConfigError(
+            f"Whitelisted example {spec.id} names entry_config={spec.entry_config!r}, "
+            f"which is not among the files shipped from {project_dir}."
+        )
+    return ExampleEntry(
+        id=spec.id,
+        directory=spec.directory,
+        title=spec.title,
+        summary=spec.summary,
+        runtime=spec.runtime,
+        entry_config=spec.entry_config,
+        files=tuple(sorted(authored, key=lambda item: item.dest)),
+        data=tuple(sorted(data, key=lambda item: item.dest)),
+        stations=stations,
+    )
+
+
+def _describe(root: Path, path: Path, dest: str) -> PayloadFile:
+    payload = path.read_bytes()
+    return PayloadFile(
+        repo_path=path.relative_to(root).as_posix(),
+        dest=dest,
+        size=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest(),
+    )

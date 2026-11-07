@@ -321,6 +321,19 @@ def gc_trash(project_root: Path, *, older_than: timedelta, now: datetime) -> lis
     return purge_trashed(root, expired_entries(root, older_than=older_than, now=now), now=now)
 
 
+def remove_for_good(
+    project_root: Path, rel_dir: str, *, now: datetime, force: bool = False
+) -> Path:
+    """Move a run to the trash, then purge it there, and return where it went.
+
+    The purge leaves a tombstone, so the name of the run stays taken.
+    """
+    trashed = trash_run(project_root, rel_dir, now=now, force=force)
+    entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
+    purge_trashed(project_root, [entry], now=now)
+    return trashed
+
+
 def identity_of(directory: Path) -> str | None:
     """Return the ``sim_id`` or ``session_id`` a directory declares, if any."""
     seal = readable(read_seal, directory)
@@ -383,6 +396,7 @@ __all__ = [
     "parse_trashed_dirname",
     "purge_trashed",
     "read_tombstones",
+    "remove_for_good",
     "restore",
     "trash_run",
     "trashed_dirname",

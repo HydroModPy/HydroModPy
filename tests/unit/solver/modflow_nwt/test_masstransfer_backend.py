@@ -9,7 +9,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import Point
 
-from hydromodpy.solver.modflow_nwt.postprocess.masstransfer import Masstransfer
+from hydromodpy.solver.modflow_nwt.mt3dms.masstransfer import Masstransfer
 
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:

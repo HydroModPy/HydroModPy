@@ -323,7 +323,7 @@ Pitfalls flagged by the layer matrix
 - ``calibration`` imports only the layers that ``layer_matrix.yaml`` grants it,
   and inside the package a part imports only what its row of
   ``calibration_layout.yaml`` allows (``optim`` may import ``criteria`` and
-  nothing else). Do not add an edge into ``display`` or ``analysis`` from an
+  nothing else). Do not add an edge into ``display`` or ``project`` from an
   adapter. :doc:`fix-an-architecture-gate` says what to do when the gate
   refuses an import.
 - Adapters keep their ask/tell state in the adapter instance and never write it

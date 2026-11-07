@@ -69,7 +69,7 @@ def run(args: argparse.Namespace) -> None:
     added = [tag for tag in after if tag not in before]
     removed = [tag for tag in before if tag not in after]
     if added or removed:
-        from hydromodpy.cli._workers.catalog import reindex_if_indexed
+        from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
         reindex_if_indexed(root)
 

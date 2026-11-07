@@ -97,7 +97,6 @@ that writes an old key of `[calibration]` is refused with the new name, and
   `calibration.evaluator` plugin ports, as {doc}`the contracts page
   </contribute/architecture/contracts>` details.
 - The sidecars of `validity_frame`.
-- Every command under `hmp dev`.
 
 ### Patch
 

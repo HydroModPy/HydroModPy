@@ -18,7 +18,7 @@ rules, how a run reaches a backend, and where to add what.
 | `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes and its DISV arguments, `SolverGridContext`, spatial and temporal discretization builders, the `sgrid` table of the top sampling (`sgrid_config.py`) |
 | `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, budget names, calibration readers, property mapping on the solver mesh, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_adapter_helpers.py`) |
 | `modflow6/` | MODFLOW 6 through FloPy: `build.py` (package wiring), `builders/` (one module per package: CHD and DRN, recharge and EVT, wells, LAK, SFR, MVR, HFB, solver options), `run.py`, `api/` (libmf6, in process), `adapters/` (flow, GWT transport, PRT), `extractors/`, `support/`, `modflow6_config.py` |
-| `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre-processing, payload builders, `nwt_config.py`), `adapters/` (flow, MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/`, `postprocess/` (the historical TIFF maps) |
+| `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre-processing, payload builders, `nwt_config.py`), `adapters/` (flow, MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/` |
 | `boussinesq/` | the in-house unstructured-mesh Boussinesq solver; its own map is `boussinesq/README.md` |
 
 Each folder has its own README. Extractors sit beside the adapters of each backend, in `extractors/`. An
@@ -45,7 +45,7 @@ parts. The shape is:
    `tests/unit/architecture/test_solver_private_attributes.py` checks it.
 5. A lower layer reaches the registry through the provider
    `core.contracts.solver_registry`, which `hydromodpy/_bootstrap.py` fills.
-   `simulation` and `analysis` do not import `solver`; `calibration` reaches
+   `simulation` does not import `solver`; `calibration` reaches
    it through `solver.base` only (see `calibration/README.md`).
 
 Who imports solver: `workflow`, `config`, `calibration`, `cli`, `project` and
@@ -60,7 +60,7 @@ hydromodpy/solver/
   modflow_grid/  solver_mesh.py  discretization_spatial.py  top_sampling.py  discretization_temporal.py  sgrid_config.py
   modflow_common/  flow_adapter_helpers.py  binaries.py   property_mapping.py ...
   modflow6/      build.py  run.py  builders/  api/  adapters/  extractors/  support/
-  modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/  postprocess/
+  modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/
   boussinesq/    boussinesq.py  catalog.py  mesh.py  assembly/  runtimes/  ... (see its README)
 ```
 

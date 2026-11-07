@@ -50,7 +50,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import list_workspace_runs
+    from hydromodpy.results.catalog.federation import list_workspace_runs
 
     named = args.path or args.workspace
     root = Path(named).expanduser().resolve() if named else Path.cwd().resolve()

@@ -19,8 +19,9 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import dry_run_parser, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_USAGE, find_workspace, refuse
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.core.workspace.resolve import find_workspace
 
 NAME: str = "doctor"
 HELP: str = "Diagnose the local environment (Python, deps, solvers, workspace)"
@@ -498,13 +499,13 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
     if workspace is None:
         return [_check("lifecycle:workspace", "WARN", "no workspace resolved", "Name one with -w")]
 
-    from hydromodpy.cli._workers.catalog import (
+    from hydromodpy.core.state.layout import project_roots_under
+    from hydromodpy.results.catalog.liveness import (
         ABANDONED_SESSION_MINUTES,
         abandoned_calibration_session_count,
         orphan_calibration_session_count,
         stale_running_sim_ids,
     )
-    from hydromodpy.core.state.layout import project_roots_under
     from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
     stale: list[str] = []

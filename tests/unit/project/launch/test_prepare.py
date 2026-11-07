@@ -124,16 +124,15 @@ def test_prepare_fills_the_shared_cache_through_the_launcher_and_locks_it_once(
     assert not any((report.journal.parent / "caches").glob("*/data-cache.duckdb"))
 
 
-def test_hmp_data_reads_open_the_cache_read_only(tmp_path: Path, monkeypatch) -> None:
-    from hydromodpy.cli._workers import data as data_worker
+def test_hmp_data_reads_open_the_cache_read_only(tmp_path: Path) -> None:
+    from hydromodpy.data.request import cache_verbs
 
     workspace = tmp_path / "ws"
     with DataCatalogDuckDB(workspace / "data" / "cache.duckdb") as cache:
         _register(cache, workspace / "data" / "discharge" / "A.csv", "A")
-    monkeypatch.setattr("hydromodpy.cli.helpers.resolve_workspace", lambda value: workspace)
     holder = duckdb.connect(str(workspace / "data" / "cache.duckdb"), read_only=True)
     try:
-        rows = data_worker.list_data_cache("ws", variable="discharge", provider=None)
+        rows = cache_verbs.list_data_cache(workspace, variable="discharge", provider=None)
     finally:
         holder.close()
 

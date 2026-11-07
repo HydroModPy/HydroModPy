@@ -85,6 +85,7 @@ never in a figure.
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
 | `runs` | `<init>`, `config`, `figure`, `png_metadata`, `style` |
+| `catalog_figures` | `figure_registry`, `runs` (it parses `--opt NAME=VALUE` against the registry, so it cannot sit under `figure_options`, which the registry already reads) |
 | `overview` | `report_blocks`, `style` |
 | `catchment_report` | `config`, `figure_registry`, `overview`, `report_blocks`, `runs` (it draws the run figures the report needs and the run did not draw) |
 
@@ -121,6 +122,9 @@ hydromodpy/display/
 │                          figure_availability (what a run supports, and why not the rest),
 │                          matplotlib_backend (Agg or interactive for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
+├── catalog_figures.py     the verbs of `hmp viz` and `hmp export --figures` on a run found in the index:
+│                          render one figure, draw again what a run recorded, list what it can feed,
+│                          parse_figure_options
 ├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
 ├── calibration_report.py  the HTML page of a calibration session: render_session, session_summary
 ├── run_comparison.py      the series and map figures of `hmp report compare`: draw_series, draw_maps
@@ -197,6 +201,7 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `figure_options.py` | what does each option of a figure do, in which unit, with which default? |
 | `figures/` | how is figure `<name>` drawn? |
 | `config.py` | what does the `[display]` section of the project ask for? |
+| `catalog_figures.py` | how are the figures of a run found through the index of a project drawn, listed and given typed options? |
 | `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why, under which matplotlib backend? |
 | `png_metadata.py` | where does this PNG come from? |
 | `maps/axes.py`, `maps/mesh_geometry.py`, `maps/ugrid.py`, `maps/transect.py` | how to draw a field on the mesh, a map, a section? |

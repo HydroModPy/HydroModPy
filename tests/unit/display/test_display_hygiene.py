@@ -44,7 +44,7 @@ def test_no_banned_cmap_literal() -> None:
 
 # Static analysis test: no hard-coded ``crs="EPSG:<int>"`` literals in code paths.
 #
-# Scans ``hydromodpy/display`` and ``hydromodpy/analysis`` Python files for
+# Scans ``hydromodpy/display`` and ``hydromodpy/project/compare.py`` for
 # ``crs=`` kwargs assigned to literal ``"EPSG:..."`` strings. Whitelist
 # covers documented defaults and the geographic fallback used for Hub'Eau
 # points which always come in EPSG:4326.
@@ -52,7 +52,7 @@ def test_no_banned_cmap_literal() -> None:
 HMP_ROOT = Path(__file__).resolve().parents[3] / "hydromodpy"
 
 
-TARGET_DIRS = ("display", "analysis")
+TARGETS = ("display", "project/compare.py")
 
 
 # Lines that legitimately mention an EPSG default (docstrings, fallbacks
@@ -83,9 +83,9 @@ def _is_whitelisted(path: Path, line: str) -> bool:
     return False
 
 
-def _scan(directory: Path) -> list[tuple[Path, int, str]]:
+def _scan(target: Path) -> list[tuple[Path, int, str]]:
     offending: list[tuple[Path, int, str]] = []
-    for path in directory.rglob("*.py"):
+    for path in [target] if target.is_file() else target.rglob("*.py"):
         if "__pycache__" in path.parts:
             continue
         for lineno, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -103,13 +103,15 @@ def _scan(directory: Path) -> list[tuple[Path, int, str]]:
     return offending
 
 
-def test_no_hardcoded_epsg_in_display_and_analysis() -> None:
+def test_no_hardcoded_epsg_in_display_and_compare() -> None:
     offending: list[tuple[Path, int, str]] = []
-    for sub in TARGET_DIRS:
+    for sub in TARGETS:
         offending.extend(_scan(HMP_ROOT / sub))
     if offending:
         report = "\n".join(f"{path}:{lineno}: {line}" for path, lineno, line in offending)
-        raise AssertionError("Hard-coded EPSG literals found in display/analysis:\n" + report)
+        raise AssertionError(
+            "Hard-coded EPSG literals found in display and project/compare.py:\n" + report
+        )
 
 
 # Importing :mod:`hydromodpy.display` must not touch matplotlib rcParams.

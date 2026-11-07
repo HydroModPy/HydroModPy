@@ -19,7 +19,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
-from ._resolvers import ensure_modflow_name_file
+from .resolvers import ensure_modflow_name_file
 
 logger = get_logger(__name__)
 

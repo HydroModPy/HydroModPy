@@ -12,17 +12,16 @@ rest of the code, and where to add what.
 |---|---|
 | `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, sets the console verbosity of `-q`, `-v` or `--debug`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
-| `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, and `OLD_CLI_FORMS`, the forms that moved |
+| `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, and `OLD_CLI_FORMS`, the forms that moved, among them the refused forms of the old developer verb, each with the `python -m tools.dev` command that replaces it |
 | `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
-| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project` / `project_root_of`, profiling) |
+| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `resolve_workspace` / `resolve_project` / `project_root_of`, profiling). The lookups they build on, `find_workspace` and its two siblings, live in `core/workspace/resolve.py` because a library may not import `cli` |
 | `effective_toml.py` | what a TOML verb (`run`, `calibrate`, `spinup`) runs: the copy `--set` and `--overlay` write beside the file, the file a verb was given (`toml_target`), and where `--profile` writes its report |
-| `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings and ranks, the lockfile, the data cache, privacy purge. A worker may assemble diagnostics; it must not become a hidden scientific workflow. Its `README.md` lists them |
 | `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
 
 ## Verbs
 
-Twenty-one top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
+Twenty top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
 options of each one, and the CLI reference of the documentation is generated
 from the same parsers.
 
@@ -40,7 +39,6 @@ from the same parsers.
 | `config` | `template`, `check`, `resolve`, `schema`, `targets`, `validate-field`, `wizard` |
 | `lock` | the lockfile of a project: `update`, `verify` |
 | `completion` | a shell completion script |
-| `dev` | developer-only, out of the contract: `run-script`, `examples`, `manage`, `test` |
 | `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |
 | `run` | execute the workflow a TOML names in `[workflow].mode`, or the one its sections imply |
 | `calibrate` | run a calibration workflow from a TOML |
@@ -73,7 +71,7 @@ def run(args: argparse.Namespace) -> None: ...
 `args._handler(args)`.
 
 A verb family is a sub-package (`workspace`, `project`, `campaign`, `example`,
-`catalog`, `data`, `viz`, `lock`, `dev`, `site`). Its `__init__.py` carries `NAME`, `HELP` and an
+`catalog`, `data`, `viz`, `lock`, `site`). Its `__init__.py` carries `NAME`, `HELP` and an
 `ACTIONS` tuple, and every action module repeats the same four symbols. The
 group is attached with `add_action_subparsers`, so a bare `hmp catalog` is a
 usage error and exits 2. `config`, `privacy` and `report` are single modules
@@ -91,8 +89,9 @@ creates it when no path is given.
 
 ## The boundary
 
-- `commands/*.py` parse arguments, call `hydromodpy._api`, another package or a
-  worker of `_workers/`, format the output and map errors to exit codes.
+- `commands/*.py` parse arguments, call `hydromodpy._api` or the package the
+  verb serves (`results.catalog`, `data.request`, `display`, `project.lock`),
+  format the output and map errors to exit codes.
 - Reusable behavior belongs in `hydromodpy._api` or in its domain package, and
   the command module calls it. Business logic never lives in `cli/`.
 - The workflow dispatch is not here. `hmp run` calls `dispatch_workflow`
@@ -153,8 +152,8 @@ prints its code and its message on stderr and exits with the code of its class.
 3. **A shared option.** A parser in `conventions.py`, passed through `parents=`.
    A new verb declares what it writes in `OUTPUTS` of `output.py`. A form that
    moved gets its line in `OLD_CLI_FORMS`.
-4. **Work only the CLI needs.** A function in `_workers/`. Work that a Python
-   user needs too goes in `hydromodpy._api` or its domain package first.
+4. **Work behind a verb.** A function in the package the verb serves, never in
+   `cli/`. Work that a Python user needs too goes in `hydromodpy._api` first.
 5. **An exit code.** A constant and an entry in the mapping of `helpers.py`.
 
 `tests/unit/cli/test_cli_help.py` walks `ALL_COMMANDS` and checks the help of
@@ -167,7 +166,7 @@ the tree for the grammar and the envelope.
 
 `cli` sits above the layer matrix (`tests/unit/architecture/layer_matrix.yaml`):
 it may import `<root>`, `core`, `schema`, `config`, `data`, `simulation`, `solver`,
-`calibration`, `results`, `display`, `analysis`, `workflow`, `project` and `examples`.
+`calibration`, `results`, `display`, `workflow` and `project`.
 Nothing imports it except the entry point `hydromodpy/__main__.py`.
 
 ## Reading path
@@ -176,5 +175,5 @@ Nothing imports it except the entry point `hydromodpy/__main__.py`.
 2. `commands/__init__.py` for `ALL_COMMANDS`.
 3. `commands/run.py` for the canonical workflow verb.
 4. `project/dispatch/workflow.py` for the mode to launcher table.
-5. A small verb such as `commands/catalog/point.py`: parse, call a worker,
-   format, map errors.
+5. A small verb such as `commands/catalog/point.py`: parse, call the catalog
+   listing, format, map errors.

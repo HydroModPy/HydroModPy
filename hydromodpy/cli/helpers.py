@@ -251,53 +251,9 @@ def exit_if_session_unfinished(result: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def find_workspace_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find the shared data workspace."""
-    start = project_dir.resolve()
-    if start.name == "projects" and start.parent.is_dir():
-        return start.parent
-    for parent in [start] + list(start.parents):
-        if parent.parent.name == "projects":
-            return parent.parent.parent
-        if (parent / "projects").is_dir() or (parent / "data").is_dir():
-            return parent
-    return start
-
-
-def find_data_workspace(start: Path) -> Path | None:
-    """Walk up from ``start`` to find a workspace root (has a ``data/`` folder)."""
-    for parent in [start] + list(start.parents):
-        if not parent.is_dir():
-            continue
-        if (parent / "data").is_dir() and (
-            (parent / "projects").is_dir() or (parent / "workspace.toml").exists()
-        ):
-            return parent
-    return None
-
-
-def find_workspace(workspace_arg: str | None) -> Path | None:
-    """Return the workspace named by ``-w``, by ``HMP_WORKSPACE``, or above the cwd.
-
-    A named project directory resolves to the workspace that holds it; a named
-    directory that carries ``data/``, ``projects/`` or ``workspace.toml`` is
-    the workspace. Returns ``None`` when nothing answers: there is no default
-    folder such as ``~/hydromodpy``.
-    """
-    from hydromodpy.core.state.layout import is_workspace_root
-
-    named = workspace_arg or os.environ.get("HMP_WORKSPACE")
-    start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
-    if not start.is_dir():
-        return None
-    found = find_data_workspace(start)
-    if found is None and (is_workspace_root(start) or (named and (start / "data").is_dir())):
-        found = start
-    return found
-
-
 def resolve_workspace(workspace_arg: str | None) -> Path:
-    """Return :func:`find_workspace`, or stop with :data:`EXIT_NOT_FOUND` naming ``-w``."""
+    """Return :func:`~hydromodpy.core.workspace.resolve.find_workspace`, or stop with :data:`EXIT_NOT_FOUND` naming ``-w``."""
+    from hydromodpy.core.workspace.resolve import find_workspace
     from hydromodpy.core.workspace.workspace_toml import refuse_a_newer_workspace
 
     found = find_workspace(workspace_arg)
@@ -537,9 +493,6 @@ __all__ = (
     "project_named_by_w",
     "project_root_of",
     "refuse",
-    "find_workspace_root",
-    "find_data_workspace",
-    "find_workspace",
     "resolve_workspace",
     "resolve_project",
     "apply_verbosity",
