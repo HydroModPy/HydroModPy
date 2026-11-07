@@ -1,0 +1,15 @@
+{
+  "bbox": null,
+  "crs": null,
+  "date_end": "2003-01-02",
+  "date_start": "2003-01-01",
+  "fetched_at": null,
+  "frequency": "D",
+  "license": "etalab-2.0",
+  "notes": null,
+  "sha256": "6d4b35d43edae2c9ce0fab10e0d1da8f279e6136fc248ca738d6a5e595eb151f",
+  "source": "hubeau",
+  "source_unit": "m",
+  "unit": "m",
+  "variable": "piezometry"
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "hmp-outcome/v1",
+  "job_id": "sha256:9c243fccb904e0e46747009d961f07f4d24d42757e6fcc317d1df8d0ff7929bd",
+  "process": {
+    "id": "demo",
+    "version": "1.0.0"
+  },
+  "status": "successful",
+  "exit_code": 0,
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "finished_at": "2026-01-01T00:00:00+00:00",
+  "duration_s": 0.0,
+  "reused": false,
+  "outputs": [
+    {
+      "id": "value",
+      "path": "outputs/value.json",
+      "mediaType": "application/json",
+      "bytes": 13,
+      "sha256": "dbbd9c92f0a9fc8ec5968c1d825d1f3779567052b3286c91ed34f060ebe2f466"
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,23 @@
+schema = "hydromodpy.lock.v1"
+
+[hydromodpy]
+hydromodpy_version = "2.0.0"
+git_commit = "6639a3ee59790b3c1e6499af3253ad204f218acd"
+python_version = "3.13.15"
+catalog_schema_version = 1
+zarr_schema_version = "4"
+parquet_schema_version = "v3"
+config_schema_sha256 = "118007843e50abbe11b631a8b2cbbe8fdec35c4afbde916f392b243468997b81"
+generated_at = "2026-11-07T17:47:48+00:00"
+
+[binaries]
+
+[[input]]
+variable = "piezometry"
+source = "custom"
+station_id = "W1"
+path = "data/piezometry/piezometry_custom_W1_D.csv"
+sha256 = "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+bytes = 45
+file_mtime = 1794073658.130255
+fetched_at = "2026-11-07T17:47:48+00:00"

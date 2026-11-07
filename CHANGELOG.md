@@ -18,10 +18,32 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
-Work since v2.0.0rc1. The main themes are calibration with a validation window, calibration trials in worker processes, and stricter checks on calibration files.
+## [v2.0.0] - 2026-11-07
+
+This is version 2.0.0. It is written for a reader who comes from version 1 or from an alpha. The development notes are in
+[Development notes of 2.0.0](https://github.com/HydroModPy/HydroModPy/blob/main/docs/source/about/changes-during-the-alphas.md).
+
+Since the last alpha, calibration gained a validation window, trials in worker processes and stricter checks of its files.
+
+### What to do when you update
+
+- Runs and sessions stored by an alpha are refused. Run them again with this version.
+- A TOML file written for an alpha or for version 1 may use old keys. Run
+  `hmp doctor --fix-config` on it. It rewrites the renamed keys and says what it changed.
+- If you come from version 1, read `docs/source/get-started/from-v1.md`.
+- The keys and commands that moved are listed in `docs/source/reference/changes.md`, "What changed in the TOML".
+- A file that does not say which calibration protocol it wants follows protocol 1.3.
 
 ### Added
 
+- Contributors: `tests/regression/frozen_documents/v2.0.0/` keeps the documents of 2.0.0 that `frozen_runs` does not hold (publication, install index, plan, lockfile, sidecars, data caches, trial series, the six documents of a sealed job, site catalog), written on a synthetic island by `python -m tools.freeze_documents`, and a test reads each one with the readers of this version.
+- A page for users of version 1, with the table of old keys and commands.
+- A `NOTICE` file with the licences of PyHELP and of the data, and `version` in `CITATION.cff`.
+- `hydromodpy_version_min` in `workspace.toml` is enforced.
+- A sha256 for each file of a run. `hmp doctor` reports a sealed file that is missing or changed.
+- `--format table|json|csv` on the commands that print a result, and a `HMPY.Exxx` code at the start of each error line.
+- JSON Schemas for `manifest.json`, `provenance.json` and the output of `hmp calibrate`.
+- A transient Boussinesq run writes a `storage` budget term, so its domain budget closes.
 - `[calibration] validation_window = {start, end}` keeps dates apart from the search. Each trial is also scored on them, under `validation.cost`. The promoted run stores the period and the score in `checks.calibrated_by`.
 - `[metrics] window` minus the validation window is the default calibration window. A validation window that overlaps it, leaves a bound open or has no dated record is refused by name.
 - `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name on every route. `dry_run=True` returns the plan.
@@ -32,6 +54,20 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 
 ### Changed
 
+- Soil reservoir defaults: `alpha` goes from 0.6 to 0.45 (FAO-56 table 22, cereals and maize).
+  `flow.sinks_sources.etp.extinction_depth` goes from 1 m to 2 m. A file that writes these keys reads as before.
+- The soil reservoir gives each SAFRAN cell its share of the catchment in the basin mean it prints. Without a catchment polygon, cells keep equal weight. The grids given to MODFLOW 6 do not change.
+- Each stored format declares the oldest version that reads it. Every later 2.x reads every 2.0.0 run.
+- A calibration with no pin on the protocol follows 1.3. The map is cut to the catchment and the network is rasterized from the heads of the observed streams.
+- A tie on the cost in the last phase of a search promotes the trial that the search answered.
+- A date written on a stamp belongs to the period `(s, e]` that the stamp closes.
+- `hmp.run` returns a `Run`, and a calibration goes through `hmp.calibrate`. Overrides go through `set=`.
+  `Project.run` is now `Project.launch`. A name that left is refused with its new path.
+- A boundary condition is active when its table is declared, and `enabled = false` turns it off. Boussinesq and PETSc settings move to `[flow.runtime]`, and the discriminator is `kind` everywhere.
+- On the command line, `-w` works on every verb. `hmp replay` is removed, `hmp test` is now `hmp dev test`, and `hmp campaign` holds the verbs of a plan of cases.
+- A budget flux is negative when water leaves the aquifer, for every solver.
+- A time series has a `source` column (`simulated` or `observed`), and the catchment row is named `catchment`.
+- NetCDF and VTU write one variable with a layer dimension. Opening a NetCDF in QGIS needs `layer=` on the export.
 - With `parallel` above 1, trials of a HydroModPy search run in worker processes that last, not in threads. A script that calibrates this way needs the `if __name__ == "__main__":` guard. A `metric_fn` must be defined at the top level of a module.
 - `[modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search. The default stays 2400 s, so a longer trial now ends `crashed`.
 - With `parallel` above 1, grid, Latin hypercube and random searches feed one queue of workers, and the progress bar moves as each trial ends. `multistart` restarts run side by side. `linearized` derivatives run in workers.
@@ -65,9 +101,12 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The version is 2.0.0, set in `pyproject.toml`, `CITATION.cff` and `hydromodpy/core/version.py`.
 - A TOML key or table that only a pre-release wrote still loads in 2.0.x with a warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is refused. The rule of two minor versions holds for a TOML key or table changed from 2.0.0 on. A name of Python, an `hmp` command or a flag that leaves in 2.1.0 or earlier has no alias: it is refused with a message that names its new form. The alias with a `FutureWarning` holds for a change from 2.2.0 on. The warning of an old form no longer states a delay.
 - The two irregular-mesh runs of example 06 (`run_selune_mf6_irregular.toml` and `run_vire_mf6_irregular.toml`) use the current keys. They resolve to the same configuration.
+- `hmp doctor --fix-config` rewrites the TOML keys that only a pre-release wrote. The old and the new forms are `flow.active_bc` and `flow.active_sinks_sources` (tables of `flow.bc` and `flow.sinks_sources`, active when declared), `flow.bc.<name>.forcing.mode` (`kind`), `flow.ic.type` and `flow.ic.h.type` (`kind`), `flow.param.<id>.field_vertical_profile.mode` (`kind`), `flow.sinks_sources.lakes.<id>.outlets[*].couttype` (`kind`), `flow.sinks_sources.lakes.<id>.stageinit` (`initial_stage`), `flow.surface_interaction_model` (`flow.runtime.surface_interaction_model`), `geographic.catchment.catch_def` (`kind`), `simulation.process[*].type` (`kind`) and `solver.backend.backend` (`kind`). Four keys have no new form and the doctor drops them: `transport.active_bc`, `transport.active_sinks_sources`, `workspace.catalog_path` and `workspace.runs_dir`, because no solver read the first two and the storage layout fixes the other two.
 
 ### Removed
 
+- The commands and flags that left before 2.0.0 have no alias. They are refused with a message.
+- `catchment_mismatch` as it was. The old number is now called `basin_mismatch`.
 - A network output can no longer score against `geographic.river_network`, because the DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file.
 - `hydromodpy.core.Workspace`, which never resolved. Use `Workspace` from `hydromodpy.project.accessors`. `hydromodpy.core.io.crs.haversine_km` is gone, use `hydromodpy.data.common.geo_helpers.haversine_km`.
 - The B0 network and transient case left the package for `validation_cases/calibration/network_transient_b0/`.
@@ -77,6 +116,10 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 
 ### Fixed
 
+- A project whose DEM comes from a `[data.dem]` source alone, with no `dem_init_path`, opens again.
+- The MODFLOW 6 `discharge` of a run with a lake and no SFR, the Boussinesq `discharge` and the Boussinesq budget terms. Sizes are in Numbers.
+- A network output whose `time` falls on a stamp, and a window that ends on a stamp, now read the right period.
+- The soil reservoir citations are checked against the sources. The description of `curve_number` no longer claims an explanation that no source supports.
 - `load_to_numpy` reports a GeoTIFF without a CRS instead of raising `AttributeError`. `load_to_xarray` labels the real axes after a reprojection to degrees.
 - `select_within_polygon_points` now filters the grid. PyHELP ERA5 preprocessing with `nearest_filter=False` receives only the points inside the polygon.
 - Unit types such as `LengthMeters` give a pydantic `ValidationError` for a boolean, a list or a table without `value`. A TOML error in a later `[[table]]` block points at that block.
@@ -110,68 +153,6 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 
 ### Numbers
 
-- A Python calibration without phases and with a `linearized` width now pays one model run per parameter plus one at the optimum. Search results and costs are unchanged.
-- Example 04 calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move. `calibration.precision` now writes a relative `fatol`.
-- `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. The size of the change was not measured.
-- At `parallel` above 1 trial costs are equal to the last digit, with 63 trials checked at widths 2, 4 and 8 on example 04. Peak memory at width 8 is 6.5 GiB.
-- `scipy_de` at width 4 needs more evaluations than at width 1 for the same late precision, up to 1.5 to 5 times, and wins when solves dominate. `tpe` with `constant_liar` is neutral at width 2 and better from 4.
-
-## [v2.0.0rc1] - 2026-11-03
-
-This is the first release candidate of 2.0.0. It is written for a reader who comes from version 1 or from an alpha. The development notes are in
-[Development notes of 2.0.0](https://github.com/HydroModPy/HydroModPy/blob/main/docs/source/about/changes-during-the-alphas.md).
-
-### What to do when you update
-
-- Runs and sessions stored by an alpha are refused. Run them again with this version.
-- A TOML file written for an alpha or for version 1 may use old keys. Run
-  `hmp doctor --fix-config` on it. It rewrites the renamed keys and says what it changed.
-- If you come from version 1, read `docs/source/get-started/from-v1.md`.
-- The keys and commands that moved are listed in `docs/source/reference/changes.md`, "What changed in the TOML".
-- A file that does not say which calibration protocol it wants follows protocol 1.3.
-
-### Added
-
-- A page for users of version 1, with the table of old keys and commands.
-- A `NOTICE` file with the licences of PyHELP and of the data, and `version` in `CITATION.cff`.
-- `hydromodpy_version_min` in `workspace.toml` is enforced.
-- A sha256 for each file of a run. `hmp doctor` reports a sealed file that is missing or changed.
-- `--format table|json|csv` on the commands that print a result, and a `HMPY.Exxx` code at the start of each error line.
-- JSON Schemas for `manifest.json`, `provenance.json` and the output of `hmp calibrate`.
-- A transient Boussinesq run writes a `storage` budget term, so its domain budget closes.
-
-### Changed
-
-- Soil reservoir defaults: `alpha` goes from 0.6 to 0.45 (FAO-56 table 22, cereals and maize).
-  `flow.sinks_sources.etp.extinction_depth` goes from 1 m to 2 m. A file that writes these keys reads as before.
-- The soil reservoir gives each SAFRAN cell its share of the catchment in the basin mean it prints. Without a catchment polygon, cells keep equal weight. The grids given to MODFLOW 6 do not change.
-- Each stored format declares the oldest version that reads it. Every later 2.x reads every 2.0.0 run.
-  A name can be renamed in a minor version, and the old name keeps working for two minor versions.
-- A calibration with no pin on the protocol follows 1.3. The map is cut to the catchment and the network is rasterized from the heads of the observed streams.
-- A tie on the cost in the last phase of a search promotes the trial that the search answered.
-- A date written on a stamp belongs to the period `(s, e]` that the stamp closes.
-- `hmp.run` returns a `Run`, and a calibration goes through `hmp.calibrate`. Overrides go through `set=`.
-  `Project.run` is now `Project.launch`. A name that left is refused with its new path.
-- A boundary condition is active when its table is declared, and `enabled = false` turns it off. Boussinesq and PETSc settings move to `[flow.runtime]`, and the discriminator is `kind` everywhere.
-- On the command line, `-w` works on every verb. `hmp replay` is removed, `hmp test` is now `hmp dev test`, and `hmp campaign` holds the verbs of a plan of cases.
-- A budget flux is negative when water leaves the aquifer, for every solver.
-- A time series has a `source` column (`simulated` or `observed`), and the catchment row is named `catchment`.
-- NetCDF and VTU write one variable with a layer dimension. Opening a NetCDF in QGIS needs `layer=` on the export.
-
-### Removed
-
-- The commands and flags that left before 2.0.0 have no alias. They are refused with a message.
-- `catchment_mismatch` as it was. The old number is now called `basin_mismatch`.
-
-### Fixed
-
-- A project whose DEM comes from a `[data.dem]` source alone, with no `dem_init_path`, opens again.
-- The MODFLOW 6 `discharge` of a run with a lake and no SFR, the Boussinesq `discharge` and the Boussinesq budget terms. Sizes are in Numbers.
-- A network output whose `time` falls on a stamp, and a window that ends on a stamp, now read the right period.
-- The soil reservoir citations are checked against the sources. The description of `curve_number` no longer claims an explanation that no source supports.
-
-### Numbers
-
 Sizes come from example 04 unless another case is named. Runs of older versions are not comparable on these quantities.
 
 - Soil recharge on example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200 and 250 mm. It was 443, 392, 356, 325 and 295 mm/year and is now 443, 389, 350, 315 and 280 mm/year.
@@ -187,6 +168,11 @@ Sizes come from example 04 unless another case is named. Runs of older versions 
 - `catchment_mismatch` changes meaning and enters no cost. On the shipped mesh of 21 406 cells 0 becomes 0.37 %, and on 30 x 30 it becomes 11.0 %.
 - Every cache key of a calibration changes once, so the trials of an earlier session are solved again.
 - No number moves for MODFLOW 6 on example 04 (the 55 arrays, `timeseries`, `budgets` and the 11 scores, NSE 0.9345), nor for a run with no override.
+- A Python calibration without phases and with a `linearized` width now pays one model run per parameter plus one at the optimum. Search results and costs are unchanged.
+- Example 04 calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move. `calibration.precision` now writes a relative `fatol`.
+- `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. The size of the change was not measured.
+- At `parallel` above 1 trial costs are equal to the last digit, with 63 trials checked at widths 2, 4 and 8 on example 04. Peak memory at width 8 is 6.5 GiB.
+- `scipy_de` at width 4 needs more evaluations than at width 1 for the same late precision, up to 1.5 to 5 times, and wins when solves dominate. `tpe` with `constant_liar` is neutral at width 2 and better from 4.
 
 ## [v2.0.0a5] - 2026-10-13
 
@@ -712,8 +698,8 @@ which resolves to the latest `1.0.X` patch and never upgrades to the v2 series.
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0rc1...dev
-[v2.0.0rc1]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0a5...v2.0.0rc1
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0...dev
+[v2.0.0]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0a5...v2.0.0
 [v2.0.0a5]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0a4...v2.0.0a5
 [v2.0.0a4]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0a3...v2.0.0a4
 [v2.0.0a3]: https://github.com/HydroModPy/HydroModPy/compare/v2.0.0a2...v2.0.0a3

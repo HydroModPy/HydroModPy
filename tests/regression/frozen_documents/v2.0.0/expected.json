@@ -1,0 +1,278 @@
+{
+  "hydromodpy_version": "2.0.0",
+  "written_from": {
+    "commit": "6639a3ee59790b3c1e6499af3253ad204f218acd",
+    "dirty": false
+  },
+  "duckdb_version": "1.5.5",
+  "pyarrow_version": "23.0.1",
+  "capability": "demo",
+  "published": [
+    {
+      "schema": "hydromodpy.published.v1",
+      "to": "<workspace>/pub/inputs",
+      "format": "dir"
+    },
+    {
+      "schema": "hydromodpy.published.v1",
+      "to": "<workspace>/pub/calage.tar",
+      "format": "tar"
+    }
+  ],
+  "publication": {
+    "schema": "hydromodpy.publication.v1",
+    "kind": "run",
+    "rel_dir": "runs/calage",
+    "files": [
+      "INSTALL.toml",
+      "README.md",
+      "config.resolved.toml",
+      "config.toml",
+      "inputs.json",
+      "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "manifest.json",
+      "provenance.json",
+      "ro-crate-metadata.json"
+    ]
+  },
+  "install": {
+    "publication": {
+      "schema": "hydromodpy.install.v1",
+      "hydromodpy_version": "2.0.0",
+      "files": [
+        "data/piezometry/piezometry_custom_W1_D.csv"
+      ],
+      "stations": [],
+      "sites": [
+        "island"
+      ]
+    },
+    "install": {
+      "schema": "hydromodpy.install.v1",
+      "hydromodpy_version": "2.0.0",
+      "files": [
+        "data/piezometry/piezometry_hubeau_W2_D.csv"
+      ],
+      "stations": [
+        "W2"
+      ],
+      "sites": [
+        "island"
+      ]
+    }
+  },
+  "plan": {
+    "schema": "hydromodpy.plan.v1",
+    "plan_hash": "d3f9189e8879285b",
+    "n_cases": 4,
+    "budget": {
+      "parallel": 8,
+      "threads_per_case": 1,
+      "solves": 4,
+      "kept_solves": 4
+    },
+    "cases": [
+      "alpha-base",
+      "alpha-k2e_5",
+      "beta-base",
+      "beta-k2e_5"
+    ],
+    "case_tomls": [
+      "alpha-base.toml",
+      "alpha-k2e_5.toml",
+      "beta-base.toml",
+      "beta-k2e_5.toml"
+    ],
+    "sites": [
+      "alpha",
+      "beta"
+    ]
+  },
+  "lockfile": {
+    "schema": "hydromodpy.lock.v1",
+    "catalog_schema_version": 1,
+    "inputs": [
+      {
+        "variable": "piezometry",
+        "source": "custom",
+        "path": "data/piezometry/piezometry_custom_W1_D.csv",
+        "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+      }
+    ],
+    "binaries": {}
+  },
+  "sidecar": {
+    "island/data/dem/dem_ign.tif.json": {
+      "bbox": [
+        0.0,
+        0.0,
+        610.0,
+        610.0
+      ],
+      "crs": "EPSG:2154",
+      "fetched_at": null,
+      "license": "etalab-2.0",
+      "notes": "Synthetic terrain of four cells.",
+      "sha256": "9cd01bf4827744f5f3d47fdea561beb40cda77c2c399cd6515779c5bce296e8b",
+      "source": "ign"
+    },
+    "island/data/piezometry/piezometry_custom_W1_D.csv.json": {
+      "bbox": [
+        305.0,
+        305.0,
+        305.0,
+        305.0
+      ],
+      "crs": "EPSG:2154",
+      "fetched_at": null,
+      "license": "LicenseRef-undetermined",
+      "notes": null,
+      "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3",
+      "source": "custom"
+    },
+    "island/data/piezometry/piezometry_hubeau_W2_D.csv.json": {
+      "bbox": null,
+      "crs": null,
+      "date_end": "2003-01-02",
+      "date_start": "2003-01-01",
+      "fetched_at": null,
+      "frequency": "D",
+      "license": "etalab-2.0",
+      "notes": null,
+      "sha256": "6d4b35d43edae2c9ce0fab10e0d1da8f279e6136fc248ca738d6a5e595eb151f",
+      "source": "hubeau",
+      "source_unit": "m",
+      "unit": "m",
+      "variable": "piezometry"
+    }
+  },
+  "data_cache": {
+    "campaign/jobs/20260101-000000-local/caches/alpha-base.run/data-cache.duckdb": {
+      "migrations": [
+        [
+          1,
+          "data_cache",
+          "initial"
+        ]
+      ],
+      "schema_version": [
+        [
+          "data_cache",
+          1
+        ]
+      ],
+      "entries": 0
+    },
+    "island/data/cache.duckdb": {
+      "migrations": [
+        [
+          1,
+          "data_cache",
+          "initial"
+        ]
+      ],
+      "schema_version": [
+        [
+          "data_cache",
+          1
+        ]
+      ],
+      "entries": 1
+    }
+  },
+  "trial_series": {
+    "files": [
+      "trial-000001.parquet",
+      "trial-000002.parquet",
+      "trial-000003.parquet"
+    ],
+    "columns": [
+      "trial",
+      "output",
+      "station",
+      "time",
+      "simulated",
+      "observed"
+    ],
+    "rows": [
+      {
+        "trial": 1,
+        "output": "crest_head",
+        "station": "W1",
+        "time": "2003-01-03T00:00:00",
+        "simulated": 6.946107160722614,
+        "observed": 2.0
+      },
+      {
+        "trial": 2,
+        "output": "crest_head",
+        "station": "W1",
+        "time": "2003-01-03T00:00:00",
+        "simulated": 2.945487753170152,
+        "observed": 2.0
+      },
+      {
+        "trial": 3,
+        "output": "crest_head",
+        "station": "W1",
+        "time": "2003-01-03T00:00:00",
+        "simulated": 1.1028511355516815,
+        "observed": 2.0
+      }
+    ]
+  },
+  "job": {
+    "chain": {
+      "schema": "hmp-chain-outcome/v1",
+      "status": "successful",
+      "steps": 1
+    },
+    "directory": "01-first",
+    "request": {
+      "process": {
+        "id": "demo"
+      },
+      "inputs": {
+        "value": 1
+      }
+    },
+    "inputset": "hmp-inputset/v1",
+    "provenance": "hmp-provenance/v1",
+    "outcome": {
+      "schema": "hmp-outcome/v1",
+      "status": "successful",
+      "job_id": "sha256:9c243fccb904e0e46747009d961f07f4d24d42757e6fcc317d1df8d0ff7929bd",
+      "outputs": [
+        "outputs/value.json"
+      ]
+    },
+    "manifest": {
+      "schema": "hmp-manifest/v2",
+      "profile": "job",
+      "artifacts": [
+        "inputset.json",
+        "outcome.json",
+        "outputs/value.json",
+        "provenance.json"
+      ]
+    }
+  },
+  "sites_catalog": {
+    "header": [
+      "site",
+      "label",
+      "gauge",
+      "uri",
+      "x_outlet",
+      "y_outlet",
+      "crs",
+      "tags"
+    ],
+    "sites": [
+      "alpha",
+      "beta"
+    ]
+  },
+  "digest": "d77677327edfd28c9c41cb6df3e12c448387b2fbf65d333e4f045cb7bc8a2c6c"
+}

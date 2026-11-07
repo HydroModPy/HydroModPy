@@ -1,0 +1,2 @@
+{"schema": "hydromodpy.published.v1", "to": "<workspace>/pub/inputs", "format": "dir", "published_at": "2026-11-07T17:47:52.116650Z", "publication_sha256": "8261e392a5d9668650c2038660e97900a288783902a6905ac5a2e2c5095d036b"}
+{"schema": "hydromodpy.published.v1", "to": "<workspace>/pub/calage.tar", "format": "tar", "published_at": "2026-11-07T17:47:55.284917Z", "publication_sha256": "a518b3b750f6cd562a2f6f7b3aa724345ba223255dd1ef43558ae3a107513963"}

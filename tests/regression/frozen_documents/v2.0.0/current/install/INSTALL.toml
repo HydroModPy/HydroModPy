@@ -1,0 +1,21 @@
+schema = "hydromodpy.install.v1"
+hydromodpy_version = "2.0.0"
+
+[[file]]
+dest = "data/piezometry/piezometry_hubeau_W2_D.csv"
+size = 45
+sha256 = "6d4b35d43edae2c9ce0fab10e0d1da8f279e6136fc248ca738d6a5e595eb151f"
+root = "project"
+variable = "piezometry"
+provider = "hubeau"
+license = "etalab-2.0"
+request = {station = "W2", period = ["2003-01-01", "2003-01-02"]}
+
+[[station]]
+dest = "data/piezometry/piezometry_hubeau_LOC.csv"
+row = {id = "W2", x = "305.0", y = "305.0"}
+
+[[site]]
+site = "island"
+label = "Island"
+gauge = "W2"

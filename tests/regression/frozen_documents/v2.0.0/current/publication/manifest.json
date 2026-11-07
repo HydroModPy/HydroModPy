@@ -1,0 +1,343 @@
+{
+  "manifest_version": 3,
+  "derive_rule_version": "1",
+  "sealed_at": "2026-11-07T17:47:44.923852Z",
+  "run": {
+    "sim_id": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+    "name": "calage",
+    "name_stem": "calage",
+    "version": 1,
+    "status": "completed",
+    "project": "island",
+    "case_id": "calage",
+    "recipe": null,
+    "rel_dir": "runs/calage",
+    "attempt": 1,
+    "attempt_id": "b8e72584f86447cbbe9697f1554b966a",
+    "solver": "modflow6",
+    "solver_category": "distributed",
+    "flow_regime": "steady",
+    "created_at": "2026-11-07T17:47:43.862717Z",
+    "started_at": "2026-11-07T17:47:43.862717Z",
+    "ended_at": "2026-11-07T17:47:44.814088Z",
+    "duration_s": 0.951371,
+    "description": null,
+    "scientific_objective": null,
+    "contact_email": null,
+    "doi": null,
+    "license": "LicenseRef-undetermined"
+  },
+  "site": {
+    "name": "island",
+    "label": null,
+    "gauge": null,
+    "uri": null,
+    "fingerprint": "03e3fd0b3f288d43",
+    "x_outlet": null,
+    "y_outlet": null,
+    "crs": null,
+    "area_km2": null,
+    "dem_resolution_m": null,
+    "snapped_outlet": null
+  },
+  "geometry": {
+    "n_cells": 961,
+    "n_layers": 1,
+    "mesh_topology": "structured_2d",
+    "mesh_engine": "regular",
+    "mesh_engine_version": "1.1.1",
+    "mesh_hash": "fdd2dfcf524170f181e0002093694bdba8f0d7c71bed8a9dc7214b588e525307",
+    "crs_wkt": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France métropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+    "crs_epsg": 2154,
+    "bbox": [
+      0.0,
+      -1.1368683772161603e-13,
+      609.9999999999999,
+      609.9999999999998
+    ],
+    "catchment": {
+      "crs_proj": "EPSG:2154",
+      "catch_area": "0.3721",
+      "dem_res": "19.677419354838708",
+      "catch_def": "synthetic",
+      "nrow": "31",
+      "ncol": "31"
+    }
+  },
+  "period": {
+    "start": "2003-01-01T00:00:00Z",
+    "end": "2003-01-03T00:00:00Z",
+    "n_timesteps": 1,
+    "time_unit": "day"
+  },
+  "config": {
+    "file": "config.toml",
+    "hash": "b109da8fa846fa0468a2b9581ff11cc08f32ef209a85230bbfb95edec4856096",
+    "source": "calib.toml"
+  },
+  "lineage": {
+    "parent_sim_id": null,
+    "session_id": "c7972ee85eed416384eb70ff79c0c9ff",
+    "phase": "k_grid",
+    "trial": 3,
+    "kind": "promoted",
+    "overrides": {},
+    "drift": {},
+    "parent_hint": "sessions/calage"
+  },
+  "identity": {
+    "site": "island",
+    "site_fingerprint": "03e3fd0b3f288d43",
+    "case_id": "calage",
+    "sim_id": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+    "attempt_id": "b8e72584f86447cbbe9697f1554b966a",
+    "config_hash": "b109da8fa846fa0468a2b9581ff11cc08f32ef209a85230bbfb95edec4856096",
+    "mesh_hash": "fdd2dfcf524170f181e0002093694bdba8f0d7c71bed8a9dc7214b588e525307",
+    "period": {
+      "start": "2003-01-01",
+      "end": "2003-01-03"
+    },
+    "score_window": null,
+    "label": null,
+    "label_date": null,
+    "rule_version": null,
+    "hydromodpy_version": "2.0.0",
+    "code_reproducible": false
+  },
+  "checks": {
+    "schema": "hydromodpy.checks.v2",
+    "budget_pct": 0.0,
+    "budget_threshold_pct": null,
+    "converged": true,
+    "obs_coverage": null,
+    "score_window": null,
+    "n_samples": 0,
+    "calibrated_by": {
+      "session_id": "c7972ee85eed416384eb70ff79c0c9ff",
+      "phase": "k_grid",
+      "trial": 3,
+      "session_status": "completed",
+      "stop_state": "plan_exhausted",
+      "stopping_rule": "every grid point",
+      "metric": "rmse",
+      "cost": 0.8971488644483185,
+      "validation_cost": null,
+      "windows": {}
+    },
+    "validities": [],
+    "bounds_hit": [
+      "K"
+    ],
+    "code_reproducible": false
+  },
+  "inputs": [
+    {
+      "role": "piezometry",
+      "category": "data",
+      "path": "data/piezometry",
+      "declared_path": "piezometry",
+      "sha256": "bf13e9233fb254ed152656795124551560146bd8240f7fc5bb173e08e527d8f2",
+      "bytes": 333,
+      "portable": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "manifest.json",
+      "role": "manifest",
+      "format": "json",
+      "bytes": null,
+      "sha256": null
+    },
+    {
+      "path": "config.resolved.toml",
+      "role": "config_resolved",
+      "format": "toml",
+      "bytes": 7617,
+      "sha256": "01ef9f468016aeef8bb3fdc5d206ffd347e8091588c91cd524f60425835df3e0"
+    },
+    {
+      "path": "config.toml",
+      "role": "config",
+      "format": "toml",
+      "bytes": 1832,
+      "sha256": "0ae63b4c17d8bea38fa7e7548b1637cc1cf3ba334cf3d69f22439ab6eb947534"
+    },
+    {
+      "path": "fields.zarr",
+      "role": "fields",
+      "format": "zarr",
+      "bytes": 152056,
+      "sha256": "eff86f0bc626208bd6fc3d36859cdec6efc5225f3ed9d1796e156c6287b279e6"
+    },
+    {
+      "path": "inputs.json",
+      "role": "other",
+      "format": "json",
+      "bytes": 659,
+      "sha256": "0299649931b443d7261df39ae378c10582d4dd25634a8d6862244e1c8ddabb48"
+    },
+    {
+      "path": "provenance.json",
+      "role": "provenance",
+      "format": "json",
+      "bytes": 10882,
+      "sha256": "73260ba887de79d68c4632ce18336dc1208c45b373d2e651293be8c5d43afdec"
+    },
+    {
+      "path": "tables.parquet/budgets.parquet",
+      "role": "table:budgets",
+      "format": "parquet",
+      "bytes": 6104,
+      "sha256": "1f3a0063d3ddbc06abae546ab96b0fd406f92c32326fdff86f7b3d4f33ef458c"
+    },
+    {
+      "path": "tables.parquet/geographic_watershed.parquet",
+      "role": "table:geographic_watershed",
+      "format": "parquet",
+      "bytes": 15451,
+      "sha256": "a899dc1a447b28aad4342a3ff57ec43cf356c59460f6bb5644437f35f4ec9bad"
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "role": "table:geographic_watershed_box_buff",
+      "format": "parquet",
+      "bytes": 15468,
+      "sha256": "fa991b522c6690901c3125e8bc461159825b4a8153498baaeb16c1cbd515c0f4"
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_contour.parquet",
+      "role": "table:geographic_watershed_contour",
+      "format": "parquet",
+      "bytes": 15452,
+      "sha256": "d84694b78fe9677c7c4320a4b36636db09a7b0649f5af6dae8eedc2d39017c77"
+    },
+    {
+      "path": "tables.parquet/mass_balance.parquet",
+      "role": "table:mass_balance",
+      "format": "parquet",
+      "bytes": 6695,
+      "sha256": "ccad671b9520d50e833b12482a98eadab5892cc8ef9ecc4d4191f7eb935357d5"
+    },
+    {
+      "path": "tables.parquet/mesh_face_families.parquet",
+      "role": "table:mesh_face_families",
+      "format": "parquet",
+      "bytes": 8655,
+      "sha256": "c68d28e4fee060881a7613a664c438fcb9754a6d2c303f8c33424225f659c0b1"
+    },
+    {
+      "path": "tables.parquet/metrics.parquet",
+      "role": "table:metrics",
+      "format": "parquet",
+      "bytes": 8130,
+      "sha256": "d9f4dcd7e58850f17eb120277aa185ee4e2fb8002acad32d5cc606fbd32e099f"
+    },
+    {
+      "path": "tables.parquet/parameters.parquet",
+      "role": "table:parameters",
+      "format": "parquet",
+      "bytes": 7925,
+      "sha256": "1cbf544aa3196c8b098fddf304aceae2f3b8fdbf081d0c2d2304d3f2463a5a55"
+    },
+    {
+      "path": "tables.parquet/provenance.parquet",
+      "role": "table:provenance",
+      "format": "parquet",
+      "bytes": 9067,
+      "sha256": "757a9c3601ec5b40dbcaea7be4668bbd21640c4af50d40f8bffdd20a5097719b"
+    },
+    {
+      "path": "tables.parquet/simulation.parquet",
+      "role": "table:simulation",
+      "format": "parquet",
+      "bytes": 34203,
+      "sha256": "8b907746ce71e7ebadb546eda16a00fb15a0c8ed0076f09199ba6669795cc148"
+    },
+    {
+      "path": "tables.parquet/timeseries.parquet",
+      "role": "table:timeseries",
+      "format": "parquet",
+      "bytes": 6732,
+      "sha256": "18435322e30e8e1c2ab09d5e554048ee3deb2f876a31a41fce9c6211bec6e56e"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "K",
+      "zone": "catchment",
+      "value": 2e-05,
+      "unit": "m s-1",
+      "parameterization": "homogeneous",
+      "origin": "calibrated",
+      "calibrated": true
+    }
+  ],
+  "metrics": [
+    {
+      "station": "flow_main::modflow6",
+      "variable": "runtime",
+      "metric": "flow_solve_time_seconds",
+      "value": 0.0338720120198559,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    },
+    {
+      "station": "flow_main::modflow6",
+      "variable": "runtime",
+      "metric": "water_budget_percent_discrepancy",
+      "value": -0.0,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    },
+    {
+      "station": "flow_main::modflow6",
+      "variable": "runtime",
+      "metric": "water_budget_worst_percent_discrepancy",
+      "value": -0.0,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    }
+  ],
+  "score": {
+    "metric": "nse",
+    "value": null,
+    "station": null,
+    "variable": null,
+    "window_name": "metrics",
+    "window_role": "evaluation",
+    "window_start": null,
+    "window_end": null,
+    "n_samples": 0,
+    "n_clipped": null,
+    "metric_rule_version": "2"
+  },
+  "budget": {
+    "policy": "all",
+    "kept_terms": [
+      "constant_head",
+      "drain",
+      "recharge",
+      "storage_ss",
+      "storage_sy"
+    ]
+  }
+}

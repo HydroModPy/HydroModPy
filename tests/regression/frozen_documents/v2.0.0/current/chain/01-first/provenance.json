@@ -1,0 +1,29 @@
+{
+  "schema": "hmp-provenance/v1",
+  "job_id": "sha256:9c243fccb904e0e46747009d961f07f4d24d42757e6fcc317d1df8d0ff7929bd",
+  "process": {
+    "id": "demo",
+    "version": "1.0.0"
+  },
+  "tool": {
+    "name": "hydromodpy",
+    "version": "2.0.0"
+  },
+  "git": {
+    "commit": "0000000000000000000000000000000000000000",
+    "dirty": false
+  },
+  "python": {
+    "version": "frozen",
+    "implementation": "frozen"
+  },
+  "platform": {
+    "platform": "frozen",
+    "system": "frozen",
+    "machine": "frozen"
+  },
+  "backend": null,
+  "packages": {
+    "hydromodpy": "2.0.0"
+  }
+}

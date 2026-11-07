@@ -1,0 +1,31 @@
+{
+  "schema": "hydromodpy.publication.v1",
+  "kind": "run",
+  "source": {
+    "project": "island",
+    "rel_dir": "runs/calage",
+    "sim_id": "20cf5504-afc9-4ae5-aeec-2b69febecc3b"
+  },
+  "manifest_sha256": "ba0f15faa6e2c50e86f1d0c0dc5d71131c606b898fdf9cd5132ed7cd3b4f24a1",
+  "files": {
+    "INSTALL.toml": "3a5da77a9f42493a65345889a7e6352079b574765ba6b79d6d2c85eeb71ad2ee",
+    "README.md": "f89476e203933b7413614ae14bd52941ba2cb6a4bd4b7f64ef150583e954a876",
+    "config.resolved.toml": "b4c68bea9d42defb30ee63e9e0c18b98bc4781385e0fbc5815943e3ad3333eed",
+    "config.toml": "6fb5a754656ec15d6a1cfec72a0b542cf1216296f0eb2903453b19df0c8f6fd1",
+    "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json": "2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131",
+    "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3",
+    "inputs.json": "0299649931b443d7261df39ae378c10582d4dd25634a8d6862244e1c8ddabb48",
+    "manifest.json": "ba0f15faa6e2c50e86f1d0c0dc5d71131c606b898fdf9cd5132ed7cd3b4f24a1",
+    "provenance.json": "4b7d7b6551c69d8430772c437465761a376dd00de80efa2305c278ebb1177a83",
+    "ro-crate-metadata.json": "c37463912c781031c0fdf08b0551473cd958e385a1208eecd570bbd1c1393055"
+  },
+  "label": "calibrated",
+  "label_date": "2026-11-07",
+  "hydromodpy_version": "2.0.0",
+  "published_at": "2026-11-07T17:47:52.116650Z",
+  "format": "dir",
+  "with": [
+    "inputs"
+  ],
+  "members": []
+}
