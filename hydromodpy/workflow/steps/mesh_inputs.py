@@ -10,20 +10,16 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.geology_contacts import GeologyLines, geology_lines, support_contacts
+from hydromodpy.mesh.planning.input_triangulation import read_input_triangulation
+from hydromodpy.mesh.planning.inputs import PlanningInputs
+from hydromodpy.mesh.planning.lake_structures import lake_structures
+from hydromodpy.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
+from hydromodpy.mesh.request import RasterGridSpec
 from hydromodpy.results.run.field_envelope import read_run_fields
 from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.geology_contacts import (
-    GeologyLines,
-    geology_lines,
-    support_contacts,
-)
-from hydromodpy.spatial.mesh.planning.input_triangulation import read_input_triangulation
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.lake_structures import lake_structures
-from hydromodpy.spatial.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
-from hydromodpy.spatial.mesh.request import RasterGridSpec
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext

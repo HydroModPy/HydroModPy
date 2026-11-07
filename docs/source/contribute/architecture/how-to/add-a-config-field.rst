@@ -72,7 +72,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/display/overview/config.py``
    * - ``[mesh]``
      - ``MeshConfig``
-     - ``hydromodpy/spatial/mesh/mesh_config.py``
+     - ``hydromodpy/mesh/mesh_config.py``
    * - ``[calibration]``
      - ``CalibrationConfig``
      - ``hydromodpy/calibration/config.py``

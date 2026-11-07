@@ -37,13 +37,13 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.spatial.geographic.core.network_heads import (
     HeadCandidates,
     network_head_candidates,
 )
-from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.observations.network_source import ObservedNetwork

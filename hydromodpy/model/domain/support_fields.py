@@ -11,9 +11,9 @@ from typing import Literal
 
 import numpy as np
 
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.cell_sampling import sampled_zone_fractions
 from hydromodpy.model.properties.field_spatial import Field, WeightedAverageFieldDiscretization
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.raster_support import RasterSupport
 
 

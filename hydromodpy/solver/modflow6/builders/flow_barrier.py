@@ -1,6 +1,6 @@
 """Build the MODFLOW 6 HFB (Horizontal Flow Barrier) stress-period data.
 
-Turns the faces of a barrier line (``spatial.mesh.cells.barrier_faces``: the barrier
+Turns the faces of a barrier line (``mesh.cells.barrier_faces``: the barrier
 family faces laid on it, or the faces it crosses on a staircase) into HFB
 rows ``[(lay, cell_a), (lay, cell_b), hydchr]``, one per layer the barrier spans
 from the model top down to a (possibly per-segment) depth. ``hydchr`` is the
@@ -19,6 +19,8 @@ from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.cells.barrier_faces import BarrierFace, barrier_faces_from_line
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
 from hydromodpy.solver.modflow6.builders._lake_geometry import (
     cutoff_wall_faces,
@@ -27,12 +29,10 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     wall_leaks,
 )
 from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
-from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace, barrier_faces_from_line
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

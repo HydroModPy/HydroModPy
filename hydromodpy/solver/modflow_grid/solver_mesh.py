@@ -28,8 +28,8 @@ from hydromodpy.core.fields.vertical_column import (
     check_layer_interfaces,
     top_active_layer,
 )
-from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 @dataclass(frozen=True)

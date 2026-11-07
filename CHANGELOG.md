@@ -65,6 +65,17 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `urn:hmp:schema:model.properties.physical_properties.FlowPhysicalProperties`.
 - The config schema digest that a lockfile records changes once, because two descriptions name a module that moved.
   `hmp lock verify` reports it and still passes.
+- `hydromodpy.mesh` is new. It holds what `hydromodpy.spatial.mesh` held: the mesh request and the `[mesh]` config, the
+  planner, the engines, the cells and the exchange formats. Import `hydromodpy.spatial.mesh.<module>` as
+  `hydromodpy.mesh.<module>`. `planning`, `engines`, `cells`, `io` and the modules at the top keep their names.
+- The mesh objects moved from `hydromodpy.spatial.mesh.model` to `hydromodpy.mesh.planar` (`HydroMesh`,
+  `PlanarCellMesh`, `CellType`, the geometry, the quality report and the regular grid), so the folder no longer reads
+  like `hydromodpy.model`.
+- `watershed_cell_mask` moved from `hydromodpy.spatial.geographic.delineated_catchment` to
+  `hydromodpy.mesh.cells.in_polygons`, next to the cell mask it calls.
+- `hydromodpy.spatial` no longer exports `CellBlock`, `CellType` and `HydroMesh`. Import them from
+  `hydromodpy.mesh.planar.hydro_mesh` and `hydromodpy.mesh.planar.cell_types`.
+- The entry-point group of mesh engines is still `hydromodpy.mesh.engine`.
 
 ### Removed
 

@@ -7,14 +7,14 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import Flow
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import get_solver_adapter
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (

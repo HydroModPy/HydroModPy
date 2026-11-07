@@ -8,6 +8,7 @@ import pytest
 from packaging.specifiers import SpecifierSet
 from pydantic import ValidationError
 
+from hydromodpy.mesh import registry as mesh_registry
 from hydromodpy.results.checks import Checks, Validity
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.metric_rule import DateWindow
@@ -20,7 +21,6 @@ from hydromodpy.results.validity_rules import (
     run_quantities,
 )
 from hydromodpy.solver.base import registry as solver_registry
-from hydromodpy.spatial.mesh import registry as mesh_registry
 from tests._helpers.run_records import (
     WINDOW,
     make_calibrated_by,

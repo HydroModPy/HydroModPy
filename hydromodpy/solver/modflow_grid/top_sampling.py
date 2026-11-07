@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.cells.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
-from hydromodpy.spatial.mesh.cells.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.surface import Surface
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 logger = get_logger(__name__)

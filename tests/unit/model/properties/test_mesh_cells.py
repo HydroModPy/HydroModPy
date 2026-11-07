@@ -5,13 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.model.properties.mesh_cells import (
     MeshWithValues,
     cell_mesh_from_edges,
     cell_values,
     mesh_cells,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.field_cases import planar_mesh
 

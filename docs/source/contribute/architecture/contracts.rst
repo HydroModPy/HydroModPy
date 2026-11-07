@@ -46,7 +46,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.state.run_state``: ``RunState``, what a solver adapter reads.
 - ``hydromodpy.schema``: the JSON Schema export and the partial validator.
 - ``hydromodpy.spatial.terrain.port``: the terrain engine port.
-- ``hydromodpy.spatial.mesh.port``: the mesh engine port.
+- ``hydromodpy.mesh.port``: the mesh engine port.
 - ``hydromodpy.data.source.port``: the data source port.
 - ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
 - ``hydromodpy.data.managers.base_config``: the base of a data variable config.
@@ -95,7 +95,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - ``TerrainEngine``, ``hydromodpy.spatial.terrain.port``
      - stable
    * - ``hydromodpy.mesh.engine``
-     - ``MeshEngine``, ``hydromodpy.spatial.mesh.port``
+     - ``MeshEngine``, ``hydromodpy.mesh.port``
      - stable
    * - ``hydromodpy.data.source``
      - ``DataSource``, ``hydromodpy.data.source.port``

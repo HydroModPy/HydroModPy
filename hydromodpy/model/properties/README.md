@@ -67,7 +67,7 @@ the base class they derive from, the geology field `GeologyField`, and `FieldSqu
 
 ## Rules between the modules
 
-The package reads `core`, `schema` and, until `spatial` is emptied, the mesh model in `spatial/mesh/model/`.
+The package reads `core`, `schema` and, until `spatial` is emptied, the mesh model in `mesh/planar/`.
 
 - `geology_config.py` reads `core` and no mesh. `field_param_io.py` reads `field_param.py`,
   `core.config_kit.field_param.config` and `field_spatial.py`.

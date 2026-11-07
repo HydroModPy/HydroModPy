@@ -18,6 +18,7 @@ from hydromodpy.core.config_kit.field_metadata import (
     is_valid_field_metadata,
     unknown_metadata_keys,
 )
+from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
@@ -27,7 +28,6 @@ from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from tools.docs import field_registry
 
 ROOT = Path(__file__).resolve().parents[3]

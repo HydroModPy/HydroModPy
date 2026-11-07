@@ -14,7 +14,7 @@ import meshio
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.mesh.io.msh import (
+from hydromodpy.mesh.io.msh import (
     GmshCellBlock,
     GmshMeshData,
     meshio_to_mesh_data,
@@ -26,9 +26,9 @@ from hydromodpy.spatial.mesh.io.msh import (
     write_gmsh_2d_mesh,
     write_msh,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.planning.input_triangulation import read_input_triangulation
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planning.input_triangulation import read_input_triangulation
 
 
 def test_normalize_cell_type_supports_gmsh_aliases():

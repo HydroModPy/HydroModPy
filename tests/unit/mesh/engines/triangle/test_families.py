@@ -21,30 +21,30 @@ from scipy.spatial import Delaunay
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
-from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace
-from hydromodpy.spatial.mesh.engines.face_families import box_side_edges, edge_lookup
-from hydromodpy.spatial.mesh.engines.triangle.engine import (
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.cells.barrier_faces import BarrierFace
+from hydromodpy.mesh.engines.face_families import box_side_edges, edge_lookup
+from hydromodpy.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
     triangulate_request,
 )
-from hydromodpy.spatial.mesh.engines.triangle.families import chains_of
-from hydromodpy.spatial.mesh.engines.triangle.msh_groups import families_from_labels
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import derive_geometry
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import (
+from hydromodpy.mesh.engines.triangle.families import chains_of
+from hydromodpy.mesh.engines.triangle.msh_groups import families_from_labels
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import derive_geometry
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.request import (
     BARRIER_FAMILY,
     InputTriangulation,
     LineFamilySpec,
     MeshRequest,
 )
+from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
+from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
+from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,

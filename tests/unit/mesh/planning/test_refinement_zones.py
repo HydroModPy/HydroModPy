@@ -26,14 +26,14 @@ from pyogrio.errors import DataSourceError
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.planning.refinement_zones import (
+from hydromodpy.mesh.planning.refinement_zones import (
     CriterionInputs,
     RunFieldEnvelope,
     cells_on_grid,
     load_refinement_zones,
 )
-from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
-from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
+from hydromodpy.mesh.planning.size_field import PixelRegion
+from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from tests._helpers.mesh_cases import grid_spec
 
 _GRID = grid_spec(100, 100, 10.0)
@@ -184,7 +184,7 @@ def test_a_layer_with_no_crs_is_read_in_the_project_crs_with_a_warning(
     """A GeoJSON always reads as WGS 84, so the layer is a GeoPackage."""
     path = _layer(tmp_path / "zones.gpkg", box(600.0, 600.0, 700.0, 700.0), crs=None)
 
-    with caplog.at_level("WARNING", logger="hydromodpy.spatial.mesh.planning.refinement_zones"):
+    with caplog.at_level("WARNING", logger="hydromodpy.mesh.planning.refinement_zones"):
         (zone,) = _zones({"path": str(path), "cell_size": 15.0}, criteria=None)
 
     assert zone.region.equals(box(600.0, 600.0, 700.0, 700.0))

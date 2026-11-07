@@ -8,14 +8,14 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.model.properties.two_zone_field import FieldSquare
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from hydromodpy.model.properties.two_zone_field import FieldSquare
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.geotiffs import write_geotiff
 

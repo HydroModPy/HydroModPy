@@ -17,17 +17,17 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from shapely.geometry import LineString
 
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.cells.barrier_faces import barrier_edges, crossed_edges
+from hydromodpy.mesh.engines.triangle.gmsh_triangulation import MESH_SIZE_PER_CELL_SIZE
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable, PlanarCellMesh
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.request import BARRIER_FAMILY
 from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall
 from hydromodpy.solver.modflow6.builders.flow_barrier import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.cells.barrier_faces import barrier_edges, crossed_edges
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import MESH_SIZE_PER_CELL_SIZE
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable, PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
 from tests._helpers.reservoir_dam import DOMAIN, X0, Y0
 

@@ -84,7 +84,7 @@ The package reads `core`, `schema` and, until `spatial` is emptied, a few module
 - `layering.py` reads `layers_config.py` and `core`. It works on arrays only, so it knows no `Domain`.
 - `build.py` and `domain.py` read the config modules, `spatial/surface.py` and `spatial/raster_support.py`.
 - `support_fields.py` reads `model/properties/` (`Field` and `cell_sampling`) and
-  `spatial/mesh/model/planar_cell_mesh.py`. `spatial_support.py` reads `support_fields.py` and the support
+  `mesh/planar/planar_cell_mesh.py`. `spatial_support.py` reads `support_fields.py` and the support
   config.
 - `capability.py` reads `schema`, `depth_model_config.py` and `spatial/job_inputs.py`. `worker.py` reads
   `schema` and `spatial/job_inputs.py`, and `spatial/geographic/core/surface_from_dem.py` for the top

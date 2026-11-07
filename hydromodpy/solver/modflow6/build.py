@@ -142,8 +142,8 @@ from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnec
 from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

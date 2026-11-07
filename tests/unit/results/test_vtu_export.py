@@ -1,6 +1,6 @@
 """The VTU export of a run: the cells of the store in its order, the field, the run metadata.
 
-``export_vtu`` writes through ``hydromodpy/spatial/mesh/io/vtu.py``, so an
+``export_vtu`` writes through ``hydromodpy/mesh/io/vtu.py``, so an
 exported run reads back with ``read_vtu`` and ``read_vtu_field_data``: the cells
 of the store in its order, with every node, one value per cell, and the run
 metadata.
@@ -12,11 +12,11 @@ import meshio
 import numpy as np
 import pytest
 
+from hydromodpy.mesh.io.vtu import read_vtu, read_vtu_field_data
+from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.results.exporters.vtu import export_vtu
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
-from hydromodpy.spatial.mesh.io.vtu import read_vtu, read_vtu_field_data
-from hydromodpy.spatial.mesh.model.cell_types import CellType
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 

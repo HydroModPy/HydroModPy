@@ -15,9 +15,6 @@ __all__ = [
     "PreparedSurfaceSampler",
     "CatchmentDelineation",
     "GeographicConfig",
-    "CellBlock",
-    "CellType",
-    "HydroMesh",
 ]
 
 _LAZY_IMPORTS = {
@@ -27,9 +24,6 @@ _LAZY_IMPORTS = {
     "PreparedSurfaceSampler": "hydromodpy.spatial.surface_sampling:PreparedSurfaceSampler",
     "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation:CatchmentDelineation",
     "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config:GeographicConfig",
-    "CellBlock": "hydromodpy.spatial.mesh.model.hydro_mesh:CellBlock",
-    "CellType": "hydromodpy.spatial.mesh.model.cell_types:CellType",
-    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh:HydroMesh",
 }
 
 

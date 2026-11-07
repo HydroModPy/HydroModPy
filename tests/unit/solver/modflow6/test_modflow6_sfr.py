@@ -12,6 +12,7 @@ from shapely import affinity
 from shapely.geometry import LineString
 
 import hydromodpy.solver.modflow6.builders.sfr as sfr_module
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.solver.modflow6.builders._sfr_network import crossing_pieces
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_mover_records
 from hydromodpy.solver.modflow6.builders.mvr import (
@@ -25,7 +26,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

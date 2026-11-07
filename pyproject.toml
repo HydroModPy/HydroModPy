@@ -167,7 +167,7 @@ hydromodpy = "hydromodpy.cli.main:main"
 # [geographic] terrain_engine names, so a flow-routing
 # engine is substituted from outside without a patch to this package.
 #
-# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.spatial.mesh.registry,
+# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.mesh.registry,
 # under the same three rules. It is what [mesh] engine names, so a mesh engine
 # (regular, triangle and voronoi ship in-tree) is substituted the same way.
 #
@@ -219,6 +219,7 @@ source = [
     "hydromodpy.schema",
     "hydromodpy.config",
     "hydromodpy.spatial",
+    "hydromodpy.mesh",
     "hydromodpy.model",
     "hydromodpy.data",
     "hydromodpy.results",

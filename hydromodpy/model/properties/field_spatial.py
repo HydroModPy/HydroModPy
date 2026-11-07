@@ -22,7 +22,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 def get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:

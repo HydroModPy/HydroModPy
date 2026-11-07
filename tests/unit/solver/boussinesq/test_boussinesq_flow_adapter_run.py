@@ -11,13 +11,13 @@ from shapely.geometry import LineString
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (

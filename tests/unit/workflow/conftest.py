@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.mesh.planar.cell_types import CellType
 from tests._helpers.fake_engines import FakeMeshEngine, fake_engine, registered
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
+    from hydromodpy.mesh.planning.inputs import PlanningInputs
 
 _CACHED_GRID = {
     "cell_types": (CellType.QUADRILATERAL,),

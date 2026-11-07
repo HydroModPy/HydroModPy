@@ -29,8 +29,8 @@ import shapely
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
     "CELL_ZONE_AGREEMENT",

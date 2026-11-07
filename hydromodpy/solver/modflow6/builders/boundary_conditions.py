@@ -13,6 +13,8 @@ from hydromodpy.core.units import (
     factor_to_m2_per_s,
     normalize_length_unit,
 )
+from hydromodpy.mesh.cells.boundary import label_cells, side_cells, stream_cells
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.boundaries.boundary_condition_registry import (
     active_side_dirichlet_boundary_ids,
     boundary_conditions_mapping_from_flow,
@@ -24,8 +26,6 @@ from hydromodpy.solver.base.drain_conductance import (
     hk_fallback_drain_conductance,
 )
 from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
-from hydromodpy.spatial.mesh.cells.boundary import label_cells, side_cells, stream_cells
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

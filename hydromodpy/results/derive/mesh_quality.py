@@ -4,7 +4,7 @@ Eight static fields describe how good the cells of a run are: ``mesh_cell_area``
 ``mesh_neighbour_ratio``, ``mesh_center_offset``, ``mesh_nonorthogonality``,
 ``mesh_bisection_offset``, ``mesh_min_angle``, ``mesh_max_angle`` and
 ``mesh_concavity``. They use the
-formulas of :mod:`hydromodpy.spatial.mesh.model.quality`, by cell, on the geometry
+formulas of :mod:`hydromodpy.mesh.planar.quality`, by cell, on the geometry
 derived from the stored vertices and connectivity.
 
 The area, the neighbor ratio, the two angles and the concavity need geometry
@@ -22,12 +22,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.results.field_registry import SHAPE_FACE, FieldDescriptor
-from hydromodpy.spatial.mesh.model.geometry import (
-    DerivedGeometry,
-    derive_geometry_from_rows,
-)
-from hydromodpy.spatial.mesh.model.quality import (
+from hydromodpy.mesh.planar.geometry import DerivedGeometry, derive_geometry_from_rows
+from hydromodpy.mesh.planar.quality import (
     RELATIVE_FACE_TOLERANCE,
     STRAIGHT_CORNER_DEG,
     cell_angle_range,
@@ -36,6 +32,7 @@ from hydromodpy.spatial.mesh.model.quality import (
     edge_nonorthogonality,
     edge_size_ratio,
 )
+from hydromodpy.results.field_registry import SHAPE_FACE, FieldDescriptor
 
 __all__ = [
     "MESH_QUALITY_DESCRIPTORS",

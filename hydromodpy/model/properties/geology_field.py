@@ -42,6 +42,7 @@ from typing import Any
 import numpy as np
 from rasterio.transform import rowcol
 
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.cell_sampling import (
     quadrilateral_points_in_cells,
     quadrilateral_sample_weights,
@@ -51,7 +52,6 @@ from hydromodpy.model.properties.cell_sampling import (
 from hydromodpy.model.properties.field_spatial import Field, WeightedAverageFieldDiscretization
 from hydromodpy.model.properties.mesh_cells import cell_mesh_from_edges, cell_values, mesh_cells
 from hydromodpy.model.properties.zone_fractions import ZonePolygons
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 

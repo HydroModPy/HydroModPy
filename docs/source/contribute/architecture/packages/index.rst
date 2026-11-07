@@ -23,6 +23,7 @@ describes the experimental observability project next to it.
    config
    model
    data
+   mesh
    spatial
    solver
    calibration

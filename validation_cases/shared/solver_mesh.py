@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity, build_planar_cell_mesh
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity, build_planar_cell_mesh
 
 _LOCAL_CRS_WKT = (
     'LOCAL_CS["validation case",LOCAL_DATUM["local origin",0],UNIT["metre",1],'

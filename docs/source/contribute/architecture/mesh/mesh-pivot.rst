@@ -3,7 +3,7 @@ The mesh pivot and the cell mesh
 
 ``HydroMesh`` is the exchange format of a mesh. ``PlanarCellMesh`` wraps a planar one, and it
 is the mesh that every solver, every workflow step and every field support reads. The code is in
-``hydromodpy/spatial/mesh/``, and the field supports that sample the cells are in
+``hydromodpy/mesh/``, and the field supports that sample the cells are in
 ``hydromodpy/model/properties/``. The engines are on :doc:`mesh-engines`, and the grid of the MODFLOW
 family is on :doc:`../solver/backends`.
 
@@ -48,13 +48,13 @@ stores values in SI units. The solvers take the zone fractions from ``zone_fract
 The pivot
 ---------
 
-``HydroMesh`` (``spatial/mesh/model/hydro_mesh.py``) is a frozen dataclass. It describes any 2D
+``HydroMesh`` (``mesh/planar/hydro_mesh.py``) is a frozen dataclass. It describes any 2D
 or 3D mesh the same way, in the data model of meshio.
 
 .. code-block:: python
 
-   from hydromodpy.spatial.mesh.model.cell_types import CellType
-   from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+   from hydromodpy.mesh.planar.cell_types import CellType
+   from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 
    mesh = HydroMesh(
        vertices=points_xy,                                  # (n_nodes, 2 or 3)
@@ -83,7 +83,7 @@ Plot, disk and solver adapters
 ``HydroMesh``. It uses ``pcolormesh`` for quadrilaterals with a ``structured_shape``,
 ``tripcolor`` for triangles and ``PolyCollection`` otherwise. VTU is the
 recommended disk format. It describes itself, opens in ParaView, PyVista and QGIS, and
-round-trips through ``HydroMesh``. The exchange formats live in ``spatial/mesh/io/``, one module
+round-trips through ``HydroMesh``. The exchange formats live in ``mesh/io/``, one module
 per format, and depend on the mesh model only. ``write_vtu`` and ``read_vtu`` in ``io/vtu.py``
 write and read a ``HydroMesh`` in 2D or 3D. A planar mesh is written with a zero z and reads back
 planar. ``write_vtu`` also writes values of the whole mesh, such as the CRS of a run, in the
@@ -106,7 +106,7 @@ cell mesh in Zarr and exports it as a GeoPackage, see :doc:`../storage-layout`.
 Cell mesh
 ---------
 
-``PlanarCellMesh`` (``spatial/mesh/model/planar_cell_mesh.py``) is the mesh that the solvers and
+``PlanarCellMesh`` (``mesh/planar/planar_cell_mesh.py``) is the mesh that the solvers and
 the workflow steps read, as ``setup.cell_mesh``. It wraps one planar ``HydroMesh`` block of
 triangles, quadrilaterals or polygons, unchanged. It also holds what every consumer would
 otherwise recompute:
@@ -140,7 +140,7 @@ otherwise recompute:
        The planner gives it by ``smoothed_catchment(mesh_cfg, inputs)``, and
        ``PlanningInputs.outlet`` keeps the declared outlet on it.
 
-``cell_mesh.geometry`` is a ``DerivedGeometry`` (``spatial/mesh/model/geometry.py``),
+``cell_mesh.geometry`` is a ``DerivedGeometry`` (``mesh/planar/geometry.py``),
 derived once on first use. It holds the ``-1`` padded connectivity (the format of the Zarr
 store), the areas and area centroids, the edge table (``edge_nodes``, ``edge_cells``, length and
 midpoint) and the CSR adjacency of the interior edges. An edge shared by more than two cells
@@ -151,7 +151,7 @@ carries none, and its ``cell_centroids()`` gives the mean of the cell vertices.
 ``mesh_cells`` in ``model/properties/mesh_cells.py`` reads these rows without their ``-1``
 slots, for a support that samples a field on the cells.
 
-``cell_mesh_from_bundle`` in ``spatial/mesh/io/bundle.py`` reads a Boussinesq validation bundle,
+``cell_mesh_from_bundle`` in ``mesh/io/bundle.py`` reads a Boussinesq validation bundle,
 a folder of CSV files, which ``load_catchment_mesh_bundle`` of the same module loads whole. The
 format is versioned. ``metadata.json`` declares ``mesh_catchment_bundle_v1``, the value of
 ``BUNDLE_SCHEMA_VERSION``, and ``BUNDLE_COLUMNS`` gives the columns of each file, both in
@@ -195,9 +195,9 @@ serves every engine for each question:
      - ``SolverMesh.cell_centers()``, ``cell_areas()`` and ``face_adjacency()``, read from
        ``cell_mesh.geometry``.
    * - Cells of a side, of the river, of a label
-     - ``side_cells``, ``stream_cells``, ``label_cells`` in ``spatial/mesh/cells/boundary.py``.
+     - ``side_cells``, ``stream_cells``, ``label_cells`` in ``mesh/cells/boundary.py``.
    * - Cell that holds a point
-     - ``locate_cells`` in ``spatial/mesh/cells/locate.py``. For a point outside the mesh,
+     - ``locate_cells`` in ``mesh/cells/locate.py``. For a point outside the mesh,
        ``locate_cells_near`` gives the nearest cell only within one cell size (the square root
        of its area), and otherwise gives no cell and warns. The solvers call
        ``locate_cell_on_solver_mesh`` in ``solver/base/cell_lookup.py``, which uses the top active
@@ -214,7 +214,7 @@ serves every engine for each question:
      - ``map_flow_properties`` in ``model/properties/property_table.py``, for MODFLOW 6,
        MODFLOW-NWT and Boussinesq.
    * - HFB, lake and SFR cells
-     - ``spatial/mesh/cells/barrier_faces.py`` gives the faces a barrier line bars. The MODFLOW 6
+     - ``mesh/cells/barrier_faces.py`` gives the faces a barrier line bars. The MODFLOW 6
        builders give the cells a lake owns and the faces of its cutoff wall
        (``solver/modflow6/builders/_lake_geometry.py``), and share a reach among the cells
        (``_sfr_network.py``).
@@ -222,7 +222,7 @@ serves every engine for each question:
      - The basin of the descent D, computed once per build and stored with the mesh
        (``mesh/descent_basin``), and the share of each cell inside the delineated polygon
        (``mesh/catchment_fraction``, ``cell_area_fraction`` in
-       ``spatial/mesh/cells/in_polygons.py``), see :doc:`../storage-layout`.
+       ``mesh/cells/in_polygons.py``), see :doc:`../storage-layout`.
 
 Every engine gives a river as cell chains. A triangle mesh also keeps the faces of the river
 line as face rows.
@@ -232,10 +232,10 @@ Module layout
 
 .. code-block:: text
 
-   hydromodpy/spatial/mesh/
+   hydromodpy/mesh/
    |-- mesh_config.py       the [mesh] models
    |-- refinement_config.py the models of [mesh.lake_refinement] and [[mesh.refinement_zone]]
-   |-- model/               the mesh classes, DerivedGeometry, MeshQA, RegularGrid (regular_grid.py)
+   |-- planar/              the mesh classes, DerivedGeometry, MeshQA, RegularGrid (regular_grid.py)
    |-- port.py              MeshEngine, MeshEngineCapabilities
    |-- registry.py          engine id to class, entry-point group hydromodpy.mesh.engine
    |-- request.py           MeshRequest, LineFamilySpec, RasterGridSpec, SizeField

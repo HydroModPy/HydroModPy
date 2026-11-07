@@ -6,10 +6,10 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.spatial.mesh import port
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.quality import DECLARATION_KEYS
-from hydromodpy.spatial.mesh.port import (
+from hydromodpy.mesh import port
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.quality import DECLARATION_KEYS
+from hydromodpy.mesh.port import (
     ANY_PLANAR_ENGINE,
     PLANAR_CELL_TYPES,
     MeshEngine,

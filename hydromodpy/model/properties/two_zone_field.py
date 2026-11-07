@@ -15,13 +15,13 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.cell_sampling import sampled_zone_fractions
 from hydromodpy.model.properties.field_spatial import (
     Field,
     WeightedAverageFieldDiscretization,
     get_nested_section,
 )
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 SUPPORTED_LINES = (
     "diag_main",

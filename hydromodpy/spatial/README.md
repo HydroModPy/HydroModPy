@@ -1,11 +1,10 @@
 # `hydromodpy/spatial`
 
 Where the model is in space. From a DEM and an outlet to a catchment, its river
-network and the ground of the model, and from the ground to a mesh. The aquifer
+network and the ground of the model, and from the ground to the input of a mesh. The mesh itself lives in `hydromodpy/mesh`. The aquifer
 geometry, the fields that carry a value per zone, per cell or per depth, and the
 forcings on the cells live in `model/`. The package knows no solver and no data
-provider: the geology source is registered at start-up, and a mesh leaves as a
-`PlanarCellMesh` that each solver reads.
+provider: the geology source is registered at start-up.
 This file is the map of the package: what each part answers, the import
 rules, the tree, how a catchment becomes a mesh, and where to add what. Each
 sub-package has a note of its own with the full map.
@@ -22,13 +21,12 @@ sub-package has a note of its own with the full map.
 | `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D and the downslope distance |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader |
 | `geographic/` | the pipeline before the simulation: the ground, the flow products, the catchment, the zones and the river networks. `GeographicConfig` is `[geographic]`, and `CatchmentZonesField` is the zonation that `model/domain/structure_binders.py` puts in `Domain.zones` |
-| `mesh/` | the unified mesh (`HydroMesh`, `PlanarCellMesh`), its regular, triangle and Voronoi engines, its exchange formats and the `[mesh]` config |
 
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives spatial `core`, `schema` and
 itself, and treats it as one block: the parts import each other freely, and
-`geographic` and `mesh` do. A grep of every `hydromodpy`
+`geographic` does. A grep of every `hydromodpy`
 import in the package, deferred ones included, finds only `core`, `schema`
 and `spatial`. The demos that load a whole project TOML live outside the
 package, in `tools/cases/`.
@@ -47,7 +45,7 @@ Three rules hold inside:
    module, and no other module of `terrain/` loads `delineation`. The matrix
    cannot see this, so `tests/unit/architecture/test_terrain_port_stands_alone.py`
    checks it, with that one declared exception.
-2. `drainage/` imports `core` and itself. `spatial/mesh/planning/height_above_stream.py` reads it, and `terrain/` and `geographic/` do not: they work on D8 pixels before the mesh exists.
+2. `drainage/` imports `core` and itself. `hydromodpy/mesh/planning/height_above_stream.py` reads it, and `terrain/` and `geographic/` do not: they work on D8 pixels before the mesh exists.
 3. A third-party terrain engine joins through the `hydromodpy.terrain.engine`
    entry-point group; one conformance suite, `tests/contract/test_terrain_engine_contract.py`,
    runs on every engine the registry resolves.
@@ -59,11 +57,11 @@ package root (`_bootstrap.py`, `_lazy.py`).
 ## Tree
 
 Each sub-package has its own README with the full map: `administrative/`,
-`delineation/`, `drainage/`, `geographic/`, `mesh/` and `terrain/`.
+`delineation/`, `drainage/`, `geographic/` and `terrain/`.
 
 ```text
 spatial/
-├── __init__.py                lazy names: HydroMesh, GeographicConfig, ...
+├── __init__.py                lazy names: GeographicConfig, ...
 ├── raster_support.py          RasterSupport, where a 2D surface sits in space
 ├── surface.py                 Surface, the surfaces of the domain
 ├── surface_sampling.py        PreparedSurfaceSampler, repeated sampling at points
@@ -89,25 +87,12 @@ spatial/
 │   ├── d8.py                  receiver of each cell of a D8 pointer
 │   ├── whitebox_engine.py     engine on the Whitebox backend
 │   └── numpy_engine.py        engine in plain NumPy
-├── geographic/                the pre-simulation pipeline
-│   ├── core/                  ground, flow products, catchment, zones, networks, lakes
-│   ├── synthetic/             analytic geographies for validation
-│   ├── pipeline.py            assembles the artifacts
-│   ├── geographic_config.py   GeographicConfig, the [geographic] table
-│   └── catchment_delineation.py   catchment from an outlet or a polygon
-└── mesh/                      the mesh pivot and the engines
-    ├── model/                 PlanarCellMesh, HydroMesh, CellBlock, CellType
-    ├── engines/               regular, triangle and voronoi
-    ├── planning/              from the project to one MeshRequest
-    ├── io/                    VTU, meshio, Gmsh .msh, mesh bundles
-    ├── cells/                 which cells or faces
-    ├── mesh_config.py         the [mesh] table
-    ├── refinement_config.py   refinement tables
-    ├── request.py             MeshRequest
-    ├── resample.py            lines resampled at the cell size
-    ├── port.py                what an engine must provide
-    ├── registry.py            engine name to engine class
-    └── cache.py               stored meshes
+└── geographic/                the pre-simulation pipeline
+    ├── core/                  ground, flow products, catchment, zones, networks, lakes
+    ├── synthetic/             analytic geographies for validation
+    ├── pipeline.py            assembles the artifacts
+    ├── geographic_config.py   GeographicConfig, the [geographic] table
+    └── catchment_delineation.py   catchment from an outlet or a polygon
 ```
 
 ## How a catchment becomes a mesh
@@ -126,7 +111,7 @@ spatial/
    step loads. The supports a parameter may be zoned by are the providers of
    `model/domain/spatial_support.py`.
 3. Mesh. `[mesh]` picks an engine. Triangles and Voronoi cells follow the zones and
-   the river trace, and the regular grid makes a staircase along them. `mesh/cache.py` stores the mesh of an
+   the river trace, and the regular grid makes a staircase along them. `hydromodpy/mesh/cache.py` stores the mesh of an
    engine that cannot be rebuilt bit for bit and reads it back on later runs.
    Every engine gives a `PlanarCellMesh`, and the solvers read the cells from it.
 4. Fields. A `FieldParam` is discretized on the mesh, per zone, per cell and
@@ -142,6 +127,6 @@ spatial/
 | a delineation backend | a loader registered with `register_backend` in `delineation/registry.py` |
 | a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain.registry.register` or on the `hydromodpy.terrain.engine` entry-point group |
 | a geographic product | a module in `geographic/core/`, called from `geographic/pipeline.py`, and a field on `GeographicConfig` for its options |
-| a mesh engine | a class that satisfies the port in `mesh/port.py`, registered by `mesh.registry.register` or on the `hydromodpy.mesh.engine` entry-point group; see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |
-| a question on the cells or faces of a mesh | a mesh-agnostic function in `mesh/cells/` |
+| a mesh engine | a class that satisfies the port in `hydromodpy/mesh/port.py`, registered by `mesh.registry.register` or on the `hydromodpy.mesh.engine` entry-point group; see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |
+| a question on the cells or faces of a mesh | a mesh-agnostic function in `hydromodpy/mesh/cells/` |
 | a capability | a `CapabilityDecl` and a worker beside the code; see `hydromodpy/schema/README.md` |

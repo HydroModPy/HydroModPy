@@ -27,7 +27,7 @@ from hydromodpy.model.forcing.sources import (
 if TYPE_CHECKING:
     import xarray as xr
 
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 
 _NETCDF_SUFFIXES = (".nc", ".nc4", ".netcdf")
 _GEOTIFF_SUFFIXES = (".tif", ".tiff")

@@ -8,11 +8,11 @@ import shapely
 from rasterio.transform import from_origin
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.domain.support_fields import GeneratedBandsSupportField
 from hydromodpy.model.properties.geology_field import GeologyField
 from hydromodpy.model.properties.zone_fractions import ZonePolygons, zone_fractions
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.field_cases import planar_mesh
 
 X0, Y0 = 351_234.5, 6_789_012.25  # Lambert-93 magnitudes: the overlay must not lose 1e-9 to them

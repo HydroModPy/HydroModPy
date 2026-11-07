@@ -80,6 +80,7 @@ from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
+from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
@@ -103,7 +104,6 @@ from hydromodpy.solver.base.solver_config import (
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 logger = get_logger(__name__)
 
@@ -860,9 +860,9 @@ class HydroModPyConfig(HydroModelBase):
         The engine is the one of ``[mesh]``, or ``regular`` when the section is
         absent.
         """
+        from hydromodpy.mesh import registry as mesh_registry
+        from hydromodpy.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
         from hydromodpy.solver.base import registry as solver_registry
-        from hydromodpy.spatial.mesh import registry as mesh_registry
-        from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
@@ -998,7 +998,7 @@ class HydroModPyConfig(HydroModelBase):
         address names no cell, and the build would stop on it after meshing. The
         engine is the one of ``[mesh]``, or ``regular`` when the section is absent.
         """
-        from hydromodpy.spatial.mesh import registry as mesh_registry
+        from hydromodpy.mesh import registry as mesh_registry
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID

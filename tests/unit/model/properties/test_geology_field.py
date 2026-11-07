@@ -11,13 +11,13 @@ from rasterio.transform import from_origin
 
 from hydromodpy.core.state.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.model.properties.cell_sampling import sample_points_in_cell
 from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.model.properties.geology_field import GeologyField, regular_cell_mesh_over_bounds
 from hydromodpy.model.properties.mesh_cells import cell_values, mesh_cells
 from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
 from hydromodpy.model.properties.zone_fractions import ZonePolygons
-from hydromodpy.spatial.mesh.model.cell_types import CellType
 from tests._helpers import field_cases as cases
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 

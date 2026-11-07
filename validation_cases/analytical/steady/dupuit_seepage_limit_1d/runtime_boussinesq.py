@@ -15,13 +15,11 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
 from hydromodpy.model.model import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.assembly import saturated_thickness_from_head
 from hydromodpy.solver.boussinesq.state import BoussinesqState
-from hydromodpy.spatial.mesh.io.bundle import (
-    load_catchment_mesh_bundle,
-)
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_variant_flow_section,

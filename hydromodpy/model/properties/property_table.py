@@ -21,11 +21,11 @@ from hydromodpy.core.units.physical_bounds import (
     validate_physical_array,
     validate_physical_value,
 )
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.model.properties.property_ids import FLOW_PROPERTY_IDS
 from hydromodpy.model.properties.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.model.time.regime import normalize_flow_regime
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

@@ -9,12 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity, build_planar_cell_mesh
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    MeshIdentity,
-    build_planar_cell_mesh,
-)
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import regular_mesh
 from tests._helpers.regular_cell_meshes import from_flopy_structured

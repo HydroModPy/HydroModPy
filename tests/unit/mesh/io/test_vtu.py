@@ -15,10 +15,10 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
-from hydromodpy.spatial.mesh.io.vtu import read_vtu, read_vtu_field_data, write_vtu
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.mesh.io.vtu import read_vtu, read_vtu_field_data, write_vtu
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh
 
 WEDGE_COLUMN = np.array(

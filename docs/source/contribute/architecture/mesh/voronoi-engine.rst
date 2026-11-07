@@ -7,7 +7,7 @@ The ``voronoi`` engine builds polygons whose faces lie on the perpendicular bise
 two generators they separate. It places the generators itself, or takes the vertices of a
 triangulation read from a file.
 
-The code lives in ``hydromodpy/spatial/mesh/engines/voronoi/``. The engine declares
+The code lives in ``hydromodpy/mesh/engines/voronoi/``. The engine declares
 ``deterministic = True`` and ``needs_cache = False``, so a resume rebuilds the mesh instead of
 reading a cache.
 

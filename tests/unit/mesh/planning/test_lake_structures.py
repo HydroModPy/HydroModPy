@@ -12,12 +12,12 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.planning.lake_structures import (
+from hydromodpy.mesh.planning.lake_structures import (
     LakeStructure,
     lake_structures,
     sill_zone,
 )
-from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
+from hydromodpy.mesh.refinement_config import LakeRefinementConfig
 
 _LAKE = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 600.0), (0.0, 600.0)])
 _OUTLET = Point(331315.0, 6781273.0)

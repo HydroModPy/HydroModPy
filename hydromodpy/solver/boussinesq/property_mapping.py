@@ -15,11 +15,11 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.property_table import (
     map_flow_properties,
     resolve_flow_property_runtime_overrides,
 )
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 _OUTPUT_NAMES = {"K": "hydraulic_conductivity_m_s", "Sy": "storage_coefficient"}
 _MAPPED_NAMES = {"K": "hk_value", "Sy": "sy_value"}

@@ -56,7 +56,7 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
     "GeologyConfig": "hydromodpy.data.variables.geology.config.GeologyConfig",
     "HumidityConfig": "hydromodpy.data.variables.humidity.config.HumidityConfig",
     "HumiditySourceConfig": "hydromodpy.data.variables.humidity.config.HumiditySourceConfig",
-    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh.HydroMesh",
+    "HydroMesh": "hydromodpy.mesh.planar.hydro_mesh.HydroMesh",
     "HydrographyConfig": "hydromodpy.data.variables.hydrography.config.HydrographyConfig",
     "HydrographyManager": "hydromodpy.data.variables.hydrography.manager.HydrographyManager",
     "HydrographySourceConfig": "hydromodpy.data.variables.hydrography.config.HydrographySourceConfig",

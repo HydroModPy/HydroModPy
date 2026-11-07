@@ -1,7 +1,7 @@
 @startuml
 title Field Square Case - Relation To Core
 
-package "hydromodpy.spatial.mesh.model.planar_cell_mesh" {
+package "hydromodpy.mesh.planar.planar_cell_mesh" {
   class PlanarCellMesh
 }
 

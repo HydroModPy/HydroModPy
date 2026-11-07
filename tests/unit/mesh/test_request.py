@@ -18,7 +18,7 @@ import pytest
 from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshError, MeshRequestError
-from hydromodpy.spatial.mesh.request import (
+from hydromodpy.mesh.request import (
     InputTriangulation,
     LineFamilySpec,
     MeshRequest,

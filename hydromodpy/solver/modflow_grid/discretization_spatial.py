@@ -32,7 +32,7 @@ from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
     "StructuredGridBuilder",

@@ -219,7 +219,7 @@ def project_channel_tree(
     largest accumulation of a cell grows strictly along its pins. A cycle means
     the pointer and the accumulation disagree, and it is refused.
     """
-    from hydromodpy.spatial.mesh.cells.zonal_stats import rasterize_cell_ids
+    from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
     from hydromodpy.spatial.terrain.d8 import d8_receivers
 
     on_graph = np.asarray(routable, dtype=bool).reshape(-1)

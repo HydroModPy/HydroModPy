@@ -12,8 +12,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.spatial.mesh.planning.gap_size import GAP_LEVEL_RATIO, gap_terms
-from hydromodpy.spatial.mesh.planning.size_field import build_size_field
+from hydromodpy.mesh.planning.gap_size import GAP_LEVEL_RATIO, gap_terms
+from hydromodpy.mesh.planning.size_field import build_size_field
 from tests._helpers.mesh_cases import grid_spec, square_domain
 
 _GRID = grid_spec(200, 200, 5.0)

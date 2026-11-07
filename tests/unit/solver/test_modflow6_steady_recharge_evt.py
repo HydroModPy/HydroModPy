@@ -13,14 +13,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.forcing.steady_periods import split_net_recharge
 from hydromodpy.solver.modflow6.builders.recharge import (
     build_evt_stress_period_data,
     recharge_to_spd,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from
 

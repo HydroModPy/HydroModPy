@@ -16,15 +16,15 @@ from shapely.affinity import translate
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.model.domain.spatial_support_config import (
-    GeneratedBandsSupportConfig,
-    GeneratedRingsSupportConfig,
-)
-from hydromodpy.spatial.mesh.planning.geology_contacts import (
+from hydromodpy.mesh.planning.geology_contacts import (
     GeologyLines,
     contact_lines,
     geology_lines,
     support_contacts,
+)
+from hydromodpy.model.domain.spatial_support_config import (
+    GeneratedBandsSupportConfig,
+    GeneratedRingsSupportConfig,
 )
 from tests._helpers.mesh_cases import LAMBERT93_WKT
 

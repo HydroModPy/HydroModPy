@@ -28,7 +28,7 @@ exporters/
 ├── csv.py             series and budget to CSV
 ├── geotiff.py         fields and geographic rasters to GeoTIFF
 ├── netcdf.py          fields to NetCDF-4 with UGRID topology
-├── vtu.py             fields to VTU, through spatial/mesh/io/vtu.py
+├── vtu.py             fields to VTU, through mesh/io/vtu.py
 ├── shapefile.py       cell geometries with values to Shapefile
 ├── geopackage.py      cell geometries with values to GeoPackage
 ├── mesh_layers.py     the cells, seeds and line faces of the mesh as vector layers

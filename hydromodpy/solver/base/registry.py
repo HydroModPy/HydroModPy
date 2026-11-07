@@ -35,8 +35,8 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.solver.base.adapter_protocol import SolverAdapter, missing_adapter_members
-from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE
 
 logger = get_logger(__name__)
 

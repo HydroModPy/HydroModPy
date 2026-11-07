@@ -254,10 +254,10 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 **A mesh**
 
 1. ``hydromodpy/workflow/steps/mesh.py`` (``step_mesh``);
-2. ``hydromodpy/spatial/mesh/planning/plan.py`` (``plan_mesh_request``);
-3. ``hydromodpy/spatial/mesh/port.py`` and ``registry.py``, then the engine in
-   ``hydromodpy/spatial/mesh/engines/``;
-4. ``hydromodpy/spatial/mesh/model/planar_cell_mesh.py`` (``PlanarCellMesh``);
+2. ``hydromodpy/mesh/planning/plan.py`` (``plan_mesh_request``);
+3. ``hydromodpy/mesh/port.py`` and ``registry.py``, then the engine in
+   ``hydromodpy/mesh/engines/``;
+4. ``hydromodpy/mesh/planar/planar_cell_mesh.py`` (``PlanarCellMesh``);
 5. the pages of :doc:`mesh/index`.
 
 **A calibration**

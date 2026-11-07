@@ -245,10 +245,10 @@ def network_comparison_from_run(
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
+    from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+    from hydromodpy.mesh.planar.geometry import cell_polygons
     from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
-    from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
-    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -407,9 +407,9 @@ def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.nd
     None for a synthetic domain, whose stored box is the domain and no catchment,
     as a trial reads it.
     """
+    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
     from hydromodpy.results.run.geographic import geographic_metadata
     from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
-    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 
     if geographic_metadata(sim).get("catch_def") == SYNTHETIC_CATCH_DEF:
         return None

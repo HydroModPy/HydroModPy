@@ -25,7 +25,7 @@ from hydromodpy.model.forcing.interpolation import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 
 logger = get_logger(__name__)
 

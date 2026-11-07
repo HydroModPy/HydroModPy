@@ -287,7 +287,7 @@ at the same distance from its two ends, so the offset can be large where the ang
 .. plot:: theory/figures/mesh_face_offset.py
    :alt: The bisection offset of two Voronoi cells and of two triangles.
    :caption: Left: two Voronoi cells whose generators sit 0.6 above the middle of their face
-      (square). Right: the two triangles above. Both measures come from ``model/quality.py``.
+      (square). Right: the two triangles above. Both measures come from ``planar/quality.py``.
 ```
 
 (mesh-top)=
@@ -636,13 +636,13 @@ The tests that import the code of this page. The box is generated, so a new test
 on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.spatial.mesh.engines
-hydromodpy.spatial.mesh.resample
-hydromodpy.spatial.mesh.planning
-hydromodpy.spatial.mesh.cells.zonal_stats
-hydromodpy.spatial.mesh.model.quality
-hydromodpy.spatial.mesh.cells.in_polygons
-hydromodpy.spatial.mesh.refinement_config
+hydromodpy.mesh.engines
+hydromodpy.mesh.resample
+hydromodpy.mesh.planning
+hydromodpy.mesh.cells.zonal_stats
+hydromodpy.mesh.planar.quality
+hydromodpy.mesh.cells.in_polygons
+hydromodpy.mesh.refinement_config
 hydromodpy.results.run.field_envelope
 hydromodpy.model.domain.layering
 hydromodpy.core.fields.vertical_column
@@ -659,26 +659,26 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The keys of the layers, the base rasters | `hydromodpy/model/domain/layers_config.py`, `hydromodpy/data/variables/layer_base/`, `hydromodpy/model/domain/build.py` (`read_layer_base_sources`) |
 | The top active layer of a column | `hydromodpy/core/fields/vertical_column.py` (`top_active_layer`), `hydromodpy/solver/modflow_grid/solver_mesh.py` (`SolverMesh.top_active_layer`) |
 | The keys of the top | `hydromodpy/solver/modflow_grid/sgrid_config.py` |
-| The keys of the mesh | `hydromodpy/spatial/mesh/mesh_config.py` (`MeshConfig`) |
-| The engines and their registry | `hydromodpy/spatial/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/spatial/mesh/registry.py` |
-| The request and the planner | `hydromodpy/spatial/mesh/request.py`, `hydromodpy/spatial/mesh/planning/plan.py` (`plan_mesh_request`) |
-| The cleaning of the lines | `hydromodpy/spatial/mesh/planning/geometry_cleanup.py` (`clean_lines`, `drop_small_holes`) |
-| The smoothing of the catchment outline | `hydromodpy/spatial/mesh/planning/catchment_outline.py` (`smooth_catchment`, `smooth_polygon`) |
-| The size field and the gap term | `hydromodpy/spatial/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/spatial/mesh/planning/gap_size.py` (`gap_terms`) |
-| The refinement zones drawn by a field | `hydromodpy/spatial/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/spatial/mesh/planning/height_above_stream.py`, `hydromodpy/spatial/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/results/run/field_envelope.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`zone_runs`), `hydromodpy/workflow/steps/prepare_solver/freeze.py` (`frozen_config_document`) |
-| The size of a triangle | `hydromodpy/spatial/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
-| The catchment fraction and the weighted totals | `hydromodpy/spatial/mesh/cells/in_polygons.py` (`cell_area_fraction`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
+| The keys of the mesh | `hydromodpy/mesh/mesh_config.py` (`MeshConfig`) |
+| The engines and their registry | `hydromodpy/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/mesh/registry.py` |
+| The request and the planner | `hydromodpy/mesh/request.py`, `hydromodpy/mesh/planning/plan.py` (`plan_mesh_request`) |
+| The cleaning of the lines | `hydromodpy/mesh/planning/geometry_cleanup.py` (`clean_lines`, `drop_small_holes`) |
+| The smoothing of the catchment outline | `hydromodpy/mesh/planning/catchment_outline.py` (`smooth_catchment`, `smooth_polygon`) |
+| The size field and the gap term | `hydromodpy/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/mesh/planning/gap_size.py` (`gap_terms`) |
+| The refinement zones drawn by a field | `hydromodpy/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/mesh/planning/height_above_stream.py`, `hydromodpy/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/results/run/field_envelope.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`zone_runs`), `hydromodpy/workflow/steps/prepare_solver/freeze.py` (`frozen_config_document`) |
+| The size of a triangle | `hydromodpy/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
+| The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
-| The zonal top | `hydromodpy/spatial/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
+| The zonal top | `hydromodpy/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
-| The Voronoi tessellation | `hydromodpy/spatial/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
-| The angle of a connection | `hydromodpy/spatial/mesh/model/quality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
+| The Voronoi tessellation | `hydromodpy/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
+| The angle of a connection | `hydromodpy/mesh/planar/quality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |
-| The mesh step and its cache | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/spatial/mesh/cache.py` |
+| The mesh step and its cache | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/mesh/cache.py` |
 | The DISV export | `hydromodpy/solver/modflow_grid/solver_mesh.py` (`to_flopy_disv_args`, `SolverMesh.to_disv_kwargs`), `hydromodpy/solver/modflow6/build.py` |
-| The quality report and its thresholds | `hydromodpy/spatial/mesh/model/quality.py` (`compute_mesh_qa`, `quality_warnings`, `MIN_ANGLE_WARNING_DEG`, `BISECTION_OFFSET_WARNING`, `STRAIGHT_CORNER_DEG`) |
+| The quality report and its thresholds | `hydromodpy/mesh/planar/quality.py` (`compute_mesh_qa`, `quality_warnings`, `MIN_ANGLE_WARNING_DEG`, `BISECTION_OFFSET_WARNING`, `STRAIGHT_CORNER_DEG`) |
 | The checks of the table of {ref}`mesh-acceptance` | `accepted_meshes` of the flow adapters, `plan_layout` in `engines/regular/grid.py`, `engines/voronoi/checks.py`, `assert_bottom_below_top` in `layering.py`, `_warn_on_outlier_thickness` in `discretization_spatial.py`, `SolverMesh.check_interfaces`, the extractors of the solvers |
-| The checks of an imported triangulation, of the active cells and of a located point | `hydromodpy/spatial/mesh/planning/input_triangulation.py` (`check_triangulation`), `hydromodpy/solver/modflow_grid/active_connectivity.py` (`warn_on_disconnected_active_cells`), `hydromodpy/spatial/mesh/cells/locate.py` (`locate_cells_near`) |
+| The checks of an imported triangulation, of the active cells and of a located point | `hydromodpy/mesh/planning/input_triangulation.py` (`check_triangulation`), `hydromodpy/solver/modflow_grid/active_connectivity.py` (`warn_on_disconnected_active_cells`), `hydromodpy/mesh/cells/locate.py` (`locate_cells_near`) |
 
 ## See also
 

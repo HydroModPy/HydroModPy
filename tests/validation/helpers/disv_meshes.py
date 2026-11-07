@@ -37,12 +37,12 @@ import numpy as np
 from scipy.spatial import Delaunay
 from shapely.geometry import Point, Polygon, box
 
+from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.quality import nonorthogonality_summary
 from hydromodpy.solver.modflow6.build import resolve_xt3d_options, xt3d_mode
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.quality import nonorthogonality_summary
 from tests._helpers.solver_meshes import solver_mesh_from
 
 KINDS = ("triangle", "voronoi")

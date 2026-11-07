@@ -435,7 +435,7 @@ def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
     cell for cell with what the solver was given. None when the store has no
     geometry or no cell of positive area.
     """
-    from hydromodpy.spatial.mesh.model.geometry import cell_areas, padded_rows
+    from hydromodpy.mesh.planar.geometry import cell_areas, padded_rows
 
     mesh = root.get("mesh")
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:

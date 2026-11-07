@@ -36,7 +36,7 @@ from hydromodpy.model.forcing.stations import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 
 __all__ = [
     "discretize_fields_on_cells",

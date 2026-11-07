@@ -242,7 +242,7 @@ def build_mesh(project: Project, **overrides: object) -> None:
 
     ``overrides`` patch ``cfg.mesh`` before the mesh step runs.
     """
-    from hydromodpy.spatial.mesh.mesh_config import MeshConfig
+    from hydromodpy.mesh.mesh_config import MeshConfig
     from hydromodpy.workflow.steps.mesh import step_mesh
 
     if project._phase == "uninitialized":

@@ -291,7 +291,7 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of spatial/ over the unit tier, the engine contract,
+      # Branch coverage of spatial/ and mesh/ over the unit tier, the engine contract,
       # the mesh regression and the domain-build worker, which only its integration
       # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
       - name: Run the tests that reach the spatial package
@@ -312,6 +312,7 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
             --cov-branch \
@@ -332,6 +333,7 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
             --cov-branch \
@@ -351,7 +353,7 @@ jobs:
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
-          coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.24
+          coverage report --include='hydromodpy/mesh/*' --precision=2 --fail-under=99.24
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
           coverage report --include='hydromodpy/model/domain/*' --omit='hydromodpy/model/domain/lake_bed_*,hydromodpy/model/domain/structure_binders.py' --precision=2 --fail-under=99.3

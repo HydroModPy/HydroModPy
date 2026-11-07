@@ -16,6 +16,11 @@ import shapely
 from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.lake_structures import LakeStructure
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.request import BARRIER_FAMILY
 from hydromodpy.model.boundaries.cutoff_wall_shore import snap_wall_to_shore
 from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, lake_shore_faces
@@ -29,11 +34,6 @@ from hydromodpy.solver.modflow6.builders.lake_cells import (
     resolve_lake_cells_for_active_lakes,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.lake_structures import LakeStructure
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
 from tests._helpers.reservoir_dam import DOMAIN, reservoir, trace
 

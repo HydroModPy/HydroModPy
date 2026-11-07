@@ -34,6 +34,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
+from hydromodpy.mesh.io.bundle import CatchmentMeshBundle
 from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_conditions_mapping_from_flow,
@@ -87,9 +88,6 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     runtime_backend_name,
 )
 from hydromodpy.solver.boussinesq.state import BoussinesqState
-from hydromodpy.spatial.mesh.io.bundle import (
-    CatchmentMeshBundle,
-)
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 

@@ -65,7 +65,7 @@ from .steady_initial_conditions import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2

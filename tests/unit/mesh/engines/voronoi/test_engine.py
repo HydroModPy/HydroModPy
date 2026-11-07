@@ -11,16 +11,16 @@ import pytest
 import shapely
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
-from hydromodpy.spatial.mesh.engines.voronoi.from_triangulation import _FACES_NOTE
-from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_CAP
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import local_frame
-from hydromodpy.spatial.mesh.io.msh import read_msh
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
-from hydromodpy.spatial.mesh.planning.size_field import SizeTerm, build_size_field
-from hydromodpy.spatial.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
-from hydromodpy.spatial.mesh.resample import resample_families
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
+from hydromodpy.mesh.engines.voronoi.from_triangulation import _FACES_NOTE
+from hydromodpy.mesh.engines.voronoi.lloyd import LLOYD_CAP
+from hydromodpy.mesh.engines.voronoi.local_coords import local_frame
+from hydromodpy.mesh.io.msh import read_msh
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.input_triangulation import domain_polygon_from_mesh
+from hydromodpy.mesh.planning.size_field import SizeTerm, build_size_field
+from hydromodpy.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
+from hydromodpy.mesh.resample import resample_families
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
     bundle_msh,

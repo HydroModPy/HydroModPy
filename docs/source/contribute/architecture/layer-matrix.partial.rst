@@ -74,7 +74,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - Goes to
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
-     - ``catchment``, ``mesh``, ``model``
+     - ``catchment``
 
 .. list-table:: Packages to come
    :header-rows: 1
@@ -82,8 +82,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
 
    * - Package
      - Comes from
-   * - ``mesh``
-     - ``spatial``
    * - ``catchment``
      - ``spatial``
 
@@ -186,12 +184,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - ``<root>``
      - ``model``
      - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
-   * - ``<root>``
-     - ``mesh``
-     - ``hydromodpy/_bootstrap.py``
      - The verbs of _api.py, the providers of _bootstrap.py and the lazy
        names of _lazy.py still sit at the root. The root reads only core
        and project once they live in project.

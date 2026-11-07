@@ -18,23 +18,23 @@ from shapely.geometry import Polygon, box, shape
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.mesh import cache as cache_module
+from hydromodpy.mesh.cache import cache_dir, library_versions
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.inputs import PlanningInputs
+from hydromodpy.mesh.planning.plan import smoothed_catchment
+from hydromodpy.mesh.planning.refinement_zones import (
+    CriterionInputs,
+    RefinementZone,
+    load_refinement_zones,
+)
+from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.results.catalog.registration import config_identity_hash
 from hydromodpy.results.run.field_envelope import read_run_fields
 from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.spatial.mesh import cache as cache_module
-from hydromodpy.spatial.mesh.cache import cache_dir, library_versions
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.plan import smoothed_catchment
-from hydromodpy.spatial.mesh.planning.refinement_zones import (
-    CriterionInputs,
-    RefinementZone,
-    load_refinement_zones,
-)
-from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh, zone_runs

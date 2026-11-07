@@ -19,6 +19,8 @@ from pydantic import ValidationError
 from hydromodpy.core.budget.flux import DRN_TO_MVR_KEYS, find_drain_budget_key
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.mesh.planning.refinement_zones import RunFieldEnvelope
+from hydromodpy.mesh.refinement_config import RUN_FIELDS, RefinementZoneConfig
 from hydromodpy.results.catalog.registration import run_dir_holding
 from hydromodpy.results.derive.virtual_fields import (
     cell_area_from_mesh,
@@ -29,8 +31,6 @@ from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.spatial.mesh.planning.refinement_zones import RunFieldEnvelope
-from hydromodpy.spatial.mesh.refinement_config import RUN_FIELDS, RefinementZoneConfig
 
 __all__ = ["read_run_field", "read_run_fields"]
 

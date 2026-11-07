@@ -15,6 +15,13 @@ import numpy as np
 import pytest
 from flopy.discretization import StructuredGrid
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
+)
 from hydromodpy.results.derive.mesh_quality import (
     MESH_QUALITY_DESCRIPTORS,
     mesh_quality_unavailable_reason,
@@ -28,13 +35,6 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    MeshIdentity,
-    PlanarCellMesh,
-    build_planar_cell_mesh,
-)
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.regular_cell_meshes import from_flopy_structured

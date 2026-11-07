@@ -55,8 +55,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity
 
 
 class ProbeMeshEngine:

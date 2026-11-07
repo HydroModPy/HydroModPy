@@ -8,7 +8,7 @@ free ends and the other end of each merged reach; which end is upstream is
 decided on the criterion graph, by the drained area.
 
 ``line_parts`` splits a mapped network into its lines. The crossing rule of
-:mod:`hydromodpy.spatial.mesh.cells.crossed_by_lines` reads it too, and a map with
+:mod:`hydromodpy.mesh.cells.crossed_by_lines` reads it too, and a map with
 anything but lines is refused by both.
 """
 

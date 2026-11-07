@@ -21,7 +21,7 @@ import numpy as np
 from hydromodpy.model.properties.mesh_cells import mesh_cells
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 @cache

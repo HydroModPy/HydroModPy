@@ -142,7 +142,7 @@ class MeshReadingAdapter(Protocol):
 
     Separate from :class:`SolverAdapter` because a transport adapter reads the
     mesh of the flow it follows and declares none. The names are mesh engine ids,
-    or :data:`~hydromodpy.spatial.mesh.port.ANY_PLANAR_ENGINE` for every engine
+    or :data:`~hydromodpy.mesh.port.ANY_PLANAR_ENGINE` for every engine
     whose cells are planar ones. A configuration that pairs the solver with
     another engine is refused before any meshing.
     """

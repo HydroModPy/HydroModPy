@@ -145,11 +145,11 @@ Pitfalls flagged by the layer matrix
 ------------------------------------
 
 - ``results`` may import ``core``, ``schema``, ``config``, and
-  ``results``. The documented ``results -> spatial`` tolerance is
+  ``results``. The documented ``results -> mesh`` and ``results -> spatial`` tolerance is
   reserved for spatial-index storage, feature names and the cell mesh:
   ``zarr_store/mesh_layout.py`` reads the ``PlanarCellMesh`` of a run, and
   the VTU exporter builds a ``HydroMesh`` from the store and writes it with
-  ``write_vtu`` of ``spatial/mesh/io/vtu.py``, the one VTU writer. Do not import
+  ``write_vtu`` of ``mesh/io/vtu.py``, the one VTU writer. Do not import
   ``display``, ``project``, ``workflow``, or ``solver`` in an exporter.
 - Spatial reprojection helpers live in ``core/io/`` (``crs.py``,
   ``raster_io.py``, ``vector_io.py``); reach them from ``core``, not

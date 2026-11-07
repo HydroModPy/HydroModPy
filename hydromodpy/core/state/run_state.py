@@ -41,9 +41,9 @@ class SetupContext:
     """Objects prepared during setup and reused by all runs.
 
     Most field types are ``Any`` because ``core`` cannot import from
-    sibling layers (``model``, ``spatial``). Concrete classes live in
+    sibling layers (``model``, ``spatial``, ``mesh``). Concrete classes live in
     ``model.model``, ``model.transport``, ``model.domain``,
-    ``spatial.geographic`` and ``spatial.mesh.io``.
+    ``spatial.geographic`` and ``mesh.io``.
     """
 
     workspace: WorkspaceLayout | None = None
@@ -62,7 +62,7 @@ class SetupContext:
     transport: Any = None
     mesh_summary: dict[str, Any] | None = None
     mesh_bundle: Any = None
-    # The planar cell mesh the solvers read (spatial.mesh PlanarCellMesh).
+    # The planar cell mesh the solvers read (mesh.planar PlanarCellMesh).
     cell_mesh: Any = None
     flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"

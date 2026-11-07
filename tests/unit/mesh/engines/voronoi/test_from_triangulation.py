@@ -12,9 +12,9 @@ import functools
 import numpy as np
 from shapely.geometry import box
 
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.request import InputTriangulation
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.request import InputTriangulation
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request
 
 X0, Y0 = L93_ORIGIN

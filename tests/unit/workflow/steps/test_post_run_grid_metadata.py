@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.workflow.steps.run_outputs import _resolve_run_grid_metadata
 
 

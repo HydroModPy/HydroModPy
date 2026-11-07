@@ -16,6 +16,19 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
+from hydromodpy.mesh.cells.boundary import side_cells, stream_cells
+from hydromodpy.mesh.cells.locate import locate_cells
+from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.mesh.io.bundle import cell_mesh_from_bundle
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
+    FaceFamilyTable,
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
+)
+from hydromodpy.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
@@ -29,19 +42,6 @@ from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_d
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.mesh.cells.boundary import side_cells, stream_cells
-from hydromodpy.spatial.mesh.cells.locate import locate_cells
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
-from hydromodpy.spatial.mesh.io.bundle import cell_mesh_from_bundle
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    FaceFamilyTable,
-    MeshIdentity,
-    PlanarCellMesh,
-    build_planar_cell_mesh,
-)
-from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import grid_over, mesh_request

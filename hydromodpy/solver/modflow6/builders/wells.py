@@ -9,9 +9,9 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
+from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.boundary_conditions import forcing_units
-from hydromodpy.spatial.mesh.cells.locate import locate_cells
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:

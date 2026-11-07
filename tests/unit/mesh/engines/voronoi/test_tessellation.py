@@ -12,22 +12,22 @@ import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.solver.modflow_grid.solver_mesh import to_flopy_disv_args
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import LocalFrame, local_frame
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.engines.voronoi.local_coords import LocalFrame, local_frame
+from hydromodpy.mesh.engines.voronoi.tessellation import (
     cell_topology,
     tessellate,
     voronoi_cells,
     voronoi_envelope,
     voronoi_planar_mesh,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import VERTEX_MERGE_M, derive_geometry
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.request import LineFamilySpec
-from hydromodpy.spatial.mesh.resample import resample_families
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import VERTEX_MERGE_M, derive_geometry
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.request import LineFamilySpec
+from hydromodpy.mesh.resample import resample_families
+from hydromodpy.solver.modflow_grid.solver_mesh import to_flopy_disv_args
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request, uniform_size_field
 
 X0, Y0 = L93_ORIGIN

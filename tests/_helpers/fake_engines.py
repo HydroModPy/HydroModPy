@@ -19,12 +19,12 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity, PlanarCellMesh
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
-from hydromodpy.spatial.mesh.request import MeshRequest
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity, PlanarCellMesh
+from hydromodpy.mesh.port import MeshEngineCapabilities
+from hydromodpy.mesh.request import MeshRequest
 
 __all__ = [
     "FakeMeshEngine",

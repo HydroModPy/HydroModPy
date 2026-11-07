@@ -41,10 +41,9 @@ transitional:
   # and where its modules go. A row leaves with its package. These rows are
   # written lowest first too.
   leaving:
-    spatial:    {reads: [core, schema, spatial], goes_to: [catchment, mesh, model]}
+    spatial:    {reads: [core, schema, spatial], goes_to: [catchment]}
   # Rows of the target whose package does not exist yet.
   arriving:
-    mesh:      {comes_from: [spatial]}
     catchment: {comes_from: [spatial]}
   # Imports of today that no row grants. An edge into a leaving package goes
   # with that package. An edge between two kept rows names its files and why.
@@ -77,7 +76,6 @@ transitional:
     - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     # The packages to come take over imports that the root files make today.
     - {src: "<root>", tgt: model,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py], reason: *root_reason}
-    - {src: "<root>", tgt: mesh,      files: [hydromodpy/_bootstrap.py], reason: *root_reason}
     - {src: "<root>", tgt: catchment, files: [hydromodpy/_bootstrap.py], reason: *root_reason}
     - src: cli
       tgt: "<root>"

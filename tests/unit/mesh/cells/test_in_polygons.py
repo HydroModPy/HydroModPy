@@ -18,8 +18,8 @@ from hypothesis import strategies as st
 from shapely.geometry import LineString, Polygon, box
 from shapely.ops import transform
 
-from hydromodpy.spatial.mesh.cells.in_polygons import cell_area_fraction, vector_cell_mask
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
+from hydromodpy.mesh.cells.in_polygons import cell_area_fraction, vector_cell_mask
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from tests._helpers.mesh_cases import LAMBERT93_WKT, regular_mesh
 
 CRS = LAMBERT93_WKT

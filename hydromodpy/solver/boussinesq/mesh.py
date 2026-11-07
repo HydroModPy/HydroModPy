@@ -19,22 +19,19 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.mesh.cells.boundary import SIDE_IDS, label_cells, side_cells
+from hydromodpy.mesh.cells.locate import locate_cells
+from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, cell_mesh_from_bundle
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
     family_edge_indices,
     mesh_arrays_from_cell_mesh,
 )
-from hydromodpy.spatial.mesh.cells.boundary import SIDE_IDS, label_cells, side_cells
-from hydromodpy.spatial.mesh.cells.locate import locate_cells
-from hydromodpy.spatial.mesh.io.bundle import (
-    CatchmentMeshBundle,
-    cell_mesh_from_bundle,
-)
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 @dataclass(frozen=True)

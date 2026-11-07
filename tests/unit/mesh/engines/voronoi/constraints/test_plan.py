@@ -22,21 +22,21 @@ from scipy.spatial import cKDTree
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.engines.voronoi.checks import mirror_face_runs
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.conflicts import CONFLICT_SHARE
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import FACE_PRIORITY
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
+from hydromodpy.mesh.engines.voronoi.checks import mirror_face_runs
+from hydromodpy.mesh.engines.voronoi.constraints.conflicts import CONFLICT_SHARE
+from hydromodpy.mesh.engines.voronoi.constraints.lines import FACE_PRIORITY
+from hydromodpy.mesh.engines.voronoi.constraints.plan import (
     ConstraintPlan,
     place_constraints,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.rivers import CROSSING_ABSORB_SHARE
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import CIRCLE_SHRINK, SeedRole
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.engines.voronoi.lloyd import constraint_disks
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest, SizeField
-from hydromodpy.spatial.mesh.resample import resample_families
+from hydromodpy.mesh.engines.voronoi.constraints.rivers import CROSSING_ABSORB_SHARE
+from hydromodpy.mesh.engines.voronoi.constraints.state import CIRCLE_SHRINK, SeedRole
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.engines.voronoi.lloyd import constraint_disks
+from hydromodpy.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest, SizeField
+from hydromodpy.mesh.resample import resample_families
 from tests._helpers import reservoir_dam
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,

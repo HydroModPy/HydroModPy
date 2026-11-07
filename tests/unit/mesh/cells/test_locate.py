@@ -18,10 +18,10 @@ import numpy as np
 import pytest
 import shapely
 
+from hydromodpy.mesh.cells.locate import locate_cells, locate_cells_near
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.mesh.cells.locate import locate_cells, locate_cells_near
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
 from tests._helpers.mesh_cases import grid_spec, mesh_request
 

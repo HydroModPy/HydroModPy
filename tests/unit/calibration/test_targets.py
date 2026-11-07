@@ -329,7 +329,7 @@ class TestTheOrdering:
 #   ``validate_resolved_field_param_data`` directly, without ever going
 #   through ``FieldHomogeneousSection`` / ``core/config_kit/field_param/sections.py``. That
 #   path is used by the mesh/geology demo cases
-#   (``tools/cases/``, ``hydromodpy/spatial/mesh/*/examples/*``), not by the
+#   (``tools/cases/``, ``hydromodpy/mesh/*/examples/*``), not by the
 #   project ``[flow.param.*]`` pipeline the calibration catalog walks, so it
 #   does not affect the catalog either way. But fixing only
 #   ``core/config_kit/field_param/sections.py`` would leave this duplicate validator

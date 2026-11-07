@@ -15,10 +15,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import sparse
 
-from hydromodpy.spatial.mesh.model.geometry import derive_geometry
+from hydromodpy.mesh.planar.geometry import derive_geometry
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 
 __all__ = ["area_mean", "area_weights"]
 

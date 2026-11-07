@@ -21,14 +21,14 @@ from rasterio.transform import Affine
 from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.planning import size_field as size_field_module
-from hydromodpy.spatial.mesh.planning.size_field import (
+from hydromodpy.mesh.planning import size_field as size_field_module
+from hydromodpy.mesh.planning.size_field import (
     OutsideCoarsening,
     PixelRegion,
     SizeTerm,
     build_size_field,
 )
-from hydromodpy.spatial.mesh.request import RasterGridSpec, SizeField
+from hydromodpy.mesh.request import RasterGridSpec, SizeField
 from tests._helpers.mesh_cases import grid_spec
 
 _PROPERTY = settings(derandomize=True, max_examples=50, deadline=None)
@@ -222,7 +222,7 @@ def test_a_long_narrow_grid_takes_a_block_large_enough_for_the_pixel_count(
 def test_term_finer_than_the_floor_warns_with_requested_and_effective_size(caplog):
     """A term below the pixel floor is clipped, and a WARNING names both sizes (C-06)."""
     sill = box(1500.0, 5500.0, 1520.0, 5520.0)
-    with caplog.at_level("WARNING", logger="hydromodpy.spatial.mesh.planning.size_field"):
+    with caplog.at_level("WARNING", logger="hydromodpy.mesh.planning.size_field"):
         build_size_field(
             _grid(),
             h0=100.0,

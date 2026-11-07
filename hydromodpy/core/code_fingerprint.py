@@ -43,6 +43,7 @@ COMPUTE_LAYERS: Final[tuple[str, ...]] = (
     "model",
     "data",
     "spatial",
+    "mesh",
     "solver",
     "calibration",
     "results",

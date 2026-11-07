@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
-from hydromodpy.spatial.mesh.resample import (
+from hydromodpy.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
+from hydromodpy.mesh.resample import (
     MIN_SEGMENT_SHARE,
     positions_at_local_size,
     resample_families,

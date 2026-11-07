@@ -3,18 +3,18 @@
 Left: two Voronoi cells whose generators sit off the middle of their face. The
 line of the centers is normal to the face but crosses it off its middle.
 Right: the two triangles of the angle example. The line crosses the face in its
-middle but is not normal to it. Both measures come from model/quality.py.
+middle but is not normal to it. Both measures come from planar/quality.py.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import box
 
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import derive_geometry
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.quality import edge_bisection_offset, edge_nonorthogonality
+from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import derive_geometry
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.quality import edge_bisection_offset, edge_nonorthogonality
 
 
 def measures(mesh, centres):

@@ -13,9 +13,9 @@ from __future__ import annotations
 import numpy as np
 from flopy.discretization import StructuredGrid
 
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,

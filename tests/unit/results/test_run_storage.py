@@ -65,6 +65,7 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.registry.freeze import write_lockfile
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
 from hydromodpy.project.launch.sites.expansion import case_is_done
 from hydromodpy.project.launch.sites.plan import running_cases
@@ -187,11 +188,6 @@ from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENAN
 from hydromodpy.schema.job.seal import MANIFEST_VERSIONS as JOB_MANIFEST_VERSIONS
 from hydromodpy.solver.modflow6.extractors.flow import _reach_row
 from hydromodpy.solver.modflow6.extractors.sfr import SfrObsSpec, SfrReachGeometry
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    CellChain,
-    FaceFamilyTable,
-    PlanarCellMesh,
-)
 from hydromodpy.workflow.record.journal import JOURNAL_SCHEMA, WorkflowJournal, journal_path
 from hydromodpy.workflow.record.manifest import (
     RESOLVED_CONFIG_SCHEMA,

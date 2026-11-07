@@ -15,6 +15,7 @@ from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.generator import generate_toml
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.version import __version__
+from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.forcing.dated_forcing import ConstantForcing, CsvForcing
 from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig, FlowLakeConfig
@@ -34,7 +35,6 @@ from hydromodpy.schema.config_schema import (
 )
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.base.simulation_config import SimulationConfig
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 # Tests for the JSON Schema exporter.
 

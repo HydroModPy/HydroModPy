@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import LineString, Point
 
-from hydromodpy.spatial.mesh.planning.size_field import (
+from hydromodpy.mesh.planning.size_field import (
     OutsideCoarsening,
     SizeTerm,
     build_size_field,
 )
-from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.mesh.request import RasterGridSpec
 
 PIXEL, H0, RIVER, SLOPE = 5.0, 50.0, 10.0, 0.5
 

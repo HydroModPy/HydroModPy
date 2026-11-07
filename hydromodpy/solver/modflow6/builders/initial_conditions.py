@@ -7,6 +7,7 @@ import numpy as np
 from hydromodpy.core.exceptions import IncompatibleMeshError
 from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.initial.heads import (
     build_head_initial_condition_array,
     initial_condition_field,
@@ -20,7 +21,6 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     stream_chd_support_mask,
 )
 from hydromodpy.solver.modflow6.support.written_grid import reoriented_rows, written_step
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

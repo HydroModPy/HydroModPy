@@ -8,12 +8,12 @@ import shapely
 from shapely.geometry import Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import (
+from hydromodpy.mesh.engines.voronoi.local_coords import (
     LocalFrame,
     SizeSampler,
     local_frame,
 )
-from hydromodpy.spatial.mesh.request import SizeField
+from hydromodpy.mesh.request import SizeField
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, grid_spec, mesh_request
 
 X0, Y0 = L93_ORIGIN

@@ -1,7 +1,7 @@
 """A resume reloads the mesh it generated instead of generating another one.
 
 Gmsh is not reproducible run to run - the measured evidence is in
-:mod:`hydromodpy.spatial.mesh.cache`. A resume that re-meshes therefore
+:mod:`hydromodpy.mesh.cache`. A resume that re-meshes therefore
 does not repeat the step's work, it changes the mesh every number downstream is
 computed on, and the run that comes back from the crash is not the run that
 went into it.
@@ -118,7 +118,7 @@ def _digest(path: Path) -> str:
 
 def _cached_arrays(root: Path) -> Path:
     """Return the one cached mesh of the project."""
-    from hydromodpy.spatial.mesh.cache import ARRAYS_FILENAME
+    from hydromodpy.mesh.cache import ARRAYS_FILENAME
 
     found = sorted((root / ".hmp" / "mesh_cache").glob(f"*/{ARRAYS_FILENAME}"))
     assert len(found) == 1, f"expected one cached mesh, found {found}"
@@ -172,7 +172,7 @@ def meshed_then_crashed(tmp_path_factory: pytest.TempPathFactory):
 
 def test_the_step_declares_the_mesh_it_left(meshed_then_crashed) -> None:
     """The journal carries a real digest over the cached mesh, not the empty one."""
-    from hydromodpy.spatial.mesh.cache import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    from hydromodpy.mesh.cache import ARRAYS_FILENAME, DESCRIPTION_FILENAME
 
     root, row, _arrays_digest = meshed_then_crashed
 
@@ -189,9 +189,9 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
     meshed_then_crashed,
 ) -> None:
     """The engine is a bomb: reaching it at all is the failure."""
+    from hydromodpy.mesh import registry
+    from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
     from hydromodpy.project.facade import Project
-    from hydromodpy.spatial.mesh import registry
-    from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
 
     root, _row, arrays_digest = meshed_then_crashed
 

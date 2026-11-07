@@ -718,7 +718,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         )
         return active
 
-    from hydromodpy.spatial.geographic.delineated_catchment import watershed_cell_mask
+    from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
 
     crs = _mesh_crs(grp)
     if crs is None:

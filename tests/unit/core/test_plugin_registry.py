@@ -18,8 +18,8 @@ import pytest
 
 import hydromodpy.core.plugin_registry as plugin_registry
 from hydromodpy.core.exceptions import MeshRequestError, TerrainRequestError
-from hydromodpy.spatial.mesh import registry as mesh_registry
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
+from hydromodpy.mesh import registry as mesh_registry
+from hydromodpy.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.terrain import registry as terrain_registry
 from tests._helpers.fake_engines import fake_capabilities
 

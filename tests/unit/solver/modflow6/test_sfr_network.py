@@ -8,12 +8,12 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
 from hydromodpy.solver.modflow6.builders._sfr_network import (
     MIN_PIECE_LENGTH_M,
     chain_pieces,
     crossing_pieces,
 )
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from tests._helpers.mesh_cases import regular_mesh
 
 GRID = regular_mesh(3, 4, dx=10.0)

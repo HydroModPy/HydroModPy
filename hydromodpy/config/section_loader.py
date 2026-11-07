@@ -15,8 +15,8 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
+from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 

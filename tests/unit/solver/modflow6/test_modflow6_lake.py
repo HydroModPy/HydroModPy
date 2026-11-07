@@ -11,6 +11,7 @@ from flopy.utils import GridIntersect
 from shapely import affinity
 from shapely.geometry import LineString, Polygon, box
 
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import SIMULATED_SERIES, export_kind
@@ -52,7 +53,6 @@ from hydromodpy.solver.modflow6.support.lake_band_runoff import (
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh, square_domain, voronoi_lake_mesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays

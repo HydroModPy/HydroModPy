@@ -34,19 +34,19 @@ import pytest
 from scipy.spatial import Delaunay, Voronoi
 from shapely.geometry import Polygon, box
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
+)
 from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
 from hydromodpy.solver.modflow6.builders.lake_cells import (
     apply_lake_idomain_mask,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    MeshIdentity,
-    PlanarCellMesh,
-    build_planar_cell_mesh,
-)
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.solver_meshes import solver_mesh_from
 

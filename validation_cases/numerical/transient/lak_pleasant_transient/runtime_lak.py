@@ -22,6 +22,8 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.solver.modflow6.builders.lake import (
     build_lak_package_args,
     build_lake_connectiondata,
@@ -30,8 +32,6 @@ from hydromodpy.solver.modflow6.builders.lake import (
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import PleasantTransientGeometry, load_geometry

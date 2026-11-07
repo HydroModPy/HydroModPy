@@ -26,8 +26,8 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

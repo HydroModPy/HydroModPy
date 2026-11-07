@@ -16,12 +16,12 @@ import pytest
 import zarr
 
 from hydromodpy.core.exceptions import IncompatibleMeshError
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.solver.modflow6.builders.initial_conditions import (
     build_start_heads,
     verify_restart_mesh,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 

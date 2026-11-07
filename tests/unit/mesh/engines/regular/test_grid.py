@@ -11,10 +11,10 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.engines.regular.grid import GridLayout, plan_layout, quad_mesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.engines.regular.grid import GridLayout, plan_layout, quad_mesh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.request import RasterGridSpec
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request, regular_mesh

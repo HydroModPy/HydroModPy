@@ -8,11 +8,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
 from hydromodpy.model.model import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
-from hydromodpy.spatial.mesh.io.bundle import (
-    load_catchment_mesh_bundle,
-)
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )

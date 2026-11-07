@@ -16,8 +16,8 @@ import hydromodpy as hmp
 from hydromodpy.calibration.evaluation import forward_registry
 from hydromodpy.calibration.evaluation import registry as evaluator_registry
 from hydromodpy.data.source import registry as source_registry
+from hydromodpy.mesh import registry as mesh_registry
 from hydromodpy.solver.base import registry as solver_registry
-from hydromodpy.spatial.mesh import registry as mesh_registry
 from hydromodpy.spatial.terrain import registry as terrain_registry
 
 pytestmark = pytest.mark.fast

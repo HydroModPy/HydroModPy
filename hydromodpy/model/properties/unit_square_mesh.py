@@ -17,15 +17,15 @@ import matplotlib.tri as mtri
 import numpy as np
 
 from hydromodpy.core.state.rng import RngManager
-from hydromodpy.model.properties.field_spatial import get_nested_section
-from hydromodpy.model.properties.mesh_cells import cell_mesh_from_edges
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from hydromodpy.model.properties.field_spatial import get_nested_section
+from hydromodpy.model.properties.mesh_cells import cell_mesh_from_edges
 
 SUPPORTED_MESH_KINDS = (
     "structured",

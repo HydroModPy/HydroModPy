@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh import registry as mesh_registry
-from hydromodpy.spatial.mesh.cache import (
+from hydromodpy.mesh import registry as mesh_registry
+from hydromodpy.mesh.cache import (
     ARRAYS_FILENAME,
     DESCRIPTION_FILENAME,
     cache_dir,
@@ -19,22 +19,18 @@ from hydromodpy.spatial.mesh.cache import (
     load_cell_mesh,
     save_cell_mesh,
 )
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.model.quality import quality_warnings
-from hydromodpy.spatial.mesh.planning.plan import (
-    plan_mesh_request,
-    resolved_sizes,
-    smoothed_catchment,
-)
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planar.quality import quality_warnings
+from hydromodpy.mesh.planning.plan import plan_mesh_request, resolved_sizes, smoothed_catchment
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-    from hydromodpy.spatial.mesh.planning.refinement_zones import RefinementZone
-    from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
-    from hydromodpy.spatial.mesh.request import MeshRequest
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planning.refinement_zones import RefinementZone
+    from hydromodpy.mesh.refinement_config import RefinementZoneConfig
+    from hydromodpy.mesh.request import MeshRequest
 
 logger = get_logger(__name__)
 
@@ -54,7 +50,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     it once per request: the project cache answers every later run. With
     ``resume`` a missing cache entry is reported, since meshing again then gives
     a mesh the earlier results were not computed on. A mesh whose cells cross a
-    quality threshold of :mod:`hydromodpy.spatial.mesh.model.quality` is logged
+    quality threshold of :mod:`hydromodpy.mesh.planar.quality` is logged
     with a warning and used as it is.
     """
     mesh_cfg = ctx.cfg.mesh or MeshConfig()

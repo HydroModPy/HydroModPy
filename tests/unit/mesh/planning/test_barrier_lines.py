@@ -15,12 +15,12 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.barrier_lines import RING_FAMILY, split_barriers
+from hydromodpy.mesh.planning.inputs import PlanningInputs
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
 from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.barrier_lines import RING_FAMILY, split_barriers
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
 from tests._helpers.mesh_cases import grid_over, planning_inputs
 from tests._helpers.reservoir_dam import DOMAIN, reservoir, trace
 

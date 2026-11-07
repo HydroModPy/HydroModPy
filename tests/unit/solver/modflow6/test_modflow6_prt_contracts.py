@@ -9,6 +9,8 @@ import flopy
 import numpy as np
 import zarr
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.transport.transport import Transport
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.run.particles import read_particle_tracks
@@ -16,8 +18,6 @@ from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 
 

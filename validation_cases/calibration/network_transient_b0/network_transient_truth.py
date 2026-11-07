@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.spatial.mesh.model.geometry import cell_areas, padded_rows
+from hydromodpy.mesh.planar.geometry import cell_areas, padded_rows
 from validation_cases.calibration.network_transient_b0.network_cost import (
     equivalent_network_length,
     network_cost,
