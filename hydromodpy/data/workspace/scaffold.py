@@ -9,10 +9,12 @@ Called by ``hmp project new <project>`` to create a project inside the workspace
 Each ``data/<variable>/`` folder is a flat drop zone. The provider is encoded
 in the file NAME, never in the directory: ``<variable>_custom_*`` for files the
 user provides, ``<variable>_<api>_*`` for files HydroModPy downloads from an
-API. Both live side by side. The runtime data loaders read these folders
-directly (``hydromodpy.data.loading.store.DataStore``); ``hydromodpy.data.workspace.custom_scan``
-indexes the custom files in ``data/cache.duckdb`` at the start of every
-``hmp run``.
+API. Both live side by side.
+The runtime data loaders read these folders directly
+(``hydromodpy.data.loading.store.DataStore``). A run indexes in
+``data/cache.duckdb`` the custom files that a ``[data.<name>]`` source with
+``source = "custom"`` reads. A file dropped in a folder is not indexed on its own,
+and ``hmp data add`` indexes one file by hand.
 """
 
 from __future__ import annotations

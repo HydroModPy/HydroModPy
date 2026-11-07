@@ -677,7 +677,7 @@
             }
           ],
           "default": null,
-          "description": "SHA-256 of the file; null for a directory store, the manifest itself and a seal written before the digests",
+          "description": "SHA-256 of the file or of the directory store; null for the manifest itself and a seal written before the digests",
           "title": "Sha256",
           "x-hmp-profile": "user"
         }

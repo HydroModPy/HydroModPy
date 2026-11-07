@@ -25,8 +25,11 @@ y_outlet = 6923974.693
 # "20%" is an area increase: the buffered domain covers 20 % more area than the catchment.
 buff_area = "20%"
 
-[flow]
-active_bc = []
+[flow.bc.drainage]
+enabled = false
+
+[flow.sinks_sources.recharge]
+enabled = false
 
 [geographic.river_network]
 enabled = true
@@ -51,7 +54,7 @@ watershed_boundary = "face"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [modflow6.runtime]
@@ -62,7 +65,7 @@ mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 1
 lay_decay = 1.2

@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import DataContractViolation, NothingThereError
-from hydromodpy.display.catchment_report.artifacts import REPO_ROOT, rel
+from hydromodpy.display.catchment_report.artifacts import (
+    REPO_ROOT,
+    draw_missing_run_figures,
+    rel,
+)
 from hydromodpy.display.catchment_report.blocks import optional_figure_ids
 from hydromodpy.display.catchment_report.builder import (
     CatchmentReportConfig,
@@ -255,6 +259,9 @@ def run_catchment_report_pipeline(
     # A rerun, or a run after a failed one that kept the name, registers as
     # `<name>.vN`: the report describes the newest completed run of the name.
     inputs = _newest_report_run(inputs)
+    if inputs.pipeline_build_context_artifacts or inputs.pipeline_build_report_html:
+        # The context and the page copy the run figures: draw the ones it lacks first.
+        draw_missing_run_figures(inputs)
     if inputs.pipeline_build_context_artifacts:
         context_summary = build_context(inputs)
     if inputs.pipeline_build_report_html:

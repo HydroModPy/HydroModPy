@@ -1,0 +1,995 @@
+{
+  "@context": [
+    "https://w3id.org/ro/crate/1.1/context",
+    {
+      "hydromodpy": "https://docs.hydromodpy.fr/schema#",
+      "prov": "http://www.w3.org/ns/prov#",
+      "sha256": "https://www.iana.org/assignments/hashes/sha-256"
+    }
+  ],
+  "@graph": [
+    {
+      "@id": "ro-crate-metadata.json",
+      "@type": "CreativeWork",
+      "about": {
+        "@id": "./"
+      },
+      "conformsTo": {
+        "@id": "https://w3id.org/ro/crate/1.1"
+      }
+    },
+    {
+      "@id": "./",
+      "@type": "Dataset",
+      "datePublished": "2026-11-07T17:47:44.923852Z",
+      "description": "",
+      "hasPart": [
+        {
+          "@id": "manifest.json"
+        },
+        {
+          "@id": "config.resolved.toml"
+        },
+        {
+          "@id": "config.toml"
+        },
+        {
+          "@id": "fields.zarr"
+        },
+        {
+          "@id": "inputs.json"
+        },
+        {
+          "@id": "provenance.json"
+        },
+        {
+          "@id": "tables.parquet/budgets.parquet"
+        },
+        {
+          "@id": "tables.parquet/geographic_watershed.parquet"
+        },
+        {
+          "@id": "tables.parquet/geographic_watershed_box_buff.parquet"
+        },
+        {
+          "@id": "tables.parquet/geographic_watershed_contour.parquet"
+        },
+        {
+          "@id": "tables.parquet/mass_balance.parquet"
+        },
+        {
+          "@id": "tables.parquet/mesh_face_families.parquet"
+        },
+        {
+          "@id": "tables.parquet/metrics.parquet"
+        },
+        {
+          "@id": "tables.parquet/parameters.parquet"
+        },
+        {
+          "@id": "tables.parquet/provenance.parquet"
+        },
+        {
+          "@id": "tables.parquet/simulation.parquet"
+        },
+        {
+          "@id": "tables.parquet/timeseries.parquet"
+        },
+        {
+          "@id": "INSTALL.toml"
+        },
+        {
+          "@id": "README.md"
+        },
+        {
+          "@id": "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json"
+        },
+        {
+          "@id": "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv"
+        }
+      ],
+      "hydromodpy:project": "island",
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "hydromodpy:solverId": null,
+      "identifier": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "license": {
+        "@id": "LicenseRef-undetermined"
+      },
+      "name": "calage",
+      "spatialCoverage": {
+        "@id": "#place/bbox"
+      },
+      "temporalCoverage": "2003-01-01T00:00:00Z/2003-01-03T00:00:00Z",
+      "wasGeneratedBy": {
+        "@id": "#action/simulation"
+      }
+    },
+    {
+      "@id": "manifest.json",
+      "@type": "File",
+      "contentSize": 10716,
+      "description": "Seal of this directory, written last.",
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "manifest.json",
+      "hydromodpy:roles": [
+        "metadata",
+        "manifest"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "manifest.json",
+      "sha256": "ba0f15faa6e2c50e86f1d0c0dc5d71131c606b898fdf9cd5132ed7cd3b4f24a1"
+    },
+    {
+      "@id": "config.resolved.toml",
+      "@type": "File",
+      "contentSize": 7617,
+      "encodingFormat": "application/toml",
+      "hydromodpy:assetKey": "config.resolved.toml",
+      "hydromodpy:roles": [
+        "metadata",
+        "config_resolved"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "config.resolved.toml",
+      "sha256": "01ef9f468016aeef8bb3fdc5d206ffd347e8091588c91cd524f60425835df3e0"
+    },
+    {
+      "@id": "config.toml",
+      "@type": "File",
+      "contentSize": 1832,
+      "encodingFormat": "application/toml",
+      "hydromodpy:assetKey": "config.toml",
+      "hydromodpy:roles": [
+        "metadata",
+        "config"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "config.toml",
+      "sha256": "0ae63b4c17d8bea38fa7e7548b1637cc1cf3ba334cf3d69f22439ab6eb947534"
+    },
+    {
+      "@id": "fields.zarr",
+      "@type": "File",
+      "contentSize": 152056,
+      "encodingFormat": "application/x.zarr-store",
+      "hydromodpy:assetKey": "fields.zarr",
+      "hydromodpy:roles": [
+        "data",
+        "fields"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "fields.zarr"
+    },
+    {
+      "@id": "inputs.json",
+      "@type": "File",
+      "contentSize": 659,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "inputs.json",
+      "hydromodpy:roles": [
+        "metadata",
+        "other"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "inputs.json",
+      "sha256": "0299649931b443d7261df39ae378c10582d4dd25634a8d6862244e1c8ddabb48"
+    },
+    {
+      "@id": "provenance.json",
+      "@type": "File",
+      "contentSize": 10882,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "provenance.json",
+      "hydromodpy:roles": [
+        "metadata",
+        "provenance"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "provenance.json",
+      "sha256": "73260ba887de79d68c4632ce18336dc1208c45b373d2e651293be8c5d43afdec"
+    },
+    {
+      "@id": "tables.parquet/budgets.parquet",
+      "@type": "File",
+      "contentSize": 6104,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/budgets.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:budgets"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "budgets.parquet",
+      "sha256": "1f3a0063d3ddbc06abae546ab96b0fd406f92c32326fdff86f7b3d4f33ef458c"
+    },
+    {
+      "@id": "tables.parquet/geographic_watershed.parquet",
+      "@type": "File",
+      "contentSize": 15451,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:geographic_watershed"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "geographic_watershed.parquet",
+      "sha256": "a899dc1a447b28aad4342a3ff57ec43cf356c59460f6bb5644437f35f4ec9bad"
+    },
+    {
+      "@id": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "@type": "File",
+      "contentSize": 15468,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:geographic_watershed_box_buff"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "geographic_watershed_box_buff.parquet",
+      "sha256": "fa991b522c6690901c3125e8bc461159825b4a8153498baaeb16c1cbd515c0f4"
+    },
+    {
+      "@id": "tables.parquet/geographic_watershed_contour.parquet",
+      "@type": "File",
+      "contentSize": 15452,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed_contour.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:geographic_watershed_contour"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "geographic_watershed_contour.parquet",
+      "sha256": "d84694b78fe9677c7c4320a4b36636db09a7b0649f5af6dae8eedc2d39017c77"
+    },
+    {
+      "@id": "tables.parquet/mass_balance.parquet",
+      "@type": "File",
+      "contentSize": 6695,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/mass_balance.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:mass_balance"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "mass_balance.parquet",
+      "sha256": "ccad671b9520d50e833b12482a98eadab5892cc8ef9ecc4d4191f7eb935357d5"
+    },
+    {
+      "@id": "tables.parquet/mesh_face_families.parquet",
+      "@type": "File",
+      "contentSize": 8655,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/mesh_face_families.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:mesh_face_families"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "mesh_face_families.parquet",
+      "sha256": "c68d28e4fee060881a7613a664c438fcb9754a6d2c303f8c33424225f659c0b1"
+    },
+    {
+      "@id": "tables.parquet/metrics.parquet",
+      "@type": "File",
+      "contentSize": 8130,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/metrics.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:metrics"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "metrics.parquet",
+      "sha256": "d9f4dcd7e58850f17eb120277aa185ee4e2fb8002acad32d5cc606fbd32e099f"
+    },
+    {
+      "@id": "tables.parquet/parameters.parquet",
+      "@type": "File",
+      "contentSize": 7925,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/parameters.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:parameters"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "parameters.parquet",
+      "sha256": "1cbf544aa3196c8b098fddf304aceae2f3b8fdbf081d0c2d2304d3f2463a5a55"
+    },
+    {
+      "@id": "tables.parquet/provenance.parquet",
+      "@type": "File",
+      "contentSize": 9067,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/provenance.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:provenance"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "provenance.parquet",
+      "sha256": "757a9c3601ec5b40dbcaea7be4668bbd21640c4af50d40f8bffdd20a5097719b"
+    },
+    {
+      "@id": "tables.parquet/simulation.parquet",
+      "@type": "File",
+      "contentSize": 34203,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/simulation.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:simulation"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "simulation.parquet",
+      "sha256": "8b907746ce71e7ebadb546eda16a00fb15a0c8ed0076f09199ba6669795cc148"
+    },
+    {
+      "@id": "tables.parquet/timeseries.parquet",
+      "@type": "File",
+      "contentSize": 6732,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/timeseries.parquet",
+      "hydromodpy:roles": [
+        "data",
+        "table:timeseries"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "timeseries.parquet",
+      "sha256": "18435322e30e8e1c2ab09d5e554048ee3deb2f876a31a41fce9c6211bec6e56e"
+    },
+    {
+      "@id": "INSTALL.toml",
+      "@type": "File",
+      "contentSize": 477,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "INSTALL.toml",
+      "hydromodpy:roles": [
+        "data",
+        "derived"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "INSTALL.toml",
+      "sha256": "3a5da77a9f42493a65345889a7e6352079b574765ba6b79d6d2c85eeb71ad2ee"
+    },
+    {
+      "@id": "README.md",
+      "@type": "File",
+      "contentSize": 1406,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "README.md",
+      "hydromodpy:roles": [
+        "data",
+        "derived"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "README.md",
+      "sha256": "f89476e203933b7413614ae14bd52941ba2cb6a4bd4b7f64ef150583e954a876"
+    },
+    {
+      "@id": "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "@type": "File",
+      "contentSize": 266,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "hydromodpy:roles": [
+        "data",
+        "derived"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "sha256": "2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131"
+    },
+    {
+      "@id": "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "@type": "File",
+      "contentSize": 45,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "hydromodpy:roles": [
+        "data",
+        "derived"
+      ],
+      "hydromodpy:simId": "20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "name": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+    },
+    {
+      "@id": "inputs/piezometry/0/piezometry",
+      "@type": "File",
+      "contentSize": 333,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:category": "data",
+      "hydromodpy:role": "piezometry",
+      "name": "piezometry",
+      "sha256": "bf13e9233fb254ed152656795124551560146bd8240f7fc5bb173e08e527d8f2"
+    },
+    {
+      "@id": "#software/hydromodpy",
+      "@type": "SoftwareApplication",
+      "codeRepository": "https://github.com/HydroModPy/HydroModPy",
+      "name": "HydroModPy",
+      "softwareSourceCode": "6639a3ee59790b3c1e6499af3253ad204f218acd",
+      "softwareVersion": "2.0.0",
+      "url": "https://docs.hydromodpy.fr/"
+    },
+    {
+      "@id": "#software/modflow6",
+      "@type": "SoftwareApplication",
+      "name": "modflow6",
+      "sha256": "e74a30338a0d4a9c128f329f1ec2dae0dd4f755fe3cb3e2670ade32608c02fd3",
+      "softwareVersion": "mf6: 6.6.3 09/29/2025"
+    },
+    {
+      "@id": "#geo/bbox",
+      "@type": "GeoShape",
+      "box": "-5.983856309209279 -1.3632910927569564 -5.979847292138891 -1.3592868205815327"
+    },
+    {
+      "@id": "#place/bbox",
+      "@type": "Place",
+      "geo": {
+        "@id": "#geo/bbox"
+      }
+    },
+    {
+      "@id": "#action/simulation",
+      "@type": [
+        "CreateAction",
+        "prov:Activity"
+      ],
+      "endTime": "2026-11-07T17:47:44.814088Z",
+      "hydromodpy:gitCommit": "6639a3ee59790b3c1e6499af3253ad204f218acd",
+      "instrument": [
+        {
+          "@id": "#software/hydromodpy"
+        },
+        {
+          "@id": "#software/modflow6"
+        }
+      ],
+      "name": "HydroModPy simulation 20cf5504-afc9-4ae5-aeec-2b69febecc3b",
+      "object": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:endedAtTime": "2026-11-07T17:47:44.814088Z",
+      "prov:startedAtTime": "2026-11-07T17:47:43.862717Z",
+      "prov:used": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasAssociatedWith": [
+        {
+          "@id": "#agent/hydromodpy"
+        },
+        {
+          "@id": "#agent/solver/modflow6"
+        }
+      ],
+      "result": [
+        {
+          "@id": "#entity/output/manifest.json"
+        },
+        {
+          "@id": "#entity/output/config.resolved.toml"
+        },
+        {
+          "@id": "#entity/output/config.toml"
+        },
+        {
+          "@id": "#entity/output/fields.zarr"
+        },
+        {
+          "@id": "#entity/output/inputs.json"
+        },
+        {
+          "@id": "#entity/output/provenance.json"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_budgets.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_geographic_watershed.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_geographic_watershed_box_buff.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_geographic_watershed_contour.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_mass_balance.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_mesh_face_families.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_metrics.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_parameters.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_provenance.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_simulation.parquet"
+        },
+        {
+          "@id": "#entity/output/tables.parquet_timeseries.parquet"
+        },
+        {
+          "@id": "#entity/output/INSTALL.toml"
+        },
+        {
+          "@id": "#entity/output/README.md"
+        },
+        {
+          "@id": "#entity/output/inputs_2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json"
+        },
+        {
+          "@id": "#entity/output/inputs_80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv"
+        }
+      ],
+      "startTime": "2026-11-07T17:47:43.862717Z"
+    },
+    {
+      "@id": "#agent/hydromodpy",
+      "@type": [
+        "prov:SoftwareAgent",
+        "SoftwareApplication"
+      ],
+      "name": "HydroModPy",
+      "schema:identifier": "https://pypi.org/project/hydromodpy/",
+      "softwareVersion": "2.0.0"
+    },
+    {
+      "@id": "#agent/solver/modflow6",
+      "@type": [
+        "prov:SoftwareAgent",
+        "SoftwareApplication"
+      ],
+      "name": "modflow6",
+      "sha256": "e74a30338a0d4a9c128f329f1ec2dae0dd4f755fe3cb3e2670ade32608c02fd3",
+      "softwareVersion": "mf6: 6.6.3 09/29/2025"
+    },
+    {
+      "@id": "#entity/input/piezometry/0/piezometry",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 333,
+      "hydromodpy:category": "data",
+      "hydromodpy:role": "piezometry",
+      "name": "piezometry",
+      "sha256": "bf13e9233fb254ed152656795124551560146bd8240f7fc5bb173e08e527d8f2"
+    },
+    {
+      "@id": "#entity/output/manifest.json",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 10716,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "manifest.json",
+      "name": "manifest.json",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "ba0f15faa6e2c50e86f1d0c0dc5d71131c606b898fdf9cd5132ed7cd3b4f24a1"
+    },
+    {
+      "@id": "#entity/output/config.resolved.toml",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 7617,
+      "encodingFormat": "application/toml",
+      "hydromodpy:assetKey": "config.resolved.toml",
+      "name": "config.resolved.toml",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "01ef9f468016aeef8bb3fdc5d206ffd347e8091588c91cd524f60425835df3e0"
+    },
+    {
+      "@id": "#entity/output/config.toml",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 1832,
+      "encodingFormat": "application/toml",
+      "hydromodpy:assetKey": "config.toml",
+      "name": "config.toml",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "0ae63b4c17d8bea38fa7e7548b1637cc1cf3ba334cf3d69f22439ab6eb947534"
+    },
+    {
+      "@id": "#entity/output/fields.zarr",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 152056,
+      "encodingFormat": "application/x.zarr-store",
+      "hydromodpy:assetKey": "fields.zarr",
+      "name": "fields.zarr",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      }
+    },
+    {
+      "@id": "#entity/output/inputs.json",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 659,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "inputs.json",
+      "name": "inputs.json",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "0299649931b443d7261df39ae378c10582d4dd25634a8d6862244e1c8ddabb48"
+    },
+    {
+      "@id": "#entity/output/provenance.json",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 10882,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "provenance.json",
+      "name": "provenance.json",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "73260ba887de79d68c4632ce18336dc1208c45b373d2e651293be8c5d43afdec"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_budgets.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 6104,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/budgets.parquet",
+      "name": "tables.parquet/budgets.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "1f3a0063d3ddbc06abae546ab96b0fd406f92c32326fdff86f7b3d4f33ef458c"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_geographic_watershed.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 15451,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed.parquet",
+      "name": "tables.parquet/geographic_watershed.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "a899dc1a447b28aad4342a3ff57ec43cf356c59460f6bb5644437f35f4ec9bad"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_geographic_watershed_box_buff.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 15468,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "name": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "fa991b522c6690901c3125e8bc461159825b4a8153498baaeb16c1cbd515c0f4"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_geographic_watershed_contour.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 15452,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/geographic_watershed_contour.parquet",
+      "name": "tables.parquet/geographic_watershed_contour.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "d84694b78fe9677c7c4320a4b36636db09a7b0649f5af6dae8eedc2d39017c77"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_mass_balance.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 6695,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/mass_balance.parquet",
+      "name": "tables.parquet/mass_balance.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "ccad671b9520d50e833b12482a98eadab5892cc8ef9ecc4d4191f7eb935357d5"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_mesh_face_families.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 8655,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/mesh_face_families.parquet",
+      "name": "tables.parquet/mesh_face_families.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "c68d28e4fee060881a7613a664c438fcb9754a6d2c303f8c33424225f659c0b1"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_metrics.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 8130,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/metrics.parquet",
+      "name": "tables.parquet/metrics.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "d9f4dcd7e58850f17eb120277aa185ee4e2fb8002acad32d5cc606fbd32e099f"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_parameters.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 7925,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/parameters.parquet",
+      "name": "tables.parquet/parameters.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "1cbf544aa3196c8b098fddf304aceae2f3b8fdbf081d0c2d2304d3f2463a5a55"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_provenance.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 9067,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/provenance.parquet",
+      "name": "tables.parquet/provenance.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "757a9c3601ec5b40dbcaea7be4668bbd21640c4af50d40f8bffdd20a5097719b"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_simulation.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 34203,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/simulation.parquet",
+      "name": "tables.parquet/simulation.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "8b907746ce71e7ebadb546eda16a00fb15a0c8ed0076f09199ba6669795cc148"
+    },
+    {
+      "@id": "#entity/output/tables.parquet_timeseries.parquet",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 6732,
+      "encodingFormat": "application/vnd.apache.parquet",
+      "hydromodpy:assetKey": "tables.parquet/timeseries.parquet",
+      "name": "tables.parquet/timeseries.parquet",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "18435322e30e8e1c2ab09d5e554048ee3deb2f876a31a41fce9c6211bec6e56e"
+    },
+    {
+      "@id": "#entity/output/INSTALL.toml",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 477,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "INSTALL.toml",
+      "name": "INSTALL.toml",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "3a5da77a9f42493a65345889a7e6352079b574765ba6b79d6d2c85eeb71ad2ee"
+    },
+    {
+      "@id": "#entity/output/README.md",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 1406,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "README.md",
+      "name": "README.md",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "f89476e203933b7413614ae14bd52941ba2cb6a4bd4b7f64ef150583e954a876"
+    },
+    {
+      "@id": "#entity/output/inputs_2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 266,
+      "encodingFormat": "application/json",
+      "hydromodpy:assetKey": "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "name": "inputs/2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131.json",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "2fe4bcc32c6a212e498ff72b27d2955f92ce794ca162de846584077198bea131"
+    },
+    {
+      "@id": "#entity/output/inputs_80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "@type": [
+        "prov:Entity",
+        "File"
+      ],
+      "contentSize": 45,
+      "encodingFormat": "application/octet-stream",
+      "hydromodpy:assetKey": "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "name": "inputs/80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3.csv",
+      "prov:wasDerivedFrom": [
+        {
+          "@id": "#entity/input/piezometry/0/piezometry"
+        }
+      ],
+      "prov:wasGeneratedBy": {
+        "@id": "#action/simulation"
+      },
+      "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+    }
+  ]
+}

@@ -269,4 +269,5 @@ jobs:
       - name: Run the stored-format tiers
         run: |
           python -m pytest tests/unit/core tests/unit/results tests/unit/config \
-            tests/regression/frozen_runs -n auto --dist loadgroup -q
+            tests/regression/frozen_runs tests/regression/frozen_documents \
+            -n auto --dist loadgroup -q

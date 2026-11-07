@@ -7,11 +7,16 @@ import shutil
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir
+from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
+from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -170,6 +175,111 @@ def copy_real_figures(
         shutil.copy2(source, target)
         copied[spec.figure_id] = target
     return copied
+
+
+def run_figure_names(
+    artifact_specs: Iterable[ReportArtifactSpec] = DEFAULT_ARTIFACT_SPECS,
+) -> tuple[str, ...]:
+    """Return the registered figures the report reads from ``figures/`` of the run.
+
+    A figure is named by the stem of its PNG. A PNG the registry does not draw
+    is left out: some other step writes it.
+    """
+    from hydromodpy.display.figure_registry import list_figures
+
+    registered = {spec.name for spec in list_figures()}
+    stems = dict.fromkeys(
+        Path(candidate.relative_path).stem
+        for spec in artifact_specs
+        for candidate in spec.candidates
+        if candidate.root == "simulation_figures"
+    )
+    return tuple(name for name in stems if name in registered)
+
+
+def draw_missing_run_figures(
+    inputs: CatchmentReportInputs,
+    artifact_specs: Iterable[ReportArtifactSpec] = DEFAULT_ARTIFACT_SPECS,
+) -> tuple[str, ...]:
+    """Draw the run figures the report needs and the run did not draw; return their names.
+
+    A run draws only the figures its ``[display].figures`` lists, and that list is
+    empty by default. The run is read from its own directory and each missing
+    figure is drawn into its ``figures/`` with the ``[display]`` the run sealed.
+    That folder is not part of the seal. A figure the run cannot feed is skipped
+    with its reason in the log, and its block stays empty in the report.
+    """
+    missing = [
+        name
+        for name in run_figure_names(artifact_specs)
+        if not (inputs.simulation_figures / f"{name}.png").exists()
+    ]
+    if not missing:
+        return ()
+    from hydromodpy.display.runs import log_render_summary, render_figures_for_run
+    from hydromodpy.results.run.view import open_run_dir
+
+    try:
+        run = open_run_dir(inputs.run_dir)
+    except Exception as exc:
+        logger.warning(
+            "Catchment report: run figures %s not drawn, the run could not be opened: %s",
+            ", ".join(missing),
+            exc,
+        )
+        return ()
+    report = render_figures_for_run(
+        run,
+        _sealed_display(run, missing),
+        output_dir=inputs.simulation_figures,
+        figure_names=missing,
+    )
+    log_render_summary(report, destination=inputs.simulation_figures)
+    return report.rendered
+
+
+def _sealed_display(run: Run, figures: list[str]) -> DisplayConfig:
+    """Return the ``[display]`` the run sealed, set to draw ``figures`` and save them.
+
+    Only a value away from its default counts as set, as ``hmp viz show`` reads
+    it, so a colormap is forced only when the run chose one. The report always
+    draws, headless, and a figure that fails is logged and skipped. A sealed
+    ``[display]`` that no longer loads gives the defaults.
+    """
+    import warnings
+
+    snapshot = getattr(run, "config_snapshot", None)
+    section = snapshot.get("display") if isinstance(snapshot, Mapping) else None
+    fields = DisplayConfig.model_fields
+    sealed = (
+        {
+            key: value
+            for key, value in section.items()
+            if key not in fields or value != fields[key].get_default(call_default_factory=True)
+        }
+        if isinstance(section, Mapping)
+        else {}
+    )
+    drawing = {
+        "enabled": True,
+        "save": True,
+        "show": False,
+        "backend": "agg",
+        "on_error": "warn",
+        "figures": figures,
+    }
+    try:
+        with warnings.catch_warnings():
+            # A former spelling in a sealed snapshot is not the reader's to fix.
+            warnings.simplefilter("ignore")
+            return DisplayConfig.model_validate({**sealed, **drawing})
+    except ValueError as exc:
+        logger.warning(
+            "Catchment report: the [display] this run was drawn with no longer loads (%s); "
+            "its figures are drawn with the default options.",
+            exc,
+        )
+        return DisplayConfig.model_validate(drawing)
 
 
 _GENERATED_NETWORK_FIGURE = "network_generated"

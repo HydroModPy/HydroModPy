@@ -17,7 +17,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 import pytest
-import yaml
 
 from hydromodpy.core import code_fingerprint as fingerprint_module
 from hydromodpy.core.code_fingerprint import (
@@ -33,6 +32,7 @@ from hydromodpy.core.code_fingerprint import (
     normalised_source,
 )
 from hydromodpy.core.exceptions import HydroModPyError
+from tools.doc_contracts import load_layer_matrix, present_layers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -274,13 +274,12 @@ def test_a_layer_outside_the_scope_is_refused() -> None:
 
 
 def test_the_scope_covers_the_layer_matrix() -> None:
-    """A new layer of the matrix has to say whether it changes a number."""
-    matrix = yaml.safe_load(
-        (REPO_ROOT / "tests" / "unit" / "architecture" / "layer_matrix.yaml").read_text(
-            encoding="utf-8"
-        )
-    )
-    declared = set(matrix["allowed"])
+    """A layer of the tree has to say whether it changes a number.
+
+    The matrix names the layers that exist today, the packages that leave
+    included and the packages to come left out, so a move updates both lists.
+    """
+    declared = present_layers(load_layer_matrix())
     assert set(COMPUTE_LAYERS) | set(OUTSIDE_LAYERS) == declared
     assert not set(COMPUTE_LAYERS) & set(OUTSIDE_LAYERS)
     assert {"display", "analysis", "cli"} <= set(OUTSIDE_LAYERS)

@@ -6,6 +6,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.pipeline import (
     CatchmentReportPipelineResult,
     CatchmentReportPreflightError,
@@ -475,3 +476,164 @@ def _write_overview(root: Path) -> None:
     """Write the overview configuration of the report and the panels folder it names."""
     (root / "config_overview.toml").write_text('[site]\nname = "test"\n', encoding="utf-8")
     (runs_dir_for(root) / "test" / "figures").mkdir(parents=True)
+
+
+# --------------------------------------------------------------------------- #
+# the run figures the report needs are drawn when the run lacks them
+# --------------------------------------------------------------------------- #
+
+RUN_FIGURES = (
+    "simulated_active_network_reference_overlay",
+    "piezometric_map",
+    "seepage_map",
+    "hydrograph",
+    "water_budget",
+)
+
+
+def _report_inputs(tmp_path: Path):
+    """Inputs of a report on a freshly sealed run that drew no figure."""
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path)
+    _write_transient_config(tmp_path)
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
+    return CatchmentReportInputs.from_toml(config_path)
+
+
+def test_the_run_figures_of_the_report_are_the_registered_names_of_its_artifacts() -> None:
+    from hydromodpy.display.catchment_report.artifacts import run_figure_names
+
+    assert set(run_figure_names()) == set(RUN_FIGURES)
+
+
+def test_only_the_figures_the_run_lacks_are_drawn_with_its_sealed_display(
+    monkeypatch, tmp_path
+) -> None:
+    from types import SimpleNamespace
+
+    from hydromodpy.display.catchment_report.artifacts import draw_missing_run_figures
+    from hydromodpy.display.runs import FigureRenderReport
+
+    inputs = _report_inputs(tmp_path)
+    inputs.simulation_figures.mkdir(parents=True, exist_ok=True)
+    (inputs.simulation_figures / "hydrograph.png").write_bytes(b"drawn by the run")
+    sealed = {
+        "preset": "print",
+        "dpi": 90,
+        "cmap": "viridis",
+        "enabled": False,
+        "show": True,
+        "on_error": "raise",
+        "figures": ["hydrograph"],
+    }
+    run = SimpleNamespace(config_snapshot={"display": sealed})
+    opened = []
+    asked = []
+
+    def fake_open(run_dir):
+        opened.append(run_dir)
+        return run
+
+    def fake_render(sim, display_cfg, *, output_dir, figure_names):
+        asked.append((sim, display_cfg, output_dir, list(figure_names)))
+        return FigureRenderReport(rendered=tuple(figure_names))
+
+    monkeypatch.setattr("hydromodpy.results.run.view.open_run_dir", fake_open)
+    monkeypatch.setattr("hydromodpy.display.runs.render_figures_for_run", fake_render)
+
+    drawn = draw_missing_run_figures(inputs)
+
+    expected = tuple(name for name in RUN_FIGURES if name != "hydrograph")
+    assert set(drawn) == set(expected)
+    assert opened == [inputs.run_dir]
+    ((sim, cfg, output_dir, names),) = asked
+    assert sim is run
+    assert output_dir == inputs.simulation_figures
+    assert set(names) == set(expected)
+    # The style of the run is kept, and the report still draws, headless.
+    assert (cfg.preset, cfg.dpi) == ("print", 90)
+    assert cfg.figures == names
+    assert (cfg.enabled, cfg.save, cfg.show, cfg.on_error) == (True, True, False, "warn")
+    # A colormap left at its default is not forced on every figure.
+    assert "cmap" not in cfg.model_fields_set
+
+
+def test_a_report_with_every_run_figure_does_not_open_the_run(monkeypatch, tmp_path) -> None:
+    from hydromodpy.display.catchment_report.artifacts import draw_missing_run_figures
+
+    inputs = _report_inputs(tmp_path)
+    inputs.simulation_figures.mkdir(parents=True, exist_ok=True)
+    for name in RUN_FIGURES:
+        (inputs.simulation_figures / f"{name}.png").write_bytes(b"png")
+
+    def refuse(run_dir):
+        raise AssertionError("the run is not opened when no figure is missing")
+
+    monkeypatch.setattr("hydromodpy.results.run.view.open_run_dir", refuse)
+
+    assert draw_missing_run_figures(inputs) == ()
+
+
+def test_a_run_that_cannot_be_opened_leaves_its_blocks_empty_and_says_so(
+    monkeypatch, tmp_path, hmp_log_records
+) -> None:
+    from hydromodpy.display.catchment_report.artifacts import draw_missing_run_figures
+
+    inputs = _report_inputs(tmp_path)
+
+    def broken(run_dir):
+        raise OSError("seal unreadable")
+
+    monkeypatch.setattr("hydromodpy.results.run.view.open_run_dir", broken)
+
+    assert draw_missing_run_figures(inputs) == ()
+    assert any("seal unreadable" in record.getMessage() for record in hmp_log_records)
+
+
+def test_the_figures_of_a_sealed_run_are_drawn_into_its_figures_folder(tmp_path) -> None:
+    from hydromodpy.display.catchment_report.artifacts import draw_missing_run_figures
+    from hydromodpy.results.manifest import seal_problems
+
+    inputs = _report_inputs(tmp_path)
+
+    drawn = draw_missing_run_figures(inputs)
+
+    assert "hydrograph" in drawn
+    for name in drawn:
+        assert (inputs.simulation_figures / f"{name}.png").is_file()
+    # figures/ is outside the seal: the run still reads as it was sealed.
+    assert seal_problems(inputs.run_dir) == []
+
+
+def test_the_pipeline_draws_the_run_figures_before_it_builds_the_context(
+    monkeypatch, tmp_path
+) -> None:
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path)
+    _write_transient_config(tmp_path)
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
+    order = []
+
+    def fake_draw(inputs):
+        order.append(("draw", inputs.simulation_name))
+        return ()
+
+    def fake_build_context(inputs):
+        order.append(("context", inputs.simulation_name))
+        return inputs.context_summary
+
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.draw_missing_run_figures", fake_draw
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.build_context", fake_build_context
+    )
+
+    run_catchment_report_pipeline(
+        config_path,
+        run_simulation=False,
+        build_context_artifacts=True,
+        build_report_html=False,
+    )
+
+    assert order == [("draw", "test_run"), ("context", "test_run")]

@@ -65,7 +65,7 @@ from hydromodpy.results.exporters.vocabulary import _stored_rasters, list_export
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity, read_identity_from
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.manifest import list_artifacts
-from hydromodpy.results.record import PROVENANCE_VERSION
+from hydromodpy.results.record import PROVENANCE_VERSION, sealed_artifacts
 from hydromodpy.results.run import Run
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -677,6 +677,28 @@ class TestARunDirectory:
         outputs = [node for node in graph if node["@id"].startswith("#entity/output/")]
         assert outputs
         assert all(node["prov:wasDerivedFrom"] == [{"@id": inputs[0]["@id"]}] for node in outputs)
+
+    def test_a_view_gives_the_digest_of_a_file_and_never_of_the_field_store(
+        self, tmp_path: Path
+    ) -> None:
+        run_dir = _run_directory(tmp_path)
+        manifest = _read(run_dir / "manifest.json")
+        manifest["artifacts"] = [
+            entry.model_dump(mode="json") for entry in sealed_artifacts(run_dir)
+        ]
+        (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        sealed = {entry["path"]: entry["sha256"] for entry in manifest["artifacts"]}
+        assert sealed["fields.zarr"] is not None
+
+        write_views(run_dir)
+        item = _read(run_dir / STAC_ITEM_VIEW_FILENAME)
+        assets = {asset["href"]: asset for asset in item["assets"].values()}
+        assert "file:checksum" not in assets["fields.zarr"]
+        assert assets["config.toml"]["file:checksum"] == "1220" + sealed["config.toml"]
+        crate = _read(run_dir / RO_CRATE_VIEW_FILENAME)
+        nodes = {node["@id"]: node for node in crate["@graph"]}
+        assert "sha256" not in nodes["fields.zarr"]
+        assert nodes["config.toml"]["sha256"] == sealed["config.toml"]
 
     def test_the_views_stay_out_of_the_seal_and_inside_the_layout(self, tmp_path: Path) -> None:
         run_dir = _run_directory(tmp_path)

@@ -29,14 +29,22 @@ folders. `hmp catalog reindex` rebuilds it at any time.
 This covers the name or the place of a TOML key, an `hmp` command or flag, a name of
 `hydromodpy.__all__` and the shape of a config table.
 
-The old name keeps working for two minor versions, the one that changes it included. A key
-renamed in 2.3 still loads in 2.3 and 2.4, and can go in 2.5. While it works it prints a warning
-that gives the old name and the new one, once per key and per file. `hmp doctor --fix-config
-<file>` rewrites your file and the files it inherits, and keeps your comments. An old name of Python, or an old `hmp` command
-or flag, prints a `FutureWarning` with both names and then does what the new one does. The
-changelog lists the rename under `Changed` with both names, and later its removal under `Removed`.
-A command or a flag that left before 2.0.0 has no alias: it is refused, with a message that names
-its new form, until 2.2.
+The old name of a TOML key or table keeps working for two minor versions, the one that
+changes it included, when the change comes in 2.0.0 or later. A key renamed in 2.3 still loads
+in 2.3 and 2.4, and can go in 2.5. While it works it prints a warning that gives the old name
+and the new one, once per key and per file. `hmp doctor --fix-config <file>` rewrites your file
+and the files it inherits, and keeps your comments. The changelog lists the rename under
+`Changed` with both names, and later its removal under `Removed`.
+
+A key or a table that only a pre-release wrote (an alpha, a beta or `2.0.0rc1`) still loads in
+2.0.x, with the same warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is
+refused, with a message that points to the doctor of a 2.0.x release.
+
+An old name of Python, or an old `hmp` command or flag, follows the rule of two minor versions
+when the change comes in 2.2.0 or later. It prints a `FutureWarning` with both names and then
+does what the new one does. A name, a command or a flag that leaves in 2.1.0 or earlier has no
+alias. It is refused, with a message that names its new form, for two minor versions. What
+left before 2.0.0 is refused until 2.2.
 
 ### Numbers
 

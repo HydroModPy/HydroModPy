@@ -246,6 +246,25 @@ def test_old_form_warning_from_set_tells_to_write_the_new_name() -> None:
     assert "doctor" not in str(caught[0].message)
 
 
+def test_an_old_form_warning_names_the_doctor_and_promises_no_delay(tmp_path: Path) -> None:
+    where = tmp_path / "a.toml"
+    with pytest.warns(ConfigKeyRenamedWarning) as from_file:
+        warn_old_form(where, "a -> b")
+    with pytest.warns(ConfigKeyRenamedWarning) as from_set:
+        warn_old_form("--set", "a -> b", rewritable=False)
+    with pytest.warns(ConfigKeyRenamedWarning) as from_key:
+        _Cfg.model_validate({"method": "x"})
+    with pytest.warns(ConfigKeyRenamedWarning) as from_time_key:
+        DisplayConfig.model_validate({"overrides": {"cross_section": {"timestep": 33}}})
+    assert "hmp doctor --fix-config" in str(from_file[0].message)
+    assert "hmp doctor --fix-config" in str(from_key[0].message)
+    assert "hmp doctor --fix-config" in str(from_time_key[0].message)
+    for caught in (from_file, from_set, from_key, from_time_key):
+        message = str(caught[0].message)
+        assert "two minor versions" not in message
+        assert "still loads, with this warning" in message
+
+
 def test_a_change_the_migration_could_not_make_is_reported_plainly() -> None:
     with pytest.warns(ConfigKeyRenamedWarning) as caught:
         warn_old_form("f.toml", f"x{CANNOT_REWRITE}y")

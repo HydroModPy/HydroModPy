@@ -86,7 +86,7 @@ never in a figure.
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
 | `runs` | `<init>`, `config`, `figure`, `png_metadata`, `style` |
 | `overview` | `report_blocks`, `style` |
-| `catchment_report` | `overview`, `report_blocks` |
+| `catchment_report` | `config`, `figure_registry`, `overview`, `report_blocks`, `runs` (it draws the run figures the report needs and the run did not draw) |
 
 Every import counts: module level, inside a function, under `TYPE_CHECKING`.
 `tests/unit/architecture/display_layout.yaml` holds the table and

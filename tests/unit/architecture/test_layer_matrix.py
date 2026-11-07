@@ -1,25 +1,41 @@
 """Enforce the machine-readable layer-matrix contract.
 
 The layer matrix is a release gate: undocumented cross-layer imports fail
-the suite. Documented tolerances live in ``layer_matrix.yaml`` and must carry
-an explicit rationale.
+the suite. ``allowed`` holds the target rows. While packages move,
+``transitional`` says what holds today: the rows of packages that leave, the
+rows of packages to come, and the imports granted until they move. An entry
+the tree no longer needs fails too, so the transitional part only shrinks.
 """
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import pathlib
 import sys
+from collections import Counter, defaultdict
+from typing import Any, NamedTuple
 
 import pytest
-import yaml
+
+from tools.doc_contracts import (
+    MAIN_FILE,
+    MAIN_KEY,
+    ROOT_KEY,
+    LayerRows,
+    is_package,
+    layer_rows,
+    load_layer_matrix,
+    present_layers,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
-MATRIX_FILE = pathlib.Path(__file__).with_name("layer_matrix.yaml")
 ARCHITECTURE_PACKAGES_INDEX = (
     REPO_ROOT / "docs" / "source" / "contribute" / "architecture" / "packages" / "index.rst"
 )
+# Package pages that describe no package of hydromodpy.
+PAGES_WITHOUT_A_ROW = {"index", "validity_frame"}
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
 _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
@@ -35,8 +51,13 @@ _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 scan_package = _BUILD_GRAPH_MODULE.scan_package
 
 
-def _load_matrix() -> dict:
-    return yaml.safe_load(MATRIX_FILE.read_text(encoding="utf-8"))
+class Judgement(NamedTuple):
+    """What the matrix makes of every edge of the tree."""
+
+    violations: list[tuple[str, str, Any]]
+    annex: list[Any]
+    edges_used: dict[int, set[str]]
+    reads_used: dict[str, set[str]]
 
 
 def _top_level_packages() -> set[str]:
@@ -47,55 +68,113 @@ def _top_level_packages() -> set[str]:
     }
 
 
-def _violations() -> tuple[list, list]:
-    matrix = _load_matrix()
-    allowed: dict[str, set[str]] = {k: set(v) for k, v in matrix["allowed"].items()}
-    tolerances: set[tuple[str, str]] = {
-        (entry["src"], entry["tgt"]) for entry in matrix.get("tolerances", [])
-    }
-    exempt_files: set[str] = set(matrix.get("exempt_files", []))
+def _relative(edge) -> str:
+    return pathlib.Path(edge.src_file).relative_to(REPO_ROOT).as_posix()
 
-    edges = scan_package(PKG_ROOT)
-    p0: list = []
-    annex: list = []
+
+def judge(matrix: dict[str, Any], edges) -> Judgement:
+    """Judge each edge in turn.
+
+    An edge inside one package passes. An edge from a leaving package passes
+    when its row reads the target. Otherwise the target row of the source
+    must grant it, or a transitional edge of the same pair must, and when
+    that entry names files the source file must be one of them.
+    """
+    rows = layer_rows(matrix)
+    tolerances = {(t["src"], t["tgt"]) for t in matrix.get("tolerances") or []}
+    exempt = set(matrix.get("exempt_files") or [])
+    violations: list[tuple[str, str, Any]] = []
+    annex: list[Any] = []
+    edges_used: dict[int, set[str]] = defaultdict(set)
+    reads_used: dict[str, set[str]] = defaultdict(set)
     for edge in edges:
-        rel = pathlib.Path(edge.src_file).relative_to(REPO_ROOT).as_posix()
-        if rel in exempt_files:
+        rel = _relative(edge)
+        if rel in exempt:
             continue
         if edge.tgt_pkg == "<annex>":
             annex.append(edge)
             continue
-        if edge.src_pkg not in allowed:
-            p0.append(edge)
+        src = MAIN_KEY if rel == MAIN_FILE else edge.src_pkg
+        tgt = edge.tgt_pkg
+        if src == tgt:
             continue
-        if edge.tgt_pkg not in allowed:
-            p0.append(edge)
+        if src in rows.leaving:
+            if tgt in (rows.leaving[src].get("reads") or []):
+                reads_used[src].add(tgt)
+            else:
+                violations.append((src, tgt, edge))
             continue
-        if edge.tgt_pkg in allowed[edge.src_pkg]:
+        if tgt in rows.target.get(src, []) or (src, tgt) in tolerances:
             continue
-        if (edge.src_pkg, edge.tgt_pkg) in tolerances:
+        granted = False
+        for index, entry in enumerate(rows.edges):
+            files = entry.get("files") or []
+            if entry["src"] == src and entry["tgt"] == tgt and (not files or rel in files):
+                edges_used[index].add(rel)
+                granted = True
+        if not granted:
+            violations.append((src, tgt, edge))
+    return Judgement(violations, annex, edges_used, reads_used)
+
+
+@functools.cache
+def _judgement() -> Judgement:
+    return judge(load_layer_matrix(), scan_package(PKG_ROOT))
+
+
+def stale_entries(rows: LayerRows, judgement: Judgement) -> list[str]:
+    """The transitional entries the tree no longer needs."""
+    stale: list[str] = []
+    for layer in rows.leaving:
+        if not is_package(layer):
+            stale.append(f"leaving {layer!r}: the package is gone")
+    for layer in rows.arriving:
+        if is_package(layer):
+            stale.append(f"arriving {layer!r}: the package exists, its row now holds")
+    for index, entry in enumerate(rows.edges):
+        src, tgt = entry["src"], entry["tgt"]
+        if src in rows.arriving or tgt in rows.arriving:
             continue
-        p0.append(edge)
-    return p0, annex
+        used = judgement.edges_used.get(index, set())
+        if not used:
+            stale.append(f"edge {src} -> {tgt}: no import makes it any more")
+            continue
+        for rel in entry.get("files") or []:
+            if rel not in used:
+                stale.append(f"edge {src} -> {tgt}: {rel} no longer makes it")
+    for layer, entry in rows.leaving.items():
+        for target in entry.get("reads") or []:
+            if target != layer and target not in judgement.reads_used.get(layer, set()):
+                stale.append(f"leaving {layer!r} reads {target!r}: no import uses it")
+    return stale
 
 
 def test_layer_matrix() -> None:
     """Reject undocumented forbidden cross-layer imports."""
-    p0, _ = _violations()
-    if p0:
-        from collections import Counter
-
-        per_pair = Counter((e.src_pkg, e.tgt_pkg, e.kind) for e in p0)
+    violations = _judgement().violations
+    if violations:
+        per_pair = Counter((s, t, edge.kind) for s, t, edge in violations)
         breakdown = "\n".join(
             f"  {s:>12} -> {t:<12} {n:>4}  via {k}" for (s, t, k), n in per_pair.most_common()
         )
-        pytest.fail(f"{len(p0)} layer-matrix violations:\n{breakdown}")
+        examples = "\n".join(
+            f"  {_relative(edge)}:{edge.lineno} imports {edge.target_module}"
+            for _s, _t, edge in violations[:20]
+        )
+        pytest.fail(f"{len(violations)} layer-matrix violations:\n{breakdown}\n{examples}")
+
+
+def test_a_transitional_entry_is_still_needed() -> None:
+    """A move that empties a package removes its entries in the same change."""
+    stale = stale_entries(layer_rows(load_layer_matrix()), _judgement())
+    assert stale == [], (
+        "remove these entries from transitional in layer_matrix.yaml:\n  " + "\n  ".join(stale)
+    )
 
 
 def test_layer_matrix_declares_every_top_level_package() -> None:
     """Reject stale or missing rows in the machine-readable layer matrix."""
-    matrix = _load_matrix()
-    declared = set(matrix["allowed"]) - {"<root>"}
+    declared = present_layers(load_layer_matrix()) - {ROOT_KEY}
     actual = _top_level_packages()
     missing = sorted(actual - declared)
     stale = sorted(declared - actual)
@@ -105,7 +184,7 @@ def test_layer_matrix_declares_every_top_level_package() -> None:
 
 def test_layer_tolerances_reference_declared_layers() -> None:
     """Reject tolerance entries for unknown layers."""
-    matrix = _load_matrix()
+    matrix = load_layer_matrix()
     declared = set(matrix["allowed"])
     unknown: list[tuple[str, str]] = []
     for entry in matrix.get("tolerances", []):
@@ -117,7 +196,7 @@ def test_layer_tolerances_reference_declared_layers() -> None:
 
 def test_layer_tolerances_are_not_redundant() -> None:
     """Reject tolerances for edges already allowed by the matrix."""
-    matrix = _load_matrix()
+    matrix = load_layer_matrix()
     allowed: dict[str, set[str]] = {k: set(v) for k, v in matrix["allowed"].items()}
     redundant = sorted(
         (entry["src"], entry["tgt"])
@@ -128,34 +207,45 @@ def test_layer_tolerances_are_not_redundant() -> None:
 
 
 def test_a_row_cites_only_rows_above_it() -> None:
-    """Rows run lowest first, so the matrix cannot hide a cycle between layers."""
-    allowed = _load_matrix()["allowed"]
-    position = {layer: index for index, layer in enumerate(allowed)}
+    """Rows run lowest first, so the matrix cannot hide a cycle between layers.
+
+    A leaving row comes after every target row, so it may cite any of them,
+    and the leaving rows written above it.
+    """
+    rows = layer_rows(load_layer_matrix())
+    order = [*rows.target, *rows.leaving]
+    position = {layer: index for index, layer in enumerate(order)}
+    cited = [*rows.target.items(), *((k, v.get("reads") or []) for k, v in rows.leaving.items())]
     backward = {
         (layer, target)
-        for layer, targets in allowed.items()
+        for layer, targets in cited
         for target in targets
-        if position[target] > position[layer]
+        if position.get(target, len(order)) > position[layer]
     }
     assert backward == set(), f"edges pointing down the file: {sorted(backward)}"
 
 
+def _package_pages() -> set[str]:
+    return {path.stem for path in ARCHITECTURE_PACKAGES_INDEX.parent.glob("*.rst")}
+
+
 def test_architecture_package_docs_cover_declared_layers() -> None:
     """Reject missing per-package architecture pages."""
-    matrix = _load_matrix()
-    declared = set(matrix["allowed"]) - {"<root>"}
-    package_docs = {
-        path.stem
-        for path in ARCHITECTURE_PACKAGES_INDEX.parent.glob("*.rst")
-        if path.name != "index.rst"
-    }
-    missing = sorted(declared - package_docs)
+    declared = present_layers(load_layer_matrix()) - {ROOT_KEY}
+    missing = sorted(declared - _package_pages())
     assert missing == [], f"Missing architecture package pages: {missing}"
+
+
+def test_every_package_page_has_a_row() -> None:
+    """A package that leaves takes its page with it."""
+    present = present_layers(load_layer_matrix())
+    orphans = sorted(_package_pages() - PAGES_WITHOUT_A_ROW - present)
+    assert orphans == [], f"Architecture package pages without a package: {orphans}"
 
 
 def test_annex_one_way() -> None:
     """``hydromodpy/`` must never import from ``hydromodpy_annex/``."""
-    _, annex = _violations()
+    annex = _judgement().annex
     assert annex == [], "\n".join(
         f"{e.src_file}:{e.lineno} imports {e.target_module}" for e in annex
     )

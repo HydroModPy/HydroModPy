@@ -42,8 +42,9 @@ Deprecation
 Every old form says since which version it is old (:data:`DEPRECATION_DELAY_MINORS`
 and :func:`old_forms`). ``[calibration]`` is exempt: a file that writes one of its old
 keys is refused with the new name, the doctor rewrites it, and a sealed config still
-reads it. Any other form keeps loading for two minor versions, the one that
-retired it included, then it leaves this module:
+reads it. A form that only a pre-release wrote loads in 2.0.x and the 2.1.0 release
+retires it. Any form that changes from 2.0.0 on keeps loading for two minor versions,
+the one that retired it included, then it leaves this module:
 ``tests/unit/config/test_config_migration.py`` fails when one outlives its delay.
 The policy is ``docs/source/about/versions.md``. A rename from now on is one row of
 :data:`RENAMED_KEYS`, a key or a table that changes place one row of
@@ -74,8 +75,8 @@ from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
-from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS
 from hydromodpy.physics.flow.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
+from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS
 from hydromodpy.results.exporters.export_spec import RUN_FORMATS, format_from_path
 
 _logger = get_logger(__name__)
@@ -89,7 +90,11 @@ DEPRECATION_DELAY_MINORS = 2
 """
 
 ALPHA_FORM = "2.0.0"
-"""``since`` of a form only an alpha wrote. Its delay counts from the first stable version."""
+"""``since`` of a form only a pre-release wrote.
+
+Such a form loads in 2.0.x only, and the 2.1.0 release retires it. The delay that
+:attr:`OldForm.removal` computes (2.2.0) is a ceiling, not the promise.
+"""
 
 
 @dataclass(frozen=True)

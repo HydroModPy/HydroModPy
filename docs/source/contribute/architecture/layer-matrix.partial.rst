@@ -5,8 +5,10 @@
 Layer matrix
 ------------
 
-17 layers, 106 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
-is forbidden and fails CI.
+14 packages, the root facade and ``python -m hydromodpy``, 101 granted edges.
+A layer may always import itself. Anything absent from a row is forbidden and fails CI.
+``<root>`` is the facade ``hydromodpy/__init__.py`` with the other modules at the root.
+``<main>`` is ``hydromodpy/__main__.py`` alone.
 
 .. list-table::
    :header-rows: 1
@@ -16,74 +18,290 @@ is forbidden and fails CI.
      - Allowed import targets
    * - ``core``
      - ``core``
-   * - ``examples``
-     - ``core``, ``examples``
-   * - ``physics``
-     - ``core``, ``physics``
    * - ``schema``
      - ``core``, ``schema``
-   * - ``spatial``
-     - ``core``, ``schema``, ``spatial``
+   * - ``catchment``
+     - ``core``, ``schema``, ``catchment``
+   * - ``mesh``
+     - ``core``, ``schema``, ``catchment``, ``mesh``
+   * - ``model``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``
    * - ``data``
-     - ``core``, ``schema``, ``data``, ``spatial``
-   * - ``simulation``
-     - ``core``, ``physics``, ``spatial``, ``simulation``
-   * - ``solver``
-     - ``core``, ``physics``, ``spatial``, ``solver``, ``simulation``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``
    * - ``results``
-     - ``core``, ``schema``, ``results``, ``spatial``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``,
+       ``results``
+   * - ``solver``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``,
+       ``results``, ``solver``
    * - ``calibration``
-     - ``core``, ``physics``, ``data``, ``spatial``, ``solver``,
-       ``simulation``, ``calibration``, ``results``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``,
+       ``results``, ``solver``, ``calibration``
    * - ``display``
      - ``core``, ``results``, ``display``
    * - ``config``
-     - ``core``, ``config``, ``physics``, ``data``, ``spatial``,
-       ``simulation``, ``solver``, ``calibration``, ``results``,
-       ``display``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``,
+       ``results``, ``solver``, ``calibration``, ``display``, ``config``
+   * - ``workflow``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``,
+       ``results``, ``solver``, ``calibration``, ``display``, ``config``,
+       ``workflow``
+   * - ``project``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``,
+       ``results``, ``solver``, ``calibration``, ``display``, ``config``,
+       ``workflow``, ``project``
+   * - ``cli``
+     - ``core``, ``schema``, ``catchment``, ``mesh``, ``model``, ``data``,
+       ``results``, ``solver``, ``calibration``, ``display``, ``config``,
+       ``workflow``, ``project``, ``cli``
+   * - ``<root>``
+     - ``<root>``, ``core``, ``project``
+   * - ``<main>``
+     - ``<main>``, ``cli``
+
+Transitional entries
+--------------------
+
+The tree reaches the matrix above while packages move. Until then these entries say
+what holds today. The gate refuses an entry that the tree no longer needs.
+
+.. list-table:: Packages that leave
+   :header-rows: 1
+   :widths: 16 42 42
+
+   * - Package
+     - Reads today
+     - Goes to
+   * - ``examples``
+     - ``core``, ``examples``
+     - ``project``
+   * - ``physics``
+     - ``core``, ``physics``
+     - ``model``
+   * - ``spatial``
+     - ``core``, ``schema``, ``spatial``
+     - ``catchment``, ``mesh``, ``model``
+   * - ``simulation``
+     - ``core``, ``physics``, ``spatial``, ``simulation``
+     - ``model``, ``solver``, ``results``, ``data``, ``workflow``
    * - ``analysis``
      - ``core``, ``results``, ``display``, ``analysis``
+     - ``project``
+
+.. list-table:: Packages to come
+   :header-rows: 1
+   :widths: 16 84
+
+   * - Package
+     - Comes from
+   * - ``model``
+     - ``physics``, ``simulation``, ``spatial``, ``solver``
+   * - ``mesh``
+     - ``spatial``
+   * - ``catchment``
+     - ``spatial``
+
+.. list-table:: Imports granted until they move
+   :header-rows: 1
+   :widths: 12 12 38 38
+
+   * - From
+     - To
+     - Files
+     - Why
+   * - ``data``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``results``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``solver``
+     - ``physics``
+     - any file
+     - It goes with the package it reads.
+   * - ``solver``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``solver``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``calibration``
+     - ``physics``
+     - any file
+     - It goes with the package it reads.
+   * - ``calibration``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``calibration``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``config``
+     - ``physics``
+     - any file
+     - It goes with the package it reads.
+   * - ``config``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``config``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
    * - ``workflow``
-     - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``workflow``
+     - ``physics``
+     - any file
+     - It goes with the package it reads.
+   * - ``workflow``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``workflow``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
    * - ``project``
-     - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``workflow``, ``project``
-   * - ``<root>``
-     - ``<root>``, ``core``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``workflow``, ``examples``
+     - ``physics``
+     - any file
+     - It goes with the package it reads.
+   * - ``project``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``project``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
    * - ``cli``
-     - ``<root>``, ``core``, ``schema``, ``config``, ``data``,
-       ``simulation``, ``solver``, ``calibration``, ``results``,
-       ``display``, ``analysis``, ``workflow``, ``project``, ``examples``,
-       ``cli``
+     - ``analysis``
+     - any file
+     - It goes with the package it reads.
+   * - ``cli``
+     - ``examples``
+     - any file
+     - It goes with the package it reads.
+   * - ``cli``
+     - ``simulation``
+     - any file
+     - It goes with the package it reads.
+   * - ``model``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``mesh``
+     - ``spatial``
+     - any file
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``analysis``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``examples``
+     - ``hydromodpy/_api.py``
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``physics``
+     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``simulation``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``spatial``
+     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
+     - It goes with the package it reads.
+   * - ``<root>``
+     - ``calibration``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``config``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``data``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``display``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``results``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``solver``
+     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``workflow``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
+       ``hydromodpy/_lazy.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``model``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``mesh``
+     - ``hydromodpy/_bootstrap.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``<root>``
+     - ``catchment``
+     - ``hydromodpy/_bootstrap.py``
+     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
+       names of _lazy.py still sit at the root. The root reads only core
+       and project once they live in project.
+   * - ``cli``
+     - ``<root>``
+     - ``hydromodpy/cli/_workers/example.py``,
+       ``hydromodpy/cli/commands/calibrate.py``,
+       ``hydromodpy/cli/commands/example/add.py``,
+       ``hydromodpy/cli/commands/export.py``,
+       ``hydromodpy/cli/commands/report.py``,
+       ``hydromodpy/cli/commands/run.py``,
+       ``hydromodpy/cli/commands/spinup.py``
+     - These commands call the verbs through the facade. They call
+       project once the verbs live there.
 
 Documented tolerances
 ---------------------
 
-1 edges are tolerated rather than granted. Each one carries its reason in the
-contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 14 14 72
-
-   * - From
-     - To
-     - Why
-   * - ``<root>``
-     - ``project``
-     - root facade lazy-resolves Project through hydromodpy.project
+No edge is tolerated.
 
 Files exempt from the layer rule
 --------------------------------
 
-3 files are exempt: the bootstrap shims that wire forward references.
-
-- ``hydromodpy/__init__.py``
-- ``hydromodpy/_bootstrap.py``
-- ``hydromodpy/__main__.py``
-
+No file is exempt from the layer rule.

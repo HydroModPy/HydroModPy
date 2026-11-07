@@ -83,13 +83,80 @@ def test_the_cell_count_is_the_one_of_the_simulated_run(monkeypatch, tmp_path, n
         {"datetime": pd.date_range("2020-01-01", periods=3, freq="D"), "value": [1.0, 2.0, 3.0]}
     )
     monkeypatch.setattr(context_module, "open_simulation_run", open_run)
-    monkeypatch.setattr(context_module, "read_simulated_discharge", lambda store: discharge)
+    monkeypatch.setattr(
+        context_module, "read_simulated_discharge", lambda store, station=None: discharge
+    )
     monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda store: None)
 
     summary_path = context_module.build_context(_inputs(tmp_path))
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["baseline_run"]["n_cells"] == n_cells
+
+
+def test_the_context_reads_the_station_the_observed_discharge_names(monkeypatch, tmp_path) -> None:
+    import hydromodpy.display.catchment_report.context as context_module
+
+    @contextmanager
+    def open_run(inputs):
+        yield SimpleNamespace(facts=SimpleNamespace(n_cells=4))
+
+    asked = []
+    discharge = pd.DataFrame(
+        {"datetime": pd.date_range("2020-01-01", periods=3, freq="D"), "value": [1.0, 2.0, 3.0]}
+    )
+
+    def read(store, station=None):
+        asked.append(station)
+        return discharge
+
+    monkeypatch.setattr(context_module, "open_simulation_run", open_run)
+    monkeypatch.setattr(context_module, "read_simulated_discharge", read)
+    monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda store: None)
+    inputs = _inputs(tmp_path)
+    inputs.observed_discharge_station_id = "NANCON"
+
+    context_module.build_context(inputs)
+
+    assert asked == ["NANCON"]
+
+
+def _two_station_store() -> SimpleNamespace:
+    """A run that kept the simulated discharge at two stations."""
+    times = pd.date_range("2000-01-01", periods=2, freq="MS", tz="UTC")
+    rows = [
+        {
+            "variable": "discharge",
+            "source": "simulated",
+            "station_id": station,
+            "time": t,
+            "value": v,
+        }
+        for station, values in (("NANCON", (1.0, 2.0)), ("catchment", (10.0, 20.0)))
+        for t, v in zip(times, values, strict=True)
+    ]
+    return SimpleNamespace(run_dir=Path("runs/demo"), read_table=lambda name: pd.DataFrame(rows))
+
+
+def test_a_run_with_two_stations_is_read_at_the_station_the_report_names() -> None:
+    from hydromodpy.display.catchment_report.simulation_source import read_simulated_discharge
+
+    store = _two_station_store()
+
+    assert read_simulated_discharge(store, station="NANCON")["value"].tolist() == [1.0, 2.0]
+    assert read_simulated_discharge(store, station="catchment")["value"].tolist() == [10.0, 20.0]
+
+
+@pytest.mark.parametrize("station", [None, "ELSEWHERE"])
+def test_a_run_with_two_stations_and_no_matching_name_is_refused_with_the_key_to_set(
+    station,
+) -> None:
+    from hydromodpy.display.catchment_report.simulation_source import read_simulated_discharge
+
+    with pytest.raises(KeyError, match="station_id") as exc_info:
+        read_simulated_discharge(_two_station_store(), station=station)
+
+    assert "NANCON, catchment" in str(exc_info.value)
 
 
 def test_an_unreadable_generated_network_is_logged_by_figure_name(

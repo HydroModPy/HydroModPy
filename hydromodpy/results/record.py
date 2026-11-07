@@ -86,6 +86,7 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
+from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.geo_metadata import run_parquet_footer
 from hydromodpy.results.storage.json_io import (
     read_sealed_json,
@@ -432,8 +433,10 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
 
     What :data:`~hydromodpy.results.storage.contract.UNSEALED_RUN_ENTRIES`
     names is left out: derived, mutable, diagnostic or history. A file carries
-    its ``sha256``. A directory store and the manifest itself do not: the first
-    is too large to hash at every seal, the second is not written yet.
+    its ``sha256``, and a directory store (``fields.zarr``) the digest of its
+    tree (:func:`~hydromodpy.results.storage.digests.sha256_directory`), so a
+    chunk rewritten after the seal shows. The manifest itself carries none: it
+    is not written yet.
     """
     root = Path(run_dir)
     artifacts = []
@@ -443,6 +446,8 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
         path = root / entry["path"]
         if entry["role"] != "manifest" and path.is_file():
             entry = {**entry, "sha256": sha256_of(path)}
+        elif entry["role"] != "manifest" and path.is_dir():
+            entry = {**entry, "sha256": sha256_directory(path)}
         artifacts.append(ManifestArtifact(**entry))
     return artifacts
 

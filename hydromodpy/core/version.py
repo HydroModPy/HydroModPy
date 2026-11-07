@@ -21,7 +21,7 @@ import tomllib
 from importlib import metadata
 from pathlib import Path
 
-_FALLBACK_VERSION = "2.0.0rc1"
+_FALLBACK_VERSION = "2.0.0"
 
 _CHECKOUT_PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 

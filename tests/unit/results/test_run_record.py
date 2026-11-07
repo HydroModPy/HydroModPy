@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from datetime import datetime
 
 import pyarrow.parquet as pq
@@ -18,6 +19,7 @@ from hydromodpy.results.manifest import (
     ManifestGeometry,
     ManifestRun,
     read_manifest,
+    read_seal,
 )
 from hydromodpy.results.record import PROVENANCE_VERSION, RunRecord, sealed_artifacts
 from hydromodpy.results.storage.contract import (
@@ -285,3 +287,71 @@ def test_a_sealed_file_carries_its_digest_and_a_change_is_reported(run_dir):
 
     (run_dir / "config.toml").write_text("changed", encoding="utf-8")
     assert any("config.toml" in problem for problem in seal_problems(run_dir))
+
+
+def _field_store(run_dir):
+    """Write a small field store with one array, and return a chunk file of it."""
+    import numpy as np
+
+    from hydromodpy.results.zarr_store import SimulationZarr
+
+    store = SimulationZarr.create(run_dir / "fields.zarr", n_cells=4, n_layers=1)
+    store.write_static_field("hydraulic_conductivity", np.full((1, 4), 1.0e-5), subgroup="derived")
+    store.close()
+    return next(
+        path
+        for path in sorted((run_dir / "fields.zarr").rglob("*"))
+        if path.is_file() and path.suffix != ".json"
+    )
+
+
+def test_the_field_store_carries_the_digest_of_its_tree_and_a_rewritten_chunk_is_reported(
+    run_dir,
+):
+    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.storage.digests import sha256_directory
+
+    chunk = _field_store(run_dir)
+    make_record().write(run_dir)
+    by_path = {entry.path: entry for entry in read_seal(run_dir).artifacts}
+    assert by_path["fields.zarr"].sha256 == sha256_directory(run_dir / "fields.zarr")
+    assert seal_problems(run_dir) == []
+
+    # The same size with other bytes: a value changed in an array of fixed shape.
+    data = chunk.read_bytes()
+    chunk.write_bytes(bytes([data[0] ^ 0xFF]) + data[1:])
+    assert seal_problems(run_dir) == ["fields.zarr: changed since the seal (sha256 differs)"]
+
+    shutil.rmtree(run_dir / "fields.zarr")
+    assert seal_problems(run_dir) == ["fields.zarr: listed in the seal and absent"]
+
+
+def test_reading_the_field_store_of_a_sealed_run_leaves_its_seal_whole(run_dir):
+    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.zarr_store import SimulationZarr
+
+    _field_store(run_dir)
+    make_record().write(run_dir)
+
+    store = SimulationZarr(run_dir / "fields.zarr")
+    store.read_field("hydraulic_conductivity", 0, subgroup="derived")
+    store.close()
+
+    assert seal_problems(run_dir) == []
+
+
+def test_a_seal_without_the_digest_of_the_field_store_still_reads(run_dir):
+    from hydromodpy.results.manifest import seal_problems
+
+    chunk = _field_store(run_dir)
+    make_record().write(run_dir)
+    payload = json.loads((run_dir / RUN_MANIFEST_FILENAME).read_text(encoding="utf-8"))
+    for artifact in payload["artifacts"]:
+        if artifact["path"] == "fields.zarr":
+            artifact["sha256"] = None
+    (run_dir / RUN_MANIFEST_FILENAME).write_text(json.dumps(payload), encoding="utf-8")
+    chunk.write_bytes(b"other")
+
+    by_path = {entry.path: entry for entry in read_seal(run_dir).artifacts}
+    assert by_path["fields.zarr"].sha256 is None
+    assert seal_problems(run_dir) == []

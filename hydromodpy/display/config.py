@@ -211,7 +211,7 @@ class DisplayConfig(HydroModelBase):
             # pydantic, which the console routing hides.
             warnings.warn(
                 f"{_FORMER_TIME_KEY!r} is now called {TIME_KEY!r} ({table}); the old spelling "
-                "keeps loading for two minor versions, and `hmp doctor --fix-config <file>` "
+                "still loads, with this warning, and `hmp doctor --fix-config <file>` "
                 "rewrites a file.",
                 ConfigKeyRenamedWarning,
                 stacklevel=1,

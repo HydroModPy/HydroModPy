@@ -68,13 +68,12 @@ def warn_old_form(source: str | Path | None, change: str, *, rewritable: bool = 
         message = f"{where}: {change}."
     elif not rewritable:
         message = (
-            f"{where}: {change}. This old form keeps loading for two minor versions; "
-            "write the new name."
+            f"{where}: {change}. This old form still loads, with this warning; write the new name."
         )
     else:
         target = "<file>" if source is None else where
         message = (
-            f"{where}: {change}. This old form keeps loading for two minor versions; "
+            f"{where}: {change}. This old form still loads, with this warning; "
             f"`{_FIX_CONFIG} {target}` rewrites the file."
         )
     # stacklevel=1 names this file: the console routing hides a deprecation it
@@ -293,8 +292,8 @@ class HydroModelBase(BaseModel):
             # stacklevel=1 names this file. The caller is pydantic, which the
             # console routing reads as a third-party deprecation and hides.
             warnings.warn(
-                f"{old!r} is now called {new!r} ({cls.__name__}); the old spelling keeps "
-                f"loading for two minor versions, and `{_FIX_CONFIG} <file>` rewrites a file.",
+                f"{old!r} is now called {new!r} ({cls.__name__}); the old spelling still "
+                f"loads, with this warning, and `{_FIX_CONFIG} <file>` rewrites a file.",
                 ConfigKeyRenamedWarning,
                 stacklevel=1,
             )

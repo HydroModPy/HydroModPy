@@ -69,7 +69,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
 
     config = load_toml_with_base_config(inputs.transient_config)
     with open_simulation_run(inputs) as store:
-        simulated = read_simulated_discharge(store)
+        simulated = read_simulated_discharge(store, station=inputs.observed_discharge_station_id)
         parquet_dir = simulation_parquet_dir(store)
         n_cells = store.facts.n_cells
     observed = _observed_series(inputs.observed_discharge_path)

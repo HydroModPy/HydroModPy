@@ -69,13 +69,18 @@ def simulation_parquet_dir(store: RunStore) -> Path | None:
     return store.tables_dir if store.tables_dir.is_dir() else None
 
 
-def read_simulated_discharge(store: RunStore) -> pd.DataFrame:
+def read_simulated_discharge(store: RunStore, station: str | None = None) -> pd.DataFrame:
     """Return the catchment discharge as ``datetime`` / ``value`` rows.
+
+    A run that stored the discharge at several stations is read at ``station``,
+    the one ``[context.observed_discharge] station_id`` names. With a single
+    station the argument is not used.
 
     Raises
     ------
     KeyError
-        The run stored no discharge, or stored it at several stations.
+        The run stored no discharge, or stored it at several stations and
+        ``station`` is not one of them.
     """
     frame = store.read_table("timeseries")
     rows = (
@@ -83,14 +88,17 @@ def read_simulated_discharge(store: RunStore) -> pd.DataFrame:
         if not frame.empty
         else frame
     )
-    stations = sorted({str(station) for station in rows.get("station_id", [])})
+    stations = sorted({str(name) for name in rows.get("station_id", [])})
     if not stations:
         raise KeyError(f"run {store.run_dir.name} stored no {DISCHARGE_VARIABLE} series")
     if len(stations) > 1:
-        raise KeyError(
-            f"run {store.run_dir.name} stored {DISCHARGE_VARIABLE} at several stations "
-            f"({', '.join(stations)}); a catchment report reads one."
-        )
+        if station is None or str(station) not in stations:
+            raise KeyError(
+                f"run {store.run_dir.name} stored {DISCHARGE_VARIABLE} at several stations "
+                f"({', '.join(stations)}); a catchment report reads one. Name it in "
+                "[context.observed_discharge] station_id."
+            )
+        rows = rows[rows["station_id"].astype(str) == str(station)]
     times = pd.to_datetime(rows["time"], utc=True, errors="coerce")
     result = pd.DataFrame(
         {

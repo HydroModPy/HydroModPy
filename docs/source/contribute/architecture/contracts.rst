@@ -138,8 +138,9 @@ Changing a contract
 -------------------
 
 A change to the facade, to a stable port or to the two Protocols below is announced.
-The old name keeps working for two minor versions and warns, and this page and
-:doc:`storage-layout` change with it. A renamed TOML key gets its row in
+The old name follows the rules of :doc:`/about/versions`. A name that leaves in 2.1.0
+or earlier is refused with its new form. From 2.2.0 on it keeps working for two minor
+versions and warns. This page and :doc:`storage-layout` change with it. A renamed TOML key gets its row in
 ``hydromodpy/config/config_migration.py``, with ``since``. A renamed name of
 ``hmp.__all__`` gets its entry in ``OLD_NAMES`` of ``hydromodpy/_lazy.py``, and a renamed
 ``hmp`` command or flag its entry in ``OLD_CLI_FORMS`` of

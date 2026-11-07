@@ -1,0 +1,17 @@
+{
+  "schema": "hydromodpy.plan.v1",
+  "plan_hash": "d3f9189e8879285b",
+  "hydromodpy_version": "2.0.0",
+  "created_at": "2026-11-07T17:47:58.730521Z",
+  "fingerprints": {
+    "project.toml": "eeb708d59061c24c9eb12ef8b4d2b452828d9aada776a96d966602fb54f07346",
+    "sites.csv": "1abbd2082b02de3b18f92266bc24780722484f85143f5601c62c66232c173a72"
+  },
+  "n_cases": 4,
+  "budget": {
+    "parallel": 8,
+    "threads_per_case": 1,
+    "solves": 4,
+    "kept_solves": 4
+  }
+}
