@@ -13,9 +13,9 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.exporters.export_spec import ExportRequest
-    from hydromodpy.simulation.planning.observation_config import ObservationConfig
-    from hydromodpy.simulation.planning.plan import SimulationPlan
-    from hydromodpy.simulation.planning.results_config import ResultsConfig
+    from hydromodpy.solver.base.observation_config import ObservationConfig
+    from hydromodpy.solver.base.plan import SimulationPlan
+    from hydromodpy.solver.base.results_config import ResultsConfig
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,7 @@ def step_build_plan(ctx: WorkflowContext, *, name: str) -> SimulationPlan:
     configuration describe one run. Sets ``ctx.setup.run_id``,
     ``ctx.execution.simulation_plan`` and the process-run map.
     """
-    from hydromodpy.simulation import SimulationPlanner
+    from hydromodpy.solver.base.planner import SimulationPlanner
 
     plan = SimulationPlanner().build(ctx.cfg.simulation)
     ctx.setup.run_id = name

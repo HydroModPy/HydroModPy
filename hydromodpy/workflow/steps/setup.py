@@ -11,26 +11,26 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.rng import RngManager
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.workspace import WorkspaceLayout
-from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
-from hydromodpy.simulation import ensure_flow, ensure_transport
-from hydromodpy.spatial.domain.build import (
+from hydromodpy.model.domain.build import (
     build_domain,
     read_layer_base_sources,
     read_substratum_source,
     rebuild_domain,
 )
-from hydromodpy.spatial.domain.spatial_support import (
+from hydromodpy.model.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
     build_phase_supports,
     validate_domain_support_contract,
 )
+from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
+from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
+from hydromodpy.solver.base.runner import ensure_flow, ensure_transport
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
 )
 from hydromodpy.spatial.geographic.geographic_cache import geographic_artifact_paths
-from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.workflow.state import PipelineState
 
@@ -224,7 +224,7 @@ def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
 
     Returns True when a rebuild happened.
     """
-    from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
+    from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
 
     setup_state = run_state.setup
     if setup_state.domain is None:

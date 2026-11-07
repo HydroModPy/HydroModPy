@@ -33,7 +33,7 @@ from hydromodpy.calibration.runners.trial import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import ExecutionRegistry
-from hydromodpy.simulation.planning.plan import RunExecutionResult
+from hydromodpy.solver.base.plan import RunExecutionResult
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
@@ -440,7 +440,7 @@ def _toy_trial_context(tmp_path: Path, stores: dict[str, str]) -> TrialContext:
 @pytest.fixture
 def toy(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider)
-    monkeypatch.setattr("hydromodpy.simulation.execution.runner.SimulationRunner", _Solver)
+    monkeypatch.setattr("hydromodpy.solver.base.runner.SimulationRunner", _Solver)
     _Solver.solves.clear()
     stores: dict[str, str] = {}
     return _toy_trial_context(tmp_path, stores), stores

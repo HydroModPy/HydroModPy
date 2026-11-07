@@ -34,6 +34,22 @@ SCOPE: tuple[str, ...] = (
     "solver/modflow_nwt/adapters/transport_mt3dms.py",
 )
 
+EXEMPT: dict[str, dict[str, str]] = {
+    "workflow/steps/run_outputs.py": {
+        "why": (
+            "came from the old post_run module, which was out of scope; a test pins its"
+            " ValueError, so the type changes with the rewrite of the extract step"
+        ),
+        "lifted_by": "3.4",
+    },
+}
+"""Files inside a scoped folder that keep their vanilla raises for now.
+
+Each entry says why and names the lot that lifts it, like ``known_stale`` in
+``dotted_paths.yaml``. An entry whose file no longer raises a vanilla exception
+fails the gate, so it leaves as soon as it is lifted.
+"""
+
 BANNED: frozenset[str] = frozenset({"ValueError", "RuntimeError"})
 
 NOT_FAILURES: frozenset[str] = frozenset({"ConfigKeyRenamedWarning", "TerminationRequested"})
@@ -85,7 +101,7 @@ def _scoped_files() -> list[pathlib.Path]:
             files.append(target)
         elif target.is_dir():
             files.extend(target.rglob("*.py"))
-    return files
+    return [f for f in files if f.relative_to(PKG_ROOT).as_posix() not in EXEMPT]
 
 
 def _vanilla_raises(path: pathlib.Path) -> list[tuple[int, str]]:
@@ -116,3 +132,12 @@ def test_scope_uses_typed_exceptions() -> None:
             "Use a typed exception from hydromodpy.core.exceptions instead:\n"
             + "\n".join(f"  {line}" for line in offenders)
         )
+
+
+@pytest.mark.parametrize("entry", sorted(EXEMPT))
+def test_an_exemption_is_dated_and_still_needed(entry: str) -> None:
+    """An exempt file names its lifting lot and still holds a vanilla raise."""
+    assert EXEMPT[entry].get("why") and EXEMPT[entry].get("lifted_by"), entry
+    path = PKG_ROOT / entry
+    assert path.is_file(), f"{entry} is gone: drop its exemption"
+    assert _vanilla_raises(path), f"{entry} raises no vanilla exception: drop its exemption"

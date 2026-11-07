@@ -26,10 +26,6 @@ not_modules:
 # Strings that point at nothing today. Each one stays until the lot named in
 # lifted_by fixes it, and that lot removes the entry.
 known_stale:
-  - text: "hydromodpy.core.workspace:Workspace"
-    file: hydromodpy/simulation/__init__.py
-    why: the lazy table names a class that now lives in project/accessors.py
-    lifted_by: "2.2"
   - text: hydromodpy.core.field_precision.round_mantissa
     file: hydromodpy/results/zarr_store/zarr_writer.py
     why: the text is stored in every fields.zarr, so it changes with a migration entry

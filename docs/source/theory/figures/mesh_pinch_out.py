@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
 
-from hydromodpy.spatial.domain.layering import base_interfaces, pinch_out
-from hydromodpy.spatial.domain.layers_config import SurfaceLayerConfig
+from hydromodpy.model.domain.layering import base_interfaces, pinch_out
+from hydromodpy.model.domain.layers_config import SurfaceLayerConfig
 
 x = np.arange(14, dtype=float)
 top = 100.0 - 1.2 * x

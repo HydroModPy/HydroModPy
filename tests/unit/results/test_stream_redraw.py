@@ -24,6 +24,12 @@ from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
+from hydromodpy.model.forcing.recharge_rates import (
+    CRITERION_MEAN_RECHARGE_ATTR,
+    criterion_mean_recharge,
+    forcing_period_rates,
+    mean_recharge_m_s,
+)
 from hydromodpy.results.derive.stream import geometry as stream_geometry
 from hydromodpy.results.derive.stream import run_extent
 from hydromodpy.results.derive.stream.comparison import (
@@ -60,12 +66,6 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.run.descent import RunDescent
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.spatial.forcing.recharge_rates import (
-    CRITERION_MEAN_RECHARGE_ATTR,
-    criterion_mean_recharge,
-    forcing_period_rates,
-    mean_recharge_m_s,
-)
 from hydromodpy.spatial.geographic.core import network_heads
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import (
@@ -405,7 +405,7 @@ def _monthly_window(start: str, end: str):
 def test_the_criterion_rates_are_the_rates_the_model_is_forced_with(samples: pd.Series) -> None:
     """Two copies of one rule: the solver forcing and the criterion must not drift apart."""
     from hydromodpy.core.time import build_simulation_time_boundaries
-    from hydromodpy.physics.forcing.time_alignment import align_forcing_series_to_simulation_window
+    from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
 
     window = _monthly_window("2000-01-01", "2000-05-31")
     forced = align_forcing_series_to_simulation_window(samples, simulation_window=window)

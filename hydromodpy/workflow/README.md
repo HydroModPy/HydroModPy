@@ -45,12 +45,12 @@ The modules and their helpers are listed in `steps/README.md`.
 | `validate` | `steps/validate.py` | is the file valid before anything is built |
 | `resolve` | `steps/resolve.py` | workspace paths and the `WorkflowContext` |
 | `build_geographic` | `steps/setup.py` | the geographic context, the domain and the spatial supports |
-| `load_data` | `steps/data.py` | the data of `[data]`, bound to the runtime (`apply_*` of `physics` and `spatial`) |
+| `load_data` | `steps/data.py` | the data of `[data]`, bound to the runtime (the `apply_*` binders of `model`) |
 | `build_mesh` | `steps/mesh.py` | the cell mesh of the engine of `[mesh]` |
 | `setup_process` | `steps/setup.py` | the process objects, `Flow` and `Transport`; the solver scratch of the attempt |
 | `prepare_solver` | `steps/prepare_solver/` | the simulation plan, the run directory bound, the facts of the run, the configuration frozen into `config.toml` and `config.resolved.toml` |
 | `run_solver` | `steps/run_solver.py` | the plan, executed by `SimulationRunner` |
-| `extract` | `steps/extract.py` | the solver files read into the store of the run, the observations ingested |
+| `extract` | `steps/extract.py` | the solver files read into the store of the run, the observations ingested (the shared functions are in `steps/run_outputs.py`) |
 | `derive` | `steps/derive.py` | the catchment aggregates, the observation points and the fit metrics |
 | `display` | `steps/display.py` | the figures of `[display]`, drawn from the store of the run |
 | `export` | `steps/export.py` | the `[[export]]` requests; `step_after_seal` writes the metadata views once the seal exists |
@@ -59,9 +59,9 @@ The modules and their helpers are listed in `steps/README.md`.
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives `workflow` every layer below it,
-itself included: `core`, `schema`, `config`, `physics`, `data`, `spatial`,
-`simulation`, `solver`, `calibration`, `results`, `display`
-and `workflow`. Rules:
+itself included: `core`, `schema`, `catchment`, `mesh`, `model`, `data`,
+`results`, `solver`, `calibration`, `display`, `config` and `workflow`,
+with a temporary edge to `spatial`. Rules:
 
 1. No lower layer imports `workflow`. Only `project`, `cli` and the package root
    do. A lower layer that needs a workflow function receives it through a

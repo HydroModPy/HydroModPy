@@ -52,7 +52,7 @@ question, and each sub-package has its own `README.md`.
 `config_kit/export_spec` is `results/exporters/export_spec.py`; `migrations` is
 `data/registry/migrations/`. The drainage kernels (receiver graph, depression filling, descent D,
 downslope distance) are in `spatial/drainage/`, the mean recharge of the stream criterion is in
-`spatial/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
+`model/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
 
 ## Import rules
 

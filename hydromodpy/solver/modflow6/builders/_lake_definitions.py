@@ -22,7 +22,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
 
     A lake is active when its table is declared and not switched off, which
     ``flow.active_bc`` says as ``lake``. Geometry, bedleak and abacus are surfaced by the data /
-    physics layers; this helper only normalizes the lookup so the orchestrator
+    model layers; this helper only normalizes the lookup so the orchestrator
     stays grid-focused.
     """
     flow = getattr(model, "flow", None)

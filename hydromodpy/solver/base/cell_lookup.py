@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.plan import RunContext
 from hydromodpy.spatial.mesh.cells.locate import locate_cells_near
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 

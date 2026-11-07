@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
 from hydromodpy.solver.modflow6.prt import _PRT_DEFAULT_POROSITY, Modflow6Prt
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 

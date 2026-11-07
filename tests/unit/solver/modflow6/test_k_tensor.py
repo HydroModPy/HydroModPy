@@ -11,11 +11,15 @@ import pytest
 import hydromodpy.solver.modflow6.support.property_mapping as pm
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.units.physical_bounds import PhysicalBoundsError
-from hydromodpy.solver.base.properties import (
+from hydromodpy.model.properties.field_param import FieldParam
+from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
+from hydromodpy.model.properties.mesh_cells import cell_values
+from hydromodpy.model.properties.property_table import (
     require_positive_conductivity,
     require_positive_storage,
     resolve_flow_property_runtime_overrides,
 )
+from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
 from hydromodpy.solver.modflow6 import build as mf6_build
 from hydromodpy.solver.modflow6.build import (
     FLOW_PROPERTY_SIDECAR_SUFFIX,
@@ -39,10 +43,6 @@ from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays as resolve_modflow_arrays,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
-from hydromodpy.spatial.field.mesh_cells import cell_values
-from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 from tests._helpers.mf6_toy_models import regular_solver_mesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

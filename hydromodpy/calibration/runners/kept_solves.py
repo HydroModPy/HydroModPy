@@ -36,11 +36,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.simulation.planning.plan import (
-        ProcessRun,
-        RunExecutionResult,
-        SimulationPlan,
-    )
+    from hydromodpy.solver.base.plan import ProcessRun, RunExecutionResult, SimulationPlan
 
 logger = get_logger(__name__)
 
@@ -101,7 +97,7 @@ class RecordingLauncher:
         store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
         """Execute ``plan`` like :class:`SimulationRunner` and keep its results."""
-        from hydromodpy.simulation.execution.runner import SimulationRunner
+        from hydromodpy.solver.base.runner import SimulationRunner
 
         executed = SimulationRunner().execute(plan, state, callbacks=callbacks, store=store)
         for run, result in executed or ():
@@ -131,7 +127,7 @@ class KeptSolveLauncher:
         store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
         """Record the kept solve of every run of ``plan`` in ``state``."""
-        from hydromodpy.simulation.execution.runner import ensure_process_context
+        from hydromodpy.solver.base.runner import ensure_process_context
 
         del store
         executed: list[tuple[ProcessRun, RunExecutionResult]] = []

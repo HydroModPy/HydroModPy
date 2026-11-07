@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter_module
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter

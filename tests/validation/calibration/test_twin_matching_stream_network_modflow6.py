@@ -427,7 +427,7 @@ def _project_as_the_criterion_does(
 
 
 def _truth(root: Path, solver: str) -> Truth:
-    from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+    from hydromodpy.model.time.history_contract import saturated_thickness_from_head_history
     from hydromodpy.project.facade import Project
 
     bundle_dir = _write_bundle(root) if _SOLVER_BLOCKS[solver].count("{bundle_dir}") else None

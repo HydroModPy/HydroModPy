@@ -16,8 +16,8 @@ from hydromodpy.core.budget.terms import (
 )
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.exporters.export_spec import load_export_requests
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
+from hydromodpy.solver.base.results_config import ResultsConfig
 
 
 def _no_figures() -> DisplayConfig:
@@ -46,9 +46,9 @@ def test_step_build_plan_delegates_to_simulation_planner(monkeypatch) -> None:
             built_with.append(simulation_cfg)
             return plan
 
-    import hydromodpy.simulation as simulation_module
+    import hydromodpy.solver.base.planner as planner_module
 
-    monkeypatch.setattr(simulation_module, "SimulationPlanner", FakePlanner, raising=False)
+    monkeypatch.setattr(planner_module, "SimulationPlanner", FakePlanner, raising=False)
     simulation_cfg = object()
     ctx = SimpleNamespace(
         cfg=SimpleNamespace(simulation=simulation_cfg),
@@ -201,7 +201,7 @@ def test_the_kept_terms_are_the_union_over_the_consumers() -> None:
 
 
 def _observation(*variables: str, point_variables: list[str] | None = None):
-    from hydromodpy.simulation.planning.observation_config import ObservationConfig
+    from hydromodpy.solver.base.observation_config import ObservationConfig
 
     point = {"id": "p1", "x": 1.0, "y": 2.0, "depth": 5.0}
     if point_variables is not None:
@@ -226,7 +226,7 @@ def test_an_observation_section_variable_default_is_resolved_per_point() -> None
 
 
 def test_an_observation_without_points_keeps_nothing() -> None:
-    from hydromodpy.simulation.planning.observation_config import ObservationConfig
+    from hydromodpy.solver.base.observation_config import ObservationConfig
 
     assert _keep(observation=ObservationConfig()).terms == frozenset()
 

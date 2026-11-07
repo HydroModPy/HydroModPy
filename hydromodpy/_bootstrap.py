@@ -1,8 +1,8 @@
 """Bootstrap helper that resolves HydroModPyConfig forward references.
 
 Lives at the top level so ``config/`` stays decoupled from sibling
-layers at module-load time: configs from ``physics/``, ``solver/``,
-``spatial/``, ``data/``, ``simulation/``, ``display/``, ``calibration/``,
+layers at module-load time: configs from ``model/``, ``solver/``,
+``spatial/``, ``data/``, ``display/``, ``calibration/``,
 and ``workflow/`` are imported here, never from
 ``config/``.
 """
@@ -27,13 +27,13 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewConfig
-    from hydromodpy.physics.flow.flow_config import FlowConfig
-    from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.model.domain.domain_config import DomainConfig
+    from hydromodpy.model.flow_config import FlowConfig
+    from hydromodpy.model.transport.transport_config import TransportConfig
+    from hydromodpy.solver.base.simulation_config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
     from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
-    from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     refs = {
@@ -55,15 +55,14 @@ def _rebuild_forward_refs() -> None:
 
 
 def _register_physics_contracts() -> None:
-    """Wire spatial-layer callables into the physics ``contracts`` registry.
+    """Wire the field-param factory and the field aggregator into ``model.contracts``.
 
-    Physics annotates its inputs through ``FieldParamLike`` and resolves
-    field-param payloads / spatial aggregations via these registered hooks
-    so the physics package never imports the spatial package.
+    The model annotates its inputs through ``FieldParamLike`` and resolves
+    field-param payloads and spatial means through these registered hooks.
     """
-    from hydromodpy.physics import contracts
-    from hydromodpy.spatial.field.field_param import FieldParam
-    from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
+    from hydromodpy.model import contracts
+    from hydromodpy.model.forcing.cells import spatial_mean_from_fields
+    from hydromodpy.model.properties.field_param import FieldParam
 
     contracts.register_field_param_factory(FieldParam.from_dict)
     contracts.register_field_aggregator(spatial_mean_from_fields)
@@ -106,7 +105,7 @@ def _register_rerun_provider() -> None:
 def _register_solver_registry_provider() -> None:
     """Wire a single solver-registry provider for the layers below ``solver``.
 
-    The layer matrix forbids ``simulation -> solver``. Its consumers reach
+    The layer matrix forbids ``model -> solver``. Its consumers reach
     the registry through the ``SolverRegistryProvider`` Protocol declared in
     :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives in
     ``core`` so every consumer shares one provider.
@@ -200,14 +199,14 @@ def _register_root_config_contracts() -> None:
 def _register_dynamic_flow_examples_contract() -> None:
     """Wire dynamic-flow TOML examples into the core toml_io generator.
 
-    The 19-layer matrix forbids ``core -> physics`` and
+    The 19-layer matrix forbids ``core -> model`` and
     ``core -> spatial``. The TOML generator delegates the rendering of
     dynamic ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]``
     example blocks to the provider declared in
     :mod:`hydromodpy.core.toml_io.dynamic_examples_protocol`.
     """
     from hydromodpy.core.toml_io import dynamic_examples_protocol
-    from hydromodpy.physics.flow.toml_examples import DynamicFlowExamples
+    from hydromodpy.model.toml_examples import DynamicFlowExamples
 
     dynamic_examples_protocol.set_dynamic_flow_examples_provider(DynamicFlowExamples())
 

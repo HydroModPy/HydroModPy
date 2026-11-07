@@ -22,14 +22,8 @@ from shapely.geometry import box
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.catchment_aggregation import (
-    _build_catchment_mask,
-)
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
+from hydromodpy.results.derive.catchment_aggregation import _build_catchment_mask
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter, _published_support
 
 

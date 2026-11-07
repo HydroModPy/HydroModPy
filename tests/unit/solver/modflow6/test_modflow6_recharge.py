@@ -14,7 +14,7 @@ import pytest
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.modflow6.build import _shared_recharge_dir
 from hydromodpy.solver.modflow6.builders.recharge import (
     PRIVATE_TRIAL_RECHARGE_KEY,

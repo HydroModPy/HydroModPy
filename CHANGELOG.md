@@ -37,6 +37,34 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp dev test`, `hmp dev run-script` and `hmp dev examples` left the wheel. In a source checkout, run
   `python -m tools.dev test`, `python -m tools.dev run-script` or `python -m tools.dev examples manifest`. `hmp dev`
   answers with the new form.
+- `hydromodpy.model` is new. It holds what a solver receives: `domain` (from `spatial.domain` and `spatial.lake_bed`,
+  whose modules are now `model.domain.lake_bed_abacus` and `lake_bed_regrid`), `properties` (from `spatial.field`, with
+  `physics.flow.physical_properties` and `property_ids`, and `solver.base.properties` now
+  `model.properties.property_table`), `forcing` (from `spatial.forcing` and `physics.forcing`, with `physics.base.forcing`
+  now `model.forcing.dated_forcing`, `physics.flow.time_forcing` now `model.forcing.time_forcing` and
+  `physics.hydrology.synthetic.forcing` now `model.forcing.synthetic`), `boundaries` (the boundary conditions and the
+  binders of `physics.flow`, with `binders.payloads` now `model.boundaries.binder_payloads`), `sinks_sources`, `initial`
+  (`physics.flow.initial_conditions` as `initial.config`, `solver.base.initial_conditions` as `initial.heads`, and
+  `simulation.spinup_config`), `time` (`regime`, `history_contract`), `soil` (`physics.hydrology.soil_reservoir` and
+  `simulation.soil`) and `transport`.
+- `Flow` is now in `hydromodpy.model.model`. `FlowConfig` and its TOML loader are one module,
+  `hydromodpy.model.flow_config`, which also holds `from_toml_section`, `normalize_bc_payloads` and
+  `resolve_forcing_paths`. `physics.contracts`, `physics.base.payloads`, `physics.base.process_spatial`,
+  `physics.flow.runtime_config` and `physics.flow.toml_examples` are modules at the top of `hydromodpy.model`.
+- `hydromodpy.physics` and `hydromodpy.simulation` are gone, with every name their package files exported. Import a name
+  from the module that defines it. `hmp.physics` and `hmp.simulation` no longer open a package.
+- The plan, the planner, the plan runner and the `[simulation]` models moved from `hydromodpy.simulation` to
+  `hydromodpy.solver.base`: `plan`, `planner`, `runner`, `transport_runs`, `simulation_config` (was `planning.config`),
+  `observation_config` and `results_config`.
+- `simulation.post_run` is now `hydromodpy.workflow.steps.run_outputs`, `simulation.catchment_aggregation` is
+  `hydromodpy.results.derive.catchment_aggregation`, and `simulation.observation_ingest` is
+  `hydromodpy.data.ingest.observations`.
+- `spatial.geographic.structure_binders` is now `hydromodpy.model.domain.structure_binders`. `hydromodpy.spatial` no
+  longer exports `Domain`, `DomainConfig` and `FieldParam`.
+- The schema exported for a bare model class is named after its new module, for example
+  `urn:hmp:schema:model.properties.physical_properties.FlowPhysicalProperties`.
+- The config schema digest that a lockfile records changes once, because two descriptions name a module that moved.
+  `hmp lock verify` reports it and still passes.
 
 ### Removed
 

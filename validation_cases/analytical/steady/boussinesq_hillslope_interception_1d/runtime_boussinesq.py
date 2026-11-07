@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.physics.flow import Flow
+from hydromodpy.model.model import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.spatial.mesh.io.bundle import (
     load_catchment_mesh_bundle,

@@ -23,7 +23,7 @@ from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
 from hydromodpy.core.exceptions import DataError
 from hydromodpy.core.scoring import metrics as core
-from hydromodpy.physics.flow.sinks_sources.wells import (
+from hydromodpy.model.sinks_sources.wells import (
     WELLS_PUMPED_CHECK,
     WELLS_PUMPED_METRIC,
     pumped_percent,
@@ -65,12 +65,12 @@ from hydromodpy.results.run import Run, ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.post_run import record_run_execution_metrics
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.modflow_common.budget_components import (
     CANONICAL_BUDGET_TERMS,
     canonical_budget_component,
 )
+from hydromodpy.workflow.steps.run_outputs import record_run_execution_metrics
 from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.sealed_runs import make_project, seal_run

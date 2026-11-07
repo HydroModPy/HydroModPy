@@ -5,15 +5,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.cell_meshes import cell_mesh_of

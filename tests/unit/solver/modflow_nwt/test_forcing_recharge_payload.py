@@ -18,7 +18,7 @@ from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 
 from ._test_forcing_adapter_builders import _build_solver_mesh

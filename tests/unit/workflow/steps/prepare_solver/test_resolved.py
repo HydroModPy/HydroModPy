@@ -11,7 +11,7 @@ import pytest
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import registry as terrain_registry

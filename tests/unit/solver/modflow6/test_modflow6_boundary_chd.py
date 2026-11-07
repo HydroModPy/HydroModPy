@@ -7,8 +7,8 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
-from hydromodpy.physics.flow.initial_conditions import FlowICCustom, FlowInitialConditions
+from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
+from hydromodpy.model.initial.config import FlowICCustom, FlowInitialConditions
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     apply_side_boundary_start_heads,
     build_side_boundary_chd_spd,

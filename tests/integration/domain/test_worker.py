@@ -22,13 +22,9 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
-from hydromodpy.schema.job import JobDirectory, read_document, verify_job
-from hydromodpy.schema.job.digest import sha256_file
-from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
-from hydromodpy.schema.job.request import content_address
-from hydromodpy.spatial.domain import worker
-from hydromodpy.spatial.domain.build import build_domain
-from hydromodpy.spatial.domain.capability import (
+from hydromodpy.model.domain import worker
+from hydromodpy.model.domain.build import build_domain
+from hydromodpy.model.domain.capability import (
     ACTIVE_CELLS_PATH,
     BOTTOM_PATH,
     DOMAIN_BUILD,
@@ -36,8 +32,12 @@ from hydromodpy.spatial.domain.capability import (
     THICKNESS_PATH,
     DomainBuildRequest,
 )
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.worker import run
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.worker import run
+from hydromodpy.schema.job import JobDirectory, read_document, verify_job
+from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
+from hydromodpy.schema.job.request import content_address
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from tests._helpers.domain_cases import write_mask
 from tests._helpers.geotiffs import write_geotiff
@@ -385,7 +385,7 @@ def test_a_sealed_directory_is_refused_rather_than_overwritten(tmp_path, request
 RUN_JOB = """\
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.schema.job import JobDirectory
-from hydromodpy.spatial.domain.worker import run
+from hydromodpy.model.domain.worker import run
 """
 
 

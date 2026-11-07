@@ -1,7 +1,7 @@
 Field layer
 ===========
 
-This section documents the ``hydromodpy.spatial.field`` layer.
+This section documents the ``hydromodpy.model.properties`` layer.
 
 Open it when you want:
 
@@ -14,34 +14,34 @@ Open it when you want:
 Code map
 --------
 
-- ``hydromodpy/spatial/field/field_spatial.py``: reusable
+- ``hydromodpy/model/properties/field_spatial.py``: reusable
   field-side zone/value carrier.
-- ``hydromodpy/spatial/field/field_param.py`` and
+- ``hydromodpy/model/properties/field_param.py`` and
   ``hydromodpy/core/config_kit/field_param/config.py``: heterogeneous parameter contract
   consumed downstream by solvers.
-- ``hydromodpy/spatial/field/mesh_cells.py``: the cells of a
+- ``hydromodpy/model/properties/mesh_cells.py``: the cells of a
   ``PlanarCellMesh`` as a support samples them (``mesh_cells``), the
   check of one value per cell (``cell_values``) and ``MeshWithValues``.
-- ``hydromodpy/spatial/field/zone_fractions.py``: the share of each
+- ``hydromodpy/model/properties/zone_fractions.py``: the share of each
   zone of a support in each cell, which the solvers read.
-- ``hydromodpy/spatial/field/plotting.py``: ``plot_cell_values``.
-- ``hydromodpy/spatial/field/geology_field.py``: geology-backed
+- ``hydromodpy/model/properties/plotting.py``: ``plot_cell_values``.
+- ``hydromodpy/model/properties/geology_field.py``: geology-backed
   specializations built on the same field contract.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/spatial/field/README.md``
-2. ``hydromodpy/spatial/field/field_spatial.py``
-3. ``hydromodpy/spatial/field/field_param.py``
-4. ``hydromodpy/spatial/field/mesh_cells.py``
+1. ``hydromodpy/model/properties/README.md``
+2. ``hydromodpy/model/properties/field_spatial.py``
+3. ``hydromodpy/model/properties/field_param.py``
+4. ``hydromodpy/model/properties/mesh_cells.py``
 5. ``tools/cases/field/square/`` for a concrete runnable
    example
 
 Core classes
 ------------
 
-This view is intentionally limited to the reusable ``spatial.field``
+This view is intentionally limited to the reusable ``model.properties``
 abstractions.
 
 .. uml:: diagrams/field_classes.wsd

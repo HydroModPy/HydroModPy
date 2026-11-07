@@ -146,7 +146,7 @@ def test_toml_like_round_trip_through_string():
 
 def test_flow_physical_properties_defaults_and_overrides():
     from hydromodpy.core.units.registry import UREG
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
 
     # defaults are valid
     props = FlowPhysicalProperties()

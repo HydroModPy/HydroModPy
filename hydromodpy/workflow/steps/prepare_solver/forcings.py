@@ -21,10 +21,10 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.physics.flow.sinks_sources.recharge import recharge_factor_of
-from hydromodpy.physics.forcing.forcing_bridge import scaled_load_result
+from hydromodpy.model.forcing.forcing_bridge import scaled_load_result
+from hydromodpy.model.properties.zone_fractions import zone_fractions
+from hydromodpy.model.sinks_sources.recharge import recharge_factor_of
 from hydromodpy.results.storage.soil_tables import persist_soil_columns, soil_budget_rows
-from hydromodpy.spatial.field.zone_fractions import zone_fractions
 from hydromodpy.workflow.steps.prepare_solver.prepare import field_data_array
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ def watershed_mean_series(load_result: object):
     """
     import pandas as pd
 
-    from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
+    from hydromodpy.model.forcing.cells import spatial_mean_from_fields
 
     series = spatial_mean_from_fields(load_result)
     if series is None or len(series) == 0:
@@ -311,7 +311,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
         sz.close()
 
     if soil is not None:
-        from hydromodpy.physics.hydrology.soil_reservoir.kernel import annual_budget
+        from hydromodpy.model.soil.kernel import annual_budget
 
         budget = annual_budget(
             soil.years, soil.precipitation, soil.etp, soil.fluxes, soil.columns.basin_weight

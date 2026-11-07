@@ -21,14 +21,14 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.physics.flow.boundary_condition_registry import SUPPORTED_FLOW_BOUNDARY_IDS
-from hydromodpy.physics.flow.sinks_sources import (
-    FlowLakeOutletMover,
+from hydromodpy.model.boundaries.boundary_condition_registry import SUPPORTED_FLOW_BOUNDARY_IDS
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.lake import FlowLakeOutletMover
+from hydromodpy.model.sinks_sources.sfr import (
     FlowReachNetworkConfig,
     FlowReachWidthByOrder,
     FlowReachWidthConstant,
     FlowReachWidthPowerLaw,
-    FlowSinksSourcesConfig,
 )
 
 

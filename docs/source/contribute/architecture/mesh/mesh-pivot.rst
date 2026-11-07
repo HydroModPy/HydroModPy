@@ -4,7 +4,7 @@ The mesh pivot and the cell mesh
 ``HydroMesh`` is the exchange format of a mesh. ``PlanarCellMesh`` wraps a planar one, and it
 is the mesh that every solver, every workflow step and every field support reads. The code is in
 ``hydromodpy/spatial/mesh/``, and the field supports that sample the cells are in
-``hydromodpy/spatial/field/``. The engines are on :doc:`mesh-engines`, and the grid of the MODFLOW
+``hydromodpy/model/properties/``. The engines are on :doc:`mesh-engines`, and the grid of the MODFLOW
 family is on :doc:`../solver/backends`.
 
 Mesh types
@@ -16,7 +16,7 @@ field demos and the tests:
 
 .. code-block:: python
 
-   from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
+   from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
 
    # mesh_kind: "structured", "triangular_structured" or "triangular_unstructured"
    mesh = FieldMeshSquare.from_unit_square(target_n_cells=400, mesh_kind="structured")
@@ -26,14 +26,14 @@ field demos and the tests:
 Placing a parameter on a mesh
 -----------------------------
 
-A ``FieldParam`` (``spatial/field/field_param.py``) is a scalar or one value per zone, with
-a unit and an optional vertical profile. A ``Field`` (``spatial/field/field_spatial.py``)
+A ``FieldParam`` (``model/properties/field_param.py``) is a scalar or one value per zone, with
+a unit and an optional vertical profile. A ``Field`` (``model/properties/field_spatial.py``)
 gives the zones, and a ``PlanarCellMesh`` gives the cells. A homogeneous parameter gives one value
 per cell:
 
 .. code-block:: python
 
-   from hydromodpy.spatial.field.field_param import FieldParam
+   from hydromodpy.model.properties.field_param import FieldParam
 
    K = FieldParam(identifier="K", kind="homogeneous", unit="m/s", value=1e-4)
    result = K.to_mesh_field(mesh=mesh)     # MeshWithValues, every cell 1e-4
@@ -79,7 +79,7 @@ instance because the class is frozen.
 Plot, disk and solver adapters
 ------------------------------
 
-``plot_cell_values`` in ``spatial/field/plotting.py`` draws a ``PlanarCellMesh`` or a
+``plot_cell_values`` in ``model/properties/plotting.py`` draws a ``PlanarCellMesh`` or a
 ``HydroMesh``. It uses ``pcolormesh`` for quadrilaterals with a ``structured_shape``,
 ``tripcolor`` for triangles and ``PolyCollection`` otherwise. VTU is the
 recommended disk format. It describes itself, opens in ParaView, PyVista and QGIS, and
@@ -148,7 +148,7 @@ raises ``ValueError``. ``cell_mesh.connectivity_rows`` returns the cells as one 
 block itself for triangles and quadrilaterals, and the padded rows as 32-bit ids for polygons.
 The cell centers are ``cell_mesh.centers``, the generators of a Voronoi mesh: a ``HydroMesh``
 carries none, and its ``cell_centroids()`` gives the mean of the cell vertices.
-``mesh_cells`` in ``spatial/field/mesh_cells.py`` reads these rows without their ``-1``
+``mesh_cells`` in ``model/properties/mesh_cells.py`` reads these rows without their ``-1``
 slots, for a support that samples a field on the cells.
 
 ``cell_mesh_from_bundle`` in ``spatial/mesh/io/bundle.py`` reads a Boussinesq validation bundle,
@@ -204,14 +204,14 @@ serves every engine for each question:
        layer of the column.
    * - Forcing grids and stations on the cells
      - ``discretize_fields_on_cells`` and ``discretize_points_on_cells`` in
-       ``spatial/forcing/cells.py``. The method ``area`` (``area_weights.py``) clips each cell by
+       ``model/forcing/cells.py``. The method ``area`` (``area_weights.py``) clips each cell by
        the pixels its box reaches and needs the planar mesh.
    * - Zone fractions of a cell
-     - ``zone_fractions`` in ``spatial/field/zone_fractions.py``. It uses the zone the engine
+     - ``zone_fractions`` in ``model/properties/zone_fractions.py``. It uses the zone the engine
        gave the cell when the faces lie on the contacts, else the polygon areas of a vector
        geology source, else the sampling of the support.
    * - K, Sy and Ss on the cells
-     - ``map_flow_properties`` in ``solver/base/properties.py``, for MODFLOW 6,
+     - ``map_flow_properties`` in ``model/properties/property_table.py``, for MODFLOW 6,
        MODFLOW-NWT and Boussinesq.
    * - HFB, lake and SFR cells
      - ``spatial/mesh/cells/barrier_faces.py`` gives the faces a barrier line bars. The MODFLOW 6
@@ -252,13 +252,13 @@ Module layout
    |-- cells/               which cells or faces: sides, regions, barriers, polygons, zones
    `-- io/                  exchange formats: vtu.py, meshio_bridge.py, msh.py, bundle.py
 
-The vertical layers live outside this folder, in ``spatial/domain/layers_config.py`` and
-``layering.py``. So do the grids and stations put on the cells, in ``spatial/forcing/``, which
+The vertical layers live outside this folder, in ``model/domain/layers_config.py`` and
+``layering.py``. So do the grids and stations put on the cells, in ``model/forcing/``, which
 reads the mesh model and is never imported by the mesh. The ``sgrid`` table of the MODFLOW
 backends (``sgrid_config.py``) and the vertical part of a regular grid
 (``StructuredGridBuilder`` in ``discretization_spatial.py``) live in ``solver/modflow_grid/``.
 The field package samples its supports on the cells of a ``PlanarCellMesh`` and draws one value
-per cell with ``plot_cell_values`` (``spatial/field/plotting.py``). It reads the mesh, and the
+per cell with ``plot_cell_values`` (``model/properties/plotting.py``). It reads the mesh, and the
 mesh never imports it.
 
 What the solvers read
@@ -266,7 +266,7 @@ What the solvers read
 
 A solver reads the ``SolverMesh`` of ``hydromodpy/solver/modflow_grid/solver_mesh.py``. It is
 built from the cell mesh and the vertical layers of ``[domain.layers]``, which both MODFLOW
-backends read. ``layer_stack`` in ``spatial/domain/layering.py`` turns shares or surfaces into
+backends read. ``layer_stack`` in ``model/domain/layering.py`` turns shares or surfaces into
 the layer bottoms and the integer ``idomain`` (1, 0 or -1). ``discretization_spatial.py``, next
 to ``solver_mesh.py``, samples the base rasters on the cell centers or resamples them to a
 regular grid. ``SolverMesh`` checks the interfaces once it is built, and the run stores them with

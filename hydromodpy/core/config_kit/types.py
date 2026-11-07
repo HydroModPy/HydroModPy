@@ -125,7 +125,7 @@ CoveragePolicy: TypeAlias = Literal["error", "warn", "ignore"]
 """Reaction policy when input data does not cover a window."""
 
 InterpolationMethod: TypeAlias = Literal["nearest", "linear", "idw", "area"]
-"""Spatial interpolation method shared by spatial and physics layers.
+"""Spatial interpolation method shared by the spatial and model layers.
 
 ``"area"`` weighs each pixel of a grid by the area it shares with a cell, so it
 needs the cell polygons and only the forcing path on cells serves it.

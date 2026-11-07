@@ -307,7 +307,7 @@ def _warn_if_recharge_moved(recharge: float) -> None:
     under :data:`RECHARGE_MOVE_TOLERANCE` is float noise and stays silent.
 
     A trial and the redraw of a run read ``R`` by one rule
-    (:mod:`hydromodpy.spatial.forcing.recharge_rates`), so a move is a move of the
+    (:mod:`hydromodpy.model.forcing.recharge_rates`), so a move is a move of the
     forcing, never of the way it was averaged.
     """
     session = _recharge_session.get()

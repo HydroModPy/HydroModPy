@@ -75,9 +75,9 @@ def _run_square_case(
     mesh_config: Mapping[str, Any],
     field_config: Mapping[str, Any] | None,
 ) -> dict[str, object]:
-    from hydromodpy.spatial.field.field_param import FieldParam
-    from hydromodpy.spatial.field.two_zone_field import FieldSquare
-    from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
+    from hydromodpy.model.properties.field_param import FieldParam
+    from hydromodpy.model.properties.two_zone_field import FieldSquare
+    from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
     from tools.cases.field.square.run_field_demo import run_field_demo_case
 
     field_param = FieldParam.from_dict(field_param_config)

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Literal, Protocol, cast, runtime_checkable
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,

@@ -10,7 +10,7 @@ package "hydromodpy.spatial.mesh.model.planar_cell_mesh" {
   }
 }
 
-package "hydromodpy.spatial.field.mesh_cells" {
+package "hydromodpy.model.properties.mesh_cells" {
   class MeshCell {
     +index: int
     +kind: str
@@ -30,7 +30,7 @@ package "hydromodpy.spatial.field.mesh_cells" {
   class "cell_values(cell_mesh, values)" as cell_values << (F,#FFFFFF) function >>
 }
 
-package "hydromodpy.spatial.field.field_spatial" {
+package "hydromodpy.model.properties.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(cell_mesh, cell_samples_per_axis=10)
@@ -47,7 +47,7 @@ package "hydromodpy.spatial.field.field_spatial" {
   }
 }
 
-package "hydromodpy.spatial.field.field_spatial" {
+package "hydromodpy.model.properties.field_spatial" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
@@ -56,7 +56,7 @@ package "hydromodpy.spatial.field.field_spatial" {
   }
 }
 
-package "hydromodpy.spatial.field.field_param" {
+package "hydromodpy.model.properties.field_param" {
   class FieldParam {
     +identifier: str
     +kind: str

@@ -14,7 +14,7 @@ from hydromodpy.results.run.observation_points import sample_observation_points,
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.planning.observation_config import ObservationConfig
+from hydromodpy.solver.base.observation_config import ObservationConfig
 from tests._helpers.run_stores import open_run_store
 
 VERTICES = np.array(

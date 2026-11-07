@@ -8,23 +8,19 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.steady_periods import (
-    apply_first_clim,
-    one_period_rate,
-    steady_flags,
-)
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.steady_periods import apply_first_clim, one_period_rate, steady_flags
+from hydromodpy.model.forcing.validation import (
     complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
+from hydromodpy.model.time.regime import normalize_flow_regime
 
 
 def first_period_is_steady(flow: object) -> bool:
@@ -132,9 +128,7 @@ class ForcingCommonMixin:
         """Resolve one boundary condition to one head value per period."""
         forcing = getattr(boundary, "forcing", None)
         if forcing is not None:
-            from hydromodpy.physics.flow.time_forcing import (
-                resolve_period_values_from_forcing,
-            )
+            from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 
             return np.asarray(
                 resolve_period_values_from_forcing(

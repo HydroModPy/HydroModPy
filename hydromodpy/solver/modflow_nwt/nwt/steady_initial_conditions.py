@@ -11,7 +11,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.solver.base.initial_conditions import (
+from hydromodpy.model.initial.heads import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
 )

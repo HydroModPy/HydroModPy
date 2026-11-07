@@ -28,7 +28,6 @@ from hydromodpy.core.exceptions import (
     SolverDivergedError,
     SolverError,
 )
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -36,6 +35,7 @@ from hydromodpy.solver.base.observables import (
     servable,
     unavailable,
 )
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,

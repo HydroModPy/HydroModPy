@@ -96,7 +96,7 @@ from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
 from hydromodpy.core.runtime.interrupts import TerminationRequested
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_CODE
 from hydromodpy.results.heartbeat import read_heartbeat
@@ -111,7 +111,7 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.journal import read_trials, trials_path
 from hydromodpy.results.session.phase import FrozenValue, read_phase
-from hydromodpy.simulation.planning.config import SimulationTimeConfig
+from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 from hydromodpy.workflow.dispatch import (
     KNOWN_WORKFLOWS,
     WorkflowUnknownError,

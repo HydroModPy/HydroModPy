@@ -6,9 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.solver.base.initial_conditions import (
-    steady_state_initial_condition_strategy,
-)
+from hydromodpy.model.initial.heads import steady_state_initial_condition_strategy
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
     resolve_runtime_forcing_by_period,

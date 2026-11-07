@@ -11,7 +11,7 @@ a tie? Every layer must compute these the same way, so they live here.
 
 ## What other layers import from it
 
-`display`, `calibration`, `results`, `simulation` and `spatial`.
+`display`, `calibration`, `results` and `spatial`.
 
 ## Where to add what
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,

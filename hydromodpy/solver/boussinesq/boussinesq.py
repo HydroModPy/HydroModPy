@@ -34,13 +34,13 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_conditions_mapping_from_flow,
     boundary_definition,
     is_boundary_condition_active,
 )
-from hydromodpy.solver.base.initial_conditions import (
+from hydromodpy.model.initial.heads import (
     apply_steady_state_initial_condition_strategy,
     flow_uses_steady_state_initial_condition,
     steady_state_initial_condition_strategy,

@@ -58,13 +58,13 @@ def configure(
         require_flow_simulation_time_grid,
     )
     from hydromodpy.data import DataPlanner
-    from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
-    from hydromodpy.spatial.domain.spatial_support import (
+    from hydromodpy.model.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
         collect_requested_support_ids,
         resolve_support_configs,
         support_provider_names,
     )
+    from hydromodpy.model.soil.config import soil_reservoir_of
     from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
 
@@ -322,7 +322,7 @@ def _ensure_simulation_block(project: Project) -> None:
         return
 
     from hydromodpy.core.toml_io.paths import source_of_effective_copy
-    from hydromodpy.simulation.planning.config import (
+    from hydromodpy.solver.base.simulation_config import (
         FlowProcessConfig,
         SimulationConfig,
         SimulationTimeConfig,

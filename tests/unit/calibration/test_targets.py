@@ -30,10 +30,10 @@ from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSect
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests.unit.calibration._factories import _Project
@@ -44,7 +44,7 @@ from tests.unit.calibration._factories_config import sinks_project
 #
 # ``Calibrable`` and the walk that collects it were written, tested, and returned an
 # empty dictionary on every configuration in the repository. The reason was a layer
-# rule, not an oversight: the annotation lived in ``calibration/``, which ``physics``
+# rule, not an oversight: the annotation lived in ``calibration/``, which ``model``
 # and ``spatial`` are forbidden to import, so no hydraulic property could carry it.
 #
 # Moved into the kernel, any layer that declares a field can say what a search
@@ -291,7 +291,7 @@ class TestTheOrdering:
 # before it ever gets a name. Nothing coerces it earlier:
 # ``_validate_value`` in ``hydromodpy/core/config_kit/field_param/sections.py``
 # keeps a string value as a string, unlike ``_coerce_boundary_value_and_units``
-# in ``hydromodpy/physics/flow/boundary_conditions.py`` (used for
+# in ``hydromodpy/model/boundaries/boundary_conditions.py`` (used for
 # ``[flow.bc.<id>]``), which already splits a string into a float plus its unit
 # before Pydantic sees it as the ``value`` field.
 #
@@ -312,7 +312,7 @@ class TestTheOrdering:
 #   resolution"). Coercion survives this reader: it simply starts validating
 #   what used to be silently skipped.
 #
-# - ``hydromodpy/spatial/field/field_param.py`` (``FieldParam.__init__`` ->
+# - ``hydromodpy/model/properties/field_param.py`` (``FieldParam.__init__`` ->
 #   ``_convert_scalar_payload_to_si``, ~L204-230) via
 #   ``hydromodpy/core/units/scalar.py:parse_scalar_and_unit``. This is the
 #   terminal reader that turns a field into SI values for the solver. It
@@ -324,7 +324,7 @@ class TestTheOrdering:
 #   (``ResolvedFieldParam._validate_value``). An exact duplicate of the
 #   section validator above, reached through a *second*, independent
 #   production entry point:
-#   ``hydromodpy/spatial/field/field_param_io.py`` builds its merged
+#   ``hydromodpy/model/properties/field_param_io.py`` builds its merged
 #   payload straight from a raw TOML section mapping and calls
 #   ``validate_resolved_field_param_data`` directly, without ever going
 #   through ``FieldHomogeneousSection`` / ``core/config_kit/field_param/sections.py``. That
@@ -349,7 +349,7 @@ class TestTheOrdering:
 #   a numeric base value ... got '1e-4 m/s'". Coercing ``.value`` to a plain
 #   float fixes this latent bug as a side effect, it does not create a new one.
 #
-# - ``hydromodpy/physics/flow/toml_examples.py`` renders TOML examples for
+# - ``hydromodpy/model/toml_examples.py`` renders TOML examples for
 #   ``[flow.param.<id>.field]`` but never sets a ``value`` key, so it is
 #   unaffected either way.
 #

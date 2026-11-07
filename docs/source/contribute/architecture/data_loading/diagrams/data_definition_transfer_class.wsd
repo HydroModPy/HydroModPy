@@ -62,17 +62,17 @@ package "hydromodpy.data.loading" {
   }
 }
 
-package "hydromodpy.spatial.field.geology_field" {
+package "hydromodpy.model.properties.geology_field" {
   class GeologyField
 }
 
-package "hydromodpy.spatial.domain" {
+package "hydromodpy.model.domain" {
   class Domain {
     +set_zone(name, zone)
   }
 }
 
-package "hydromodpy.physics.flow" {
+package "hydromodpy.model" {
   class Flow
   class "structure_binders" as FlowBinders <<module>> {
     +apply_oceanic_to_flow(...)

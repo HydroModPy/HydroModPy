@@ -24,7 +24,7 @@ from hydromodpy.calibration.runners.prepared_model import (
 )
 from hydromodpy.calibration.runners.trial import TrialContext, built_model, prepare_trials
 from hydromodpy.core.exceptions import ObjectiveError
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
@@ -85,7 +85,7 @@ def _floor_flow(monkeypatch):
     monkeypatch.setattr(
         "hydromodpy.calibration.optim.parameters.apply_parameter_to_config", fake_apply
     )
-    monkeypatch.setattr("hydromodpy.physics.flow.Flow", fake_flow)
+    monkeypatch.setattr("hydromodpy.model.model.Flow", fake_flow)
 
 
 @pytest.mark.fast

@@ -17,7 +17,7 @@ from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.physics.flow import Flow
+from hydromodpy.model.model import Flow
 from hydromodpy.project import Project
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_nwt import (

@@ -15,13 +15,13 @@ import pandas as pd
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
     servable,
     unavailable,
 )
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     nwt_safe_name,

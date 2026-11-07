@@ -40,7 +40,7 @@ def _resolve_plan_and_results(ctx, *, store=None) -> None:
     its extraction kept (the ``budget/`` attributes) takes it from there.
     ``store`` is the open store of a resume; a fresh run passes none.
     """
-    from hydromodpy.simulation.planning.planner import SimulationPlanner
+    from hydromodpy.solver.base.planner import SimulationPlanner
     from hydromodpy.workflow.steps.planning import step_configure_results
 
     if ctx.execution.simulation_plan is None:

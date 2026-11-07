@@ -34,12 +34,10 @@ from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.soil.recharge import compute_soil_forcings
+from hydromodpy.results.derive.catchment_aggregation import _add_runoff_to_discharge_series
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
-from hydromodpy.simulation.catchment_aggregation import (
-    _add_runoff_to_discharge_series,
-)
-from hydromodpy.simulation.soil.recharge import compute_soil_forcings
 from hydromodpy.workflow.steps.prepare_solver.forcings import watershed_mean_series
 from tests.unit.calibration._factories_scoring import (
     CATCH_AREA_KM2,
@@ -269,7 +267,7 @@ def test_the_periods_that_lost_their_runoff_are_counted_once(caplog) -> None:
 # the calibration metric builds the simulated discharge it scores
 # (``calibration.metrics.series.add_runoff_to_discharge``) and once when the
 # catalog materializes the catchment discharge a run is read back from
-# (``simulation.catchment_aggregation``). If the two align
+# (``results.derive.catchment_aggregation``). If the two align
 # the daily forcing on the stress periods by different rules, a run scores against
 # one discharge and reports another.
 
@@ -589,7 +587,7 @@ def test_two_trials_get_different_scored_discharge_by_curve_number() -> None:
 # ``impervious_fraction``, each piped through ``add_runoff_to_discharge`` the
 # way a trial's own context would be. The expected volume is exact because the
 # kernel's runoff is ``impervious_fraction * precipitation``
-# (``hydromodpy/physics/hydrology/soil_reservoir/kernel.py``), so a constant
+# (``hydromodpy/model/soil/kernel.py``), so a constant
 # rain and a known area give a closed-form discharge difference.
 
 

@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import steady as steady_driver
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver

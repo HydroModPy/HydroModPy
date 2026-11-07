@@ -38,18 +38,18 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 from hydromodpy.core.units.quantities import convert_to_per_s
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
-from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.spatial.domain.depth_model_config import (
+from hydromodpy.model.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
     RasterSubstratumDepthModel,
     RasterThicknessDepthModel,
 )
-from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
 from tests.unit.calibration._factories import _Project
 from tests.unit.calibration._factories_config import sinks_project, soil_project
 

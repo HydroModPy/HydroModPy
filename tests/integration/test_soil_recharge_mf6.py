@@ -31,10 +31,10 @@ import xarray as xr
 
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
-from hydromodpy.physics.flow.binders.climate import apply_etp_load_result_to_flow
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.simulation.soil.recharge import compute_soil_forcings
+from hydromodpy.model.boundaries.climate import apply_etp_load_result_to_flow
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.soil.recharge import compute_soil_forcings
 from hydromodpy.solver.modflow6.builders.recharge import (
     bind_recharge_from_flow,
     bind_soil_etp_from_flow,

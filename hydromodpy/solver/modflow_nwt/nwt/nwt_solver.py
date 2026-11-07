@@ -22,7 +22,7 @@ import numpy as np
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,

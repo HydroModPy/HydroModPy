@@ -21,17 +21,13 @@ from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
-    SoilParameters,
-    full_soil,
-    run_soil_balance,
-)
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,

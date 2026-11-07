@@ -252,13 +252,15 @@ architecture/packages/display.rst                                               
 architecture/packages/examples.rst                                                contribute/architecture/packages/project
 contribute/architecture/packages/examples.rst                                     contribute/architecture/packages/project
 architecture/packages/index.rst                                                   contribute/architecture/packages/index
-architecture/packages/physics.rst                                                 contribute/architecture/packages/physics
+architecture/packages/physics.rst                                                 contribute/architecture/packages/model
+contribute/architecture/packages/physics.rst                                      contribute/architecture/packages/model
 architecture/packages/project.rst                                                 contribute/architecture/packages/project
 architecture/packages/reporting.rst                                               contribute/architecture/packages/display
 contribute/architecture/packages/reporting.rst                                    contribute/architecture/packages/display
 architecture/packages/results.rst                                                 contribute/architecture/packages/results
 architecture/packages/schema.rst                                                  contribute/architecture/packages/schema
-architecture/packages/simulation.rst                                              contribute/architecture/packages/simulation
+architecture/packages/simulation.rst                                              contribute/architecture/packages/solver
+contribute/architecture/packages/simulation.rst                                   contribute/architecture/packages/solver
 architecture/packages/solver.rst                                                  contribute/architecture/packages/solver
 architecture/packages/spatial.rst                                                 contribute/architecture/packages/spatial
 architecture/packages/validity_frame.rst                                          contribute/architecture/packages/validity_frame

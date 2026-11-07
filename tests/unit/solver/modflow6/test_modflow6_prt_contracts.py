@@ -9,8 +9,8 @@ import flopy
 import numpy as np
 import zarr
 
-from hydromodpy.physics.transport.transport import Transport
-from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.model.transport.transport import Transport
+from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.run.particles import read_particle_tracks
 from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter

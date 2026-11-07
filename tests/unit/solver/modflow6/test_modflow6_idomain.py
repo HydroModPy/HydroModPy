@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import flopy
 import numpy as np
 
-from hydromodpy.physics.transport.transport import Transport
+from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

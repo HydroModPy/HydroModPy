@@ -16,7 +16,7 @@ import types
 import pytest
 
 from hydromodpy.core.fields.grid_reference import GridReference
-from hydromodpy.physics.flow.sinks_sources import FlowWellConfig
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 
 from ._test_forcing_adapter_builders import _build_solver_mesh

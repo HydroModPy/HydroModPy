@@ -4,11 +4,9 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.physics.flow import (
-    FlowConfig,
-    normalize_flow_regime,
-)
-from hydromodpy.solver.base.properties import resolve_required_flow_properties
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.properties.property_table import resolve_required_flow_properties
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.catalog import resolve_time_scheme
 from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,

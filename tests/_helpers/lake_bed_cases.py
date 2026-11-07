@@ -84,7 +84,7 @@ def abacus() -> dict[str, list[float]]:
 
 def carve(tmp_path, bed, *, mesh=None, with_abacus=False, **config):
     """Carve lake ``lac0`` over every cell of *mesh*; *config* is the bed reconstruction's."""
-    from hydromodpy.physics.flow.sinks_sources.lake import BathymetryReconstructionConfig
+    from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig
     from hydromodpy.solver.modflow6.builders.lake_cells import carve_lake_bed
 
     payload = {

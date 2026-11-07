@@ -150,7 +150,7 @@ Pitfalls flagged by the layer matrix
   ``zarr_store/mesh_layout.py`` reads the ``PlanarCellMesh`` of a run, and
   the VTU exporter builds a ``HydroMesh`` from the store and writes it with
   ``write_vtu`` of ``spatial/mesh/io/vtu.py``, the one VTU writer. Do not import
-  ``display``, ``project``, ``simulation``, or ``solver`` in an exporter.
+  ``display``, ``project``, ``workflow``, or ``solver`` in an exporter.
 - Spatial reprojection helpers live in ``core/io/`` (``crs.py``,
   ``raster_io.py``, ``vector_io.py``); reach them from ``core``, not
   from ``spatial``.

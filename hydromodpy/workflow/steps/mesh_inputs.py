@@ -255,7 +255,7 @@ def _geology_contacts(
     bands and rings of an analytical support. The national maps and the rasters reach the model
     rasterized, with no contact to follow, which the notes say.
     """
-    from hydromodpy.spatial.domain.spatial_support import (
+    from hydromodpy.model.domain.spatial_support import (
         collect_requested_support_ids,
         resolve_support_configs,
     )

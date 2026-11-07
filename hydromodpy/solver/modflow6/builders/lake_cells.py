@@ -221,12 +221,12 @@ def carve_lake_bed(
     if not targets:
         return solver_mesh
 
+    from hydromodpy.model.domain.lake_bed_abacus import simulate_abacus
+    from hydromodpy.model.domain.lake_bed_regrid import reconstruct_lake_bed
     from hydromodpy.solver.modflow6.builders.lake_column_regrade import (
         regrade_column_active_top,
         regrade_column_to_bed,
     )
-    from hydromodpy.spatial.lake_bed.abacus import simulate_abacus
-    from hydromodpy.spatial.lake_bed.regrid import reconstruct_lake_bed
     from hydromodpy.spatial.surface import Surface
 
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()

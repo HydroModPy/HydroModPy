@@ -16,11 +16,11 @@ import pytest
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.zarr_store import SimulationZarr
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.workflow.steps.data_description import (

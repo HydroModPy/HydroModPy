@@ -47,7 +47,7 @@ from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
-    from hydromodpy.simulation.planning.plan import RunContext
+    from hydromodpy.solver.base.plan import RunContext
 
 logger = get_logger(__name__)
 

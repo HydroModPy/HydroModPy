@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.model.initial.spinup_config import SpinupConfig
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.compare import Comparison
     from hydromodpy.project.examples.install import InstallReport
@@ -54,7 +55,6 @@ if TYPE_CHECKING:
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
-    from hydromodpy.simulation.spinup_config import SpinupConfig
     from hydromodpy.workflow.overview import OverviewResult
 
     # A file or folder path, as text or as a pathlib.Path.

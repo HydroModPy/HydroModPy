@@ -644,7 +644,7 @@ hydromodpy.spatial.mesh.model.quality
 hydromodpy.spatial.mesh.cells.in_polygons
 hydromodpy.spatial.mesh.refinement_config
 hydromodpy.results.run.field_envelope
-hydromodpy.spatial.domain.layering
+hydromodpy.model.domain.layering
 hydromodpy.core.fields.vertical_column
 hydromodpy.solver.modflow_grid.discretization_spatial
 hydromodpy.solver.modflow_grid.top_sampling
@@ -655,8 +655,8 @@ hydromodpy.solver.modflow6.builders.solver_options
 
 | What | Where |
 |---|---|
-| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`), `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`) |
-| The keys of the layers, the base rasters | `hydromodpy/spatial/domain/layers_config.py`, `hydromodpy/data/variables/layer_base/`, `hydromodpy/spatial/domain/build.py` (`read_layer_base_sources`) |
+| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`), `hydromodpy/model/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`) |
+| The keys of the layers, the base rasters | `hydromodpy/model/domain/layers_config.py`, `hydromodpy/data/variables/layer_base/`, `hydromodpy/model/domain/build.py` (`read_layer_base_sources`) |
 | The top active layer of a column | `hydromodpy/core/fields/vertical_column.py` (`top_active_layer`), `hydromodpy/solver/modflow_grid/solver_mesh.py` (`SolverMesh.top_active_layer`) |
 | The keys of the top | `hydromodpy/solver/modflow_grid/sgrid_config.py` |
 | The keys of the mesh | `hydromodpy/spatial/mesh/mesh_config.py` (`MeshConfig`) |

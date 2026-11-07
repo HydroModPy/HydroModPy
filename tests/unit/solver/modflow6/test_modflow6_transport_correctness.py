@@ -9,8 +9,8 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.physics.transport.transport import Transport
-from hydromodpy.physics.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.model.transport.transport import Transport
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_common.runtime_arrays import _normalize_sconc_input

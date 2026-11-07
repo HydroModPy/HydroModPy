@@ -74,7 +74,7 @@ def test_an_unsealed_run_without_store_is_refused(tmp_path: Path) -> None:
 
 
 def test_the_table_form_finds_its_run_by_sim_id_first(tmp_path: Path) -> None:
-    from hydromodpy.physics.flow.flow_config import RestartReference
+    from hydromodpy.model.flow_config import RestartReference
 
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
@@ -89,7 +89,7 @@ def test_the_table_form_finds_its_run_by_sim_id_first(tmp_path: Path) -> None:
 
 
 def test_the_table_form_falls_back_to_its_path_in_another_project(tmp_path: Path) -> None:
-    from hydromodpy.physics.flow.flow_config import RestartReference
+    from hydromodpy.model.flow_config import RestartReference
 
     project = make_project(tmp_path / "demo")
     loose = project / "inputs" / FIELDS_STORE_NAME
@@ -108,7 +108,7 @@ def test_the_table_form_falls_back_to_its_path_in_another_project(tmp_path: Path
 def test_a_restart_reference_names_a_sim_id_or_a_path() -> None:
     from pydantic import ValidationError
 
-    from hydromodpy.physics.flow.flow_config import RestartReference
+    from hydromodpy.model.flow_config import RestartReference
 
     with pytest.raises(ValidationError, match="names a sim_id, a path, or both"):
         RestartReference()

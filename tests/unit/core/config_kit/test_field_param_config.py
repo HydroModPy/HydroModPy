@@ -14,7 +14,7 @@ from hydromodpy.core.config_kit.field_param.config import (
     validate_field_param_toml_data,
     validate_resolved_field_param_data,
 )
-from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.model.properties.field_param import FieldParam
 from tests._helpers.field_cases import write_text
 
 PER_ZONE = dict(id="K", kind="heterogeneous", values={"granite": 10.0}, field_spatial_id="g")

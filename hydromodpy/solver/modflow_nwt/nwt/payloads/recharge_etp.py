@@ -9,25 +9,22 @@ import numpy as np
 
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.steady_periods import (
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.steady_periods import (
     apply_first_clim,
     first_clim_sets_a_deficit,
     one_period_rate,
     split_net_recharge,
     steady_flags,
 )
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.model.forcing.validation import (
     complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
-from hydromodpy.spatial.forcing.cells import (
-    discretize_fields_on_cells,
-    discretize_points_on_cells,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
@@ -291,7 +288,7 @@ def assemble_rch_data(
     """Convert a recharge payload into the period-indexed structure.
 
     Every steady period takes the rate ``first_clim`` states, a transient
-    period keeps its own (:mod:`hydromodpy.physics.forcing.steady_periods`).
+    period keeps its own (:mod:`hydromodpy.model.forcing.steady_periods`).
     """
     if allow_negative:
         ensure_finite_numeric_payload(payload, label="flow.sinks_sources.recharge.values")

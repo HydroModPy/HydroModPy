@@ -15,14 +15,12 @@ from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.generator import generate_toml
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.version import __version__
-from hydromodpy.physics.base.forcing import ConstantForcing, CsvForcing
-from hydromodpy.physics.flow.sinks_sources.lake import (
-    BathymetryReconstructionConfig,
-    FlowLakeConfig,
-)
-from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
-from hydromodpy.physics.transport.transport_config import (
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
+from hydromodpy.model.forcing.dated_forcing import ConstantForcing, CsvForcing
+from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig, FlowLakeConfig
+from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
+from hydromodpy.model.transport.transport_config import (
     ConcentrationTransportParametersConfig,
     Modflow6PrtParametersConfig,
     ModpathParametersConfig,
@@ -34,9 +32,8 @@ from hydromodpy.schema.config_schema import (
     extract_property_schema,
     schema_urn,
 )
-from hydromodpy.simulation.planning.config import SimulationConfig
-from hydromodpy.simulation.planning.results_config import ResultsConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
+from hydromodpy.solver.base.results_config import ResultsConfig
+from hydromodpy.solver.base.simulation_config import SimulationConfig
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 # Tests for the JSON Schema exporter.
@@ -83,7 +80,7 @@ def test_export_schema_unknown_section_raises():
 
 
 def test_flow_physical_properties_schema_has_rich_annotations():
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
@@ -165,10 +162,12 @@ def test_a_section_export_is_named_after_the_section() -> None:
 
 
 def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
-    assert schema["$id"] == schema_urn("physics.flow.physical_properties.FlowPhysicalProperties")
+    assert schema["$id"] == schema_urn(
+        "model.properties.physical_properties.FlowPhysicalProperties"
+    )
 
 
 def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None:
@@ -185,7 +184,7 @@ def test_an_explicit_scope_overrides_the_derived_one() -> None:
 
 
 def test_a_dotted_path_exports_the_nested_model() -> None:
-    from hydromodpy.simulation.planning.config import SimulationTimeConfig
+    from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 
     nested = export_schema(section="simulation.time")
 

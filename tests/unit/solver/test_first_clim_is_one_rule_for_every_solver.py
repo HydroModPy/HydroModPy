@@ -5,7 +5,7 @@ periods of a series and ignored a grid, MODFLOW-NWT and Boussinesq replaced
 period 0 whether it was steady or not. And a routed deficit kept the mean
 deficit whatever ``first_clim`` said, so the net rate of the steady period was
 not the one stated. One rule now, read from
-``hydromodpy.physics.forcing.steady_periods``.
+``hydromodpy.model.forcing.steady_periods``.
 """
 
 from __future__ import annotations
@@ -15,12 +15,12 @@ import types
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.physics.forcing.steady_periods import (
+from hydromodpy.model.forcing.steady_periods import (
     apply_first_clim,
     split_net_recharge,
     steady_flags,
 )
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.modflow6.builders.recharge import (
     bind_recharge_from_flow,

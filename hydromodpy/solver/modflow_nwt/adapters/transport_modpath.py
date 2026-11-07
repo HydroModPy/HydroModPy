@@ -13,9 +13,9 @@ import rasterio
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
 from hydromodpy.core.io.raster_io import export_tif
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.simulation.transport_runs import required_flow_model
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.transport_runs import required_flow_model
 from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
 
 

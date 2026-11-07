@@ -48,7 +48,7 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import budget_kwargs
 from hydromodpy.core.scoring.metrics import rmse
-from hydromodpy.physics.hydrology.synthetic.forcing import (
+from hydromodpy.model.forcing.synthetic import (
     build_hydrological_step_series,
     build_hydrological_year_dates,
     build_recharge_from_reservoir_chronicle,

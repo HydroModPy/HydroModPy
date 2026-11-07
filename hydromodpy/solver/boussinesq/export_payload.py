@@ -7,9 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.physics.flow.history_contract import (
-    build_transient_time_axes,
-)
+from hydromodpy.model.time.history_contract import build_transient_time_axes
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 
 

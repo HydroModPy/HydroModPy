@@ -17,6 +17,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_SURFACES, top_active_layer
+from hydromodpy.model.domain.layering import layer_stack
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
@@ -28,8 +30,6 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.domain.layering import layer_stack
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

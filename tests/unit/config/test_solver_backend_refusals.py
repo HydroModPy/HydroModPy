@@ -9,8 +9,8 @@ import pytest
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.physics.flow.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import Flow
 from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.registry import capabilities
 from hydromodpy.solver.base.solver_config import SolverConfig

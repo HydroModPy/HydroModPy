@@ -15,7 +15,7 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
+from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import RING_FAMILY, split_barriers
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs

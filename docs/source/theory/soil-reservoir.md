@@ -3,7 +3,7 @@
 The soil reservoir turns the daily rain and ETP of a grid into the recharge of a MODFLOW 6
 run. It is a water balance with one store per column. The store fills with the rain, loses
 water to the plants, and sends down what exceeds its capacity. This page gives the equations
-of `hydromodpy/physics/hydrology/soil_reservoir/kernel.py`, what they assume and what they
+of `hydromodpy/model/soil/kernel.py`, what they assume and what they
 leave out. Only MODFLOW 6 accepts the reservoir, so a file that declares
 {toml}`flow.sinks_sources.recharge.soil` with another solver is refused. To set up a run, see
 {doc}`step 6 of the staircase <../get-started/staircase/step6>`.
@@ -434,18 +434,17 @@ The tests that import the code of this page. The box is generated, so a new test
 the next build.
 
 ```{hmp-tested-by}
-hydromodpy.physics.hydrology.soil_reservoir
-hydromodpy.simulation.soil
+hydromodpy.model.soil
 ```
 
 ## In the code
 
 | What | Where |
 |---|---|
-| The daily step and the balance | `hydromodpy/physics/hydrology/soil_reservoir/kernel.py` (`soil_step`, `run_soil_balance`, `balance_residual`) |
+| The daily step and the balance | `hydromodpy/model/soil/kernel.py` (`soil_step`, `run_soil_balance`, `balance_residual`) |
 | The starting state | the same file, `spinup_state` |
-| What a file may say, and its ranges | `hydromodpy/physics/hydrology/soil_reservoir/config.py` |
-| Grids in, columns, grids out | `hydromodpy/simulation/soil/` (`grids.py`, `columns.py`, `recharge.py`, `budget.py`) |
+| What a file may say, and its ranges | `hydromodpy/model/soil/config.py` |
+| Grids in, columns, grids out | `hydromodpy/model/soil/` (`grids.py`, `columns.py`, `recharge.py`, `budget.py`) |
 
 ## See also
 

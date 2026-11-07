@@ -72,8 +72,8 @@ class DataPlanner:
             boundary-condition-driven inference (`stream`/`ocean`).
         flow_soil_reservoir:
             Whether ``[flow.sinks_sources.recharge.soil]`` is declared. A plain
-            bool, not the config object: the planner lives in `data/`, which
-            must not import `physics`.
+            bool, not the config object, so the planner does not depend on
+            the `[flow]` models.
         """
         explicit_types = tuple(config.types)
         inferred_types: list[str] = []

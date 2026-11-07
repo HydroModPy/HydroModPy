@@ -534,7 +534,7 @@ def test_the_planner_counts_this_figure_among_the_budget_consumers() -> None:
     """
     from hydromodpy.core.budget.terms import budget_terms_for_fields
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.simulation.planning.results_config import ResultsConfig
+    from hydromodpy.solver.base.results_config import ResultsConfig
     from hydromodpy.workflow.steps.planning import step_configure_results
 
     keep = step_configure_results(

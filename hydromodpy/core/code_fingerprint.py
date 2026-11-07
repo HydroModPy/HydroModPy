@@ -40,10 +40,9 @@ from typing import Final
 COMPUTE_LAYERS: Final[tuple[str, ...]] = (
     "core",
     "config",
-    "physics",
+    "model",
     "data",
     "spatial",
-    "simulation",
     "solver",
     "calibration",
     "results",

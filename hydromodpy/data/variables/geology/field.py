@@ -25,7 +25,7 @@ def build_geology_field(field_record: Any, *, geology_cfg: Any, raster_support: 
         load_geology_encoded_grid,
         load_geology_encoded_grid_on_raster_support,
     )
-    from hydromodpy.spatial.field.geology_field import GeologyField
+    from hydromodpy.model.properties.geology_field import GeologyField
 
     data_path = str(field_record.data)
     source_kind = infer_source_kind(data_path)
@@ -85,7 +85,7 @@ def _zone_polygons(
     import geopandas as gpd
 
     from hydromodpy.data.variables.geology.processing import normalize_zone_key
-    from hydromodpy.spatial.field.zone_fractions import ZonePolygons
+    from hydromodpy.model.properties.zone_fractions import ZonePolygons
 
     gdf = gpd.read_file(data_path)
     gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()]

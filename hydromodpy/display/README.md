@@ -396,7 +396,7 @@ generated from the registry into the figures page of the documentation, and
 ## Layer neighbors
 
 `display` imports `core` and `results`
-(`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
+(`tests/unit/architecture/layer_matrix.yaml`), never `data`, `model`,
 `solver`, `calibration` or `spatial`. A figure of the stream criterion or of the routing surface only draws:
 the network, the extents, the routing surface and the depression floods are computed in
 `results/derive/stream/`. The root facade, `config`, `analysis`,

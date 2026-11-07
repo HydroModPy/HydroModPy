@@ -1159,7 +1159,7 @@ def test_an_old_property_id_is_rewritten_everywhere_it_stands() -> None:
 
 @pytest.mark.parametrize("name", ["Kz", "Kx", "Ky"])
 def test_an_id_no_solver_read_is_refused_and_not_rewritten(name: str) -> None:
-    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.model.flow_config import FlowConfig
 
     payload = {name: {"field": {"kind": "homogeneous", "value": 1e-6, "unit": "m/s"}}}
     with pytest.raises(ValueError, match="never been read"):

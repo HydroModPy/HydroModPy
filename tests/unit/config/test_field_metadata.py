@@ -18,12 +18,12 @@ from hydromodpy.core.config_kit.field_metadata import (
     is_valid_field_metadata,
     unknown_metadata_keys,
 )
-from hydromodpy.physics.flow.runtime_config import FlowRuntimeConfig
-from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.physics.transport.transport_config import TransportConfig
-from hydromodpy.simulation.planning.config import TransportProcessConfig
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.transport.transport_config import TransportConfig
+from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig

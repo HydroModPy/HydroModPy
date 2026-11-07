@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.initial_conditions import (
+from hydromodpy.model.initial.config import (
     FlowICBottom,
     FlowICSteadyState,
     FlowICTop,

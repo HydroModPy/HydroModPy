@@ -168,7 +168,7 @@ The imports go one way, from the request and the model up to the engines.
   a triangulation file through `io/msh.py`.
 - `engines/` read `request.py`, `resample.py`, `model/` and `cells/`. They never import
   `planning/` or the workflow.
-- Nothing in the package imports the workflow or `spatial/field`. Both read the mesh.
+- Nothing in the package imports the workflow or `model/properties`. Both read the mesh.
 - gmsh is imported in one place, `engines/triangle/gmsh_triangulation.py`, so a regular or a
   Voronoi mesh never loads it.
 
@@ -181,9 +181,9 @@ What only a solver reads lives with that solver. The `sgrid` table of the MODFLO
 `discretization_spatial.py`) and the MODFLOW 6 DISV arguments (`to_flopy_disv_args` in
 `solver_mesh.py`) are in `hydromodpy/solver/modflow_grid/`. The cells a lake owns, the faces of
 its cutoff wall (`_lake_geometry.py`) and the share of a reach among the cells
-(`_sfr_network.py`) are in `hydromodpy/solver/modflow6/builders/`. The field package samples
-its property supports on the cells of a `PlanarCellMesh`, and draws one value per cell with
-`plot_cell_values` in `hydromodpy/spatial/field/plotting.py`.
+(`_sfr_network.py`) are in `hydromodpy/solver/modflow6/builders/`. The `model/properties`
+package samples its property supports on the cells of a `PlanarCellMesh`, and draws one value per cell with
+`plot_cell_values` in `hydromodpy/model/properties/plotting.py`.
 
 ## Changing the code
 

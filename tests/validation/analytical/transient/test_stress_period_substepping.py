@@ -522,8 +522,8 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     from types import SimpleNamespace
 
     from hydromodpy.core.state.run_state import RunState, SetupContext
-    from hydromodpy.physics.flow import Flow
-    from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+    from hydromodpy.model.model import Flow
+    from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
     from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
     from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.reference import (
         expected_linearized_unconfined_boundary_step_profiles,

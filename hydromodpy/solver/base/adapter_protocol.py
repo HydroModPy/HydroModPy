@@ -18,7 +18,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 
 
 @dataclass(frozen=True)

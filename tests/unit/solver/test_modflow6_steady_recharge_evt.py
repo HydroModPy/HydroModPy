@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.forcing.steady_periods import split_net_recharge
+from hydromodpy.model.forcing.steady_periods import split_net_recharge
 from hydromodpy.solver.modflow6.builders.recharge import (
     build_evt_stress_period_data,
     recharge_to_spd,

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import RETIRED_SECTIONS
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.solver.base.simulation_config import SimulationConfig
 
 SYNTHETIC = {"geographic": {"source_mode": "synthetic"}}
 

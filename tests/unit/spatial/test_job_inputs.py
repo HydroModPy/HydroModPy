@@ -10,10 +10,10 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
+from hydromodpy.model.domain.capability import DOMAIN_BUILD
 from hydromodpy.schema.job import JobDirectory
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.spatial import job_inputs
-from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
 
 pytestmark = pytest.mark.fast
 

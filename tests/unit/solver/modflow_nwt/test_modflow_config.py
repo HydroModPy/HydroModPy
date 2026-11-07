@@ -10,10 +10,10 @@ import pytest
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, SolverInputError
-from hydromodpy.physics.flow import FlowConfig
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
-from hydromodpy.solver.base.properties import resolve_required_flow_properties
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.properties.property_table import resolve_required_flow_properties
+from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,

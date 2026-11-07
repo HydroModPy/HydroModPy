@@ -13,7 +13,7 @@ these modules return.
 3. `heads.py` draws the mapped network from its heads, down the model's own descent (`trace_from_heads`, `HeadsSettings`). The free ends themselves are found in `spatial/geographic/core/network_heads.py`, which also defines `HeadCandidates`.
 4. `geometry.py` builds the static geometry of the comparison from the topography and the mapped network (`build_network_geometry`, `NetworkGeometry`, `CriterionSupports`, `VALIDITY_PROVENANCE_BY_CODE`).
 
-The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge the criterion divides by is in `spatial/forcing/recharge_rates.py`. The graph, the flood and the distances are in `spatial/drainage/`.
+The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge the criterion divides by is in `model/forcing/recharge_rates.py`. The graph, the flood and the distances are in `spatial/drainage/`.
 
 ## The criterion, read from a stored run
 
@@ -26,7 +26,7 @@ The numeric defaults are in `core/scoring/stream_defaults.py`. The mean recharge
 
 ## What other layers import from it
 
-`display` (all the figures of the stream criterion and of the routing surface), `calibration`, and `results` itself. `spatial`, `solver` and `simulation` do not: what they share with the criterion lives in `spatial/drainage/`, `spatial/forcing/` and `core/scoring/`.
+`display` (all the figures of the stream criterion and of the routing surface), `calibration`, and `results` itself. `spatial`, `solver` and `model` do not: what they share with the criterion lives in `spatial/drainage/`, `model/forcing/` and `core/scoring/`.
 
 ## Where to add what
 

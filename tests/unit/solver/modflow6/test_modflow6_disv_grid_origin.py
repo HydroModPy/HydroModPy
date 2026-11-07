@@ -15,7 +15,7 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.physics.transport.transport import Transport
+from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

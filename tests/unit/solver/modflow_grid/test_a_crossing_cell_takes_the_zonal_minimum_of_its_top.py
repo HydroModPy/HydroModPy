@@ -12,11 +12,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid.discretization_spatial import (
     _build_extruded_solver_mesh_from_runtime_planar,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (

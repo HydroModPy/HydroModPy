@@ -28,4 +28,4 @@ State histories (heads) are snapshots on `t0..tN`, flux histories are steps on `
 
 ## Import rules
 
-`boussinesq` imports `base` and the shared layers (`core`, `physics`, `spatial`, `simulation`), never `modflow_common`, `modflow_grid`, `modflow6` or `modflow_nwt`.
+`boussinesq` imports `base` and the shared layers (`core`, `model`, `spatial`), never `modflow_common`, `modflow_grid`, `modflow6` or `modflow_nwt`.

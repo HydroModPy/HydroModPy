@@ -17,13 +17,9 @@ from hydromodpy.core.state.run_state import ExecutionRegistry, LoadedDataContext
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.physics.flow.binders.streams import apply_sfr_network_to_flow
-from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import (
-    SoilReservoirConfig,
-    spinup_refusal,
-    steady_start_refusal,
-)
+from hydromodpy.model.boundaries.streams import apply_sfr_network_to_flow
+from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig, spinup_refusal, steady_start_refusal
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,

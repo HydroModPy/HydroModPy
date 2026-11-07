@@ -12,7 +12,7 @@ experimental (:doc:`../contracts`), so they can change in any minor version.
 They also have two limits today. The boundary conditions name the backends
 they support in a closed list, so a backend outside the tree that writes a
 boundary condition is refused when the file loads
-(``physics/flow/boundary_condition_registry.py``). The run index knows a closed
+(``model/boundaries/boundary_condition_registry.py``). The run index knows a closed
 list of solver codes too, so the index leaves out a run of such a backend, and
 says so (``results/catalog/index_schema.py``).
 
@@ -42,7 +42,7 @@ A solver implements the ``SolverAdapter`` Protocol declared in
        ) -> "dict[str, ObservableResult]": ...
 
 ``RunContext`` and ``RunExecutionResult`` are declared in
-``hydromodpy/simulation/planning/plan.py``. ``RunExecutionResult`` is a frozen
+``hydromodpy/solver/base/plan.py``. ``RunExecutionResult`` is a frozen
 dataclass with three fields:
 
 - ``primary_model``: the model the run produced, or ``None`` for a run that
@@ -67,7 +67,7 @@ A separate **output adapter** (the *extractor*) ingests the persisted
 outputs into the catalog. It is registered on the same
 ``(process_type, solver_name)`` pair as the adapter and implements the
 ``OutputAdapter`` Protocol of
-``hydromodpy/simulation/post_run.py``:
+``hydromodpy/workflow/steps/run_outputs.py``:
 
 .. code-block:: python
 
@@ -105,7 +105,7 @@ Minimal adapter skeleton
    # hydromodpy/solver/mysolver/adapters/flow.py
    from typing import ClassVar
 
-   from hydromodpy.simulation.planning.plan import RunExecutionResult
+   from hydromodpy.solver.base.plan import RunExecutionResult
 
 
    class MysolverFlowAdapter:
@@ -260,15 +260,15 @@ See :doc:`add-a-test` for the full ladder.
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``solver`` may import ``physics``, ``spatial``, ``simulation``, but
-  **not** ``data``, ``calibration``, ``results``, ``display``,
-  ``project``, or ``workflow``. If your adapter needs results, hand
-  the data through the ``ctx`` rather than importing ``results``.
+- ``solver`` may import ``model``, ``spatial`` and ``results``, but
+  **not** ``data``, ``calibration``, ``display``, ``project``, or
+  ``workflow``. If your adapter needs loaded data, take it from the
+  ``ctx`` rather than importing ``data``.
 - Do **not** cross-import another backend (``solver/modflow6/`` cannot
   import ``solver/modflow_nwt/`` and vice versa). Shared helpers go
   in ``solver/modflow_common/`` or ``solver/modflow_grid/``.
 - Underscored modules of another package (``data/_*``,
-  ``simulation/_*``) are off-limits.
+  ``model/_*``) are off-limits.
 
 See also
 --------

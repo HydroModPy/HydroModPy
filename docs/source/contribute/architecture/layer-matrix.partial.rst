@@ -72,15 +72,9 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - Package
      - Reads today
      - Goes to
-   * - ``physics``
-     - ``core``, ``physics``
-     - ``model``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
      - ``catchment``, ``mesh``, ``model``
-   * - ``simulation``
-     - ``core``, ``physics``, ``spatial``, ``simulation``
-     - ``model``, ``solver``, ``results``, ``data``, ``workflow``
 
 .. list-table:: Packages to come
    :header-rows: 1
@@ -88,8 +82,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
 
    * - Package
      - Comes from
-   * - ``model``
-     - ``physics``, ``simulation``, ``spatial``, ``solver``
    * - ``mesh``
      - ``spatial``
    * - ``catchment``
@@ -112,23 +104,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``solver``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``solver``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``solver``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``calibration``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``calibration``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``calibration``
@@ -136,23 +112,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``config``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``config``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``config``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``workflow``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``workflow``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``workflow``
@@ -160,19 +120,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``project``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``project``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``project``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``model``
@@ -182,15 +130,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - ``mesh``
      - ``spatial``
      - any file
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``physics``
-     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``simulation``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
      - It goes with the package it reads.
    * - ``<root>``
      - ``spatial``

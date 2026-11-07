@@ -14,8 +14,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.physics.flow.time_forcing import compact_pre_resolved_forcings
-from hydromodpy.solver.base.initial_conditions import (
+from hydromodpy.model.forcing.time_forcing import compact_pre_resolved_forcings
+from hydromodpy.model.initial.heads import (
     cycles_have_settled,
     cyclic_flow_copy_for_initialization,
     cyclic_spinup_strategy,

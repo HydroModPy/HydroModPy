@@ -10,29 +10,29 @@ type should be used for a given heterogeneous parameterization?
 Code map
 --------
 
-- ``hydromodpy/spatial/domain/domain_config.py``:
+- ``hydromodpy/model/domain/domain_config.py``:
   validation of domain support declarations.
-- ``hydromodpy/spatial/domain/spatial_support_config.py``:
+- ``hydromodpy/model/domain/spatial_support_config.py``:
   typed support-definition models.
-- ``hydromodpy/spatial/domain/spatial_support.py``:
+- ``hydromodpy/model/domain/spatial_support.py``:
   runtime support builders.
-- ``hydromodpy/spatial/domain/support_fields.py``:
+- ``hydromodpy/model/domain/support_fields.py``:
   the band, ring and raster zone fields and their sampling on a mesh.
-- ``hydromodpy/spatial/field/field_param.py``:
+- ``hydromodpy/model/properties/field_param.py``:
   consumer side through ``field_spatial_id``.
-- ``hydromodpy/spatial/field/zone_fractions.py``: the fraction of every zone
+- ``hydromodpy/model/properties/zone_fractions.py``: the fraction of every zone
   in every cell, for every mesh.
-- ``hydromodpy/solver/base/properties.py``: the one mapping of a
+- ``hydromodpy/model/properties/property_table.py``: the one mapping of a
   heterogeneous parameter to solver arrays.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/spatial/domain/spatial_support_config.py``
-2. ``hydromodpy/spatial/domain/spatial_support.py``
-3. ``hydromodpy/spatial/field/field_param.py``
-4. ``hydromodpy/spatial/field/zone_fractions.py`` and
-   ``hydromodpy/solver/base/properties.py``
+1. ``hydromodpy/model/domain/spatial_support_config.py``
+2. ``hydromodpy/model/domain/spatial_support.py``
+3. ``hydromodpy/model/properties/field_param.py``
+4. ``hydromodpy/model/properties/zone_fractions.py`` and
+   ``hydromodpy/model/properties/property_table.py``
 
 Core rule
 ---------

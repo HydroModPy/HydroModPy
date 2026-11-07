@@ -98,7 +98,7 @@ RESULT_BUILDERS = {
     "solver/modflow_nwt/adapters/transport_modpath.py": "Modpath",
     # A mesh run produces no model. The site is listed with nothing beside it so
     # that a producer without a class is a statement and not an omission.
-    "simulation/execution/runner.py": None,
+    "solver/base/runner.py": None,
 }
 
 
@@ -140,7 +140,7 @@ def test_no_producer_escapes_the_list() -> None:
     """An eighth adapter cannot ship without declaring the class it hands back.
 
     The whole package is scanned, not only ``solver/``: a result built in
-    ``simulation/`` or ``calibration/`` reaches the same field.
+    ``workflow/`` or ``calibration/`` reaches the same field.
     """
     found = {
         path.relative_to(PACKAGE_ROOT).as_posix()

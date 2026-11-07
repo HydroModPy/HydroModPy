@@ -16,7 +16,7 @@ What a reference may be
 - a run name, with or without its ``.vN`` (the latest version without);
 - the ``sim_id`` of a sealed run, or an unambiguous prefix of it;
 - the table ``{sim_id, path}`` a frozen ``config.toml`` writes
-  (:class:`~hydromodpy.physics.flow.flow_config.RestartReference`): the
+  (:class:`~hydromodpy.model.flow_config.RestartReference`): the
   ``sim_id`` is looked up first, among the runs of this project, then the
   ``path``, so a replay in another project still finds its store.
 """
@@ -29,7 +29,7 @@ from pathlib import Path
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.result_dirs import run_dir_rel
-from hydromodpy.physics.flow.flow_config import RestartReference
+from hydromodpy.model.flow_config import RestartReference
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME

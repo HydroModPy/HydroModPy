@@ -1,7 +1,7 @@
 """Step 9 - what a run derives once its fields are in the store.
 
 Every derived field is rebuilt on read, so this step writes none. It runs
-:func:`~hydromodpy.simulation.post_run.derive_run_outputs` for each
+:func:`~hydromodpy.workflow.steps.run_outputs.derive_run_outputs` for each
 solver-backed run: the discharge band of the drains and the catchment
 aggregates. It writes the simulated series of each observed station
 (:func:`~hydromodpy.calibration.runners.promotion.write_station_series`) and
@@ -95,8 +95,8 @@ class DeriveStep:
 
         plan = ctx.execution.simulation_plan
         if plan is not None:
-            from hydromodpy.simulation.post_run import derive_run_outputs
-            from hydromodpy.simulation.planning.plan import RunContext
+            from hydromodpy.solver.base.plan import RunContext
+            from hydromodpy.workflow.steps.run_outputs import derive_run_outputs
 
             results_cfg = ctx.cfg.simulation.results
             with run_store(ctx) as store:

@@ -11,7 +11,7 @@ negative when it leaves.
 
 ## What other layers import from it
 
-`results` (most of the users), `solver`, `workflow`, `display` and `simulation`.
+`results` (most of the users), `solver`, `workflow` and `display`.
 
 ## Where to add what
 

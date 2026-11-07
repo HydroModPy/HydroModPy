@@ -11,7 +11,7 @@ from flopy.utils import GridIntersect
 from shapely import affinity
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.physics.flow.sinks_sources.lake import BathymetryReconstructionConfig
+from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import SIMULATED_SERIES, export_kind
 from hydromodpy.solver.modflow6.builders._lake_geometry import (

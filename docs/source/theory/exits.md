@@ -133,7 +133,7 @@ Example 04 declares the drains alone:
 | What | Where |
 |---|---|
 | The order of the build | `hydromodpy/solver/modflow6/build.py` |
-| What a file may say about an exit | `hydromodpy/physics/flow/boundary_condition_registry.py`, `hydromodpy/physics/flow/sinks_sources/` |
+| What a file may say about an exit | `hydromodpy/model/boundaries/boundary_condition_registry.py`, `hydromodpy/model/sinks_sources/` |
 
 ## See also
 

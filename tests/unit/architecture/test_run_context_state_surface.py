@@ -32,7 +32,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = REPO_ROOT / "hydromodpy"

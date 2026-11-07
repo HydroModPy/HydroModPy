@@ -21,7 +21,7 @@ from scipy.spatial import Delaunay
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
+from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.mesh import registry

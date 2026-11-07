@@ -31,6 +31,7 @@ In the order `standard_steps()` calls them. Helpers follow the step that uses th
 | `prepare_solver/` | step `prepare_solver`: opens the run (see its README) |
 | `run_solver.py` | step `run_solver`: executes the plan with `SimulationRunner` |
 | `extract.py` | step `extract`: solver files read into the store, observations ingested |
+| `run_outputs.py` | what happens after a solve: `extract_run_outputs`, `derive_run_outputs`, the export functions and `cleanup_solver_outputs`, which `extract.py`, `derive.py` and `export.py` call, and `OutputAdapter`, the port a solver extractor follows |
 | `derive.py` | step `derive`: catchment aggregates, observation points, fit metrics |
 | `display.py` | step `display`: the figures of `[display]` |
 | `export.py` | steps `export` and `seal`: the `[[export]]` requests, the scratch cleanup, then the seal |
@@ -44,7 +45,7 @@ steps/
   sequence.py        order of the thirteen
   validate.py  resolve.py  setup.py  data.py  mesh.py  run_solver.py
   extract.py  derive.py  display.py  export.py     one module per step
-  data_description.py  mesh_inputs.py  planning.py  helpers of a step
+  run_outputs.py  data_description.py  mesh_inputs.py  planning.py  helpers of a step
   dependencies.py  calibration.py                  used by trials
   prepare_solver/    the step that opens the run
 ```
@@ -55,6 +56,7 @@ steps/
 |---|---|
 | a step | a module here with its `step_*` function and `*Step` class, exported by `__init__.py`, placed in `sequence.py` and its name in `core/pipeline_steps.py`, with `depends_on`, `reads`, `writes` and `config_sections` |
 | a persistent step | `artifacts` and `rebuild_state` on the step, so a resume can skip it |
-| a way to bind loaded data | a function in `data.py` calling the binder of `physics` or `spatial` |
+| a way to bind loaded data | a function in `data.py` calling the binder of `model/boundaries/` or `model/domain/` |
+| something done after the solve | a function in `run_outputs.py` and its call in the matching step (`extract.py`, `derive.py` or `export.py`) |
 | a config section that moves a step | `config_sections` of the step (read by `dependencies.py`) |
 | something written when the run opens | `prepare_solver/` |

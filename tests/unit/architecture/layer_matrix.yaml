@@ -41,12 +41,9 @@ transitional:
   # and where its modules go. A row leaves with its package. These rows are
   # written lowest first too.
   leaving:
-    physics:    {reads: [core, physics], goes_to: [model]}
     spatial:    {reads: [core, schema, spatial], goes_to: [catchment, mesh, model]}
-    simulation: {reads: [core, physics, spatial, simulation], goes_to: [model, solver, results, data, workflow]}
   # Rows of the target whose package does not exist yet.
   arriving:
-    model:     {comes_from: [physics, simulation, spatial, solver]}
     mesh:      {comes_from: [spatial]}
     catchment: {comes_from: [spatial]}
   # Imports of today that no row grants. An edge into a leaving package goes
@@ -54,31 +51,14 @@ transitional:
   edges:
     - {src: data,        tgt: spatial}
     - {src: results,     tgt: spatial}
-    - {src: solver,      tgt: physics}
-    - {src: solver,      tgt: simulation}
     - {src: solver,      tgt: spatial}
-    - {src: calibration, tgt: physics}
-    - {src: calibration, tgt: simulation}
     - {src: calibration, tgt: spatial}
-    - {src: config,      tgt: physics}
-    - {src: config,      tgt: simulation}
     - {src: config,      tgt: spatial}
-    - {src: workflow,    tgt: physics}
-    - {src: workflow,    tgt: simulation}
     - {src: workflow,    tgt: spatial}
-    - {src: project,     tgt: physics}
-    - {src: project,     tgt: simulation}
     - {src: project,     tgt: spatial}
-    - {src: cli,         tgt: simulation}
     # model and mesh are built before spatial is emptied, and read it meanwhile.
     - {src: model,       tgt: spatial}
     - {src: mesh,        tgt: spatial}
-    - src: "<root>"
-      tgt: physics
-      files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
-    - src: "<root>"
-      tgt: simulation
-      files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
     - src: "<root>"
       tgt: spatial
       files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]

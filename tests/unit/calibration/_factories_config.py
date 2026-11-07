@@ -12,10 +12,10 @@ from pathlib import Path
 
 from hydromodpy.calibration.preflight import PreflightFinding, preflight_calibration
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.soil.config import SoilReservoirConfig
 from tests.unit.calibration._factories import _Project
 
 MACROS = {

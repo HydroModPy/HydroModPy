@@ -14,11 +14,11 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

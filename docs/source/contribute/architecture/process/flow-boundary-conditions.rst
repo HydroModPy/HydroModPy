@@ -33,13 +33,13 @@ Quick access
      - Primary code location
      - What to look for
    * - Which ids can ``[flow.bc.<id>]`` take, and which can ``FlowConfig.active_bc`` hold?
-     - ``hydromodpy.physics.flow.FLOW_BOUNDARY_DEFINITIONS``
+     - ``hydromodpy.model.boundaries.boundary_condition_registry.FLOW_BOUNDARY_DEFINITIONS``
      - Canonical id, family, support kind, and backend support.
    * - How is TOML normalized?
-     - ``hydromodpy.physics.flow.boundary_condition_registry``
+     - ``hydromodpy.model.boundaries.boundary_condition_registry``
      - Accepted ``[flow.bc]`` shapes before typed validation.
    * - What does a solver adapter consume?
-     - ``hydromodpy.physics.flow.BoundaryConditionBundle``
+     - ``hydromodpy.model.boundaries.boundary_condition_registry.BoundaryConditionBundle``
      - Configured boundary payloads plus explicit active ids.
    * - Where is MF6 assembly handled?
      - ``hydromodpy.solver.modflow6.builders.boundary_conditions``
@@ -51,18 +51,18 @@ Quick access
      - ``hydromodpy.solver.boussinesq.forcing``
      - Prescribed-head support and drainage operator resolution.
    * - Which tests cover the registry contract?
-     - ``tests/unit/physics/test_flow_boundary_condition_registry.py``
+     - ``tests/unit/model/boundaries/test_flow_boundary_registry.py``
      - Registry ids, backend support, bundle behavior, and Flow integration.
 
 Code map
 --------
 
-- ``hydromodpy.physics.flow.boundary_conditions``:
+- ``hydromodpy.model.boundaries.boundary_conditions``:
   normalized boundary-condition payload models.
-- ``hydromodpy.physics.flow.boundary_condition_registry``:
+- ``hydromodpy.model.boundaries.boundary_condition_registry``:
   the canonical boundary registry (``FLOW_BOUNDARY_DEFINITIONS``) and the runtime
   bundle helpers.
-- ``hydromodpy.physics.flow.flow``:
+- ``hydromodpy.model.model``:
   runtime ``Flow`` object storing the boundary bundle.
 - ``hydromodpy.solver.modflow6.builders.boundary_conditions``:
   MF6 ``CHD`` / ``DRN`` translation.

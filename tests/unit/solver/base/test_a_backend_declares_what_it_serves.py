@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.base.observables import ObservableSupport
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 

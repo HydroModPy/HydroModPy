@@ -30,19 +30,19 @@ Sections live close to the package they configure:
      - ``hydromodpy/spatial/geographic/geographic_config.py``
    * - ``[domain]``
      - ``DomainConfig``
-     - ``hydromodpy/spatial/domain/domain_config.py``
+     - ``hydromodpy/model/domain/domain_config.py``
    * - ``[data]``
      - ``DataManagersConfig``
      - ``hydromodpy/data/loading/config_schema.py``
    * - ``[flow]``
      - ``FlowConfig``
-     - ``hydromodpy/physics/flow/flow_config.py``
+     - ``hydromodpy/model/flow_config.py``
    * - ``[transport]``
      - ``TransportConfig``
-     - ``hydromodpy/physics/transport/transport_config.py``
+     - ``hydromodpy/model/transport/transport_config.py``
    * - ``[simulation]``
      - ``SimulationConfig``
-     - ``hydromodpy/simulation/planning/config.py``
+     - ``hydromodpy/solver/base/simulation_config.py``
    * - ``[solver]``
      - ``SolverConfig``
      - ``hydromodpy/solver/base/solver_config.py``
@@ -160,7 +160,7 @@ Add a field to an existing section
 
 .. code-block:: python
 
-   # hydromodpy/physics/flow/flow_config.py
+   # hydromodpy/model/flow_config.py
    from typing import Annotated
    from pydantic import Field
    from hydromodpy.core.config_kit.profile import Profile

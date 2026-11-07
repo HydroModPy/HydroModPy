@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.geology_field import regular_cell_mesh_over_bounds
+from hydromodpy.model.properties.geology_field import regular_cell_mesh_over_bounds
 from tools.cases.geology import run_geology_property_case as demo
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"

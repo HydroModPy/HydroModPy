@@ -70,7 +70,7 @@ the package, and they do import each other: `catalog` composes `run`,
 `derive`, `exporters`, `zarr_store` and the sidecars, and `run` and `derive`
 call back into `catalog` and `zarr_store`. Rules that hold:
 
-1. `results` never imports `data`, `simulation`, `solver` or `catalog` (the
+1. `results` never imports `data`, `solver` or `catalog` (the
    top-level facade layer). Names those layers write are restated here and
    point to the module that writes them (`exporters/vocabulary.py`).
 2. The cache database of `data` is never opened by `results`: the three

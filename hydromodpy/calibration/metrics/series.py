@@ -13,7 +13,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import runoff_m3_s_on_index
-from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
+from hydromodpy.model.forcing.cells import spatial_mean_from_fields
 
 logger = get_logger(__name__)
 

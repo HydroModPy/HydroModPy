@@ -18,7 +18,7 @@ import shapely
 from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall
+from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine

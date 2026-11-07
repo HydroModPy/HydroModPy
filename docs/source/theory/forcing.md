@@ -74,7 +74,7 @@ grid. A cell that no finite pixel reaches takes the nearest pixel. A station sou
 file. Any other record, or a file with another suffix, stops the run with an error that names
 what it received and the formats it reads.
 
-In the code: `resolve_forcing`, and the area weights in `hydromodpy/spatial/forcing/area_weights.py`.
+In the code: `resolve_forcing`, and the area weights in `hydromodpy/model/forcing/area_weights.py`.
 
 (forcing-units)=
 ## 3. Units
@@ -342,11 +342,10 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.physics.forcing
-hydromodpy.spatial.forcing
-hydromodpy.physics.forcing.steady_periods
-hydromodpy.physics.flow.time_forcing
-hydromodpy.physics.flow.binders
+hydromodpy.model.forcing
+hydromodpy.model.forcing.steady_periods
+hydromodpy.model.forcing.time_forcing
+hydromodpy.model.boundaries
 hydromodpy.core.time
 hydromodpy.core.time.coverage
 hydromodpy.solver.modflow6.builders.recharge
@@ -357,12 +356,12 @@ hydromodpy.solver.modflow6.builders.recharge
 | What | Where |
 |---|---|
 | Window and edges | `hydromodpy/core/time/window.py` |
-| Station mean, spatial mode | `hydromodpy/physics/forcing/forcing_bridge.py` |
+| Station mean, spatial mode | `hydromodpy/model/forcing/forcing_bridge.py` |
 | The coverage rule, for every record | `hydromodpy/core/time/coverage.py` |
-| Series to periods | `hydromodpy/physics/forcing/time_alignment.py`, `hydromodpy/physics/flow/time_forcing.py` |
-| Grids and stations to cells and periods | `hydromodpy/spatial/forcing/` |
-| Units, the binders, runoff and lake forcing | `hydromodpy/physics/flow/binders/`, `hydromodpy/workflow/steps/data.py` |
-| Steady periods and the split of a negative recharge | `hydromodpy/physics/forcing/steady_periods.py` |
+| Series to periods | `hydromodpy/model/forcing/time_alignment.py`, `hydromodpy/model/forcing/time_forcing.py` |
+| Grids and stations to cells and periods | `hydromodpy/model/forcing/` (`cells.py`, `rasters.py`, `stations.py`) |
+| Units, the binders, runoff and lake forcing | `hydromodpy/model/boundaries/`, `hydromodpy/workflow/steps/data.py` |
+| Steady periods and the split of a negative recharge | `hydromodpy/model/forcing/steady_periods.py` |
 | The recharge and ETP packages | `hydromodpy/solver/modflow6/builders/recharge.py`, `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py`, `hydromodpy/solver/boussinesq/forcing/` |
 
 ## See also

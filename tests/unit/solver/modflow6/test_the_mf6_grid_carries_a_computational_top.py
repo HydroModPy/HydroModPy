@@ -268,7 +268,7 @@ def _flow_model(tmp_path: Path, ground: np.ndarray):
 
 def test_the_transport_and_tracking_grids_carry_the_flow_top(tmp_path) -> None:
     pytest.importorskip("flopy")
-    from hydromodpy.physics.transport.transport import Transport
+    from hydromodpy.model.transport.transport import Transport
     from hydromodpy.solver.modflow6.prt import Modflow6Prt
     from hydromodpy.solver.modflow6.transport import Modflow6Transport
 

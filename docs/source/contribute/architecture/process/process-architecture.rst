@@ -1,7 +1,7 @@
 Process architecture
 ====================
 
-This page is the code-oriented entry point for ``hydromodpy.physics``,
+This page is the code-oriented entry point for ``hydromodpy.model``,
 the layer that turns validated configuration into the runtime
 ``Flow`` and ``Transport`` objects consumed by solver adapters.
 
@@ -12,29 +12,32 @@ extension) in one place.
 Package map
 -----------
 
-The current ``hydromodpy.physics`` stack is split into six concerns:
+The current ``hydromodpy.model`` package is split into six concerns.
+No package file exports a name: each name is imported from the module
+that defines it.
 
-- ``hydromodpy.physics``: the public facade, which exports the main
-  process symbols.
-- ``hydromodpy.physics.contracts``: explicit import path for generic
+- ``hydromodpy.model.contracts``: explicit import path for generic
   process-layer contracts reused internally.
-- ``hydromodpy.physics.base``: process-agnostic building blocks
-  (``ProcessSpatial``,
-  ``InitialCondition``, ``BoundaryCondition``, ``SinkSource``).
-- ``hydromodpy.physics.flow``: concrete flow process plus typed
-  config and payload models.
-- ``hydromodpy.physics.transport``: concrete transport process plus
+- ``hydromodpy.model.process_spatial``, ``hydromodpy.model.payloads`` and
+  ``hydromodpy.model.forcing.dated_forcing``: process-agnostic building
+  blocks (``ProcessSpatial``, ``InitialCondition``, ``BoundaryCondition``,
+  ``SinkSource``, ``TimeSeriesForcing``).
+- ``hydromodpy.model.model``, ``hydromodpy.model.flow_config`` and the
+  folders ``boundaries``, ``sinks_sources`` and ``initial``: concrete flow
+  process plus typed config and payload models.
+- ``hydromodpy.model.transport``: concrete transport process plus
   typed config.
-- ``hydromodpy.physics.forcing``: helpers that turn loaded data into
-  process-ready forcing payloads aligned to simulation time.
-- ``hydromodpy.physics.hydrology``: hydrological utilities and synthetic
-  forcing helpers.
+- ``hydromodpy.model.forcing``: helpers that turn loaded data into
+  process-ready forcing payloads aligned to simulation time, and put
+  gridded forcings on the cells of a mesh.
+- ``hydromodpy.model.soil``: the daily soil reservoir that makes a
+  recharge from the weather.
 
 Runtime role:
 
-- ``physics`` defines the hydrological problem payloads,
-- ``simulation`` decides when those payloads are executed,
-- ``solver`` decides how they are numerically solved.
+- ``model`` defines the hydrological problem payloads,
+- ``solver`` decides when those payloads are executed (``solver/base/runner.py``)
+  and how they are numerically solved.
 
 Reading paths by concern
 ------------------------
@@ -42,31 +45,30 @@ Reading paths by concern
 **Generic process contracts** ("what is the shared contract behind
 process objects?"):
 
-1. ``hydromodpy/physics/contracts.py``
-2. ``hydromodpy/physics/base/__init__.py``
-3. files under ``hydromodpy/physics/base/``
+1. ``hydromodpy/model/contracts.py``
+2. ``hydromodpy/model/process_spatial.py``
+3. ``hydromodpy/model/payloads.py``
 
 **Flow process** ("what does the project materialize before a flow
 solve?"):
 
-1. ``hydromodpy/physics/flow/__init__.py``
-2. ``hydromodpy/physics/flow/flow.py``
-3. ``hydromodpy/physics/flow/flow_config.py``
-4. initial / boundary / sinks-source payload files in the same
-   package
+1. ``hydromodpy/model/model.py``
+2. ``hydromodpy/model/flow_config.py``
+3. initial / boundary / sinks-source payload files in
+   ``hydromodpy/model/initial/``, ``boundaries/`` and ``sinks_sources/``
 
 **Transport process** ("what transport runtime object is passed to
 the adapter?"):
 
-1. ``hydromodpy/physics/transport/transport.py``
-2. ``hydromodpy/physics/transport/transport_config.py``
+1. ``hydromodpy/model/transport/transport.py``
+2. ``hydromodpy/model/transport/transport_config.py``
 
 **Forcing** ("how do loaded data become solver-ready time series?"):
 
-1. ``hydromodpy/physics/forcing/forcing_bridge.py`` (``resolve_forcing``)
-2. ``hydromodpy/physics/forcing/time_alignment.py``
-3. ``hydromodpy/physics/flow/binders/`` (the ``apply_*_to_flow``
-   functions)
+1. ``hydromodpy/model/forcing/forcing_bridge.py`` (``resolve_forcing``)
+2. ``hydromodpy/model/forcing/time_alignment.py``
+3. ``hydromodpy/model/boundaries/`` (the ``apply_*_to_flow``
+   functions of ``climate.py``, ``lakes.py``, ``streams.py`` and ``barriers.py``)
 
 **Adding a new process**: see :doc:`../how-to/add-a-process`.
 

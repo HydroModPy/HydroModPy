@@ -16,13 +16,13 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.forcing.recharge_rates import mean_recharge_m_s
 from hydromodpy.results.derive.stream.geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.results.derive.stream.heads import (
     HeadsSettings,
     concat_candidates,
     trace_from_heads,
 )
-from hydromodpy.spatial.forcing.recharge_rates import mean_recharge_m_s
 from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
     from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
-    from hydromodpy.simulation.planning.plan import RunContext
+    from hydromodpy.solver.base.plan import RunContext
 
 logger = get_logger(__name__)
 

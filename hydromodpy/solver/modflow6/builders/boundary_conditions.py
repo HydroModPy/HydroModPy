@@ -13,12 +13,12 @@ from hydromodpy.core.units import (
     factor_to_m2_per_s,
     normalize_length_unit,
 )
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     active_side_dirichlet_boundary_ids,
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,

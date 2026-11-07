@@ -20,15 +20,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.physics.flow.binders.payloads import payloads_as_mappings
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.sinks_sources import (
+from hydromodpy.model.boundaries.binder_payloads import payloads_as_mappings
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.lake import (
     FlowLakeConfig,
     FlowLakeOutletManning,
     FlowLakeOutletMover,
     FlowLakeOutletSpecified,
     FlowLakeOutletWeir,
-    FlowSinksSourcesConfig,
 )
 from hydromodpy.solver.modflow6.builders.lake import convert_bedleak_to_per_s
 

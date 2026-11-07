@@ -13,7 +13,7 @@ from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     register_trial_pipeline_provider,
 )
-from hydromodpy.spatial.domain.spatial_support import (
+from hydromodpy.model.domain.spatial_support import (
     build_default_spatial_support_provider_registry,
     collect_requested_support_ids,
     resolve_support_configs,

@@ -16,7 +16,7 @@ for every registered field (``time: point`` or ``time: mean``), and
 :func:`hydromodpy.results.derive.time_alignment.time_method_for` reads it first.
 The table below names what the registry does not hold: the calibration
 variables and the observed families. It also repeats the registry states, so a
-layer that may not read the registry, such as ``simulation``, resolves them the
+layer that may not read the registry, such as ``core.time``, resolves them the
 same way; a unit test keeps the two in agreement.
 
 An unknown name is ``"mean"``. That is the rule the discharge scoring was

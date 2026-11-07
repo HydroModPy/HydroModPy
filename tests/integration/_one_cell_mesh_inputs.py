@@ -33,8 +33,8 @@ from shapely.geometry import Polygon, box
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult, PointRecord, StationLocation
 from hydromodpy.data.variables.geology.field import build_geology_field
-from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import Flow
 from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import resolve_runtime_solver_mesh
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.modflow6.builders.recharge import (

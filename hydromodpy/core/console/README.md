@@ -10,7 +10,7 @@ terminal and a second sink that writes the same progress as lines of JSON.
 
 ## What other layers import from it
 
-`data`, `solver`, `spatial`, `workflow`, `physics`, `cli` and `calibration` import `progress`. The logging policy that decides when the display runs is in `hydromodpy/core/logging.py`.
+`data`, `solver`, `spatial`, `workflow`, `model`, `cli` and `calibration` import `progress`. The logging policy that decides when the display runs is in `hydromodpy/core/logging.py`.
 
 ## Where to add what
 

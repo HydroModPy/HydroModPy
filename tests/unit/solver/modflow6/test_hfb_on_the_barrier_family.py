@@ -17,7 +17,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from shapely.geometry import LineString
 
-from hydromodpy.physics.flow.sinks_sources import FlowBarrierConfig
+from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall
 from hydromodpy.solver.modflow6.builders.flow_barrier import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

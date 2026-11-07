@@ -534,13 +534,13 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.physics.flow
-hydromodpy.spatial.domain
-hydromodpy.spatial.field.field_param
-hydromodpy.solver.base.properties
+hydromodpy.model.model
+hydromodpy.model.flow_config
+hydromodpy.model.domain
+hydromodpy.model.properties.field_param
+hydromodpy.model.properties.property_table
 hydromodpy.solver.modflow_grid
-hydromodpy.solver.base.initial_conditions
-hydromodpy.solver.base.initial_conditions
+hydromodpy.model.initial.heads
 hydromodpy.solver.modflow6.build
 hydromodpy.solver.modflow_nwt.nwt
 ```
@@ -549,15 +549,15 @@ hydromodpy.solver.modflow_nwt.nwt
 
 | What | Where |
 |---|---|
-| The top, the bottom and the raster depth models | `hydromodpy/spatial/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/spatial/domain/depth_model_config.py` |
-| Reading the substratum raster | `hydromodpy/spatial/domain/build.py` (`read_substratum_source`) |
-| Layers, the check bottom below top | `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
-| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/solver/base/properties.py`, `resolve_required_flow_properties` |
-| The depth factor | `hydromodpy/spatial/field/vertical_profile.py` (`vertical_factor`, read by `FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
+| The top, the bottom and the raster depth models | `hydromodpy/model/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/model/domain/depth_model_config.py` |
+| Reading the substratum raster | `hydromodpy/model/domain/build.py` (`read_substratum_source`) |
+| Layers, the check bottom below top | `hydromodpy/model/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
+| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/model/properties/property_table.py`, `resolve_required_flow_properties` |
+| The depth factor | `hydromodpy/model/properties/vertical_profile.py` (`vertical_factor`, read by `FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
 | The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`), `hydromodpy/solver/modflow6/builders/solver_options.py` (`newton_options`) |
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
 | Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |
-| The starting heads | `hydromodpy/solver/base/initial_conditions.py`, `hydromodpy/solver/base/initial_conditions.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
+| The starting heads | `hydromodpy/model/initial/heads.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
 
 ## See also
 

@@ -25,7 +25,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.exceptions import ConfigValidationError, FrozenConfigError
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel
+from hydromodpy.model.domain.depth_model_config import ConstantThicknessDepthModel
 
 
 class _Inner(HydroModelBase):

@@ -312,6 +312,7 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
             --cov-branch \
             --cov-report= \
@@ -331,6 +332,7 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/model \
             --cov=hydromodpy/results/derive/stream \
             --cov-branch \
             --cov-append \
@@ -342,6 +344,8 @@ jobs:
       # an average. The floors only go up: raise each to the value a clean-up
       # lot reaches. A floor goes down only when files enter or leave a package, or
       # covered code leaves it, with no covered line lost, and the commit says so.
+      # The domain, properties, forcing and lake bed lines gate the parts of model/ that
+      # came from spatial/, on the same files as before the move.
       # The line before the last gates the modules at the top of spatial/. The last one
       # gates results/derive/stream, which no other job measures: its tests run in this unit tier.
       - name: Gate the spatial coverage
@@ -350,12 +354,12 @@ jobs:
           coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.24
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
-          coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/model/domain/*' --omit='hydromodpy/model/domain/lake_bed_*,hydromodpy/model/domain/structure_binders.py' --precision=2 --fail-under=99.3
           coverage report --include='hydromodpy/spatial/drainage/*' --precision=2 --fail-under=93.7
-          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=98.7
-          coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.7
+          coverage report --include='hydromodpy/model/properties/*' --omit='hydromodpy/model/properties/physical_properties.py,hydromodpy/model/properties/property_ids.py,hydromodpy/model/properties/property_table.py' --precision=2 --fail-under=98.7
+          coverage report --include='hydromodpy/model/forcing/__init__.py,hydromodpy/model/forcing/area_weights.py,hydromodpy/model/forcing/cells.py,hydromodpy/model/forcing/interpolation.py,hydromodpy/model/forcing/rasters.py,hydromodpy/model/forcing/recharge_rates.py,hydromodpy/model/forcing/sources.py,hydromodpy/model/forcing/stations.py' --precision=2 --fail-under=99.7
           coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.4
-          coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
+          coverage report --include='hydromodpy/model/domain/lake_bed_*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
           coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.66

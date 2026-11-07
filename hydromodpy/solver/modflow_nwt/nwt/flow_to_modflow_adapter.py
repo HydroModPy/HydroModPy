@@ -29,11 +29,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.fields.grid_reference import GridReference
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
-from hydromodpy.solver.base.properties import (
+from hydromodpy.model.properties.property_table import (
     require_positive_conductivity,
     require_positive_storage,
     resolve_required_flow_properties,

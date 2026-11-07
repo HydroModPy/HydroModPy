@@ -22,12 +22,10 @@ import pytest
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.derive.catchment_aggregation import aggregate_catchment_timeseries
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.catchment_aggregation import (
-    aggregate_catchment_timeseries,
-)
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,
     extract_head_history_at_cells,

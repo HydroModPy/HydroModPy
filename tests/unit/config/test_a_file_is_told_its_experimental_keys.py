@@ -26,7 +26,7 @@ from hydromodpy.core.config_kit.written import (
     written_experimental_keys,
 )
 from hydromodpy.core.console.progress import MILESTONE_KEY
-from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
 from hydromodpy.project.check import check_project
 from hydromodpy.project.dispatch.workflow import run_overview

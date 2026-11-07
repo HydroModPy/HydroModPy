@@ -16,8 +16,8 @@ import shapely
 from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.physics.flow.cutoff_wall_shore import snap_wall_to_shore
-from hydromodpy.physics.flow.sinks_sources import CutoffWallConfig
+from hydromodpy.model.boundaries.cutoff_wall_shore import snap_wall_to_shore
+from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, lake_shore_faces
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     check_cutoff_wall_seal,

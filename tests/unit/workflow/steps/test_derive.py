@@ -11,8 +11,8 @@ import hydromodpy.workflow.steps.derive as derive_module
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.fit_metrics import score_run_under_its_rule
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
+from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.derive import DeriveStep
 
@@ -60,7 +60,7 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
     scored: list[tuple] = []
     monkeypatch.setattr(derive_module, "run_store", _scope)
     monkeypatch.setattr(
-        "hydromodpy.simulation.post_run.derive_run_outputs",
+        "hydromodpy.workflow.steps.run_outputs.derive_run_outputs",
         lambda **kwargs: calls.append(kwargs),
     )
     monkeypatch.setattr(

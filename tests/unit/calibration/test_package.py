@@ -27,7 +27,7 @@ from hydromodpy.results.session.view import TRIAL_COLUMNS
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
-from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.plan import RunContext
 from tests.unit.calibration._factories_runners import make_report, make_session
 
 _WINDOW = PeriodWindow(role="calibration", start=date(2000, 1, 1), end=date(2000, 12, 31))

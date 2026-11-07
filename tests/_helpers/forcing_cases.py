@@ -21,7 +21,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.spatial.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

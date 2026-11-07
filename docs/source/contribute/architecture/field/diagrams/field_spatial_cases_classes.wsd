@@ -5,11 +5,11 @@ package "hydromodpy.spatial.mesh.model.planar_cell_mesh" {
   class PlanarCellMesh
 }
 
-package "hydromodpy.spatial.field.mesh_cells" {
+package "hydromodpy.model.properties.mesh_cells" {
   class "cell_mesh_from_edges(x_edges, y_edges, crs_wkt)" as cell_mesh_from_edges << (F,#FFFFFF) function >>
 }
 
-package "hydromodpy.spatial.field.field_spatial" {
+package "hydromodpy.model.properties.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(cell_mesh, cell_samples_per_axis=10)
@@ -25,7 +25,7 @@ package "hydromodpy.spatial.field.field_spatial" {
   }
 }
 
-package "hydromodpy.spatial.field.field_spatial" {
+package "hydromodpy.model.properties.field_spatial" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
@@ -34,7 +34,7 @@ package "hydromodpy.spatial.field.field_spatial" {
   }
 }
 
-package "hydromodpy.spatial.field.field_param" {
+package "hydromodpy.model.properties.field_param" {
   class FieldParam {
     +identifier: str
     +kind: str
@@ -43,7 +43,7 @@ package "hydromodpy.spatial.field.field_param" {
   }
 }
 
-package "hydromodpy.spatial.field.two_zone_field" {
+package "hydromodpy.model.properties.two_zone_field" {
   class FieldSquare {
     +line: str
     +zone1_side: str
@@ -55,7 +55,7 @@ package "hydromodpy.spatial.field.two_zone_field" {
   }
 }
 
-package "hydromodpy.spatial.field.unit_square_mesh" {
+package "hydromodpy.model.properties.unit_square_mesh" {
   class FieldMeshSquare {
     +from_unit_square(target_n_cells, mesh_kind, rng_manager)
     +from_dict(config)

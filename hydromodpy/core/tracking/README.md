@@ -10,7 +10,7 @@ a run.
 
 ## What other layers import from it
 
-`data` (most), `spatial`, `workflow`, `results`, `project`, `physics` and `config`.
+`data` (most), `spatial`, `workflow`, `results`, `project`, `model` and `config`.
 
 ## Where to add what
 

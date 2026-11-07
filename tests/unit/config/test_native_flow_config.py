@@ -7,14 +7,12 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.physics.flow.binders.payloads import payloads_as_mappings
-from hydromodpy.physics.flow.boundary_conditions import DirichletBC, DrainBC
-from hydromodpy.physics.flow.flow_config import FlowConfig, FlowParam
-from hydromodpy.physics.flow.sinks_sources import (
-    FlowBarrierConfig,
-    FlowLakeConfig,
-    FlowSinksSourcesConfig,
-)
+from hydromodpy.model.boundaries.binder_payloads import payloads_as_mappings
+from hydromodpy.model.boundaries.boundary_conditions import DirichletBC, DrainBC
+from hydromodpy.model.flow_config import FlowConfig, FlowParam
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
+from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 
 # Native Pydantic payload tests for flow parameters.
 

@@ -13,7 +13,7 @@ HydroModPy code is the one issuing the shell-out.
 
 Hermetic also means order-independent, which is what the runtime bootstrap
 fixture below buys: a unit test must not need another test module to have
-initialized the physics runtime first.
+initialized the model runtime first.
 """
 
 from __future__ import annotations

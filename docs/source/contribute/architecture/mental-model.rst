@@ -245,8 +245,8 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 1. ``hydromodpy/cli/commands/run.py``, then ``hydromodpy/_api.py`` (``run``) and
    ``hydromodpy/project/dispatch/workflow.py``;
 2. ``hydromodpy/project/facade.py`` (``Project``);
-3. ``hydromodpy/simulation/planning/planner.py``;
-4. ``hydromodpy/simulation/execution/runner.py``;
+3. ``hydromodpy/solver/base/planner.py``;
+4. ``hydromodpy/solver/base/runner.py``;
 5. ``hydromodpy/solver/base/registry.py``;
 6. one adapter under ``hydromodpy/solver/<backend>/adapters/``;
 7. the backend package under ``hydromodpy/solver/``.

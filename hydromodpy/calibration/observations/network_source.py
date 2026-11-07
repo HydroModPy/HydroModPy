@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.exceptions import ConfigError
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.planning.plan import RunContext
+    from hydromodpy.solver.base.plan import RunContext
 
 __all__ = [
     "ObservedNetwork",

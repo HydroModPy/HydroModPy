@@ -37,13 +37,13 @@ from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.core.units.physical_bounds import validate_physical_value
-from hydromodpy.physics.flow.flow import Flow
+from hydromodpy.model.model import Flow
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.run_facts import PromotionFacts
-from hydromodpy.simulation.execution.runner import ensure_flow
-from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.results_config import ResultsConfig
+from hydromodpy.solver.base.runner import ensure_flow
 from hydromodpy.solver.modflow6.builders.recharge import PRIVATE_TRIAL_RECHARGE_KEY
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (

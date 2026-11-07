@@ -26,10 +26,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from hydromodpy.results.checks import Validity
-from hydromodpy.simulation.planning.plan import (
-    WATER_BUDGET_METRIC,
-    WATER_BUDGET_WORST_METRIC,
-)
+from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 
 
 def water_budget_verdict(

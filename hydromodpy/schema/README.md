@@ -33,7 +33,7 @@ wires the provider. No `schema_layout.yaml` orders the parts. Three rules hold:
    `capability.py` carries the request model as an opaque type, so it names no engine.
 2. A capability is declared next to the code that serves it, not here:
    `data/request/job.py` (`DATA_REQUEST`),
-   and `spatial/domain/capability.py` (`DOMAIN_BUILD`).
+   and `model/domain/capability.py` (`DOMAIN_BUILD`).
 3. The schema export stays deterministic: no side effect, no field that
    depends on the environment.
 

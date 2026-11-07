@@ -34,21 +34,21 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[workflow]` | `WorkflowConfig` | `config/hydromodpy_config.py` |
 | `[workspace]` | `WorkspaceConfig` | `core/workspace/config.py` |
 | `[geographic]` | `GeographicConfig` | `spatial/geographic/` |
-| `[domain]` | `DomainConfig` | `spatial/domain/` |
+| `[domain]` | `DomainConfig` | `model/domain/` |
 | `[data]` | `DataManagersConfig` | `data/loading/config_schema.py` |
-| `[flow]` | `FlowConfig` | `physics/flow/` |
-| `[transport]` | `TransportConfig` | `physics/transport/` |
-| `[simulation]` | `SimulationConfig` | `simulation/planning/config.py` |
+| `[flow]` | `FlowConfig` | `model/flow_config.py` |
+| `[transport]` | `TransportConfig` | `model/transport/` |
+| `[simulation]` | `SimulationConfig` | `solver/base/simulation_config.py` |
 | `[solver]` | `SolverConfig` | `solver/base/solver_config.py` |
 | `[modflownwt]` | `ModflowConfig` | `solver/modflow_nwt/nwt/nwt_config.py` |
 | `[modflow6]` | `Modflow6Config` | `solver/modflow6/modflow6_config.py` |
 | `[display]` | `DisplayConfig` | `display/config.py` |
 | `[[export]]` | `ExportRequest` (a list) | `results/exporters/export_spec.py` |
-| `[observation]` | `ObservationConfig` | `simulation/planning/observation_config.py` |
+| `[observation]` | `ObservationConfig` | `solver/base/observation_config.py` |
 | `[overview]` | `OverviewConfig` | `display/overview/config.py` |
 | `[mesh]` | `MeshConfig` | `spatial/mesh/mesh_config.py` |
 | `[calibration]` | `CalibrationConfig` | `calibration/config.py` |
-| `[spinup]` | `SpinupConfig` | `simulation/spinup_config.py` |
+| `[spinup]` | `SpinupConfig` | `model/initial/spinup_config.py` |
 | `[site]` | `SiteConfig` | `core/site/config.py` |
 | `[sites]` | `SitesConfig` | `config/sites.py` |
 | `[metrics]` | `MetricsConfig` | `results/metric_rule.py` |
@@ -154,7 +154,7 @@ with a sentence:
 
 ## Import rules
 
-`config` imports `core`, `physics`, `data`, `spatial`, `simulation`,
+`config` imports `core`, `model`, `data`, `spatial`,
 `solver`, `calibration`, `results` and `display`
 (`tests/unit/architecture/layer_matrix.yaml`): every layer it composes, and
 nothing above them. Only the root facade, `workflow`, `project` and `cli` import
@@ -188,5 +188,5 @@ wires.
 1. `hydromodpy_config.py`: the fields of the root, then `_from_payload`.
 2. `core/toml_io/loader.py` for the `base_config` chain.
 3. `core/config_kit/profile.py` and `introspect.py` for the visibility model.
-4. One section model, for example `physics/flow/flow_config.py`.
+4. One section model, for example `model/flow_config.py`.
 5. `schema/config_schema.py` for what is exported to frontends and IDEs.

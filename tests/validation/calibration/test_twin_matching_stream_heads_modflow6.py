@@ -57,7 +57,7 @@ import pytest
 from hydromodpy.calibration.config import CalibOutputNetwork
 from hydromodpy.calibration.observations.network_geometry import heads_settings
 from hydromodpy.core.exceptions import ObjectiveError
-from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+from hydromodpy.model.time.history_contract import saturated_thickness_from_head_history
 from hydromodpy.project.facade import Project
 from hydromodpy.results.derive.stream.extent import (
     calendar_years,

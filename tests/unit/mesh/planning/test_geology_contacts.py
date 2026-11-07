@@ -16,7 +16,7 @@ from shapely.affinity import translate
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.domain.spatial_support_config import (
+from hydromodpy.model.domain.spatial_support_config import (
     GeneratedBandsSupportConfig,
     GeneratedRingsSupportConfig,
 )

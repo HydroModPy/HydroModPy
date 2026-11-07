@@ -16,24 +16,21 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.physics.forcing.steady_periods import (
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.model.forcing.steady_periods import (
     apply_first_clim,
     first_clim_on_part,
     first_clim_sets_a_deficit,
     one_period_rate,
     split_net_recharge,
 )
-from hydromodpy.physics.forcing.validation import (
+from hydromodpy.model.forcing.validation import (
     complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
-from hydromodpy.spatial.forcing.cells import (
-    discretize_fields_on_cells,
-    discretize_points_on_cells,
-)
 
 logger = get_logger(__name__)
 
@@ -516,7 +513,7 @@ def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
     Each entry is a scalar (0-d array) or one value per cell. A record longer
     than a one-period run gives that period its time mean, or its first value
     when the period is steady and ``first_clim`` is ``"first"``
-    (:func:`~hydromodpy.physics.forcing.steady_periods.one_period_rate`).
+    (:func:`~hydromodpy.model.forcing.steady_periods.one_period_rate`).
     """
     nper = int(model.nper)
     if isinstance(payload, Real) and not isinstance(payload, bool):
@@ -564,7 +561,7 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
     """Return the RCH rate of every period, one flat ``(ncpl,)`` array each.
 
     Every steady period takes the rate ``first_clim`` states, clipped at zero;
-    a transient period keeps its own (:mod:`hydromodpy.physics.forcing.steady_periods`).
+    a transient period keeps its own (:mod:`hydromodpy.model.forcing.steady_periods`).
     This is the only place MODFLOW 6 applies ``first_clim`` to the recharge.
     """
     first_clim = model.first_clim if model.first_clim is not None else "mean"

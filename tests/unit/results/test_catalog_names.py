@@ -31,7 +31,7 @@ from hydromodpy.results.storage.attempt import (
 )
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.trash import gc_trash, list_trash, read_tombstones, restore, trash_run
-from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.solver.base.simulation_config import SimulationConfig
 from tests._helpers.run_stores import claim_run, open_run_store
 from tests._helpers.sealed_runs import make_project, seal_run
 

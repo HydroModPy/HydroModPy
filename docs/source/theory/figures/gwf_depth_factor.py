@@ -3,8 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.spatial.domain.layering import layer_proportions
-from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.model.domain.layering import layer_proportions
+from hydromodpy.model.properties.field_param import FieldParam
 
 H = 100.0
 profile = {"mode": "exponential", "characteristic_depth": 20.0}

@@ -11,6 +11,12 @@ import numpy as np
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.layering import (
+    assert_bottom_below_top,
+    coerce_vertical_config,
+    layer_stack,
+)
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig, TopSamplingConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -21,12 +27,6 @@ from hydromodpy.solver.modflow_grid.top_sampling import (
     zonal_structured_top,
     zonal_top_flat,
 )
-from hydromodpy.spatial.domain.layering import (
-    assert_bottom_below_top,
-    coerce_vertical_config,
-    layer_stack,
-)
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
@@ -292,7 +292,7 @@ class StructuredGridBuilder:
     The planar grid is not built here. It is the mesh of the regular engine, and
     ``Surface.resample_to_shape(...)`` resamples the surfaces to its shape
     beforehand. The builder checks that the surfaces describe the same domain,
-    asks :func:`hydromodpy.spatial.domain.layering.layer_stack`, which the
+    asks :func:`hydromodpy.model.domain.layering.layer_stack`, which the
     unstructured extrusion calls too, for the layer bottoms and the ``idomain``,
     and returns them with the top in a :class:`StructuredGridSpec`.
     """

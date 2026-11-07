@@ -8,14 +8,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.initial_conditions import (
-    FlowICCustom,
-    FlowICSteadyState,
-    FlowInitialConditions,
-)
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.initial.config import FlowICCustom, FlowICSteadyState, FlowInitialConditions
+from hydromodpy.model.initial.heads import steady_flow_copy_for_initialization
 from hydromodpy.results.storage.run_store import SOLVER_DIAGNOSTICS_DIRNAME
-from hydromodpy.solver.base.initial_conditions import steady_flow_copy_for_initialization
 from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers.transient import (

@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.properties import K_TENSOR_PROPERTIES
+from hydromodpy.model.properties.property_table import K_TENSOR_PROPERTIES
 from hydromodpy.solver.modflow_common.property_mapping import MODFLOW_PROPERTIES
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays as resolve_flat_flow_property_arrays,

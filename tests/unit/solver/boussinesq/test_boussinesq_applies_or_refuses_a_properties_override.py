@@ -16,11 +16,11 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.solver.base.properties import resolve_required_flow_properties
+from hydromodpy.model.properties.field_param import FieldParam
+from hydromodpy.model.properties.property_table import resolve_required_flow_properties
 from hydromodpy.solver.boussinesq import flow_to_boussinesq_adapter as adapter
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import resolve_flow_property_arrays
-from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 FLOW_K = 1e-4

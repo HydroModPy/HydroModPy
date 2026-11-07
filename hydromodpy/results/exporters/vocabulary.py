@@ -12,7 +12,7 @@ A name is looked up in the order ``hmp.read`` resolves it: the field registry
 first, then the series, the vector layers, the raster layers and the tables.
 
 The names are the stored ones. The series and layer names are written by
-layers ``results`` may not import (``simulation``, ``solver``, ``data``), so
+layers ``results`` may not import (``workflow``, ``solver``, ``data``), so
 they are restated here; each group names the module that writes it.
 """
 
@@ -45,7 +45,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-# simulation/catchment_aggregation.py (catchment series)
+# results/derive/catchment_aggregation.py (catchment series)
 # and solver/modflow6/extractors/sfr.py, lake.py (reach and lake series).
 SIMULATED_SERIES: tuple[str, ...] = (
     "discharge",
@@ -76,7 +76,7 @@ SIMULATED_SERIES: tuple[str, ...] = (
 
 # The record variables of the observation families
 # (data/variables/*/manager.py RECORD_VARIABLE and their API readers), stored
-# with source = observed by simulation/observation_ingest.py.
+# with source = observed by data/ingest/observations.py.
 OBSERVED_VARIABLES: tuple[str, ...] = (
     "discharge",
     "water_level",

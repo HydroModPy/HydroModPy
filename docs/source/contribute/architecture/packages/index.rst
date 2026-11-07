@@ -21,11 +21,10 @@ describes the experimental observability project next to it.
    ../generated/packages
    core
    config
-   physics
+   model
    data
    spatial
    solver
-   simulation
    calibration
    results
    display

@@ -113,12 +113,12 @@ Whitebox run or a solver spawn.
 Unit pattern
 ------------
 
-``tests/unit/physics/test_transport_process.py`` builds a process from a mapping
+``tests/unit/model/transport/test_transport_process.py`` builds a process from a mapping
 and checks what it holds:
 
 .. code-block:: python
 
-   from hydromodpy.physics.transport.transport import Transport
+   from hydromodpy.model.transport.transport import Transport
 
 
    def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
@@ -204,7 +204,7 @@ whole suite.
 
 .. code-block:: bash
 
-   python -m pytest tests/unit/physics -q
+   python -m pytest tests/unit/model -q
    python -m pytest tests/unit/architecture -q
 
 **Parallel runs.** ``pytest.ini`` already sets ``--dist=loadgroup``, which keeps

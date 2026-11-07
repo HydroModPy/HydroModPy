@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.physics.flow.history_contract import step_history_from_history
+from hydromodpy.model.time.history_contract import step_history_from_history
 
 
 @dataclass(frozen=True, slots=True)

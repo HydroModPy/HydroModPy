@@ -9,9 +9,10 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.physics.flow.binders.barriers import apply_flow_barriers_to_flow
-from hydromodpy.physics.flow.binders.lakes import apply_cutoff_wall_to_flow
-from hydromodpy.physics.flow.sinks_sources import FlowBarrierConfig, FlowLakeConfig
+from hydromodpy.model.boundaries.barriers import apply_flow_barriers_to_flow
+from hydromodpy.model.boundaries.lakes import apply_cutoff_wall_to_flow
+from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
+from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     build_flow_barrier_hfb,
     resolve_flow_barrier_hfb_rows,

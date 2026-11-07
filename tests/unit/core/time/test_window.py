@@ -23,7 +23,7 @@ from hydromodpy.core.time.window import (
     simulation_time_pandas_frequency,
     validate_recharge_coverage,
 )
-from hydromodpy.simulation.planning.config import SimulationTimeConfig
+from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 
 
 def _cfg(

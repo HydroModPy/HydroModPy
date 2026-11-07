@@ -18,7 +18,7 @@ from hydromodpy.calibration.runners.failure_watch import (
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
 from hydromodpy.calibration.runners.sandbox import KEEP_ENV_VAR, TrialSandbox
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
-from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
+from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC
 from hydromodpy.solver.modflow6.builders.recharge import TRIAL_RECHARGE_DIRNAME
 
 # From test_a_trial_that_does_not_close_is_rejected.py

@@ -41,8 +41,8 @@ class SetupContext:
     """Objects prepared during setup and reused by all runs.
 
     Most field types are ``Any`` because ``core`` cannot import from
-    sibling layers (``physics``, ``spatial``). Concrete classes live in
-    ``physics.flow``, ``physics.transport``, ``spatial.domain``,
+    sibling layers (``model``, ``spatial``). Concrete classes live in
+    ``model.model``, ``model.transport``, ``model.domain``,
     ``spatial.geographic`` and ``spatial.mesh.io``.
     """
 
@@ -70,7 +70,7 @@ class SetupContext:
     # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
     # Computed once by the data step and re-bound onto every per-run Flow.
     sfr_reach_traces: dict[str, Any] | None = None
-    # Soil reservoir outputs of this context (simulation.soil.recharge.SoilForcings),
+    # Soil reservoir outputs of this context (model.soil.recharge.SoilForcings),
     # None outside soil mode. Assigned on every binder call, never mutated.
     soil_forcings: Any = None
 
@@ -80,8 +80,8 @@ class LoadedDataContext:
     """Loaded data-manager objects shared by process runs.
 
     Field types are ``Any`` because ``core`` cannot import from sibling
-    layers (``data``, ``spatial``). Concrete types live in ``data.contracts``,
-    ``data.variables.hydrography``, and ``spatial.field.geology_field``.
+    layers (``data``, ``model``). Concrete types live in ``data.contracts``,
+    ``data.variables.hydrography``, and ``model.properties.geology_field``.
     """
 
     dem: Any = None
@@ -139,8 +139,8 @@ class ExecutionRegistry:
 
     Field types are ``Any`` because ``core`` cannot import from sibling
     layers. ``simulation_plan``, ``process_runs_by_id`` values, and
-    ``models_by_run_id`` values are produced by the ``simulation`` and
-    ``solver`` layers respectively.
+    ``models_by_run_id`` values are produced by ``solver.base`` and the
+    solver backends respectively.
     """
 
     simulation_plan: Any = None

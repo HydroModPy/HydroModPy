@@ -1,10 +1,11 @@
 # `hydromodpy/spatial`
 
 Where the model is in space. From a DEM and an outlet to a catchment, its river
-network and the ground of the model; from the ground and a depth model to the
-domain; from the domain to a mesh; and the fields that carry a value per zone,
-per cell or per depth onto that mesh. The package knows no solver and no data provider: the geology source is
-registered at start-up, and a mesh leaves as a `PlanarCellMesh` that each solver reads.
+network and the ground of the model, and from the ground to a mesh. The aquifer
+geometry, the fields that carry a value per zone, per cell or per depth, and the
+forcings on the cells live in `model/`. The package knows no solver and no data
+provider: the geology source is registered at start-up, and a mesh leaves as a
+`PlanarCellMesh` that each solver reads.
 This file is the map of the package: what each part answers, the import
 rules, the tree, how a catchment becomes a mesh, and where to add what. Each
 sub-package has a note of its own with the full map.
@@ -20,18 +21,14 @@ sub-package has a note of its own with the full map.
 | `delineation/` | the backends that route flow on a DEM and delineate a catchment. `whitebox_workflows_backend/` is the one shipped |
 | `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D and the downslope distance |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader |
-| `geographic/` | the pipeline before the simulation: the ground, the flow products, the catchment, the zones and the river networks. `GeographicConfig` is `[geographic]`, and `CatchmentZonesField` is the zonation that `structure_binders.py` puts in `Domain.zones` |
-| `domain/` | the aquifer geometry: `Domain`, its four depth models, the layering of the column, the zoning supports and the `domain-build` capability |
-| `field/` | values on zones, cells and depths: `Field`, `FieldParam` with its vertical profile, and the geology field. `mesh/` never imports it |
+| `geographic/` | the pipeline before the simulation: the ground, the flow products, the catchment, the zones and the river networks. `GeographicConfig` is `[geographic]`, and `CatchmentZonesField` is the zonation that `model/domain/structure_binders.py` puts in `Domain.zones` |
 | `mesh/` | the unified mesh (`HydroMesh`, `PlanarCellMesh`), its regular, triangle and Voronoi engines, its exchange formats and the `[mesh]` config |
-| `forcing/` | gridded and station forcings as one rate per cell and per stress period, and the mean recharge a run is scored on. `mesh/` never imports it |
-| `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus |
 
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives spatial `core`, `schema` and
 itself, and treats it as one block: the parts import each other freely, and
-`domain`, `geographic`, `mesh` and `field` do. A grep of every `hydromodpy`
+`geographic` and `mesh` do. A grep of every `hydromodpy`
 import in the package, deferred ones included, finds only `core`, `schema`
 and `spatial`. The demos that load a whole project TOML live outside the
 package, in `tools/cases/`.
@@ -56,18 +53,17 @@ Three rules hold inside:
    runs on every engine the registry resolves.
 
 Who imports spatial: `solver` and `workflow` (most), `data`,
-`results`, `calibration`, `config`, `project`, `simulation` and the
+`results`, `calibration`, `config`, `project`, `model` and the
 package root (`_bootstrap.py`, `_lazy.py`).
 
 ## Tree
 
 Each sub-package has its own README with the full map: `administrative/`,
-`delineation/`, `domain/`, `drainage/`, `field/`, `forcing/`, `geographic/`, `lake_bed/`,
-`mesh/` and `terrain/`.
+`delineation/`, `drainage/`, `geographic/`, `mesh/` and `terrain/`.
 
 ```text
 spatial/
-├── __init__.py                lazy names: Domain, FieldParam, HydroMesh, GeographicConfig, ...
+├── __init__.py                lazy names: HydroMesh, GeographicConfig, ...
 ├── raster_support.py          RasterSupport, where a 2D surface sits in space
 ├── surface.py                 Surface, the surfaces of the domain
 ├── surface_sampling.py        PreparedSurfaceSampler, repeated sampling at points
@@ -98,39 +94,7 @@ spatial/
 │   ├── synthetic/             analytic geographies for validation
 │   ├── pipeline.py            assembles the artifacts
 │   ├── geographic_config.py   GeographicConfig, the [geographic] table
-│   ├── structure_binders.py   geology and catchment zones into the domain
 │   └── catchment_delineation.py   catchment from an outlet or a polygon
-├── domain/                    the aquifer geometry
-│   ├── domain.py              Domain: surface, depth model, zones
-│   ├── build.py               the one constructor of a Domain
-│   ├── domain_config.py       the [domain] table
-│   ├── depth_model_config.py  the four depth models
-│   ├── layers_config.py       the [domain.layers] table
-│   ├── layering.py            layer bottoms and idomain
-│   ├── spatial_support.py     the supports a parameter can be zoned by
-│   ├── support_fields.py      zone fields cut from rasters and bands
-│   ├── active_cells.py        the cells a domain is defined on
-│   ├── domain_document.py     the document written for the mesh generator
-│   ├── capability.py          the domain-build capability
-│   └── worker.py              its worker
-├── field/                     values on zones, cells and depths
-│   ├── field_param.py         FieldParam
-│   ├── field_spatial.py       Field
-│   ├── vertical_profile.py    depth profile of a parameter
-│   ├── geology_config.py      geology polygons or raster, and its config
-│   ├── geology_field.py       geology as a field
-│   └── mesh_cells.py          cells of a PlanarCellMesh a support samples
-├── forcing/                   gridded and station forcings on mesh cells
-│   ├── cells.py               one rate per cell and per stress period
-│   ├── rasters.py             xarray, NetCDF and GeoTIFF sources
-│   ├── stations.py            located series
-│   ├── recharge_rates.py      the mean recharge of a run
-│   ├── sources.py             units and variables
-│   ├── area_weights.py        the area method
-│   └── interpolation.py       nearest, linear and IDW
-├── lake_bed/                  lake bed from bathymetry
-│   ├── abacus.py              stage-volume-area curve
-│   └── regrid.py              raster bed to cell bed
 └── mesh/                      the mesh pivot and the engines
     ├── model/                 PlanarCellMesh, HydroMesh, CellBlock, CellType
     ├── engines/               regular, triangle and voronoi
@@ -154,20 +118,20 @@ spatial/
    outlet coordinate or takes a given polygon, and builds the river network, the
    hydrographic network and the zone rasters. The artifacts are kept in the
    workspace and reused when the inputs have not changed.
-2. Domain. `domain/build.py` is the one constructor of a `Domain` from a
+2. Domain. `model/domain/build.py` is the one constructor of a `Domain` from a
    `DomainConfig` (`[domain]`), a surface and a depth model. It arms the zone ids
    that the binders write afterwards. The zones themselves come later, from
-   `geographic/structure_binders.py` (`apply_geology_to_domain`,
+   `model/domain/structure_binders.py` (`apply_geology_to_domain`,
    `apply_catchment_zones_to_domain`), called by the workflow from the data that
    step loads. The supports a parameter may be zoned by are the providers of
-   `domain/spatial_support.py`.
+   `model/domain/spatial_support.py`.
 3. Mesh. `[mesh]` picks an engine. Triangles and Voronoi cells follow the zones and
    the river trace, and the regular grid makes a staircase along them. `mesh/cache.py` stores the mesh of an
    engine that cannot be rebuilt bit for bit and reads it back on later runs.
    Every engine gives a `PlanarCellMesh`, and the solvers read the cells from it.
 4. Fields. A `FieldParam` is discretized on the mesh, per zone, per cell and
-   per depth: `K`, `Sy` and any other `[flow.param.<id>]`. `physics/` holds
-   the parameter section, and `field/` holds the objects.
+   per depth: `K`, `Sy` and any other `[flow.param.<id>]`. `model/flow_config.py` holds
+   the parameter section, and `model/properties/` holds the objects.
 5. Hand-off. A solver reads the cell mesh through its `solver/modflow_grid/`
    description. Each flow adapter declares the engines it reads.
 
@@ -178,10 +142,6 @@ spatial/
 | a delineation backend | a loader registered with `register_backend` in `delineation/registry.py` |
 | a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain.registry.register` or on the `hydromodpy.terrain.engine` entry-point group |
 | a geographic product | a module in `geographic/core/`, called from `geographic/pipeline.py`, and a field on `GeographicConfig` for its options |
-| a depth model | a model in `domain/depth_model_config.py` joined to the depth-model union, its use in `domain/domain.py`, and a reader in `domain/build.py` if it needs a raster |
-| a spatial support kind | a provider in `domain/spatial_support.py` registered in `SpatialSupportProviderRegistry`, and its config in `domain/spatial_support_config.py`; see `docs/source/contribute/architecture/spatial_support/index.rst` |
 | a mesh engine | a class that satisfies the port in `mesh/port.py`, registered by `mesh.registry.register` or on the `hydromodpy.mesh.engine` entry-point group; see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |
 | a question on the cells or faces of a mesh | a mesh-agnostic function in `mesh/cells/` |
-| a field kind | `field/` (`Field` in `field_spatial.py`, `FieldParam` in `field_param.py` and their sections); see `docs/source/contribute/architecture/field/index.rst` |
-| a way to bring loaded data into the domain | a function in `geographic/structure_binders.py`, called from `workflow/steps/` |
 | a capability | a `CapabilityDecl` and a worker beside the code; see `hydromodpy/schema/README.md` |

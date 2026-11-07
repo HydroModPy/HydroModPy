@@ -22,7 +22,7 @@ import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_time_boundaries
-from hydromodpy.physics.base.forcing import CsvForcing
+from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.builders.period_forcing import resolve_use_ts6
 from hydromodpy.solver.modflow6.support.time_series import (
