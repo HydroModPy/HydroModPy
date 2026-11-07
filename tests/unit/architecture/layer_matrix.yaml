@@ -1,45 +1,130 @@
 # Layer matrix contract. Source of truth for the architecture docs.
 #
-# Each row lists the set of packages a source layer is allowed to import.
-# A package always implicitly allows imports targeting itself.
-# Packages absent from the row's list are forbidden (CI flags them).
+# Each row of ``allowed`` lists the packages a layer may import. A layer may
+# always import itself. Anything absent from a row is forbidden.
 #
-# Rows are written lowest first: a row cites rows written above it in the file.
-# test_layer_matrix.py checks the order, so no row can point down the file.
+# Rows are written lowest first: a row cites only rows written above it, so
+# the matrix cannot hold a cycle. test_layer_matrix.py checks the order.
+#
+# ``allowed`` is the target tree: fourteen packages, the root facade and the
+# ``python -m hydromodpy`` entry point. The tree reaches it while packages
+# move. Until then ``transitional`` says what holds today, and every entry
+# there leaves as soon as the tree no longer needs it: the gate refuses an
+# entry that nothing uses any more, so this file only shrinks.
 
 allowed:
-  core:          [core]
-  # ``examples`` owns the catalog of shipped examples, the content-addressed
-  # blob cache behind ``hmp example add`` and the generator that writes
-  # ``catalog.toml``. It reads TOML through ``core`` and touches nothing else:
-  # an example is described by paths and hashes, never by a loaded config.
-  examples:      [core, examples]
-  physics:       [core, physics]
-  schema:        [core, schema]
-  spatial:       [core, schema, spatial]
-  data:          [core, schema, data, spatial]
-  simulation:    [core, physics, spatial, simulation]
-  solver:        [core, physics, spatial, solver, simulation]
-  results:       [core, schema, results, spatial]
-  calibration:   [core, physics, data, spatial, solver, simulation, calibration, results]
-  display:       [core, results, display]
-  config:        [core, config, physics, data, spatial, simulation, solver, calibration, results, display]
-  analysis:      [core, results, display, analysis]
-  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
-  # ``project`` hosts the public ``Project`` facade and its dispatch adapters.
-  # It sits above the matrix (like ``cli``) so workflow/calibration launchers
-  # can be bound to ``Project`` without lower layers depending on the facade.
-  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow, project]
-  "<root>":      ["<root>", core, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, examples]
-  cli:           ["<root>", core, schema, config, data, simulation, solver, calibration, results, display, analysis, workflow, project, examples, cli]
+  core:        [core]
+  schema:      [core, schema]
+  catchment:   [core, schema, catchment]
+  mesh:        [core, schema, catchment, mesh]
+  # A property field lives on a mesh, and a drain condition reads the descent.
+  model:       [core, schema, catchment, mesh, model]
+  data:        [core, schema, catchment, mesh, model, data]
+  # results never reads solver or config, and data never reads results.
+  results:     [core, schema, catchment, mesh, model, results]
+  # An extractor writes into a RunStore, so solver reads results.
+  solver:      [core, schema, catchment, mesh, model, results, solver]
+  calibration: [core, schema, catchment, mesh, model, data, results, solver, calibration]
+  # display reads only core and results, so a figure stays generic.
+  display:     [core, results, display]
+  config:      [core, schema, catchment, mesh, model, data, results, solver, calibration, display, config]
+  workflow:    [core, schema, catchment, mesh, model, data, results, solver, calibration, display, config, workflow]
+  project:     [core, schema, catchment, mesh, model, data, results, solver, calibration, display, config, workflow, project]
+  cli:         [core, schema, catchment, mesh, model, data, results, solver, calibration, display, config, workflow, project, cli]
+  # The facade hydromodpy/__init__.py and the other modules at the root.
+  "<root>":    ["<root>", core, project]
+  # hydromodpy/__main__.py alone, which runs ``python -m hydromodpy``.
+  "<main>":    ["<main>", cli]
 
-# Cross-edges tolerated for now. Each tolerance must point at a documented
-# rationale. Tighten over time.
-tolerances:
-  - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
+transitional:
+  # Packages of today that the target does not keep: what each one reads now
+  # and where its modules go. A row leaves with its package. These rows are
+  # written lowest first too.
+  leaving:
+    examples:   {reads: [core, examples], goes_to: [project]}
+    physics:    {reads: [core, physics], goes_to: [model]}
+    spatial:    {reads: [core, schema, spatial], goes_to: [catchment, mesh, model]}
+    simulation: {reads: [core, physics, spatial, simulation], goes_to: [model, solver, results, data, workflow]}
+    analysis:   {reads: [core, results, display, analysis], goes_to: [project]}
+  # Rows of the target whose package does not exist yet.
+  arriving:
+    model:     {comes_from: [physics, simulation, spatial, solver]}
+    mesh:      {comes_from: [spatial]}
+    catchment: {comes_from: [spatial]}
+  # Imports of today that no row grants. An edge into a leaving package goes
+  # with that package. An edge between two kept rows names its files and why.
+  edges:
+    - {src: data,        tgt: spatial}
+    - {src: results,     tgt: spatial}
+    - {src: solver,      tgt: physics}
+    - {src: solver,      tgt: simulation}
+    - {src: solver,      tgt: spatial}
+    - {src: calibration, tgt: physics}
+    - {src: calibration, tgt: simulation}
+    - {src: calibration, tgt: spatial}
+    - {src: config,      tgt: physics}
+    - {src: config,      tgt: simulation}
+    - {src: config,      tgt: spatial}
+    - {src: workflow,    tgt: physics}
+    - {src: workflow,    tgt: simulation}
+    - {src: workflow,    tgt: spatial}
+    - {src: project,     tgt: physics}
+    - {src: project,     tgt: simulation}
+    - {src: project,     tgt: spatial}
+    - {src: cli,         tgt: analysis}
+    - {src: cli,         tgt: examples}
+    - {src: cli,         tgt: simulation}
+    # model and mesh are built before spatial is emptied, and read it meanwhile.
+    - {src: model,       tgt: spatial}
+    - {src: mesh,        tgt: spatial}
+    - src: "<root>"
+      tgt: analysis
+      files: [hydromodpy/_api.py, hydromodpy/_lazy.py]
+    - src: "<root>"
+      tgt: examples
+      files: [hydromodpy/_api.py]
+    - src: "<root>"
+      tgt: physics
+      files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
+    - src: "<root>"
+      tgt: simulation
+      files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
+    - src: "<root>"
+      tgt: spatial
+      files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
+    - src: "<root>"
+      tgt: calibration
+      files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
+      reason: &root_reason >-
+        The verbs of _api.py, the providers of _bootstrap.py and the lazy names
+        of _lazy.py still sit at the root. The root reads only core and project
+        once they live in project.
+    - {src: "<root>", tgt: config,   files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: data,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: display,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: results,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: solver,   files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    # The packages to come take over imports that the root files make today.
+    - {src: "<root>", tgt: model,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py], reason: *root_reason}
+    - {src: "<root>", tgt: mesh,      files: [hydromodpy/_bootstrap.py], reason: *root_reason}
+    - {src: "<root>", tgt: catchment, files: [hydromodpy/_bootstrap.py], reason: *root_reason}
+    - src: cli
+      tgt: "<root>"
+      files:
+        - hydromodpy/cli/_workers/example.py
+        - hydromodpy/cli/commands/calibrate.py
+        - hydromodpy/cli/commands/example/add.py
+        - hydromodpy/cli/commands/export.py
+        - hydromodpy/cli/commands/report.py
+        - hydromodpy/cli/commands/run.py
+        - hydromodpy/cli/commands/spinup.py
+      reason: >-
+        These commands call the verbs through the facade. They call project
+        once the verbs live there.
 
-# Files exempt from the layer rule: the bootstrap shims that wire forward refs.
-exempt_files:
-  - hydromodpy/__init__.py
-  - hydromodpy/_bootstrap.py
-  - hydromodpy/__main__.py
+# Cross edges tolerated for good, each with its reason. The target has none.
+tolerances: []
+
+# Files exempt from the layer rule. The target has none.
+exempt_files: []

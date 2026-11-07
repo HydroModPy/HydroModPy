@@ -20,7 +20,12 @@ from tools.doc_contracts import (
 
 
 def test_the_layer_contract_is_sound() -> None:
-    """Every declared layer is a real package, every edge names a real layer."""
+    """Each row matches the tree of today, and every edge names a declared row.
+
+    A target row is a package unless it is still to come, a leaving row is a
+    package, and a transitional edge between two kept rows names its files and
+    its reason.
+    """
     problems = assert_layer_matrix_inputs(load_layer_matrix())
     assert problems == [], (
         "tests/unit/architecture/layer_matrix.yaml declares something that does not exist:\n  - "

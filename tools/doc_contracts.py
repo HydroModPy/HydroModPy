@@ -9,15 +9,17 @@ The parameter reference does the same job for the Pydantic configuration tree
 3. carry a regenerate-and-compare gate, because a generator without a gate is
    one more thing to maintain rather than one less.
 
-Run by hand with ``python -m tools.doc_contracts``. Called from the
-``builder-inited`` hook in ``docs/source/conf.py`` so every build refreshes it.
+The layer matrix is also read here for its gate, so the tests and the page
+read the same rows. Run by hand with ``python -m tools.doc_contracts``. Called
+from the ``builder-inited`` hook in ``docs/source/conf.py`` so every build
+refreshes it.
 """
 
 from __future__ import annotations
 
-import importlib.util
+import textwrap
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import yaml
 
@@ -31,13 +33,26 @@ GENERATED_HEADER = (
     ".. Run ``python -m tools.doc_contracts`` to refresh.\n\n"
 )
 
-# The one key in ``allowed`` that is not a package: the top-level
-# ``hydromodpy/`` namespace itself.
+# The key in ``allowed`` for the top-level ``hydromodpy/`` namespace itself.
 ROOT_KEY = "<root>"
+
+# The key in ``allowed`` for ``hydromodpy/__main__.py`` alone. The scanner puts
+# that file in ``<root>``; the gate moves it to this row.
+MAIN_KEY = "<main>"
+MAIN_FILE = "hydromodpy/__main__.py"
 
 # Width at which a row's target list wraps. The repository caps RST lines at
 # 130; this keeps the generated table comfortably inside a diff.
 _WRAP = 66
+
+
+class LayerRows(NamedTuple):
+    """The rows of the matrix, split by what they say about today's tree."""
+
+    target: dict[str, list[str]]
+    leaving: dict[str, dict[str, Any]]
+    arriving: dict[str, dict[str, Any]]
+    edges: list[dict[str, Any]]
 
 
 def _write_if_changed(path: Path, content: str) -> bool:
@@ -57,29 +72,120 @@ def load_layer_matrix(path: Path | None = None) -> dict[str, Any]:
     return yaml.safe_load(target.read_text(encoding="utf-8"))
 
 
+def layer_rows(matrix: dict[str, Any]) -> LayerRows:
+    transitional = matrix.get("transitional") or {}
+    return LayerRows(
+        target={k: list(v or []) for k, v in (matrix.get("allowed") or {}).items()},
+        leaving=dict(transitional.get("leaving") or {}),
+        arriving=dict(transitional.get("arriving") or {}),
+        edges=list(transitional.get("edges") or []),
+    )
+
+
+def present_layers(matrix: dict[str, Any]) -> set[str]:
+    """The rows that exist in the tree today, ``<root>`` included."""
+    rows = layer_rows(matrix)
+    return (set(rows.target) - set(rows.arriving) - {MAIN_KEY}) | set(rows.leaving)
+
+
+def is_package(layer: str, repo: Path = REPO_ROOT) -> bool:
+    """A top-level package as the scanner sees it: a folder with ``__init__.py``."""
+    return (repo / "hydromodpy" / layer / "__init__.py").is_file()
+
+
+def _check_rows(rows: LayerRows) -> list[str]:
+    problems: list[str] = []
+    targets = set(rows.target)
+    for layer in rows.target:
+        if layer in (ROOT_KEY, MAIN_KEY):
+            continue
+        if layer in rows.arriving:
+            if is_package(layer):
+                problems.append(f"arriving lists {layer!r}, which is already a package")
+        elif not is_package(layer):
+            problems.append(f"allowed declares {layer!r}, which is not a package")
+    for layer in rows.arriving:
+        if layer not in targets:
+            problems.append(f"arriving lists {layer!r}, which is not a row of allowed")
+    for layer in rows.leaving:
+        if layer in targets:
+            problems.append(f"leaving lists {layer!r}, which is also a row of allowed")
+        if not is_package(layer):
+            problems.append(f"leaving lists {layer!r}, which is not a package")
+    for layer, cited in rows.target.items():
+        for target in cited:
+            if target not in targets:
+                problems.append(
+                    f"{layer!r} is granted an edge to {target!r}, which is not a row of allowed"
+                )
+    return problems
+
+
+def _check_transitional_names(rows: LayerRows) -> list[str]:
+    problems: list[str] = []
+    targets = set(rows.target)
+    declared = targets | set(rows.leaving)
+    for layer, entry in rows.leaving.items():
+        for name in entry.get("reads") or []:
+            if name not in declared:
+                problems.append(f"leaving {layer!r} reads {name!r}, which is not a declared row")
+        for name in entry.get("goes_to") or []:
+            if name not in targets:
+                problems.append(
+                    f"leaving {layer!r} goes to {name!r}, which is not a row of allowed"
+                )
+    for layer, entry in rows.arriving.items():
+        for name in entry.get("comes_from") or []:
+            if name not in declared:
+                problems.append(
+                    f"arriving {layer!r} comes from {name!r}, which is not a declared row"
+                )
+    return problems
+
+
+def _check_edges(rows: LayerRows) -> list[str]:
+    problems: list[str] = []
+    targets = set(rows.target)
+    declared = targets | set(rows.leaving)
+    seen: set[tuple[str, str]] = set()
+    for entry in rows.edges:
+        src, tgt = entry.get("src"), entry.get("tgt")
+        name = f"edge {src} -> {tgt}"
+        if src not in targets:
+            problems.append(f"{name} starts from {src!r}, which is not a row of allowed")
+        if tgt not in declared:
+            problems.append(f"{name} ends at {tgt!r}, which is not a declared row")
+        if (src, tgt) in seen:
+            problems.append(f"{name} is listed twice")
+        seen.add((src, tgt))
+        if tgt in rows.target.get(src, []):
+            problems.append(f"{name} is already granted by the row of {src!r}")
+        files = entry.get("files") or []
+        if src in targets and tgt in targets:
+            if not files:
+                problems.append(f"{name} joins two kept rows and names no file")
+            if not (entry.get("reason") or "").strip():
+                problems.append(f"{name} joins two kept rows and carries no reason")
+        for rel in files:
+            if not (REPO_ROOT / rel).is_file():
+                problems.append(f"{name} names {rel}, which does not exist")
+    return problems
+
+
 def assert_layer_matrix_inputs(matrix: dict[str, Any]) -> list[str]:
     """Check the contract before rendering it. Returns the problems found.
 
     Without this the generator would happily publish a layer that does not
-    exist, or leave out a package that does.
+    exist, or leave out a package that does. The check reads the file system
+    only, never the import graph.
     """
-    problems: list[str] = []
-    allowed = matrix.get("allowed") or {}
+    rows = layer_rows(matrix)
+    problems = _check_rows(rows) + _check_transitional_names(rows) + _check_edges(rows)
 
-    for layer in allowed:
-        if layer == ROOT_KEY:
-            continue
-        if importlib.util.find_spec(f"hydromodpy.{layer}") is None:
-            problems.append(f"allowed declares {layer!r}, which is not an importable package")
+    if not (REPO_ROOT / MAIN_FILE).is_file():
+        problems.append(f"{MAIN_FILE}, the file of {MAIN_KEY!r}, does not exist")
 
-    known = set(allowed)
-    for layer, targets in allowed.items():
-        for target in targets or []:
-            if target not in known:
-                problems.append(
-                    f"{layer!r} is granted an edge to {target!r}, which is not a declared layer"
-                )
-
+    known = set(rows.target)
     for entry in matrix.get("tolerances") or []:
         for side in ("src", "tgt"):
             if entry.get(side) not in known:
@@ -112,65 +218,121 @@ def _wrap_targets(targets: list[str], indent: str) -> list[str]:
     return [f"{indent}{line}" for line in lines]
 
 
-def render_layer_matrix(matrix: dict[str, Any]) -> str:
-    allowed = matrix["allowed"]
-    tolerances = matrix.get("tolerances") or []
-    exempt = matrix.get("exempt_files") or []
+def _cell(first: bool, lines: list[str]) -> list[str]:
+    """One cell of a list-table row, its text already wrapped."""
+    head = "   * - " if first else "     - "
+    return [head + lines[0].strip(), *(f"       {line.strip()}" for line in lines[1:])]
 
-    lines: list[str] = [
-        GENERATED_HEADER.rstrip("\n"),
-        "",
+
+def _targets_cell(first: bool, targets: list[str]) -> list[str]:
+    return _cell(first, _wrap_targets(targets, "") or ["none"])
+
+
+def _text_cell(text: str) -> list[str]:
+    return _cell(False, textwrap.wrap(" ".join(text.split()), _WRAP))
+
+
+def _table(title: str, widths: str, header: list[str]) -> list[str]:
+    directive = f".. list-table:: {title}" if title else ".. list-table::"
+    lines = ["", directive, "   :header-rows: 1", f"   :widths: {widths}", ""]
+    for index, name in enumerate(header):
+        lines.append(("   * - " if index == 0 else "     - ") + name)
+    return lines
+
+
+def _render_target(rows: LayerRows) -> list[str]:
+    packages = [k for k in rows.target if k not in (ROOT_KEY, MAIN_KEY)]
+    granted = sum(len(v) for v in rows.target.values())
+    lines = [
         "Layer matrix",
         "------------",
         "",
-        f"{len(allowed)} layers, {sum(len(v or []) for v in allowed.values())} granted edges. "
-        "A layer always implicitly allows imports targeting itself; anything absent from a row",
-        "is forbidden and fails CI.",
-        "",
-        ".. list-table::",
-        "   :header-rows: 1",
-        "   :widths: 16 84",
-        "",
-        "   * - Source layer",
-        "     - Allowed import targets",
+        f"{len(packages)} packages, the root facade and ``python -m hydromodpy``, "
+        f"{granted} granted edges.",
+        "A layer may always import itself. Anything absent from a row is forbidden and fails CI.",
+        f"``{ROOT_KEY}`` is the facade ``hydromodpy/__init__.py`` with the other modules at the root.",
+        f"``{MAIN_KEY}`` is ``{MAIN_FILE}`` alone.",
     ]
-    for layer, targets in allowed.items():
-        lines.append(f"   * - ``{layer}``")
-        wrapped = _wrap_targets(list(targets or []), "       ")
-        lines.append("     - " + wrapped[0].strip())
-        lines.extend(wrapped[1:])
+    lines += _table("", "16 84", ["Source layer", "Allowed import targets"])
+    for layer, targets in rows.target.items():
+        lines += _cell(True, [f"``{layer}``"])
+        lines += _targets_cell(False, targets)
+    return lines
 
+
+def _render_transitional(rows: LayerRows) -> list[str]:
+    if not (rows.leaving or rows.arriving or rows.edges):
+        return []
+    lines = [
+        "",
+        "Transitional entries",
+        "--------------------",
+        "",
+        "The tree reaches the matrix above while packages move. Until then these entries say",
+        "what holds today. The gate refuses an entry that the tree no longer needs.",
+    ]
+    if rows.leaving:
+        lines += _table("Packages that leave", "16 42 42", ["Package", "Reads today", "Goes to"])
+        for layer, entry in rows.leaving.items():
+            lines += _cell(True, [f"``{layer}``"])
+            lines += _targets_cell(False, list(entry.get("reads") or []))
+            lines += _targets_cell(False, list(entry.get("goes_to") or []))
+    if rows.arriving:
+        lines += _table("Packages to come", "16 84", ["Package", "Comes from"])
+        for layer, entry in rows.arriving.items():
+            lines += _cell(True, [f"``{layer}``"])
+            lines += _targets_cell(False, list(entry.get("comes_from") or []))
+    if rows.edges:
+        lines += _table(
+            "Imports granted until they move", "12 12 38 38", ["From", "To", "Files", "Why"]
+        )
+        for entry in rows.edges:
+            files = list(entry.get("files") or [])
+            why = str(entry.get("reason") or "It goes with the package it reads.")
+            lines += _cell(True, [f"``{entry['src']}``"])
+            lines += _cell(False, [f"``{entry['tgt']}``"])
+            lines += _cell(False, _wrap_targets(files, "") or ["any file"])
+            lines += _text_cell(why)
+    return lines
+
+
+def _render_tolerances(tolerances: list[dict[str, Any]]) -> list[str]:
+    lines = ["", "Documented tolerances", "---------------------", ""]
+    if not tolerances:
+        return [*lines, "No edge is tolerated."]
+    count = len(tolerances)
     lines += [
-        "",
-        "Documented tolerances",
-        "---------------------",
-        "",
-        f"{len(tolerances)} edges are tolerated rather than granted. Each one carries its reason in the",
+        f"{count} edge{'s are' if count > 1 else ' is'} tolerated rather than granted. "
+        "Each one carries its reason in the",
         "contract. They are temporary or deliberately narrow; tighten one when the edge disappears.",
-        "",
-        ".. list-table::",
-        "   :header-rows: 1",
-        "   :widths: 14 14 72",
-        "",
-        "   * - From",
-        "     - To",
-        "     - Why",
     ]
+    lines += _table("", "14 14 72", ["From", "To", "Why"])
     for entry in tolerances:
-        lines.append(f"   * - ``{entry['src']}``")
-        lines.append(f"     - ``{entry['tgt']}``")
-        lines.append(f"     - {entry['reason']}")
+        lines += _cell(True, [f"``{entry['src']}``"])
+        lines += _cell(False, [f"``{entry['tgt']}``"])
+        lines += _text_cell(str(entry["reason"]))
+    return lines
 
-    lines += [
+
+def _render_exempt(exempt: list[str]) -> list[str]:
+    lines = ["", "Files exempt from the layer rule", "--------------------------------", ""]
+    if not exempt:
+        return [*lines, "No file is exempt from the layer rule."]
+    return [
+        *lines,
+        f"{len(exempt)} file{'s are' if len(exempt) > 1 else ' is'} exempt from the layer rule.",
         "",
-        "Files exempt from the layer rule",
-        "--------------------------------",
-        "",
-        f"{len(exempt)} files are exempt: the bootstrap shims that wire forward references.",
-        "",
+        *(f"- ``{rel}``" for rel in exempt),
     ]
-    lines.extend(f"- ``{rel}``" for rel in exempt)
-    lines.append("")
+
+
+def render_layer_matrix(matrix: dict[str, Any]) -> str:
+    rows = layer_rows(matrix)
+    lines: list[str] = [GENERATED_HEADER.rstrip("\n"), ""]
+    lines += _render_target(rows)
+    lines += _render_transitional(rows)
+    lines += _render_tolerances(list(matrix.get("tolerances") or []))
+    lines += _render_exempt(list(matrix.get("exempt_files") or []))
     return "\n".join(lines) + "\n"
 
 

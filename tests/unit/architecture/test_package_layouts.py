@@ -15,7 +15,8 @@ the package facade. Keys of a layout file:
 - ``allowed``: the parts each part may import, lowest row first;
 - ``text_paths``: the only files that may name a module of the package as text;
 - ``public``: what another layer may import from the package;
-- ``solver_access`` (calibration): the solver modules the package may import.
+- ``solver_access`` (calibration): the solver modules the package may import;
+- ``backends`` (solver): the parts that never import one another.
 
 The rules shared by every layout come first, parametrized over the files. The
 rules proper to one package follow, each in its own function. The shared rules
@@ -47,6 +48,7 @@ SEEN_PARTS = {
     "data": {"contracts", "managers", "variables", "loading", "registry"},
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
     "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
+    "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},
 }
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
@@ -418,3 +420,38 @@ def test_the_display_registry_names_only_the_figures_package() -> None:
     it may name as text."""
     named = {edge.target_module for edge in _text_edges("display")}
     assert named <= {"hydromodpy.display.figures"}, sorted(named)
+
+
+# -- hydromodpy/solver ------------------------------------------------------------
+
+
+def test_a_backend_never_imports_another_backend() -> None:
+    """No row of a backend names another backend, so a backend can be added,
+    replaced or removed alone. The rule holds on the YAML text, so the order
+    of the rows cannot allow it."""
+    layout = _layout("solver")
+    backends = set(layout["backends"])
+    assert backends <= set(layout["allowed"]), "a backend without a row"
+    offenders = sorted(
+        f"{backend} -> {target}"
+        for backend in backends
+        for target in layout["allowed"][backend]
+        if target in backends
+    )
+    assert offenders == [], "a backend row names another backend:\n  " + "\n  ".join(offenders)
+
+
+def test_the_solver_registry_names_only_its_builtin_backends() -> None:
+    """The dotted paths written as text are the built-in adapters and extractors."""
+    from hydromodpy.solver.base import registry
+
+    builtins = {
+        path.split(":", 1)[0]
+        for table in (registry._BUILTIN_PATHS, registry._BUILTIN_EXTRACTOR_PATHS)
+        for path in table.values()
+    }
+    offenders = _text_edges_outside_the_builtins("solver", builtins)
+    assert offenders == [], (
+        "a text path names a module that is not a built-in adapter or extractor:\n  "
+        + "\n  ".join(offenders)
+    )

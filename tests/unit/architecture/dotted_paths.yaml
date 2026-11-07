@@ -1,0 +1,52 @@
+# What test_dotted_paths.py allows. The gate reads every dotted path written as a
+# string in a known place and resolves it on disk. This file lists the strings that
+# look like a module path and are not one, and the ones that point at nothing today.
+
+not_modules:
+  # Format ids of stored documents, such as hydromodpy.lock.v1 or hydromodpy.manifest.v.
+  documents: '^hydromodpy\.[a-z_]+\.v\d*$'
+  # Entry-point groups, read by the registries. None is a module.
+  groups:
+    - hydromodpy.calibration.evaluator
+    - hydromodpy.calibration.forward_model
+    - hydromodpy.mesh.engine
+    - hydromodpy.solver.extractor
+    - hydromodpy.terrain.engine
+  # Entry-point groups that are also real packages. They must resolve.
+  groups_that_are_packages:
+    - hydromodpy.solver
+    - hydromodpy.data.source
+  # Other names. A name with prefix: true stands for every module it starts.
+  names:
+    - {text: hydromodpy.lock, why: the lockfile name}
+    - {text: hydromodpy.identity, why: the PNG text key of the identity block}
+    - {text: hydromodpy.github.io, why: the documentation host in the Pages workflow}
+    - {text: hydromodpy.display.figures.cohort_, why: the start of the cohort figure module names, prefix: true}
+
+# Strings that point at nothing today. Each one stays until the lot named in
+# lifted_by fixes it, and that lot removes the entry.
+known_stale:
+  - text: "hydromodpy.core.workspace:Workspace"
+    file: hydromodpy/simulation/__init__.py
+    why: the lazy table names a class that now lives in project/accessors.py
+    lifted_by: "2.2"
+  - text: hydromodpy.core.field_precision.round_mantissa
+    file: hydromodpy/results/zarr_store/zarr_writer.py
+    why: the text is stored in every fields.zarr, so it changes with a migration entry
+    lifted_by: "4.2"
+  - text: "hydromodpy/validity_frame/*"
+    file: .github/workflows/ci-nightly.yml
+    why: COVERAGE_OMIT still lists a folder that no longer exists
+    lifted_by: "2.1"
+  - text: "hydromodpy/validity_frame/**/*"
+    file: .github/workflows/ci-nightly.yml
+    why: COVERAGE_OMIT still lists a folder that no longer exists
+    lifted_by: "2.1"
+  - text: "hydromodpy/validity_frame/*"
+    file: .github/workflows/ci-weekly.yml
+    why: COVERAGE_OMIT still lists a folder that no longer exists
+    lifted_by: "2.1"
+  - text: "hydromodpy/validity_frame/**/*"
+    file: .github/workflows/ci-weekly.yml
+    why: COVERAGE_OMIT still lists a folder that no longer exists
+    lifted_by: "2.1"
