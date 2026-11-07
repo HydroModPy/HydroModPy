@@ -386,8 +386,8 @@ class StabilityDirective(SphinxDirective):
             "rc": "This is a release candidate: only release-blocking fixes land.",
         }.get(
             m.group(1) if m else "",
-            "This is a final release: a rename keeps the old name working, with a warning, for "
-            "two minor versions.",
+            "This is a final release: a name listed here changes only under the rules of the "
+            "versions page.",
         )
         text = (
             f"<p>This page documents <code>hydromodpy {esc(version)}</code>. The public surface is the "

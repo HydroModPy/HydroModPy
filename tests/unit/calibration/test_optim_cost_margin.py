@@ -676,6 +676,28 @@ def test_a_crossing_past_the_declared_bound_is_still_a_crossing() -> None:
     assert (found.upper_crossed, found.reaches_upper_bound) == (True, False)
 
 
+@pytest.mark.parametrize(
+    ("curve", "retried"),
+    [
+        # A cut point that failed, then solved when asked again, above the root.
+        (((0.0, 1.0), (1.0, 1.5), (2.0, 3.0)), (2.0, None)),
+        # The same below the root, and with a cost that is not finite.
+        (((-2.0, 3.0), (-1.0, 1.5), (0.0, 1.0)), (-2.0, float("nan"))),
+    ],
+)
+def test_a_failed_trial_asked_again_and_solved_reads_like_the_solved_one(curve, retried) -> None:
+    parameter = SimpleNamespace(name="K", to_physical=_SCALES["identity"])
+    root = (0.0, 1.0)
+    declared = (-4.0, 4.0)
+    expected = root_interval(curve, root, 0.5, "absolute", parameter, declared).to_dict()
+
+    for position in range(len(curve) + 1):
+        with_retry = (*curve[:position], retried, *curve[position:])
+        found = root_interval(with_retry, root, 0.5, "absolute", parameter, declared)
+
+        assert found.to_dict() == expected
+
+
 # From test_margin_intervals.py
 # A calibrated value on its own says nothing about how well it is determined.
 #

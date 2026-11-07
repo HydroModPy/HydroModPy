@@ -35,7 +35,8 @@ def run(args: argparse.Namespace) -> None:
             print(
                 "  (no cache found)"
                 if df is None
-                else "  (empty cache - drop files in data/<variable>/ then run 'hmp run')"
+                else "  (empty cache - a run indexes the files its [data] sources read, "
+                "'hmp data add <file> --type <variable>' indexes one file)"
             )
 
         emit(args, "data ls", [], table=table_of_nothing)

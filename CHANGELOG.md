@@ -62,6 +62,9 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
 - `Catalog.read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run directory instead of the index, and `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` read through the run. `SimulationZarr` binds the writes and reads of the store as its methods. `record_derived_file` moved to `hydromodpy.results.ledger`. Run files are unchanged.
 - `Catalog.load_dataset` builds its cohort with `Catalog.find` and shares the parameter pivot and the field stack of `RunSet`, and returns the same dataset. `DatasetLoader` is replaced by `hydromodpy.results.catalog.dataset_loader.load_dataset`, and `hydromodpy.results.export.run_identity` moved to `hydromodpy.results.run_identity`.
+- The version is 2.0.0, set in `pyproject.toml`, `CITATION.cff` and `hydromodpy/core/version.py`.
+- A TOML key or table that only a pre-release wrote still loads in 2.0.x with a warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is refused. The rule of two minor versions holds for a TOML key or table changed from 2.0.0 on. A name of Python, an `hmp` command or a flag that leaves in 2.1.0 or earlier has no alias: it is refused with a message that names its new form. The alias with a `FutureWarning` holds for a change from 2.2.0 on. The warning of an old form no longer states a delay.
+- The two irregular-mesh runs of example 06 (`run_selune_mf6_irregular.toml` and `run_vire_mf6_irregular.toml`) use the current keys. They resolve to the same configuration.
 
 ### Removed
 
@@ -92,6 +95,14 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The parameter cost profile reads search bounds stored as JSON text, like the calibration progress card. The Piper, Schoeller and Stiff diagrams refuse an unreadable source with the same message.
 - `import_zarr_field` refuses a field store whose schema version is outside the read window, like every other reader. A NetCDF export refuses a time step outside the axis of a field rebuilt on read instead of wrapping it. The STAC, RO-Crate and PROV views written outside a run directory are written atomically, and a NetCDF export no longer uses a fixed temporary file name.
 - `RunSet.to_xarray` warns about a run whose field store cannot be opened instead of skipping it silently. `Catalog.describe`, `variables`, `metrics` and `stations` no longer hide errors other than a missing table or view of the index.
+- A bisection search no longer stops with `TypeError` when a cut point whose solve failed is asked again and solves. Intervals from other curves are unchanged.
+- `manifest.json` gives the sha256 of `fields.zarr`, and `hmp doctor` reports a field store changed since the seal. A seal written before has none and still reads. The STAC and RO-Crate views give no checksum for the store, because it is a directory and not a file.
+- `hmp run --frozen` replays a completed run without `--force`. It used to be skipped as identical to the run it replays.
+- The matching card of a calibration now reads the unit of K from the session journal (`bounds.<name>.units`) before the session config, so its axis no longer shows `K (-)` when the journal says `m/s`.
+- `hmp report catchment` draws the run figures it needs (`hydrograph`, `piezometric_map`, `water_budget`, `seepage_map` and the active network overlay) when the run did not draw them, with the `[display]` the run sealed, instead of showing empty "Required figure missing" blocks.
+- `hmp report catchment` accepts a run that kept the simulated discharge at several stations and reads the one named by `[context.observed_discharge] station_id`.
+- The docstring of `hydromodpy.data.workspace.custom_scan` no longer says `hmp run` scans the custom data files.
+- `hmp data ls` no longer says that `hmp run` indexes the files dropped in `data/<variable>/`. A run indexes the custom files its `[data]` sources read, and `hmp data add` indexes one file.
 
 ### Security
 

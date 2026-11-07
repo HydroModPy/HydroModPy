@@ -1,11 +1,13 @@
 """Auto-scan the ``data/<variable>/`` folders for custom files.
 
-Called at the start of every ``hmp run`` and from ``hmp data check`` /
-``hmp data ls``. Detects new or modified ``<variable>_custom_*`` files
-(mtime > last indexed timestamp), validates them via the adapters,
-normalizes to the internal pivot format, and registers the result in
-``data/cache.duckdb`` with ``provider="custom"``. API files
-(``<variable>_<api>_*``) in the same folder are left to the managers.
+``hmp data check`` calls :func:`check_custom`, a dry run that validates the
+files and writes nothing. Nothing in the package calls :func:`scan_custom`, so
+no ``hmp`` command and no ``hmp run`` indexes the files: a caller has to ask
+for it. It detects new or modified ``<variable>_custom_*`` files (mtime > last
+indexed timestamp), validates them via the adapters, normalizes to the internal
+pivot format, and registers the result in ``data/cache.duckdb`` with
+``provider="custom"``. API files (``<variable>_<api>_*``) in the same folder are
+left to the managers.
 
 The module is idempotent: re-scanning an unchanged workspace is a no-op.
 """

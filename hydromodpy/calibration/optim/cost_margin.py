@@ -252,6 +252,11 @@ def margin_intervals(
     return intervals
 
 
+def _solved(cost: float | None) -> bool:
+    """Whether a trial gave a cost: not None and finite."""
+    return cost is not None and bool(np.isfinite(cost))
+
+
 def _walk_the_curve(
     side: Iterable[tuple[float, float | None]], x: float, cost: float, threshold: float
 ) -> tuple[float, bool]:
@@ -261,7 +266,7 @@ def _walk_the_curve(
     no solve showed.
     """
     for next_x, next_cost in side:
-        if next_cost is None or not np.isfinite(next_cost):
+        if not _solved(next_cost):
             return x, False
         if next_cost > threshold:
             return x + (next_x - x) * (threshold - cost) / (next_cost - cost), True
@@ -284,15 +289,26 @@ def root_interval(
     variable. ``root`` is the answer of the search. The margin is read from its
     cost, since the lowest cost may be a trial elsewhere. From the root the cost is
     followed on each side up to its first crossing of the margin, by a straight
-    line between two trials, so no solve is added.
+    line between two trials, so no solve is added. A trial with no cost whose point
+    was asked again and solved does not count: that point holds a cost.
     """
     root_x, root_cost = root
     threshold = _cost_threshold(root_cost, margin, kind)
-    below = sorted((point for point in curve if point[0] < root_x), reverse=True)
-    above = sorted(point for point in curve if point[0] > root_x)
+    seen = {x for x, cost in curve if _solved(cost)}
+    points = [(x, cost) for x, cost in curve if _solved(cost) or x not in seen]
+    # The sort keys never compare a missing cost. On solved points they order
+    # as the (x, cost) pairs do: x then cost, both reversed below the root.
+    below = sorted(
+        (point for point in points if point[0] < root_x),
+        key=lambda p: (-p[0], not _solved(p[1]), -p[1] if _solved(p[1]) else 0.0),
+    )
+    above = sorted(
+        (point for point in points if point[0] > root_x),
+        key=lambda p: (p[0], not _solved(p[1]), p[1] if _solved(p[1]) else 0.0),
+    )
     lower, lower_crossed = _walk_the_curve(below, root_x, root_cost, threshold)
     upper, upper_crossed = _walk_the_curve(above, root_x, root_cost, threshold)
-    solved = [(x, cost) for x, cost in curve if cost is not None and np.isfinite(cost)]
+    solved = [(x, cost) for x, cost in points if _solved(cost)]
     return ParameterInterval(
         name=parameter.name,
         best=float(parameter.to_physical(root_x)),

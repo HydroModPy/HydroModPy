@@ -947,6 +947,44 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
         mpl.close(fig)
 
 
+@pytest.mark.parametrize(
+    ("config", "bound_units", "expected"),
+    [
+        ({}, "m/s", "K_over_R (m/s)"),
+        ({"parameters": {"K_over_R": {"units": "-"}}}, "m/s", "K_over_R (m/s)"),
+        ({"parameters": {"K_over_R": {"units": "m/d"}}}, None, "K_over_R (m/d)"),
+        ({}, None, "K_over_R (-)"),
+    ],
+    ids=["journal-only", "journal-wins", "config-fallback", "undeclared"],
+)
+def test_the_axis_unit_is_read_from_the_journal_bounds_first(
+    mpl, tmp_path, config, bound_units, expected
+) -> None:
+    from ._calibration_journal import journal_run
+
+    run = journal_run(
+        tmp_path,
+        _two_bound_rows(),
+        method="bisection",
+        phase="transient_conductivity",
+        config=config,
+        bounds={
+            "K_over_R": ParameterBound(
+                lower=1e-6, upper=1e-2, search_space="identity", units=bound_units
+            )
+        },
+        best_trial=COMBINED_TRIAL,
+        root_search={"roots": ROOTS},
+    )
+
+    fig = MatchingHydrographicNetworkCard().plot(run)
+
+    try:
+        assert _panel(fig, "Stage 1").get_xlabel() == expected
+    finally:
+        mpl.close(fig)
+
+
 def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=None))
 

@@ -196,6 +196,45 @@ def test_run_simulation_checks_then_warns_about_a_replayed_run(
     assert fake_project.instances[0].executed[0]["frozen"] is False
 
 
+def test_a_frozen_replay_of_a_completed_run_is_never_skipped_as_identical(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import hydromodpy.workflow.replay_checks as rc
+
+    sealed = tmp_path / "runs" / "case"
+    monkeypatch.setattr(rc, "sealed_run_of", lambda path: sealed)
+    monkeypatch.setattr(rc, "check_replay", lambda cfg, src, *, project_root, inputs_checked: None)
+    monkeypatch.setattr(rc, "warn_replay_differences", lambda src, run: None)
+
+    def explode(cfg: Any, *, name: str) -> None:
+        raise AssertionError("a replay must not look for an identical run")
+
+    monkeypatch.setattr(wf, "completed_identical_run", explode)
+    fake_project.cfg_of_a_file = _cfg(tmp_path)
+    summary = wf.run_simulation(sealed / "config.toml", frozen=True)
+
+    assert "skipped" not in summary
+    sent = fake_project.instances[0].executed[0]
+    assert (sent["frozen"], sent["force"]) == (False, False)
+
+
+def test_a_frozen_run_with_no_record_to_replay_is_still_skipped_as_identical(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import hydromodpy.project.run_overrides as ro
+    import hydromodpy.workflow.replay_checks as rc
+
+    monkeypatch.setattr(rc, "sealed_run_of", lambda path: None)
+    monkeypatch.setattr(ro, "override_changes", lambda cfg, ch: {})
+    monkeypatch.setattr(wf, "completed_identical_run", lambda cfg, *, name: ("case", "sid-1"))
+    fake_project.cfg_of_a_file = _cfg(tmp_path)
+
+    summary = wf.run_simulation(tmp_path / "case.toml", frozen=True)
+
+    assert summary["skipped"] is True
+    assert fake_project.instances[0].executed == []
+
+
 def test_checked_replay_source_is_none_without_a_sealed_record(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

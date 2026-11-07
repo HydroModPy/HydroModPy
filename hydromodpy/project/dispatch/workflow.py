@@ -207,7 +207,8 @@ def run_simulation(
     stem). A plain run identical to an already completed run
     (:func:`completed_identical_run`) is skipped and returns a ``{"skipped": True,
     "name", "sim_id", "project_root"}`` summary, unless ``force`` is set. Resume and
-    partial runs always proceed. The index is never opened here: the summary comes from
+    partial runs always proceed, and so does a replay: it is identical to the run it
+    replays by construction. The index is never opened here: the summary comes from
     the run directory, and the caller indexes it afterwards. ``changes`` is the ``set=``
     of ``hmp.run``, applied to the configuration of the run. ``overrides`` are the dotted
     paths a ``--set`` or an overlay wrote in the file, sealed in ``lineage.overrides``.
@@ -236,6 +237,7 @@ def run_simulation(
             and resume is None
             and from_step is None
             and until_step is None
+            and source_run is None
         )
         if plain_run:
             skipped = skipped_identical_run(cfg, changes, str(run_name), project_root)

@@ -79,6 +79,9 @@ Any other label, a figure's ``png`` included, is written as an octet stream:
 the run manifest records a suffix, not a type, and a view does not guess one.
 """
 
+_DIRECTORY_FORMATS: frozenset[str] = frozenset({"zarr", "directory"})
+"""The ``format`` labels of a run manifest that name a directory, not a file."""
+
 _LICENCE_URLS: dict[str, str] = {
     "cc-by-4.0": "https://creativecommons.org/licenses/by/4.0/",
     "cc-by-sa-4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
@@ -235,15 +238,17 @@ def _run_assets(entries: Any) -> list[AssetEntry]:
         if not path or path == RUN_MANIFEST_FILENAME:
             continue
         role = str(entry.get("role") or "other")
+        file_format = str(entry.get("format") or "")
         assets.append(
             AssetEntry(
                 key=path,
                 relative_path=path,
-                media_type=_RUN_FORMAT_MEDIA_TYPES.get(
-                    str(entry.get("format") or ""), OCTET_STREAM_MEDIA_TYPE
-                ),
+                media_type=_RUN_FORMAT_MEDIA_TYPES.get(file_format, OCTET_STREAM_MEDIA_TYPE),
                 roles=(_stac_role(role), role),
-                sha256=_text_or_none(entry.get("sha256")),
+                # The digest of a directory store is not the digest of a file.
+                sha256=None
+                if file_format in _DIRECTORY_FORMATS
+                else _text_or_none(entry.get("sha256")),
                 size_bytes=_int_or_none(entry.get("bytes")),
             )
         )

@@ -52,6 +52,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
+    as_mapping,
     bare_id,
     chosen_session,
     completed_descriptor,
@@ -973,7 +974,16 @@ def _cost_label(descriptor: Mapping[str, Any]) -> str:
 
 
 def _declared_units(stage: _Stage, parameter: str) -> str:
-    """Return the units the session declared for ``parameter``, ``-`` when none."""
+    """Return the units declared for ``parameter``, ``-`` when none.
+
+    The session journal is read first: its ``bounds.<parameter>.units`` is what
+    the search walked. The configuration frozen in the session comes second,
+    for a session whose journal holds no bounds.
+    """
+    bound = as_mapping(as_mapping(stage.descriptor.get("bounds")).get(parameter))
+    journalled = _text_or_none(bound.get("units"))
+    if journalled is not None:
+        return journalled
     parameters = session_config(stage.descriptor).get("parameters")
     declared = parameters.get(parameter) if isinstance(parameters, Mapping) else None
     units = declared.get("units") if isinstance(declared, Mapping) else None

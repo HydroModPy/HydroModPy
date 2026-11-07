@@ -90,3 +90,17 @@ schema = "hydromodpy.changes.v1"
 #
 # Any shape may add rule = "<function name>" when one row cannot say the whole
 # change. The function carries it, and the row stays for the changelog.
+
+[[recipe]]
+id = "seal_digests_the_field_store"
+since = "2.0.0"
+effect = "identity"
+quantities = []
+text = "The seal of a run gives the sha256 of its field store fields.zarr, over the path and the content of every file, so hmp doctor reports a store changed since the seal. A seal written before 2.0.0 has no digest for the store, which still reads and is not checked."
+
+[[recipe]]
+id = "frozen_replay_is_never_skipped"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "hmp run --frozen on the config.toml of a completed run replays it without --force. It used to be skipped as identical to the run it replays. A run that replays no sealed record is still skipped when a completed run is identical."

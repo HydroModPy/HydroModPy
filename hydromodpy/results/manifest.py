@@ -62,6 +62,7 @@ from hydromodpy.results.storage.contract import (
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.json_io import read_json, read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
@@ -308,8 +309,8 @@ class ManifestArtifact(HydroModelBase):
     bytes: int | None = None
     sha256: str | None = Field(
         default=None,
-        description="SHA-256 of the file; null for a directory store, the manifest itself "
-        "and a seal written before the digests",
+        description="SHA-256 of the file or of the directory store; null for the manifest "
+        "itself and a seal written before the digests",
     )
 
 
@@ -453,9 +454,10 @@ def _check_fields_version(fields: Path) -> None:
 def seal_problems(run_dir: Path | str) -> list[str]:
     """Return what no longer matches the seal of a run: a missing file or a changed digest.
 
-    Only the files that carry a ``sha256`` are re-hashed, so a seal written
-    before the digests, a directory store and the manifest itself are skipped.
-    Nothing is repaired. An unreadable manifest is reported, never raised.
+    Only the entries that carry a ``sha256`` are re-hashed, a file by its
+    bytes and a directory store by the digest of its tree, so a seal written
+    before the digests and the manifest itself are skipped. Nothing is
+    repaired. An unreadable manifest is reported, never raised.
     """
     root = Path(run_dir)
     try:
@@ -467,9 +469,14 @@ def seal_problems(run_dir: Path | str) -> list[str]:
         if artifact.sha256 is None:
             continue
         path = root / artifact.path
-        if not path.is_file():
+        if path.is_dir():
+            digest = sha256_directory(path)
+        elif path.is_file():
+            digest = sha256_of(path)
+        else:
             problems.append(f"{artifact.path}: listed in the seal and absent")
-        elif sha256_of(path) != artifact.sha256:
+            continue
+        if digest != artifact.sha256:
             problems.append(f"{artifact.path}: changed since the seal (sha256 differs)")
     return problems
 
