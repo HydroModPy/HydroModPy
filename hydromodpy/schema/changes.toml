@@ -1,0 +1,92 @@
+# The register of changes of HydroModPy.
+#
+# One row per change a reader of an older run or an older file has to know about.
+# [[bug]] is a fix that changes the numbers of a run. [[default]] is a default that
+# moves with an edition, and only a file that writes that edition gets the new value.
+# [[recipe]] is a computation or a rule that changes without a bug. [[migration]] is
+# one key that moves or leaves, or one value that is renamed, in the TOML grammar or
+# in a stored document.
+#
+# The changelog is generated from this file: a bug, a default and a recipe whose
+# effect is "numbers" go under Numbers, the rest under Changed. No code reads this
+# file yet. Until it does, the register of known issues of published versions is
+# hydromodpy/results/known_issues.toml.
+#
+# Rules for every row:
+# - id is [a-z0-9_]+, unique in the whole file, and never reused. A migration row has
+#   no id.
+# - since is the first version that carries the change, such as "2.1.0".
+# - text is the changelog line, in plain English: the quantity, the case, the old
+#   value, the new value and the size of the change.
+# - quantities are the tokens a run exposes, as in results/validity_rules.py:
+#   "metrics", "heads@<solver>", "fluxes@<solver>", "mesh@<engine>", "derived@<v>".
+# - A path is dotted, with [*] for each table of a list and {*} for the tables under
+#   free names, as in config/config_migration.py.
+
+schema = "hydromodpy.changes.v1"
+
+# A fix that changes a number. The commit of the fix adds its row. versions is the
+# PEP 440 set of the versions that carry the bug, so a run of one of them is
+# labelled exploratory.
+#
+# [[bug]]
+# id = "<snake_case_name>"
+# since = "2.1.0"
+# versions = "<2.1.0"
+# quantities = ["metrics"]
+# text = "<The quantity, on which case, goes from <old> to <new>.>"
+# commit = "<sha of the fix, optional>"
+
+# A default that moves. The commit that moves it adds its row. A file that does not
+# write edition keeps the old value.
+#
+# [[default]]
+# id = "<snake_case_name>"
+# since = "2.1.0"
+# edition = "2.1"
+# key = "<section>.<key>"
+# old = 0.5
+# new = 0.45
+# quantities = ["heads@modflow6", "fluxes@modflow6"]
+# text = "<With edition 2.1, <key> defaults to <new> instead of <old>. <Size of the change>.>"
+
+# A computation or a rule that changes without a bug. The commit that changes it
+# adds its row. effect is one of "numbers", "refusal", "label", "identity", "layout".
+#
+# [[recipe]]
+# id = "<snake_case_name>"
+# since = "2.1.0"
+# effect = "numbers"
+# quantities = ["metrics"]
+# text = "<What the step computes now, on which case, and the size of the change.>"
+
+# One key that moves, in the TOML grammar (document = "config") or in a stored
+# document (document = "manifest", "published", "sidecar", ...). The commit that
+# moves or retires the key adds its row, one row per key. Three shapes:
+#
+# A key that moves. Its sub-keys keep their names.
+# [[migration]]
+# document = "config"
+# old = "<section>.<old_key>"
+# new = "<section>.<new_key>"
+# since = "2.1.0"
+#
+# A key that leaves. A live file is refused with instead. A sealed run is refused
+# too, unless sealed = "drop" says that a replay never needed the key.
+# [[migration]]
+# document = "config"
+# old = "<section>.<key>"
+# instead = "<What to write instead.>"
+# sealed = "drop"
+# since = "2.1.0"
+#
+# A value that is renamed under a key that keeps its name.
+# [[migration]]
+# document = "config"
+# key = "<section>.<key>"
+# old_value = "<old>"
+# new_value = "<new>"
+# since = "2.1.0"
+#
+# Any shape may add rule = "<function name>" when one row cannot say the whole
+# change. The function carries it, and the row stays for the changelog.
