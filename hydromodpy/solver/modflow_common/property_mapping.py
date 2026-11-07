@@ -2,7 +2,7 @@
 
 ``resolve_flow_property_arrays`` maps K, Kv, Sy and Ss onto the cells of the
 solver mesh at its layer-center depths through the one mapping every solver
-shares (``solver.base.properties.map_flow_properties``). The arrays are
+shares (``model.properties.property_table.map_flow_properties``). The arrays are
 flat, ``(nlay, n_cells)`` and ``(n_cells,)``: a backend that writes a structured
 grid reshapes them.
 """
@@ -11,7 +11,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.solver.base.properties import (
+from hydromodpy.model.properties.property_table import (
     map_flow_properties,
     resolve_flow_property_runtime_overrides,
 )

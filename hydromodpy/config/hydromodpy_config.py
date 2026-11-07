@@ -80,21 +80,21 @@ from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.forcing.validation import refuse_an_impossible_recharge
-from hydromodpy.physics.hydrology.soil_reservoir.config import (
-    soil_reservoir_of,
-    spinup_refusal,
-    steady_start_refusal,
-)
-from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
+from hydromodpy.model.initial.spinup_config import SpinupConfig
+from hydromodpy.model.properties.property_table import k_tensor_parameter_ids
+from hydromodpy.model.soil.config import soil_reservoir_of, spinup_refusal, steady_start_refusal
+from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 from hydromodpy.results.metric_rule import MetricsConfig
 from hydromodpy.results.publication import PublicationConfig
-from hydromodpy.simulation.planning.config import SimulationConfig
-from hydromodpy.simulation.planning.observation_config import ObservationConfig
-from hydromodpy.simulation.spinup_config import SpinupConfig
-from hydromodpy.solver.base.properties import k_tensor_parameter_ids
+from hydromodpy.solver.base.observation_config import ObservationConfig
+from hydromodpy.solver.base.simulation_config import SimulationConfig
 from hydromodpy.solver.base.solver_config import (
     CustomBackend,
     SolverConfig,
@@ -103,11 +103,7 @@ from hydromodpy.solver.base.solver_config import (
 )
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
-from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 logger = get_logger(__name__)
 
@@ -864,9 +860,9 @@ class HydroModPyConfig(HydroModelBase):
         The engine is the one of ``[mesh]``, or ``regular`` when the section is
         absent.
         """
+        from hydromodpy.mesh import registry as mesh_registry
+        from hydromodpy.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
         from hydromodpy.solver.base import registry as solver_registry
-        from hydromodpy.spatial.mesh import registry as mesh_registry
-        from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
@@ -1002,7 +998,7 @@ class HydroModPyConfig(HydroModelBase):
         address names no cell, and the build would stop on it after meshing. The
         engine is the one of ``[mesh]``, or ``regular`` when the section is absent.
         """
-        from hydromodpy.spatial.mesh import registry as mesh_registry
+        from hydromodpy.mesh import registry as mesh_registry
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
@@ -1197,7 +1193,7 @@ class HydroModPyConfig(HydroModelBase):
                 "the flow with 'modflow6' or 'modflow_nwt'."
             )
 
-        from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+        from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
 
         active_bc = {str(name).lower() for name in flow_cfg.active_bc}
         sinks_sources = flow_cfg.sinks_sources

@@ -23,20 +23,17 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.base.properties import (
+from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, load_catchment_mesh_bundle
+from hydromodpy.model.properties.property_table import (
     FLOW_PROPERTY_SPECS,
     require_positive_conductivity,
     require_positive_storage,
     resolve_flow_property_runtime_overrides,
     resolve_required_flow_properties,
 )
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import resolve_flow_property_arrays
-from hydromodpy.spatial.mesh.io.bundle import (
-    CatchmentMeshBundle,
-    load_catchment_mesh_bundle,
-)
 
 
 def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:

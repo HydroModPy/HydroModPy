@@ -31,7 +31,7 @@ def select_budget_zone(frame: Any) -> tuple[Any, str]:
     catchment row (zone :data:`CATCHMENT`) for the same component and timestep.
     The zone whose support is the delineated catchment is written by the solver
     extractors and read by
-    ``simulation.catchment_aggregation``. On a mesh that
+    ``results.derive.catchment_aggregation``. On a mesh that
     takes in a buffer, a domain row carries the neighboring basins too. The
     catchment lies inside the domain, so summing the two counts its water twice.
     The catchment rows

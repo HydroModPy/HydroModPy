@@ -50,8 +50,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.project import delete_project
     from hydromodpy.core.state.layout import PROJECTS_DIRNAME
+    from hydromodpy.data.workspace.folders import delete_project
     from hydromodpy.results.catalog.indexer import scan_tree
     from hydromodpy.results.outcome import effective_status
     from hydromodpy.results.storage.contract import RUN_PUBLISHED_FILENAME

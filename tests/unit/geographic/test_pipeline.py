@@ -16,12 +16,14 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import EmptyCatchmentError
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import Surface
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic import pipeline as runtime_pipeline
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.ground_bed import (
@@ -39,8 +41,6 @@ from hydromodpy.spatial.geographic.geographic_cache import (
     required_geographic_cache_artifacts,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.terrain import CappedBreach
 from tests._helpers import ground_bench as bench
 from tests._helpers.cell_meshes import cell_mesh_of

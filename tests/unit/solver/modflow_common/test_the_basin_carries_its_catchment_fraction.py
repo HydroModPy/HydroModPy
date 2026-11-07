@@ -15,6 +15,7 @@ import pytest
 import shapely
 from shapely.geometry import box
 
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.descent_store import (
@@ -24,7 +25,6 @@ from hydromodpy.solver.modflow_common.descent_store import (
 )
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.spatial.drainage.descent import DescentBasin
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 

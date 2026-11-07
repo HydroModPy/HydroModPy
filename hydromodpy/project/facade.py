@@ -97,6 +97,8 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
+    from hydromodpy.model.domain.domain import Domain
+    from hydromodpy.model.initial.spinup_config import SpinupConfig
     from hydromodpy.project.launch import LaunchReport, StatusReport
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths
@@ -106,8 +108,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.lineage import Lineage
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.run import Run
-    from hydromodpy.simulation.spinup_config import SpinupConfig
-    from hydromodpy.spatial.domain.domain import Domain
     from hydromodpy.spatial.geographic.catchment_delineation import (
         CatchmentDelineation,
     )

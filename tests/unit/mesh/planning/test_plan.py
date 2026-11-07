@@ -19,18 +19,18 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.cache import cache_key
-from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
-from hydromodpy.spatial.mesh.planning import size_terms
-from hydromodpy.spatial.mesh.planning.geology_contacts import contact_lines
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.lake_structures import LakeStructure
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.planning.refinement_zones import RefinementZone, load_refinement_zones
-from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
-from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, InputTriangulation
+from hydromodpy.mesh.cache import cache_key
+from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
+from hydromodpy.mesh.planning import size_terms
+from hydromodpy.mesh.planning.geology_contacts import contact_lines
+from hydromodpy.mesh.planning.inputs import PlanningInputs
+from hydromodpy.mesh.planning.lake_structures import LakeStructure
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.planning.refinement_zones import RefinementZone, load_refinement_zones
+from hydromodpy.mesh.planning.size_field import PixelRegion
+from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
+from hydromodpy.mesh.request import BARRIER_FAMILY, InputTriangulation
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.fake_engines import fake_capabilities, fake_engine, registered
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, grid_spec, planning_inputs

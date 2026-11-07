@@ -42,6 +42,7 @@ from hydromodpy.calibration.runners.trial import prepare_trials, run_trial_light
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider  # noqa: E402
 from hydromodpy.results.catalog import Catalog  # noqa: E402
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions  # noqa: E402
+from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing  # noqa: E402
 
 from run_real_parameter_grid import (  # noqa: E402
     CONFIG_ROOT,
@@ -859,7 +860,8 @@ def _extract_outflow_drain_stack(ctx, *, keep_solver_files: bool) -> np.ndarray:
     if not models:
         raise RuntimeError("No flow model found after lightweight trial.")
     model = models[-1]
-    model.post_processing(
+    run_post_processing(
+        model,
         ModflowPostprocessOptions(
             watertable_elevation=False,
             watertable_depth=False,
@@ -879,7 +881,7 @@ def _extract_outflow_drain_stack(ctx, *, keep_solver_files: bool) -> np.ndarray:
             native_mesh_csv=False,
             native_mesh_vtu=False,
             native_mesh_png=False,
-        )
+        ),
     )
     by_time = getattr(model, "dict_outflow_drain", {})
     if not by_time:

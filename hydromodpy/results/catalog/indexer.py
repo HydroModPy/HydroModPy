@@ -215,6 +215,36 @@ def index_is_current(project_root: Path | str) -> bool:
     return {rel: (e.key, e.mtime_ns) for rel, e in disk.items()} == current
 
 
+def reindex_if_indexed(project_root: Path) -> None:
+    """Index the runs a command just changed, when the project has an index.
+
+    A project without an index is left so: it is read from disk until
+    ``hmp catalog reindex`` builds one.
+    """
+    if catalog_path_for(project_root).is_file():
+        index_new_runs(project_root)
+
+
+def reindex_project(workspace: Any, *, incremental: bool = False) -> dict:
+    """Rebuild the index of a project, or bring it up to date with ``incremental``.
+
+    Returns ``{"index", "full", "indexed", "sessions", "removed", "skipped",
+    "rows"}``. A full rebuild is idempotent: the index is built from what the
+    directories declare, so running it twice describes the same project.
+    """
+    root = Path(workspace).expanduser().resolve()
+    report = index_new_runs(root) if incremental else rebuild_index(root)
+    return {
+        "index": str(report.index_path),
+        "full": report.full,
+        "indexed": list(report.indexed),
+        "sessions": list(report.sessions),
+        "removed": list(report.removed),
+        "skipped": [{"rel_dir": item.rel_dir, "reason": item.reason} for item in report.skipped],
+        "rows": dict(report.rows),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Scanning the tree
 # ---------------------------------------------------------------------------
@@ -1190,5 +1220,7 @@ __all__ = [
     "index_new_runs",
     "known_issues_digest",
     "rebuild_index",
+    "reindex_if_indexed",
+    "reindex_project",
     "scan_tree",
 ]

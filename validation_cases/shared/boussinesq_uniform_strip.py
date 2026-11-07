@@ -11,14 +11,10 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import Flow
+from hydromodpy.model.time.regime import normalize_flow_regime
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_variant_config_name,

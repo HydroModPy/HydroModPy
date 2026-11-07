@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,

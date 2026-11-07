@@ -46,17 +46,17 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.state.run_state``: ``RunState``, what a solver adapter reads.
 - ``hydromodpy.schema``: the JSON Schema export and the partial validator.
 - ``hydromodpy.spatial.terrain.port``: the terrain engine port.
-- ``hydromodpy.spatial.mesh.port``: the mesh engine port.
+- ``hydromodpy.mesh.port``: the mesh engine port.
 - ``hydromodpy.data.source.port``: the data source port.
 - ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
 - ``hydromodpy.data.managers.base_config``: the base of a data variable config.
 - ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
 - ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
-- ``hydromodpy.physics.transport.transport``: ``Transport``, the transport process.
+- ``hydromodpy.model.transport.transport``: ``Transport``, the transport process.
 - ``hydromodpy.solver.base.adapter_protocol``: the solver port.
-- ``hydromodpy.simulation.planning.plan``: ``RunContext`` and ``RunExecutionResult``,
+- ``hydromodpy.solver.base.plan``: ``RunContext`` and ``RunExecutionResult``,
   what a solver adapter receives and returns.
-- ``hydromodpy.simulation.post_run``: the solver extractor port.
+- ``hydromodpy.workflow.steps.run_outputs``: the solver extractor port.
 - ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
 - ``hydromodpy.calibration.evaluation.forward``: the forward model port.
 - ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
@@ -95,7 +95,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - ``TerrainEngine``, ``hydromodpy.spatial.terrain.port``
      - stable
    * - ``hydromodpy.mesh.engine``
-     - ``MeshEngine``, ``hydromodpy.spatial.mesh.port``
+     - ``MeshEngine``, ``hydromodpy.mesh.port``
      - stable
    * - ``hydromodpy.data.source``
      - ``DataSource``, ``hydromodpy.data.source.port``
@@ -110,7 +110,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - ``SolverAdapter``, ``hydromodpy.solver.base.adapter_protocol``
      - experimental
    * - ``hydromodpy.solver.extractor``
-     - ``OutputAdapter``, ``hydromodpy.simulation.post_run``
+     - ``OutputAdapter``, ``hydromodpy.workflow.steps.run_outputs``
      - experimental
 
 A stable port is frozen as the facade is: a change keeps the old form working for

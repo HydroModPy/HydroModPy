@@ -49,6 +49,7 @@ SEEN_PARTS = {
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
     "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
     "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},
+    "mesh": {"planar", "cells", "engines", "planning", "io"},
 }
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
@@ -454,4 +455,17 @@ def test_the_solver_registry_names_only_its_builtin_backends() -> None:
     assert offenders == [], (
         "a text path names a module that is not a built-in adapter or extractor:\n  "
         + "\n  ".join(offenders)
+    )
+
+
+# -- hydromodpy/mesh --------------------------------------------------------------
+
+
+def test_the_mesh_registry_names_only_its_builtin_engines() -> None:
+    """The dotted paths written as text are the built-in engines."""
+    from hydromodpy.mesh import registry
+
+    offenders = _text_edges_outside_the_builtins("mesh", _builtin_targets(registry))
+    assert not offenders, "a text path names a module that is not a built-in engine:\n  " + (
+        "\n  ".join(offenders)
     )

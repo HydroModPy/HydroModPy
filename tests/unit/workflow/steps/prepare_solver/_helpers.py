@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.sealed_runs import seal_run
 
 

@@ -75,8 +75,8 @@ from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
-from hydromodpy.physics.flow.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
-from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.model.properties.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
+from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
 from hydromodpy.results.exporters.export_spec import RUN_FORMATS, format_from_path
 
 _logger = get_logger(__name__)

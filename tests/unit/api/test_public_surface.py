@@ -39,6 +39,10 @@ PRESENT = (
 # merged into ``hmp.open`` / ``hmp.run`` dispatch. They must not come back.
 REMOVED = ("open_catalog", "overview", "mesh", "testbed")
 
+# Removed verbs whose name is now a subpackage. Once that package is imported,
+# Python binds it on ``hydromodpy``, so ``hmp.<name>`` is the module, never the verb.
+SUBPACKAGES = ("mesh",)
+
 
 @pytest.mark.parametrize("name", PRESENT)
 def test_present_symbol(name: str) -> None:
@@ -50,6 +54,11 @@ def test_present_symbol(name: str) -> None:
 def test_a_name_removed_before_the_tag_has_no_entry_and_is_gone(name: str) -> None:
     assert name not in hmp.__all__, f"hmp.{name} must not be in __all__"
     assert name not in OLD_NAMES
+    if name in SUBPACKAGES:
+        package = importlib.import_module(f"hydromodpy.{name}")
+        assert getattr(hmp, name) is package
+        assert inspect.ismodule(package) and not callable(package)
+        return
     with pytest.raises(AttributeError):
         getattr(hmp, name)
 

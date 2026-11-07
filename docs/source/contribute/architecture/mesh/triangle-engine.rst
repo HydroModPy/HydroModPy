@@ -7,7 +7,7 @@ The ``triangle`` engine builds constrained Delaunay triangles with Gmsh, or read
 triangulation of a ``.msh`` file. A line of a face family lies on mesh edges, so the faces
 follow the geology contacts and the lake shores exactly.
 
-The code lives in ``hydromodpy/spatial/mesh/engines/triangle/``. The engine declares
+The code lives in ``hydromodpy/mesh/engines/triangle/``. The engine declares
 ``deterministic = False`` and ``needs_cache = True``. Gmsh does not give the same
 triangulation twice, so the engine builds the mesh of a request once and keeps it
 (:doc:`mesh-engines`).

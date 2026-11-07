@@ -15,8 +15,9 @@ from hydromodpy.core.time import (
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.solver.base.initial_conditions import (
+from hydromodpy.model.forcing.cells import stress_period_bounds
+from hydromodpy.model.initial.config import FlowInitialConditions
+from hydromodpy.model.initial.heads import (
     cycles_have_settled,
     cyclic_flow_copy_for_initialization,
     cyclic_spinup_strategy,
@@ -34,7 +35,6 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _read_final_percent_discrepancy,
     _steady_initialization_balance_is_acceptable,
 )
-from hydromodpy.spatial.forcing.cells import stress_period_bounds
 
 
 def test_modflow6_steady_initialization_relaxes_auxiliary_solver_only() -> None:

@@ -37,6 +37,7 @@ from hydromodpy.core.state.layout import (
     TRASH_DIRNAME,
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.manifest import MetricRow, read_manifest
 from hydromodpy.results.record import sealed_artifacts
@@ -56,7 +57,6 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.run_stores import open_run_store

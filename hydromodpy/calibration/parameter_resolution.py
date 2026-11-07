@@ -34,7 +34,7 @@ from hydromodpy.calibration.targets import (
     targets_by_path,
 )
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
+from hydromodpy.model.soil.config import soil_reservoir_of
 
 __all__ = [
     "RECHARGE_FACTOR_PATH",
@@ -282,7 +282,7 @@ def _depth_model_kinds() -> dict[str, tuple[str, ...]]:
     calibrable are the ones the catalog lists, and a message that named
     another list would drift from it.
     """
-    from hydromodpy.spatial.domain.depth_model_config import (
+    from hydromodpy.model.domain.depth_model_config import (
         ConstantThicknessDepthModel,
         FlatSubstratumDepthModel,
         RasterSubstratumDepthModel,
@@ -307,7 +307,7 @@ def _depth_model_kinds() -> dict[str, tuple[str, ...]]:
 
 def _names_a_depth_model_field(name: str) -> bool:
     """Return whether ``name`` spells a depth-model field, bare or under its section."""
-    from hydromodpy.spatial.domain.depth_model_config import (
+    from hydromodpy.model.domain.depth_model_config import (
         ConstantThicknessDepthModel,
         FlatSubstratumDepthModel,
         RasterSubstratumDepthModel,

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.sinks_sources import FlowWellConfig
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import (

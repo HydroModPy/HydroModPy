@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_param_io import field_param_from_toml
-from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
+from hydromodpy.model.properties.field_param import FieldParam
+from hydromodpy.model.properties.field_param_io import field_param_from_toml
+from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
 from tests._helpers.field_cases import two_zone_square
 from tools.cases.field.square import run_field_demo
 from tools.cases.field.square.run_field_demo import run_field_demo_case

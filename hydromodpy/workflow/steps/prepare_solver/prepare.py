@@ -40,9 +40,9 @@ from hydromodpy.workflow.steps.data_description import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.physics.flow import Flow
+    from hydromodpy.model.domain.domain import Domain
+    from hydromodpy.model.model import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
-    from hydromodpy.spatial.domain.domain import Domain
 
 logger = get_logger(__name__)
 

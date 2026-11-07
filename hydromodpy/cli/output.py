@@ -455,7 +455,7 @@ OUTPUTS: tuple[Output, ...] = (
 
 The commands that have no entry write a document that is the result itself, so an
 envelope would break it: ``config template``, ``config resolve``, ``config schema``,
-``config wizard`` and ``completion``. ``hmp dev`` is out of the contract.
+``config wizard`` and ``completion``.
 """
 
 ERROR = _object("error", "code", "title", "detail", "exit_code")

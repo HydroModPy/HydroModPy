@@ -1,7 +1,7 @@
 @startuml
 title Process - Runtime Class Diagram
 
-package "hydromodpy.physics.base" {
+package "hydromodpy.model.process_spatial" {
   abstract class "ProcessSpatial<TInitialConditions>" as ProcessSpatialT {
     +parameters: dict[str, object]
     +initial_conditions: TInitialConditions | None
@@ -18,7 +18,7 @@ package "hydromodpy.physics.base" {
   class SinkSource
 }
 
-package "hydromodpy.physics.flow" {
+package "hydromodpy.model.model" {
   class Flow {
     +config: FlowConfig
     +flow_regime: str
@@ -41,7 +41,7 @@ package "hydromodpy.physics.flow" {
   class FlowSinksSourcesConfig
 }
 
-package "hydromodpy.physics.transport" {
+package "hydromodpy.model.transport" {
   class Transport {
     +config: TransportConfig | None
     +modpath: _TransportComponent

@@ -122,4 +122,27 @@ def read_workspace_runs(roots: Path | str | Iterable[Path | str]) -> pd.DataFram
     return pd.concat(frames, ignore_index=True)
 
 
-__all__ = ["PROJECT_ROOT_COLUMN", "read_project_runs", "read_workspace_runs", "sealed_run_dirs"]
+def list_workspace_runs(root: Path | str) -> pd.DataFrame:
+    """Return the sealed runs of every project under ``root``, one row each.
+
+    ``root`` is a workspace root or a project root. The frame carries the
+    columns of ``simulation.parquet`` plus ``project_root``, newest first.
+    Nothing reads an index.
+    """
+    df = read_workspace_runs(Path(root).expanduser().resolve())
+    if df.empty:
+        return pd.DataFrame()
+    if "sim_id" in df.columns:
+        df["sim_id"] = df["sim_id"].astype(str)
+    if "created_at" in df.columns:
+        df = df.sort_values("created_at", ascending=False, kind="stable")
+    return df.reset_index(drop=True)
+
+
+__all__ = [
+    "PROJECT_ROOT_COLUMN",
+    "list_workspace_runs",
+    "read_project_runs",
+    "read_workspace_runs",
+    "sealed_run_dirs",
+]

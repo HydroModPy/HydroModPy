@@ -51,7 +51,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import show_simulation
+    from hydromodpy.results.catalog.listing import show_simulation
 
     project_root = project_root_of(args)
     named = bool(args.workspace)

@@ -24,20 +24,6 @@ Public surface::
 
 from __future__ import annotations
 
-from hydromodpy.schema.job.chain import (
-    CHAIN_FILENAME,
-    CHAIN_OUTCOME_FILENAME,
-    CHAIN_OUTCOME_SCHEMA,
-    CHAIN_OUTCOME_VERSIONS,
-    ChainOutcome,
-    ChainRequest,
-    ChainStep,
-    StepLink,
-    read_chain,
-    read_chain_outcome,
-    resolve_chain,
-    run_chain,
-)
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import (
@@ -104,13 +90,6 @@ from hydromodpy.schema.job.seal import (
 __all__ = [
     "ALLOWED_JOB_ENTRIES",
     "ArtifactRecord",
-    "CHAIN_FILENAME",
-    "CHAIN_OUTCOME_FILENAME",
-    "CHAIN_OUTCOME_SCHEMA",
-    "CHAIN_OUTCOME_VERSIONS",
-    "ChainOutcome",
-    "ChainRequest",
-    "ChainStep",
     "FileLink",
     "InputResource",
     "InputSet",
@@ -128,7 +107,6 @@ __all__ = [
     "SEALED_DOCUMENTS",
     "SealVerification",
     "SpatialExtent",
-    "StepLink",
     "UNDETERMINED",
     "UNIDENTIFIED_JOB",
     "build_inputset",
@@ -141,19 +119,15 @@ __all__ = [
     "inline_resource",
     "now",
     "check_job_document",
-    "read_chain",
-    "read_chain_outcome",
     "read_document",
     "read_versioned",
     "read_request",
     "refuse_request",
     "render_document",
     "requested_outputs",
-    "resolve_chain",
     "reuse_sealed_outcome",
     "reused_outcome_text",
     "roll_up_licences",
-    "run_chain",
     "seal_job",
     "sha256_file",
     "sha256_value",

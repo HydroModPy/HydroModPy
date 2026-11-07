@@ -37,7 +37,7 @@ from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
-from hydromodpy.solver.modflow_nwt.postprocess import masstransfer
+from hydromodpy.solver.modflow_nwt.mt3dms import masstransfer
 
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 

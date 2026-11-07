@@ -393,8 +393,8 @@ class StabilityDirective(SphinxDirective):
             f"<p>This page documents <code>hydromodpy {esc(version)}</code>. The public surface is the "
             f"{len(names)} names of <code>hydromodpy.__all__</code> ({counts}), the classes they return, "
             "and the exceptions of this reference. A name outside this reference is internal, except the "
-            f'modules for extensions on the <a href="{esc(contracts)}">contracts page</a>. So are '
-            "the <code>hydromodpy._api</code> module and the <code>hydromodpy.cli._workers</code> package.</p>"
+            f'modules for extensions on the <a href="{esc(contracts)}">contracts page</a>. So is '
+            "the <code>hydromodpy._api</code> module.</p>"
             f"<p>{esc(stage)} Versions follow semantic versioning with PEP 440 pre-release tags. "
             f'What each kind of version may change is on the <a href="{esc(policy)}">versions page</a>.</p>'
         )
@@ -1401,7 +1401,7 @@ exits 1 when one is `KO`, `hmp publish --verify` lists its differences and exits
 
 The commands that are not listed print a document that is the result itself, and an envelope
 would break it: `hmp config template`, `hmp config resolve`, `hmp config schema`,
-`hmp config wizard` and `hmp completion`. `hmp dev` is out of the contract.
+`hmp config wizard` and `hmp completion`.
 
 The JSON Schema of the result of `hmp calibrate` ships as
 `hydromodpy/schema/results/calibrate.v1.json`.

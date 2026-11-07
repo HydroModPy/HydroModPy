@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    throttled_well_message,
-    throttled_well_report,
-)
+from hydromodpy.model.sinks_sources.wells import throttled_well_message, throttled_well_report
 from hydromodpy.solver.modflow6.run import warn_on_throttled_wells
 
 # MODFLOW 6 LAK reads every lake forcing as zero or more and stops on a negative one.

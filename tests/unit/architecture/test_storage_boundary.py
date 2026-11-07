@@ -30,7 +30,13 @@ CHECKED_FILES = (
 
 CLI_DIAGNOSTIC_FILES = (
     PACKAGE / "cli" / "commands" / "doctor.py",
-    *sorted((PACKAGE / "cli" / "_workers").rglob("*.py")),
+    PACKAGE / "data" / "request" / "cache_verbs.py",
+    PACKAGE / "data" / "workspace" / "folders.py",
+    PACKAGE / "display" / "catalog_figures.py",
+    PACKAGE / "project" / "lock.py",
+    PACKAGE / "results" / "catalog" / "listing.py",
+    PACKAGE / "results" / "catalog" / "liveness.py",
+    PACKAGE / "results" / "catalog" / "privacy.py",
 )
 
 DATA_REGISTRY_FILES = (
@@ -40,7 +46,6 @@ DATA_REGISTRY_FILES = (
 
 ALLOWED_DIRECT_DUCKDB_FILES = {
     "hydromodpy/cli/commands/doctor.py",
-    "hydromodpy/cli/commands/dev/manage/backend.py",
 }
 
 INDEX_OPENERS = {
@@ -56,8 +61,6 @@ DUCKDB_CONNECT_FILES = {
     "hydromodpy/display/catchment_report/context.py",
     "hydromodpy/results/storage/diagnostics.py",
     "hydromodpy/cli/commands/doctor.py",
-    "hydromodpy/cli/commands/dev/manage/backend.py",
-    "hydromodpy/cli/_workers/audit.py",
 }
 """Every module allowed to call ``duckdb.connect``; a new one is a new DuckDB scope to justify."""
 
@@ -225,7 +228,6 @@ def test_a_duckdb_file_is_opened_for_writing_by_its_owner_only() -> None:
 
 
 CATALOG_FAMILY_FILES = (
-    PACKAGE / "cli" / "_workers" / "catalog.py",
     *sorted((PACKAGE / "cli" / "commands" / "catalog").rglob("*.py")),
     *sorted((PACKAGE / "results" / "catalog").rglob("*.py")),
 )
@@ -257,8 +259,8 @@ def no_index_opening(monkeypatch):
 
 
 def test_watch_reads_the_outcomes_and_never_the_index(tmp_path, no_index_opening) -> None:
-    from hydromodpy.cli._workers.catalog import stale_running_sim_ids, watch_running
     from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.results.catalog.liveness import stale_running_sim_ids, watch_running
     from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
     root = make_project(tmp_path / "demo")
@@ -282,7 +284,7 @@ def test_the_doctor_counts_read_the_sessions_and_never_the_index(
 ) -> None:
     from datetime import UTC, datetime, timedelta
 
-    from hydromodpy.cli._workers.catalog import (
+    from hydromodpy.results.catalog.liveness import (
         abandoned_calibration_session_count,
         orphan_calibration_session_count,
     )

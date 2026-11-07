@@ -13,8 +13,8 @@ import numpy as np
 import shapely
 from shapely.geometry import Polygon, box
 
-from hydromodpy.spatial.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE, INWARD_M
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE, INWARD_M
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.mesh_cases import L93_ORIGIN, voronoi_lake_mesh
 
 X0, Y0 = L93_ORIGIN

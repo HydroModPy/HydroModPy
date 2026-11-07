@@ -8,14 +8,14 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
-from hydromodpy.physics.flow.binders.climate import apply_oceanic_to_flow
-from hydromodpy.physics.flow.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.sinks_sources import FlowSinksSourcesConfig
-from hydromodpy.spatial.geographic.structure_binders import (
+from hydromodpy.model.boundaries.climate import apply_oceanic_to_flow
+from hydromodpy.model.domain.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import Flow
+from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 
 
 class _DummyDomain:
@@ -74,7 +74,7 @@ def test_apply_catchment_zones_to_domain_sets_zone(monkeypatch, tmp_path: Path) 
         )
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.structure_binders.build_catchment_zone_codes",
+        "hydromodpy.model.domain.structure_binders.build_catchment_zone_codes",
         _fake_build_catchment_zone_codes,
     )
 
@@ -117,7 +117,7 @@ def test_apply_catchment_zones_to_domain_sets_uniform_zone(monkeypatch, tmp_path
         )
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.geographic.structure_binders.build_uniform_zone_codes",
+        "hydromodpy.model.domain.structure_binders.build_uniform_zone_codes",
         _fake_build_uniform_zone_codes,
     )
 

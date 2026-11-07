@@ -15,16 +15,16 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.spatial.mesh.cells.boundary import SIDE_IDS, stream_cells
-from hydromodpy.spatial.mesh.io.bundle import (
+from hydromodpy.mesh.cells.boundary import SIDE_IDS, stream_cells
+from hydromodpy.mesh.io.bundle import (
     CatchmentMeshBundle,
     cell_mesh_from_bundle,
     load_catchment_mesh_bundle,
 )
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
+from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import MESH_BUNDLES

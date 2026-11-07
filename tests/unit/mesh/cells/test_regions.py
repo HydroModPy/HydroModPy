@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cells.regions import components_without, family_regions
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+from hydromodpy.mesh.cells.regions import components_without, family_regions
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import (
     FaceFamilyTable,
     MeshIdentity,
     PlanarCellMesh,

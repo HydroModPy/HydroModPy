@@ -8,10 +8,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
-from hydromodpy.physics.flow.sinks_sources.sfr import (
-    FlowReachConfig,
-    FlowReachNetworkConfig,
-)
+from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.sfr import (
     ResolvedSfrNetwork,

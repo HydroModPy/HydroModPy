@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import require_gmsh
+from hydromodpy.mesh.engines.triangle.gmsh_triangulation import require_gmsh
 from validation_cases.shared.gmsh_session import (
     build_runtime_planar_mesh_from_gmsh,
     write_repository_compatible_mesh,

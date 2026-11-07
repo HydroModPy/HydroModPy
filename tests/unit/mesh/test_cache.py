@@ -14,10 +14,10 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.mesh import cache, registry
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.quality import SHAPE_KEYS
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
+from hydromodpy.mesh import cache, registry
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.planar.quality import SHAPE_KEYS
+from hydromodpy.mesh.request import LineFamilySpec, MeshRequest
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
     LAMBERT93_WKT,

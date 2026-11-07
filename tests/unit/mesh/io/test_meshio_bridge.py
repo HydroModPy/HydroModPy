@@ -11,9 +11,9 @@ import meshio
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.mesh.io.meshio_bridge import from_meshio, to_meshio
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.io.meshio_bridge import from_meshio, to_meshio
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 
 HEX_AND_WEDGE_VERTICES = np.array(
     [

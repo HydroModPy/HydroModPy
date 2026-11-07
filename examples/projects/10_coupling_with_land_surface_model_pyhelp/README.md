@@ -47,6 +47,9 @@ Runtimes: PyHELP about 25 s (98 columns, 1095 days), the MODFLOW 6 run about
 
 PyHELP is not a HydroModPy process: it has no TOML surface, it is a
 preparation step. `build_pyhelp_recharge.py` is its declaration.
+PyHELP lives in `hydromodpy_annex/`, which is not in the wheel, so step 1
+runs from a checkout of the repository. The script puts the repository root
+on `sys.path` itself.
 
 ## The coupling
 

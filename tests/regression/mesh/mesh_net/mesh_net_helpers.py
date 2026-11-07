@@ -118,11 +118,11 @@ BUNDLE_CRS_WKT = 'PROJCS["RGF93 v1 / Lambert-93"]'
 
 def _read_request(bundle: str, **options: Any):
     """Return the request that makes an engine read the committed ``.msh`` of *bundle*."""
-    from hydromodpy.spatial.mesh.planning.input_triangulation import (
+    from hydromodpy.mesh.planning.input_triangulation import (
         domain_polygon_of,
         read_input_triangulation,
     )
-    from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
+    from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
 
     triangulation = read_input_triangulation(BUNDLES_ROOT / bundle / "mesh_2d.msh")
     domain = domain_polygon_of(triangulation)
@@ -150,14 +150,14 @@ def _read_request(bundle: str, **options: Any):
 
 def triangle_mesh(bundle: str = ISLAND_BUNDLE):
     """Return the triangles of a committed bundle as built by the ``triangle`` engine."""
-    from hydromodpy.spatial.mesh import registry
+    from hydromodpy.mesh import registry
 
     return registry.create("triangle").build(_read_request(bundle))
 
 
 def voronoi_mesh(bundle: str = ISLAND_BUNDLE):
     """Return the Voronoi cells around the vertices of a committed bundle, from the engine."""
-    from hydromodpy.spatial.mesh import registry
+    from hydromodpy.mesh import registry
 
     return registry.create("voronoi").build(_read_request(bundle, seeds="triangulation"))
 

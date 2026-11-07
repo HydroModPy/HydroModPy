@@ -82,6 +82,6 @@ def _patch_launcher_deps(monkeypatch):
     # One module deeper than the step: ``build_domain`` is the constructor the
     # step calls, and it is the copy-then-arm of the declared section these
     # tests are about. Stubbing it whole would stub what they assert.
-    monkeypatch.setattr("hydromodpy.spatial.domain.build.Domain", _DummyDomain)
+    monkeypatch.setattr("hydromodpy.model.domain.build.Domain", _DummyDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", _noop_ensure)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_transport", _noop_ensure)

@@ -76,7 +76,7 @@ def run(args: argparse.Namespace) -> None:
 
     moved = prune_session(project_root, args.case, keep=args.keep)
     if moved:
-        from hydromodpy.cli._workers.catalog import reindex_if_indexed
+        from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
         reindex_if_indexed(project_root)
 

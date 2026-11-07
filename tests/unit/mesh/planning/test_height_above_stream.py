@@ -13,7 +13,7 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.planning.height_above_stream import height_above_stream, stream_pixels
+from hydromodpy.mesh.planning.height_above_stream import height_above_stream, stream_pixels
 from tests._helpers.mesh_cases import grid_spec
 
 STEP = 10.0

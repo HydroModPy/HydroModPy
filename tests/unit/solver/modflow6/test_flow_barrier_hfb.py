@@ -9,16 +9,17 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.physics.flow.binders.barriers import apply_flow_barriers_to_flow
-from hydromodpy.physics.flow.binders.lakes import apply_cutoff_wall_to_flow
-from hydromodpy.physics.flow.sinks_sources import FlowBarrierConfig, FlowLakeConfig
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.model.boundaries.barriers import apply_flow_barriers_to_flow
+from hydromodpy.model.boundaries.lakes import apply_cutoff_wall_to_flow
+from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
+from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     build_flow_barrier_hfb,
     resolve_flow_barrier_hfb_rows,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 
 # A near-vertical trace across the 2x2 grid: it separates the left column from the

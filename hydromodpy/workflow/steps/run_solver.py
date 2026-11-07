@@ -12,7 +12,7 @@ from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.execution.runner import SimulationRunner
+    from hydromodpy.solver.base.runner import SimulationRunner
 
 logger = get_logger(__name__)
 
@@ -95,16 +95,13 @@ class RunSolverStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.simulation.execution.runner import (
-            ProcessCallbacks,
-            SimulationRunner,
-        )
-        from hydromodpy.simulation.post_run import (
+        from hydromodpy.solver.base.plan import RunContext
+        from hydromodpy.solver.base.runner import ProcessCallbacks, SimulationRunner
+        from hydromodpy.workflow.steps.prepare_solver.dispatch import refresh_run_environment
+        from hydromodpy.workflow.steps.run_outputs import (
             record_run_execution_metrics,
             record_what_the_model_says,
         )
-        from hydromodpy.simulation.planning.plan import RunContext
-        from hydromodpy.workflow.steps.prepare_solver.dispatch import refresh_run_environment
 
         ctx = state.get("ctx")
         if ctx is None:

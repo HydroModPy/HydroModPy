@@ -51,8 +51,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import rank_simulations
     from hydromodpy.results.catalog.constants import UnrankedMetricError
+    from hydromodpy.results.catalog.listing import rank_simulations
 
     if args.bottom is not None:
         n, best = args.bottom, False

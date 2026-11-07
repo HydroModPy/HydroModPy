@@ -82,7 +82,6 @@ geographic/
 ├── dem_metadata.py                 CRS, extent, cell size and elevations of the clipped rasters
 ├── regional_flow_job.py            one sealed flow stack shared by several catchments
 ├── delineated_catchment.py         the one reader of the delineated catchment polygon
-├── structure_binders.py            catchment zones and geology bound to the domain
 ├── store_ingestion.py              the tree written into the catalog store
 ├── preprocessing_cleanup.py        removal of the preprocessing tree
 ├── subbasin.py                     results over sub-basins inside the domain
@@ -170,8 +169,9 @@ The package imports from other HydroModPy layers only `core`, `schema` and `spat
   the exceptions and the path conventions.
 - `hydromodpy.schema` is read by `regional_flow_job.py` alone, for the sealed job documents.
 - Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
-  `delineation` (the backend registry), `surface` and `raster_support`. It reads `domain` and
-  `field` only under `TYPE_CHECKING`, in `structure_binders.py`.
+  `delineation` (the backend registry), `surface` and `raster_support`. The binders that write the
+  catchment zones and the geology into a `Domain` are in `model/domain/structure_binders.py`, which
+  reads this package.
 - Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.scratch`
   import of `geographic_paths.py` and `subbasin.py`, the `toml_io.loader` import of
   `synthetic_config.py`, the terrain registry import of `geographic_config.py`, and two imports

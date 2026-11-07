@@ -13,13 +13,13 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshError, MeshRequestError
-from hydromodpy.spatial.mesh.engines.triangle import gmsh_triangulation
-from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import (
+from hydromodpy.mesh.engines.triangle import gmsh_triangulation
+from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.mesh.engines.triangle.gmsh_triangulation import (
     MESH_SIZE_PER_CELL_SIZE,
     triangulate,
 )
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, SizeField
+from hydromodpy.mesh.request import LineFamilySpec, MeshRequest, SizeField
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
     grid_over,

@@ -28,7 +28,7 @@ import pathlib
 
 import pytest
 
-from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.plan import RunContext
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = REPO_ROOT / "hydromodpy"
@@ -41,10 +41,10 @@ REGISTRY_MEMBERS = frozenset({"models_by_run_id", "output_dirs_by_run_id"})
 REGISTRY_READERS = {
     # The owner: it records what each run produced and resolves what the next
     # one declares in ``depends_on``.
-    "simulation/execution/runner.py",
+    "solver/base/runner.py",
     # ``RunContext.of``, the one place that reads a run's product out of the
     # registry to hand it over explicitly.
-    "simulation/planning/plan.py",
+    "solver/base/plan.py",
     # Releases the models before the derived stacks allocate; a transient flopy
     # model carries its whole stress-period data.
     "workflow/steps/derive.py",
@@ -66,7 +66,7 @@ REGISTRY_READERS = {
 # ``RunContext.of`` is the construction path for every consumer that runs after
 # the solver. The runner is the exception it documents: at the time it builds a
 # context, the run has produced neither a model nor an output directory.
-CONTEXT_BUILDERS = {"simulation/planning/plan.py", "simulation/execution/runner.py"}
+CONTEXT_BUILDERS = {"solver/base/plan.py", "solver/base/runner.py"}
 
 
 @pytest.fixture(scope="module")

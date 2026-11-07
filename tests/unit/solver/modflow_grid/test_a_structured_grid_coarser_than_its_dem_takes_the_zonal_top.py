@@ -13,16 +13,16 @@ import logging
 import numpy as np
 import pytest
 
+from hydromodpy.mesh.cells.zonal_stats import regular_grid_cell_ids
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import (
     SolverSGridConfig,
     TopSamplingConfig,
 )
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.mesh.cells.zonal_stats import regular_grid_cell_ids
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 _PIXEL = 25.0
@@ -259,7 +259,7 @@ def test_dead_cells_are_not_counted_as_zonal_or_clamped(caplog):
 def test_zonal_top_leaves_inactive_cells_on_the_fallback():
     from rasterio.transform import from_bounds
 
-    from hydromodpy.spatial.mesh.cells.zonal_stats import zonal_top
+    from hydromodpy.mesh.cells.zonal_stats import zonal_top
 
     size = _PIXEL * _N
     labels = regular_grid_cell_ids(

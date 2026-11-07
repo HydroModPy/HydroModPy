@@ -53,7 +53,7 @@ def test_show_of_an_unknown_id_exits_not_found(monkeypatch, capsys) -> None:
 def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None:
     """The whole add path, pointed at a tree instead of GitHub."""
     from hydromodpy.core.payload import PayloadFile
-    from hydromodpy.examples.manifest import ExampleEntry
+    from hydromodpy.project.examples.manifest import ExampleEntry
 
     payload = b'[simulation]\nname = "tiny"\n'
     checkout = tmp_path / "checkout"
@@ -77,7 +77,9 @@ def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None
         ),
         data=(),
     )
-    monkeypatch.setattr("hydromodpy.examples.manifest.load_catalog", lambda path=None: (entry,))
+    monkeypatch.setattr(
+        "hydromodpy.project.examples.manifest.load_catalog", lambda path=None: (entry,)
+    )
     monkeypatch.setenv("HMP_EXAMPLES_SOURCE", str(checkout))
 
     workspace = tmp_path / "ws"
@@ -97,13 +99,3 @@ def test_add_into_a_missing_workspace_exits_not_found(monkeypatch, tmp_path) -> 
         ["hmp", "example", "add", "04", "--workspace", str(tmp_path / "nowhere")],
     )
     assert code == 10
-
-
-def test_dev_examples_manifest_rewrites_the_catalog(monkeypatch, capsys, tmp_path) -> None:
-    output = tmp_path / "catalog.toml"
-    code = _run(monkeypatch, ["hmp", "dev", "examples", "manifest", "--to", str(output)])
-    assert code == 0
-    from hydromodpy.examples.manifest import catalog_path
-
-    assert output.read_text(encoding="utf-8") == catalog_path().read_text(encoding="utf-8")
-    assert "Wrote" in capsys.readouterr().out

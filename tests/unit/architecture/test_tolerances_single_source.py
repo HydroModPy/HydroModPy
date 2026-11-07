@@ -112,7 +112,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "j_on_each_map_at_the_true_k_for_sy_from_0_025_to_0_1",
         "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
         "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
-        # Soil reservoir kernel, asserted in tests/unit/physics/.
+        # Soil reservoir kernel, asserted in tests/unit/model/soil/.
         "soil_reservoir_kernel_balance_float64__per_column_sum_t_residual_sum_t_p_and_per_day_"
         "max_residual_max_p",
         "soil_transit_store_impulse__max_absolute_error_against_q_0_50_1_k_a_q_t_1_50_k_a_2_exp_"

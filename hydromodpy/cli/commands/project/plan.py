@@ -57,8 +57,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.project import sites_project_root
     from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.core.state.result_dirs import sites_project_root
     from hydromodpy.core.toml_io.overrides import set_overrides
     from hydromodpy.project.launch import plan_project
     from hydromodpy.project.launch.sites.issues import PlanError, group_issues

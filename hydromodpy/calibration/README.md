@@ -65,7 +65,7 @@ Five more rules:
 3. No re-export: a name is imported from the module that defines it.
 4. Calibration reaches a solver only through the generic ports of
    `solver.base` (registry, observables) and the run result
-   (`simulation.planning.plan.RunExecutionResult`), never through a backend
+   (`solver.base.plan.RunExecutionResult`), never through a backend
    package (`solver.modflow6`, `solver.modflow_nwt`, `solver.modflow_common`,
    `solver.boussinesq`). A backend can then be added or replaced without
    touching calibration. `solver_access` in `calibration_layout.yaml` checks it.
@@ -576,8 +576,8 @@ declared share when the blocks have different units.
 
 ## Layer neighbors
 
-`calibration` imports `core`, `physics`, `data`, `spatial`, `solver`,
-`simulation` and `results` (`tests/unit/architecture/layer_matrix.yaml`). It never
+`calibration` imports `core`, `model`, `data`, `spatial`, `solver`
+and `results` (`tests/unit/architecture/layer_matrix.yaml`). It never
 imports `display`. The root facade, `config`,
 `workflow`, `project` and `cli` import it. `workflow` is reached only through the
 provider of `runners/contracts.py`, which the bootstrap fills.

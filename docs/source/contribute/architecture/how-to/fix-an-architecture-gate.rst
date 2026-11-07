@@ -25,7 +25,7 @@ What to do, by failing test
 ---------------------------
 
 ``test_layer_matrix.py``
-   *"N layer-matrix violations: physics -> spatial 3 via from"*. An import crosses
+   *"N layer-matrix violations: solver -> data 3 via from"*. An import crosses
    a layer boundary that ``layer_matrix.yaml`` does not grant. The message counts
    the edges by pair, without the lines. List them:
 
@@ -35,7 +35,7 @@ What to do, by failing test
       import pathlib
       from tools.audit.build_graph import scan_package
       for e in scan_package(pathlib.Path("hydromodpy")):
-          if (e.src_pkg, e.tgt_pkg) == ("physics", "spatial"):
+          if (e.src_pkg, e.tgt_pkg) == ("solver", "data"):
               print(f"{e.src_file}:{e.lineno} {e.kind} {e.target_module}")
       PY
 

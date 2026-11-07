@@ -16,7 +16,7 @@ The base contract
 -----------------
 
 A process inherits ``ProcessSpatial[TInitialConditions]`` from
-``hydromodpy/physics/base/process_spatial.py``. The base keeps four containers
+``hydromodpy/model/process_spatial.py``. The base keeps four containers
 (``parameters``, ``initial_conditions``, ``boundary_conditions``,
 ``sinks_sources``) and asks the subclass for three methods:
 
@@ -40,17 +40,18 @@ a key it does not read.
 Where a process lives
 ---------------------
 
-``hydromodpy/physics/transport/`` is the smallest complete example:
+``hydromodpy/model/transport/`` is the smallest complete example:
 
 .. code-block:: text
 
-   hydromodpy/physics/transport/
-   |-- __init__.py             exports Transport, TransportInitialConditions, TransportConfig
+   hydromodpy/model/transport/
+   |-- __init__.py             a docstring only
    |-- transport.py            Transport(ProcessSpatial[TransportInitialConditions])
    `-- transport_config.py     TransportConfig(ProcessSpatialConfig) and one block per solver
 
-``hydromodpy/physics/flow/`` is the large one (boundary condition registry,
-sinks and sources, binders). Read ``transport`` first.
+``hydromodpy/model/`` holds the large one: ``model.py`` and ``flow_config.py``, with
+``boundaries/`` (boundary condition registry and binders) and ``sinks_sources/``.
+Read ``transport`` first.
 
 Where a process is wired
 ------------------------
@@ -64,16 +65,16 @@ make it a process and not just a package:
 
    * - File
      - What it does for the process
-   * - ``physics/<name>/<name>.py``
+   * - ``model/<name>/<name>.py``
      - The runtime class, a subclass of ``ProcessSpatial``.
-   * - ``physics/<name>/<name>_config.py``
+   * - ``model/<name>/<name>_config.py``
      - The Pydantic model, a subclass of ``ProcessSpatialConfig``, with one
        block per solver that serves the process.
    * - ``config/hydromodpy_config.py``
      - A field on ``HydroModPyConfig`` that makes ``[<name>]`` a TOML section
        (``transport`` is declared there), and its entry in the section loader
        table of the same file.
-   * - ``simulation/planning/config.py``
+   * - ``solver/base/simulation_config.py``
      - A ``<Name>ProcessConfig`` with ``type: Literal["<name>"]`` and a list of
        ``solvers``, added to the ``SimulationProcessConfig`` union. This is what
        lets ``[[simulation.process]]`` declare ``type = "<name>"``. A simulation
@@ -81,12 +82,12 @@ make it a process and not just a package:
    * - ``core/state/run_state.py``
      - A member of ``SetupContext`` that holds the built object
        (``setup.flow``, ``setup.transport``).
-   * - ``simulation/execution/runner.py``
+   * - ``solver/base/runner.py``
      - An ``ensure_<name>`` function that builds the object from the config, an
        entry in ``_COMPONENT_ENSURERS``, and the components the process needs in
        ``_REQUIRED_COMPONENTS_BY_PROCESS`` (``transport`` needs ``flow`` and
-       ``transport``). Export it from ``simulation/execution/__init__.py`` and
-       ``simulation/__init__.py``.
+       ``transport``). A name is imported from the module that defines it, so
+       nothing is exported from a package file.
    * - ``workflow/steps/setup.py``
      - The calls to ``ensure_flow`` and ``ensure_transport`` that build the
        objects once the configuration is resolved. Add yours next to them.
@@ -98,13 +99,14 @@ make it a process and not just a package:
    * - ``calibration/runners/trial.py``
      - The trial copy of the setup context resets ``flow`` and ``transport`` to
        ``None`` so each trial builds its own. A new member needs the same line.
-   * - ``physics/__init__.py`` and ``_lazy.py``
-     - The public exports of the runtime class and its config.
+   * - ``_lazy.py``
+     - The public exports of the runtime class and its config, if the
+       class belongs to the public API.
 
 Order of work
 -------------
 
-1. **Write the runtime class and its config** in ``physics/<name>/``, in the
+1. **Write the runtime class and its config** in ``model/<name>/``, in the
    shape of ``transport.py`` and ``transport_config.py``. Give every field a
    ``Profile``, a unit and a description: the parameter reference is generated
    from them (:doc:`add-a-config-field`).
@@ -117,7 +119,7 @@ Order of work
    ``Modflow6GwtTransportAdapter`` requires ``("flow", "modflow6")``, so the
    planner refuses a transport run that comes before its flow run. The adapter
    is the subject of :doc:`add-a-solver`; the planner reads ``requires`` in
-   ``simulation/planning/planner.py``.
+   ``solver/base/planner.py``.
 5. **Refuse impossible combinations** in the root validator of
    ``HydroModPyConfig``, in the way ``transport`` and the Boussinesq backend are
    checked together.
@@ -129,7 +131,7 @@ needs no new pipeline step unless it needs its own data chain.
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/physics/``, in the style of
+- **Unit** under ``tests/unit/model/<name>/``, in the style of
   ``test_transport_process.py``: the config loads, a mapping builds the object,
   an unknown key is refused.
 - **Unit** for the planner: a ``[[simulation.process]]`` entry of the new type
@@ -141,17 +143,18 @@ Tests to add
 Layer rules
 -----------
 
-- ``physics`` imports ``core``, ``schema`` and ``physics`` only. Solver code is
-  in ``solver/<backend>/``, never in ``physics/``.
+- ``model`` imports ``core``, ``schema``, ``spatial`` and itself
+  (``tests/unit/architecture/layer_matrix.yaml``). Solver code is in
+  ``solver/<backend>/``, never in ``model/``.
 - Initial conditions, boundary conditions and sinks and sources stay
-  process-specific. The shared base in ``physics/base/`` is deliberately narrow.
+  process-specific. The shared base in ``model/process_spatial.py`` and ``model/payloads.py`` is deliberately narrow.
 - Run the architecture gate after the first import you add:
   ``python -m pytest tests/unit/architecture -q``.
 
 See also
 --------
 
-- :doc:`../packages/physics` for the physics package map.
+- :doc:`../packages/model` for the model package map.
 - :doc:`add-a-solver` for the adapter side.
 - :doc:`add-a-config-field` for the configuration side.
 - :doc:`../process/process-architecture` for the runtime handoff diagrams.

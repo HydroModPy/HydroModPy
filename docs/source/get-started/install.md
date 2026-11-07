@@ -181,7 +181,7 @@ Optional. `hmp completion bash` prints a completion script for the shell, and `z
 eval "$(hmp completion bash)"
 ```
 
-{doc}`The command reference <../reference/cli/dev>` gives where to install the script for
+{doc}`The command reference <../reference/cli/completion>` gives where to install the script for
 bash, zsh and fish, as `hmp completion --help` does.
 
 ## Next

@@ -356,9 +356,9 @@ def simulated_network(
     samples the top at, the polygon centroids by default.
     """
     from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+    from hydromodpy.mesh.planar.geometry import cell_polygons
     from hydromodpy.results.derive.stream.geometry import build_network_geometry
     from hydromodpy.results.derive.stream.network import build_simulated_network
-    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)

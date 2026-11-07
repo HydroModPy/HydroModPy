@@ -25,7 +25,7 @@ package "hydromodpy.workflow" {
   class PipelineState
 }
 
-package "hydromodpy.simulation" {
+package "hydromodpy.solver.base" {
   class SimulationPlanner {
     +build(config) : SimulationPlan
   }
@@ -59,7 +59,7 @@ package "hydromodpy.simulation" {
   }
 }
 
-package "hydromodpy.physics" {
+package "hydromodpy.model" {
   class ProcessSpatial
   class Flow
   class Transport

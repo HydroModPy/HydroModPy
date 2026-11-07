@@ -30,9 +30,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import check_data_cache
+    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.data.request.cache_verbs import check_data_cache
 
-    result = check_data_cache(args.workspace, variable=args.variable, fix=args.fix)
+    result = check_data_cache(
+        resolve_workspace(args.workspace), variable=args.variable, fix=args.fix
+    )
     issues = result["issues"]
 
     def table() -> None:

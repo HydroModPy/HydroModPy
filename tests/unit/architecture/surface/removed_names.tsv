@@ -1,0 +1,34 @@
+hmp dev	2.1.0
+hmp dev examples	2.1.0
+hmp dev examples manifest	2.1.0
+hmp dev examples manifest --root	2.1.0
+hmp dev examples manifest --to	2.1.0
+hmp dev examples manifest --workspace	2.1.0
+hmp dev examples manifest -w	2.1.0
+hmp dev manage	2.1.0
+hmp dev manage --host	2.1.0
+hmp dev manage --no-browser	2.1.0
+hmp dev manage --port	2.1.0
+hmp dev manage --scan-root	2.1.0
+hmp dev manage --workspace	2.1.0
+hmp dev manage -w	2.1.0
+hmp dev run-script	2.1.0
+hmp dev run-script --workspace	2.1.0
+hmp dev run-script -w	2.1.0
+hmp dev test	2.1.0
+hmp dev test --analytical	2.1.0
+hmp dev test --extensive	2.1.0
+hmp dev test --fast	2.1.0
+hmp dev test --intercomparison	2.1.0
+hmp dev test --jobs	2.1.0
+hmp dev test --list	2.1.0
+hmp dev test --mf6	2.1.0
+hmp dev test --nwt	2.1.0
+hmp dev test --short	2.1.0
+hmp dev test --slow	2.1.0
+hmp dev test --steady	2.1.0
+hmp dev test --transient	2.1.0
+hmp dev test --update-goldens	2.1.0
+hmp dev test --workspace	2.1.0
+hmp dev test -j	2.1.0
+hmp dev test -w	2.1.0

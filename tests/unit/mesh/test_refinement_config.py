@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
+from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
 
 _HAND = {"where": "height_above_stream", "below": 2.0, "cell_size": 20.0}
 _RUN_ZONE = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_size": 20.0}

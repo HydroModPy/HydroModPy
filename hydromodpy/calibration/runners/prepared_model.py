@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.physics.flow.property_ids import CONDUCTIVITY_IDS
+from hydromodpy.model.properties.property_ids import CONDUCTIVITY_IDS
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -66,7 +66,7 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
     surface, so a pre-existing config issue is never blamed on a bound.
     """
     from hydromodpy.calibration.optim.parameters import apply_parameter_to_config
-    from hydromodpy.physics.flow import Flow
+    from hydromodpy.model.model import Flow
 
     base_cfg = getattr(trial_ctx, "base_cfg", None) or getattr(
         getattr(trial_ctx, "ctx", None), "cfg", None
@@ -241,7 +241,7 @@ def _active_advanced_packages(flow: Any) -> list[str]:
     than a conductance. Dividing the steady-state flow equation by K leaves a
     fixed head unchanged, so K/R stays intact under any CHD whatever K does.
     """
-    from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+    from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
 
     offenders: list[str] = []
     for bc_id in getattr(flow, "active_bc", None) or ():

@@ -9,9 +9,9 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.mesh.cells.locate import locate_cells
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.boundary_conditions import forcing_units
-from hydromodpy.spatial.mesh.cells.locate import locate_cells
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:
@@ -49,7 +49,7 @@ def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int)
 def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[str, Any]]:
     """Return ``(kind, fields)`` for one well payload (config or raw mapping)."""
     if isinstance(well_cfg, Mapping):
-        from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
+        from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 
         well_cfg = FlowWellConfig.model_validate(dict(well_cfg))
     location = getattr(well_cfg, "location", None)

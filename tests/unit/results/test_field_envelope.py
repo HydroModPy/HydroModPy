@@ -15,10 +15,10 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
+from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.results.run.field_envelope import read_run_field, read_run_fields
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.spatial.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
-from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from tests._helpers.mesh_cases import grid_spec
 from tests._helpers.run_stores import open_run_store
 

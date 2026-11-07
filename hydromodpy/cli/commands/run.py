@@ -275,8 +275,7 @@ def run(args: argparse.Namespace) -> None:
             _run_toml(target, args=args)
     elif target.suffix == ".py":
         refuse(
-            "Python scripts are not supported by 'hmp run'. "
-            "Use 'hmp dev run-script <script.py>' for prototypes.",
+            "Python scripts are not supported by 'hmp run'. Run the script with python directly.",
             EXIT_CONFIG,
         )
     else:

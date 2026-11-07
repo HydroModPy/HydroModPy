@@ -16,17 +16,17 @@ package "Configuration" {
 
 package "Data and forcing" {
   component "Data managers\n(hydromodpy.data)" as DataManagers
-  component "Binders\n(physics.flow.structure_binders)" as Binders
-  component "Forcing\n(physics.forcing, physics.hydrology)" as Forcing
+  component "Binders\n(model.boundaries)" as Binders
+  component "Forcing\n(model.forcing, model.soil)" as Forcing
 }
 
-package "Runtime process objects (physics)" {
+package "Runtime process objects (model)" {
   component "ProcessSpatial" as ProcessSpatial
   component "Flow" as Flow
   component "Transport" as Transport
 }
 
-package "Orchestration (simulation)" {
+package "Orchestration (solver/base)" {
   component "SimulationPlanner" as Planner
   component "SimulationRunner" as Runner
 }

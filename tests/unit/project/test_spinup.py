@@ -16,10 +16,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.initial.config import FlowInitialConditions
+from hydromodpy.model.initial.spinup_config import SpinupConfig
 from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
-from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.modflow6.builders.initial_conditions import read_final_head
 
 

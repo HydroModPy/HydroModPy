@@ -357,7 +357,7 @@ class TestRechargeBridge:
     """Tests for the forcing bridge (LoadResult → flow-ready series)."""
 
     def test_extract_single_station(self):
-        from hydromodpy.physics.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.model.forcing.forcing_bridge import extract_homogeneous_series
 
         rec = _make_point_record("A", n=5)
         result = LoadResult(points=[rec])
@@ -368,7 +368,7 @@ class TestRechargeBridge:
         assert series.iloc[4] == 4.0
 
     def test_extract_multiple_stations_averages(self):
-        from hydromodpy.physics.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.model.forcing.forcing_bridge import extract_homogeneous_series
 
         dates = pd.date_range("2020-01-01", periods=3, freq="D")
         rec1 = PointRecord(
@@ -399,20 +399,20 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(30.0)
 
     def test_extract_no_points_returns_none(self):
-        from hydromodpy.physics.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.model.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult(fields=[_make_field_record()])
         assert extract_homogeneous_series(result) is None
 
     def test_extract_empty_result_returns_none(self):
-        from hydromodpy.physics.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.model.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult()
         assert extract_homogeneous_series(result) is None
 
     def test_build_forcing_series_converts_units(self):
         from hydromodpy.core.units.quantities import factor_to_m_per_s
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.model.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)
@@ -428,7 +428,7 @@ class TestRechargeBridge:
 
     def test_build_forcing_series_no_points_returns_none(self):
         from hydromodpy.core.units.quantities import factor_to_m_per_s
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.model.forcing.forcing_bridge import build_forcing_series
 
         result = LoadResult(fields=[_make_field_record()])
         assert (
@@ -442,7 +442,7 @@ class TestRechargeBridge:
 
     def test_build_forcing_series_runoff_converts_units(self):
         from hydromodpy.core.units.quantities import factor_to_m_per_s
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.model.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)

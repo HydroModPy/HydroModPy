@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.project.launch import plan_project
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage
@@ -18,7 +19,6 @@ from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.solver.modflow_common.binaries import SolverEngine
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.prepare_solver import dispatch as dispatch_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     bind_restart_source,
@@ -376,7 +376,7 @@ def test_without_a_reference_the_step_touches_nothing(tmp_path: Path) -> None:
 
 
 def test_the_step_returns_the_sim_id_the_frozen_config_writes(tmp_path: Path) -> None:
-    from hydromodpy.physics.flow.flow_config import RestartReference
+    from hydromodpy.model.flow_config import RestartReference
 
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")

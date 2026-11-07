@@ -13,14 +13,8 @@ __all__ = [
     "RasterSupport",
     "Surface",
     "PreparedSurfaceSampler",
-    "Domain",
-    "DomainConfig",
-    "FieldParam",
     "CatchmentDelineation",
     "GeographicConfig",
-    "CellBlock",
-    "CellType",
-    "HydroMesh",
 ]
 
 _LAZY_IMPORTS = {
@@ -28,14 +22,8 @@ _LAZY_IMPORTS = {
     "RasterSupport": "hydromodpy.spatial.raster_support:RasterSupport",
     "Surface": "hydromodpy.spatial.surface:Surface",
     "PreparedSurfaceSampler": "hydromodpy.spatial.surface_sampling:PreparedSurfaceSampler",
-    "Domain": "hydromodpy.spatial.domain.domain:Domain",
-    "DomainConfig": "hydromodpy.spatial.domain.domain_config:DomainConfig",
-    "FieldParam": "hydromodpy.spatial.field.field_param:FieldParam",
     "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation:CatchmentDelineation",
     "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config:GeographicConfig",
-    "CellBlock": "hydromodpy.spatial.mesh.model.hydro_mesh:CellBlock",
-    "CellType": "hydromodpy.spatial.mesh.model.cell_types:CellType",
-    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh:HydroMesh",
 }
 
 

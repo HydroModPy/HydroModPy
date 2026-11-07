@@ -1,0 +1,95 @@
+"""The configured HDRY / HNOFLO sentinels must reach the output extractor."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.results_config import ResultsConfig
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
+
+
+class _RecordingExtractor:
+    """Extractor exposing the MODFLOW-NWT masking contract, recording its call."""
+
+    def __init__(self) -> None:
+        self.seen: dict[str, Any] = {}
+
+    def extract(
+        self,
+        sim_id: str,
+        solver_output_dir: Path,
+        store: Any,
+        *,
+        hdry: float,
+        hnoflo: float,
+        model_name: str | None = None,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
+        start_datetime: object | None = None,
+    ) -> None:
+        del sim_id, solver_output_dir, store, model_name, budget_terms, start_datetime
+        self.seen = {"hdry": hdry, "hnoflo": hnoflo}
+
+
+def _context(tmp_path: Path, modflownwt: ModflowConfig) -> RunContext:
+    run = ProcessRun(
+        id="flow_main::modflow_nwt",
+        process_id="flow_main",
+        process_type="flow",
+        solver="modflow_nwt",
+    )
+    plan = SimulationPlan(name="demo", description="demo", runs=(run,))
+    state = RunState(
+        cfg=SimpleNamespace(modflownwt=modflownwt),
+        setup=SimpleNamespace(time_grid=None),
+    )
+    return RunContext(plan=plan, run=run, state=state, output_dir=tmp_path)
+
+
+@pytest.fixture
+def recording(monkeypatch) -> _RecordingExtractor:
+    extractor = _RecordingExtractor()
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.run_outputs.get_solver_registry_provider",
+        lambda: SimpleNamespace(get_extractor_instance=lambda *_: extractor),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.run_outputs._finalize_run_provenance",
+        lambda **_kwargs: None,
+    )
+    return extractor
+
+
+def test_configured_sentinels_reach_the_extractor(tmp_path, recording) -> None:
+    config = ModflowConfig.model_validate(
+        {"runtime": {"upw": {"hdry": -1234.0}, "bas": {"hnoflo": -4321.0}}}
+    )
+
+    extract_run_outputs(
+        ctx=_context(tmp_path, config),
+        sim_id="sim",
+        results_config=ResultsConfig(),
+        store=object(),
+        budget_terms=BudgetKeep.everything(),
+    )
+
+    assert recording.seen == {"hdry": -1234.0, "hnoflo": -4321.0}
+
+
+def test_default_sentinels_are_the_modflow_nwt_defaults(tmp_path, recording) -> None:
+    extract_run_outputs(
+        ctx=_context(tmp_path, ModflowConfig()),
+        sim_id="sim",
+        results_config=ResultsConfig(),
+        store=object(),
+        budget_terms=BudgetKeep.everything(),
+    )
+
+    assert recording.seen == {"hdry": -100.0, "hnoflo": -9999.0}

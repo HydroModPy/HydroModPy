@@ -17,7 +17,7 @@ into the ``Catalog`` after a run completes.
 
 Built-in adapters and extractors shipped in-tree are declared as dotted
 paths and imported lazily on first lookup. That keeps
-``hydromodpy.simulation`` free of eager imports of ``hydromodpy.solver``
+the plan and its runner free of eager imports of ``hydromodpy.solver``
 concrete backends at package-load time.
 
 The entry-point groups are the **out-of-tree** surface only. An in-tree
@@ -35,8 +35,8 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.solver.base.adapter_protocol import SolverAdapter, missing_adapter_members
-from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ _EXTRACTOR_PLUGINS_LOADED = False
 
 # Dotted paths to in-tree adapter classes. Loaded lazily by :func:`get` on
 # first lookup so that importing this module (and therefore the whole
-# ``hydromodpy.simulation`` stack) does not pull every solver backend.
+# plan and runner stack) does not pull every solver backend.
 # Format: ``"<module>:<class>"``.
 _BUILTIN_PATHS: dict[AdapterKey, str] = {
     ("flow", "modflow_nwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",

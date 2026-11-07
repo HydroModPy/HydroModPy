@@ -186,7 +186,7 @@ def mesh_engine_identity(config: dict) -> dict[str, str]:
     matches no other run, which errs on the side of computing.
     """
     from hydromodpy.core.exceptions import MeshRequestError
-    from hydromodpy.spatial.mesh import registry as mesh_registry
+    from hydromodpy.mesh import registry as mesh_registry
 
     section = config.get("mesh")
     engine_id = section.get("engine") if isinstance(section, dict) else None

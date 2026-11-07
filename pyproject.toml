@@ -167,7 +167,7 @@ hydromodpy = "hydromodpy.cli.main:main"
 # [geographic] terrain_engine names, so a flow-routing
 # engine is substituted from outside without a patch to this package.
 #
-# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.spatial.mesh.registry,
+# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.mesh.registry,
 # under the same three rules. It is what [mesh] engine names, so a mesh engine
 # (regular, triangle and voronoi ship in-tree) is substituted the same way.
 #
@@ -201,7 +201,7 @@ hydromodpy = ["py.typed"]
 "hydromodpy.schema.processes" = ["*.json"]
 # The example catalog ships in the wheel so `hmp example list` answers offline
 # and can only promise what the installed version knows about.
-"hydromodpy.examples" = ["catalog.toml"]
+"hydromodpy.project.examples" = ["catalog.toml"]
 "hydromodpy.data.registry.migrations" = ["*.sql"]
 # The register of known issues is read by results/validity_rules.py to label a run.
 "hydromodpy.results" = ["*.toml"]
@@ -210,7 +210,6 @@ hydromodpy = ["py.typed"]
 # The SLURM job templates of `hmp campaign array`, read by importlib.resources.
 "hydromodpy.project.launch.templates" = ["*.sh"]
 "hydromodpy.spatial.administrative" = ["*.gpkg"]
-"hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
 # The curated CF v85 standard-name list is read at runtime by cf_validation.py.
 "hydromodpy.results.zarr_store.data" = ["*.txt"]
 
@@ -220,23 +219,19 @@ source = [
     "hydromodpy.schema",
     "hydromodpy.config",
     "hydromodpy.spatial",
-    "hydromodpy.physics",
+    "hydromodpy.mesh",
+    "hydromodpy.model",
     "hydromodpy.data",
     "hydromodpy.results",
-    "hydromodpy.simulation",
     "hydromodpy.solver",
     "hydromodpy.calibration",
     "hydromodpy.display",
-    "hydromodpy.analysis",
     "hydromodpy.workflow",
     "hydromodpy.project",
     "hydromodpy.cli",
-    "hydromodpy.examples",
 ]
 parallel = true
 omit = [
-    "hydromodpy/physics/hydrology/pyhelp/*",
-    "hydromodpy/physics/hydrology/pyhelp/**/*",
     "examples/*",
     "validation_cases/*",
     "hydromodpy_annex/*",

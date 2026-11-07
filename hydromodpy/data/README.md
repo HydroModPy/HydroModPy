@@ -29,15 +29,15 @@ In dependency order, lowest first.
 | `schemas/` | pandera schemas of the input tables (stations, chronicles, abacus, lithology, DEM), each with its `validate()` |
 | `source/` | the `DataSource` port (`port.py`) and the registry of sources, plugins included (`registry.py`) |
 | `common/` | helpers with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers, the local DRIAS Explore2 NetCDF reader (`explore2_files.py`, read by `precipitation` and `etp`) |
-| `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids |
+| `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids, and the observation series a run keeps beside the simulated ones (`observations.py`) |
 | `provenance/` | what sits next to a file on disk: sidecars, derived copies, `hydromodpy.lock` |
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `input_cache.py` reads it for a workspace: `InputCache(workspace).list(variable=, source=, limit=)` and `.find(...)`. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
 | `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
 | `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), `[site] gauge` as the station of the series sources (`gauge.py`), and `single_site.py`, which resolves a `[site]` against the site catalog of the workspace (`match_site`, `resolve_single_site`, `SiteMismatchError`) |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
-| `workspace/` | the workspace data folder: scaffold and scan of custom files |
-| `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process |
+| `workspace/` | the workspace data folder: scaffold and scan of custom files, and `folders.py`, the creation, listing, deletion and cleaning of workspace and project folders behind `hmp workspace init`, `hmp workspace clean`, `hmp project new`, `hmp project list` and `hmp project delete` |
+| `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process, and `cache_verbs.py`, the verbs of `hmp data` on the workspace cache (`ls`, `get`, `check`, `add`, `remove`, `prune`). It is the one subpackage that reads the registry, the workspace, ingest, provenance and loading together |
 
 ## Import rules
 
@@ -265,7 +265,7 @@ class LoadResult:
 ## Layer neighbors
 
 `data` imports `core`, `schema` and `spatial`
-(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`, `calibration`,
+(`tests/unit/architecture/layer_matrix.yaml`). `config`, `calibration`,
 `workflow`, `project`, `cli` and the root facade import `data`.
 `spatial` does not import it, and `data` never imports
 `results`.

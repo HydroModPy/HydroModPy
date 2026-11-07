@@ -13,9 +13,9 @@ import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.simulation import post_run
-from hydromodpy.simulation.planning import plan as plan_mod
+from hydromodpy.solver.base import plan as plan_mod
 from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps import run_outputs
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 
 
@@ -97,12 +97,12 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
         plan_mod.RunContext, "of", lambda ctx, *, plan, run, store: SimpleNamespace(run=run)
     )
     monkeypatch.setattr(
-        post_run,
+        run_outputs,
         "record_run_execution_metrics",
         lambda *, ctx, sim_id, store, result: metrics.append((ctx.run, sim_id, result)),
     )
     monkeypatch.setattr(
-        post_run,
+        run_outputs,
         "record_what_the_model_says",
         lambda *, ctx, sim_id, store: says.append((ctx.run, sim_id)),
     )
@@ -132,7 +132,7 @@ def test_run_with_a_store_tolerates_a_launcher_returning_nothing(
 def test_run_builds_the_default_runner_without_a_launcher(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import hydromodpy.simulation.execution.runner as runner_mod
+    import hydromodpy.solver.base.runner as runner_mod
 
     built = _Launcher()
     monkeypatch.setattr(runner_mod, "SimulationRunner", lambda: built)

@@ -54,7 +54,7 @@ Usage
 Python API::
 
     from hydromodpy.schema.config_schema import export_schema
-    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.model.flow_config import FlowConfig
 
     schema = export_schema(FlowConfig)
     # full root schema:

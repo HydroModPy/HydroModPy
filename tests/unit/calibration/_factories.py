@@ -11,7 +11,7 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 
 
 class _Project:

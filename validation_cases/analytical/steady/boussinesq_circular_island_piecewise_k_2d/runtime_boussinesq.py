@@ -10,12 +10,8 @@ import numpy as np
 from scipy.spatial import Delaunay
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
+from hydromodpy.model.model import Flow
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from hydromodpy.spatial.geographic.synthetic_config import (

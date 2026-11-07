@@ -16,7 +16,8 @@ directory.
 5. `time_alignment.py` puts observed and simulated series on the same time axis. `run_period_edges` gives the
    edges of the periods of a run and `naive_utc` gives a timestamp in UTC without a time zone.
 6. `config_flags.py` tells a reader which option to switch on when a field is missing.
-7. `stream/` holds the stream criterion read on a finished run. It has its own `README.md`.
+7. `catchment_aggregation.py` gives the catchment series of the stored fields of one run. The `derive` step of the workflow calls it.
+8. `stream/` holds the stream criterion read on a finished run. It has its own `README.md`.
 
 ## The folder map
 
@@ -27,6 +28,7 @@ derive/
 ├── derived.py          pure formulas for water table and flux per area
 ├── views.py            reductions over the catchment or the active domain
 ├── accumulation.py     drain and release accumulation on the descent
+├── catchment_aggregation.py   catchment series from the spatial fields of one run
 ├── time_alignment.py   observed and simulated series on one axis
 ├── downsample.py       LTTB downsampling of dense series
 ├── recession.py        recession cloud on the Brutsaert-Nieber plane
@@ -41,7 +43,7 @@ derive/
 | To add | Where |
 |--------|-------|
 | a computed field | a function in `virtual_fields.py` |
-| a reduction over the catchment | `views.py` |
+| a reduction over the catchment | `views.py`, or `catchment_aggregation.py` for a series of the derive step |
 | a formula on stored arrays | `derived.py` |
 | a rule to align two series in time | `time_alignment.py` |
 | a message about a missing option | `config_flags.py` |

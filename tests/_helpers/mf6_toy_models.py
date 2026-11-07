@@ -16,13 +16,13 @@ import pandas as pd
 from shapely.geometry import LineString
 
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable
+from hydromodpy.mesh.request import LineFamilySpec
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
-from hydromodpy.spatial.mesh.request import LineFamilySpec
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
 

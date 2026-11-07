@@ -20,8 +20,8 @@ from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )
-from hydromodpy.physics.base.forcing import PiecewiseForcing
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.dated_forcing import PiecewiseForcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary

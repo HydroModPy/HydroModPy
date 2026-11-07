@@ -205,7 +205,7 @@ class RunTimeseriesMixin:
 
         Observation series are persisted in the ``timeseries`` table of the run
         with ``source = observed`` (see
-        :func:`hydromodpy.simulation.observation_ingest.ingest_observations`).
+        :func:`hydromodpy.data.ingest.observations.ingest_observations`).
 
         Parameters
         ----------

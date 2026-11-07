@@ -65,14 +65,14 @@ most are ``regression``, ``validation``, ``analytical``, ``steady``,
    @pytest.mark.mf6
    def test_my_workflow(tmp_path): ...
 
-``hmp dev test`` selects subsets of three tiers:
+In a source checkout, ``python -m tools.dev test`` selects subsets of three tiers:
 
 .. code-block:: bash
 
-   hmp dev test unit
-   hmp dev test regression --fast --mf6
-   hmp dev test regression --extensive
-   hmp dev test validation --analytical --steady
+   python -m tools.dev test unit
+   python -m tools.dev test regression --fast --mf6
+   python -m tools.dev test regression --extensive
+   python -m tools.dev test validation --analytical --steady
 
 The other tiers go through ``pytest`` (for example
 ``pytest tests/integration -q``, ``pytest -m solver_sanity -q``,
@@ -113,12 +113,12 @@ Whitebox run or a solver spawn.
 Unit pattern
 ------------
 
-``tests/unit/physics/test_transport_process.py`` builds a process from a mapping
+``tests/unit/model/transport/test_transport_process.py`` builds a process from a mapping
 and checks what it holds:
 
 .. code-block:: python
 
-   from hydromodpy.physics.transport.transport import Transport
+   from hydromodpy.model.transport.transport import Transport
 
 
    def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
@@ -204,7 +204,7 @@ whole suite.
 
 .. code-block:: bash
 
-   python -m pytest tests/unit/physics -q
+   python -m pytest tests/unit/model -q
    python -m pytest tests/unit/architecture -q
 
 **Parallel runs.** ``pytest.ini`` already sets ``--dist=loadgroup``, which keeps

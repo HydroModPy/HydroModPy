@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.path import Path
 
-from hydromodpy.spatial.mesh.cells.zonal_stats import zonal_top
+from hydromodpy.mesh.cells.zonal_stats import zonal_top
 
 # A DEM of 5 m pixels: a V-shaped valley with a channel incised 2 m along it.
 PIXEL, N = 5.0, 24

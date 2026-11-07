@@ -43,7 +43,7 @@ from hydromodpy.solver.modflow_grid import SolverGridContext
 from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 
 class Modflow6:

@@ -3,7 +3,7 @@
 Compared with: the closed form of a 50 mm pulse on a full soil routed through a linear reservoir, `Q(0) = 50 (1 - k a)`, `Q(t >= 1) = 50 k a^2 exp(-(t - 1) / k)`, `a = 1 - exp(-1 / k)`.
 
 Same closed form as the kernel-level unit test
-(``tests/unit/physics/test_an_impulse_through_the_transit_store_follows_the_exponential_reservoir.py``),
+(``tests/unit/model/soil/test_soil_kernel.py``),
 but reached the way a run reaches it: through ``compute_soil_forcings``, with
 a single SAFRAN cell's precipitation and ETP passed in as ``FieldRecord`` and
 the recharge read back from the ``FieldRecord`` it returns.
@@ -27,8 +27,8 @@ import xarray as xr
 
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
-from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.simulation.soil.recharge import compute_soil_forcings
+from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.soil.recharge import compute_soil_forcings
 from tests._helpers.tolerances import tol
 from tests.validation.helpers import assert_metric_below, record_scale, record_series
 

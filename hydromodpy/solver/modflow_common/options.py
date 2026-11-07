@@ -32,7 +32,7 @@ class ModflowRunOptions:
 
 @dataclass(slots=True)
 class ModflowPostprocessOptions:
-    """Options consumed by ``ModflowNwt.post_processing``."""
+    """Options of the historical TIFF maps of a MODFLOW-NWT run, written by the annex."""
 
     watertable_elevation: bool = True
     watertable_depth: bool = True

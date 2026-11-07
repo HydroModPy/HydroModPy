@@ -31,10 +31,10 @@ import numpy as np
 
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.results.derive.mesh_quality import mesh_quality_values
 from hydromodpy.results.exporters._tables import FACE_FAMILIES_TABLE, read_table, table_rows
 from hydromodpy.results.exporters.export_spec import MESH_LAYERS
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     import geopandas as gpd

@@ -18,7 +18,7 @@ permissions:
 
 env:
   MPLBACKEND: Agg
-  COVERAGE_OMIT: hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
+  COVERAGE_OMIT: hydromodpy/**/examples/*
 
 jobs:
   # Cross-OS matrix on the fast tiers.

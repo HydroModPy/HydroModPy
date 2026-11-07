@@ -17,7 +17,7 @@ cells of the mesh, so `solver`, `results` and `calibration` read it.
 
 ## What other layers import from it
 
-`solver` (most), `results`, `calibration` and `spatial/mesh/planning/height_above_stream.py`. `display` does not: a figure that needs a flood or a routing surface asks `results/derive/stream/`. The stream criterion in `results/derive/stream/` builds its own graph on top of `graph.py` and `filling.py`.
+`solver` (most), `results`, `calibration` and `mesh/planning/height_above_stream.py`. `display` does not: a figure that needs a flood or a routing surface asks `results/derive/stream/`. The stream criterion in `results/derive/stream/` builds its own graph on top of `graph.py` and `filling.py`.
 
 ## Imports
 

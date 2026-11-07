@@ -21,12 +21,12 @@ import shapely
 from shapely.geometry import Polygon
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
-from hydromodpy.spatial.mesh.io.msh import read_gmsh_2d_mesh, write_msh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import derive_geometry
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.planning.input_triangulation import (
+from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.mesh.io.msh import read_gmsh_2d_mesh, write_msh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import derive_geometry
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planning.input_triangulation import (
     check_triangulation,
     domain_polygon_from_mesh,
     domain_polygon_of,

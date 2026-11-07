@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.results.zarr_store.mesh_layout import (
     MAX_FAMILIES,
     cell_family_bits,
@@ -19,11 +20,6 @@ from hydromodpy.results.zarr_store.mesh_layout import (
     edge_family_bits,
     edge_family_names,
     face_row_edges,
-)
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    CellChain,
-    FaceFamilyTable,
-    PlanarCellMesh,
 )
 from tests._helpers.mesh_cases import regular_mesh
 

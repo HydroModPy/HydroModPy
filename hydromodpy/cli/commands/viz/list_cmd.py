@@ -82,7 +82,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _list_for_run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.viz import figure_availability
+    from hydromodpy.display.catalog_figures import figure_availability
 
     rows = figure_availability(args.sim_ref, workspace=args.workspace)
     rows = [(spec, reason) for spec, reason in rows if args.kind in (None, spec.kind)]

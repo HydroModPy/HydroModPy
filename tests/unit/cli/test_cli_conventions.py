@@ -26,7 +26,6 @@ REQUIRED_GROUPS = (
     "campaign",
     "catalog",
     "data",
-    "dev",
     "lock",
     "project",
     "site",
@@ -168,10 +167,9 @@ def test_workflow_verbs_offer_profile(verb: str) -> None:
 
 
 def test_dev_doctor_removed() -> None:
-    """``hmp dev doctor`` is gone; the canonical verb is ``hmp doctor``."""
+    """``hmp dev`` only refuses; the canonical verb is ``hmp doctor``."""
     top = _subparsers_action(_build_parser())
-    dev_sub = _subparsers_action(top.choices["dev"])
-    assert "doctor" not in dev_sub.choices
+    assert isinstance(top.choices["dev"], conventions.RefusedVerb)
     assert "doctor" in top.choices
 
 
@@ -278,6 +276,8 @@ def test_a_form_that_left_before_the_tag_is_refused_and_names_the_new_one(
 
 @pytest.mark.parametrize("form", REFUSED, ids=lambda form: form.old)
 def test_the_new_form_of_a_refused_one_exists(form: conventions.OldCliForm) -> None:
+    if not form.new.startswith("hmp "):
+        pytest.skip(f"{form.new} is not a form of hmp")
     parser: argparse.ArgumentParser = _build_parser()
     for word in form.new.split()[1:]:
         if word.startswith("-"):
@@ -294,6 +294,33 @@ def test_a_bare_old_group_names_each_of_its_new_forms(capsys: pytest.CaptureFixt
         _parse(["dev", "lock"])
     err = capsys.readouterr().err
     assert "hmp lock update" in err and "hmp data archive --to FILE" in err
+
+
+@pytest.mark.parametrize(
+    ("typed", "named"),
+    [
+        ("hmp dev", ["hmp dev"]),
+        ("hmp dev x", ["hmp dev"]),
+        (
+            "hmp dev lock",
+            [
+                "hmp dev lock archive",
+                "hmp dev lock restore",
+                "hmp dev lock update",
+                "hmp dev lock verify",
+            ],
+        ),
+        ("hmp dev lock update x", ["hmp dev lock update"]),
+        ("hmp dev test -k foo", ["hmp dev test"]),
+        ("hmp dev manage", ["hmp dev manage"]),
+        ("hmp dev schema", ["hmp dev schema export", "hmp dev schema validate-field"]),
+    ],
+)
+def test_a_refused_group_names_the_forms_the_typed_words_choose(
+    typed: str, named: list[str]
+) -> None:
+    refused = _subparsers_action(_build_parser()).choices["dev"]
+    assert sorted(form.old for form in refused.chosen(typed)) == named
 
 
 @pytest.mark.parametrize(

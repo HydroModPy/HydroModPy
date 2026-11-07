@@ -31,19 +31,13 @@ from pydantic import BaseModel
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_param.sections import FieldHeterogeneousSection
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
-from hydromodpy.physics.flow.flow_config import FlowParam
-from hydromodpy.physics.flow.initial_conditions import FlowICSpinupCyclic, FlowInitialConditions
-from hydromodpy.physics.flow.sinks_sources.sfr import (
-    FlowReachNetworkConfig,
-    FlowReachWidthByOrder,
-)
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    FlowWellConfig,
-    FlowWellLocationAbsoluteXY,
-)
+from hydromodpy.model.domain.depth_model_config import FlatSubstratumDepthModel
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.flow_config import FlowParam
+from hydromodpy.model.initial.config import FlowICSpinupCyclic, FlowInitialConditions
+from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig, FlowReachWidthByOrder
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
 from hydromodpy.solver.base.solver_config import ModflowNwtBackend, SolverConfig
-from hydromodpy.spatial.domain.depth_model_config import FlatSubstratumDepthModel
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.synthetic_config import (
     LinearTopography,
     SyntheticGeographicConfig,

@@ -72,21 +72,9 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - Package
      - Reads today
      - Goes to
-   * - ``examples``
-     - ``core``, ``examples``
-     - ``project``
-   * - ``physics``
-     - ``core``, ``physics``
-     - ``model``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
-     - ``catchment``, ``mesh``, ``model``
-   * - ``simulation``
-     - ``core``, ``physics``, ``spatial``, ``simulation``
-     - ``model``, ``solver``, ``results``, ``data``, ``workflow``
-   * - ``analysis``
-     - ``core``, ``results``, ``display``, ``analysis``
-     - ``project``
+     - ``catchment``
 
 .. list-table:: Packages to come
    :header-rows: 1
@@ -94,10 +82,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
 
    * - Package
      - Comes from
-   * - ``model``
-     - ``physics``, ``simulation``, ``spatial``, ``solver``
-   * - ``mesh``
-     - ``spatial``
    * - ``catchment``
      - ``spatial``
 
@@ -118,23 +102,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``solver``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``solver``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``solver``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``calibration``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``calibration``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``calibration``
@@ -142,23 +110,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``config``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``config``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``config``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``workflow``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``workflow``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``workflow``
@@ -166,27 +118,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - any file
      - It goes with the package it reads.
    * - ``project``
-     - ``physics``
-     - any file
-     - It goes with the package it reads.
-   * - ``project``
-     - ``simulation``
-     - any file
-     - It goes with the package it reads.
-   * - ``project``
      - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
-     - ``analysis``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
-     - ``examples``
-     - any file
-     - It goes with the package it reads.
-   * - ``cli``
-     - ``simulation``
      - any file
      - It goes with the package it reads.
    * - ``model``
@@ -196,23 +128,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
    * - ``mesh``
      - ``spatial``
      - any file
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``analysis``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``examples``
-     - ``hydromodpy/_api.py``
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``physics``
-     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``simulation``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
      - It goes with the package it reads.
    * - ``<root>``
      - ``spatial``
@@ -273,12 +188,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
        names of _lazy.py still sit at the root. The root reads only core
        and project once they live in project.
    * - ``<root>``
-     - ``mesh``
-     - ``hydromodpy/_bootstrap.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
-   * - ``<root>``
      - ``catchment``
      - ``hydromodpy/_bootstrap.py``
      - The verbs of _api.py, the providers of _bootstrap.py and the lazy
@@ -286,8 +195,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
        and project once they live in project.
    * - ``cli``
      - ``<root>``
-     - ``hydromodpy/cli/_workers/example.py``,
-       ``hydromodpy/cli/commands/calibrate.py``,
+     - ``hydromodpy/cli/commands/calibrate.py``,
        ``hydromodpy/cli/commands/example/add.py``,
        ``hydromodpy/cli/commands/export.py``,
        ``hydromodpy/cli/commands/report.py``,

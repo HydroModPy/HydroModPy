@@ -26,7 +26,7 @@ def _full_schema() -> dict:
 
 
 def test_flow_physical_properties_annotations_survive_export() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
@@ -40,7 +40,7 @@ def test_flow_physical_properties_annotations_survive_export() -> None:
 
 
 def test_widget_types_are_recognized() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_schema
 
     allowed = {"slider", "input", "select", "checkbox", "file"}
@@ -51,7 +51,7 @@ def test_widget_types_are_recognized() -> None:
 
 
 def test_display_bounds_are_numeric() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
@@ -69,7 +69,7 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
     ``FlowPhysicalProperties`` is reachable via the ``FlowConfig`` model,
     so the assertion uses the model-level exporter directly.
     """
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_full_schema, export_schema
 
     paths = export_full_schema(tmp_path)

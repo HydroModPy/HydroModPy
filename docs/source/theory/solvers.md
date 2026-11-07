@@ -563,8 +563,8 @@ hydromodpy.solver.boussinesq
 | MODFLOW-NWT: solver and packages | `hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py` (`_build_dis_package`, `_initialize_solver_packages`), `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` (`assemble_flopy_packages`) |
 | Boussinesq: time loop and size limit | `hydromodpy/solver/boussinesq/drivers/transient.py`, `hydromodpy/solver/boussinesq/boussinesq.py` |
 | Transport solvers | `hydromodpy/solver/modflow6/transport.py`, `hydromodpy/solver/modflow6/prt.py`, `hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py`, `hydromodpy/solver/modflow_nwt/modpath/modpath.py` |
-| Which transport follows which flow | `requires` of each adapter in `hydromodpy/solver/*/adapters/`, `hydromodpy/simulation/planning/planner.py` |
-| Solver names, capabilities, refusals at read time | `hydromodpy/solver/base/registry.py`, `hydromodpy/config/hydromodpy_config.py`, `hydromodpy/physics/flow/boundary_condition_registry.py` |
+| Which transport follows which flow | `requires` of each adapter in `hydromodpy/solver/*/adapters/`, `hydromodpy/solver/base/planner.py` |
+| Solver names, capabilities, refusals at read time | `hydromodpy/solver/base/registry.py`, `hydromodpy/config/hydromodpy_config.py`, `hydromodpy/model/boundaries/boundary_condition_registry.py` |
 
 ## See also
 

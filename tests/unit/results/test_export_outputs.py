@@ -34,6 +34,7 @@ from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, render_figures_for_run
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.export import (
@@ -101,11 +102,6 @@ from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord
 from hydromodpy.schema.job.seal import seal_job, verify_job
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    CellChain,
-    FaceFamilyTable,
-    PlanarCellMesh,
-)
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.regular_cell_meshes import regular_cell_mesh

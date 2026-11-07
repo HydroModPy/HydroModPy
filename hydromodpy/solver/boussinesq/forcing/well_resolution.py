@@ -72,9 +72,7 @@ class WellResolutionMixin:
         """Resolve one well rate to one value per period in m3/s."""
         forcing = getattr(well_cfg, "forcing", None)
         if forcing is not None:
-            from hydromodpy.physics.flow.time_forcing import (
-                resolve_period_values_from_forcing,
-            )
+            from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 
             raw_values = resolve_period_values_from_forcing(
                 forcing=forcing,

@@ -1272,7 +1272,7 @@ def test_the_calibration_variables_have_an_explicit_method(name, expected: str) 
 
 
 def test_the_core_table_never_contradicts_the_registry() -> None:
-    # The simulation layer reads the core table because it may not read the
+    # ``core.time`` reads the core table because it may not read the
     # registry; a name in both has to answer the same.
     shared = sorted(set(OBSERVABLE_TIME_METHODS) & set(FIELD_REGISTRY))
 

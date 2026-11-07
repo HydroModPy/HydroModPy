@@ -13,18 +13,18 @@ from shapely.geometry import box
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.refinement_zones import (
+    CriterionInputs,
+    RefinementZone,
+    load_refinement_zones,
+)
+from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.results.catalog.registration import config_identity_hash
 from hydromodpy.results.run.field_envelope import read_run_fields
 from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.refinement_zones import (
-    CriterionInputs,
-    RefinementZone,
-    load_refinement_zones,
-)
-from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import step_mesh, zone_runs
 from hydromodpy.workflow.steps.prepare_solver.freeze import (

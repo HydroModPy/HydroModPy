@@ -30,6 +30,11 @@ from hydromodpy.core.scoring.stream_defaults import (
     ObservedRasterization,
 )
 from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.model.forcing.recharge_rates import (
+    CRITERION_MEAN_RECHARGE_ATTR,
+    criterion_mean_recharge,
+    forcing_period_rates,
+)
 from hydromodpy.results.derive.stream.geometry import (
     CriterionSupports,
     NetworkGeometry,
@@ -41,11 +46,6 @@ from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.results.derive.time_alignment import run_period_edges
 from hydromodpy.spatial.drainage.distance import downslope_distance_to_mask
 from hydromodpy.spatial.drainage.graph import cell_centroids_from_mesh
-from hydromodpy.spatial.forcing.recharge_rates import (
-    CRITERION_MEAN_RECHARGE_ATTR,
-    criterion_mean_recharge,
-    forcing_period_rates,
-)
 from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 
 if TYPE_CHECKING:
@@ -245,10 +245,10 @@ def network_comparison_from_run(
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
+    from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+    from hydromodpy.mesh.planar.geometry import cell_polygons
     from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
-    from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
-    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -407,9 +407,9 @@ def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.nd
     None for a synthetic domain, whose stored box is the domain and no catchment,
     as a trial reads it.
     """
+    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
     from hydromodpy.results.run.geographic import geographic_metadata
     from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
-    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 
     if geographic_metadata(sim).get("catch_def") == SYNTHETIC_CATCH_DEF:
         return None
@@ -458,7 +458,7 @@ def _delineated_outlet_xy(sim: Run) -> tuple[float, float] | None:
 def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     """Return the mean recharge rate of the run, in m/s, as the trials read it.
 
-    The criterion's one rule (:mod:`hydromodpy.spatial.forcing.recharge_rates`). A run
+    The criterion's one rule (:mod:`hydromodpy.model.forcing.recharge_rates`). A run
     keeps on its ``forcing`` group the number its trials read from the built
     model, for a station series and for a grid alike, and that number is read
     back here. A solver that holds no recharge on its model keeps none.

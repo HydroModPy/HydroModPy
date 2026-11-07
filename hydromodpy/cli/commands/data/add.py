@@ -49,7 +49,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import add_data_entry
+    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.data.request.cache_verbs import add_data_entry
 
     if not args.variable:
         refuse("--type is required (e.g. --type piezometry)", EXIT_CONFIG)
@@ -62,7 +63,7 @@ def run(args: argparse.Namespace) -> None:
             crs=args.crs,
             unit=args.unit,
             station_id=args.station_id,
-            workspace=args.workspace,
+            workspace_root=resolve_workspace(args.workspace),
             project=args.project,
             frozen=args.frozen,
         )

@@ -215,8 +215,8 @@ Pitfalls flagged by the layer matrix
 ------------------------------------
 
 - ``display`` may import ``core``, ``schema``, ``results``, and
-  ``display``. It must **not** import ``data``, ``simulation``,
-  ``solver``, ``calibration``, ``analysis``, or ``workflow``.
+  ``display``. It must **not** import ``data``, ``model``,
+  ``solver``, ``calibration``, ``project``, or ``workflow``.
 - Inside ``display``, a shared tool never imports ``figures/``;
   ``tests/unit/architecture/display_layout.yaml`` lists who may import whom.
 - Reach the data through ``Run`` (``run.field``, ``run.timeseries``,

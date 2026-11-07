@@ -1,7 +1,7 @@
 """Conformance suite for the mesh port, run against every engine.
 
 Almost every assertion takes the ``engine`` fixture, and that fixture is
-parametrized over what :mod:`hydromodpy.spatial.mesh.registry` resolves, not over
+parametrized over what :mod:`hydromodpy.mesh.registry` resolves, not over
 a list this file keeps. An engine installed beside this build is therefore run
 by this suite without a line of ``tests/`` naming it. ``register()`` certifies a
 class on the members it declares; the invariants a solver relies on (cells cover
@@ -43,18 +43,13 @@ import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.model.quality import DECLARATION_KEYS
-from hydromodpy.spatial.mesh.port import MeshEngine, MeshEngineCapabilities, missing_engine_members
-from hydromodpy.spatial.mesh.request import (
-    InputTriangulation,
-    LineFamilySpec,
-    MeshRequest,
-    SizeField,
-)
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.quality import DECLARATION_KEYS
+from hydromodpy.mesh.port import MeshEngine, MeshEngineCapabilities, missing_engine_members
+from hydromodpy.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest, SizeField
 from tests._helpers.mesh_cases import (
     LAMBERT93_WKT,
     grid_over,
@@ -100,7 +95,7 @@ def _engine(engine_id: str) -> MeshEngine:
     """Build what the registry serves under *engine_id*, or skip it if it cannot run here.
 
     A built-in this environment cannot load or run is a skip. A plugin that fails
-    to build is not: :func:`~hydromodpy.spatial.mesh.registry.load_plugins`
+    to build is not: :func:`~hydromodpy.mesh.registry.load_plugins`
     already dropped the ones that cannot load, so an id that survived to here and
     then fails is a defect of the engine.
     """

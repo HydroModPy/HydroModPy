@@ -10,7 +10,7 @@ import pytest
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.core.state.scratch import preprocessing_dir
-from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.setup import step_setup
 
 from ._launcher_run_id_builders import (
@@ -107,7 +107,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.domain.build.Domain",
+        "hydromodpy.model.domain.build.Domain",
         _DummyDomain,
     )
 
@@ -180,7 +180,7 @@ def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.domain.build.Domain",
+        "hydromodpy.model.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
@@ -225,7 +225,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.domain.build.Domain",
+        "hydromodpy.model.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
@@ -285,7 +285,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.domain.build.Domain",
+        "hydromodpy.model.domain.build.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(

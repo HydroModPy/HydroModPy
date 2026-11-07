@@ -25,7 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.example import human_size, show_rows
+    from hydromodpy.project.examples.rows import human_size, show_rows
 
     payload = show_rows(args.example_id)
 

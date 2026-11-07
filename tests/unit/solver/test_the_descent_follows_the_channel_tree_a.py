@@ -15,6 +15,8 @@ import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.solver.modflow_common.channel_tree import (
     ChannelTree,
     project_channel_tree,
@@ -22,8 +24,6 @@ from hydromodpy.solver.modflow_common.channel_tree import (
 )
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 

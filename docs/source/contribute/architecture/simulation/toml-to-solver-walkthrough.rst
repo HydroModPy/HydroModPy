@@ -24,9 +24,9 @@ End-to-end chain
    (``hydromodpy/workflow/runner.py``) over the twelve steps of
    ``standard_steps()`` in ``hydromodpy/workflow/steps/sequence.py``.
 5. Inside that pipeline, the planning code builds a ``SimulationPlan`` with
-   ``SimulationPlanner`` (``hydromodpy/simulation/planning/planner.py``), and
+   ``SimulationPlanner`` (``hydromodpy/solver/base/planner.py``), and
    ``RunSolverStep`` hands it to ``SimulationRunner``
-   (``hydromodpy/simulation/execution/runner.py``).
+   (``hydromodpy/solver/base/runner.py``).
 6. The runner asks ``hydromodpy/solver/base/registry.py`` for the adapter of each
    ``(process_type, solver_name)`` pair. The adapter sits under
    ``hydromodpy/solver/<backend>/adapters/``.
@@ -112,9 +112,9 @@ Where to change what
    * - Project orchestration, workspace behavior
      - ``hydromodpy/project/facade.py``
    * - Planning rules, dependency binding
-     - ``hydromodpy/simulation/planning/``
+     - ``hydromodpy/solver/base/plan.py`` and ``planner.py``
    * - Execution order, process transitions
-     - ``hydromodpy/simulation/execution/runner.py``
+     - ``hydromodpy/solver/base/runner.py``
    * - How a solver is called from the run state
      - ``hydromodpy/solver/<backend>/adapters/``
    * - The numerical backend
@@ -151,10 +151,10 @@ The time cycle
    ``resolve_simulation_time_window_dates``. A section that declares its own dates keeps
    them.
 4. A forcing series is aggregated onto the periods by
-   ``hydromodpy/physics/forcing/time_alignment.py`` (the mean over ``[start, end)``, with
+   ``hydromodpy/model/forcing/time_alignment.py`` (the mean over ``[start, end)``, with
    the last earlier value carried forward over an empty period).
    ``validate_recharge_coverage`` applies the coverage policy of the window.
-   ``hydromodpy/physics/flow/time_forcing.py`` prepares the flow-side payload for the
+   ``hydromodpy/model/forcing/time_forcing.py`` prepares the flow-side payload for the
    adapters.
 5. Each solver reads the grid for its number of periods and their lengths.
 

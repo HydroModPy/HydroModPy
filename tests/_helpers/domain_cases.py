@@ -1,4 +1,4 @@
-"""Grids, surfaces, layerings and masks shared by the tests of ``hydromodpy.spatial.domain``.
+"""Grids, surfaces, layerings and masks shared by the tests of ``hydromodpy.model.domain``.
 
 A test says what differs from one small Lambert-93 grid with its south-west corner at (X0, Y0).
 """

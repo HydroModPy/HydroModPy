@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import Flow
+from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual,
 )

@@ -9,8 +9,8 @@ import numpy as np
 
 from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units import to_modflow_itmuni
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.steady_periods import steady_flags
+from hydromodpy.model.forcing.steady_periods import steady_flags
+from hydromodpy.model.time.regime import normalize_flow_regime
 
 
 @dataclass(slots=True)

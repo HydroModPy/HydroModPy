@@ -9,8 +9,8 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.physics.transport.transport import Transport
-from hydromodpy.physics.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.model.transport.transport import Transport
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_common.runtime_arrays import _normalize_sconc_input
@@ -28,9 +28,9 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
         [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
     )
     conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
+    from hydromodpy.mesh.planar.cell_types import CellType
+    from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh.model.cell_types import CellType
-    from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
     mesh = solver_mesh_from(
         HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),

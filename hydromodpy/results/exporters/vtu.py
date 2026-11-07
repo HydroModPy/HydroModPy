@@ -1,7 +1,7 @@
 """Export simulation fields from Zarr to VTU (ParaView / PyVista).
 
 The cells come from the ``mesh/`` group of the run store, in its order, and
-the file is written by ``write_vtu`` of ``hydromodpy/spatial/mesh/io/vtu.py``,
+the file is written by ``write_vtu`` of ``hydromodpy/mesh/io/vtu.py``,
 the one VTU writer of HydroModPy. A VTU file carries no CRS of its own. The run
 metadata (:data:`RUN_FIELD_DATA`) goes into the ``FieldData`` of the grid, as
 that module writes it: a number is an ``Int32`` array of one value, a text its
@@ -18,12 +18,12 @@ import meshio
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.io.meshio_bridge import to_meshio
+from hydromodpy.mesh.io.vtu import write_vtu
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.results.exporters.fields import one_layer, read_field_step
 from hydromodpy.results.zarr_store import SimulationZarr
-from hydromodpy.spatial.mesh.io.meshio_bridge import to_meshio
-from hydromodpy.spatial.mesh.io.vtu import write_vtu
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 logger = get_logger(__name__)
 

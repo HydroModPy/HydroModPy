@@ -12,13 +12,14 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 import hydromodpy.results.exporters.request as request_module
-import hydromodpy.simulation.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
+import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.calibration.runners.session_scope import release_session_scratch
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.scratch import PREPROCESSING_DIRNAME
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.identity import read_identity_from
@@ -31,7 +32,6 @@ from hydromodpy.results.storage.contract import (
     RUN_SOLVER_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic import preprocessing_cleanup
 from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.workflow.state import PipelineState

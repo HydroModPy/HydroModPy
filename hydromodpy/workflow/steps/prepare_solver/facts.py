@@ -29,7 +29,7 @@ from hydromodpy.results.storage.geo_metadata import epsg_from_crs
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.storage.run_store import RunStore
-    from hydromodpy.simulation.planning.plan import SimulationPlan
+    from hydromodpy.solver.base.plan import SimulationPlan
 
 logger = get_logger(__name__)
 

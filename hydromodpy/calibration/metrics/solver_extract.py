@@ -67,7 +67,7 @@ from hydromodpy.results.derive.stream.extent import (
     yearly_flow_counts,
 )
 from hydromodpy.results.derive.stream.network import build_simulated_network
-from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
 logger = get_logger(__name__)

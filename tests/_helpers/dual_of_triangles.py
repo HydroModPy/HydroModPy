@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.request import InputTriangulation, MeshRequest
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.request import InputTriangulation, MeshRequest
 from tests._helpers.mesh_cases import mesh_request
 
 RIVER_GROUP = "river::trace"

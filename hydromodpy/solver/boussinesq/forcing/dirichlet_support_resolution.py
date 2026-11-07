@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     active_side_dirichlet_boundary_ids,
 )
 

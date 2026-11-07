@@ -395,39 +395,6 @@ hmp data restore --verbose,-v	nargs=0
 hmp data restore --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp data restore --workspace,-w	
 hmp data restore <input>	required
-hmp dev	command
-hmp dev examples	command
-hmp dev examples manifest	command
-hmp dev examples manifest --root	
-hmp dev examples manifest --to	
-hmp dev examples manifest --workspace,-w	
-hmp dev manage	command
-hmp dev manage --host	default='127.0.0.1'
-hmp dev manage --no-browser	nargs=0
-hmp dev manage --port	
-hmp dev manage --scan-root	
-hmp dev manage --workspace,-w	
-hmp dev run-script	command
-hmp dev run-script --workspace,-w	
-hmp dev run-script <script>	required
-hmp dev run-script <script_args>	nargs=...
-hmp dev test	command
-hmp dev test --analytical	nargs=0
-hmp dev test --extensive	nargs=0
-hmp dev test --fast	nargs=0
-hmp dev test --intercomparison	nargs=0
-hmp dev test --jobs,-j	
-hmp dev test --list	nargs=0
-hmp dev test --mf6	nargs=0
-hmp dev test --nwt	nargs=0
-hmp dev test --short	nargs=0
-hmp dev test --slow	nargs=0
-hmp dev test --steady	nargs=0
-hmp dev test --transient	nargs=0
-hmp dev test --update-goldens	nargs=0
-hmp dev test --workspace,-w	
-hmp dev test <name>	nargs=?
-hmp dev test <suite>	required choices=['regression', 'unit', 'validation']
 hmp doctor	command
 hmp doctor --cross-catalog	nargs=0
 hmp doctor --dry-run	nargs=0

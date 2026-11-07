@@ -13,12 +13,12 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.base.properties import (
+from hydromodpy.model.properties.property_table import (
     require_positive_conductivity,
     require_positive_storage,
     resolve_required_flow_properties,
 )
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     assemble_constant_head_stress_period_data,
@@ -142,8 +142,8 @@ from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnec
 from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

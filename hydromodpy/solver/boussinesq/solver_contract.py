@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
-from hydromodpy.physics.flow.boundary_condition_registry import (
+from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_definition,
 )
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
@@ -22,7 +22,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
+    from hydromodpy.model.domain.layers_config import VerticalGridConfig
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from pydantic import TypeAdapter
 
-from hydromodpy.physics.base.forcing import SurfaceRateForcing
+from hydromodpy.model.forcing.dated_forcing import SurfaceRateForcing
 from hydromodpy.solver.modflow6.builders._lake_outlets import _forcing_si_per_period
 from hydromodpy.solver.modflow6.builders._sfr_period import _emit_network_forcing
 

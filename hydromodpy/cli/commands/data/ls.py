@@ -26,9 +26,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import list_data_cache
+    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.data.request.cache_verbs import list_data_cache
 
-    df = list_data_cache(args.workspace, variable=args.variable, provider=args.provider)
+    df = list_data_cache(
+        resolve_workspace(args.workspace), variable=args.variable, provider=args.provider
+    )
     if df is None or df.empty:
 
         def table_of_nothing() -> None:

@@ -16,8 +16,8 @@ import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
-from hydromodpy.physics.flow.sinks_sources.wells import WELLS_PUMPED_METRIC
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
+from hydromodpy.model.sinks_sources.wells import WELLS_PUMPED_METRIC
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -25,6 +25,7 @@ from hydromodpy.solver.base.observables import (
     servable,
     under_condition,
 )
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
@@ -36,7 +37,6 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
     resolve_run_output,
 )
-from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE
 
 # LAK observation states this adapter serves, and the unit each carries. The
 # request names the state directly now that it also carries the lake in its

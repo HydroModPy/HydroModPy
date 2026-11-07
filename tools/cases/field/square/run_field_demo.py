@@ -30,10 +30,10 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
-from hydromodpy.spatial.field.field_param_io import field_param_from_toml
-from hydromodpy.spatial.field.plotting import plot_cell_values
-from hydromodpy.spatial.field.two_zone_field import FieldSquare
-from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
+from hydromodpy.model.properties.field_param_io import field_param_from_toml
+from hydromodpy.model.properties.plotting import plot_cell_values
+from hydromodpy.model.properties.two_zone_field import FieldSquare
+from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
 from tools.cases.plotting_utils import maximize_figure_windows
 
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"

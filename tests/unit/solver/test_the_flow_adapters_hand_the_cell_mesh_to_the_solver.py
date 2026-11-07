@@ -13,7 +13,7 @@ import pytest
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import _BUILTIN_ACCEPTED_MESHES
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter

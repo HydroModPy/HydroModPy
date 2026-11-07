@@ -48,7 +48,7 @@ def _age(age_s: float | None) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import watch_running
+    from hydromodpy.results.catalog.liveness import watch_running
 
     project_root = project_root_of(args)
     if not project_root.is_dir():

@@ -44,7 +44,7 @@ def run(args: argparse.Namespace) -> None:
     root = project_root_of(args)
     rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
     add_note(root / rel_dir, str(args.text), author=AuthBackend().current_user())
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(root)
     emit(

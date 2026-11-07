@@ -46,12 +46,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.data import remove_data_entries
+    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.data.request.cache_verbs import remove_data_entries
 
     if not args.dry_run:
         confirm(args, "Remove these cache entries?", doing="remove cache entries")
     n = remove_data_entries(
-        args.workspace,
+        resolve_workspace(args.workspace),
         variable=args.variable,
         provider=args.provider,
         station_id=args.station_id,

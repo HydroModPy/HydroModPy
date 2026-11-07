@@ -21,18 +21,16 @@ describes the experimental observability project next to it.
    ../generated/packages
    core
    config
-   physics
+   model
    data
+   mesh
    spatial
    solver
-   simulation
    calibration
    results
    display
-   analysis
    workflow
    project
-   examples
    schema
    cli
    validity_frame

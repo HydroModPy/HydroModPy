@@ -65,11 +65,8 @@ from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS, PhysicalBound
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
-from hydromodpy.simulation.planning.plan import (
-    WATER_BUDGET_METRIC,
-    WATER_BUDGET_WORST_METRIC,
-)
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
+from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
 
 if TYPE_CHECKING:
@@ -422,7 +419,7 @@ class _FlowBuildLauncher:
     """Execute the flow runs of a plan alone, for a setup that stops before their solve."""
 
     def execute(self, plan: Any, state: Any, *, callbacks: Any = None, store: Any = None) -> Any:
-        from hydromodpy.simulation.execution.runner import SimulationRunner
+        from hydromodpy.solver.base.runner import SimulationRunner
 
         del callbacks
         runs = tuple(run for run in plan.runs if run.process_type == "flow")

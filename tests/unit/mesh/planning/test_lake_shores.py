@@ -19,20 +19,20 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.solver.modflow6.builders._lake_geometry import interior_cells, polygon_overlap
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning import families
-from hydromodpy.spatial.mesh.planning.families import RIVER_MARGIN_SHARE
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.lake_shores import (
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning import families
+from hydromodpy.mesh.planning.families import RIVER_MARGIN_SHARE
+from hydromodpy.mesh.planning.inputs import PlanningInputs
+from hydromodpy.mesh.planning.lake_shores import (
     LAKE_SHORE_SHARE,
     FollowedShores,
     followed_lake_shores,
 )
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.request import BARRIER_FAMILY
+from hydromodpy.solver.modflow6.builders._lake_geometry import interior_cells, polygon_overlap
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, planning_inputs
 
 pytestmark = pytest.mark.usefixtures("builtin_engines")

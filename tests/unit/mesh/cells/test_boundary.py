@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.mesh.cells.boundary import (
+from hydromodpy.mesh.cells.boundary import (
     SIDE_IDS,
     SIDE_OFFSET_KEY,
     annotate_side_cells,
@@ -29,14 +29,14 @@ from hydromodpy.spatial.mesh.cells.boundary import (
     side_center_offset_m,
     stream_cells,
 )
-from hydromodpy.spatial.mesh.engines.regular import engine as regular_engine
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.engines.triangle import engine as triangle_engine
-from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.engines.voronoi import engine as voronoi_engine
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
+from hydromodpy.mesh.engines.regular import engine as regular_engine
+from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.engines.triangle import engine as triangle_engine
+from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.mesh.engines.voronoi import engine as voronoi_engine
+from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.request import LineFamilySpec, MeshRequest
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request

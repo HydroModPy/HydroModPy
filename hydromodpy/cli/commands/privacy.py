@@ -58,8 +58,8 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_purge(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.privacy import purge_simulation
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
+    from hydromodpy.results.catalog.privacy import purge_simulation
 
     if args.dry_run:
         rel_dir = resolve_rel_dir(project_root_of(args), args.sim_ref, unambiguous=True)
@@ -77,6 +77,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
         workspace=args.workspace,
         reason=args.reason,
         archive_pii=args.archive_pii,
+        operator=_purge_resolve_operator(),
     )
 
     def table() -> None:
@@ -90,8 +91,23 @@ def _cmd_purge(args: argparse.Namespace) -> None:
     emit(args, "privacy purge", {**result, "applied": True}, table=table)
 
 
+def _purge_resolve_operator() -> str:
+    """Resolve the purge operator through ``AuthBackend``.
+
+    Delegates to :class:`hydromodpy.cli.auth.AuthBackend`. Falls back
+    to ``"anonymous"`` if the backend itself fails: a purge must not stop on
+    an identity probe.
+    """
+    try:
+        from hydromodpy.cli.auth import AuthBackend
+
+        return AuthBackend().current_user() or "anonymous"
+    except Exception:  # noqa: BLE001 - purge must not crash on identity probe
+        return "anonymous"
+
+
 def _cmd_verify(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.privacy import verify_purge_certificate
+    from hydromodpy.results.catalog.privacy import verify_purge_certificate
 
     try:
         result = verify_purge_certificate(args.certificate, strict=args.strict)

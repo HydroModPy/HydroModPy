@@ -16,7 +16,7 @@ from hydromodpy.data.variables.geology.config import (
     CustomGeologySource,
     GeologySourceConfig,
 )
-from hydromodpy.simulation.planning.config import (
+from hydromodpy.solver.base.simulation_config import (
     FlowProcessConfig,
     MeshProcessConfig,
     SimulationProcessConfig,

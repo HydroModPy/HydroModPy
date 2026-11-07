@@ -29,7 +29,6 @@ from hydromodpy.solver.boussinesq.export_payload import (
 )
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
-from hydromodpy.solver.boussinesq.runtimes.picard.picard import assemble_strict_steady_residual
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 RECHARGE_M_S = 5.0e-3 / 86400.0
@@ -99,8 +98,7 @@ def test_transient_residual_gives_no_recharge_to_a_cell_with_an_imposed_head() -
     np.testing.assert_allclose(assembly.prescribed_head_flux_m3_s[1:], 0.0)
 
 
-@pytest.mark.parametrize("assemble", ["canonical", "picard_strict"])
-def test_steady_residuals_give_nothing_to_a_cell_with_an_imposed_head(assemble) -> None:
+def test_steady_residuals_give_nothing_to_a_cell_with_an_imposed_head() -> None:
     # The held head stands 1 m above the ground of its cell, under a well.
     mesh = _strip(3, outlet_top_m=19.0)
     head = np.asarray([20.0, 21.0, 21.5])
@@ -110,10 +108,7 @@ def test_steady_residuals_give_nothing_to_a_cell_with_an_imposed_head(assemble) 
         "prescribed_head_m_by_cell": _outlet_heads(3, 20.0),
         "drainage_conductance_m2_s": DRAIN_M2_S,
     }
-    if assemble == "canonical":
-        assembly = assemble_steady_residual(mesh, head_m=head, **kwargs)
-    else:
-        assembly = assemble_strict_steady_residual(mesh, head, **kwargs)
+    assembly = assemble_steady_residual(mesh, head_m=head, **kwargs)
 
     np.testing.assert_allclose(assembly.recharge_rate_m_s, [0.0, RECHARGE_M_S, RECHARGE_M_S])
     np.testing.assert_allclose(assembly.well_flux_m3_s, [0.0, 0.0, WELL_M3_S])

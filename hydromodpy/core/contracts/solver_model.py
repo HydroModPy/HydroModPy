@@ -11,8 +11,8 @@ the folder they were given, and the path they work in. Nothing else is common:
 ``sim`` and ``gwf`` from MODFLOW-NWT. A wider protocol here would be a wish, not
 a fact, and every consumer that needs more already asks its own backend.
 
-It lives in ``core`` because ``simulation`` types the field and cannot import
-``solver``; the layer matrix runs the other way.
+It lives in ``core`` because the run state in ``core.state`` types the field
+and cannot import ``solver``; the layer matrix runs the other way.
 """
 
 from __future__ import annotations

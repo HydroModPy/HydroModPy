@@ -40,7 +40,7 @@ def coerce_scalar_value_with_unit(
     """Split a `'<number> <unit>'` string into `(float, unit)`.
 
     Mirrors `_coerce_boundary_value_and_units` in
-    `hydromodpy/physics/flow/boundary_conditions.py`: a unit written inside
+    `hydromodpy/model/boundaries/boundary_conditions.py`: a unit written inside
     `value` fills a missing sibling `unit`, and one that disagrees with an
     already-declared sibling `unit` is refused by `parse_scalar_and_unit`
     itself rather than silently preferred one way or the other.

@@ -8,7 +8,7 @@ A mesh engine turns one request into one cell mesh. Three engines are built in, 
 point. Every consumer reads the cell mesh the same way, so the engine is a choice of the
 ``[mesh]`` section and nothing else.
 
-Code: ``hydromodpy/spatial/mesh/``. The cell mesh is on :doc:`mesh-pivot`, and the choice of an
+Code: ``hydromodpy/mesh/``. The cell mesh is on :doc:`mesh-pivot`, and the choice of an
 engine and the size field are on :doc:`/theory/mesh`.
 
 From the project to the cell mesh
@@ -17,12 +17,12 @@ From the project to the cell mesh
 .. code-block:: text
 
    [mesh] + the project inputs
-        |  plan_mesh_request     spatial/mesh/planning/
+        |  plan_mesh_request     mesh/planning/
         v
-   MeshRequest                   spatial/mesh/request.py      plain frozen data
-        |  engine.build          spatial/mesh/engines/<id>/
+   MeshRequest                   mesh/request.py      plain frozen data
+        |  engine.build          mesh/engines/<id>/
         v
-   PlanarCellMesh                spatial/mesh/model/
+   PlanarCellMesh                mesh/planar/
         |  step_mesh             workflow/steps/mesh.py       cache, setup.cell_mesh
         v
    solvers, forcing, supports, the Zarr store
@@ -33,7 +33,7 @@ workflow step is the only place that reads ``[mesh]``. It plans the request and 
 The request
 -----------
 
-``MeshRequest`` is plain frozen data (``spatial/mesh/request.py``). It holds the domain polygon,
+``MeshRequest`` is plain frozen data (``mesh/request.py``). It holds the domain polygon,
 the DEM grid (``RasterGridSpec``), whose CRS is the CRS of the request, the nominal cell size,
 the line families, the size field, the seed, the options of the engine, an optional input
 triangulation and the notes of the planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
@@ -56,7 +56,7 @@ line lies on cell faces.
 The planner
 -----------
 
-``plan_mesh_request`` (``spatial/mesh/planning/``) is the one place that knows the project.
+``plan_mesh_request`` (``mesh/planning/``) is the one place that knows the project.
 
 - It sets the intent of each family from ``[mesh.families]``. Rivers are ``cell`` lines, and
   geology contacts, lake shores and the catchment boundary are ``face`` lines.
@@ -71,7 +71,7 @@ The planner
   (``planning/refinement_zones.py``). The zone is a set of DEM pixels, a ``PixelRegion`` of the size
   field. The height above the stream comes from ``planning/height_above_stream.py``. A field of
   an earlier run is read by the workflow step (``results/run/field_envelope.py``), because
-  ``spatial`` cannot import ``results``, and it reaches the planner as pixels. The ``regular``
+  ``mesh`` cannot import ``results``, and it reaches the planner as pixels. The ``regular``
   engine does not grade its cells, so the planner drops these zones and the QA says so.
 - With ``[mesh.lake_refinement]``, it turns each hydraulic structure of a lake into a term of the
   size field. The size rules are in ``planning/lake_structures.py``: each cutoff wall, the sill
@@ -176,15 +176,15 @@ Add an engine
 -------------
 
 An engine is a class with three class variables and one method, checked by the ``MeshEngine``
-protocol (``spatial/mesh/port.py``). A third-party engine imports the port module, the request,
+protocol (``mesh/port.py``). A third-party engine imports the port module, the request,
 the cell mesh model and the exceptions of ``core``, and nothing else of HydroModPy:
 
 .. code-block:: python
 
    from typing import ClassVar
 
-   from hydromodpy.spatial.mesh.model.cell_types import CellType
-   from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
+   from hydromodpy.mesh.planar.cell_types import CellType
+   from hydromodpy.mesh.port import MeshEngineCapabilities
 
 
    class MyEngine:

@@ -56,7 +56,7 @@ def run(args: argparse.Namespace) -> None:
         )
         return
     restore(root, entry.name)
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(root)
     emit(

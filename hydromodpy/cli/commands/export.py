@@ -229,7 +229,7 @@ def _regen(hmp: object, workspace: Path, sim_ref: str, what: str) -> list[Path]:
 
     ``all`` writes what each ledger holds. It stops only on a run with nothing recorded.
     """
-    from hydromodpy.cli._workers.viz import regen_figures
+    from hydromodpy.display.catalog_figures import regen_figures
     from hydromodpy.results.exporters.request import regen_exports, run_export_target
     from hydromodpy.results.ledger import Ledger
     from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME

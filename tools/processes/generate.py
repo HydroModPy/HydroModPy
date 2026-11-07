@@ -37,6 +37,7 @@ from typing import Any
 
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.data.request.job import DATA_REQUEST
+from hydromodpy.model.domain.capability import DOMAIN_BUILD
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.config_schema import export_schema, extract_property_schema
 from hydromodpy.schema.processes import (
@@ -45,7 +46,6 @@ from hydromodpy.schema.processes import (
     PROCESS_PROFILE,
     description_filename,
 )
-from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTIONS_DIR = REPO_ROOT / "hydromodpy" / "schema" / "processes"

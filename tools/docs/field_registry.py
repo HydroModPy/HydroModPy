@@ -752,7 +752,7 @@ def _known_keys() -> None:
     """
     try:
         from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
-        from hydromodpy.physics.flow.property_ids import FLOW_PROPERTY_IDS
+        from hydromodpy.model.properties.property_ids import FLOW_PROPERTY_IDS
     except Exception:
         return
     host = nodes.get(KNOWN_HOST)

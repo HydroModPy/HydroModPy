@@ -105,32 +105,6 @@ def test_doctor_probe_returns_cli_check_shape(tmp_path):
     assert checks["results:layout"]["hint"] is None
 
 
-def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
-    from hydromodpy.cli.commands.dev.manage import _WorkspaceManagerBackend
-
-    project = tmp_path / "project"
-    tmp_file, orphan = _with_tmp_parquet_and_orphan(project)
-
-    backend = _WorkspaceManagerBackend(workspace_root=project)
-    diagnostics = backend.result_diagnostics()["rows"]
-    cleanup_paths = {path for row in diagnostics for path in row.get("paths", [])}
-
-    assert str(tmp_file) in cleanup_paths
-    assert str(orphan) in cleanup_paths
-    assert backend.summary()["diagnostic_warning_count"] >= 1
-
-    result = backend.delete_orphans(None, [str(tmp_file), str(orphan)])
-
-    assert result["deleted"]
-    assert not tmp_file.exists()
-    assert not orphan.exists()
-    remaining = {
-        path for row in backend.result_diagnostics()["rows"] for path in row.get("paths", [])
-    }
-    assert str(tmp_file) not in remaining
-    assert str(orphan) not in remaining
-
-
 def test_a_file_changed_since_the_seal_is_reported(tmp_path):
     project = tmp_path / "project"
     _, run_dir = _seal(project, "tampered")

@@ -9,15 +9,15 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.mesh_config import (
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.mesh_config import (
     MeshConfig,
     MeshFamiliesConfig,
     MeshRegularConfig,
     MeshTriangleConfig,
     MeshVoronoiConfig,
 )
-from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
+from hydromodpy.mesh.refinement_config import LakeRefinementConfig
 from tests._helpers.fake_engines import fake_engine
 
 _MODELS = (MeshConfig, MeshFamiliesConfig, MeshRegularConfig, MeshTriangleConfig, MeshVoronoiConfig)
@@ -199,7 +199,7 @@ def test_an_unknown_key_or_a_value_out_of_range_is_refused(data: dict) -> None:
 
 
 def test_the_lloyd_tolerance_of_generated_generators_is_a_dev_key_with_the_engine_default() -> None:
-    from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE
+    from hydromodpy.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE
 
     assert MeshVoronoiConfig().lloyd_tolerance == LLOYD_TOLERANCE
     config = MeshConfig(engine="voronoi", voronoi={"lloyd_tolerance": 0.05})

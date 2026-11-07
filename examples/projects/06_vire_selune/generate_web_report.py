@@ -16,9 +16,7 @@ from matplotlib.collections import LineCollection, PolyCollection
 from rasterio.plot import show as rio_show
 
 ROOT = Path(__file__).resolve().parent
-from hydromodpy.spatial.mesh.io.bundle import (
-    load_catchment_mesh_bundle,
-)
+from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
 
 WEB_DIR = ROOT / "web"
 ASSETS_DIR = WEB_DIR / "assets"

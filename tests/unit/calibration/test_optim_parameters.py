@@ -24,8 +24,8 @@ from hydromodpy.calibration.optim.sampling import (
     search_space_center,
     search_space_samples,
 )
-from hydromodpy.physics.flow.flow_config import FlowParam
-from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.model.flow_config import FlowParam
+from hydromodpy.model.properties.field_param import FieldParam
 from tests.unit.calibration._factories_search import make_space, result_of
 
 # From test_a_candidate_meets_the_physical_registry.py

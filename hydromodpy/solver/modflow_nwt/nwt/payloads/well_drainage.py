@@ -9,7 +9,7 @@ import numpy as np
 
 from hydromodpy.core.units import factor_to_m2_per_s
 from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,

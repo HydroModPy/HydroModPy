@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.core.exceptions import MeshError, SolverDivergedError, SolverInputError
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.simulation.planning.plan import (
+from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
+from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
     ProcessRun,
@@ -30,14 +31,13 @@ from hydromodpy.simulation.planning.plan import (
     RunExecutionResult,
     SimulationPlan,
 )
-from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 

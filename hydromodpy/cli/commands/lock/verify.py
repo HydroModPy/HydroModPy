@@ -29,7 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.lock import lock_verify
+    from hydromodpy.project.lock import lock_verify
 
     result = lock_verify(
         args.workspace, project=args.project, lockfile=args.lockfile, strict=args.strict

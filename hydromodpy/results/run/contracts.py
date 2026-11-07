@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.geometry import cell_areas, padded_rows
+from hydromodpy.mesh.planar.geometry import cell_areas, padded_rows
 
 if TYPE_CHECKING:
     from dask.array import Array as DaskArray

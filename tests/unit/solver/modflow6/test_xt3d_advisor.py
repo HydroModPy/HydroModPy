@@ -14,6 +14,9 @@ import warnings
 import numpy as np
 import pytest
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.quality import nonorthogonality_summary
 from hydromodpy.solver.modflow6.builders.solver_options import (
     _recommend_xt3d,
     resolve_xt3d_decision,
@@ -22,9 +25,6 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
     logger as advisor_logger,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.quality import nonorthogonality_summary
 from tests._helpers.mf6_toy_models import toy_model, two_triangle_model
 from tests._helpers.solver_meshes import solver_mesh_from
 

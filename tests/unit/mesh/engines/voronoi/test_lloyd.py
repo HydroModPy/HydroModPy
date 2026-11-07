@@ -9,13 +9,13 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
+from hydromodpy.mesh.engines.voronoi.constraints.plan import (
     ConstraintPlan,
     ConstraintSeeds,
     FaceLineState,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import DiskSet
-from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
+from hydromodpy.mesh.engines.voronoi.free_seeds import DiskSet
+from hydromodpy.mesh.engines.voronoi.lloyd import (
     BERGE_CIRCLE_SCALE,
     GABRIEL_SCALE,
     LLOYD_CAP,
@@ -24,10 +24,10 @@ from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
     relax,
     weighted_centroids,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
-from hydromodpy.spatial.mesh.request import SizeField
-from hydromodpy.spatial.mesh.resample import positions_at_local_size
+from hydromodpy.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
+from hydromodpy.mesh.request import SizeField
+from hydromodpy.mesh.resample import positions_at_local_size
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over
 
 X0, Y0 = L93_ORIGIN

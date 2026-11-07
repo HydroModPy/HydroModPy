@@ -9,6 +9,7 @@ from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.data.variables.lake_levels.manager import LakeLevelsManager
 from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.catchment_aggregation import VARIABLE_UNITS
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import (
     OBSERVED_VARIABLES,
@@ -18,7 +19,6 @@ from hydromodpy.results.exporters.vocabulary import (
     export_kind,
     static_export_names,
 )
-from hydromodpy.simulation.catchment_aggregation import VARIABLE_UNITS
 
 
 @pytest.mark.parametrize(

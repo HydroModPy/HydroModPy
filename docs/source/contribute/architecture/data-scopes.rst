@@ -322,7 +322,8 @@ The values are in the code. Read them there, not here.
      - ``hydromodpy/results/ledger.py``
    * - The documents of a job (``hmp-manifest/v2``, ``hmp-inputset/v1``,
        ``hmp-provenance/v1``, ``hmp-outcome/v1``, ``hmp-chain-outcome/v1``)
-     - ``hydromodpy/schema/job/``, beside the writer of each document
+     - ``hydromodpy/schema/job/``, beside the writer of each document. The chain
+       document is written by ``hydromodpy_annex/schema/job_chain/``
 
 .. _artifact-policy:
 

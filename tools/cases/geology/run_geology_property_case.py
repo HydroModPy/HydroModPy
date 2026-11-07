@@ -20,10 +20,10 @@ from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data.variables.geology.processing import (
     uniformize_sea_zone_on_dataframe,
 )
-from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_param_io import field_param_from_toml
-from hydromodpy.spatial.field.geology_field import GeologyField, regular_cell_mesh_over_bounds
-from hydromodpy.spatial.field.plotting import plot_cell_values
+from hydromodpy.model.properties.field_param import FieldParam
+from hydromodpy.model.properties.field_param_io import field_param_from_toml
+from hydromodpy.model.properties.geology_field import GeologyField, regular_cell_mesh_over_bounds
+from hydromodpy.model.properties.plotting import plot_cell_values
 from tools.cases.geology.plotting import (
     _length_to_meters,
     clip_square_window,

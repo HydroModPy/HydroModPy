@@ -479,7 +479,7 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
         run_scratch,
         scratch_root_for,
     )
-    from hydromodpy.physics.flow.initial_conditions import FlowICSpinupCyclic
+    from hydromodpy.model.initial.config import FlowICSpinupCyclic
     from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
     from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 

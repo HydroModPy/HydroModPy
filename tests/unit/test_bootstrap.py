@@ -13,13 +13,13 @@ def test_bootstrap_runs_once() -> None:
     from hydromodpy.core.config_kit import root_config_protocol
     from hydromodpy.core.contracts import solver_registry
     from hydromodpy.core.toml_io import dynamic_examples_protocol
-    from hydromodpy.physics import contracts as physics_contracts
+    from hydromodpy.model import contracts as model_contracts
     from hydromodpy.spatial import protocols as spatial_protocols
 
     assert solver_registry._PROVIDER is not None
     assert root_config_protocol._PROVIDER is not None
     assert dynamic_examples_protocol._PROVIDER is not None
-    assert physics_contracts._FIELD_PARAM_FACTORY is not None
+    assert model_contracts._FIELD_PARAM_FACTORY is not None
     assert spatial_protocols._geology_data_source is not None
 
 

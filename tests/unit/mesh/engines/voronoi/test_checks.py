@@ -10,27 +10,27 @@ import shapely
 from shapely.geometry import box
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.spatial.mesh.engines.voronoi.checks import (
+from hydromodpy.mesh.engines.voronoi.checks import (
     check_gates,
     gated_geometry,
     mirror_face_runs,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
+from hydromodpy.mesh.engines.voronoi.constraints.plan import (
     ConstraintPlan,
     ConstraintSeeds,
     FaceLineState,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import SeedRole
-from hydromodpy.spatial.mesh.engines.voronoi.local_coords import LocalFrame
-from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
+from hydromodpy.mesh.engines.voronoi.constraints.state import SeedRole
+from hydromodpy.mesh.engines.voronoi.local_coords import LocalFrame
+from hydromodpy.mesh.engines.voronoi.tessellation import (
     cell_topology,
     voronoi_cells,
     voronoi_envelope,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.geometry import derive_geometry
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.geometry import derive_geometry
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
 from tests._helpers.mesh_cases import L93_ORIGIN
 
 X0, Y0 = L93_ORIGIN

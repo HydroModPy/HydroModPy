@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
-from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
+from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_common import catchment_basin

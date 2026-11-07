@@ -14,11 +14,11 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.physics.flow.sinks_sources.lake import (
+from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.sinks_sources.lake import (
     LAKE_FORCING_SIGN_CONVENTION,
     lake_forcing_sign_refusal,
 )
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders._lake_definitions import _lake_attr, _scalar
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,

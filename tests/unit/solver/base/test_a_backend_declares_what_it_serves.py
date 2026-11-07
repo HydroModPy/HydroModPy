@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.base.observables import ObservableSupport
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
@@ -24,8 +24,8 @@ LAKES = {"lakes": {"cheze": {"bedleak": 1e-6, "initial_stage": "10 m"}}}
 
 def _config(tmp_path, backend: str, **flow: object):
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.mesh.mesh_config import MeshConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
     # Boussinesq reads triangles only: the validator refuses the default grid.
     mesh = MeshConfig(engine="triangle") if backend == "boussinesq" else None

@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.drivers.forcing import ResolvedRuntimeForcing

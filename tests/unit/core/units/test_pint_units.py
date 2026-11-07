@@ -9,9 +9,9 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from hydromodpy.core.units import LengthMeters
+from hydromodpy.model.domain.depth_model_config import ConstantThicknessDepthModel
+from hydromodpy.model.domain.spatial_support_config import GeneratedRingsSupportConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowProcessSpecificConfig
-from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel
-from hydromodpy.spatial.domain.spatial_support_config import GeneratedRingsSupportConfig
 from hydromodpy.spatial.geographic.catchment_config import OutletCatchDef, TxtCatchDef
 from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
 from hydromodpy.spatial.geographic.synthetic_config import (

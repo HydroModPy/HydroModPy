@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
-from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.field_cases import vector_geology_field
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

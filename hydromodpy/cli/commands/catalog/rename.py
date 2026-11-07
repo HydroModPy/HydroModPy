@@ -60,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
             table=lambda: print(f"would rename {rel_dir} -> {', '.join(renamed)}"),
         )
         return
-    from hydromodpy.cli._workers.catalog import reindex_if_indexed
+    from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(root)
     emit(

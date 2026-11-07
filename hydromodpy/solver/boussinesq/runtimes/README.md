@@ -20,6 +20,4 @@ The engines that solve one Boussinesq step or steady problem. Each engine module
 
 `vi_obstacle_diagnostics.py`, `ts_vi_obstacle_diagnostics.py` and `stationary_failure_diagnostics.py` write the CSV and JSON diagnostics of a run, under the file names of `diagnostic_files.py`. `diagnostics_io.py` holds the CSV and JSON helpers they share.
 
-## Picard
-
-`picard/` is a Picard and L-scheme initializer for steady obstacle problems. No `[flow.runtime] backend` selects it: only its tests run it.
+The Picard and L-scheme initializer for steady obstacle problems is not here. No `[flow.runtime] backend` selects it, so it sits in `hydromodpy_annex/solver/boussinesq_picard/`.

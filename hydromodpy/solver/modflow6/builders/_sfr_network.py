@@ -38,16 +38,16 @@ import shapely
 from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
 
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow6.builders.sfr import SfrReachRecord
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.drainage.descent import Descent
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 

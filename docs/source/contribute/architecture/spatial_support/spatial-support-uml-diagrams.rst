@@ -16,29 +16,29 @@ These diagrams document the architecture around:
 Code map
 --------
 
-- ``hydromodpy/spatial/domain/domain_config.py``:
+- ``hydromodpy/model/domain/domain_config.py``:
   high-level domain declaration including support registration.
-- ``hydromodpy/spatial/domain/spatial_support_config.py``:
+- ``hydromodpy/model/domain/spatial_support_config.py``:
   typed support-definition models.
-- ``hydromodpy/spatial/domain/spatial_support.py``:
+- ``hydromodpy/model/domain/spatial_support.py``:
   runtime support builders and providers.
-- ``hydromodpy/spatial/domain/support_fields.py``:
+- ``hydromodpy/model/domain/support_fields.py``:
   the band, ring and raster zone fields and their sampling on a mesh.
-- ``hydromodpy/spatial/field/field_param.py``:
+- ``hydromodpy/model/properties/field_param.py``:
   consumption point through ``field_spatial_id``.
-- ``hydromodpy/spatial/field/zone_fractions.py`` and
-  ``hydromodpy/solver/base/properties.py``: downstream discretization
+- ``hydromodpy/model/properties/zone_fractions.py`` and
+  ``hydromodpy/model/properties/property_table.py``: downstream discretization
   over the cells of the cell mesh.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/spatial/domain/domain_config.py``
-2. ``hydromodpy/spatial/domain/spatial_support_config.py``
-3. ``hydromodpy/spatial/domain/spatial_support.py``
-4. ``hydromodpy/spatial/field/field_param.py``
-5. ``hydromodpy/spatial/field/zone_fractions.py`` and
-   ``hydromodpy/solver/base/properties.py``
+1. ``hydromodpy/model/domain/domain_config.py``
+2. ``hydromodpy/model/domain/spatial_support_config.py``
+3. ``hydromodpy/model/domain/spatial_support.py``
+4. ``hydromodpy/model/properties/field_param.py``
+5. ``hydromodpy/model/properties/zone_fractions.py`` and
+   ``hydromodpy/model/properties/property_table.py``
 
 Context
 -------

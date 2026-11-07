@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.mesh.request import RasterGridSpec
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec
 
 DEM_GRIDS = {

@@ -34,7 +34,7 @@ DESCRIPTIONS_DIR = Path(processes_package.__file__).resolve().parent
 def capability_decls() -> tuple[Any, ...]:
     """Return the declarations the descriptions are generated from."""
     from hydromodpy.data.request.job import DATA_REQUEST
-    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
+    from hydromodpy.model.domain.capability import DOMAIN_BUILD
 
     return (DATA_REQUEST, DOMAIN_BUILD)
 

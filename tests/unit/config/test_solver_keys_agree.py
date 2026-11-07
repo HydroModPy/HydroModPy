@@ -138,7 +138,7 @@ def test_the_boussinesq_flow_alone_loads_with_its_default_transport_section() ->
 
 
 def test_a_derived_backend_follows_a_later_flow_solver() -> None:
-    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.solver.base.simulation_config import SimulationConfig
 
     cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("modflow6")))
     assert "backend" not in cfg.solver.model_fields_set
@@ -150,7 +150,7 @@ def test_a_derived_backend_follows_a_later_flow_solver() -> None:
 
 
 def test_a_written_backend_still_refuses_a_later_flow_solver() -> None:
-    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.solver.base.simulation_config import SimulationConfig
 
     cfg = HydroModPyConfig.model_validate(
         _payload(simulation=_flow("modflow6"), solver={"backend": {"kind": "modflow6"}})

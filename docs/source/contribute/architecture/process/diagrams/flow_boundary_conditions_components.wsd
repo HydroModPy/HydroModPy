@@ -1,7 +1,7 @@
 @startuml
 title Flow Boundary Conditions - Component View
 
-package "physics.flow" {
+package "model.boundaries" {
   component "TOML [flow.bc]" as Toml
   component "boundary_condition_registry\n(TOML shapes)" as Normalizer
   component "FlowBoundaryConditionConfig" as BoundaryConfig

@@ -18,11 +18,11 @@ from hydromodpy.data.variables.lake_abacus.config import CustomLakeAbacusSource,
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
-from hydromodpy.physics.base.forcing import CsvForcing
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
+from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.results.run import Run
 from hydromodpy.solver.base import registry as solver_registry
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig, capped_breach_of
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import CappedBreach
@@ -840,7 +840,7 @@ def _write_with_network(tmp_path: Path, network_lines: str) -> Path:
 
 
 def test_route_drainage_is_on_by_default() -> None:
-    from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
+    from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
 
     assert FlowReachNetworkConfig.model_fields["route_drainage"].default is True
 

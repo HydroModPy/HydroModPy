@@ -10,12 +10,12 @@ import pytest
 import shapely
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.io.msh import read_msh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
-from hydromodpy.spatial.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
+from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.mesh.io.msh import read_msh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planning.input_triangulation import domain_polygon_from_mesh
+from hydromodpy.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
     bundle_msh,

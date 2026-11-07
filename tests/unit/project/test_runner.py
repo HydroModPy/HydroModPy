@@ -189,7 +189,7 @@ def test_a_pipeline_without_a_process_step_claims_no_model_phase(tmp_path: Path)
 
     Index 0 makes every window reach the model phase, which is what the
     canonical pipeline did before the bound existed. Test doubles in
-    ``tests/unit/simulation`` monkeypatch ``standard_steps`` to such a list.
+    ``tests/unit/results`` monkeypatch ``standard_steps`` to such a list.
     """
     from hydromodpy.workflow import window as runner_mod
     from hydromodpy.workflow.steps.sequence import standard_steps

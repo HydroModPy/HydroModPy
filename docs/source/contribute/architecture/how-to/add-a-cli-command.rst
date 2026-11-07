@@ -7,14 +7,15 @@ The ``hmp`` and ``hydromodpy`` CLIs share the same dispatcher in
 ``cli/commands/__init__.py``.
 
 Today's verbs, in ``ALL_COMMANDS`` order: ``workspace``, ``project``,
-``example``, ``catalog``, ``data``, ``export``, ``publish``, ``viz``,
-``config``, ``dev``, ``privacy``, ``run``, ``calibrate``, ``spinup``,
-``site``, ``test``, ``report``, ``doctor``, ``install-binaries``. That
-tuple is the inventory; anything not in it is not a verb.
+``campaign``, ``example``, ``catalog``, ``data``, ``export``, ``publish``,
+``viz``, ``config``, ``lock``, ``completion``, ``privacy``, ``run``,
+``calibrate``, ``spinup``, ``site``, ``report``, ``doctor``,
+``install-binaries``. That tuple is the inventory; anything not in it is not a
+verb.
 
-Eight of them are families, not leaves: ``workspace``, ``project``,
-``example``, ``catalog``, ``data``, ``viz``, ``dev`` and ``site`` are
-sub-packages whose ``__init__.py`` carries ``NAME``, ``HELP`` and an
+Nine of them are families, not leaves: ``workspace``, ``project``,
+``campaign``, ``example``, ``catalog``, ``data``, ``lock``, ``viz`` and ``site``
+are sub-packages whose ``__init__.py`` carries ``NAME``, ``HELP`` and an
 ``ACTIONS`` tuple.
 
 Contract
@@ -118,7 +119,7 @@ Conventions
 - Use kebab-case for the verb (``my-verb`` becomes ``NAME =
   "my-verb"``).
 - Keep the handler thin: defer business logic to the relevant
-  subpackage (``calibration``, ``analysis``, ``results``, etc.).
+  subpackage (``calibration``, ``project``, ``results``, etc.).
 - Import expensive subpackages (``flopy``, ``zarr``,
   ``geopandas``) **inside** the handler, not at the top of the
   module. The CLI must boot fast.

@@ -66,7 +66,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import CLEAN_GROUPS, clean_workspace
+    from hydromodpy.data.workspace.folders import CLEAN_GROUPS, clean_workspace
 
     selected = {RESULTS_GROUP, *CLEAN_GROUPS} if args.all_groups else set()
     for name in (RESULTS_GROUP, *CLEAN_GROUPS):

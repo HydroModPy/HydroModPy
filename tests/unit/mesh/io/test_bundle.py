@@ -22,7 +22,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.mesh.io.bundle import (
+from hydromodpy.mesh.io.bundle import (
     BUNDLE_COLUMNS,
     BUNDLE_SCHEMA_VERSION,
     OPTIONAL,

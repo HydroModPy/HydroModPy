@@ -9,12 +9,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.planning.plan import (
-    ProcessRun,
-    RunContext,
-    SimulationPlan,
-)
+from hydromodpy.model.model import Flow
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_uniform_strip import (

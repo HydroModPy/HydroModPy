@@ -37,7 +37,7 @@ from hydromodpy.calibration.runners.staged_runner import _phase_plans
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, SolverDivergedError
-from hydromodpy.simulation.planning.plan import (
+from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
     RunExecutionResult,

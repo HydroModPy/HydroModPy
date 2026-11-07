@@ -16,15 +16,15 @@ import numpy as np
 import pytest
 from flopy.discretization import StructuredGrid
 
+from hydromodpy.mesh import registry
+from hydromodpy.mesh.request import RasterGridSpec
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow_grid import SolverMesh, build_spatial_discretization
 from hydromodpy.solver.modflow_grid.discretization_spatial import StructuredGridBuilder
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.request import RasterGridSpec
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import mesh_request
 from tests._helpers.solver_meshes import solver_mesh_from_sgrid

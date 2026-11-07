@@ -40,7 +40,7 @@ from hydromodpy.calibration.runners.worker_pool import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity
-from hydromodpy.simulation.planning.plan import RunExecutionResult
+from hydromodpy.solver.base.plan import RunExecutionResult
 
 pytestmark = pytest.mark.allow_subprocess
 

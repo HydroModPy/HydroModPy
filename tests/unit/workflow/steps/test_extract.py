@@ -10,8 +10,8 @@ import numpy as np
 
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.run_state import ExecutionRegistry
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
+from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps import extract
 from hydromodpy.workflow.steps.extract import ExtractStep
@@ -40,7 +40,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
         assert budget_terms is planned
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.post_run.extract_run_outputs",
+        "hydromodpy.workflow.steps.run_outputs.extract_run_outputs",
         _extract_run_outputs,
     )
 
@@ -115,7 +115,7 @@ def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> Simp
 def _stub_extraction(monkeypatch) -> list[BudgetKeep]:
     seen: list[BudgetKeep] = []
     monkeypatch.setattr(
-        "hydromodpy.simulation.post_run.extract_run_outputs",
+        "hydromodpy.workflow.steps.run_outputs.extract_run_outputs",
         lambda *, budget_terms, **_kwargs: seen.append(budget_terms),
     )
     monkeypatch.setattr(

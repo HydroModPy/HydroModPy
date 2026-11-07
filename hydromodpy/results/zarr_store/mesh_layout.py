@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
     "MAX_FAMILIES",

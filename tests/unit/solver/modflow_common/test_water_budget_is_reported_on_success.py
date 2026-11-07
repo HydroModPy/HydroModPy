@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
+from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     WATER_BUDGET_WORST_METRIC,
     last_percent_discrepancy,

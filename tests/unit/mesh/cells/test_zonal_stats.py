@@ -8,13 +8,13 @@ import numpy as np
 import pytest
 from rasterio.transform import from_bounds
 
-from hydromodpy.spatial.mesh.cells.zonal_stats import (
+from hydromodpy.mesh.cells.zonal_stats import (
     grouped_reduce,
     rasterize_cell_ids,
     zonal_top,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.mesh_cases import regular_mesh
 
 

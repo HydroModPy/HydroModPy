@@ -10,7 +10,7 @@ no transit time, no curve number).
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
+from hydromodpy.model.soil.kernel import (
     SoilParameters,
     run_soil_balance,
     spinup_state,

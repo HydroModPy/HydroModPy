@@ -16,9 +16,9 @@ import numpy as np
 import pytest
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
-from hydromodpy.spatial.mesh.model.geometry import cell_polygons
+from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from tests._helpers.mesh_cases import LAMBERT93_WKT, regular_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
 

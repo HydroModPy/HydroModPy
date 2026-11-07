@@ -14,6 +14,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import (
     GROUND_SIDECAR_SUFFIX,
@@ -25,8 +27,6 @@ from hydromodpy.solver.modflow6.support.computational_top import (
     write_ground_sidecar,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -268,7 +268,7 @@ def _flow_model(tmp_path: Path, ground: np.ndarray):
 
 def test_the_transport_and_tracking_grids_carry_the_flow_top(tmp_path) -> None:
     pytest.importorskip("flopy")
-    from hydromodpy.physics.transport.transport import Transport
+    from hydromodpy.model.transport.transport import Transport
     from hydromodpy.solver.modflow6.prt import Modflow6Prt
     from hydromodpy.solver.modflow6.transport import Modflow6Transport
 

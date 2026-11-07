@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.optim.parameters import set_by_path
-from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.solver.modflow6 import build as build_module
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
@@ -151,7 +151,7 @@ def test_evt_list_spd_to_array_payload_falls_back_on_lower_layer() -> None:
 # A calibration trial's extinction_depth reaches the built soil EVT package.
 #
 # ``extinction_depth`` is now declared ``Calibrable`` on ``FlowEtpConfig``
-# (``hydromodpy/physics/flow/sinks_sources/etp.py``). A trial writes it the same
+# (``hydromodpy/model/sinks_sources/etp.py``). A trial writes it the same
 # way any other replace-mode parameter is written, through
 # ``hydromodpy.calibration.optim.parameters.set_by_path``, on the typed config a
 # ``TrialContext.fork`` rebuilds the runtime ``Flow`` from before every trial

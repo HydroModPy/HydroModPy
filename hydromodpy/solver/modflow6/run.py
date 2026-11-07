@@ -113,7 +113,7 @@ def warn_on_throttled_wells(model) -> list[dict]:
     pumped share on ``model.well_pumped_percent``, which the adapter hands to
     the run as a metric. A missing budget or well package returns an empty list.
     """
-    from hydromodpy.physics.flow.sinks_sources.wells import (
+    from hydromodpy.model.sinks_sources.wells import (
         pumped_percent,
         throttled_well_message,
         throttled_well_report,

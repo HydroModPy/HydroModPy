@@ -1,0 +1,562 @@
+"""
+Flow Boundary Condition Models
+==============================
+
+Typed boundary-condition schema used by the flow process.
+
+This module defines:
+- allowed application domains,
+- canonical Dirichlet identifiers,
+- the normalized Pydantic model used across config and runtime parsing.
+
+Mini schema
+-----------
+Input key (Dirichlet)          -> Canonical application domain
+`ocean`, `stream`              -> `top`
+`north_side`                   -> `north side`
+`south_side`                   -> `south side`
+`east_side`                    -> `east side`
+`west_side`                    -> `west side`
+
+Validation flow:
+`[flow.bc.*]` payload -> `FlowBoundaryConditionConfig` -> runtime `Flow.boundary_conditions`
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from numbers import Real
+from typing import Annotated, Literal, TypeAlias
+
+from pydantic import Field, field_validator, model_validator
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.units import (
+    canonical_unit_short_form,
+    check_unit_compatible,
+    parse_to_canonical_magnitude,
+)
+from hydromodpy.model.boundaries.boundary_condition_registry import (
+    ALLOWED_BC_APPLICATION_DOMAINS,
+    DIRICHLET_BC_CANONICAL_DOMAINS,
+    FORCING_CAPABLE_DIRICHLET_BC_IDS,
+    boundary_definition,
+)
+from hydromodpy.model.forcing.dated_forcing import HeadForcing, carries_a_unit
+from hydromodpy.model.payloads import declared_unit
+
+_BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
+    "m": ("m", "length"),
+    "m2/s": ("m**2/s", "hydraulic-conductance"),
+    # Length-rate (L/T): lake rainfall / open-water evaporation rates.
+    "m/s": ("m/s", "length-rate"),
+    # Leakance (1/T): lake-bed leakance feeding the LAK head-dependent exchange.
+    "1/s": ("1/s", "leakance"),
+}
+
+BoundaryKind: TypeAlias = Literal["dirichlet", "drain"]
+
+
+def _coerce_boundary_value_and_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+    default_units: str,
+) -> tuple[float, str]:
+    if "value" not in payload:
+        raise ValueError(f"{location_prefix}.value is required")
+    target = _BOUNDARY_UNIT_TARGETS.get(default_units)
+    if target is None:
+        raise ValueError(f"Unsupported boundary unit target: {default_units}")
+    canonical_unit, label = target
+    value_si = parse_to_canonical_magnitude(
+        payload["value"],
+        location=f"{location_prefix}.value",
+        canonical_unit=canonical_unit,
+        explicit_unit=declared_unit(payload),
+        length_label=label,
+    )
+    return value_si, default_units
+
+
+def _normalize_dirichlet_forcing_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+) -> str:
+    explicit_units = declared_unit(payload)
+    forcing_payload = payload.get("forcing")
+    forcing_units: str | None = None
+    if isinstance(forcing_payload, Mapping):
+        raw_forcing_units = forcing_payload.get("units")
+        if raw_forcing_units is not None:
+            forcing_units = str(raw_forcing_units)
+    if explicit_units is None and forcing_units is None:
+        return "m"
+    try:
+        normalized_parent_units = (
+            canonical_unit_short_form(explicit_units, canonical_unit="m", label="length")
+            if explicit_units is not None
+            else None
+        )
+        normalized_forcing_units = (
+            canonical_unit_short_form(forcing_units, canonical_unit="m", label="length")
+            if forcing_units is not None
+            else None
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"{location_prefix}.units and {location_prefix}.forcing.units must be compatible "
+            "with meters (for example m, cm, mm, km)."
+        ) from exc
+    if (
+        normalized_parent_units is not None
+        and normalized_forcing_units is not None
+        and normalized_parent_units != normalized_forcing_units
+    ):
+        raise ValueError(f"{location_prefix}.units conflicts with {location_prefix}.forcing.units")
+    return normalized_forcing_units or normalized_parent_units or "m"
+
+
+def _extract_support_label(payload: Mapping[str, object]) -> str | None:
+    """Return one optional explicit support label."""
+    raw_value = payload.get("support_label")
+    if raw_value is None:
+        return None
+    return str(raw_value)
+
+
+class FlowBoundaryConditionConfig(HydroModelBase):
+    """
+    Normalized flow boundary-condition payload.
+
+    Expected usage:
+    - produced by boundary-condition normalizers,
+    - consumed by `Flow` runtime and solver adapter layers.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether the run builds this boundary. Declaring it is what activates it. "
+            "false keeps the table and builds nothing from it."
+        ),
+    )
+    id: Annotated[str, Profile.USER] = Field(
+        ...,
+        description=(
+            "Canonical name of the boundary, the key of its [flow.bc.<id>] table: "
+            "'drainage', 'ocean', 'stream', 'north_side', 'south_side', 'east_side' or "
+            "'west_side'. It fixes where the boundary applies."
+        ),
+        examples=["drainage"],
+    )
+    value: Annotated[float | list[float] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Boundary-condition value, scalar or one value per stress period. On a head "
+            "boundary it is the head in metres; left out with no forcing, the table only "
+            "activates the boundary and no constant head is built. On a "
+            "drainage boundary it is a conductance in m2/s, and it may be left out: "
+            "the run then derives it from the conductivity, C = K * cell_area / "
+            "solver.drain_bed_thickness_m, which keeps the drain proportional to K "
+            "and makes K/R the quantity a network calibration searches. A zero or "
+            "negative number selects that same derivation, so it does NOT mean a "
+            "closed boundary; write a positive conductance to impose one."
+        ),
+    )
+    description: Annotated[str, Profile.USER] = Field(
+        "",
+        description=(
+            "Free text about the boundary, kept with the configuration. Unset, a text "
+            "naming its kind and where it applies is written."
+        ),
+    )
+    units: Annotated[str, Profile.DEV] = Field("", description="Boundary-condition units.")
+    kind: Annotated[BoundaryKind, Profile.USER] = Field(
+        "dirichlet",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
+        ),
+    )
+    data_value: Annotated[bool, Profile.DEV] = Field(
+        False,
+        description="If True, boundary-condition values are sourced from data.",
+    )
+    forcing: Annotated[HeadForcing | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Head of a Dirichlet boundary over time, a bare number in metres unless units "
+            "names another length. The launcher resolves it to boundary.value using "
+            "[simulation.time]."
+        ),
+        json_schema_extra=field_metadata(unit="m"),
+    )
+    application_domain: Annotated[str | None, Profile.USER] = Field(
+        None,
+        description=(
+            "Boundary-application domain. Supported values are: top, north side, "
+            "south side, east side, west side."
+        ),
+    )
+    support_label: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Name of a labelled group of cells or edges of a Gmsh mesh. The boundary then "
+            "applies there instead of on the group its id selects. MODFLOW 6 and "
+            "Boussinesq read it."
+        ),
+    )
+
+    @field_validator("application_domain")
+    @classmethod
+    def _validate_application_domain(cls, value: str | None) -> str | None:
+        """Ensure provided application domain belongs to the supported set."""
+        if value is None:
+            return None
+        domain = str(value).strip()
+        if domain == "":
+            raise ValueError("application_domain cannot be empty")
+        if domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+            raise ValueError(f"invalid application_domain: {domain}")
+        return domain
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _validate_value(cls, value):
+        """Normalize scalar or vector boundary-head values."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("boundary.value must be numeric or a list of numeric values")
+        if isinstance(value, Real):
+            return float(value)
+        if isinstance(value, (list, tuple)):
+            if len(value) == 0:
+                raise ValueError("boundary.value list cannot be empty")
+            parsed: list[float] = []
+            for idx, raw_item in enumerate(value):
+                if isinstance(raw_item, bool) or not isinstance(raw_item, Real):
+                    raise TypeError(f"boundary.value[{idx}] must be numeric")
+                parsed.append(float(raw_item))
+            return parsed
+        raise TypeError("boundary.value must be numeric or a list of numeric values")
+
+    @model_validator(mode="after")
+    def _validate_runtime_payload(self):
+        """Enforce one coherent value/forcing grammar.
+
+        ``object.__setattr__`` is used below to bypass the
+        :class:`HydroModelBase` ``validate_assignment=True`` setting which would
+        otherwise recurse through this validator on every self-write. The
+        normalization depends on ``self.model_fields_set`` and the validated
+        nested ``forcing`` instance, so a ``mode="before"`` rewrite would lose
+        the explicit-vs-default distinction.
+        """
+        if self.forcing is not None and self.value is not None:
+            raise ValueError("boundary.value and boundary.forcing are mutually exclusive")
+        if self.forcing is not None and self.data_value:
+            raise ValueError("boundary.forcing cannot be combined with data_value=True")
+        if self.kind != "dirichlet" and self.forcing is not None:
+            raise ValueError("boundary.forcing is only supported for Dirichlet boundaries")
+        if self.forcing is not None and self.id not in FORCING_CAPABLE_DIRICHLET_BC_IDS:
+            raise ValueError(
+                "boundary.forcing is only supported for the Dirichlet boundaries whose "
+                "head can follow a chronicle: "
+                f"{', '.join(sorted(FORCING_CAPABLE_DIRICHLET_BC_IDS))}"
+            )
+        if self.value is None and self.forcing is None and self.kind != "dirichlet":
+            raise ValueError("boundary requires either value or forcing")
+        if self.kind == "dirichlet":
+            if self.forcing is None:
+                raw_units = str(self.units).strip() or "m"
+                check_unit_compatible(raw_units, canonical_unit="m", label="length")
+                if raw_units != "m":
+                    raise ValueError(
+                        "boundary.units must be normalized to 'm' for runtime Dirichlet values"
+                    )
+                object.__setattr__(self, "units", "m")
+            else:
+                parent_units = str(self.units).strip() or "m"
+                forcing_units = getattr(self.forcing, "units", None)
+                parent_units_explicit = "units" in self.model_fields_set
+                forcing_units_explicit = "units" in self.forcing.model_fields_set
+                if forcing_units_explicit:
+                    normalized_forcing_units = canonical_unit_short_form(
+                        str(forcing_units).strip() or "m",
+                        canonical_unit="m",
+                        label="length",
+                    )
+                    if parent_units_explicit:
+                        normalized_parent_units = canonical_unit_short_form(
+                            parent_units, canonical_unit="m", label="length"
+                        )
+                        if (
+                            normalized_parent_units != "m"
+                            and normalized_parent_units != normalized_forcing_units
+                        ):
+                            raise ValueError("boundary.units conflicts with boundary.forcing.units")
+                else:
+                    normalized_forcing_units = canonical_unit_short_form(
+                        parent_units, canonical_unit="m", label="length"
+                    )
+                object.__setattr__(
+                    self,
+                    "forcing",
+                    self.forcing.model_copy(update={"units": normalized_forcing_units}),
+                )
+                object.__setattr__(self, "units", "m")
+        else:
+            raw_units = str(self.units).strip() or "m2/s"
+            check_unit_compatible(raw_units, canonical_unit="m**2/s", label="hydraulic-conductance")
+            if raw_units != "m2/s":
+                raise ValueError(
+                    "boundary.units must be normalized to 'm2/s' for runtime drain values"
+                )
+            object.__setattr__(self, "units", "m2/s")
+        return self
+
+
+class DirichletBC(FlowBoundaryConditionConfig):
+    """An imposed head: the boundary cells keep the head the boundary gives."""
+
+    kind: Annotated[Literal["dirichlet"], Profile.USER] = Field(
+        default="dirichlet",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _canonicalize_payload(cls, data):
+        if not isinstance(data, Mapping):
+            raise TypeError("Dirichlet boundary payload must be a mapping")
+        payload = dict(data)
+        location_prefix = str(payload.pop("_location_prefix", "flow.bc"))
+
+        bc_id = str(payload.get("id", "")).strip()
+        if bc_id == "":
+            raise ValueError(f"{location_prefix}.id is required")
+        payload["id"] = bc_id
+
+        raw_kind = str(payload.get("kind", "dirichlet")).strip().lower()
+        if raw_kind != "dirichlet":
+            raise ValueError(f"{location_prefix}.kind must be 'dirichlet'")
+        payload["kind"] = "dirichlet"
+
+        forcing_payload = payload.get("forcing")
+        if forcing_payload is not None:
+            if payload.get("value") is not None:
+                raise ValueError(
+                    f"{location_prefix}.value and {location_prefix}.forcing are mutually exclusive"
+                )
+            if not isinstance(forcing_payload, Mapping):
+                raise TypeError(f"{location_prefix}.forcing must be a mapping")
+            source_units = _normalize_dirichlet_forcing_units(
+                payload=payload,
+                location_prefix=location_prefix,
+            )
+            forcing = dict(forcing_payload)
+            if not carries_a_unit(forcing.get("value")):
+                forcing["units"] = source_units
+            payload["forcing"] = forcing
+            payload["value"] = None
+            payload["units"] = "m"
+        elif "value" not in payload:
+            # An empty table activates the boundary and gives it no head.
+            payload["units"] = "m"
+        else:
+            value, units = _coerce_boundary_value_and_units(
+                payload=payload,
+                location_prefix=location_prefix,
+                default_units="m",
+            )
+            payload["value"] = value
+            payload["units"] = units
+
+        if "unit" in payload:
+            payload.pop("unit")
+
+        inferred_application_domain = DIRICHLET_BC_CANONICAL_DOMAINS.get(bc_id)
+        raw_application_domain = payload.get("application_domain")
+        if inferred_application_domain is not None:
+            if raw_application_domain is None:
+                payload["application_domain"] = inferred_application_domain
+            else:
+                if not isinstance(raw_application_domain, str):
+                    raise TypeError(f"{location_prefix}.application_domain must be a string")
+                application_domain = raw_application_domain.strip()
+                if application_domain == "":
+                    raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+                if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                    raise ValueError(
+                        f"{location_prefix}.application_domain contains an invalid value: "
+                        f"{application_domain}"
+                    )
+                if application_domain != inferred_application_domain:
+                    raise ValueError(
+                        f"{location_prefix}.application_domain='{application_domain}' "
+                        f"does not match inferred domain '{inferred_application_domain}' "
+                        f"for key '{bc_id}'"
+                    )
+                payload["application_domain"] = application_domain
+        elif raw_application_domain is not None:
+            if not isinstance(raw_application_domain, str):
+                raise TypeError(f"{location_prefix}.application_domain must be a string")
+            application_domain = raw_application_domain.strip()
+            if application_domain == "":
+                raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+            if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                raise ValueError(
+                    f"{location_prefix}.application_domain contains an invalid value: "
+                    f"{application_domain}"
+                )
+            payload["application_domain"] = application_domain
+
+        payload["data_value"] = bool(payload.get("data_value", False))
+        description = str(
+            payload.get(
+                "description",
+                f"Dirichlet boundary condition '{bc_id}' on "
+                f"{payload.get('application_domain', 'unspecified domain')}",
+            )
+        )
+        if payload["data_value"] and "(data_value=True)" not in description:
+            description = f"{description} (data_value=True)"
+        payload["description"] = description
+        payload["support_label"] = _extract_support_label(payload)
+        return payload
+
+
+class DrainBC(FlowBoundaryConditionConfig):
+    """A drain with the linear exchange q = C (h - h_ref); MODFLOW builds a DRN."""
+
+    kind: Annotated[Literal["drain"], Profile.USER] = Field(
+        default="drain",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={
+                "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its "
+                "closure from flow.runtime.surface_interaction_model.",
+            }
+        ),
+    )
+    forcing: Annotated[None, Profile.DEV] = Field(
+        default=None,
+        exclude=True,
+        description="A drain does not support runtime head forcing.",
+    )
+
+    value: Annotated[float | list[float] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Drain conductance [L^2/T]. It may be left out: the run then derives it "
+            "from the conductivity, C = K * cell_area / solver.drain_bed_thickness_m, "
+            "which keeps the drain proportional to K and makes K/R the quantity a "
+            "network calibration searches. A zero or negative number selects that same "
+            "derivation, so it does NOT mean a closed boundary; write a positive "
+            "conductance to impose one."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                units="m2/s",
+                is_the_value_of_its_instance=True,
+            )
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _canonicalize_payload(cls, data):
+        if not isinstance(data, Mapping):
+            raise TypeError("Drain boundary payload must be a mapping")
+        payload = dict(data)
+        location_prefix = str(payload.pop("_location_prefix", "flow.bc"))
+
+        bc_id = str(payload.get("id", "drainage")).strip()
+        if bc_id == "":
+            raise ValueError(f"{location_prefix}.id cannot be empty")
+        payload["id"] = bc_id
+
+        raw_kind = str(payload.get("kind", "drain")).strip().lower()
+        if raw_kind != "drain":
+            raise ValueError(f"{location_prefix}.kind must be 'drain'")
+        payload["kind"] = "drain"
+
+        # A drainage conductance may be left unsaid, and then it is derived from
+        # K: C = K * cell_area / bed_thickness. That proportionality is what
+        # makes K/R the quantity a network calibration searches, so it is the
+        # sensible default rather than an exotic mode. The backends select it on
+        # a non-positive number, which is why the omission lands on 0.0 here
+        # instead of on None: one representation, decided at the config edge.
+        if "value" not in payload:
+            payload["value"] = 0.0
+        value, units = _coerce_boundary_value_and_units(
+            payload=payload,
+            location_prefix=location_prefix,
+            default_units="m2/s",
+        )
+        payload["value"] = value
+        payload["units"] = units
+        if "unit" in payload:
+            payload.pop("unit")
+
+        # The registry owns where a canonical boundary lives, so the user need
+        # not retype it, and may not contradict it: a drainage pinned to a
+        # lateral side instead of the top targets other cells entirely.
+        canonical = boundary_definition(bc_id)
+        canonical_domain = canonical.application_domain if canonical is not None else None
+
+        raw_application_domain = payload.get("application_domain")
+        if raw_application_domain is None:
+            if canonical_domain is None:
+                raise ValueError(
+                    f"{location_prefix}.application_domain is required: {bc_id!r} is not a "
+                    "boundary the registry knows, so nothing can say where it applies."
+                )
+            application_domain = canonical_domain
+        else:
+            if not isinstance(raw_application_domain, str):
+                raise TypeError(f"{location_prefix}.application_domain must be a string")
+            application_domain = raw_application_domain.strip()
+            if application_domain == "":
+                raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+            if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                raise ValueError(
+                    f"{location_prefix}.application_domain contains an invalid value: "
+                    f"{application_domain}"
+                )
+            if canonical_domain is not None and application_domain != canonical_domain:
+                raise ValueError(
+                    f"{location_prefix}.application_domain is {application_domain!r} but a "
+                    f"{bc_id!r} boundary applies on {canonical_domain!r}. Drop the line to take "
+                    "the value the registry declares."
+                )
+        payload["application_domain"] = application_domain
+        payload["description"] = str(
+            payload.get(
+                "description",
+                f"Drain boundary condition on {application_domain}",
+            )
+        )
+        payload["data_value"] = bool(payload.get("data_value", False))
+        payload["support_label"] = _extract_support_label(payload)
+        return payload
+
+
+BCEntry: TypeAlias = Annotated[
+    DirichletBC | DrainBC,
+    Field(discriminator="kind", description="Boundary-condition kind discriminator."),
+]

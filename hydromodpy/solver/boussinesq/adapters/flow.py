@@ -28,7 +28,7 @@ from hydromodpy.core.exceptions import (
     SolverDivergedError,
     SolverError,
 )
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -36,6 +36,7 @@ from hydromodpy.solver.base.observables import (
     servable,
     unavailable,
 )
+from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,
@@ -53,10 +54,7 @@ from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
 from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
-from hydromodpy.spatial.geographic.delineated_catchment import (
-    catchment_outline,
-    watershed_cell_mask,
-)
+from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 
 
 def _published_support(ctx: RunContext) -> np.ndarray | None:

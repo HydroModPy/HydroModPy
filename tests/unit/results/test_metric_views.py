@@ -17,14 +17,13 @@ import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
-from hydromodpy.cli._workers.catalog import rank_simulations
 from hydromodpy.cli.commands.catalog import rank
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
 from hydromodpy.core.exceptions import DataError
 from hydromodpy.core.scoring import metrics as core
-from hydromodpy.physics.flow.sinks_sources.wells import (
+from hydromodpy.model.sinks_sources.wells import (
     WELLS_PUMPED_CHECK,
     WELLS_PUMPED_METRIC,
     pumped_percent,
@@ -42,6 +41,7 @@ from hydromodpy.results.catalog.constants import (
 )
 from hydromodpy.results.catalog.facade import compare_pair
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.catalog.listing import rank_simulations
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
 from hydromodpy.results.derive.virtual_fields import (
     VIRTUAL_FIELDS,
@@ -65,12 +65,12 @@ from hydromodpy.results.run import Run, ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.simulation.post_run import record_run_execution_metrics
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.modflow_common.budget_components import (
     CANONICAL_BUDGET_TERMS,
     canonical_budget_component,
 )
+from hydromodpy.workflow.steps.run_outputs import record_run_execution_metrics
 from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.sealed_runs import make_project, seal_run

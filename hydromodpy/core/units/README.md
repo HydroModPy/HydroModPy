@@ -16,7 +16,7 @@ The udunits bridge moved to `hydromodpy/results/storage/udunits.py`.
 
 ## What other layers import from it
 
-`solver`, `spatial`, `physics`, `display`, `calibration` and `results`.
+`solver`, `spatial`, `model`, `display`, `calibration` and `results`.
 
 ## Where to add what
 

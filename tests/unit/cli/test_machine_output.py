@@ -445,7 +445,7 @@ def test_lock_verify_reports_each_mismatch_and_exits_on_the_validation_code(monk
         "locked_schema": "a",
         "current_schema": "a",
     }
-    monkeypatch.setattr("hydromodpy.cli._workers.lock.lock_verify", lambda *a, **k: result)
+    monkeypatch.setattr("hydromodpy.project.lock.lock_verify", lambda *a, **k: result)
 
     table = CliRunner().invoke(["lock", "verify"])
 

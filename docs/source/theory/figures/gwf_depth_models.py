@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.build import build_domain
+from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain.build import build_domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 
 # One row of 25 m cells across a valley. The raster kinds read a raster on the
 # same grid, so the reprojection is the identity.
@@ -38,7 +38,7 @@ cases = [
 ]
 
 # The cap logs a warning that counts the cells; the figure shows them instead.
-domain_logger = get_logger("hydromodpy.spatial.domain.domain")
+domain_logger = get_logger("hydromodpy.model.domain.domain")
 level = domain_logger.level
 domain_logger.setLevel("ERROR")
 fig, axes = plt.subplots(2, 2, figsize=(6.4, 5.0), sharex=True, sharey=True)

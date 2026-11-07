@@ -117,7 +117,7 @@ def run(args: argparse.Namespace) -> None:
         plan = plan_gc(root, policy, now=now)
         summary = apply_gc(plan, now=now) if applied else {}
         if applied:
-            from hydromodpy.cli._workers.catalog import reindex_if_indexed
+            from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
             reindex_if_indexed(root)
         report[str(root)] = {"plan": plan.categories(), "summary": summary}

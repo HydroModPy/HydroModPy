@@ -267,7 +267,7 @@ PETSc only, and both keep the head as the only unknown.
 
 A steady solve for the initial state of a `ts_vi_obstacle` run uses the regularized
 partition (`steady_state_initialization_surface_interaction_model` in
-`solver/base/initial_conditions.py`).
+`model/initial/heads.py`).
 
 A file that chooses the experimental closure and cuts each period into substeps:
 

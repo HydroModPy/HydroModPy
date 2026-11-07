@@ -38,10 +38,10 @@ If it fails on an import, read {doc}`architecture/how-to/fix-an-architecture-gat
 
 ## 3. Run the tests of the area you touch
 
-Name the folder, not the suite. For a change in `hydromodpy/physics/`:
+Name the folder, not the suite. For a change in `hydromodpy/model/`:
 
 ```bash
-python -m pytest tests/unit/physics -q -n 2
+python -m pytest tests/unit/model -q -n 2
 ```
 
 Do not run the whole suite locally: CI does. Before you run tests in parallel,
@@ -62,7 +62,7 @@ The `pre-commit` hook runs the same two commands, then `gitleaks` (secrets),
 Stage the files you mean by name, then write one line:
 
 ```bash
-git add hydromodpy/physics/flow/flow_config.py tests/unit/physics/test_flow_regime.py
+git add hydromodpy/model/flow_config.py tests/unit/model/test_flow_config.py
 git commit -m "feat(flow): add an aquifer anisotropy ratio"
 ```
 

@@ -43,7 +43,7 @@ from hydromodpy.core.exceptions import ConfigError, OptimizerError
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
-from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream.extent import dry_steps, flowing_steps, parse_extent_duration

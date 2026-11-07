@@ -12,14 +12,14 @@ from shapely import normalize
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.mesh.cache import cache_key
+from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.mesh.planning.lake_structures import lake_structures
+from hydromodpy.mesh.planning.plan import plan_mesh_request
+from hydromodpy.mesh.refinement_config import LakeRefinementConfig
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.cache import cache_key
-from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.lake_structures import lake_structures
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.workflow.steps.mesh_inputs import (

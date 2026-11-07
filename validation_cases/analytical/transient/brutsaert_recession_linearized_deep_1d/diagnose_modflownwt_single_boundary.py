@@ -15,7 +15,7 @@ from flopy.utils.binaryfile import HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.physics.flow import Flow
+from hydromodpy.model.model import Flow
 from hydromodpy.project import Project
 from hydromodpy.solver.modflow_nwt import (
     ModflowNwt,
@@ -23,6 +23,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -200,7 +201,8 @@ def _run_probe(
     outlet_series: tuple[float, ...] = ()
     final_head: np.ndarray | None = None
     if success:
-        model.post_processing(
+        run_post_processing(
+            model,
             options=ModflowPostprocessOptions(
                 watertable_elevation=False,
                 watertable_depth=False,
@@ -210,7 +212,7 @@ def _run_probe(
                 groundwater_flux=False,
                 groundwater_storage=False,
                 accumulation_flux=False,
-            )
+            ),
         )
         model_ws = Path(model.full_path)
         outlet_series = _load_outlet_series(model)

@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-"""The MODFLOW-NWT flow model: pre-processing, processing and post-processing."""
+"""The MODFLOW-NWT flow model: pre-processing and processing."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import numpy as np
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
@@ -35,7 +35,6 @@ from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.options import (
-    ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
@@ -50,8 +49,6 @@ from hydromodpy.solver.modflow_grid import (
 )
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
-from hydromodpy.solver.modflow_nwt.postprocess.fields import NODATA
-from hydromodpy.solver.modflow_nwt.postprocess.run import run_post_processing
 from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 
@@ -68,20 +65,21 @@ from .steady_initial_conditions import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
+# Raster nodata value of the DEM cells outside the domain.
+NODATA = -9999
 
 
 class ModflowNwt:
     """MODFLOW-NWT solver lifecycle facade.
 
-    Drives pre-processing, processing, and post-processing for the
-    MODFLOW-NWT backend. Heavy concern-specific work is delegated to:
+    Drives pre-processing and processing for the MODFLOW-NWT backend.
+    Heavy concern-specific work is delegated to:
 
     - ``_pre_processing.assemble_flopy_packages`` for FLOPY package wiring,
-    - ``postprocess.run.run_post_processing`` for the historical TIFF maps,
     - ``modflow_common.progress.run_model_with_progress`` and
       ``_pre_processing.scale_rate_payload`` for runtime helpers.
     """
@@ -546,21 +544,3 @@ class ModflowNwt:
                 self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
 
         return success_model
-
-    def post_processing(
-        self,
-        options: ModflowPostprocessOptions | None = None,
-    ):
-        """Create output files from MODFLOW heads and budget.
-
-        Parameters
-        ----------
-        options : ModflowPostprocessOptions, optional
-            Optional typed post-processing options.
-        """
-        if options is None:
-            options = ModflowPostprocessOptions()
-        elif not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError("post_processing options must be a ModflowPostprocessOptions instance.")
-
-        run_post_processing(self, options)
