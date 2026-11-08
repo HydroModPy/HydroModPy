@@ -82,11 +82,11 @@ def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     assert "workflow: simulation" in out
 
 
-def test_dev_run_script_help(monkeypatch, capsys) -> None:
+def test_dev_run_script_is_refused_with_its_new_form(monkeypatch, capsys) -> None:
     code = _run_cli(monkeypatch, ["hmp", "dev", "run-script", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "usage" in out.lower()
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "python -m tools.dev run-script SCRIPT" in err
 
 
 def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:

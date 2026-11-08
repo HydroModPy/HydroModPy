@@ -323,6 +323,16 @@ def test_a_refused_group_names_the_forms_the_typed_words_choose(
     assert sorted(form.old for form in refused.chosen(typed)) == named
 
 
+def test_a_refused_group_without_its_bare_form_names_them_all_on_an_unknown_word() -> None:
+    forms = [
+        conventions.OldCliForm("hmp gone a", "hmp new a", "2.1.0", refused=True),
+        conventions.OldCliForm("hmp gone b", "hmp new b", "2.1.0", refused=True),
+    ]
+    refused = conventions.RefusedVerb(forms[0], prog="hmp gone")
+    refused.forms.append(forms[1])
+    assert refused.chosen("hmp gone c") == forms
+
+
 @pytest.mark.parametrize(
     ("argv", "says"),
     [

@@ -196,14 +196,17 @@ def _copy_entries(run_dir: Path, project: Path) -> set[str]:
     return {entry.name for entry in Path(copy).iterdir()}
 
 
-def test_a_frozen_replay_of_an_unchanged_run_has_nothing_to_do(demo: Path) -> None:
+def test_a_frozen_replay_of_an_unchanged_run_runs_without_force(demo: Path) -> None:
+    """A replay is identical to its run by construction, so it is never skipped as such."""
     source = _simulate(demo, name="probe", set={"K": K})
 
-    done = _hmp(demo, str(source / "config.toml"), "--frozen")
+    done = _hmp(demo, str(source / "config.toml"), "--frozen", "--no-display")
 
     assert done.exit_code == 0, done.stderr
-    assert "identical" in done.stderr
-    assert not (demo / "runs" / "probe.v2").exists()
+    assert "identical" not in done.stderr
+    replay = demo / "runs" / "probe.v2"
+    assert _manifest(replay)["config"]["hash"] == _manifest(source)["config"]["hash"]
+    assert _drift(source, replay) == []
 
 
 def test_a_forced_frozen_replay_gives_the_same_numbers(demo: Path) -> None:
@@ -280,10 +283,7 @@ def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) ->
     assert _manifest(promoted)["checks"]["calibrated_by"]["session_id"] == lineage["session_id"]
     assert "K_aquifer" in _resolved(promoted)[RUN_SEARCH_TABLE]["parameters"]
 
-    again = _hmp(project, str(promoted / "config.toml"), "--frozen")
-    assert again.exit_code == 0, again.stderr
-    assert "identical" in again.stderr
-    replayed = _hmp(project, str(promoted / "config.toml"), "--frozen", "--force", "--no-display")
+    replayed = _hmp(project, str(promoted / "config.toml"), "--frozen", "--no-display")
     assert replayed.exit_code == 0, replayed.stderr
 
     replay = project / "runs" / "calibration_dupuit.v2"

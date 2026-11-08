@@ -94,3 +94,10 @@ def test_load_rejects_another_schema_version(tmp_path: Path) -> None:
 def test_unknown_id_names_the_ids_that_exist() -> None:
     with pytest.raises(FileNotFoundError, match="This build ships: 04"):
         find_entry("99", load_catalog())
+
+
+def test_the_public_verbs_read_the_shipped_catalog() -> None:
+    import hydromodpy as hmp
+
+    assert hmp.example_list() == load_catalog()
+    assert hmp.example_show("04") == find_entry("04", load_catalog())
