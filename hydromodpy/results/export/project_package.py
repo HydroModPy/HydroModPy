@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Literal
 
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.payload import (
     InstallIndex,
@@ -97,6 +98,7 @@ def export_project(
     project_root: str | Path,
     to: str | Path,
     *,
+    root_config: RootConfig,
     format: PublicationFormat = "tar",
     with_: Sequence[ProjectExtra] = (),
     bundle_of: InputsOf | None = None,
@@ -122,7 +124,7 @@ def export_project(
         raise ExportError("with runs or fetched needs the install index of each run (bundle_of).")
     target = _target_path(Path(to).expanduser().resolve(), format, root.name)
     runs = sorted(path for path in runs_dir_for(root).glob("*") if is_sealed(path))
-    bundle = _project_bundle(root, runs, extras, bundle_of)
+    bundle = _project_bundle(root, runs, extras, bundle_of, root_config=root_config)
     if dry_run:
         return target
     staging = target.parent / f".{target.name}.staging-{uuid.uuid4().hex[:8]}"
@@ -181,6 +183,8 @@ def _project_bundle(
     runs: Sequence[Path],
     extras: tuple[ProjectExtra, ...],
     bundle_of: InputsOf | None,
+    *,
+    root_config: RootConfig,
 ) -> PayloadBundle:
     """Return the install index of the project: authored files, their data, the runs' inputs."""
     from hydromodpy.schema.sources import input_licence, sidecar_source
@@ -206,7 +210,7 @@ def _project_bundle(
     for path in _authored(root):
         add(_entry(path, workspace, root, provider=None, license=None), path)
     try:
-        data, rows = project_data(root, workspace / "data")
+        data, rows = project_data(root, workspace / "data", root=root_config)
     except Exception as exc:  # noqa: BLE001 - a reference that does not resolve refuses the export
         raise ExportError(f"{root.name}: {exc}") from exc
     for path in data:

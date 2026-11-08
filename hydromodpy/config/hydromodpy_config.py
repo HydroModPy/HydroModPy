@@ -46,6 +46,8 @@ from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.config_migration import (
     _raw_flow_process_solver,
+    migrate_layers,
+    migrate_merged_doc,
     migrate_sealed_config_doc,
 )
 from hydromodpy.config.cross_checks import check_against_the_solver
@@ -65,6 +67,7 @@ from hydromodpy.core.config_kit.introspect import (
     resolve_profile,
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import (
     ConfigError,
@@ -1183,7 +1186,7 @@ class HydroModPyConfig(HydroModelBase):
         # A config written against an earlier schema still loads: the loader
         # migrates each file of the chain in memory. Reading never rewrites a file;
         # only `hmp doctor` does, and the warning says so.
-        raw = load_toml_with_base_config(toml_path)
+        raw = load_toml_with_base_config(toml_path, root=ROOT_CONFIG)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)
@@ -1556,12 +1559,9 @@ class HydroModPyConfig(HydroModelBase):
         return self.model_copy(update={name: getattr(validated, name) for name in touched})
 
 
-# Resolve the config forward references (and wire the DI graph) lazily, the first
-# time this module is loaded. ``import hydromodpy`` does not import this module
-# (it is lazy), so the package import stays cheap; any real config use loads this
-# module and triggers the full bootstrap once.
-from hydromodpy.core.runtime.bootstrap_hook import (  # noqa: E402
-    ensure_bootstrapped as _ensure_bootstrapped,
-)
+ROOT_CONFIG = RootConfig(HydroModPyConfig, migrate_layers, migrate_merged_doc)
+"""The root configuration and its migrations, handed down as an argument.
 
-_ensure_bootstrapped()
+Core and solver helpers read the sections and migrate a file through the
+``RootConfig`` they receive, so they never import this package.
+"""

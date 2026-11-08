@@ -22,7 +22,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import hydromodpy
 from tests._helpers.tolerances import tol
 from tests.integration import _one_cell_mesh_inputs as inputs
 
@@ -34,9 +33,11 @@ _CASES = ("raster-nearest", "stations-nearest", "stations-idw")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _bootstrap_runtime() -> None:
-    """The flow parameters need the runtime providers; the call is idempotent."""
-    hydromodpy.bootstrap()
+def _fill_the_trial_pipeline() -> None:
+    """The flow parameters need the trial pipeline; the fill is idempotent."""
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
 
 
 @pytest.fixture(scope="module")

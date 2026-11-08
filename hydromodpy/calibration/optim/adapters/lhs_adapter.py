@@ -26,14 +26,13 @@ from __future__ import annotations
 from typing import Literal
 
 import numpy as np
-from scipy.stats import loguniform, qmc
 
+from hydromodpy.calibration.optim.method_config import LhsMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
@@ -47,6 +46,8 @@ def _stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.nda
     """Map one stratified unit-interval column into *param*'s search space."""
     refuse_normal_sampling("lhs", param.name, param.sampling)
     if param.sampling == "log_uniform":
+        from scipy.stats import loguniform
+
         physical = loguniform.ppf(unit_column, float(param.lower), float(param.upper))
         return np.asarray([param.to_transformed(float(v)) for v in physical], dtype=float)
     low, high = param.lower_transformed, param.upper_transformed
@@ -58,7 +59,6 @@ def design_budget(n_samples: int) -> CountedBudget:
     return CountedBudget(counts=(int(n_samples),), step="design point")
 
 
-@register_optimizer("lhs")
 class LhsAdapter:
     """Stratified Latin hypercube design over transformed bounds."""
 
@@ -68,6 +68,7 @@ class LhsAdapter:
     traits = EngineTraits(draws_a_normal=False, restarts_explore_differently=True, fixed_plan=True)
 
     name = "lhs"
+    options = LhsMethodConfig
 
     def __init__(
         self,
@@ -79,6 +80,8 @@ class LhsAdapter:
     ) -> None:
         if n_samples <= 0:
             raise ValueError(f"n_samples must be positive, got {n_samples!r}")
+        from scipy.stats import qmc
+
         self.space = space
         self.n_samples = int(n_samples)
         sampler = qmc.LatinHypercube(

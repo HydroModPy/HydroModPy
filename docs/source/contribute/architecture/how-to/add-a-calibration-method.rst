@@ -11,7 +11,7 @@ Each module of the folder registers one method under a name: ``grid``, ``lhs``,
 ``bisection`` and ``gp_mapping`` at the time of writing, and ``da_mh_gp``, which still runs
 when a file names it but is left out of the list the docs and the refusals print.
 ``announced_optimizers()`` in ``optim/optimizer.py`` prints the live list, and
-``available_optimizers()`` adds the methods that declare ``announced=False``.
+``optimizers.names()`` adds the methods that declare ``announced=False``.
 
 Contract
 --------
@@ -55,18 +55,23 @@ Skeleton:
 
 .. code-block:: python
 
+   from typing import ClassVar
+   from pydantic import BaseModel
    from hydromodpy.calibration.optim.optimizer import (
        EngineTraits,
        EvaluationResult,
        ParamSuggestion,
-       register_optimizer,
    )
    from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
-   @register_optimizer("mymethod")
+   class MyMethodConfig(BaseModel):
+       max_trials: int = 100
+
+
    class MyMethodOptimizer:
-       name = "mymethod"
+       name: ClassVar[str] = "mymethod"
+       options: ClassVar[type[BaseModel] | None] = MyMethodConfig
        traits = EngineTraits(takes_max_trials=True)
 
        def __init__(self, space: ParameterSpace, *, max_trials: int = 100) -> None:
@@ -97,23 +102,23 @@ Skeleton:
 Registration
 ------------
 
-There is no registry dict to edit. ``@register_optimizer("mymethod")``
-publishes the class under the name accepted by
-``CalibrationConfig.method`` and by ``build_optimizer``. The registry
-(``hydromodpy/calibration/optim/optimizer.py``) auto-discovers every
-module under ``hydromodpy/calibration/optim/adapters/`` on the first
-``build_optimizer`` call, so dropping the file in that package is all
-the wiring required.
+There is no registry dict to edit. A method is published under the id its
+``name`` attribute declares, the name accepted by ``CalibrationConfig.method``
+and by ``build_optimizer``.
+
+An in-tree class is declared in ``hydromodpy/calibration/optim/optimizer.py``, under
+:data:`_BUILTIN_PATHS`. A third-party method is published through one entry point
+of the ``hydromodpy.calibration.optimizer`` group, pointing to the class.
 
 Declaring the options
 ----------------------
 
 Registering the class is not enough: ``method_options`` is validated
-against a typed model before it ever reaches the adapter constructor. Add a
-``BaseModel`` for ``mymethod`` in ``hydromodpy/calibration/optim/method_config.py``,
-with ``method: Literal["mymethod"]`` and one field per accepted constructor
-keyword, and list it in the ``CalibrationMethodConfig`` union at the bottom
-of that module. A phase, ``[calibration]`` and the protocol's
+against a typed model before it ever reaches the adapter constructor.
+The class declares its options model on its ``options`` class attribute:
+``options: ClassVar[type[BaseModel] | None] = MyMethodConfig``. The model carries
+one field per accepted constructor keyword (and no ``method`` field).
+A phase, ``[calibration]`` and the protocol's
 ``steady_method_options`` / ``transient_method_options`` are checked against
 it when the file loads, by ``method_options_problem``: an unknown key or a
 wrong type is refused there, naming the phase, instead of inside the adapter
@@ -146,8 +151,8 @@ before anything solves.
    from hydromodpy.calibration.optim.optimizer import EngineTraits
 
 
-   @register_optimizer("mymethod")
    class MyMethodOptimizer:
+       name = "mymethod"
        traits = EngineTraits(
            max_parameters=1,            # None means any number
            required_search_space="log",  # the variable the stopping rule is written in

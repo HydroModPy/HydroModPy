@@ -162,11 +162,15 @@ def _write_project(tmp_path: Path) -> Path:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _ensure_bootstrap():
-    """Wire the deferred TrialPipelineProvider before any run_trial_light call."""
-    import hydromodpy
+def _fill_the_trial_pipeline():
+    """Fill the trial pipeline before any run_trial_light call.
 
-    hydromodpy.bootstrap()
+    A calibration reads its files through the trial pipeline, the one global
+    the library keeps, which ``hydromodpy.project.trial_pipeline`` fills.
+    """
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
 
 
 def _zero_metric(ctx, *, objective, variable):

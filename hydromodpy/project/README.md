@@ -15,6 +15,7 @@ rules, how a run goes through it, and where to add what.
 |---|---|
 | `facade.py` | the public verbs of `Project`: `prepare`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `launch`, `status`, `collect`, `publish`), the read-only views, `close`; `_execute`, the worker verb of `hmp run`. After the class, the ways to open one: `open_project` (what `hmp.open` calls on a project folder), `configure_opened` (its `project.toml`, read on the first model verb) and `resolve_config` (the polymorphic config input) |
 | `calibrate.py` | the routing behind `Project.calibrate` and `hmp.calibrate` on a path: a TOML file to the staged or the CLI runner (`calibrate_a_file`), a declaration held in memory (`parameters=`, `protocol=`, the `[calibration]` of the project) to the programmatic runner (`calibrate_project`) |
+| `trial_pipeline.py` | `WorkflowTrialPipeline`, the implementation of the `TrialPipeline` protocol of `calibration/runners/trial.py`, and `fill_trial_pipeline`, which installs it once. The methods import the workflow and the configuration in their bodies, so filling costs almost nothing |
 | `state.py` | where the runtime state of a `Project` lives (`ProjectState`), and which attribute names `Project` forwards to it (`PROJECT_ATTR_TO_STATE_FIELD`) |
 | `phases.py` | the model-phase verbs as free functions: `configure`, `setup_workspace`, `build_geographic`, `load_data`, `reload_data`, `rebuild_geographic`, `build_mesh`, `open_catalog` (the index, read only, and only when it exists) |
 | `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, overrides, run naming; the attempt protocol `run_attempt` and `SealedRun` live in `workflow/record/attempt.py`, the replay checks in `workflow/replay_checks.py`); `execute` is the worker verb, `run` adds the index and the `Run` view, `draft` says what a run would do |
@@ -39,9 +40,13 @@ import every layer, itself included. Today it imports
 1. No lower layer imports `project`. Only the package root (lazy, a tolerated
    edge in `layer_matrix.yaml`) and `cli` do. A lower layer that needs a
    `Project` declares a Protocol and receives the adapter at start-up.
-2. The adapters are wired in `hydromodpy/_bootstrap.py`. A new adapter
-   gets a hook there. `hmp catalog rerun` is the one command that needs no
-   hook, because `cli` sits above `project` and calls `dispatch/rerun.py` directly.
+2. One global crosses to a lower layer: the trial pipeline of
+   `calibration/runners/trial.py`, the only one the library keeps. This package
+   fills it through `fill_trial_pipeline` of `trial_pipeline.py` at the opening
+   of a session, the CLI calls it once at start-up, and a worker process of a
+   parallel search receives the dotted path of that function and runs it itself.
+   No other adapter is wired through a global: `cli` sits above `project` and
+   calls the adapters of `dispatch/` directly.
 
 No `project_layout.yaml` orders the modules inside the package, because the modules import each other
 both ways (`facade.py` and `accessors.py`, `runner.py`, `calibrate.py`) and a layout row names only rows above
@@ -62,6 +67,7 @@ hydromodpy/project/
   __init__.py       Project, ProjectRunner, ProjectCatalog, the two accessors
   facade.py         Project and its verbs, open_project
   calibrate.py      routing of Project.calibrate
+  trial_pipeline.py the TrialPipeline calibration reads, filled here
   state.py  phases.py  runner.py  run_overrides.py  spinup.py
   compare.py        the comparison of sealed runs
   lock.py           the lockfile and the cache archive
@@ -126,5 +132,5 @@ journal of the launch and indexes each case when it ends.
 | a publish, install or replay step | `exchange/`, see its README |
 | a table of `hmp report compare` | one function and one line in `compare` of `compare.py`, and one test in `tests/unit/project/test_compare.py`; nothing is computed that `Run` can answer, and no unit is converted |
 | a shipped example | an entry of `WHITELIST` in `examples/generate.py`, then `python -m tools.dev examples manifest` to write `catalog.toml` |
-| a provider for a lower layer | a class in `dispatch/`, a Protocol and a `register_*` function in the lower layer, a hook in `hydromodpy/_bootstrap.py` |
+| a way for a lower layer to reach this package | nothing to wire: the layer declares its Protocol and receives the object as an argument. The one exception is the trial pipeline, filled by `trial_pipeline.py` |
 | runtime state on `Project` | a field of `ProjectState` and its name in `PROJECT_ATTR_TO_STATE_FIELD` |

@@ -350,12 +350,16 @@ def _counts(by_case: pd.DataFrame, planned: Sequence[Any]) -> tuple[int, int]:
 
 def _read_settings(root: Path) -> _Settings:
     """Read ``[sites.summary]``, ``[[sites.export]]`` and ``[publication]`` of ``project.toml``."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesSummaryConfig
     from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
     from hydromodpy.project.launch.sites.expansion import declares_sites
     from hydromodpy.results.publication import PublicationConfig
 
-    document = merge_toml_chain(read_toml_chain(root / PROJECT_MARKER_FILENAME))
+    document = merge_toml_chain(
+        read_toml_chain(root / PROJECT_MARKER_FILENAME, root=ROOT_CONFIG),
+        root=ROOT_CONFIG,
+    )
     summary, exports = SitesSummaryConfig(), ()
     recipe_sets: dict[str, Mapping[str, Any]] = {}
     if declares_sites(document):

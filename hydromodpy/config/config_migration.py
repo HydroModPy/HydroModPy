@@ -204,7 +204,7 @@ def fix_config_chain(
     # reads it as an empty key on line 1, so the doctor could not fix them.
     docs = {
         item.path: tomlkit.parse(item.path.read_text(encoding="utf-8-sig"))
-        for item in read_toml_chain(target, migrate=False)
+        for item in read_toml_chain(target, root=None)
     }
     layers = list(docs.items())
     written = _reading_context(layers)

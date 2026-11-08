@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.project.check import check_project
 
@@ -47,17 +48,17 @@ def _tracked_toml_files() -> list[Path]:
 
 def _declares_calibration(toml_file: Path) -> bool:
     """Tell whether the merged payload of *toml_file* carries a calibration section."""
-    return "calibration" in load_toml_with_base_config(toml_file)
+    return "calibration" in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
 
 
 def _belongs_to_sites_project(toml_file: Path) -> bool:
     """Tell whether *toml_file* or its ``base_config`` chain declares ``[sites]``."""
-    return "sites" in load_toml_with_base_config(toml_file)
+    return "sites" in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
 
 
 def _is_an_overlay(toml_file: Path) -> bool:
     """Tell whether *toml_file* needs a project under it, for want of a ``[geographic]``."""
-    return "geographic" not in load_toml_with_base_config(toml_file)
+    return "geographic" not in load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
 
 
 def _identifier(toml_file: Path) -> str:

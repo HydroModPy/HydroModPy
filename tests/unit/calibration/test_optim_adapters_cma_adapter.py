@@ -10,6 +10,7 @@ import pytest
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
+    OptimizerError,
     build_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
@@ -420,5 +421,5 @@ class TestRegistration:
         assert opt.name == "cma_es"
 
     def test_bare_cma_name_is_not_registered(self) -> None:
-        with pytest.raises(KeyError, match="Unknown optimizer"):
+        with pytest.raises(OptimizerError, match="Unknown optimizer"):
             build_optimizer("cma", two_dim_space())

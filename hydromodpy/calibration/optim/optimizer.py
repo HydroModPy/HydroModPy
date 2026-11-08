@@ -1,8 +1,28 @@
-"""Optimizer Protocol and registry.
+"""Optimizer registry, on the shared plugin engine.
 
 An optimizer proposes parameter points (``ask``) and ingests evaluation
-results (``tell``). Adapters for scipy, optuna, grid-search are found under
-``hydromodpy/calibration/optim/adapters/`` and registered here.
+results (``tell``). Adapters for scipy, optuna, grid-search and the rest
+live under ``hydromodpy/calibration/optim/adapters/`` and join one registry,
+``optimizers``, an instance of :class:`~hydromodpy.core.plugin_registry.
+PluginRegistry`: an in-tree declaration imported on first lookup, then one
+scan of the ``hydromodpy.calibration.optimizer`` entry-point group for what
+the build does not carry. Resolve a name with ``optimizers.get(name)``,
+list the ids with ``optimizers.names()``, and register a third-party class
+on the same engine with ``optimizers.register(cls)``.
+
+What used to live here and does not any more
+--------------------------------------------
+- The ``Optimizer`` Protocol carried a ``name`` attribute and a
+  ``suggest_next`` method. The engine loop reads ``ask``, ``tell``, ``best``
+  and ``converged`` on the instances, and the registry reads the id off the
+  ``name`` attribute of the class, so neither is part of the port any more.
+  ``suggest_next`` stays on the adapters that implement it, as an ordinary
+  method outside the port's members.
+- The decorator ``register_optimizer`` and the ``_BUILTIN`` dict, filled by a
+  ``pkgutil`` scan of ``adapters/``, are gone: a built-in is declared by a
+  dotted path in :data:`_BUILTIN_PATHS`, and a third-party one by an entry
+  point of group ``hydromodpy.calibration.optimizer``. No module global
+  changes while a calibration runs.
 """
 
 from __future__ import annotations
@@ -10,6 +30,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
+
+from hydromodpy.core.exceptions import OptimizerError
+from hydromodpy.core.plugin_registry import PluginRegistry
 
 FAILED_EVAL_COST: float = 1e12
 """Sentinel cost used when an evaluation fails or returns NaN.
@@ -56,18 +79,17 @@ class EvaluationResult:
 class Optimizer(Protocol):
     """Ask/tell Protocol implemented by optimizer adapters.
 
-    ``ask`` proposes one or more parameter points. ``tell`` feeds completed
-    evaluations back to the optimizer. ``best`` and ``converged`` expose the
-    state needed by ``CalibrationEngine``.
+    The port's members are ``ask``, ``tell``, ``best`` and ``converged``:
+    ``ask`` proposes one or more parameter points, ``tell`` feeds completed
+    evaluations back, and ``best`` and ``converged`` expose the state needed
+    by ``CalibrationEngine``. A class may carry more, such as ``suggest_next``
+    on the adapters that plan their own points; the registry reads none of it
+    and ``name`` is read off a class as its id, not declared here.
     """
-
-    name: str
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]: ...
 
     def tell(self, results: list[EvaluationResult]) -> None: ...
-
-    def suggest_next(self) -> ParamSuggestion: ...
 
     def best(self) -> EvaluationResult | None: ...
 
@@ -83,21 +105,46 @@ def best_completed(history: Iterable[EvaluationResult]) -> EvaluationResult | No
     )
 
 
-_BUILTIN: dict[str, Callable[..., Optimizer]] = {}
+ENTRY_POINT_GROUP = "hydromodpy.calibration.optimizer"
+"""The out-of-tree plugin group. One entry point per optimizer, named on its id."""
 
+_BUILTIN_PATHS: dict[str, str] = {
+    "bisection": "hydromodpy.calibration.optim.adapters.bisection_adapter:BisectionAdapter",
+    "cma_es": "hydromodpy.calibration.optim.adapters.cma_adapter:CmaEsAdapter",
+    "da_mh_gp": "hydromodpy.calibration.optim.adapters.da_mh_gp_adapter:DaMhGpOptimizer",
+    "gp_mapping": "hydromodpy.calibration.optim.adapters.gp_mapping_adapter:GPMappingOptimizer",
+    "grid": "hydromodpy.calibration.optim.adapters.grid_adapter:GridAdapter",
+    "lhs": "hydromodpy.calibration.optim.adapters.lhs_adapter:LhsAdapter",
+    "optuna": "hydromodpy.calibration.optim.adapters.optuna_adapter:OptunaAdapter",
+    "random_search": (
+        "hydromodpy.calibration.optim.adapters.random_search_adapter:RandomSearchAdapter"
+    ),
+    "scipy_de": "hydromodpy.calibration.optim.adapters.scipy_adapter:ScipyDE",
+    "scipy_nelder_mead": ("hydromodpy.calibration.optim.adapters.scipy_adapter:ScipyNelderMead"),
+}
+"""Dotted paths of the adapters this build ships, imported on first lookup.
 
-def register_optimizer(name: str) -> Callable[[type], type]:
-    """Register a built-in optimizer adapter under a public method name.
+Format ``"<name>": "<module>:<Class>"``, the rule every registry of this
+repository follows. The names are the public method names, and the paths are
+declarations: resolving one does not import the adapter unless a calibration
+builds it.
+"""
 
-    Adapter modules call this decorator at import time. The registered name is
-    the value accepted by ``CalibrationConfig.method`` and ``build_optimizer``.
-    """
+optimizers = PluginRegistry(
+    kind="optimizer",
+    id_attributes=("name",),
+    group=ENTRY_POINT_GROUP,
+    builtin_paths=_BUILTIN_PATHS,
+    members=lambda: ("ask", "tell", "best", "converged"),
+    error=OptimizerError,
+)
+"""The optimizer registry: ``optimizers.get``, ``optimizers.names`` and ``optimizers.register``.
 
-    def deco(cls: type) -> type:
-        _BUILTIN[name] = cls
-        return cls
-
-    return deco
+``optimizers.get(name)`` returns the constructor of the built-in under *name*,
+``optimizers.names()`` the ids this build serves, in-tree declared plus the
+entry points of the group after one scan, and ``optimizers.register(cls)``
+places a third-party class under the id its ``name`` attribute declares.
+"""
 
 
 @dataclass(frozen=True)
@@ -197,17 +244,10 @@ class EngineTraits:
 
 
 DEFAULT_ENGINE_TRAITS = EngineTraits()
+"""The traits of an engine that declares none: permissive in every way."""
 
 
-def engine_traits(name: str) -> EngineTraits:
-    """Return what the engine registered under ``name`` declares about itself."""
-    _ensure_builtins_loaded()
-    engine = _BUILTIN.get(name)
-    declared = getattr(engine, "traits", None)
-    return declared if isinstance(declared, EngineTraits) else DEFAULT_ENGINE_TRAITS
-
-
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class MethodChoice:
     """The search method a search that names none runs, and why."""
 
@@ -296,54 +336,43 @@ def _why(traits: EngineTraits, search_spaces: Mapping[str, str], *, lacking: str
     return f"{moved}{where} parameter{'' if count == 1 else 's'}, signed criterion"
 
 
+def engine_traits(name: str) -> EngineTraits:
+    """Return what the engine registered under ``name`` declares about itself.
+
+    Resolution order: the cache, the in-tree declaration imported on first
+    lookup, then one scan of the entry-point group. An engine that names
+    nothing is the default: permissive, so that nothing written in a file is
+    quietly dropped.
+    """
+    engine = optimizers.get(name)
+    declared = getattr(engine, "traits", None)
+    return declared if isinstance(declared, EngineTraits) else DEFAULT_ENGINE_TRAITS
+
+
 def build_optimizer(name: str, space, **kwargs) -> Optimizer:
-    """Construct a built-in optimizer by name."""
-    # Lazy-load adapters so missing optionals do not break import.
-    _ensure_builtins_loaded()
-    if name in _BUILTIN:
-        return _BUILTIN[name](space, **kwargs)
-    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {announced_optimizers()}")
+    """Construct a built-in optimizer by name, from the shared registry.
 
-
-def available_optimizers() -> tuple[str, ...]:
-    """Return the names of the built-in optimizers."""
-    _ensure_builtins_loaded()
-    return tuple(sorted(_BUILTIN))
+    The registry returns the class and not an object: an adapter is a class
+    with ``ask``, ``tell``, ``best`` and ``converged``, and its constructor
+    receives everything else. An unknown name is an :class:`OptimizerError`
+    naming what this build serves, in place of the ``KeyError`` a bare dict
+    lookup raised, because a missing method is a calibration refusal and not a
+    missing key.
+    """
+    try:
+        cls = optimizers.get(name)
+    except OptimizerError as exc:
+        raise OptimizerError(
+            f"Unknown optimizer: {name!r}. Available built-ins: {', '.join(optimizers.names())}"
+        ) from exc
+    return cls(space, **kwargs)
 
 
 def announced_optimizers() -> tuple[str, ...]:
-    """Return the built-in optimizers the project offers, those that declare ``announced``."""
-    return tuple(name for name in available_optimizers() if engine_traits(name).announced)
+    """Return the built-in optimizers the project offers, those that declare ``announced``.
 
-
-_LOADED = False
-
-
-def _ensure_builtins_loaded() -> None:
-    """Auto-discover every adapter module under ``calibration/optim/adapters/``.
-
-    Each adapter registers itself via ``@register_optimizer`` at import
-    time. Optional dependencies (optuna, GP, DA-MH-GP) surface as
-    ``ImportError``; those adapters just stay unregistered.
+    Read on the traits, one lookup per method: an engine without a
+    ``EngineTraits`` instance is read as announcing itself, like every default
+    in this module.
     """
-    global _LOADED
-    if _LOADED:
-        return
-
-    import importlib
-    import pkgutil
-
-    from hydromodpy.calibration.optim import adapters
-    from hydromodpy.core.logging import get_logger
-
-    logger = get_logger(__name__)
-    for module_info in pkgutil.iter_modules(adapters.__path__):
-        name = module_info.name
-        if name.startswith("_"):
-            continue
-        try:
-            importlib.import_module(f"{adapters.__name__}.{name}")
-        except ImportError as exc:
-            logger.debug("Optional optimizer adapter %r skipped: %s", name, exc)
-
-    _LOADED = True
+    return tuple(name for name in optimizers.names() if engine_traits(name).announced)

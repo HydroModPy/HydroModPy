@@ -24,6 +24,10 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.calibration.optim.method_config import (
+    ScipyDEMethodConfig,
+    ScipyNelderMeadMethodConfig,
+)
 from hydromodpy.calibration.optim.nelder_mead import CandidateKey, SpeculativeNelderMead
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
@@ -31,7 +35,6 @@ from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import (
@@ -209,11 +212,11 @@ class _ScipyAdapterBase:
         self._bridge.close()
 
 
-@register_optimizer("scipy_de")
 class ScipyDE(_ScipyAdapterBase):
     """scipy.optimize.differential_evolution adapter."""
 
     name = "scipy_de"
+    options = ScipyDEMethodConfig
     traits = EngineTraits(
         takes_max_trials=True,
         takes_width=True,
@@ -268,7 +271,6 @@ class ScipyDE(_ScipyAdapterBase):
         return run
 
 
-@register_optimizer("scipy_nelder_mead")
 class ScipyNelderMead:
     """Nelder-Mead simplex that reproduces scipy.optimize.minimize(method='Nelder-Mead').
 
@@ -295,6 +297,7 @@ class ScipyNelderMead:
     )
 
     name = "scipy_nelder_mead"
+    options = ScipyNelderMeadMethodConfig
     marks_unread = True
     """It marks the speculative results it did not read once the batch is told."""
 

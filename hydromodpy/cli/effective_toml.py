@@ -64,6 +64,7 @@ def materialize_effective_toml(
     overlay files, the way ``lineage.overrides`` seals it.
     """
     from hydromodpy.config.config_migration import rewrite_dotted_path
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import merge_toml_layers, read_toml_chain
     from hydromodpy.core.toml_io.paths import effective_copy_prefix
     from hydromodpy.core.toml_io.writer import dumps
@@ -74,12 +75,14 @@ def materialize_effective_toml(
     env_payload = env_overrides(os.environ)
 
     chains = [
-        load_config_file(path, lambda file: read_toml_chain(file, migrate=False))
+        load_config_file(path, lambda file: read_toml_chain(file, root=None))
         for path in (config_path, *overlays)
     ]
     raw_toml = load_config_file(
         config_path,
-        lambda _: merge_toml_layers(chains, cli_overrides=cli_payload, env_overrides=env_payload),
+        lambda _: merge_toml_layers(
+            chains, root=ROOT_CONFIG, cli_overrides=cli_payload, env_overrides=env_payload
+        ),
     )
     lineage_overrides: dict[str, Any] = {}
     for item in set_items:

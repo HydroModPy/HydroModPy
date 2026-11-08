@@ -86,6 +86,7 @@ def lock_update(workspace: Any = None, *, project: Any = None, output: Any = Non
     ``project_root`` travels with the write so the file carries the
     ``[hydromodpy].project_git_commit`` of the project it describes.
     """
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import write_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
@@ -98,7 +99,7 @@ def lock_update(workspace: Any = None, *, project: Any = None, output: Any = Non
             catalog,
             dest,
             project_root=project_root,
-            schema_sha256=schema_sha256(),
+            schema_sha256=schema_sha256(ROOT_CONFIG.model),
             zarr_schema_version=str(ZARR_SCHEMA_VERSION),
             parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
         )
@@ -112,6 +113,7 @@ def lock_verify(
     strict: bool = False,
 ) -> dict:
     """Verify the cache matches the lockfile of one project."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.data.provenance.lockfile import read_lockfile_schema_sha256
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import verify_frozen, verify_inputs_strict
@@ -122,7 +124,7 @@ def lock_verify(
         raise FileNotFoundError(f"Lockfile not found: {lockfile_path}")
 
     locked_schema = read_lockfile_schema_sha256(lockfile_path)
-    current_schema = schema_sha256()
+    current_schema = schema_sha256(ROOT_CONFIG.model)
     schema_diverged = locked_schema is not None and locked_schema != current_schema
 
     with DataCatalogDuckDB(db_path) as catalog:

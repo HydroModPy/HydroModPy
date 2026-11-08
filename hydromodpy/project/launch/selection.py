@@ -59,6 +59,7 @@ LAUNCHABLE_BY_DEFAULT = frozenset({"planned", "partial", "failed", "aborted"})
 
 def sites_run_config(project_root: Path) -> SitesRunConfig:
     """Return ``[sites.run]`` of the project, read from ``project.toml`` and its chain."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     marker = Path(project_root) / PROJECT_MARKER_FILENAME
@@ -66,7 +67,7 @@ def sites_run_config(project_root: Path) -> SitesRunConfig:
         # Every other verb of a [sites] project (plan, status, run) refuses a folder
         # without the marker, so this one does not read around it.
         raise ConfigError(f"{project_root} holds no {PROJECT_MARKER_FILENAME}: not a project")
-    document = load_toml_with_base_config(marker)
+    document = load_toml_with_base_config(marker, root=ROOT_CONFIG)
     section = document.get("sites")
     if not isinstance(section, Mapping):
         raise ConfigError(f"{project_root}/{PROJECT_MARKER_FILENAME} declares no [sites]")

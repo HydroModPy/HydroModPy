@@ -17,38 +17,59 @@ improvement that bound still promises, ``y_best - min LCB``.
 
 from __future__ import annotations
 
+import importlib.util
 import warnings
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 import numpy as np
 
+from hydromodpy.calibration.optim.method_config import GPMappingMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_samples
 from hydromodpy.core.logging import get_logger
 
-try:
-    from scipy.optimize import minimize as _scipy_minimize
-    from scipy.stats import norm as _scipy_norm
-    from sklearn.exceptions import ConvergenceWarning
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+_SKLEARN_AVAILABLE = importlib.util.find_spec("sklearn") is not None
+"""Whether scikit-learn is importable, probed without importing it."""
 
-    _SKLEARN_AVAILABLE = True
-except ImportError:  # pragma: no cover - tested via sklearn availability guard
-    _SKLEARN_AVAILABLE = False
-    ConvergenceWarning = None
-    GaussianProcessRegressor = None
-    ConstantKernel = None
-    RBF = None
-    _scipy_minimize = None
-    _scipy_norm = None
+
+def _get_sklearn():
+    """Return the sklearn pieces the surrogate needs, imported on first use."""
+    try:
+        from sklearn.exceptions import ConvergenceWarning
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+    except ImportError as exc:
+        raise ImportError(
+            "scikit-learn is required for the 'gp_mapping' optimizer. "
+            "Install it via `pip install scikit-learn`."
+        ) from exc
+    return {
+        "ConvergenceWarning": ConvergenceWarning,
+        "GaussianProcessRegressor": GaussianProcessRegressor,
+        "ConstantKernel": ConstantKernel,
+        "RBF": RBF,
+    }
+
+
+def _scipy_minimize(objective, x0, **kwargs):
+    """Minimise with scipy's L-BFGS-B, imported on first use."""
+    from scipy.optimize import minimize
+
+    return minimize(objective, x0, **kwargs)
+
+
+def _normal_cdf_pdf(z):
+    """Return the standard normal cdf and pdf at z, imported on first use."""
+    from scipy.stats import norm
+
+    return norm.cdf(z), norm.pdf(z)
 
 
 logger = get_logger(__name__)
@@ -56,7 +77,7 @@ logger = get_logger(__name__)
 
 def _expected_improvement(
     x: np.ndarray,
-    gp: GaussianProcessRegressor,
+    gp: Any,
     y_best: float,
     xi: float = 0.0,
 ) -> np.ndarray:
@@ -67,12 +88,12 @@ def _expected_improvement(
     sigma = np.clip(sigma, 1e-12, None)
     improvement = y_best - mu - xi
     z = improvement / sigma
-    ei = improvement * _scipy_norm.cdf(z) + sigma * _scipy_norm.pdf(z)
+    cdf, pdf = _normal_cdf_pdf(z)
+    ei = improvement * cdf + sigma * pdf
     ei = np.where(sigma > 0.0, ei, 0.0)
     return np.clip(ei, 0.0, None)
 
 
-@register_optimizer("gp_mapping")
 class GPMappingOptimizer:
     """Gaussian-process surrogate optimizer using Expected Improvement.
 
@@ -125,6 +146,7 @@ class GPMappingOptimizer:
     """
 
     name = "gp_mapping"
+    options = GPMappingMethodConfig
 
     traits = EngineTraits(takes_max_trials=True)
 
@@ -306,13 +328,14 @@ class GPMappingOptimizer:
         self,
         x_train: np.ndarray,
         y_train: np.ndarray,
-    ) -> GaussianProcessRegressor | None:
+    ) -> Any | None:
+        skl = _get_sklearn()
         # RBF provides a smooth stationary surrogate for the transformed space.
-        kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
+        kernel = skl["ConstantKernel"](1.0, (1e-3, 1e3)) * skl["RBF"](
             length_scale=np.ones(self._dim, dtype=float),
             length_scale_bounds=(1e-3, 1e3),
         )
-        gp = GaussianProcessRegressor(
+        gp = skl["GaussianProcessRegressor"](
             kernel=kernel,
             alpha=self._alpha_eff,
             normalize_y=True,
@@ -321,8 +344,7 @@ class GPMappingOptimizer:
         )
         try:
             with warnings.catch_warnings():
-                if ConvergenceWarning is not None:
-                    warnings.simplefilter("ignore", category=ConvergenceWarning)
+                warnings.simplefilter("ignore", category=skl["ConvergenceWarning"])
                 gp.fit(x_train, y_train)
         except Exception:
             if not self._warned_fit_failure:  # pragma: no cover - defensive
@@ -336,7 +358,7 @@ class GPMappingOptimizer:
     def _acquisition(
         self,
         x: np.ndarray,
-        gp: GaussianProcessRegressor,
+        gp: Any,
         y_best: float,
     ) -> np.ndarray:
         """Return the acquisition values at ``x`` (higher = better)."""
@@ -353,7 +375,7 @@ class GPMappingOptimizer:
 
     def _maximise_acquisition(
         self,
-        gp: GaussianProcessRegressor,
+        gp: Any,
         y_best: float,
     ) -> list[tuple[np.ndarray, float]]:
         """Return up to ``batch_size`` ``(x, score)`` pairs sorted by score (desc)."""

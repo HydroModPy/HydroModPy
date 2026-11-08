@@ -24,7 +24,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import fields_and_tables, iter_basemodels
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.config_kit.root import RootConfig, model_of
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,7 @@ def _split_path(path: str) -> list[str]:
     return parts
 
 
-def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
+def _resolve_field(path: str, root: type[BaseModel]) -> tuple[type[BaseModel], str, FieldInfo]:
     """Walk the root model and return ``(owner_cls, leaf_name, FieldInfo)``.
 
     When a mid-path field is a discriminated union of BaseModels, this helper
@@ -58,7 +58,7 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
     BaseModel" strategy would produce when only one variant declares the leaf.
     """
     parts = _split_path(path)
-    candidates: list[type[BaseModel]] = [get_root_config_provider().root_model()]
+    candidates: list[type[BaseModel]] = [root]
     skip_next = False
     for name in parts[:-1]:
         if skip_next:
@@ -120,14 +120,14 @@ def _is_mapping_of_models(annotation: Any) -> bool:
 
 
 @lru_cache(maxsize=512)
-def _adapter_for(path: str) -> TypeAdapter:
+def _adapter_for(path: str, root: type[BaseModel]) -> TypeAdapter:
     """Return the adapter of the field at *path*, with the checks its annotation carries.
 
     The metadata goes with the type, so a field checked by an ``AfterValidator``
     (``solver.backend`` against the registry) or bounded (``gt=0``) is checked
     here as it is when the file is read.
     """
-    _, _, info = _resolve_field(path)
+    _, _, info = _resolve_field(path, root)
     return TypeAdapter(Annotated[info.annotation, *info.metadata])
 
 
@@ -149,10 +149,12 @@ def _format_error(exc: Exception) -> str:
 def validate_field(
     path: str,
     value: Any,
+    *,
+    root: type[BaseModel] | RootConfig,
     context: dict[str, Any] | None = None,
     locale: str = "en",
 ) -> ValidationResult:
-    """Validate ``value`` against the type of ``path`` in ``HydroModPyConfig``.
+    """Validate ``value`` against the type of ``path`` in the root configuration.
 
     Parameters
     ----------
@@ -160,6 +162,9 @@ def validate_field(
         Dotted field path (e.g. ``"flow.properties.k_aquifer"``).
     value
         Candidate value to validate.
+    root
+        The root configuration model the path is walked against, or its
+        :class:`~hydromodpy.core.config_kit.root.RootConfig`.
     context
         Optional dict mirroring the form state. Currently unused by the
         per-field check; accepted so the signature is stable across the
@@ -170,13 +175,14 @@ def validate_field(
     """
     from time import perf_counter
 
+    root_cls: type[BaseModel] = model_of(root)
     t0 = perf_counter()
     # Both `context` and `locale` are part of the documented signature and
     # will be consumed once partial-model validation lands; the underscore
     # assignments keep linters happy without reshaping the public API.
     _ = context, locale
     try:
-        adapter = _adapter_for(path)
+        adapter = _adapter_for(path, root_cls)
     except KeyError as exc:
         elapsed = (perf_counter() - t0) * 1000.0
         return ValidationResult(

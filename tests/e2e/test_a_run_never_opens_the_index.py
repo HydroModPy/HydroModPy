@@ -43,10 +43,12 @@ def _refuse_the_index(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_the_worker_of_hmp_run_never_opens_the_index(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hydromodpy
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
 
-    hydromodpy.bootstrap()
+    fill_trial_pipeline()
     project = make_workspace(tmp_path / "workspace")
     for key, value in disposable_env(tmp_path / "home").items():
         monkeypatch.setenv(key, value)

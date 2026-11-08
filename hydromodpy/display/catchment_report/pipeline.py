@@ -7,7 +7,10 @@ import subprocess
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 
 from hydromodpy.core.exceptions import DataContractViolation, NothingThereError
 from hydromodpy.display.catchment_report.artifacts import (
@@ -220,6 +223,7 @@ def run_catchment_report_pipeline(
     build_report_html: bool | None = None,
     stream_run_logs: bool | None = None,
     strict_figure_postflight: bool | None = None,
+    root: RootConfig | None = None,
 ) -> CatchmentReportPipelineResult:
     """Run the selected report-production steps from one report config.
 
@@ -235,7 +239,7 @@ def run_catchment_report_pipeline(
         "strict_figure_postflight": strict_figure_postflight,
     }
     inputs = replace(
-        CatchmentReportInputs.from_toml(report_config),
+        CatchmentReportInputs.from_toml(report_config, root=root),
         **{f"pipeline_{name}": value for name, value in steps.items() if value is not None},
     )
     validate_catchment_report_preflight(
@@ -263,7 +267,7 @@ def run_catchment_report_pipeline(
         # The context and the page copy the run figures: draw the ones it lacks first.
         draw_missing_run_figures(inputs)
     if inputs.pipeline_build_context_artifacts:
-        context_summary = build_context(inputs)
+        context_summary = build_context(inputs, root=root)
     if inputs.pipeline_build_report_html:
         config = CatchmentReportConfig.from_inputs(inputs, preset=preset)
         html_report = build_catchment_report(config)

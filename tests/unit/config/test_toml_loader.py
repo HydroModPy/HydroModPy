@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import (
     config_base_dir,
@@ -36,7 +37,7 @@ def example_project_config(*parts: str) -> Path:
 def test_simulation_regression_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = simulation_regression_fixture("run_fast_mf6.toml")
 
-    payload = load_toml_with_base_config(example_config)
+    payload = load_toml_with_base_config(example_config, root=ROOT_CONFIG)
 
     assert list(payload["flow"]["bc"]) == ["ocean", "drainage"]
     assert payload["data"]["types"] == ["recharge"]
@@ -51,7 +52,7 @@ def test_simulation_regression_mf6_precomputed_mesh_config_reads_the_triangulati
 ) -> None:
     example_config = simulation_regression_fixture("run_fast_mf6_precomputed_mesh_input.toml")
 
-    payload = load_toml_with_base_config(example_config)
+    payload = load_toml_with_base_config(example_config, root=ROOT_CONFIG)
 
     assert payload["mesh"]["engine"] == "voronoi"
     assert payload["mesh"]["triangle"]["path"] == "mesh/mesh_catchment.msh"
@@ -72,7 +73,7 @@ def test_simulation_regression_mf6_generated_mesh_config_asks_for_voronoi_cells(
 ) -> None:
     example_config = simulation_regression_fixture("run_fast_mf6_mesh_catchment.toml")
 
-    payload = load_toml_with_base_config(example_config)
+    payload = load_toml_with_base_config(example_config, root=ROOT_CONFIG)
 
     assert payload["mesh"]["engine"] == "voronoi"
     assert "mesh_catchment" not in payload
@@ -143,12 +144,12 @@ def test_the_chain_is_read_root_first_with_the_own_keys_of_each_file(tmp_path: P
         'base_config = "mid.toml"\n[flow]\nflow_regime = "transient"\n', encoding="utf-8"
     )
 
-    chain = read_toml_chain(leaf)
+    chain = read_toml_chain(leaf, root=None)
 
     assert [item.path.name for item in chain] == ["base.toml", "mid.toml", "leaf.toml"]
     assert chain[1].own == {"flow": {"param_list": ["K"]}}
     assert "base_config" not in chain[2].own
-    assert load_toml_with_base_config(leaf) == {
+    assert load_toml_with_base_config(leaf, root=None) == {
         "flow": {"flow_regime": "transient", "param_list": ["K"]}
     }
 
@@ -158,7 +159,7 @@ def test_a_cycle_is_refused(tmp_path: Path) -> None:
     (tmp_path / "b.toml").write_text('base_config = "a.toml"\n', encoding="utf-8")
 
     with pytest.raises(ValueError, match="circular base_config chain"):
-        read_toml_chain(tmp_path / "a.toml")
+        read_toml_chain(tmp_path / "a.toml", root=None)
 
 
 def test_a_file_in_a_sub_folder_of_a_project_reads_its_paths_from_the_root(tmp_path: Path) -> None:
@@ -204,7 +205,7 @@ def test_load_toml_with_base_config_rejects_cycles(tmp_path: Path) -> None:
     second_path.write_text('base_config = "first.toml"\n', encoding="utf-8")
 
     with pytest.raises(ValueError, match="circular base_config chain"):
-        load_toml_with_base_config(first_path)
+        load_toml_with_base_config(first_path, root=None)
 
 
 def test_from_toml_refuses_workspace_project_root(tmp_path: Path) -> None:

@@ -226,6 +226,7 @@ def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[
 
 def _publish_package(args: argparse.Namespace) -> None:
     """Write the project with its data in one package, which ``hmp project import`` installs."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.project.exchange.share import inputs_of
     from hydromodpy.results.export.project_package import export_project
 
@@ -240,6 +241,7 @@ def _publish_package(args: argparse.Namespace) -> None:
         with_=tuple(args.with_),
         bundle_of=inputs_of(project),
         dry_run=args.dry_run,
+        root_config=ROOT_CONFIG,
     )
     following = f"hmp project import {written} -w <workspace>"
 

@@ -76,8 +76,9 @@ The package reads `core`, `schema` and the mesh model in `mesh/planar/`.
 - `mesh_cells.py`, `plotting.py`, `field_spatial.py`, `zone_fractions.py` and `unit_square_mesh.py` read
   the mesh model. The mesh never imports this package.
 - `cell_sampling.py` reads `mesh_cells.py`. It imports `PlanarCellMesh` only for typing.
-- `geology_field.py` reads `catchment.protocols` for the geology data source, so it imports no `data`
-  module.
+- `geology_field.py` imports no `data` module. The one reader of a geology config mapping or TOML section
+  that builds a `GeologyField` lives in `data/variables/geology/io.py`, as `geology_field_from_config`
+  and `geology_field_from_toml`.
 - `property_table.py` reads `property_ids.py`, `time/regime.py`, `field_spatial.py`, `zone_fractions.py`
   and `core`.
 - Nothing in this package imports `model/domain/`. The domain reads `Field` and `cell_sampling` from here.
@@ -85,10 +86,11 @@ The package reads `core`, `schema` and the mesh model in `mesh/planar/`.
 ## What lives outside the package
 
 The geology data is managed in `data/variables/geology/`, and `field.py` there builds a `GeologyField`
-from the loaded data. The geology demo that goes through `FieldParam` is
-`tools/cases/geology/run_geology_property_case.py`. The solvers call `property_table.py` from their
-builders, for example `solver/modflow6/support/property_mapping.py`. The flow config embeds the
-field-parameter sections in `FlowParam` (`model/flow_config.py`).
+from the loaded data. A `GeologyField` built alone from a config mapping or a TOML section comes from
+`io.py` in the same folder (`geology_field_from_config`, `geology_field_from_toml`). The geology demo that
+goes through `FieldParam` is `tools/cases/geology/run_geology_property_case.py`. The solvers call
+`property_table.py` from their builders, for example `solver/modflow6/support/property_mapping.py`. The
+flow config embeds the field-parameter sections in `FlowParam` (`model/flow_config.py`).
 
 ## Changing the code
 

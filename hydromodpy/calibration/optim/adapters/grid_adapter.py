@@ -8,12 +8,12 @@ from collections.abc import Iterator
 
 import numpy as np
 
+from hydromodpy.calibration.optim.method_config import GridMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import CountedBudget
@@ -40,7 +40,6 @@ def grid_budget(n_parameters: int, points_per_dim: int | list[int] | None) -> Co
     )
 
 
-@register_optimizer("grid")
 class GridAdapter:
     """Regular grid over transformed bounds."""
 
@@ -49,6 +48,7 @@ class GridAdapter:
     traits = EngineTraits(restarts_explore_differently=False, fixed_plan=True)
 
     name = "grid"
+    options = GridMethodConfig
 
     def __init__(
         self,

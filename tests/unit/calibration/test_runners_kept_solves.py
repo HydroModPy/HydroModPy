@@ -12,13 +12,11 @@ from typing import Any, ClassVar
 
 import pytest
 
-import hydromodpy
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import trial as trial_module
-from hydromodpy.calibration.runners.contracts import get_trial_pipeline_provider
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
     KeptSolveLauncher,
@@ -36,13 +34,14 @@ from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.model.model import Properties
+from hydromodpy.project.trial_pipeline import WorkflowTrialPipeline
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories import Setup
-from tests.unit.calibration._factories_runners import ToyCtx, make_session
+from tests.unit.calibration._factories_runners import FakePipeline, ToyCtx, make_session
 
 # From test_a_promoted_trial_reads_its_kept_solve.py
 # A promoted trial reads the solve its trial kept instead of solving again.
@@ -353,11 +352,11 @@ def test_the_kept_solve_launcher_refuses_a_run_it_has_no_solve_for(tmp_path: Pat
 
 def test_the_solver_step_of_a_pipeline_takes_the_launcher_it_is_given() -> None:
 
-    provider = get_trial_pipeline_provider()
-    steps = tuple(provider.standard_steps())
+    pipeline = WorkflowTrialPipeline()
+    steps = tuple(pipeline.standard_steps())
     launcher = RecordingLauncher()
 
-    swapped = provider.with_solver_launcher(steps, launcher)
+    swapped = pipeline.with_solver_launcher(steps, launcher)
 
     assert [step.name for step in swapped] == [step.name for step in steps]
     solver_steps = [step for step in swapped if isinstance(step, RunSolverStep)]
@@ -430,20 +429,11 @@ class _SolverStep(_Step):
         return state.advance(step_index=state.step_index + 1, step_name=self.name)
 
 
-class _Provider:
-    """The workflow provider over the toy steps above."""
-
-    def make_pipeline(self, steps, *, run_dir=None):
-        return Pipeline(steps, run_dir=run_dir)
-
-    def make_state(self, run_id, data):
-        return PipelineState(run_id=run_id, data=dict(data))
+class _Provider(FakePipeline):
+    """The workflow pipeline over the toy steps above."""
 
     def with_solver_launcher(self, steps, launcher):
         return tuple(_SolverStep(launcher) if step.name == "run_solver" else step for step in steps)
-
-    def apply_structural_updates_from_data(self, ctx) -> None:
-        del ctx
 
 
 def _bind_flow(state: PipelineState) -> None:
@@ -496,7 +486,7 @@ def _toy_trial_context(tmp_path: Path, stores: dict[str, str]) -> TrialContext:
 
 @pytest.fixture
 def toy(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider)
+    monkeypatch.setattr(trial_module, "_PIPELINE", _Provider())
     monkeypatch.setattr("hydromodpy.solver.base.runner.SimulationRunner", _Solver)
     _Solver.solves.clear()
     stores: dict[str, str] = {}

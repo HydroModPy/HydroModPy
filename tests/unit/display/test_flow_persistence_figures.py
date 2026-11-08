@@ -64,15 +64,13 @@ def test_each_cycle_counts_the_steps_a_cell_flows() -> None:
     assert counts[[OUTLET, MIDDLE, HEAD, HILLSLOPE]].tolist() == [12, 5, 5, 0]
 
 
-def _sealed_heads_run(**heads):
+def _sealed_heads_run(**map_knobs):
     """A transient run scored under the heads rule with the given settings."""
     run = transient_run()
     output = {
         "support": "network",
-        "observed_network": "data.hydrography",
-        "tau_specific_ratio": 0.0,
-        "observed_rasterization": "heads",
-        **heads,
+        "model": {"seepage_threshold": 0.0},
+        "map": {"complete": "data.hydrography", "drawn_by": "heads", **map_knobs},
     }
     run.dir = sealed_search({"outputs": {"streams": output}})
     return run
@@ -85,7 +83,7 @@ def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
     defaults: a run sealed under 'heads' with a non-default radius would then
     count flowing cells on a map the trial never scored.
     """
-    run = _sealed_heads_run(heads_snap_radius=150.0, heads_min_drained_area_km2=0.06)
+    run = _sealed_heads_run(heads={"radius": 150.0, "min_drained_area": 0.06})
 
     geometry = flow_geometry(run)
 

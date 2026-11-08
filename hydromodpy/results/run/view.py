@@ -74,11 +74,12 @@ from __future__ import annotations
 
 import json as _json
 import tomllib
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.layout import catalog_path_for
@@ -218,14 +219,21 @@ def project_root_of(run_dir: Path) -> tuple[Path, str] | None:
     return None
 
 
-def open_run_dir(run_dir: str | Path) -> Run:
+def open_run_dir(
+    run_dir: str | Path,
+    *,
+    read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+) -> Run:
     """Open the sealed run in *run_dir* from its own files, without the index.
 
     The run reads its row from its seal, its tables and fields from its
     directory, so a run copied out of its project or a project never indexed
-    reads the same. Raises :class:`~hydromodpy.results.errors.RunNotSealedError`
-    for a directory without ``manifest.json``: a run that never completed is
-    read through the index of its project, or from its ``outcome.json``.
+    reads the same. *read_config* is the function that validates a sealed
+    configuration snapshot; without one, :attr:`Run.hydromodpy_config` is
+    refused and the raw mapping stays on :attr:`Run.config_snapshot`. Raises
+    :class:`~hydromodpy.results.errors.RunNotSealedError` for a directory
+    without ``manifest.json``: a run that never completed is read through the
+    index of its project, or from its ``outcome.json``.
     """
     directory = Path(run_dir).expanduser().resolve()
     if not directory.is_dir():
@@ -237,7 +245,7 @@ def open_run_dir(run_dir: str | Path) -> Run:
         )
     located = project_root_of(directory)
     store = RunStore.open(directory, workspace=None if located is None else located[0])
-    return Run(store.sim_id, store)  # type: ignore[arg-type]
+    return Run(store.sim_id, store, read_config=read_config)  # type: ignore[arg-type]
 
 
 def _ledger_files(directory: Path) -> list[Path]:
@@ -291,9 +299,18 @@ class Run(
         refuse_old_member("Run", name)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
-    def __init__(self, sim_id: str, catalog: Catalog) -> None:
+    def __init__(
+        self,
+        sim_id: str,
+        catalog: Catalog,
+        *,
+        read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+    ) -> None:
         self._sim_id = sim_id
         self._catalog_handle = catalog
+        self._read_config = (
+            read_config if read_config is not None else getattr(catalog, "read_config", None)
+        )
         self._row: dict | None = None
         self._sealed: RunRecord | None = None
         self.array = RunArrayProvider(self)
@@ -577,10 +594,14 @@ class Run(
     def hydromodpy_config(self) -> BaseModel:
         """Validated :class:`HydroModPyConfig` rebuilt from the stored snapshot.
 
-        Raises ``ValueError`` when no snapshot was persisted for this run, or
-        when this version of HydroModPy no longer validates the snapshot (a
-        run made by an older version, whose keys were renamed or removed
-        since). :attr:`config_snapshot` still gives the raw mapping.
+        The run reads it through the ``read_config`` function its opener
+        passed: a run opened by ``hmp.open`` or by a ``Project`` carries the
+        one that validates a sealed snapshot, migration included. Raises
+        ``ConfigError`` when this handle carries none: open the run through
+        ``hmp.open`` or pass ``read_config``, the validation of
+        ``HydroModPyConfig.from_dict(run.config_snapshot, sealed=True)``. With
+        a function, a snapshot this version no longer validates raises
+        ``ValueError`` and :attr:`config_snapshot` still gives the raw mapping.
         """
         snapshot = self.config_snapshot
         if snapshot is None:
@@ -588,9 +609,18 @@ class Run(
                 f"Simulation '{self._sim_id}' has no config snapshot; "
                 "cannot rebuild HydroModPyConfig."
             )
-        provider = get_root_config_provider()
+        if self._read_config is None:
+            raise ConfigError(
+                f"This run handle does not carry the function that validates a sealed "
+                f"configuration. Open the run with hmp.open({self.dir}) or by its project, "
+                "or pass read_config to open_run_dir, built on "
+                "HydroModPyConfig.from_dict(run.config_snapshot, sealed=True). "
+                "The raw mapping stays on run.config_snapshot."
+            )
         try:
-            return provider.from_dict(snapshot, sealed=True)
+            return self._read_config(snapshot)
+        except ConfigError:
+            raise
         except Exception as exc:
             raise ValueError(
                 f"The configuration of run '{self._sim_id[:8]}' no longer validates "

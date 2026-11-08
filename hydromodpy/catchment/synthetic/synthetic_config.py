@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from math import isclose
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import TYPE_CHECKING, Annotated, Literal, TypeAlias
 
 from pydantic import Field, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
@@ -232,7 +235,7 @@ class SyntheticGeographicConfig(HydroModelBase):
     )
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> SyntheticGeographicConfig:
+    def from_toml(cls, path: str | Path, *, root: RootConfig | None) -> SyntheticGeographicConfig:
         """Load one config from a TOML file.
 
         Expected section layout:
@@ -250,4 +253,4 @@ class SyntheticGeographicConfig(HydroModelBase):
         """
         from hydromodpy.core.toml_io.loader import validate_toml
 
-        return validate_toml(cls, path, section="synthetic_geographic")
+        return validate_toml(cls, path, root=root, section="synthetic_geographic")

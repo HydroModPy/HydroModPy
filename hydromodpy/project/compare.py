@@ -18,6 +18,7 @@ from scipy.spatial import cKDTree
 from hydromodpy.core.exceptions import ResultsError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.display.run_comparison import draw_maps, draw_series
+from hydromodpy.project.facade import read_sealed_config
 from hydromodpy.results.derive import views
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.run.tables import global_parameters
@@ -361,7 +362,11 @@ def resolve_references(refs: Sequence[str], *, project_root: Path | None) -> lis
         runs_dir = None if project_root is None else runs_dir_for(project_root)
         directories = [Path(ref).expanduser()] + ([runs_dir / ref] if runs_dir else [])
         direct = [path for path in directories if is_sealed(path)]
-        runs = [open_run_dir(direct[0])] if direct else _latest_of_recipe(runs_dir, ref)
+        runs = (
+            [open_run_dir(direct[0], read_config=read_sealed_config)]
+            if direct
+            else _latest_of_recipe(runs_dir, ref)
+        )
         if not runs:
             where = f" under {runs_dir}" if runs_dir else ""
             raise ComparisonReferenceError(
@@ -375,7 +380,11 @@ def resolve_references(refs: Sequence[str], *, project_root: Path | None) -> lis
 def _latest_of_recipe(runs_dir: Path | None, recipe: str) -> list[Run]:
     if runs_dir is None or not runs_dir.is_dir():
         return []
-    sealed = [open_run_dir(path) for path in sorted(runs_dir.iterdir()) if is_sealed(path)]
+    sealed = [
+        open_run_dir(path, read_config=read_sealed_config)
+        for path in sorted(runs_dir.iterdir())
+        if is_sealed(path)
+    ]
     of_recipe = [run for run in sealed if run.record.run.recipe == recipe]
     latest = {
         run.record.run.case_id: run

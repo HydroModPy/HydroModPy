@@ -15,10 +15,11 @@ section model, never to the root.
 
 | part | answers |
 |---|---|
-| `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the loading entry points `from_toml`, `from_dict`, `from_json`, `from_snapshot`, and the cross-section checks |
+| `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the loading entry points `from_toml`, `from_dict`, `from_json`, `from_snapshot`, the cross-section checks, and `ROOT_CONFIG`, the root class and its two migrations handed to the core helpers as an argument |
 | `cross_checks.py` | which keys of a file does the flow solver of the run leave unread, and which pairs of keys spoil each other? It reads the traits the file uses against the `supports` of the solver, a transport solver against the `requires` it names, and the rows of `CONTAMINATIONS`. It names no solver, so a plugin solver is checked like the shipped ones |
 | `section_loader.py` | how is one raw section turned into its model, with paths resolved against the project root? `load_standard_section`, `load_optional_section`, `load_geographic_section`. It serves a TOML file and a mapping alike |
 | `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/sites/` |
+| `toml_examples.py` | `flow_examples(threshold, section_renderer)`, the commented example blocks of the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` tables. An app that writes the TOML template passes it to `generate_toml` |
 | `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory; `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place. `RENAMED_KEYS` lists the keys a file wrote under an old name: a load warns, or refuses a key of `[calibration]`, the doctor renames them, and `migrate_sealed_config_doc` renames them on read in the frozen config of a run on disk. A network output moves across its tables `map`, `model` and `verdict`, which a rename row cannot do, so `_rewrite_the_network_outputs` writes it, for the doctor and for a sealed read, from the rows of `CALIBRATION_RENAMES` |
 | `export_checks.py` | the checks of `[[export]]` names and of the dates of `[[export]]` and `[display]` against the run (`check_export_variables`, `check_time_selectors`), run by step 0 and by `hmp config check` (`project/check.py`) |
 
@@ -158,10 +159,8 @@ with a sentence:
 `solver`, `calibration`, `results` and `display`
 (`tests/unit/architecture/layer_matrix.yaml`): every layer it composes, and
 nothing above them. Only the root facade, `workflow`, `project` and `cli` import
-it. A lower layer that needs the root model or a migration (`core`, `schema`,
-`results`, `calibration`) reaches it through the protocol of
-`core/config_kit/root_config_protocol.py`, which `hydromodpy/_bootstrap.py`
-wires.
+it. A lower layer receives the root model or class as an argument, and
+`calibration` loads configuration through `trial_pipeline()`.
 
 ## Where to add what
 

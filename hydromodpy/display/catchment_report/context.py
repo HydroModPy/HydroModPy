@@ -8,7 +8,10 @@ import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -50,16 +53,18 @@ class SeriesStats:
         )
 
 
-def build_context_from_report_config(config_path: Path) -> Path:
+def build_context_from_report_config(config_path: Path, *, root: RootConfig | None) -> Path:
     """Build context JSON, context HTML and assets from a catchment report TOML."""
-    inputs = CatchmentReportInputs.from_toml(config_path)
-    return build_context(inputs)
+    inputs = CatchmentReportInputs.from_toml(config_path, root=root)
+    return build_context(inputs, root=root)
 
 
-def build_context(inputs: CatchmentReportInputs) -> Path:
+def build_context(inputs: CatchmentReportInputs, *, root: RootConfig | None) -> Path:
     """Build the context artifacts consumed by ``build_catchment_report``.
 
-    They land under ``report/context/`` of the run the report describes.
+    They land under ``report/context/`` of the run the report describes. The
+    caller passes the ``RootConfig`` it holds, or ``None`` for a report read
+    outside a session, which reads the configuration as it is written.
     """
     context_dir = inputs.context_dir
     assets_dir = inputs.context_assets
@@ -67,7 +72,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     context_dir.mkdir(parents=True, exist_ok=True)
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    config = load_toml_with_base_config(inputs.transient_config)
+    config = load_toml_with_base_config(inputs.transient_config, root=root)
     with open_simulation_run(inputs) as store:
         simulated = read_simulated_discharge(store, station=inputs.observed_discharge_station_id)
         parquet_dir = simulation_parquet_dir(store)

@@ -147,10 +147,12 @@ enabled = false
 
 
 def _prepare(tmp_path: Path, depth_model: str, path: str):
-    import hydromodpy
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
     from hydromodpy.calibration.runners.trial import prepare_trials
 
-    hydromodpy.bootstrap()
+    fill_trial_pipeline()
     config_path = tmp_path / "project.toml"
     config_path.write_text(
         PROJECT_TOML.format(root=tmp_path.as_posix(), depth_model=depth_model),

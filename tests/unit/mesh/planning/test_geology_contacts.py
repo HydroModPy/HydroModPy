@@ -9,6 +9,10 @@ contacts is refused with a message that names it.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import Any
+
 import geopandas as gpd
 import numpy as np
 import pytest
@@ -29,6 +33,33 @@ from hydromodpy.model.domain.spatial_support_config import (
 from tests._helpers.mesh_cases import LAMBERT93_WKT
 
 _L93 = LAMBERT93_WKT
+
+
+def _serving(frame: gpd.GeoDataFrame) -> Callable[..., Mapping[str, Any]]:
+    """A ``read_vector`` serving one map already read, so no test here opens the data layer."""
+
+    def read_vector(config, config_path=None):
+        return {"gdf": frame}
+
+    return read_vector
+
+
+def _refusing() -> Callable[..., Mapping[str, Any]]:
+    """A ``read_vector`` a case that reads no vector map must never reach."""
+
+    def read_vector(config, config_path=None):
+        raise AssertionError("this geology_lines case reads no vector map")
+
+    return read_vector
+
+
+def _frame_from_file(path: Path, code_field: str = "code") -> gpd.GeoDataFrame:
+    """Read one vector map from disk and name its zones the way the data reader does."""
+    frame = gpd.read_file(path)
+    frame["zone_key"] = frame[code_field].astype(str).str.strip()
+    return frame
+
+
 _T_MAP = (
     ("a", box(0.0, 0.0, 200.0, 100.0)),
     ("b", box(0.0, 100.0, 100.0, 200.0)),
@@ -109,11 +140,20 @@ def test_an_island_zone_gives_a_closed_contact() -> None:
 
 def test_a_raster_source_has_no_contact_line() -> None:
     assert (
-        geology_lines({"source": {"path": "geology.tif"}}, config_path=None, crs_wkt=_L93) is None
+        geology_lines(
+            {"source": {"path": "geology.tif"}},
+            config_path=None,
+            crs_wkt=_L93,
+            read_vector=_refusing(),
+        )
+        is None
     )
     assert (
         geology_lines(
-            {"source": {"path": "g.dat", "kind": "raster"}}, config_path=None, crs_wkt=_L93
+            {"source": {"path": "g.dat", "kind": "raster"}},
+            config_path=None,
+            crs_wkt=_L93,
+            read_vector=_refusing(),
         )
         is None
     )
@@ -131,6 +171,7 @@ def test_a_vector_source_reads_its_contacts(tmp_path) -> None:
         {"source": {"path": str(path), "kind": "vector", "code_field": "code"}},
         config_path=tmp_path / "project.toml",
         crs_wkt=_L93,
+        read_vector=_serving(_frame_from_file(path)),
     )
     pairs = {(left, right) for left, right in zip(contacts.zone_left, contacts.zone_right)}
     assert pairs == {("1", "3"), ("2", "3"), ("1", "2")}
@@ -149,6 +190,7 @@ def test_a_map_in_another_crs_is_reprojected_to_the_project_crs(tmp_path) -> Non
         {"source": {"path": str(path), "kind": "vector", "code_field": "code"}},
         config_path=tmp_path / "project.toml",
         crs_wkt=_L93,
+        read_vector=_serving(_frame_from_file(path)),
     )
     expected = contact_lines((str(code), polygon) for code, polygon in zones)
     assert len(contacts.lines) == len(expected.lines) == 3
@@ -242,7 +284,12 @@ def _map_with_no_crs(tmp_path) -> GeologyLines | None:
     path = tmp_path / "geology_nocrs.gpkg"
     frame.to_file(path)
     config = {"source": {"path": str(path), "kind": "vector", "code_field": "code"}}
-    return geology_lines(config, config_path=tmp_path / "project.toml", crs_wkt=_L93)
+    return geology_lines(
+        config,
+        config_path=tmp_path / "project.toml",
+        crs_wkt=_L93,
+        read_vector=_serving(_frame_from_file(path)),
+    )
 
 
 def _rings(**members: object) -> GeologyLines | None:
@@ -254,7 +301,9 @@ def _rings(**members: object) -> GeologyLines | None:
 
 _REFUSALS = {
     "source with no path": (
-        lambda _: geology_lines({"source": {}}, config_path=None, crs_wkt=_L93),
+        lambda _: geology_lines(
+            {"source": {}}, config_path=None, crs_wkt=_L93, read_vector=_refusing()
+        ),
         "a geology support needs source.path",
     ),
     "zone drawn as a line": (

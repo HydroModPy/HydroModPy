@@ -7,32 +7,32 @@ sampler state natively via its ``ask()`` / ``tell()`` API.
 from __future__ import annotations
 
 import warnings
-from typing import Literal
+from typing import Any, Literal
 
-import optuna
-
+from hydromodpy.calibration.optim.method_config import OptunaMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace, refuse_normal_sampling
 
-_SAMPLERS = {
-    "tpe": optuna.samplers.TPESampler,
-    "random": optuna.samplers.RandomSampler,
-    "cmaes": optuna.samplers.CmaEsSampler,
-    "nsga": optuna.samplers.NSGAIISampler,
-}
+
+def _samplers(optuna_module):
+    return {
+        "tpe": optuna_module.samplers.TPESampler,
+        "random": optuna_module.samplers.RandomSampler,
+        "cmaes": optuna_module.samplers.CmaEsSampler,
+        "nsga": optuna_module.samplers.NSGAIISampler,
+    }
 
 
-@register_optimizer("optuna")
 class OptunaAdapter:
     """Drive an Optuna study via ask/tell."""
 
     name = "optuna"
+    options = OptunaMethodConfig
     traits = EngineTraits(draws_a_normal=False, takes_width=True)
 
     def __init__(
@@ -44,12 +44,16 @@ class OptunaAdapter:
         direction: Literal["minimize"] = "minimize",
         width: int = 1,
     ):
-        if sampler not in _SAMPLERS:
-            raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")
+        import optuna
+
+        self._optuna = optuna
+        samplers = _samplers(optuna)
+        if sampler not in samplers:
+            raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(samplers)}")
         for param in space.parameters:
             refuse_normal_sampling("optuna", param.name, param.sampling)
         self.space = space
-        sampler_cls = _SAMPLERS[sampler]
+        sampler_cls = samplers[sampler]
         sampler_kwargs = {"seed": seed} if seed is not None else {}
         if sampler == "tpe" and width > 1:
             # The trials of a batch are asked before any is told. Counting the ones in
@@ -62,7 +66,7 @@ class OptunaAdapter:
         # Silence optuna's INFO chatter unless user overrides externally.
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         self._study = optuna.create_study(sampler=sampler_obj, direction=direction)
-        self._pending: dict[int, optuna.trial.Trial] = {}
+        self._pending: dict[int, Any] = {}
         self._history: list[EvaluationResult] = []
         self._trial_id = 0
 
@@ -95,7 +99,7 @@ class OptunaAdapter:
             if r.status == "completed":
                 self._study.tell(trial, r.cost)
             else:
-                self._study.tell(trial, state=optuna.trial.TrialState.FAIL)
+                self._study.tell(trial, state=self._optuna.trial.TrialState.FAIL)
             self._history.append(r)
 
     def best(self) -> EvaluationResult | None:

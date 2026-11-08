@@ -51,12 +51,12 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     """
     from pydantic import ValidationError
 
+    from hydromodpy.calibration.runners.trial import trial_pipeline
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.error_locator import format_validation_error
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     try:
-        raw = load_toml_with_base_config(path)
+        raw = trial_pipeline().load_document(path)
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from None
     if "calibration" not in raw:
@@ -110,10 +110,10 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
     if not getattr(cfg, "parameters", None):
         return
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+    from hydromodpy.calibration.runners.trial import trial_pipeline
 
     try:
-        project_cfg = get_root_config_provider().from_toml(config_path)
+        project_cfg = trial_pipeline().load_config(config_path)
     except UnresolvedParameterName:
         # The names are the file's own business and the message already says which
         # one is wrong. Swallowing it here left the run to fail three steps later

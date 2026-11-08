@@ -242,7 +242,9 @@ def load_case_metadata(case_dir: Path) -> dict:
 
 def load_case_config(case_dir: Path, filename: str) -> dict:
     """Load one case-local config file with optional ``base_config`` support."""
-    return load_toml_with_base_config(case_dir / filename)
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+    return load_toml_with_base_config(case_dir / filename, root=ROOT_CONFIG)
 
 
 def merge_case_flow_section(

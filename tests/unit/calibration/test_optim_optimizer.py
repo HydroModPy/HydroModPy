@@ -16,15 +16,17 @@ import sklearn  # noqa: F401
 
 from hydromodpy.calibration.optim import optimizer as optimizer_module
 from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.method_config import OptunaMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
+    OptimizerError,
     ParamSuggestion,
     build_optimizer,
     choose_method,
+    optimizers,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.core.exceptions import OptimizerError
 from tests.unit.calibration._factories import two_dim_space, unit_space
 from tests.unit.calibration._factories_search import make_space, result_of, run_engine
 
@@ -150,7 +152,7 @@ class TestCanonicalAdapters:
 class TestLegacyAdapterInputsRejected:
     @pytest.mark.parametrize("name", ["simplex", "nelder_mead"])
     def test_removed_nelder_mead_names_are_rejected(self, name: str) -> None:
-        with pytest.raises(KeyError, match="Unknown optimizer"):
+        with pytest.raises(OptimizerError, match="Unknown optimizer"):
             build_optimizer(name, two_dim_space())
 
     def test_grid_rejects_n_per_dim(self) -> None:
@@ -984,13 +986,16 @@ def test_a_start_point_of_the_wrong_size_is_refused() -> None:
 
 
 def test_an_adapter_module_that_will_not_import_stays_unregistered(monkeypatch) -> None:
+    """An adapter module that raises on import holds no registration, loud or not."""
     modules = [SimpleNamespace(name="_private"), SimpleNamespace(name="ghost_adapter")]
-    monkeypatch.setattr(optimizer_module, "_LOADED", False)
     monkeypatch.setattr(pkgutil, "iter_modules", lambda path: modules)
 
-    optimizer_module._ensure_builtins_loaded()
-
-    assert optimizer_module._LOADED
+    # The scan never imports an adapter at listing time: a declared name with
+    # no loadable class is absent from the registry, and the refusal names it.
+    served = optimizers.names()
+    assert "ghost_adapter" not in served
+    with pytest.raises(OptimizerError, match="ghost_adapter"):
+        build_optimizer("ghost_adapter", two_dim_space())
 
 
 def test_the_engine_reports_and_journals_each_result_it_read_and_refreshes() -> None:

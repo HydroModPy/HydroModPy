@@ -131,9 +131,9 @@ enabled = false
 
 def _project(root: Path, runner: str) -> Path:
     """Write the synthetic project and its station on disk, the way a user would."""
-    import hydromodpy
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
-    hydromodpy.bootstrap()
+    fill_trial_pipeline()
     station = root / "piezometry"
     station.mkdir(parents=True)
     (station / "piezometry_custom_LOC.csv").write_text(f"id,x,y\n{STATION},7.0,1.0\n")

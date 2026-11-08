@@ -97,7 +97,9 @@ def _build_entry(spec: ExampleSpec, root: Path) -> ExampleEntry:
         _describe(root, path, f"projects/{spec.directory}/{path.name}")
         for path in authored_files(project_dir)
     ]
-    data_files, stations = project_data(project_dir, root / "examples" / "data")
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+    data_files, stations = project_data(project_dir, root / "examples" / "data", root=ROOT_CONFIG)
     data = [_describe(root, path, f"data/{path.parent.name}/{path.name}") for path in data_files]
     if not any(item.dest.endswith(f"/{spec.entry_config}") for item in authored):
         raise ConfigError(

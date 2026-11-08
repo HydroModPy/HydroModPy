@@ -21,7 +21,7 @@ from hydromodpy.core.config_kit.introspect import (
     named_tables_of,
 )
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.config_kit.root import RootConfig, model_of
 from hydromodpy.core.toml_io.model_types import (
     is_mapping_field,
     resolve_basemodel_type,
@@ -436,6 +436,7 @@ def repeated_root_section(
     values: list[dict] | None = None,
     *,
     from_instance: bool = False,
+    root: type[BaseModel] | RootConfig,
 ) -> list[str]:
     """Generate a root array of tables such as ``[[export]]``.
 
@@ -443,7 +444,8 @@ def repeated_root_section(
     field. The body is the entries in *values*. With none, a template shows
     one example entry and a config written from instances shows nothing.
     """
-    field_info = get_root_config_provider().root_model().model_fields.get(section_name)
+    root_cls = model_of(root)
+    field_info = root_cls.model_fields.get(section_name)
     title = (item_cls.__doc__ or section_name).strip().split("\n")[0]
     lines = ["", _RULE, f"# {title}", _RULE]
     if field_info is not None and field_info.description:

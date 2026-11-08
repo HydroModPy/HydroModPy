@@ -15,11 +15,12 @@ from matplotlib.ticker import ScalarFormatter
 
 from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.catchment.synthetic.synthetic_config import SyntheticGeographicConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 
 
 def run_synthetic_geographic_case_from_toml(config_toml: str | Path):
     """Build one synthetic geographic runtime from its local TOML config."""
-    config = SyntheticGeographicConfig.from_toml(config_toml)
+    config = SyntheticGeographicConfig.from_toml(config_toml, root=ROOT_CONFIG)
     output_dir = Path(__file__).resolve().parent / "outputs" / config.case_id
     geographic = build_synthetic_geographic(
         config=config,

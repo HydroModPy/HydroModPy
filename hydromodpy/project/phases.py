@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 
 def _read_config(project: Project, config: str | Path | HydroModPyConfig) -> dict:
     """Set the configuration of *project* from a built object or a TOML file; return the raw TOML."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
     from hydromodpy.core.config_kit.base import thawed_copy
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -40,7 +40,7 @@ def _read_config(project: Project, config: str | Path | HydroModPyConfig) -> dic
         return {}
     project._config_path = Path(config).resolve()
     project._cfg = HydroModPyConfig.from_toml(project._config_path)
-    return load_toml_with_base_config(project._config_path)
+    return load_toml_with_base_config(project._config_path, root=ROOT_CONFIG)
 
 
 def configure(
@@ -275,7 +275,9 @@ def open_catalog(project: Project) -> None:
     project._project_name = ws.project_root.name
     if not catalog_path_for(Path(ws.project_root)).is_file():
         return
-    project._store = Catalog(Path(ws.project_root))
+    from hydromodpy.project.facade import read_sealed_config
+
+    project._store = Catalog(Path(ws.project_root), read_config=read_sealed_config)
 
 
 def _refuse_another_solver(cfg: HydroModPyConfig, solver: str | None) -> None:

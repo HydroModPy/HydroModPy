@@ -118,17 +118,18 @@ def preflight_launch(
     """
     import warnings
 
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-
     path = Path(config_path).expanduser().resolve()
     if not hasattr(config, "model_copy"):
         # No configuration held, or one that is not a validated model: the
         # file is the configuration.
+        from hydromodpy.calibration.runners.trial import trial_pipeline
+
+        pipeline = trial_pipeline()
         try:
             with warnings.catch_warnings():
                 # The run's own loading prints what the file has to change.
                 warnings.simplefilter("ignore")
-                config = get_root_config_provider().from_toml(path)
+                config = pipeline.load_config(path)
         except Exception:
             logger.debug("No project configuration to preflight in %s", path, exc_info=True)
             return []
@@ -240,10 +241,10 @@ def _raw_document(config: Any, source: Path) -> Mapping[str, Any]:
     memory has no file, and the document is its configuration, dumped the way
     ``Project.calibrate`` writes it for the staged runner.
     """
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.calibration.runners.trial import trial_pipeline
 
     if source.is_file() or not hasattr(config, "model_dump"):
-        return load_toml_with_base_config(source)
+        return trial_pipeline().load_document(source)
     return config.model_dump(mode="json", exclude_none=True)
 
 
@@ -775,12 +776,12 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
     from hydromodpy.calibration.optim.method_config import method_options_problem
     from hydromodpy.calibration.optim.optimizer import (
         announced_optimizers,
-        available_optimizers,
         engine_traits,
+        optimizers,
     )
     from hydromodpy.calibration.optim.parameters import refuse_normal_sampling
 
-    known = set(available_optimizers())
+    known = set(optimizers.names())
     options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
     findings: list[PreflightFinding] = []
     for where, method, names, metrics, parallel in _searches(calibration):
@@ -909,9 +910,9 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
     after phase one has spent its budget. A precision that was never going to be
     readable has to be refused before the first solve, not after the last.
     """
-    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+    from hydromodpy.calibration.optim.optimizer import engine_traits, optimizers
 
-    known = set(available_optimizers())
+    known = set(optimizers.names())
     findings: list[PreflightFinding] = []
     linearized = _linearized_scored_outputs(calibration)
     if linearized:

@@ -1,8 +1,8 @@
 # core/contracts
 
 This folder answers: what do two layers agree on when neither may import the other? It holds only
-protocols and small state objects, with no behaviour of their own. Each one is filled in
-at bootstrap by the layer that owns the real code.
+protocols and small state objects, with no behaviour of their own. The concrete classes live in the
+layer that owns them, and an instance travels as an argument of the caller.
 
 ## Modules
 
@@ -13,11 +13,13 @@ at bootstrap by the layer that owns the real code.
 
 ## What other layers import from it
 
-`solver`, `workflow`, `calibration` and `display`. The root `_bootstrap.py` fills the ones that need a layer above.
+`solver` (`SolverModel`), `calibration` (`observables`) and `display` (`overview`). `data` says the
+surface of its cache catalog against the `DataCacheBackend` protocol, and its own caches in
+`data/registry/backend.py` carry the SQL-level copies.
 
 ## Where to add what
 
-- A new protocol between two layers: a new module here, then its wiring in `hydromodpy/_bootstrap.py`.
+- A new protocol between two layers: one module here, and the concrete class in the layer that owns it.
 - Real code: never here, in the layer that owns it.
 
 The layer rules are checked by `tests/unit/architecture/`.

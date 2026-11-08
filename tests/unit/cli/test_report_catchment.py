@@ -11,6 +11,7 @@ import pytest
 
 from hydromodpy.cli.commands.report import CATCHMENT_PRESETS
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.display.catchment_report.builder import PRESETS_BY_NAME, CatchmentReportPreset
 from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
@@ -33,6 +34,7 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
         build_report_html: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
+        root: RootConfig | None = None,
     ) -> CatchmentReportPipelineResult:
         captured.update(
             report_config=report_config,
@@ -87,6 +89,7 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
         build_report_html: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
+        root: RootConfig | None = None,
     ) -> CatchmentReportPipelineResult:
         captured.update(
             report_config=report_config,
@@ -154,6 +157,7 @@ def test_report_catchment_can_disable_toml_run_simulation(monkeypatch, tmp_path)
         build_report_html: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
+        root: RootConfig | None = None,
     ) -> CatchmentReportPipelineResult:
         captured.update(
             report_config=report_config,
@@ -199,6 +203,7 @@ def test_report_catchment_report_only_skips_run_steps_by_default(
         build_report_html: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
+        root: RootConfig | None = None,
     ) -> CatchmentReportPipelineResult:
         captured.update(
             run_overview=run_overview,

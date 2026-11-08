@@ -349,6 +349,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     """
     import shutil
 
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
     from hydromodpy.project.exchange.replay import ReplayInputError, replay_payload
@@ -357,7 +358,9 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     folder = root / ".hmp" / "replay"
     workdir = folder / copy_dir.name
     try:
-        payload = replay_payload(copy_dir, load_toml_with_base_config(config_path), workdir=workdir)
+        payload = replay_payload(
+            copy_dir, load_toml_with_base_config(config_path, root=ROOT_CONFIG), workdir=workdir
+        )
     except ReplayInputError as exc:
         shutil.rmtree(workdir, ignore_errors=True)
         if folder.is_dir() and not any(folder.iterdir()):

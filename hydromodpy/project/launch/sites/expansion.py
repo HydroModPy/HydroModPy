@@ -30,6 +30,7 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.config.sites import (
     RECIPE_NAME_PATTERN,
     RecipeSpec,
@@ -289,11 +290,11 @@ def expand_plan(
             f"a [sites] project is anchored by {PROJECT_MARKER_FILENAME} at its root; none "
             f"in {root}"
         )
-    chain = read_toml_chain(path)
+    chain = read_toml_chain(path, root=ROOT_CONFIG)
     sites_file = find_sites_file(chain)
     if sites_file is None:
         raise SitesProjectError(f"{path}: no [sites] section in the file or its base_config chain")
-    project_doc = merge_toml_chain(chain[: chain.index(sites_file) + 1])
+    project_doc = merge_toml_chain(chain[: chain.index(sites_file) + 1], root=ROOT_CONFIG)
     if "site" in project_doc:
         raise SitesProjectError(
             f"{sites_file.path}: [site] is declared beside [sites]; remove [site], each "
@@ -303,8 +304,6 @@ def expand_plan(
         sites_config = SitesConfig.model_validate(project_doc["sites"])
     except ValidationError as exc:
         raise SitesProjectError(f"{sites_file.path}: [sites] {exc}") from exc
-
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     project_label = _relative_label(sites_file.path, root)
     project_bindings = resolve_bindings(
@@ -466,7 +465,6 @@ def _resolve_sites(
     if sites.table is None:
         effective = list(bindings)
         names = {str(b.path) for b in effective}
-        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
         for key, column in CATALOG_BIND.items():
             if key not in names:
@@ -537,7 +535,7 @@ def _resolve_sites(
                 override_path = candidate
                 inputs.append(candidate)
                 try:
-                    override = load_toml_with_base_config(candidate)
+                    override = load_toml_with_base_config(candidate, root=ROOT_CONFIG)
                 except (ValueError, TypeError) as exc:
                     errors.append(
                         PlanIssue(message=str(exc), origin=_relative_label(candidate, root))
@@ -647,7 +645,7 @@ def _resolve_recipes(
         inputs.extend(item.path for item in chain)
         leaf = chain[-1]
         if leaf.path == sites_file.path:
-            base: Mapping[str, Any] = merge_toml_chain(chain)
+            base: Mapping[str, Any] = merge_toml_chain(chain, root=ROOT_CONFIG)
             own: Mapping[str, Any] = {}
             recipe_bind: Mapping[str, Any] = {}
         else:
@@ -657,7 +655,7 @@ def _resolve_recipes(
                     f"[sites.recipes] {name}: {file} does not inherit the project file "
                     f'{sites_file.path.name}; write base_config = "{sites_file.path.name}"'
                 )
-            base = merge_toml_chain(chain[:-1])
+            base = merge_toml_chain(chain[:-1], root=ROOT_CONFIG)
             own = dict(leaf.own)
             recipe_bind = dict((own.get("sites") or {}).get("bind") or {})
         label = _relative_label(file, root)
@@ -690,7 +688,7 @@ def _resolve_recipes(
 def _read_recipe_chain(name: str, file: Path) -> tuple[ChainFile, ...]:
     """Read the chain of a recipe file; a file that cannot be read names the recipe."""
     try:
-        return read_toml_chain(file)
+        return read_toml_chain(file, root=ROOT_CONFIG)
     except tomllib.TOMLDecodeError as exc:
         raise SitesProjectError(f"[sites.recipes] {name}: {file}: invalid TOML: {exc}") from exc
     except (OSError, TypeError, ValueError) as exc:

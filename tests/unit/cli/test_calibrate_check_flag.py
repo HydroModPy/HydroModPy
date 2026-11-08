@@ -248,10 +248,10 @@ def test_a_departure_no_key_brings_back_is_named_and_said_in_verbose(tmp_path) -
 
 def test_a_launch_says_where_it_departs_before_anything_is_solved(tmp_path, caplog) -> None:
     from hydromodpy.calibration.preflight import refuse_what_the_preflight_refuses
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     path = _protocol_file(tmp_path, end="2002-12-31")
-    config = get_root_config_provider().from_toml(path)
+    config = HydroModPyConfig.from_toml(path)
 
     with caplog.at_level("INFO"):
         refuse_what_the_preflight_refuses(config, source=path)

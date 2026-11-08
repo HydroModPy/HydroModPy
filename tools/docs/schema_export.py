@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.schema.config_schema import editor_schema
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +26,9 @@ def export_schema(output_path: Path | None = None) -> Path:
     """Write the editor JSON Schema 2020-12 of ``HydroModPyConfig`` and return its path."""
     target = output_path or SCHEMA_OUTPUT
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(editor_schema(), indent=2) + "\n", encoding="utf-8")
+    target.write_text(
+        json.dumps(editor_schema(HydroModPyConfig), indent=2) + "\n", encoding="utf-8"
+    )
     return target
 
 

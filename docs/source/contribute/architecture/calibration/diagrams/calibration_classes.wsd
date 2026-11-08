@@ -115,7 +115,7 @@ Promotion ..> TrialModule : promote_prepared_trial
 
 note bottom of Optimizer
 One module per search method in
-optim/adapters/, registered with
-@register_optimizer("name").
+optim/adapters/, declared via
+name, options and entry points.
 end note
 @enduml

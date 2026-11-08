@@ -23,7 +23,6 @@ from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
-from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
@@ -52,7 +51,6 @@ MARKED: dict[type[BaseModel], tuple[str, ...]] = {
         "ts_vi_snes_type",
         "partition_release_depth_m",
     ),
-    TransportConfig: ("modflow6prt", "modpath"),
     FlowSinksSourcesConfig: ("flow_barriers",),
     FlowLakeConfig: ("cutoff_wall",),
     SoilReservoirConfig: (
@@ -89,8 +87,6 @@ STABLE_FIELDS: tuple[tuple[type[BaseModel], str], ...] = (
     (MeshConfig, "voronoi"),
     (Modflow6Config, "runtime"),
     (SoilReservoirConfig, "ru"),
-    (TransportConfig, "mt3dms"),
-    (TransportConfig, "modflow6gwt"),
 )
 
 
@@ -227,7 +223,6 @@ def test_field_metadata_helper_rejects_typos() -> None:
 
 
 def _iter_basemodel_classes():
-    importlib.import_module("hydromodpy._bootstrap").bootstrap()
     package = importlib.import_module("hydromodpy")
     seen: set[type[BaseModel]] = set()
     for module_info in pkgutil.walk_packages(package.__path__, prefix="hydromodpy."):

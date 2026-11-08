@@ -21,13 +21,13 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.calibration.optim.method_config import CmaEsMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_center
@@ -39,7 +39,6 @@ _SEED_FOR_ZERO = 2**31 - 1
 """The seed that stands for 0, which ``cma`` would draw from the clock."""
 
 
-@register_optimizer("cma_es")
 class CmaEsAdapter:
     """Adapter for the ``cma`` package's CMA-ES strategy.
 
@@ -70,6 +69,7 @@ class CmaEsAdapter:
     """
 
     name = "cma_es"
+    options = CmaEsMethodConfig
 
     traits = EngineTraits(
         accepts_a_start_point=True,

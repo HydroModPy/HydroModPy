@@ -14,7 +14,7 @@ from the base here, so the strictness and the visibility rules are written once.
 7. `written.py` tells what a config was given, as opposed to the defaults it took (the frozen config of a run).
 8. `stored.py` reads a stored document, which may come from a later 2.x.
 9. `dump.py` writes a model as a commented TOML document (`dump_toml_with_comments`), the code behind `HydroModelBase.to_toml`.
-10. `registry.py` lists the root TOML sections (`root_sections`), derived from the root model through `root_config_protocol.py`, the protocol that lets core reach the root config without importing it.
+10. `root.py` is `RootConfig`, the root model class and its two migrations held together. Every helper that reads sections or migrates a file receives it as its `root` argument, which is how core reaches the root config without importing `config`. `registry.py` walks that argument (`root_sections`, `repeated_root_sections`, `root_scalar_fields`) and keeps no module cache.
 11. `field_param/` is the schema of a field-parameter TOML payload (`sections.py`, `units.py`, and `config.py` that resolves it). It lives here because `model/properties/` builds the field from it and `model/flow_config.py` embeds it in `[flow.param.<id>]`.
 
 The `[[export]]` request moved to `hydromodpy/results/exporters/export_spec.py`.

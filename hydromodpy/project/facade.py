@@ -412,7 +412,7 @@ class Project:
             return store
         if store is not None:
             store.close()
-        self._store = Catalog(self.root)
+        self._store = Catalog(self.root, read_config=read_sealed_config)
         return self._store
 
     @property
@@ -939,6 +939,19 @@ class Project:
         )
 
 
+def read_sealed_config(snapshot: Mapping[str, object]) -> object:
+    """Validate the sealed configuration snapshot of a run, the way its run read it.
+
+    ``results`` never imports this package: whoever opens a run for reading
+    hands this function to the ``read_config`` argument of ``Catalog``,
+    ``open_run_dir`` or ``Session``, and the run applies it to
+    ``config_snapshot`` only when ``run.hydromodpy_config`` is read.
+    """
+    from hydromodpy.config import HydroModPyConfig
+
+    return HydroModPyConfig.from_dict(dict(snapshot), sealed=True)
+
+
 def resolve_config(config: str | Path | object | dict) -> object:
     """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
 
@@ -962,6 +975,7 @@ def configure_opened(project: Project) -> None:
     A ``[sites]`` project has one configuration per case, written by its
     plan; it is read and launched, never configured as one model.
     """
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import read_toml_chain
     from hydromodpy.project.launch.sites.expansion import SitesProjectError, find_sites_file
 
@@ -972,7 +986,7 @@ def configure_opened(project: Project) -> None:
             f"{state.root} holds no {PROJECT_MARKER_FILENAME}: an opened project builds "
             "its model from it. Open a configuration with hmp.Project(<file>.toml)."
         )
-    if find_sites_file(read_toml_chain(marker)) is not None:
+    if find_sites_file(read_toml_chain(marker, root=ROOT_CONFIG)) is not None:
         raise SitesProjectError(
             f"{marker} is a [sites] project: each case is configured by its plan. Read "
             "it with proj.cases, launch it with proj.launch(), or build one case with "

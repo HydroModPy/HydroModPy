@@ -180,6 +180,11 @@ hydromodpy = "hydromodpy.cli.main:main"
 # is what [mesh] engine names, so a mesh engine (catchment, regular, triangle
 # and voronoi ship in-tree) is substituted the same way.
 #
+# "hydromodpy.calibration.optimizer" is read by
+# hydromodpy.calibration.optim.optimizer.optimizers. It names an optimizer
+# method, for example grid, and one [calibration.<name>] table of options the
+# adapter that serves it declares, the same way a solver backend does.
+#
 # "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
 # are read by hydromodpy.calibration.evaluation.registry.evaluators and by
 # hydromodpy.calibration.evaluation.forward_registry.forward_models. The first

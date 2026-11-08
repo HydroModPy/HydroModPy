@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from hydromodpy.config.toml_examples import flow_examples
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.model.toml_examples import DynamicFlowExamples
 
 
 def test_the_examples_render_one_block_per_parameter_then_the_drain_and_the_recharge() -> None:
@@ -17,7 +17,7 @@ def test_the_examples_render_one_block_per_parameter_then_the_drain_and_the_rech
         calls.append((section, model, threshold, values))
         return [f"[{section}]"]
 
-    lines = DynamicFlowExamples().render(3, renderer)
+    lines = flow_examples(3, renderer)
 
     assert [call[0] for call in calls] == [
         "flow.param.K.field",

@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index, stored_name
 from hydromodpy.core.site import SiteRow
@@ -106,7 +107,11 @@ def _project_package(tmp_path: Path, *extras: str) -> Path:
     project = _author_project(tmp_path)
     (project / "project.toml").write_text(PROJECT_TOML, encoding="utf-8")
     return export_project(
-        project, tmp_path / "nancon.tar", with_=extras, bundle_of=inputs_of(project)
+        project,
+        tmp_path / "nancon.tar",
+        with_=extras,
+        bundle_of=inputs_of(project),
+        root_config=ROOT_CONFIG,
     )
 
 

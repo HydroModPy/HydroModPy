@@ -157,10 +157,10 @@ def _fix_config(toml_path: str, *, dry_run: bool = False) -> None:
 
 def _refusal_of(file: Path) -> Exception | None:
     """Return what the loader says of *file* when it refuses a retired key, else ``None``."""
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+    from hydromodpy.config import HydroModPyConfig
 
     try:
-        get_root_config_provider().from_toml(file)
+        HydroModPyConfig.from_toml(file)
     except Exception as exc:  # noqa: BLE001 - the message is what the user needs
         # A partial file fails to load for reasons that are not a retired key; only
         # the keys the loader no longer accepts are the doctor's business.
@@ -369,11 +369,12 @@ def probe_toml_workspace(toml_path: Path) -> list[dict]:
     from hydromodpy.core.workspace.exceptions import WorkspaceError
 
     try:
+        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
         from hydromodpy.core.state.result_dirs import resolve_project_root
         from hydromodpy.core.toml_io.loader import load_toml_with_base_config
         from hydromodpy.core.toml_io.paths import resolve_declared_path
 
-        raw = load_toml_with_base_config(toml_path)
+        raw = load_toml_with_base_config(toml_path, root=ROOT_CONFIG)
         # Every relative path of a project is read from its root, the folder
         # that holds project.toml, and the loader sets project_root to it.
         base_dir = resolve_project_root(toml_path.parent)

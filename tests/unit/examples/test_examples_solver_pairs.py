@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.solver.base.registry import solvers
@@ -48,7 +49,7 @@ def _tracked_toml_files() -> list[Path]:
 
 def _declared_pairs(toml_file: Path) -> list[tuple[str, str]]:
     """Return the ``(kind, solver)`` pairs the merged ``[[simulation.process]]`` declare."""
-    payload = load_toml_with_base_config(toml_file)
+    payload = load_toml_with_base_config(toml_file, root=ROOT_CONFIG)
     simulation = payload.get("simulation") or {}
     pairs: list[tuple[str, str]] = []
     for process in simulation.get("process") or []:

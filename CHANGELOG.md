@@ -315,6 +315,25 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A source that declares `period_need = "optional"` serves a request that carries no period. The
   computed recharge, the constant sea level and SHOM answer without a window, and SHOM falls back
   to the start and end dates its section declares.
+- The trial pipeline of calibration is a Protocol of eight methods in
+  `hydromodpy.calibration.runners.trial`, installed once by
+  `hydromodpy.project.trial_pipeline.fill_trial_pipeline` and carried to each
+  worker process of a parallel search as the dotted path of that installer.
+- The TOML template, the JSON schema export, the field validator and the TOML loader take the
+  root configuration as an argument (`generate_toml(root=...)`, `editor_schema(model_cls)`,
+  `validate_field(path, value, root=...)`, `load_toml_with_base_config(path, root=...)`).
+  With `root=None` the loader reads a file the way it is written.
+- The dynamic flow example blocks of the TOML template moved from
+  `hydromodpy.model.toml_examples` to `hydromodpy.config.toml_examples` (the
+  function `flow_examples`), passed to `generate_toml`.
+- `Run.hydromodpy_config` needs a run opened by `hmp.open` or by a Project. Catalog, `open_run_dir`
+  and `Session` take `read_config`, the function that validates a sealed snapshot.
+- Calibration methods resolve through the shared plugin registry,
+  `hydromodpy.calibration.optim.optimizer.optimizers`. A third-party method joins through the
+  new entry-point group `hydromodpy.calibration.optimizer`. Each method declares its options
+  class on its adapter, and the `CalibrationMethodConfig` union is gone.
+- `calibration.method`, the method of a phase, `steady_method` and `transient_method` are checked
+  when the file is read. An unknown name is refused with the names this installation serves.
 
 ### Removed
 
@@ -383,6 +402,19 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   No figure set them.
 - `hydromodpy.display` no longer re-exports names. Import each name from the module that
   defines it.
+- `hydromodpy.bootstrap` and the providers it installed. The library needs no start-up call, and
+  a calibration fills its own trial pipeline, in each worker process too.
+- `register_optimizer`, `available_optimizers` and `typed_methods`. Use `optimizers.names()` and
+  an entry point or an in-tree path.
+- `Catalog.from_toml`, `Catalog.from_json` and `Catalog.from_dict`. Use `hmp.open` on the
+  project, or `Catalog.from_workspace(HydroModPyConfig.from_toml(path).workspace)`.
+- `GeologyField.from_dict` and `GeologyField.from_toml` of
+  `hydromodpy.model.properties.geology_field` are gone. Build a field on its own with
+  `geology_field_from_config` and `geology_field_from_toml` of
+  `hydromodpy.data.variables.geology.io`.
+- `hydromodpy.catchment.protocols`, which registered the geology data source, is gone.
+  `geology_lines` of `hydromodpy/mesh/planning` takes `read_vector`, the reader of one vector
+  geology map, as an argument passed by the caller.
 
 ### Fixed
 

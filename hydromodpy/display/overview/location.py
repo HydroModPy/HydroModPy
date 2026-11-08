@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.state.layout import runs_dir_for
@@ -25,6 +25,9 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_REPORT_DIRNAME,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 
 REVIEW_DIRNAME = "review"
 """Folder of ``report/`` holding the compact, standard and audit review pages."""
@@ -40,9 +43,13 @@ def overview_name(site_name: str | None, overview_name: str | None) -> str:
     return str(name)
 
 
-def overview_name_of_file(config_path: Path) -> str:
-    """Return the directory name of the overview a TOML file configures, its base included."""
-    tables: Mapping[str, Any] = load_toml_with_base_config(Path(config_path))
+def overview_name_of_file(config_path: Path, *, root: RootConfig | None) -> str:
+    """Return the directory name of the overview a TOML file configures, its base included.
+
+    The caller passes the ``RootConfig`` it holds; ``None`` reads the file the way
+    it is written, which is what a report built outside a session does.
+    """
+    tables: Mapping[str, Any] = load_toml_with_base_config(Path(config_path), root=root)
     return overview_name(
         (tables.get("site") or {}).get("name"), (tables.get("overview") or {}).get("name")
     )

@@ -116,6 +116,9 @@ declared under ``<section>_<source_id>``, an export format under its ``name``.
    * - ``hydromodpy.calibration.evaluator``
      - ``TrialEvaluator``, ``hydromodpy.calibration.evaluation.port``
      - experimental
+   * - ``hydromodpy.calibration.optimizer``
+     - ``Optimizer``, ``hydromodpy.calibration.optim.optimizer``
+     - experimental
    * - ``hydromodpy.solver``
      - ``SolverAdapter``, ``hydromodpy.solver.base.adapter_protocol``
      - experimental
@@ -416,8 +419,8 @@ Calibration adapters, objectives and criteria
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Adapter.** A search method is one module of
-  ``hydromodpy/calibration/optim/adapters/`` registered with
-  ``@register_optimizer("name")``, with ``ask`` and ``tell``
+  ``hydromodpy/calibration/optim/adapters/`` declared with its ``name`` and ``options``
+  models and reached through ``PluginRegistry`` or entry points, with ``ask`` and ``tell``
   (:doc:`how-to/add-a-calibration-method`).
 - **Objective.** ``hydromodpy/calibration/optim/objective.py`` defines the
   ``Objective`` Protocol (``name`` and ``evaluate(sim)``) and its implementations,

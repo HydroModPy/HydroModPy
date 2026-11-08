@@ -22,13 +22,16 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     signed_residual,
 )
 from hydromodpy.calibration.optim.engine import CalibrationEngine
-from hydromodpy.calibration.optim.method_config import validate_method_kwargs
+from hydromodpy.calibration.optim.method_config import (
+    BisectionMethodConfig,
+    validate_method_kwargs,
+)
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
-    available_optimizers,
     build_optimizer,
     engine_traits,
+    optimizers,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
@@ -89,11 +92,11 @@ def _run(adapter, *, max_trials: int = 40, **kwargs) -> list[EvaluationResult]:
 
 class TestRegistration:
     def test_the_method_is_registered(self) -> None:
-        assert "bisection" in available_optimizers()
+        assert "bisection" in optimizers.names()
 
     def test_its_kwargs_validate_against_the_frozen_union(self) -> None:
         config = validate_method_kwargs("bisection", {"sweep_points": 0, "rel_tol": 0.01})
-        assert config.method == "bisection"
+        assert isinstance(config, BisectionMethodConfig)
 
     def test_a_foreign_kwarg_is_refused_at_config_time(self) -> None:
         # Registering the adapter is not enough: without an entry in the union

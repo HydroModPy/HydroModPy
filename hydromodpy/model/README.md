@@ -14,7 +14,7 @@ This file is the map of the package. Each folder has its own `README.md`, except
 
 | module | answers |
 |---|---|
-| `contracts.py` | What the model reads without importing it: `LoadResultProto`, `FieldRecordProto`, `FieldParamLike` and the two hooks `_bootstrap.py` fills |
+| `contracts.py` | What the model reads without importing it: the `LoadResultProto` and `FieldRecordProto` views of the loaded data |
 | `flow_config.py` | `FlowConfig`, the `[flow]` schema, the reader of the raw `[flow]` table, and `FLOW_RUNTIME_KEYS`, the table of the old `flow.` names that the migration moves to `[solver.boussinesq]` |
 | `flow.py` | The runtime `Flow`, built from a `FlowConfig`, that the setup binds loaded data to |
 | `model.py` | The frozen `Model` a solver adapter reads, its factories (`with_properties`, `with_initial`, `steady_variant`, `cycle_variant`) and `model_from_flow` |
@@ -22,7 +22,6 @@ This file is the map of the package. Each folder has its own `README.md`, except
 | `initial_config.py` | `[flow.ic]` and `[spinup]`: the payloads of the starting head and the readers of its strategies |
 | `payloads.py` | The generic initial-condition, boundary-condition and sink/source models, and their normalizers |
 | `process_spatial.py` | `ProcessSpatial`, the runtime parent of `Flow` and `Transport` |
-| `toml_examples.py` | The commented examples of the dynamic `[flow.*]` blocks of the TOML template |
 
 | folder | answers |
 |---|---|
@@ -41,9 +40,9 @@ This file is the map of the package. Each folder has its own `README.md`, except
 `tests/unit/architecture/layer_matrix.yaml` gives the model `core`, `schema`, `catchment`, `mesh` and
 itself. Two more rules hold in the code.
 
-1. The model never imports `data`, `results` or `solver`. It sees loaded data through `LoadResultProto`
-   and a field parameter through `FieldParamLike`, both in `contracts.py`. The concrete constructors are
-   registered at start-up by `hydromodpy/_bootstrap.py`.
+1. The model never imports `data`, `results` or `solver`. It sees loaded data through the `LoadResultProto`
+   and `FieldRecordProto` of `contracts.py`, and it builds its field parameters with the `FieldParam`
+   of `properties/field_param.py`.
 2. Inside the package, `boundaries/` reads `contracts`, `forcing`, `payloads` and `sinks_sources`, and
    reads `flow.py` for annotations only. `sinks_sources/` reads `forcing`. `forcing/` and
    `process_spatial.py` read `contracts`, and `forcing/soil_*.py` read `soil/kernel.py`. `process_spatial.py`
@@ -62,7 +61,7 @@ Who imports the model: `solver` (most of it), `workflow`, `calibration`, `config
    `flow_config.py`. It canonicalizes the boundary ids, resolves the forcing paths and validates the table
    into a `FlowConfig`.
 2. Build. `Flow(config=cfg.flow)` runs `set_config`. It fills `parameters` (`FieldParam` objects, through
-   the hooks of `contracts.py`), `initial_conditions`, `boundary_conditions` and `sinks_sources`. Well
+   `process_spatial.py`), `initial_conditions`, `boundary_conditions` and `sinks_sources`. Well
    fluxes and recharge are converted to SI there. `ensure_flow` in `workflow/steps/data.py` builds it at
    setup.
 3. Bind data. After the data step, `workflow/steps/data.py` calls the `apply_*_to_flow` functions of

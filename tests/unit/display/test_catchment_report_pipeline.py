@@ -338,7 +338,7 @@ path = "missing_observed.csv"
         / "test_gauged_context_summary.json"
     )
 
-    def fake_build_context(inputs):
+    def fake_build_context(inputs, *, root=None):
         assert inputs.context_summary == context_summary
         context_summary.parent.mkdir(parents=True)
         context_summary.write_text("{}\n", encoding="utf-8")
@@ -618,7 +618,7 @@ def test_the_pipeline_draws_the_run_figures_before_it_builds_the_context(
         order.append(("draw", inputs.simulation_name))
         return ()
 
-    def fake_build_context(inputs):
+    def fake_build_context(inputs, *, root=None):
         order.append(("context", inputs.simulation_name))
         return inputs.context_summary
 

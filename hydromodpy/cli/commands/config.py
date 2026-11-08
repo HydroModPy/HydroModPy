@@ -287,9 +287,10 @@ def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarg
     still works.
     """
     from hydromodpy.calibration.targets import targets_by_name
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-    payload = load_toml_with_base_config(path)
+    payload = load_toml_with_base_config(path, root=ROOT_CONFIG)
     declared = payload.get("calibration", {}).get("parameters", {})
     if not isinstance(declared, dict) or not declared:
         return
@@ -317,18 +318,21 @@ def _run_file_modules(modules: list[str] | None) -> list[str]:
     ``[sites]`` is the section of a campaign ``project.toml``: a run file that
     holds it is read as a project. It is written only when asked for.
     """
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.toml_io.generator import available_modules
 
     if modules is not None:
         return modules
-    return [name for name in available_modules() if name != "sites"]
+    return [name for name in available_modules(HydroModPyConfig) if name != "sites"]
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config.toml_examples import flow_examples
     from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 
     if getattr(args, "list_modules", False):
-        for name in available_modules():
+        for name in available_modules(HydroModPyConfig):
             print(name)
         return
 
@@ -340,6 +344,8 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
         output_path=output,
         modules=_run_file_modules(getattr(args, "modules", None)),
         profile=getattr(args, "profile", "user"),
+        root=HydroModPyConfig,
+        flow_examples=flow_examples,
     )
 
     if output:
@@ -357,6 +363,7 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
     """
     import tomllib
 
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
 
@@ -365,7 +372,7 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
         refuse(f"File not found: {path}", EXIT_NOT_FOUND)
     try:
         with project_named_by_w(args.workspace):
-            payload = load_toml_with_base_config(path)
+            payload = load_toml_with_base_config(path, root=ROOT_CONFIG)
     except tomllib.TOMLDecodeError as exc:
         refuse(f"Invalid TOML syntax: {exc}", EXIT_CONFIG, cause=exc)
     except (TypeError, ValueError) as exc:
@@ -454,11 +461,12 @@ def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit.registry import root_sections
     from hydromodpy.schema.config_schema import export_schema, write_schema
 
     if getattr(args, "list_sections", False):
-        for name in sorted(root_sections()):
+        for name in sorted(root_sections(HydroModPyConfig)):
             print(name)
         return
 
@@ -474,16 +482,17 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
         return
 
     if out_path:
-        written = write_schema(out_path, section=section, profile=profile)
+        written = write_schema(out_path, HydroModPyConfig, section=section, profile=profile)
         print(f"Written to: {written}", file=sys.stderr)
         return
 
-    schema = export_schema(section=section, profile=profile)
+    schema = export_schema(HydroModPyConfig, section=section, profile=profile)
     print(json.dumps(schema, indent=2, ensure_ascii=False))
 
 
 def _write_schema_bundle(args: argparse.Namespace) -> None:
     """Write the JSON Schema and the files a frontend reads with it into the folder ``--to``."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.schema import export_full_schema
 
     if args.to is None or args.editor or args.section or args.profile:
@@ -494,15 +503,18 @@ def _write_schema_bundle(args: argparse.Namespace) -> None:
         )
     folder = Path(args.to).expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
-    for key, path in export_full_schema(folder).items():
+    for key, path in export_full_schema(folder, root=HydroModPyConfig).items():
         print(f"{key}: {path}", file=sys.stderr)
 
 
 def _cmd_config_validate_field(args: argparse.Namespace) -> None:
     """Validate one field value, for a frontend that checks a form as it is filled."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.schema import validate_field
 
-    payload = validate_field(args.path, args.value, context=_load_context(args.context)).as_dict()
+    payload = validate_field(
+        args.path, args.value, root=HydroModPyConfig, context=_load_context(args.context)
+    ).as_dict()
 
     def table() -> None:
         print(f"{args.path}: {'valid' if payload['valid'] else 'invalid'}")
@@ -531,6 +543,7 @@ def _load_context(ctx_path: str | None) -> dict | None:
 
 def _write_editor_schema(out_path: str | None, *, section: str | None, profile: str | None) -> None:
     """Print or write the editor schema of a whole TOML file."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.schema.config_schema import editor_schema
 
     if section or profile:
@@ -539,7 +552,7 @@ def _write_editor_schema(out_path: str | None, *, section: str | None, profile: 
             EXIT_USAGE,
         )
     # Same serialization as the copy published with the documentation.
-    text = json.dumps(editor_schema(), indent=2) + "\n"
+    text = json.dumps(editor_schema(HydroModPyConfig), indent=2) + "\n"
     if not out_path:
         sys.stdout.write(text)
         return
@@ -552,6 +565,8 @@ def _write_editor_schema(out_path: str | None, *, section: str | None, profile: 
 def _cmd_config_wizard(args: argparse.Namespace) -> None:
     """Minimal stdin-based wizard to scaffold a TOML config."""
     from hydromodpy.cli.helpers import EXIT_SIGINT
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config.toml_examples import flow_examples
     from hydromodpy.core.toml_io.generator import generate_toml
 
     def _ask(label: str, default: str | None = None) -> str:
@@ -581,6 +596,12 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
 
     dest = Path(output).expanduser().resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    generate_toml(output_path=str(dest), modules=_run_file_modules(None), profile=profile)
+    generate_toml(
+        output_path=str(dest),
+        modules=_run_file_modules(None),
+        profile=profile,
+        root=HydroModPyConfig,
+        flow_examples=flow_examples,
+    )
     print(f"Written: {dest}", file=sys.stderr)
     print(f"Try: hmp run {dest}")

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
@@ -49,7 +50,7 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    payload = load_toml_with_base_config(child_path)
+    payload = load_toml_with_base_config(child_path, root=ROOT_CONFIG)
 
     assert payload["geographic"]["catchment"]["kind"] == "dem"
     assert list(payload["flow"]["bc"]) == ["ocean", "drainage"]
@@ -119,7 +120,7 @@ def test_a_list_of_tables_of_the_same_length_replaces_the_inherited_list(
         encoding="utf-8",
     )
 
-    payload = load_toml_with_base_config(child)
+    payload = load_toml_with_base_config(child, root=ROOT_CONFIG)
 
     assert payload["data"]["recharge"]["sources"] == [{"station_ids": ["B"]}]
 
@@ -341,7 +342,7 @@ def test_each_file_is_migrated_before_the_merge(
     with pytest.warns(ConfigKeyRenamedWarning):
         if written == "chain":
             other.write_text(f'base_config = "base.toml"\n{second}', encoding="utf-8")
-            payload = load_toml_with_base_config(other)
+            payload = load_toml_with_base_config(other, root=ROOT_CONFIG)
         else:
             other.write_text(second, encoding="utf-8")
             effective, payload, _ = materialize_effective_toml(
@@ -406,7 +407,7 @@ def test_the_table_of_the_flow_solver_wins_across_the_files(
     )
 
     with pytest.warns(ConfigKeyRenamedWarning):
-        payload = load_toml_with_base_config(child)
+        payload = load_toml_with_base_config(child, root=ROOT_CONFIG)
 
     assert payload["domain"]["layers"]["nlay"] == expected
 
@@ -422,7 +423,7 @@ def test_a_table_two_files_fill_key_by_key_waits_for_the_merge(tmp_path: Path) -
     child.write_text('base_config = "base.toml"\n[export]\nvtu = true\n', encoding="utf-8")
 
     with pytest.warns(ConfigKeyRenamedWarning):
-        payload = load_toml_with_base_config(child)
+        payload = load_toml_with_base_config(child, root=ROOT_CONFIG)
 
     assert [block["format"] for block in payload["export"]] == ["netcdf", "vtu"]
 

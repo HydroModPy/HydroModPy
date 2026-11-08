@@ -110,9 +110,9 @@ def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
     config = getattr(project, "config", None)
     if config is not None and hasattr(config, "model_dump"):
         return dict(config.model_dump(mode="json", exclude_none=True, exclude_unset=True))
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.calibration.runners.trial import trial_pipeline
 
-    return dict(load_toml_with_base_config(cfg_path))
+    return dict(trial_pipeline().load_document(cfg_path))
 
 
 def project_defaults_on(section: dict[str, Any], project: Any) -> dict[str, Any]:

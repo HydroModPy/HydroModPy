@@ -301,6 +301,7 @@ def _catchment_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _cmd_catchment(args: argparse.Namespace) -> None:
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.display.catchment_report import preset_from_name
     from hydromodpy.display.catchment_report.pipeline import run_catchment_report_pipeline
@@ -311,6 +312,7 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
             result = run_catchment_report_pipeline(
                 args.report_config,
                 preset=preset_from_name(args.preset) if args.preset else None,
+                root=ROOT_CONFIG,
                 **overrides,
             )
     except (ValueError, ConfigError) as exc:

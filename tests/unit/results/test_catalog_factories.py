@@ -1,18 +1,21 @@
-"""Factory entry points on :class:`Catalog`.
+"""A catalog is opened on a project root, or on the workspace a config names.
 
-``from_toml`` / ``from_json`` / ``from_dict`` open the index of the project a
-configuration names, so one :class:`HydroModPyConfig` source spawns either a
-:class:`Project` or a :class:`Catalog`. A :class:`Run` view is then created
-with ``Catalog(...)`` + ``Run(sim_id, catalog)``.
+``from_workspace`` opens the index of the project a ``[workspace]`` section
+names, so a loaded :class:`HydroModPyConfig` still reaches either a
+:class:`Project` or a :class:`Catalog`. The ``read_config`` function a catalog
+carries is handed to its runs and validates a sealed snapshot.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
+from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.run import Run
 from tests._helpers.sealed_runs import make_project, seal_run
@@ -43,17 +46,14 @@ def _write_minimal_toml(root: Path) -> Path:
     return path
 
 
-def _build_payload(root: Path) -> dict:
-    return {
-        "workflow": {"mode": "simulation"},
-        "workspace": {"root": str(root)},
-        "geographic": {"source_mode": "synthetic"},
-    }
+class _Validated(BaseModel):
+    marker: str = "sealed"
 
 
-def test_catalog_from_toml_opens_the_project_index(project) -> None:
+def test_catalog_from_workspace_opens_the_project_index_of_a_loaded_config(project) -> None:
     root, sid = project
-    cat = Catalog.from_toml(_write_minimal_toml(root))
+    cfg = HydroModPyConfig.from_toml(_write_minimal_toml(root))
+    cat = Catalog.from_workspace(cfg.workspace)
     try:
         assert cat.workspace_path == root.resolve()
         assert cat.resolve("alpha") == sid
@@ -61,32 +61,76 @@ def test_catalog_from_toml_opens_the_project_index(project) -> None:
         cat.close()
 
 
-def test_catalog_from_dict_opens_the_project_index(project, monkeypatch) -> None:
+def test_catalog_from_workspace_takes_any_workspace_with_a_project_root(project) -> None:
     root, sid = project
-    monkeypatch.chdir(root)
-    cat = Catalog.from_dict(_build_payload(root))
+
+    class _RuntimeWorkspace:
+        project_root = root
+
+    cat = Catalog.from_workspace(_RuntimeWorkspace())
     try:
         assert cat.resolve("alpha") == sid
     finally:
         cat.close()
 
 
-def test_catalog_from_json_opens_the_project_index(project, monkeypatch) -> None:
+def test_a_run_made_by_a_catalog_reads_the_config_function_of_its_catalog(project) -> None:
     root, sid = project
-    monkeypatch.chdir(root)
-    cat = Catalog.from_json(json.dumps(_build_payload(root)))
+    seen: list[Any] = []
+
+    def read_config(snapshot: Any) -> BaseModel:
+        seen.append(snapshot)
+        return _Validated()
+
+    cat = Catalog(root, read_config=read_config)
     try:
-        assert cat.resolve("alpha") == sid
+        run = Run(sid, cat)
+        assert run.hydromodpy_config == _Validated()
+        assert seen, "the sealed snapshot was not read"
+        assert run.config_snapshot is not None
     finally:
         cat.close()
 
 
-def test_run_from_toml_returns_a_view(project) -> None:
+def test_a_reopened_catalog_keeps_the_read_config(project) -> None:
     root, sid = project
-    cat = Catalog.from_toml(_write_minimal_toml(root))
+
+    def read_config(snapshot: Any) -> BaseModel:
+        return _Validated()
+
+    cat = Catalog(root, read_config=read_config)
+    reopened = cat._reopen()
+    try:
+        assert reopened.read_config is read_config
+    finally:
+        reopened.close()
+        cat.close()
+
+
+def test_a_catalog_without_read_config_refuses_hydromodpy_config(project) -> None:
+    root, sid = project
+    cat = Catalog(root)
+    try:
+        run = Run(sid, cat)
+        with pytest.raises(ConfigError, match="hmp.open"):
+            _ = run.hydromodpy_config
+        assert run.config_snapshot is not None
+    finally:
+        cat.close()
+
+
+def test_a_run_view_on_a_catalog_keeps_its_index_reads(project) -> None:
+    root, sid = project
+    cat = Catalog.from_workspace(_workspace_of(root))
     try:
         run = Run(sid, cat)
         assert run.name == "alpha"
         assert run.status == "completed"
     finally:
         cat.close()
+
+
+def _workspace_of(root: Path) -> Any:
+    from types import SimpleNamespace
+
+    return SimpleNamespace(project_root=root)

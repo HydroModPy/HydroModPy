@@ -200,7 +200,9 @@ class CatchmentIdentificationConfig(BaseModel):
         section: str = DEFAULT_SECTION,
     ) -> CatchmentIdentificationConfig:
         config_path = Path(config_toml).expanduser().resolve()
-        payload = load_toml_with_base_config(config_path)
+        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+        payload = load_toml_with_base_config(config_path, root=ROOT_CONFIG)
 
         raw_section = payload.get(section)
         if not isinstance(raw_section, dict):
