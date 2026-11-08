@@ -14,9 +14,9 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -142,7 +142,7 @@ def _resolve_catchment_paths(
     Mirrors ``_resolve_section_paths`` but operates on the discriminated
     catchment variant identified by ``kind``.
     """
-    from hydromodpy.spatial.geographic import catchment_config as _geo_cfg
+    from hydromodpy.catchment.preprocess import catchment_config as _geo_cfg
 
     catchment = payload.get("catchment")
     if not isinstance(catchment, Mapping):

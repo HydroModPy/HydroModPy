@@ -20,6 +20,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.model.domain import worker
@@ -38,7 +39,6 @@ from hydromodpy.schema.job import JobDirectory, read_document, verify_job
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.request import content_address
-from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from tests._helpers.domain_cases import write_mask
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.process_spies import WRITE_SPIES

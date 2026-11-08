@@ -215,10 +215,10 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _setup_geographic(state: DataOverviewState, network_map_path: Path | None) -> None:
-        from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-        from hydromodpy.spatial.geographic.core.derived_features import (
+        from hydromodpy.catchment.algorithms.derived_features import (
             coerce_geographic_derived_features,
         )
+        from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
 
         geographic = CatchmentDelineation(
             state.cfg.geographic, state.workspace, network_map_path=network_map_path
@@ -251,10 +251,10 @@ class DataOverviewLauncher:
         from the overview state. Overview dates from ``[overview]`` are
         injected into data sections that have no explicit dates of their own.
         """
-        from hydromodpy.data import DataLoadPlan, DataManagersRuntimeLoader
-        from hydromodpy.spatial.geographic.core.derived_features import (
+        from hydromodpy.catchment.algorithms.derived_features import (
             attach_reference_hydrographic_network,
         )
+        from hydromodpy.data import DataLoadPlan, DataManagersRuntimeLoader
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),

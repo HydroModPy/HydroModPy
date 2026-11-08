@@ -537,8 +537,8 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.spatial.drainage.distance
-hydromodpy.spatial.drainage.filling
+hydromodpy.catchment.drainage.distance
+hydromodpy.catchment.drainage.filling
 hydromodpy.results.derive.stream.geometry
 hydromodpy.results.derive.stream.heads
 hydromodpy.results.derive.stream.network
@@ -550,8 +550,8 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 
 | What | Where |
 |---|---|
-| The flood on the mesh graph | `hydromodpy/spatial/drainage/filling.py` |
-| The receivers and the distance to a set | `hydromodpy/spatial/drainage/distance.py` |
+| The flood on the mesh graph | `hydromodpy/catchment/drainage/filling.py` |
+| The receivers and the distance to a set | `hydromodpy/catchment/drainage/distance.py` |
 | The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/results/derive/stream/geometry.py` |
 | The heads rule | `hydromodpy/results/derive/stream/heads.py` |
 | The crossing rule | `hydromodpy/mesh/cells/crossed_by_lines.py` |

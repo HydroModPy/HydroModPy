@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.model.domain.lake_bed_regrid import cell_bed_from_surface
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.lake_bed_cases import quad_mesh, ramp_surface
 
 

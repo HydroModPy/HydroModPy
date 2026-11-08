@@ -13,7 +13,7 @@ precision of time-varying arrays. Nothing here reads a file.
 
 ## What other layers import from it
 
-`solver` (most), `spatial`, `results`, `model` and `display`.
+`solver` (most), `catchment`, `results`, `model` and `display`.
 
 ## Where to add what
 

@@ -2,7 +2,7 @@
 
 Lives at the top level so ``config/`` stays decoupled from sibling
 layers at module-load time: configs from ``model/``, ``solver/``,
-``spatial/``, ``data/``, ``display/``, ``calibration/``,
+``catchment/``, ``data/``, ``display/``, ``calibration/``,
 and ``workflow/`` are imported here, never from
 ``config/``.
 """
@@ -23,6 +23,7 @@ def _rebuild_forward_refs() -> None:
     written into the canonical root-config module globals.
     """
     from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
@@ -34,7 +35,6 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
     from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     refs = {
         "CalibrationConfig": CalibrationConfig,
@@ -69,13 +69,13 @@ def _register_physics_contracts() -> None:
 
 
 def _register_spatial_contracts() -> None:
-    """Wire data-layer sources into the spatial ``protocols`` registry.
+    """Wire data-layer sources into the catchment ``protocols`` registry.
 
-    Spatial code resolves geology IO through ``GeologyDataSource`` so the
-    spatial package never imports the data package at module load time.
+    Catchment, mesh and model code resolve geology IO through ``GeologyDataSource``
+    so they never import the data package at module load time.
     """
+    from hydromodpy.catchment import protocols
     from hydromodpy.data.variables.geology.io import default_geology_data_source
-    from hydromodpy.spatial import protocols
 
     protocols.register_geology_data_source(default_geology_data_source())
 
@@ -200,7 +200,7 @@ def _register_dynamic_flow_examples_contract() -> None:
     """Wire dynamic-flow TOML examples into the core toml_io generator.
 
     The 19-layer matrix forbids ``core -> model`` and
-    ``core -> spatial``. The TOML generator delegates the rendering of
+    ``core -> catchment``. The TOML generator delegates the rendering of
     dynamic ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]``
     example blocks to the provider declared in
     :mod:`hydromodpy.core.toml_io.dynamic_examples_protocol`.

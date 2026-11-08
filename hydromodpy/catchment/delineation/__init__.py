@@ -1,0 +1,72 @@
+"""Catchment delineation backends.
+
+Runtime entry points:
+
+- ``WhiteboxWorkflowsBackend`` - facade aggregating raster IO, flow analysis,
+  and delineation sub-backends.
+- ``WhiteboxRasterBackend`` / ``WhiteboxFlowBackend`` /
+  ``WhiteboxDelineationBackend`` - thematic sub-backends accessible via the
+  facade attributes ``raster`` / ``flow`` / ``delineation``.
+- ``delineation.registry.get_backend(name)`` - resolve a registered backend
+  by name with graceful fallback when an optional dependency is missing.
+- ``get_whitebox_backend()`` - shortcut returning the default
+  workflows-backed facade.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+
+__all__ = [
+    "WhiteboxDelineationBackend",
+    "WhiteboxFlowBackend",
+    "WhiteboxRasterBackend",
+    "WhiteboxWorkflowsBackend",
+    "clear_whitebox_backend_cache",
+    "get_whitebox_backend",
+]
+
+
+def clear_whitebox_backend_cache() -> None:
+    """Clear the shared workflows backend singleton."""
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
+        clear_whitebox_backend_cache as _clear_whitebox_backend_cache,
+    )
+
+    _clear_whitebox_backend_cache()
+
+
+def get_whitebox_backend(kind: str | None = None) -> WhiteboxWorkflowsBackend:
+    """Return the shared workflows backend used by runtime code."""
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
+        get_whitebox_backend as _get_whitebox_backend,
+    )
+
+    return _get_whitebox_backend(kind)
+
+
+def __getattr__(name: str):
+    if name in {
+        "WhiteboxDelineationBackend",
+        "WhiteboxFlowBackend",
+        "WhiteboxRasterBackend",
+        "WhiteboxWorkflowsBackend",
+    }:
+        from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
+            WhiteboxDelineationBackend,
+            WhiteboxFlowBackend,
+            WhiteboxRasterBackend,
+            WhiteboxWorkflowsBackend,
+        )
+
+        mapping = {
+            "WhiteboxDelineationBackend": WhiteboxDelineationBackend,
+            "WhiteboxFlowBackend": WhiteboxFlowBackend,
+            "WhiteboxRasterBackend": WhiteboxRasterBackend,
+            "WhiteboxWorkflowsBackend": WhiteboxWorkflowsBackend,
+        }
+        return mapping[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

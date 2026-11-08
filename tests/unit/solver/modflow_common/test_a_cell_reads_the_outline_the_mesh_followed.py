@@ -25,6 +25,8 @@ from rasterio.transform import Affine
 from shapely.geometry import Polygon, shape
 
 from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
+from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
+from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.mesh.planning.catchment_outline import smooth_polygon
 from hydromodpy.solver.modflow_common.catchment_basin import (
@@ -32,8 +34,6 @@ from hydromodpy.solver.modflow_common.catchment_basin import (
     polygon_cell_fraction,
     polygon_cell_mask,
 )
-from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
-from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 from tests._helpers.mesh_cases import LAMBERT93_WKT
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

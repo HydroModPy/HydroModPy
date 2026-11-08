@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.drainage.descent import BASIN_VERSION, DescentBasin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import (
@@ -22,7 +23,6 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar,
     write_descent_sidecar_to_store,
 )
-from hydromodpy.spatial.drainage.descent import BASIN_VERSION, DescentBasin
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 

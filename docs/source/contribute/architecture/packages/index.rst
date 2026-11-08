@@ -23,8 +23,8 @@ describes the experimental observability project next to it.
    config
    model
    data
+   catchment
    mesh
-   spatial
    solver
    calibration
    results

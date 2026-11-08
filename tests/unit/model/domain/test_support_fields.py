@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from shapely.geometry import Polygon
 
+from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.model.domain.support_fields import (
     AliasedSpatialSupportField,
@@ -13,7 +14,6 @@ from hydromodpy.model.domain.support_fields import (
     RasterZonesSupportField,
 )
 from hydromodpy.model.properties.field_param import FieldParam
-from hydromodpy.spatial.raster_support import RasterSupport
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.mesh_cases import regular_mesh
 

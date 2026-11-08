@@ -104,7 +104,7 @@ def test_a_raster_mask_reports_its_own_crs(tmp_path):
 def test_a_raster_mask_is_read_on_its_valid_cells_and_not_its_footprint(tmp_path):
     """A catchment mask is a rectangle that is mostly nodata.
 
-    ``spatial/terrain/port.py:316``: ``mask_path`` holds ``1`` on the catchment
+    ``catchment/terrain/port.py:316``: ``mask_path`` holds ``1`` on the catchment
     and the raster nodata elsewhere, in a rectangle sized to the accumulation
     grid. Reading ``src.bounds`` would hand a provider the whole grid -- here
     the full square instead of the central quarter -- and the fixture of
@@ -172,8 +172,8 @@ def test_the_project_extent_crs_reads_a_department_box():
     Read back through the declared constant, department 35 has to land on
     Ille-et-Vilaine; read as degrees it would land in the Gulf of Guinea.
     """
+    from hydromodpy.catchment.administrative.france import bbox_for_departments
     from hydromodpy.data.source.port import Extent
-    from hydromodpy.spatial.administrative.france import bbox_for_departments
 
     bbox = bbox_for_departments(["35"], margin_m=0.0)
     lonlat = Extent(*bbox, crs=PROJECT_EXTENT_CRS).to_crs("EPSG:4326")

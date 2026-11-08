@@ -151,9 +151,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
 
 def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
     """Persist the geographic rasters (DEM, watershed masks) into the Zarr."""
-    from hydromodpy.spatial.geographic.store_ingestion import (
-        persist_geographic_to_store,
-    )
+    from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 
     if ctx.setup.geographic is None:
         return

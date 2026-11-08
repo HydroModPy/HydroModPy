@@ -3,10 +3,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.domain.build import build_domain
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.spatial import RasterSupport, Surface
 
 # One row of 25 m cells across a valley. The raster kinds read a raster on the
 # same grid, so the reprojection is the identity.

@@ -44,10 +44,10 @@ from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
 if TYPE_CHECKING:
     from shapely.geometry import LineString
 
+    from hydromodpy.catchment.drainage.descent import Descent
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow6.builders.sfr import SfrReachRecord
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.drainage.descent import Descent
 
 logger = get_logger(__name__)
 

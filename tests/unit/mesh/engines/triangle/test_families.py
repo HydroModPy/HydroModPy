@@ -20,6 +20,7 @@ from hypothesis import strategies as st
 from scipy.spatial import Delaunay
 from shapely.geometry import LineString
 
+from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.cells.barrier_faces import BarrierFace
@@ -44,7 +45,6 @@ from hydromodpy.mesh.request import (
 )
 from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,

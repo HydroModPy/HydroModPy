@@ -4,7 +4,7 @@
 # Each subpackage of hydromodpy/data lists the subpackages of hydromodpy/data it
 # may import. A subpackage may always import itself. "<init>" is the package
 # facade, hydromodpy/data/__init__.py. What lies outside hydromodpy/data
-# (core, spatial, schema) is the business of layer_matrix.yaml.
+# (core, schema, catchment, mesh, model) is the business of layer_matrix.yaml.
 #
 # Rows are written lowest first: a row names only rows written above it, so
 # this table cannot allow a cycle.

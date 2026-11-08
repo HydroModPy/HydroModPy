@@ -4221,7 +4221,7 @@ def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
 def test_the_scratch_of_a_session_is_kept_on_demand_and_a_failed_cleanup_is_only_logged(
     monkeypatch, caplog
 ) -> None:
-    from hydromodpy.spatial.geographic import preprocessing_cleanup
+    from hydromodpy.catchment.preprocess import preprocessing_cleanup
 
     calls = []
 

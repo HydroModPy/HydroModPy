@@ -18,8 +18,8 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
+from hydromodpy.catchment.protocols import get_geology_data_source
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.protocols import get_geology_data_source
 
 __all__ = ["GeologyLines", "contact_lines", "geology_lines", "support_contacts"]
 

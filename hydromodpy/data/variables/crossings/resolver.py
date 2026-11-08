@@ -273,7 +273,7 @@ def _buffer_reach_m(catchment: Any, buff_area: Any) -> float:
     """
     if buff_area is None:
         return 0.0
-    from hydromodpy.spatial.geographic.core.catchment_domain import buffer_distance_m
+    from hydromodpy.catchment.algorithms.catchment_domain import buffer_distance_m
 
     try:
         return float(buffer_distance_m(catchment, buff_area))

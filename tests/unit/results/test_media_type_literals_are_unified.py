@@ -21,7 +21,7 @@ Two independent gates:
 The scan covers the whole package, and that is the measurement, not a
 preference: the six call sites of ``GEOTIFF_MEDIA_TYPE``, the three of
 ``GEOPACKAGE_MEDIA_TYPE`` and the only one of ``NETCDF_MEDIA_TYPE`` all live
-under ``spatial/`` and ``data/fetch/``, none under ``results/`` or
+under ``model/domain/`` and ``data/fetch/``, none under ``results/`` or
 ``schema/``. A gate scoped to the exporters would leave every writer of the
 drift it exists to catch outside its reach - including four runtime paths
 that stamp ``media_type`` into ``outcome.json`` and ``manifest.json``.
@@ -51,7 +51,7 @@ MEDIA_TYPES_MODULE = HMP_ROOT / "schema" / "media_types.py"
 
 # The whole package. An artifact media type is stamped by the exporters under
 # results/, by the job and process models under schema/, and by the capability
-# and worker modules under spatial/ and data/fetch/ - and it is those last two
+# and worker modules under model/domain/ and data/fetch/ - and it is those last two
 # that hold every call site of the geotiff, geopackage and netcdf constants.
 SCAN_ROOTS: tuple[Path, ...] = (HMP_ROOT,)
 

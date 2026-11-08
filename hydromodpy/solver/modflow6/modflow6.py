@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
@@ -40,7 +41,6 @@ from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
 )
 from hydromodpy.solver.modflow_grid import SolverGridContext
-from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh

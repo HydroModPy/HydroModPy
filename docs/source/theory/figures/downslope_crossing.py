@@ -11,16 +11,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-from hydromodpy.results.derive.stream.network import downstream_closure
-from hydromodpy.spatial.drainage.distance import (
+from hydromodpy.catchment.drainage.distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
     longest_descent_length,
     mean_downslope_distance,
     shared_node_adjacency,
 )
-from hydromodpy.spatial.drainage.filling import fill_depressions_on_graph
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
+from hydromodpy.catchment.drainage.filling import fill_depressions_on_graph
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
+from hydromodpy.results.derive.stream.network import downstream_closure
 
 N, SIZE, THICKNESS = 60, 20.0, 30.0  # cells per side, cell size (m), B (m)
 

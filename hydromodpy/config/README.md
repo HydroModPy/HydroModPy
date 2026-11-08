@@ -33,7 +33,7 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 |---|---|---|
 | `[workflow]` | `WorkflowConfig` | `config/hydromodpy_config.py` |
 | `[workspace]` | `WorkspaceConfig` | `core/workspace/config.py` |
-| `[geographic]` | `GeographicConfig` | `spatial/geographic/` |
+| `[geographic]` | `GeographicConfig` | `catchment/preprocess/` |
 | `[domain]` | `DomainConfig` | `model/domain/` |
 | `[data]` | `DataManagersConfig` | `data/loading/config_schema.py` |
 | `[flow]` | `FlowConfig` | `model/flow_config.py` |
@@ -154,7 +154,7 @@ with a sentence:
 
 ## Import rules
 
-`config` imports `core`, `model`, `data`, `spatial`,
+`config` imports `core`, `model`, `data`, `catchment`,
 `solver`, `calibration`, `results` and `display`
 (`tests/unit/architecture/layer_matrix.yaml`): every layer it composes, and
 nothing above them. Only the root facade, `workflow`, `project` and `cli` import

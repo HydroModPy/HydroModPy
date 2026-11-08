@@ -1,6 +1,6 @@
 """Shared cases of the geographic tests.
 
-Each section belongs to the tests of one part of ``spatial/geographic``. A
+Each section belongs to the tests of one part of ``catchment``. A
 section only adds to what is written here.
 """
 
@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from tests._helpers import ground_bench as bench
 
 # geographic core
@@ -73,7 +73,7 @@ def bench_project(
     The config and setup are the duck-typed objects the ground files read. The
     stream raster sits where the river network writes its full-extent copy.
     """
-    from hydromodpy.spatial.geographic.core.ground_corrections import FirstPassChannel
+    from hydromodpy.catchment.algorithms.ground_corrections import FirstPassChannel
 
     valley = bench.build(embankment_rows=embankment_rows, height=height)
     work = tmp_path / "work"
@@ -201,7 +201,7 @@ class BenchTerrain:
         return SimpleNamespace(x_outlet_snapped=side, y_outlet_snapped=30.0, snap_distance_m=side)
 
     def network(self, **kwargs):
-        from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
+        from hydromodpy.catchment.algorithms.river_network import RiverNetworkProducts
 
         correcflow = Path(kwargs["correcflow_dir"])
         valley = bench.build()
@@ -216,7 +216,7 @@ class BenchTerrain:
         )
 
     def domain_rasters(self, **kwargs):
-        from hydromodpy.spatial.geographic.domain_rasters import DomainRasterProducts
+        from hydromodpy.catchment.preprocess.domain_rasters import DomainRasterProducts
 
         self.top.append(str(kwargs["dem_init_path"]))
         paths, source = kwargs["paths"], kwargs["dem_init_path"]
@@ -233,7 +233,7 @@ class BenchTerrain:
 
 def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters=None) -> None:
     """Replace the terrain steps of the geographic pipeline by *flow*, *catchment*, ..."""
-    from hydromodpy.spatial.geographic import geographic_cache, pipeline
+    from hydromodpy.catchment.preprocess import geographic_cache, pipeline
 
     tool = SimpleNamespace(delineation=SimpleNamespace(polygons_to_lines=lambda *a, **k: None))
     monkeypatch.setattr(pipeline, "resolve_delineation_backend", lambda backend: tool)
@@ -251,7 +251,7 @@ def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters
 
 def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, **kwargs):
     """Build the runtime context of *config* on the bench recorders, under ``root/results``."""
-    from hydromodpy.spatial.geographic import pipeline
+    from hydromodpy.catchment.preprocess import pipeline
 
     terrain = terrain or BenchTerrain()
     patch_pipeline(
@@ -297,12 +297,12 @@ def touch_artifact(path: Path | str) -> None:
 
 def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, **sections):
     """A complete geographic cache under ``root/project`` and the config it was written for."""
-    from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
-    from hydromodpy.spatial.geographic.geographic_cache import (
+    from hydromodpy.catchment.algorithms.catchment_domain import CatchmentDomainProducts
+    from hydromodpy.catchment.algorithms.geographic_paths import build_geographic_paths
+    from hydromodpy.catchment.preprocess.geographic_cache import (
         required_geographic_cache_artifacts,
         write_geographic_cache_manifest,
     )
-    from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 
     dem = root / "dem.tif"
     touch_artifact(dem)
@@ -346,7 +346,7 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
 
 def load_cached(config, paths):
     """The products a cache hit rebuilds, or None on a miss."""
-    from hydromodpy.spatial.geographic.geographic_cache import load_cached_geographic_products
+    from hydromodpy.catchment.preprocess.geographic_cache import load_cached_geographic_products
 
     return load_cached_geographic_products(config=config, paths=paths, crs_project=LAMBERT)
 
@@ -369,7 +369,7 @@ def polygon_catchment(root: Path) -> dict:
 
 def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config):
     """A ``CatchmentDelineation`` on a 10 x 10 ramp of 100 m cells, on the Whitebox double."""
-    from hydromodpy.spatial.geographic import catchment_delineation
+    from hydromodpy.catchment.preprocess import catchment_delineation
     from tests._helpers.whitebox_double import FakeWhiteboxBackend
 
     backend = FakeWhiteboxBackend()
@@ -426,7 +426,7 @@ def outlet_document(**sections) -> GeographicConfig:
 
 def capped_breach_report():
     """What a capped breach of 0.5 m and 200 m did, as the engine reports it."""
-    from hydromodpy.spatial.terrain import CappedBreachReport
+    from hydromodpy.catchment.terrain.port import CappedBreachReport
 
     return CappedBreachReport(
         cells_lowered=4,
@@ -443,7 +443,7 @@ def capped_breach_flow_products():
     """Flow products of a capped breach whose conditioned DEM carries its report."""
     from dataclasses import replace
 
-    from hydromodpy.spatial.terrain import CappedBreach
+    from hydromodpy.catchment.terrain.port import CappedBreach
     from tests._helpers.terrain_doubles import fake_flow_products
 
     flow_products = fake_flow_products(method=CappedBreach(0.5, 200.0))
@@ -501,9 +501,9 @@ def outlet_case_toml(
 
 def delineate_case_toml(path: Path):
     """Delineate the catchment of a project TOML in its workspace, as a run does."""
+    from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace import WorkspaceLayout
-    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
     cfg = HydroModPyConfig.from_toml(path)
     return CatchmentDelineation(
@@ -585,11 +585,11 @@ def hydrography_load_result(array=((0.0, 0.0), (0.0, 0.0)), **metadata):
     """The load result of the hydrography loader: one stream raster, paths as metadata."""
     import xarray as xr
 
-    from hydromodpy.data.contracts.load_result import LoadResult
-    from hydromodpy.data.contracts.spatial_field import FieldRecord
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    from hydromodpy.catchment.algorithms.hydrographic_network import (
         HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME as field,
     )
+    from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
 
     metadata = {key: None if value is None else str(value) for key, value in metadata.items()}
     data = xr.Dataset({field: (("y", "x"), np.asarray(array, dtype=float))})

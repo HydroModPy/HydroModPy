@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.algorithms.catchment_zones_field import CatchmentZonesField
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
@@ -30,8 +32,6 @@ from hydromodpy.model.domain.support_fields import (
     RasterZonesSupportField,
 )
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.spatial import CatchmentZonesField
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.domain_cases import raster_support, surface
 
 GRID = {"cell": 5.0, "x0": 10.0, "y0": 100.0}

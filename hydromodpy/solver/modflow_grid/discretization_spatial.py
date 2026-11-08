@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
+from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.core.logging import get_logger
@@ -27,9 +30,6 @@ from hydromodpy.solver.modflow_grid.top_sampling import (
     zonal_structured_top,
     zonal_top_flat,
 )
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh

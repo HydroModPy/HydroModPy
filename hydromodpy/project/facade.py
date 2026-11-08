@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
     import pandas as pd
 
+    from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.run_state import LoadedDataContext
     from hydromodpy.core.time.window import (
@@ -108,9 +109,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.lineage import Lineage
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.run import Run
-    from hydromodpy.spatial.geographic.catchment_delineation import (
-        CatchmentDelineation,
-    )
     from hydromodpy.workflow.record.attempt import SealedRun
 
 logger = get_logger(__name__)

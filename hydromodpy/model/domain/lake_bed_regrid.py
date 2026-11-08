@@ -16,9 +16,9 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import shapely
 
+from hydromodpy.catchment.surface import Surface
+from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.model.domain.lake_bed_abacus import reconcile_bed_to_abacus
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 __all__ = [
     "cell_bed_from_surface",

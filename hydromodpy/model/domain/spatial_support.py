@@ -5,6 +5,7 @@ from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 
+from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.model.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
@@ -19,7 +20,6 @@ from hydromodpy.model.domain.support_fields import (
     GeneratedRingsSupportField,
     RasterZonesSupportField,
 )
-from hydromodpy.spatial.raster_support import RasterSupport
 
 
 @dataclass(slots=True)

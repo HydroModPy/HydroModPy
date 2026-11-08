@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.results.derive import views
-from hydromodpy.results.run import Run
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
+from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
+from hydromodpy.results.derive import views
+from hydromodpy.results.run import Run
 from tests._helpers.run_builders import runs
 
 __all__ = ["runs"]

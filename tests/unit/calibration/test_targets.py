@@ -22,6 +22,7 @@ from hydromodpy.calibration.targets import (
     targets_by_name,
     targets_by_path,
 )
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
@@ -35,7 +36,6 @@ from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.model.soil.config import SoilReservoirConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests.unit.calibration._factories import _Project
 from tests.unit.calibration._factories_config import sinks_project
 
@@ -45,7 +45,7 @@ from tests.unit.calibration._factories_config import sinks_project
 # ``Calibrable`` and the walk that collects it were written, tested, and returned an
 # empty dictionary on every configuration in the repository. The reason was a layer
 # rule, not an oversight: the annotation lived in ``calibration/``, which ``model``
-# and ``spatial`` are forbidden to import, so no hydraulic property could carry it.
+# and ``catchment`` are forbidden to import, so no hydraulic property could carry it.
 #
 # Moved into the kernel, any layer that declares a field can say what a search
 # would need to know about it. The scalar value of a homogeneous field parameter is

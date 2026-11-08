@@ -61,7 +61,7 @@ def watershed_mean_series(load_result: object):
 
 
 def _hydrography_field_record(load_result: object) -> object | None:
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    from hydromodpy.catchment.algorithms.hydrographic_network import (
         HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     )
 
@@ -146,7 +146,7 @@ def _persist_hydrography(
         if record is not None:
             arr = field_data_array(record)
             if arr is not None and arr.size > 0:
-                from hydromodpy.spatial.geographic.core.hydrographic_network import (
+                from hydromodpy.catchment.algorithms.hydrographic_network import (
                     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
                 )
 
@@ -336,7 +336,7 @@ def _persist_reference_hydrographic_feature(
     if ctx.sim_id is None:
         return False
 
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    from hydromodpy.catchment.algorithms.hydrographic_network import (
         HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
         HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
         HydrographicNetwork,

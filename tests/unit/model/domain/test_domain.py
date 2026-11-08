@@ -12,11 +12,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.model.domain.build import build_domain
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.spatial import RasterSupport, Surface
 from tests._helpers.domain_cases import NODATA, raster_support, surface, surfaces_table, tilted_top
 
 DEM = np.array([[110.0, 120.0], [100.0, 90.0]])

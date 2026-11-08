@@ -13,17 +13,15 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import descent_basin
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_common.descent_store import (
     read_descent_sidecar,
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.flow_directions import resolve_dam_foot_cells
-from hydromodpy.spatial.drainage.descent import descent_basin
 from tests._helpers.descent_cases import grid_descent
-from tests.unit.drainage.test_descent import (
-    _valley,
-)
+from tests.unit.catchment.drainage.test_descent import _valley
 
 
 def _descent():

@@ -7,10 +7,11 @@
 # the matrix cannot hold a cycle. test_layer_matrix.py checks the order.
 #
 # ``allowed`` is the target tree: fourteen packages, the root facade and the
-# ``python -m hydromodpy`` entry point. The tree reaches it while packages
-# move. Until then ``transitional`` says what holds today, and every entry
-# there leaves as soon as the tree no longer needs it: the gate refuses an
-# entry that nothing uses any more, so this file only shrinks.
+# ``python -m hydromodpy`` entry point. Every package of the target exists.
+# ``transitional`` keeps only the imports that the root files and a few cli
+# commands still make, each with its files and why. Every entry leaves as soon
+# as the tree no longer needs it: the gate refuses an entry that nothing uses
+# any more, so this file only shrinks.
 
 allowed:
   core:        [core]
@@ -37,30 +38,9 @@ allowed:
   "<main>":    ["<main>", cli]
 
 transitional:
-  # Packages of today that the target does not keep: what each one reads now
-  # and where its modules go. A row leaves with its package. These rows are
-  # written lowest first too.
-  leaving:
-    spatial:    {reads: [core, schema, spatial], goes_to: [catchment]}
-  # Rows of the target whose package does not exist yet.
-  arriving:
-    catchment: {comes_from: [spatial]}
-  # Imports of today that no row grants. An edge into a leaving package goes
-  # with that package. An edge between two kept rows names its files and why.
+  # Imports of today that no row grants. Each one names its files and why, and
+  # leaves once the root files live in project.
   edges:
-    - {src: data,        tgt: spatial}
-    - {src: results,     tgt: spatial}
-    - {src: solver,      tgt: spatial}
-    - {src: calibration, tgt: spatial}
-    - {src: config,      tgt: spatial}
-    - {src: workflow,    tgt: spatial}
-    - {src: project,     tgt: spatial}
-    # model and mesh are built before spatial is emptied, and read it meanwhile.
-    - {src: model,       tgt: spatial}
-    - {src: mesh,        tgt: spatial}
-    - src: "<root>"
-      tgt: spatial
-      files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
     - src: "<root>"
       tgt: calibration
       files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
@@ -74,7 +54,7 @@ transitional:
     - {src: "<root>", tgt: results,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: solver,   files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
-    # The packages to come take over imports that the root files make today.
+    # The root files also read the packages that were built from the old ones.
     - {src: "<root>", tgt: model,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py], reason: *root_reason}
     - {src: "<root>", tgt: catchment, files: [hydromodpy/_bootstrap.py], reason: *root_reason}
     - src: cli

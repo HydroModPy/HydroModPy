@@ -65,26 +65,6 @@ Transitional entries
 The tree reaches the matrix above while packages move. Until then these entries say
 what holds today. The gate refuses an entry that the tree no longer needs.
 
-.. list-table:: Packages that leave
-   :header-rows: 1
-   :widths: 16 42 42
-
-   * - Package
-     - Reads today
-     - Goes to
-   * - ``spatial``
-     - ``core``, ``schema``, ``spatial``
-     - ``catchment``
-
-.. list-table:: Packages to come
-   :header-rows: 1
-   :widths: 16 84
-
-   * - Package
-     - Comes from
-   * - ``catchment``
-     - ``spatial``
-
 .. list-table:: Imports granted until they move
    :header-rows: 1
    :widths: 12 12 38 38
@@ -93,46 +73,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - To
      - Files
      - Why
-   * - ``data``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``results``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``solver``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``calibration``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``config``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``workflow``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``project``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``model``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``mesh``
-     - ``spatial``
-     - any file
-     - It goes with the package it reads.
-   * - ``<root>``
-     - ``spatial``
-     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
-     - It goes with the package it reads.
    * - ``<root>``
      - ``calibration``
      - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,

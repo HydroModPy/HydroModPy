@@ -32,7 +32,7 @@ from hydromodpy.core.config_kit.profile import Profile
 
 #: The descent walks shared nodes, the eight D8 neighbours of a quad mesh, unless told
 #: otherwise. The criterion takes its ``diagonal_neighbors`` default from here, and the
-#: downslope distance of ``spatial/drainage`` reads it too.
+#: downslope distance of ``catchment/drainage`` reads it too.
 D8_DESCENT_BY_DEFAULT = True
 
 ObservedRasterization = Literal["heads", "crossing", "touch"]

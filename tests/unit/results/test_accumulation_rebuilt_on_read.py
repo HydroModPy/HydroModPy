@@ -12,6 +12,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.drainage.descent import descent_from_stored_mesh
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
 from hydromodpy.results.derive.accumulation import (
     drain_accumulation_flux_available,
@@ -20,8 +22,6 @@ from hydromodpy.results.derive.accumulation import (
     release_accumulation_flux_rows,
 )
 from hydromodpy.results.zarr_store import SimulationZarr
-from hydromodpy.spatial.drainage.descent import descent_from_stored_mesh
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 

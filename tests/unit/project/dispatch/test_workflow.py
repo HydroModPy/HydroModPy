@@ -653,9 +653,9 @@ def test_the_code_that_computes_enters_the_identity_and_the_release_does_not(mon
 
 def test_a_key_written_at_its_default_is_another_identity(tmp_path: Path) -> None:
     """A validator can tell the two apart, so the identity does (``surface_offset`` of an ETP)."""
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     def config(**solver: float) -> HydroModPyConfig:
         return HydroModPyConfig(

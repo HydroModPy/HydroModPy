@@ -23,10 +23,10 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import build_descent
+from hydromodpy.catchment.drainage.graph import active_surface_mask, cell_centroids_from_mesh
 from hydromodpy.results.run.contracts import MeshDescent
 from hydromodpy.results.run.descent import RunDescent
-from hydromodpy.spatial.drainage.descent import build_descent
-from hydromodpy.spatial.drainage.graph import active_surface_mask, cell_centroids_from_mesh
 
 NX = 5
 NY = 3

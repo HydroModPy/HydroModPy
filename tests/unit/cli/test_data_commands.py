@@ -168,3 +168,38 @@ def test_data_add_success_forwards_metadata(monkeypatch, tmp_path) -> None:
         "frozen": True,
     }
     assert "Added: hydrometry/custom/H1" in result.stdout
+
+
+def test_data_archive_writes_the_cache_of_the_resolved_workspace(monkeypatch, tmp_path) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_archive_data_cache(output, *, workspace_root):
+        calls.update({"output": output, "workspace_root": workspace_root})
+        return tmp_path / "cache.tar.gz"
+
+    monkeypatch.setattr("hydromodpy.project.lock.archive_data_cache", fake_archive_data_cache)
+    workspace = _workspace(tmp_path)
+
+    result = CliRunner().invoke(
+        ["data", "archive", "--to", "cache.tar.gz", "--workspace", str(tmp_path)]
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert calls == {"output": "cache.tar.gz", "workspace_root": workspace}
+    assert "Archived cache to" in result.stdout
+
+
+def test_data_restore_unpacks_into_the_resolved_workspace(monkeypatch, tmp_path) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_restore_data_cache(source, *, workspace_root, to):
+        calls.update({"source": source, "workspace_root": workspace_root, "to": to})
+        return workspace_root / "data" / "imported"
+
+    monkeypatch.setattr("hydromodpy.project.lock.restore_data_cache", fake_restore_data_cache)
+    workspace = _workspace(tmp_path)
+
+    result = CliRunner().invoke(["data", "restore", "cache.tar.gz", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0, result.stderr
+    assert calls == {"source": "cache.tar.gz", "workspace_root": workspace, "to": None}

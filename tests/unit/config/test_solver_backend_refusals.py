@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -16,7 +17,6 @@ from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.registry import capabilities
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.solver_contract import assert_supported_runtime_subset
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 # A flow solver name that is neither built in nor a plugin is refused by name.
 #

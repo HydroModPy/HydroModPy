@@ -10,13 +10,13 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.engines.regular.grid import GridLayout, plan_layout, quad_mesh
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.request import RasterGridSpec
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request, regular_mesh
 from tests._helpers.regular_cell_meshes import from_flopy_structured
 

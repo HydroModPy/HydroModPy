@@ -6,12 +6,12 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
+from hydromodpy.catchment.algorithms.catchment_zones import CatchmentZoneCode
 from hydromodpy.model.domain.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
     build_catchment_zone_field_from_geographic,
 )
-from hydromodpy.spatial.geographic.core.catchment_zones import CatchmentZoneCode
 from tests._helpers.geographic_cases import write_features
 from tests._helpers.geotiffs import write_geotiff
 

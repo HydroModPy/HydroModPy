@@ -667,8 +667,8 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The size field and the gap term | `hydromodpy/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/mesh/planning/gap_size.py` (`gap_terms`) |
 | The refinement zones drawn by a field | `hydromodpy/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/mesh/planning/height_above_stream.py`, `hydromodpy/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/results/run/field_envelope.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`zone_runs`), `hydromodpy/workflow/steps/prepare_solver/freeze.py` (`frozen_config_document`) |
 | The size of a triangle | `hydromodpy/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
-| The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
-| The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
+| The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/catchment/preprocess/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
+| The centroid sample | `hydromodpy/catchment/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
 | The zonal top | `hydromodpy/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
 | The Voronoi tessellation | `hydromodpy/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |

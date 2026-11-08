@@ -9,15 +9,15 @@ from types import SimpleNamespace
 import numpy as np
 from scipy.spatial import Delaunay
 
+from hydromodpy.catchment.synthetic.synthetic_config import (
+    RadialIslandTopography,
+    SyntheticGridConfig,
+)
+from hydromodpy.catchment.synthetic.topography import build_topography_values
 from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.model import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
-from hydromodpy.spatial.geographic.synthetic_config import (
-    RadialIslandTopography,
-    SyntheticGridConfig,
-)
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
 )

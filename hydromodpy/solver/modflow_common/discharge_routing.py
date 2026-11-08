@@ -32,8 +32,8 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 
 logger = get_logger(__name__)
 

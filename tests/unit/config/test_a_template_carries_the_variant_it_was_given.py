@@ -28,6 +28,10 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
+from hydromodpy.catchment.synthetic.synthetic_config import (
+    LinearTopography,
+    SyntheticGeographicConfig,
+)
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_param.sections import FieldHeterogeneousSection
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
@@ -38,10 +42,6 @@ from hydromodpy.model.initial.config import FlowICSpinupCyclic, FlowInitialCondi
 from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig, FlowReachWidthByOrder
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
 from hydromodpy.solver.base.solver_config import ModflowNwtBackend, SolverConfig
-from hydromodpy.spatial.geographic.synthetic_config import (
-    LinearTopography,
-    SyntheticGeographicConfig,
-)
 
 pytestmark = pytest.mark.fast
 

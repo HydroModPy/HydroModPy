@@ -24,6 +24,10 @@ from hydromodpy.calibration.metrics.downslope_network import (
     weighted_pair,
 )
 from hydromodpy.calibration.observations.observed_network import water_body_mask
+from hydromodpy.catchment.drainage.distance import (
+    downslope_distance_to_mask,
+    longest_descent_length,
+)
 from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
 from hydromodpy.mesh.planar.geometry import cell_polygons
@@ -40,7 +44,6 @@ from hydromodpy.results.derive.stream.network import (
     downstream_closure,
     specific_seepage_threshold,
 )
-from hydromodpy.spatial.drainage.distance import downslope_distance_to_mask, longest_descent_length
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,

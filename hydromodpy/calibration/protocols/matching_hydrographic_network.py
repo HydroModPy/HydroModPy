@@ -340,7 +340,7 @@ class MatchingHydrographicNetwork:
                 "signal Eq. 4 exists to detect: a misregistered or truncated mapped "
                 "network would then read as well matched simply because the "
                 "topography closes the gap for it. Tested on a synthetic V-valley "
-                "(tests/unit/drainage/test_distance.py), where closing the "
+                "(tests/unit/catchment/drainage/test_distance.py), where closing the "
                 "observed target instead moves r_optim's root by more than a factor "
                 "of ten."
             ),

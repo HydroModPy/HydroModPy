@@ -15,6 +15,18 @@ import xarray as xr
 from pydantic import BaseModel, ConfigDict
 from shapely.geometry import LineString, box
 
+from hydromodpy.catchment.algorithms.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
+from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.run_state import LoadedDataContext
@@ -28,18 +40,6 @@ from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
-from hydromodpy.spatial.geographic.core.derived_features import (
-    GeographicBoundaryFeatures,
-    GeographicDerivedFeatures,
-)
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-    HydrographicNetwork,
-    HydrographicNetworks,
-)
-from hydromodpy.spatial.geographic.store_ingestion import persist_geographic_to_store
 from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot

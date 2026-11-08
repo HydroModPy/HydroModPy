@@ -39,6 +39,12 @@ import pandas as pd
 import rasterio
 import xarray as xr
 
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
@@ -60,12 +66,6 @@ from hydromodpy.data.variables.hydrography.config import (
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
@@ -98,8 +98,8 @@ class HydrographyManager(SourceTable):
     ) -> None:
         self.config = config
         self._base_raster = base_raster
+        from hydromodpy.catchment.delineation import get_whitebox_backend
         from hydromodpy.core.state.scratch import preprocessing_dir
-        from hydromodpy.spatial.delineation import get_whitebox_backend
 
         base = Path(stable_folder) if stable_folder else preprocessing_dir(Path(out_path))
         self._data_folder = base / "hydrography"

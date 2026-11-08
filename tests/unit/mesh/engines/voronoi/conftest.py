@@ -12,13 +12,13 @@ from collections.abc import Callable
 import pytest
 from shapely.geometry import LineString, Polygon
 
+from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.request import MeshRequest
 from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from tests._helpers import reservoir_dam
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
 

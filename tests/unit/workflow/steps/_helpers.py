@@ -11,11 +11,11 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString, box
 
-from hydromodpy.data.contracts.load_result import LoadResult
-from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
+from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
 )
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 
 
 @dataclasses.dataclass

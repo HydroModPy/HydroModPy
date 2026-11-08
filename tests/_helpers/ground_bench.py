@@ -20,7 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.geographic.core.crossing_notch import NotchReport, notch_dem
+from hydromodpy.catchment.algorithms.crossing_notch import NotchReport, notch_dem
 
 N = 21
 RES = 10.0

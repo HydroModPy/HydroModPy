@@ -143,7 +143,7 @@ Tests to add
 Layer rules
 -----------
 
-- ``model`` imports ``core``, ``schema``, ``spatial`` and itself
+- ``model`` imports ``core``, ``schema``, ``catchment``, ``mesh`` and itself
   (``tests/unit/architecture/layer_matrix.yaml``). Solver code is in
   ``solver/<backend>/``, never in ``model/``.
 - Initial conditions, boundary conditions and sinks and sources stay

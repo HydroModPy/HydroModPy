@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import flopy
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.model.properties.property_table import (
@@ -139,7 +140,6 @@ from hydromodpy.solver.modflow_grid import (
     resolve_first_period_steady,
 )
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
-from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -546,8 +546,8 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
     if model.grid_ctx is None:
         raise ValueError("grid_ctx must exist before building solver routing products")
 
-    from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_of
+    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 
     # A geographic object without the key conditions the DEM as the config would.
     default = GeographicConfig.model_fields["dem_correc_type"].default

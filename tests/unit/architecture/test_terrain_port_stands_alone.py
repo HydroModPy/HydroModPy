@@ -1,7 +1,7 @@
-"""The terrain package must not import a sibling of ``spatial``.
+"""The terrain package must not import a sibling of ``catchment``.
 
 The port promises a third-party engine no import of HydroModPy beyond the port
-itself. The layer matrix sees ``spatial`` as one layer and cannot check that, so
+itself. The layer matrix sees ``catchment`` as one layer and cannot check that, so
 this gate reads the same scanner, deferred imports included.
 """
 
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.xdist_group("terrain_port_scan")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
-TERRAIN_ROOT = PKG_ROOT / "spatial" / "terrain"
+TERRAIN_ROOT = PKG_ROOT / "catchment" / "terrain"
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
 _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
@@ -32,11 +32,11 @@ _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
 scan_package = _BUILD_GRAPH_MODULE.scan_package
 
-ALLOWED_PREFIXES = ("hydromodpy.core", "hydromodpy.spatial.terrain")
+ALLOWED_PREFIXES = ("hydromodpy.core", "hydromodpy.catchment.terrain")
 """``core`` is the kernel leaf every layer may read; the rest is the port itself."""
 
 DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
-    ("hydromodpy/spatial/terrain/whitebox_engine.py", "hydromodpy.spatial.delineation"): (
+    ("hydromodpy/catchment/terrain/whitebox_engine.py", "hydromodpy.catchment.delineation"): (
         "D43: the injection point stays the Whitebox backend, resolved lazily inside a "
         "method, so a third-party engine never loads this module."
     ),
@@ -66,7 +66,7 @@ def test_terrain_imports_no_sibling_of_spatial(terrain_edges) -> None:
     # Anti-vacuity: an empty scan would make every assertion of this module pass.
     files = {_relative(edge) for edge in terrain_edges}
     for name in ("port", "numpy_engine", "whitebox_engine"):
-        assert f"hydromodpy/spatial/terrain/{name}.py" in files
+        assert f"hydromodpy/catchment/terrain/{name}.py" in files
     assert any(edge.target_module.startswith("hydromodpy.core.") for edge in terrain_edges)
     offenders = [
         f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
@@ -90,7 +90,7 @@ def test_every_declared_exception_is_still_taken(terrain_edges) -> None:
 def test_the_whitebox_backend_import_stays_deferred(terrain_edges) -> None:
     """A module-level import of the backend would pull Whitebox into the port."""
     backend_edges = [
-        e for e in terrain_edges if e.target_module.startswith("hydromodpy.spatial.delineation")
+        e for e in terrain_edges if e.target_module.startswith("hydromodpy.catchment.delineation")
     ]
     assert backend_edges, "the Whitebox engine no longer resolves its backend"
     assert all(edge.in_function for edge in backend_edges), (

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.terrain import registry
+from hydromodpy.catchment.terrain import registry
 
 pytestmark = pytest.mark.fast
 

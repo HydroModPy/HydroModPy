@@ -475,7 +475,7 @@ def test_brgm_50k_download_failure_returns_none(tmp_path, monkeypatch):
 
 
 def test_brgm_50k_merge_and_crop_from_cached_departments(tmp_path, monkeypatch):
-    from hydromodpy.spatial.administrative import france
+    from hydromodpy.catchment.administrative import france
 
     monkeypatch.setattr(france, "find_departments_in_bbox", lambda bbox: ["022", "029"])
     dept_dir = tmp_path / "out" / "departments_50k"
@@ -497,7 +497,7 @@ def test_brgm_50k_merge_and_crop_from_cached_departments(tmp_path, monkeypatch):
 
 
 def test_brgm_50k_without_department(tmp_path, monkeypatch):
-    from hydromodpy.spatial.administrative import france
+    from hydromodpy.catchment.administrative import france
 
     monkeypatch.setattr(france, "find_departments_in_bbox", lambda bbox: [])
     with pytest.raises(ValueError, match="No department found overlapping bbox"):

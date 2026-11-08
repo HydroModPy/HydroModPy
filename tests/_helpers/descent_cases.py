@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.drainage.descent import Descent, build_descent
-from hydromodpy.spatial.drainage.graph import cell_centroids_from_mesh
+from hydromodpy.catchment.drainage.descent import Descent, build_descent
+from hydromodpy.catchment.drainage.graph import cell_centroids_from_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
 
 

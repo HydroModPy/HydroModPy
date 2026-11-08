@@ -6,6 +6,10 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.catchment.algorithms.derived_features import coerce_geographic_derived_features
+from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
+from hydromodpy.catchment.preprocess.geographic_cache import geographic_artifact_paths
+from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.rng import RngManager
@@ -26,12 +30,6 @@ from hydromodpy.model.domain.spatial_support import (
 from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.solver.base.runner import ensure_flow, ensure_transport
-from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.core.derived_features import (
-    coerce_geographic_derived_features,
-)
-from hydromodpy.spatial.geographic.geographic_cache import geographic_artifact_paths
-from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:

@@ -48,12 +48,12 @@ from typing import Any, Literal
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.distance import DownslopeMetric
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.parse import parse_to_canonical_magnitude
 from hydromodpy.core.units.quantities import parse_to_m3_per_s
 from hydromodpy.results.derive.stream.network import SimulatedNetwork
-from hydromodpy.spatial.drainage.distance import DownslopeMetric
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 
 logger = get_logger(__name__)
 

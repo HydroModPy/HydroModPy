@@ -16,6 +16,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.mesh.cells.boundary import side_cells, stream_cells
 from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
@@ -41,7 +43,6 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
 from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
-from hydromodpy.spatial import RasterSupport, Surface
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import grid_over, mesh_request

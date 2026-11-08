@@ -14,7 +14,7 @@ low-level primitives; nothing here knows a hydrogeological rule.
 
 ## What other layers import from it
 
-`results`, `spatial`, `data`, `solver`, `schema`, `workflow` and `model`.
+`results`, `catchment`, `data`, `solver`, `schema`, `workflow` and `model`.
 
 ## Where to add what
 

@@ -144,7 +144,7 @@ def _map_heads(sim: Run, geometry: NetworkGeometry) -> MapHeads:
 
 def _lines_in_mesh_crs(network, mesh_crs: str | None) -> tuple[np.ndarray, ...]:
     """Return every line of a mapped network as one ``(n, 2)`` array, mesh CRS."""
-    from hydromodpy.spatial.geographic.core.river_mesh_trace import linear_parts
+    from hydromodpy.catchment.algorithms.river_mesh_trace import linear_parts
 
     if network is None or network.empty:
         return ()

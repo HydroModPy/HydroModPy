@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from rasterio.transform import from_origin
 
 from hydromodpy.calibration.parameter_resolution import RECHARGE_VALUES_PATH
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.cli.commands import config as config_cmd
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
@@ -27,7 +28,6 @@ from hydromodpy.model.boundaries.climate import (
 )
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.model.soil.config import soil_reservoir_of
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 SOIL_PROJECT_TOML = """
 [workflow]

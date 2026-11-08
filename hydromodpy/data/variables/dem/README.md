@@ -12,7 +12,7 @@ file, or from the French departments that a region names. The manager returns a 
   (the default, 25 m) the manager builds the DEM from the archives of the departments that the
   study area touches: `apis/ign_dem_fr.py` finds them, `apis/geoplateforme_download.py` downloads
   and extracts them, and `apis/_bdalti_archive_index.py` indexes the BD ALTI archives. The
-  departments come from `hydromodpy/spatial/administrative`. With `dataset = "rge-alti"` (5 m by
+  departments come from `hydromodpy/catchment/administrative`. With `dataset = "rge-alti"` (5 m by
   default, 1 m allowed) it builds the DEM from WMS-Raster tiles (`apis/geoplateforme_wms.py`).
 - The cache is indexed by box, with no time dimension.
 

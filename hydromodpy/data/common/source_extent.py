@@ -247,7 +247,7 @@ def _raster_hull(path: Path) -> tuple[Any, Any]:
     """The convex hull of the valid cells, not the raster's footprint, and its CRS.
 
     A catchment mask is ``1`` on the catchment and nodata everywhere else in a
-    rectangle sized to the accumulation grid (``spatial/terrain/port.py``), so
+    rectangle sized to the accumulation grid (``catchment/terrain/port.py``), so
     its footprint and its catchment are not the same box at all: on a 10x10
     mask whose valid region is the central 4x4, ``(0, 0, 100, 100)`` against
     ``(30, 30, 70, 70)``.

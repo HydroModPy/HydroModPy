@@ -14,10 +14,10 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.results.derive.stream import geometry as stream_geometry
 from hydromodpy.results.derive.stream.geometry import build_network_geometry
 from hydromodpy.results.derive.stream.heads import concat_candidates
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 from tests.unit.results.stream import _heads_dam as dam
 from tests.unit.results.stream._heads_valley import (
     AXIS,

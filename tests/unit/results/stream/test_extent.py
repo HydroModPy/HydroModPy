@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.derive.stream.extent import (
     GEOMETRIC,
     VisibleFlow,
@@ -30,7 +31,6 @@ from hydromodpy.results.derive.stream.extent import (
     yearly_flow_counts,
 )
 from hydromodpy.results.derive.stream.network import build_simulated_network
-from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.v_valley import N_CELLS, build_bench, simulated_network
 
 RELEASE = 1.0e-6

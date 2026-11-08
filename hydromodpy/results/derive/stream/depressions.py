@@ -12,12 +12,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.results.derive.stream.routing_surface import RoutingSurface
-from hydromodpy.spatial.drainage.distance import (
+from hydromodpy.catchment.drainage.distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
 )
-from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
+from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
+from hydromodpy.results.derive.stream.routing_surface import RoutingSurface
 
 
 @dataclass(frozen=True, slots=True)

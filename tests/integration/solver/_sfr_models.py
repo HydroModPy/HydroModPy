@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 from shapely.geometry import LineString
 
+from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
     resolve_sfr_networks,
@@ -22,7 +23,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from tests._helpers.mf6_ground import leave_ground_beside
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

@@ -13,13 +13,13 @@ from pathlib import Path
 
 # The geographic tests that own a committed golden reference. Two of these moved
 # to the regression tier; the previous hardcoded list still pointed at
-# tests/unit/geographic/ and at two files that never existed in this checkout,
+# an old test folder and at two files that never existed in this checkout,
 # so the command regenerated nothing and said so with an exit code nobody read.
 # tests/unit/tools/test_update_geographic_goldens.py keeps this list honest.
 GOLDEN_TEST_PATHS = (
     "tests/regression/fast/geographic/test_run_geographic_dem_processing_golden.py",
     "tests/regression/fast/geographic/test_run_geographic_river_network_golden.py",
-    "tests/unit/geographic/test_catchment_delineation.py",
+    "tests/unit/catchment/preprocess/test_catchment_delineation.py",
 )
 
 

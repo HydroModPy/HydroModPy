@@ -17,16 +17,16 @@ canonical concepts and technical preprocessing bundles.
 Code map
 --------
 
-- ``hydromodpy/spatial/geographic/core/hydrographic_network.py``:
+- ``hydromodpy/catchment/algorithms/hydrographic_network.py``:
   canonical network classes and naming contract.
-- ``hydromodpy/spatial/geographic/core/hydrographic_network_comparison.py``:
+- ``hydromodpy/catchment/algorithms/hydrographic_network_comparison.py``:
   comparison result and geometric metrics.
-- ``hydromodpy/spatial/geographic/core/river_network.py``:
+- ``hydromodpy/catchment/algorithms/river_network.py``:
   DEM-derived preprocessing outputs (`RiverNetworkProducts`).
-- ``hydromodpy/spatial/geographic/core/derived_features.py``:
+- ``hydromodpy/catchment/algorithms/derived_features.py``:
   geographic bundle that carries canonical network roles.
 - ``hydromodpy/workflow/steps/prepare_solver/`` and
-  ``hydromodpy/spatial/geographic/store_ingestion.py``:
+  ``hydromodpy/catchment/preprocess/store_ingestion.py``:
   persistence into the catalog.
 - ``hydromodpy/results/run/view.py``:
   read facade and comparison accessors.
@@ -36,11 +36,11 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/spatial/geographic/core/hydrographic_network.py``
-2. ``hydromodpy/spatial/geographic/core/river_network.py``
-3. ``hydromodpy/spatial/geographic/core/derived_features.py``
+1. ``hydromodpy/catchment/algorithms/hydrographic_network.py``
+2. ``hydromodpy/catchment/algorithms/river_network.py``
+3. ``hydromodpy/catchment/algorithms/derived_features.py``
 4. ``hydromodpy/workflow/steps/prepare_solver/`` and
-   ``hydromodpy/spatial/geographic/store_ingestion.py``
+   ``hydromodpy/catchment/preprocess/store_ingestion.py``
 5. ``hydromodpy/results/run/view.py``
 6. ``hydromodpy/display/figures/hydrographic_network.py`` and
    ``hydromodpy/display/figures/hydrographic_network_comparison.py``

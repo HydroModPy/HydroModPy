@@ -21,6 +21,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.drainage import descent as core_descent
+from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.solver.modflow6 import build
@@ -28,8 +30,6 @@ from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.drainage import descent as core_descent
-from hydromodpy.spatial.drainage.descent import DescentBasin
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 

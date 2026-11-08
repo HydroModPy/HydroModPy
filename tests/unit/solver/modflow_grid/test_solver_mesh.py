@@ -16,6 +16,8 @@ import pytest
 from pydantic import ValidationError
 from shapely.geometry import box
 
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
@@ -27,7 +29,6 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
-from hydromodpy.spatial import RasterSupport, Surface
 from tests._helpers.mesh_cases import regular_mesh, voronoi_lake_mesh
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays

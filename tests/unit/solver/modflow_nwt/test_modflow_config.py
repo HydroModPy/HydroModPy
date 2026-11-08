@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.optim.parameters import set_by_path
+from hydromodpy.catchment.algorithms.flow_products import FlowProducts
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, SolverInputError
 from hydromodpy.model.flow_config import FlowConfig
@@ -37,7 +38,6 @@ from hydromodpy.solver.modflow_nwt.extractors.flow import (
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig, ModflowSpecifParams
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import refuse_constant_heads_below_bottom
-from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.terrain_doubles import fake_flow_products
 

@@ -185,7 +185,7 @@ def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None
     regions = list(getattr(source_cfg, "regions", None) or [])
     if not regions:
         return None
-    from hydromodpy.spatial.administrative.france import find_departments_in_regions
+    from hydromodpy.catchment.administrative.france import find_departments_in_regions
 
     return find_departments_in_regions(regions)
 

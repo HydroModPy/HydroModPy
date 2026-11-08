@@ -27,11 +27,11 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.spatial.surface import Surface
 
 BINDER_ZONE_IDS = ("catchment", "geology")
 """Zone ids the workflow binders write under a fixed name, whatever the config says."""

@@ -67,7 +67,7 @@ What to do, by failing test
    the port module and its contracts. The layer matrix cannot see this, because
    the parts sit in one layer. Remove the import: a source must not reach a
    manager, a catalog or a workspace, and a terrain engine must not import another
-   part of ``spatial``.
+   part of ``catchment``.
 
 ``test_cli_boundary.py``
    Only ``hydromodpy/__main__.py`` may import ``hydromodpy.cli``. Put the logic in

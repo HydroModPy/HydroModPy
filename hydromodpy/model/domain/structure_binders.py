@@ -3,7 +3,7 @@
 These functions bridge geographic outputs (catchment polygons, zone codes) into
 domain-level objects (``CatchmentZonesField``, ``Domain.zones``). They live in
 ``model/domain`` because they write zones into a ``Domain`` and read
-``spatial/geographic/core``.
+``catchment/algorithms``.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.spatial.geographic.core.catchment_zones import (
+from hydromodpy.catchment.algorithms.catchment_zones import (
     CatchmentZoneCode,
     build_catchment_zone_codes,
     build_uniform_zone_codes,
 )
-from hydromodpy.spatial.geographic.core.catchment_zones_field import CatchmentZonesField
+from hydromodpy.catchment.algorithms.catchment_zones_field import CatchmentZonesField
 
 if TYPE_CHECKING:
     from hydromodpy.model.domain.domain import Domain

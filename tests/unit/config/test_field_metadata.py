@@ -12,6 +12,7 @@ import pytest
 from pydantic import BaseModel
 
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_metadata import (
     field_metadata,
@@ -27,7 +28,6 @@ from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tools.docs import field_registry
 
 ROOT = Path(__file__).resolve().parents[3]

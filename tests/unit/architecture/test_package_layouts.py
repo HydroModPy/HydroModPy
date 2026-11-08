@@ -50,6 +50,7 @@ SEEN_PARTS = {
     "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
     "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},
     "mesh": {"planar", "cells", "engines", "planning", "io"},
+    "catchment": {"terrain", "delineation", "drainage", "algorithms", "synthetic", "preprocess"},
 }
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"

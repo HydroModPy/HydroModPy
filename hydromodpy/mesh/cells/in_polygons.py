@@ -11,7 +11,7 @@ An AREAL layer takes the opposite rule, ``rule="centroid"``, because touch
 inclusion adds a full exterior ring of cells that lie mostly outside the
 polygon. The two rules are the ``all_touched`` choice the raster path already
 makes for the same pair of objects, in
-:mod:`~hydromodpy.spatial.geographic.core.stream_dem_agreement`, where the
+:mod:`~hydromodpy.catchment.algorithms.stream_dem_agreement`, where the
 network is rasterized with ``all_touched=True`` and the catchment with
 ``all_touched=False``.
 

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
+from hydromodpy.catchment.raster_support import RasterSupport
+from hydromodpy.catchment.surface import Surface
 
 CRS = "EPSG:2154"
 NODATA = -9999.0

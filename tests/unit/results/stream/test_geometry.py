@@ -14,6 +14,7 @@ import logging
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
 from hydromodpy.results.derive.stream import geometry as stream_geometry
 from hydromodpy.results.derive.stream.geometry import (
     VALIDITY_PROVENANCE_BY_CODE,
@@ -24,7 +25,6 @@ from hydromodpy.results.derive.stream.geometry import (
     resolve_validity_length,
 )
 from hydromodpy.results.derive.stream.network import build_simulated_network
-from hydromodpy.spatial.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N_ROWS = 12

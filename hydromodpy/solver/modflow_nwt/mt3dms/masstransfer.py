@@ -25,7 +25,7 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
 logger = get_logger(__name__)
 
@@ -71,7 +71,7 @@ class Masstransfer:
             Optional tag injected into intermediate filenames to distinguish
             runs (default keeps historical '_conc' suffixes).
         """
-        from hydromodpy.spatial.delineation import get_whitebox_backend
+        from hydromodpy.catchment.delineation import get_whitebox_backend
 
         self.geographic = geographic
         self.extraction_folder = extraction_folder

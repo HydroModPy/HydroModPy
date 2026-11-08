@@ -41,9 +41,9 @@ class SetupContext:
     """Objects prepared during setup and reused by all runs.
 
     Most field types are ``Any`` because ``core`` cannot import from
-    sibling layers (``model``, ``spatial``, ``mesh``). Concrete classes live in
+    sibling layers (``catchment``, ``mesh``, ``model``). Concrete classes live in
     ``model.model``, ``model.transport``, ``model.domain``,
-    ``spatial.geographic`` and ``mesh.io``.
+    ``catchment.preprocess`` and ``mesh.io``.
     """
 
     workspace: WorkspaceLayout | None = None

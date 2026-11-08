@@ -17,6 +17,8 @@ from typing import Any, cast
 import numpy as np
 import rasterio
 
+from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.model.domain.active_cells import (
@@ -37,6 +39,12 @@ from hydromodpy.model.domain.capability import (
 from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.domain_document import ResolvedDomainRequest, build_domain_document
+from hydromodpy.model.domain.job_inputs import (
+    output_records,
+    read_raster_input,
+    refuse_a_file_that_is_not_the_one_asked_for,
+    resolve_input_file,
+)
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
@@ -60,14 +68,6 @@ from hydromodpy.schema.job.request import (
 )
 from hydromodpy.schema.job.worker import ExitCodeMapper, run_job, seal_successful
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
-from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.spatial.job_inputs import (
-    output_records,
-    read_raster_input,
-    refuse_a_file_that_is_not_the_one_asked_for,
-    resolve_input_file,
-)
-from hydromodpy.spatial.surface import Surface
 
 
 def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:

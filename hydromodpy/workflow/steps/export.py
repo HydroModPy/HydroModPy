@@ -139,7 +139,7 @@ def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> i
     disk, or ``keep`` says a multi-run session owns the tree and drops it at
     the end of the session rather than at the end of a run.
     """
-    from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
+    from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 
     geographic = getattr(getattr(ctx, "setup", None), "geographic", None)
     if geographic is None:

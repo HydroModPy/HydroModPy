@@ -247,7 +247,7 @@ architecture/packages/cli.rst                                                   
 architecture/packages/config.rst                                                  contribute/architecture/packages/config
 architecture/packages/core.rst                                                    contribute/architecture/packages/core
 architecture/packages/data.rst                                                    contribute/architecture/packages/data
-architecture/packages/discretization.rst                                          contribute/architecture/packages/spatial
+architecture/packages/discretization.rst                                          contribute/architecture/packages/catchment
 architecture/packages/display.rst                                                 contribute/architecture/packages/display
 architecture/packages/examples.rst                                                contribute/architecture/packages/project
 contribute/architecture/packages/examples.rst                                     contribute/architecture/packages/project
@@ -262,7 +262,8 @@ architecture/packages/schema.rst                                                
 architecture/packages/simulation.rst                                              contribute/architecture/packages/solver
 contribute/architecture/packages/simulation.rst                                   contribute/architecture/packages/solver
 architecture/packages/solver.rst                                                  contribute/architecture/packages/solver
-architecture/packages/spatial.rst                                                 contribute/architecture/packages/spatial
+architecture/packages/spatial.rst                                                 contribute/architecture/packages/catchment
+contribute/architecture/packages/spatial.rst                                      contribute/architecture/packages/catchment
 architecture/packages/validity_frame.rst                                          contribute/architecture/packages/validity_frame
 architecture/packages/workflow.rst                                                contribute/architecture/packages/workflow
 architecture/pipeline_resume.rst                                                  contribute/architecture/pipeline_resume

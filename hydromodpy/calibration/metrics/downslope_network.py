@@ -46,6 +46,11 @@ from typing import Literal
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.distance import (
+    DownslopeMetric,
+    downslope_distance_to_mask,
+    mean_downslope_distance,
+)
 from hydromodpy.results.derive.stream.geometry import (
     CriterionSupports,
     NetworkGeometry,
@@ -53,11 +58,6 @@ from hydromodpy.results.derive.stream.geometry import (
     criterion_supports,
 )
 from hydromodpy.results.derive.stream.network import SimulatedNetwork
-from hydromodpy.spatial.drainage.distance import (
-    DownslopeMetric,
-    downslope_distance_to_mask,
-    mean_downslope_distance,
-)
 
 Weighting = Literal["cell", "area"]
 

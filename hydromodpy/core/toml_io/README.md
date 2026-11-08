@@ -10,12 +10,12 @@ through it, and it can point a validation error at the line of the file.
 3. `overrides.py` applies `--set key=value` and `HMP_SET_<key>` to the document.
 4. `paths.py` resolves the file paths a config declares (`resolve_declared_path`) and parses dotted key paths.
 5. `error_locator.py` maps a Pydantic error back to a TOML line.
-6. `generator.py` writes the commented template from the models (`generate_toml`), using `dynamic_examples_protocol.py` for the examples that `model` and `spatial` provide. It reads the shapes of the models through `model_types.py`, writes one table with `section.py` and formats keys, values and comments with `render.py`.
+6. `generator.py` writes the commented template from the models (`generate_toml`), using `dynamic_examples_protocol.py` for the examples that `model` and `catchment` provide. It reads the shapes of the models through `model_types.py`, writes one table with `section.py` and formats keys, values and comments with `render.py`.
 7. `writer.py` renders a plain mapping (`dumps`, `dump`). A model with comments is written by `config_kit/dump.py`.
 
 ## What other layers import from it
 
-`config`, `project`, `cli`, `workflow`, `calibration`, `schema` and `spatial`.
+`config`, `project`, `cli`, `workflow`, `calibration`, `schema` and `catchment`.
 
 ## Where to add what
 

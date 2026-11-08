@@ -36,7 +36,7 @@ from hydromodpy.core.exceptions import MeshRequestError
 if TYPE_CHECKING:
     from rasterio.transform import Affine
 
-    from hydromodpy.spatial.raster_support import RasterSupport
+    from hydromodpy.catchment.raster_support import RasterSupport
 
 __all__ = [
     "BARRIER_FAMILY",

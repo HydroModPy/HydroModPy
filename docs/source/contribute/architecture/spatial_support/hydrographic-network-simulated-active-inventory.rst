@@ -14,7 +14,7 @@ Three networks, three roles
 
 The role exists in the type contract (``HydrographicNetworkRole`` and the
 ``HydrographicNetworks.simulated_active`` slot of
-``hydromodpy/spatial/geographic/core/hydrographic_network.py``), and
+``hydromodpy/catchment/algorithms/hydrographic_network.py``), and
 ``Run.available_hydrographic_network_roles()`` knows its name. No workflow step writes a
 ``hydrographic_network_simulated_active`` geographic feature, so the slot stays empty in
 practice.

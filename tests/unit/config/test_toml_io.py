@@ -152,7 +152,7 @@ def test_a_factory_key_carries_its_value_and_a_required_key_stays_commented(monk
 
 
 def test_the_crossings_section_of_the_template_is_valid_as_written() -> None:
-    from hydromodpy.spatial.geographic.crossings_config import CrossingNotchConfig
+    from hydromodpy.catchment.preprocess.crossings_config import CrossingNotchConfig
 
     section = tomllib.loads(generate_toml(modules=["geographic"], profile="user"))["geographic"]
 

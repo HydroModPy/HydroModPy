@@ -75,6 +75,23 @@ from typing import Literal
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
+from hydromodpy.catchment.drainage.distance import (
+    CATCHMENT_MISMATCH_WARNING_SHARE,
+    DownslopeMetric,
+    build_downslope_metric,
+    downslope_distance_to_mask,
+    longest_descent_length,
+    resolve_diagonal_neighbors,
+    resolve_outlet,
+    shared_node_adjacency,
+)
+from hydromodpy.catchment.drainage.filling import fill_depressions_on_graph
+from hydromodpy.catchment.drainage.graph import (
+    active_surface_mask,
+    cell_adjacency_from_face_connectivity,
+    domain_edge_cells,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.results.derive.stream.heads import (
@@ -87,23 +104,6 @@ from hydromodpy.results.derive.stream.network import (
     downstream_closure,
     specific_seepage_threshold,
 )
-from hydromodpy.spatial.drainage.distance import (
-    CATCHMENT_MISMATCH_WARNING_SHARE,
-    DownslopeMetric,
-    build_downslope_metric,
-    downslope_distance_to_mask,
-    longest_descent_length,
-    resolve_diagonal_neighbors,
-    resolve_outlet,
-    shared_node_adjacency,
-)
-from hydromodpy.spatial.drainage.filling import fill_depressions_on_graph
-from hydromodpy.spatial.drainage.graph import (
-    active_surface_mask,
-    cell_adjacency_from_face_connectivity,
-    domain_edge_cells,
-)
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 
 logger = get_logger(__name__)
 

@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.results.derive.stream.geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.results.derive.stream.heads import HeadsSettings
-from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N_ROWS = 24

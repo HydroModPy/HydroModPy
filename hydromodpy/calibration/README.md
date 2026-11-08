@@ -576,7 +576,7 @@ declared share when the blocks have different units.
 
 ## Layer neighbors
 
-`calibration` imports `core`, `model`, `data`, `spatial`, `solver`
+`calibration` imports `core`, `model`, `data`, `catchment`, `solver`
 and `results` (`tests/unit/architecture/layer_matrix.yaml`). It never
 imports `display`. The root facade, `config`,
 `workflow`, `project` and `cli` import it. `workflow` is reached only through the

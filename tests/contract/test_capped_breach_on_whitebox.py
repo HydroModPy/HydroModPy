@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.terrain import CappedBreach, ConditioningExtent
+from hydromodpy.catchment.terrain.port import CappedBreach, ConditioningExtent
 
 rasterio = pytest.importorskip("rasterio")
 pytest.importorskip("whitebox_workflows")
@@ -34,7 +34,7 @@ def _single_thread_whitebox(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def engine():
-    from hydromodpy.spatial.terrain import registry
+    from hydromodpy.catchment.terrain import registry
 
     return registry.create("whitebox_workflows")
 
@@ -151,13 +151,13 @@ def test_the_residual_fill_leaves_the_dem_without_a_depression(engine, tmp_path)
 def test_a_sealed_regional_job_records_the_cap_and_what_it_did(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from hydromodpy.schema.job import provenance
-    from hydromodpy.schema.job.documents import read_document
-    from hydromodpy.spatial.geographic.regional_flow_job import (
+    from hydromodpy.catchment.preprocess.regional_flow_job import (
         DESCRIPTION_PATH,
         load_regional_flow_job,
         materialize_regional_flow_job,
     )
+    from hydromodpy.schema.job import provenance
+    from hydromodpy.schema.job.documents import read_document
 
     monkeypatch.setattr(provenance, "git_state", lambda: {"commit": None, "dirty": None})
     dem = _dam(tmp_path, crest_above_bowl_m=0.3)

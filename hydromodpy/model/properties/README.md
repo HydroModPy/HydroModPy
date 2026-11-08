@@ -67,7 +67,7 @@ the base class they derive from, the geology field `GeologyField`, and `FieldSqu
 
 ## Rules between the modules
 
-The package reads `core`, `schema` and, until `spatial` is emptied, the mesh model in `mesh/planar/`.
+The package reads `core`, `schema` and the mesh model in `mesh/planar/`.
 
 - `geology_config.py` reads `core` and no mesh. `field_param_io.py` reads `field_param.py`,
   `core.config_kit.field_param.config` and `field_spatial.py`.
@@ -76,7 +76,7 @@ The package reads `core`, `schema` and, until `spatial` is emptied, the mesh mod
 - `mesh_cells.py`, `plotting.py`, `field_spatial.py`, `zone_fractions.py` and `unit_square_mesh.py` read
   the mesh model. The mesh never imports this package.
 - `cell_sampling.py` reads `mesh_cells.py`. It imports `PlanarCellMesh` only for typing.
-- `geology_field.py` reads `spatial.protocols` for the geology data source, so it imports no `data`
+- `geology_field.py` reads `catchment.protocols` for the geology data source, so it imports no `data`
   module.
 - `property_table.py` reads `property_ids.py`, `time/regime.py`, `field_spatial.py`, `zone_fractions.py`
   and `core`.
