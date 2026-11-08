@@ -1,7 +1,7 @@
-"""W3C PROV-O JSON-LD lineage for HydroModPy simulations.
+"""W3C PROV-O lineage for HydroModPy simulations, embedded in the RO-Crate.
 
 The exporter walks the catalog graph ``simulation -> tracked_files -> provenance``
-and emits a PROV-O document (https://www.w3.org/TR/prov-o/) that maps:
+and emits the PROV-O payload (https://www.w3.org/TR/prov-o/) that maps:
 
 - the simulation itself onto a ``prov:Activity`` (a ``CreateAction`` for
   schema.org compatibility),
@@ -11,9 +11,10 @@ and emits a PROV-O document (https://www.w3.org/TR/prov-o/) that maps:
 - every output asset onto a ``prov:Entity`` ``wasGeneratedBy`` the
   simulation activity.
 
-The same payload is embedded by the RO-Crate exporter under ``@graph``
-without modification, so consumers can run a single ``json.load`` and
-walk either tree.
+The payload is embedded by the RO-Crate exporter under ``@graph`` without
+modification, so consumers can run a single ``json.load`` and walk either
+tree. Only the standalone PROV view would serialize it on its own, and that
+view leaves the wheel for an out-of-tree plugin.
 """
 
 from __future__ import annotations
@@ -24,19 +25,10 @@ from typing import Any
 from hydromodpy.results.export.context import (
     FairExportContext,
     _is_missing,
-    to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory
-from hydromodpy.schema.generated_views import PROV_VIEW_FILENAME
 
 HYDROMODPY_NAMESPACE = "https://docs.hydromodpy.fr/schema#"
-
-PROV_CONTEXT = {
-    "prov": "http://www.w3.org/ns/prov#",
-    "schema": "http://schema.org/",
-    "hydromodpy": HYDROMODPY_NAMESPACE,
-    "xsd": "http://www.w3.org/2001/XMLSchema#",
-}
+"""The namespace the provenance annotations of a crate are written in."""
 
 _AGENT_HYDROMODPY_ID = "#agent/hydromodpy"
 _AGENT_SOLVER_ID_TEMPLATE = "#agent/solver/{name}"
@@ -225,42 +217,7 @@ def build_prov_document(context: FairExportContext) -> dict[str, Any]:
     return {"createAction": action, "activities": activities}
 
 
-def serialise_prov(context: FairExportContext) -> dict[str, Any]:
-    """Return a standalone JSON-LD PROV-O document for *context*."""
-    parts = build_prov_document(context)
-    return {
-        "@context": PROV_CONTEXT,
-        "@graph": [parts["createAction"], *parts["activities"]],
-    }
-
-
-def write_prov(context: FairExportContext, output_path: Path | str) -> Path:
-    """Materialize the JSON-LD PROV-O document of *context*."""
-    payload = serialise_prov(context)
-    out = Path(output_path)
-    if out.is_dir() or out.suffix == "":
-        out = out / PROV_VIEW_FILENAME
-    return to_json(payload, out)
-
-
-def write_prov_view(
-    directory: Path | str,
-    *,
-    context: FairExportContext | None = None,
-) -> Path:
-    """Render the PROV-O lineage of a sealed run or job directory, inside it.
-
-    Written as ``prov.jsonld`` beside the seal, from the directory alone.
-    """
-    root = Path(directory)
-    ctx = context or context_from_directory(root)
-    return to_json(serialise_prov(ctx), root / PROV_VIEW_FILENAME)
-
-
 __all__ = [
-    "PROV_CONTEXT",
+    "HYDROMODPY_NAMESPACE",
     "build_prov_document",
-    "serialise_prov",
-    "write_prov",
-    "write_prov_view",
 ]

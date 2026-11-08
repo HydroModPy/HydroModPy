@@ -332,7 +332,7 @@ OUTPUTS: tuple[Output, ...] = (
         "html_report",
         "postflight_report",
     ),
-    _rows("viz list", "name", "kind", "required_fields", "required_tables", "required_solvers"),
+    _rows("viz list", "name", "kind", "required_fields", "required_tables"),
     _rows("viz list run", "name", "kind", "available", "reason"),
     _object("viz show", "path"),
     # Configuration

@@ -5,7 +5,9 @@ A thin wrapper of :func:`hydromodpy.export`: the positionals say what
 ``--time`` or ``--period`` when, ``--to`` where under ``runs/<run>/exports/``:
 a name with an extension is one file, any other a folder. The file format
 follows the data unless ``--as`` or the extension of ``--to`` names one.
-``--format`` is what the command prints, as on every verb. ``--list`` prints
+``--as`` takes the name of any format the export registry serves, and an
+unknown one is refused with the formats this installation serves. ``--format``
+is what the command prints, as on every verb. ``--list`` prints
 what the run can export, by kind; ``--regen`` writes again what the ledgers of
 the run record, its exports, its figures or both. A copy out of the project is
 ``hmp publish``.
@@ -34,20 +36,6 @@ from hydromodpy.cli.output import emit
 
 NAME: str = "export"
 HELP: str = "Export data of a run: fields, series, layers, the budget, or the whole run"
-
-# The values of ExportFormat, written out so that building the parser imports
-# no config model. A test keeps the two lists equal.
-FILE_FORMATS: tuple[str, ...] = (
-    "netcdf",
-    "geotiff",
-    "csv",
-    "geopackage",
-    "shapefile",
-    "vtu",
-    "stac",
-    "rocrate",
-    "prov",
-)
 
 REGEN_CHOICES: tuple[str, ...] = ("all", "exports", "figures")
 
@@ -123,9 +111,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--as",
         dest="file_format",
-        choices=FILE_FORMATS,
+        metavar="FORMAT",
         default=None,
-        help="File format. Default: the natural format of each data, or the --to extension",
+        help=(
+            "File format, a name the export registry serves: netcdf, geotiff, csv, a view "
+            "format like rocrate, or one an installed package adds. Default: the natural "
+            "format of each data, or the --to extension"
+        ),
     )
     add_destination(
         parser,

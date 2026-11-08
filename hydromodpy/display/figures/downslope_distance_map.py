@@ -48,7 +48,6 @@ from hydromodpy.display.figure_options import (
     Opt,
     TauSpecificRatio,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
@@ -163,7 +162,6 @@ def class_colors(n_classes: int) -> tuple[str, ...]:
 # values are a derived field rather than a persisted one, so ScalarFaceMap gives
 # nothing here: its render() reads sim.field() and calls render_face_field().
 # BaseFigure it is.
-@register
 class DownslopeDistanceMap(BaseFigure):
     """Plan map of the downslope distance from one network to the other.
 

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def compute_completeness(
@@ -16,6 +18,8 @@ def compute_completeness(
     station_id: str = "",
 ) -> dict:
     """Compute missing-data stats for one time series."""
+    import pandas as pd
+
     empty = {
         "station_id": str(station_id),
         "expected_days": 0,

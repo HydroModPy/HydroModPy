@@ -4,30 +4,55 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
+from hydromodpy.core.exceptions import DataProductError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import bbox_hash
+from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.base_manager_common import BaseManagerCommon
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM
+from hydromodpy.data.source.port import FetchRequest, FetchResult, Period
 
 logger = get_logger(__name__)
+
+
+def records_of(result: FetchResult) -> list[FieldRecord | PointRecord]:
+    """The records a field variable holds, refusing a payload it cannot hold.
+
+    An empty list is an answer, and the caller decides what it means.
+    """
+    if result.kind == "fields":
+        return list(result.fields)
+    if result.kind == "points":
+        return list(result.points)
+    raise DataProductError(
+        f"Source {result.source_id!r} answered a field variable with a {result.kind!r} "
+        "payload. A field variable holds grids or station chronicles, and the sources "
+        "registered under its section serve exactly that."
+    )
 
 
 class BaseFieldManager(BaseManagerCommon):
     """Base orchestrator for grid-data variable managers.
 
-    Subclasses set ``VARIABLE_NAME``, ``INTERNAL_UNIT`` and ``SOURCES``. A
-    ``SOURCES`` function has the form ``fetch(cfg, *, bbox, period, context)``.
-    One that also has ``variables(cfg)``, the names of the grids it will
-    return, is a download: it receives the resolved box, and its grids are
-    cached and reused. One without is computed from the config (``constant``,
-    ``synthetic``) or keeps its own cache (SHOM): it is never cached here and
-    receives ``bbox=None``, so a source that needs no extent never reads the
-    mask file.
+    Subclasses set ``VARIABLE_NAME`` and ``INTERNAL_UNIT``; the source a section
+    names is a class of the data-source port, and this family translates its
+    call into one :class:`~hydromodpy.data.source.port.FetchRequest`: the extent
+    the mask or the project extent resolves to, in the CRS it is really in, and
+    the run's period. A source that declares no selector gets neither: a
+    computed constant or a synthetic recharge reads nothing spatial.
+
+    The manager keeps the grid cache, and it is the one thing the port says
+    nothing about: a field source that selects by extent and answers fields a
+    grid can be cut from is a download, and its answers are keyed on the box and
+    the window and reused. A source that reads a file the section names
+    (Explore2) is read again at each run, and a source that keeps its own cache
+    (SHOM) or computes from the section alone is never cached here.
     """
 
     def load(self) -> LoadResult:
@@ -72,31 +97,93 @@ class BaseFieldManager(BaseManagerCommon):
         )
         return self._handle_custom_results(records, source_cfg)
 
-    def _fetch_listed_source(self, fetch, source_cfg: Any) -> list[FieldRecord | PointRecord]:
-        context = self._source_context(source_cfg)
-        variables = getattr(fetch, "variables", None)
-        if variables is None:
-            return fetch(source_cfg, bbox=None, period=self.project_period, context=context)
-        if getattr(source_cfg, "path", None) is not None:
-            # A grid read from a file the user names (explore2) is read again at
-            # each run: the download cache keys on the box and the dates, never
-            # on the file, and would hand back the grid of the previous file.
-            return fetch(
+    def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
+        """The window the section writes, bound as datetimes.
+
+        A source that falls back on the dates of ``[data.<name>]`` when the run
+        carries no period (the SHOM tide gauges) reads them here; the keys a
+        constructor does not name are dropped, so only a source that asks for
+        them receives them.
+        """
+        del source_cfg
+        config_period = self._config_period()
+        if config_period is None:
+            return {}
+        return {"date_start": config_period[0], "date_end": config_period[1]}
+
+    def _fetch_listed_source(self, source: Any, source_cfg: Any) -> list[FieldRecord | PointRecord]:
+        cached = self._is_a_manager_cached_download(source, source_cfg)
+
+        # No cache folder means no side file worth keeping: a scratch owned by
+        # this call is the out_dir, and goes when the call does.
+        with TemporaryDirectory(prefix="hmp-fields-") as scratch:
+            out_dir = self.data_dir if self.data_dir is not None else Path(scratch)
+
+            if not source.selectors:
+                # A computed source is asked exactly nothing: the loader fills
+                # mask_path on every section whose model declares it, and the
+                # extent it names is nobody's to read here.
+                period = self.project_period
+                request_period = (
+                    Period(start=period[0], end=period[1]) if period is not None else None
+                )
+                request = FetchRequest(out_dir=out_dir, period=request_period)
+                return records_of(source.fetch(request))
+
+            if not cached:
+                request = self._field_request(source_cfg, out_dir=out_dir)
+                return records_of(source.fetch(request))
+
+            def _download(cfg: Any, *, bbox, project_period) -> list[FieldRecord]:
+                del bbox, cfg  # the request resolves the same box itself
+                request = self._field_request(source_cfg, out_dir=out_dir, period=project_period)
+                records = records_of(source.fetch(request))
+                return [record for record in records if isinstance(record, FieldRecord)]
+
+            return self._load_or_fetch_fields(
                 source_cfg,
-                bbox=self._resolve_bbox(source_cfg),
-                period=self.project_period,
-                context=context,
+                source_cfg.source,
+                _download,
+                variable_names=list(source.variables),
             )
 
-        def _download(cfg: Any, *, bbox, project_period) -> list[FieldRecord]:
-            return fetch(cfg, bbox=bbox, period=project_period, context=context)
+    def _is_a_manager_cached_download(self, source: Any, source_cfg: Any) -> bool:
+        """Whether this manager keys the source's grids on the box and the window.
 
-        return self._load_or_fetch_fields(
-            source_cfg,
-            source_cfg.source,
-            _download,
-            variable_names=variables(source_cfg),
+        A source that answers fields, selects by extent and reads no named file
+        is a download: its grids are cut to a box and a window, exactly what the
+        grid cache keys on. Everything else is read again at each run: a file
+        the user names (the download cache keys on the box and the dates, never
+        on the file, and would hand back the grid of the previous file), a
+        source with its own cache, and a source computed from the section.
+        """
+        return (
+            getattr(source, "payload_kind", None) == "fields"
+            and "extent" in getattr(source, "selectors", ())
+            and getattr(source_cfg, "path", None) is None
         )
+
+    def _field_request(
+        self,
+        source_cfg: Any,
+        *,
+        out_dir: Path,
+        period: tuple[datetime, datetime] | None = None,
+    ) -> FetchRequest:
+        """The question a field source is asked: the extent as it is, and the window.
+
+        The extent is what :func:`resolve_source_extent` resolves: the box of
+        the mask in the CRS the mask is in, or the project extent in the frame
+        the grid managers receive it. A source that declares no selector
+        receives neither, and the same source asking through
+        :func:`~hydromodpy.data.source.port.extent_for` converts it into the
+        frame it declares.
+        """
+        if period is None:
+            period = self.project_period
+        request_period = Period(start=period[0], end=period[1]) if period is not None else None
+        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
+        return FetchRequest(out_dir=out_dir, extent=extent, period=request_period)
 
     # ------------------------------------------------------------------
     # Bbox resolution and spatial mask (native CRS for grid data)

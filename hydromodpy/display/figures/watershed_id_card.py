@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_label, run_suffix
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
@@ -58,7 +57,6 @@ _SOLVER_NAMES: dict[str, str] = {
 """What a run raises when it never wrote the feature a row reads."""
 
 
-@register
 class WatershedIdCardFigure(BaseFigure):
     """Compact summary: topography and metadata table."""
 

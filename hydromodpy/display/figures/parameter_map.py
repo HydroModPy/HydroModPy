@@ -16,7 +16,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._parameter_scale import (
     CYCLIC_FIELDS,
     PARAMETER_CHOICES,
@@ -40,7 +39,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class ParameterMap(BaseFigure):
     """One aquifer property across the domain, for one layer."""
 

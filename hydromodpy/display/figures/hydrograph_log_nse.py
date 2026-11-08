@@ -42,7 +42,6 @@ from hydromodpy.core.units.labels import (
 )
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station, Variable
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._run_score import RunScore, run_score
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
@@ -75,7 +74,6 @@ _DEFAULT_VARIABLE = "discharge"
 _WINDOW_COLOR = "0.82"
 
 
-@register
 class HydrographLogNseFigure(BaseFigure):
     """Simulated and observed discharge on a log axis, split and scored."""
 

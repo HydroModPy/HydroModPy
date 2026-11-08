@@ -153,7 +153,7 @@ dev = [
 hmp = "hydromodpy.cli.main:main"
 hydromodpy = "hydromodpy.cli.main:main"
 
-# Seven entry-point groups are the out-of-tree plugin surface. Each is read by
+# Eight entry-point groups are the out-of-tree plugin surface. Each is read by
 # one instance of hydromodpy.core.plugin_registry.PluginRegistry, and the
 # in-tree classes are declared once, in the same module, so a plugin never
 # carries two names. An entry-point name must equal the id its class declares,
@@ -165,6 +165,11 @@ hydromodpy = "hydromodpy.cli.main:main"
 # declares the attributes the solver port lists.
 #
 # "hydromodpy.data.source" is read by hydromodpy.data.source.registry.data_sources.
+# A source is named <section>_<source_id>, for example hydrography_osm.
+#
+# "hydromodpy.export.format" is read by
+# hydromodpy.results.exporters.registry.export_formats. It names an export
+# format or run view, for example stac or prov.
 #
 # "hydromodpy.terrain.engine" is read by
 # hydromodpy.catchment.terrain.registry.terrain_engines. It is what
@@ -172,8 +177,8 @@ hydromodpy = "hydromodpy.cli.main:main"
 # from outside without a patch to this package.
 #
 # "hydromodpy.mesh.engine" is read by hydromodpy.mesh.registry.mesh_engines. It
-# is what [mesh] engine names, so a mesh engine (regular, triangle and voronoi
-# ship in-tree) is substituted the same way.
+# is what [mesh] engine names, so a mesh engine (catchment, regular, triangle
+# and voronoi ship in-tree) is substituted the same way.
 #
 # "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
 # are read by hydromodpy.calibration.evaluation.registry.evaluators and by
@@ -182,6 +187,10 @@ hydromodpy = "hydromodpy.cli.main:main"
 # the second answers the observables [calibration.outputs] declares and is named
 # by [calibration] forward_model, so a foreign model is scored by the criteria
 # of the document and brings none of its own.
+
+[project.entry-points."hydromodpy.export.format"]
+stac = "hydromodpy_annex.export.stac:StacItemView"
+prov = "hydromodpy_annex.export.prov:ProvView"
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"

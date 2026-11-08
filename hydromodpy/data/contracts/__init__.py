@@ -6,4 +6,10 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.table import TableRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 
-__all__ = ["FieldRecord", "LoadResult", "PointRecord", "StationLocation", "TableRecord"]
+__all__ = [
+    "FieldRecord",
+    "LoadResult",
+    "PointRecord",
+    "StationLocation",
+    "TableRecord",
+]

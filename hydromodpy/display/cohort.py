@@ -27,6 +27,13 @@ COHORT_FIGURE_MODULE_PREFIX: Final[str] = "hydromodpy.display.figures.cohort_"
 
 def is_cohort_figure(name: str) -> bool:
     """Whether the registered figure ``name`` draws the cohort table."""
+    from hydromodpy.display.figure_registry import resolve
+    from hydromodpy.display.figure_table import FIGURES
+
+    target = resolve(name)
+    path = FIGURES.get(target)
+    if path is not None:
+        return path.startswith(COHORT_FIGURE_MODULE_PREFIX)
     import hydromodpy.display.figure_registry as figure_registry
 
     return type(figure_registry.get(name)).__module__.startswith(COHORT_FIGURE_MODULE_PREFIX)

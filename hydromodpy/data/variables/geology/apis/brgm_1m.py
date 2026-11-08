@@ -10,12 +10,24 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
+from typing import ClassVar
 
 from filelock import FileLock
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 from hydromodpy.data.variables.geology.apis.fgeol import (
     FGEOL_LAYER_PATTERN,
     bbox_hash,
@@ -89,6 +101,51 @@ def fetch_brgm_1m(
         return cropped_gpkg
 
     return full_gpkg
+
+
+class Brgm1m:
+    """The BRGM 1:1M national geological map, cropped to the request's extent.
+
+    The port class over :func:`fetch_brgm_1m`: the national GeoPackage once, in
+    the cache directory the request carries, and a cropped copy when the
+    request's box does not cover France. The map is vector geology, so the file
+    carries no nodata.
+    """
+
+    source_id: ClassVar[str] = "brgm_1m"
+    section: ClassVar[str] = "geology"
+    payload_kind: ClassVar[PayloadKind] = "files"
+    extent_crs: ClassVar[str] = "EPSG:2154"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "refused"
+    writes_out_dir: ClassVar[bool] = True
+
+    def __init__(self, *, code_field: str = "CODE_LEG") -> None:
+        self.code_field = str(code_field)
+        self.variables = ("geology",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        """Download or crop the map over the request's extent, as one file."""
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        gpkg_path = fetch_brgm_1m(
+            output_dir=request.out_dir,
+            bbox=extent.bbox,
+            code_field=self.code_field,
+        )
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        record = FileRecord.of(gpkg_path, state="raw", nodata=None, origin=BRGM_1M_URL)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            files=(record,),
+            metadata={"code_field": self.code_field},
+        )
 
 
 def _build_national_gpkg(zip_path: Path, full_gpkg: Path) -> None:

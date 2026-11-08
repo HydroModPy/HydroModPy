@@ -36,7 +36,6 @@ import numpy as np
 from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
 if TYPE_CHECKING:
@@ -96,7 +95,6 @@ class SiteAgreement:
                 )
 
 
-@register
 class RoptimValidityChart(BaseFigure):
     """``D_optim`` and ``r_optim`` against transmissivity, over a set of sites."""
 

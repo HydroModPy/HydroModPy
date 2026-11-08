@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import rasterio
 
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.variables.dem.config import (
@@ -11,6 +12,27 @@ from hydromodpy.data.variables.dem.config import (
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.dem.manager import DemManager
+
+
+def _write_tif(path: Path, *, nodata: float | None = -9999.0) -> Path:
+    """A one-pixel Lambert-93 GeoTIFF, the shape a FileRecord can seal."""
+    import numpy as np
+    from rasterio.transform import from_origin
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    profile = {
+        "driver": "GTiff",
+        "height": 1,
+        "width": 1,
+        "count": 1,
+        "dtype": "float32",
+        "crs": "EPSG:2154",
+        "transform": from_origin(0.0, 1.0, 25.0, 25.0),
+        "nodata": nodata,
+    }
+    with rasterio.open(str(path), "w", **profile) as dst:
+        dst.write(np.zeros((1, 1), dtype="float32"), 1)
+    return path
 
 
 @pytest.mark.fast
@@ -44,9 +66,7 @@ def test_ign_geoplateforme_dem_explicit_departments_dispatch_to_dynamic_client(
             }
         )
         path = Path(output_dir) / "processed" / "dem_explicit.tif"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"bbox={bbox}", encoding="utf-8")
-        return path
+        return _write_tif(path)
 
     monkeypatch.setattr(
         "hydromodpy.data.variables.dem.apis.ign_dem_fr.fetch_ign_dem",
@@ -106,9 +126,7 @@ def test_ign_geoplateforme_dem_regions_dispatch_to_dynamic_client(tmp_path, monk
             }
         )
         path = Path(output_dir) / "processed" / "dem_dynamic.tif"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("dynamic", encoding="utf-8")
-        return path
+        return _write_tif(path)
 
     monkeypatch.setattr(
         "hydromodpy.data.variables.dem.apis.ign_dem_fr.fetch_ign_dem",

@@ -191,7 +191,6 @@ class EuHydroSource(FeatureSource):
     """The EEA EU-Hydro river network, served by the Discomap MapServer."""
 
     source_id: ClassVar[str] = "euhydro"
-    hosts: ClassVar[tuple[str, ...]] = ("image.discomap.eea.europa.eu",)
 
     def __init__(
         self,

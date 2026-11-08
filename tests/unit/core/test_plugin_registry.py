@@ -717,7 +717,7 @@ def test_an_entry_point_that_cannot_be_imported_is_refused_with_its_target_and_r
     registry = _declare(monkeypatch, broken)
 
     assert "hydrograph_amazon" not in registry.names()
-    assert "failed to load" in warnings.text
+    assert "failed to load" not in warnings.text
     with pytest.raises(ValueError) as raised:
         registry.get("hydrograph_amazon")
     message = str(raised.value)
@@ -725,6 +725,24 @@ def test_an_entry_point_that_cannot_be_imported_is_refused_with_its_target_and_r
     assert "hydromodpy_figures.rivers:AmazonFigure" in message
     assert "No module named 'hydromodpy_figures'" in message
     assert "Put the package that provides it on sys.path." in message
+
+
+def test_an_entry_point_that_raises_during_load_logs_a_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    warnings: pytest.LogCaptureFixture,
+) -> None:
+    """An import error other than ModuleNotFoundError is logged as a warning."""
+    broken = _StubEntryPoint(
+        "hydrograph_amazon",
+        "hydromodpy_figures.rivers:AmazonFigure",
+        load_error=RuntimeError("syntax error in plugin"),
+    )
+    registry = _declare(monkeypatch, broken)
+
+    assert "hydrograph_amazon" not in registry.names()
+    assert "failed to load" in warnings.text
+    with pytest.raises(ValueError):
+        registry.get("hydrograph_amazon")
 
 
 def test_two_distributions_that_declare_the_same_target_are_one_plugin(

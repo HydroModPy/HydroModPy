@@ -26,7 +26,6 @@ from hydromodpy.display.figure_options import (
     SectionThrough,
     Timestep,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
 from hydromodpy.display.style import place_legend
@@ -37,7 +36,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class CrossSection(BaseFigure):
     """Topography, water table and layering along one transect."""
 

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, ParameterNames, TrialsSessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class CalibrationTraceFigure(BaseFigure):
     """One line+scatter trace per parameter, plus a panel for the objective."""
 

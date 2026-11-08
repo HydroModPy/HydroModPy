@@ -7,6 +7,7 @@ the DRIAS layout (dims ``time, y, x``, native CRS Lambert II extended,
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -219,8 +220,9 @@ def test_the_precipitation_manager_reaches_explore2_through_its_sources_table(
     config = PrecipitationConfig(
         sources=[PrecipitationSourceConfig(source="explore2", path=path, extent="watershed")]
     )
+    period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
     manager = PrecipitationManager(
-        config=config, catalog=None, project_extent=bbox, project_period=None, data_dir=None
+        config=config, catalog=None, project_extent=bbox, project_period=period, data_dir=None
     )
 
     result = manager.load()
@@ -233,8 +235,9 @@ def test_the_etp_manager_reaches_explore2_through_its_sources_table(tmp_path: Pa
     path = _write_drias_file(tmp_path, variable="evspsblpotAdjust")
     bbox = _bbox_around_native_cell(5, 5)
     config = EtpConfig(sources=[EtpSourceConfig(source="explore2", path=path, extent="watershed")])
+    period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
     manager = EtpManager(
-        config=config, catalog=None, project_extent=bbox, project_period=None, data_dir=None
+        config=config, catalog=None, project_extent=bbox, project_period=period, data_dir=None
     )
 
     result = manager.load()
@@ -259,11 +262,12 @@ def test_a_second_file_over_the_same_box_is_read_not_taken_from_the_cache(
         config = PrecipitationConfig(
             sources=[PrecipitationSourceConfig(source="explore2", path=path, extent="watershed")]
         )
+        period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
         manager = PrecipitationManager(
             config=config,
             catalog=catalog,
             project_extent=bbox,
-            project_period=None,
+            project_period=period,
             data_dir=tmp_path / "data" / "precipitation",
         )
         record = manager.load().fields[0]

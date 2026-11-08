@@ -14,6 +14,7 @@ it on the domain grid and calls `field.py`. This keeps the manager free of the p
 - `source = "brgm_1m"` builds a GeoPackage from the 1:1 000 000 national map (`apis/brgm_1m.py`).
 - `source = "brgm_50k"` builds one from the 1:50 000 maps of the departments that the box touches
   (`apis/brgm_50k.py`). The departments come from `hydromodpy/catchment/administrative`.
+  Both BRGM sources are classes of the DataSource port in apis/, registered under (geology, brgm_1m) and (geology, brgm_50k); the manager holds the catalog and serves the cached crop.
 - `apis/fgeol.py` holds what the two BRGM downloads share: the hash of a box and the lookup of the
   shapefile in an archive.
 

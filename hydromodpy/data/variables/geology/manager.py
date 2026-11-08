@@ -1,8 +1,8 @@
 """Geology variable manager - standard data-manager pattern.
 
-Downloads, caches, and serves geology data from BRGM APIs or custom
-files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
-pointing to cached GeoPackage/GeoTIFF files.
+Caches and serves geology data from the port sources the configuration names,
+or from the user's own files. Returns a ``LoadResult`` containing
+``FieldRecord`` objects pointing to cached GeoPackage files.
 
 The ``GeologyField`` (field framework) is NOT built here - that
 happens in :mod:`hydromodpy.data.loading.loader`, which takes the loaded
@@ -24,6 +24,7 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
+from hydromodpy.data.source.port import FetchRequest
 
 
 class GeologyManager(SourceTable):
@@ -31,6 +32,7 @@ class GeologyManager(SourceTable):
 
     Follows the standard variable-manager pattern:
     - iterates over configured sources,
+    - builds each one through the ``data_sources`` registry,
     - checks catalog cache (bbox-based, no temporal dimension),
     - downloads / loads on miss,
     - registers in SQL catalog with subsumption.
@@ -66,37 +68,30 @@ class GeologyManager(SourceTable):
         return result
 
     # ------------------------------------------------------------------
-    # Bbox resolution
+    # Registered sources
     # ------------------------------------------------------------------
 
-    def _resolve_bbox(self, source_cfg) -> tuple | None:
-        """The request box in the CRS of whatever declared it."""
+    def _fetch_listed_source(self, source: Any, source_cfg: Any) -> list[FieldRecord]:
+        """Fetch the geology of the built source, cache first.
+
+        The catalog is the cache and the source is only asked on a miss. The
+        refusals the config model already makes are kept here anyway: a
+        duck-typed object that never went through a model reaches this seam on
+        the ``hmp data`` path.
+        """
+        name = str(getattr(source_cfg, "source", "")).strip()
         extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
-        return None if extent is None else extent.bbox
-
-    def _resolve_bbox_2154(self, source_cfg) -> tuple | None:
-        """The request box in EPSG:2154, which is the CRS BRGM publishes in."""
-        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
-        return None if extent is None else extent.to_crs("EPSG:2154").bbox
-
-    # ------------------------------------------------------------------
-    # BRGM 1:1M
-    # ------------------------------------------------------------------
-
-    # BRGM data always uses this attribute column.
-    _BRGM_CODE_FIELD = "CODE_LEG"
-
-    def _fetch_brgm_1m(self, source_cfg) -> list[FieldRecord]:
-        """Fetch the 1:1M national geological map from BRGM."""
-        bbox = self._resolve_bbox_2154(source_cfg)
-        code_field = self._BRGM_CODE_FIELD
+        if extent is None:
+            raise ValueError(
+                f"{name} source requires a bbox (set mask_path, or extent together with a project extent)"
+            )
+        bbox = extent.to_crs("EPSG:2154").bbox
         force_refresh = getattr(source_cfg, "force_refresh", False)
 
-        # Check cache
-        if not force_refresh and self.catalog is not None and bbox is not None:
+        if not force_refresh and self.catalog is not None:
             cached = self.catalog.find_cached(
                 variable="geology",
-                source="brgm_1m",
+                source=name,
                 bbox=bbox,
             )
             if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
@@ -105,7 +100,7 @@ class GeologyManager(SourceTable):
                     return [
                         FieldRecord(
                             variable="geology",
-                            source="brgm_1m",
+                            source=name,
                             unit="code",
                             data=cached_path,
                             bbox=bbox,
@@ -113,18 +108,13 @@ class GeologyManager(SourceTable):
                         )
                     ]
 
-        from hydromodpy.data.variables.geology.apis.brgm_1m import fetch_brgm_1m
-
         output_dir = self.data_dir or (_hmp_cache_dir() / "geology")
-        gpkg_path = fetch_brgm_1m(
-            output_dir=output_dir,
-            bbox=bbox,
-            code_field=code_field,
-        )
+        result = source.fetch(FetchRequest(out_dir=Path(output_dir), extent=extent))
+        gpkg_path = result.files[0].path
 
         record = FieldRecord(
             variable="geology",
-            source="brgm_1m",
+            source=name,
             unit="code",
             data=gpkg_path,
             bbox=bbox,
@@ -132,89 +122,17 @@ class GeologyManager(SourceTable):
         )
 
         # Register in catalog
-        if self.catalog is not None and bbox is not None:
-            entry_id = self.catalog.register(
-                variable="geology",
-                source="brgm_1m",
-                file_path=str(gpkg_path),
-                bbox=bbox,
-                crs="EPSG:2154",
-            )
-            self.catalog.subsume_entries(
-                variable="geology",
-                source="brgm_1m",
-                bbox=bbox,
-                date_start=None,
-                date_end=None,
-                exclude_id=entry_id,
-            )
-
-        return [record]
-
-    # ------------------------------------------------------------------
-    # BRGM 1:50K
-    # ------------------------------------------------------------------
-
-    def _fetch_brgm_50k(self, source_cfg) -> list[FieldRecord]:
-        """Fetch 1:50K departmental geological maps from BRGM."""
-        bbox = self._resolve_bbox_2154(source_cfg)
-        if bbox is None:
-            raise ValueError(
-                "brgm_50k source requires a bbox (set mask_path, or extent together with a project extent)"
-            )
-        code_field = self._BRGM_CODE_FIELD
-        force_refresh = getattr(source_cfg, "force_refresh", False)
-
-        # Check cache
-        if not force_refresh and self.catalog is not None:
-            cached = self.catalog.find_cached(
-                variable="geology",
-                source="brgm_50k",
-                bbox=bbox,
-            )
-            if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
-                cached_path = Path(cached.file_path)
-                if cached_path.exists():
-                    return [
-                        FieldRecord(
-                            variable="geology",
-                            source="brgm_50k",
-                            unit="code",
-                            data=cached_path,
-                            bbox=bbox,
-                            crs="EPSG:2154",
-                        )
-                    ]
-
-        from hydromodpy.data.variables.geology.apis.brgm_50k import fetch_brgm_50k
-
-        output_dir = self.data_dir or (_hmp_cache_dir() / "geology")
-        gpkg_path = fetch_brgm_50k(
-            output_dir=output_dir,
-            bbox=bbox,
-            code_field=code_field,
-        )
-
-        record = FieldRecord(
-            variable="geology",
-            source="brgm_50k",
-            unit="code",
-            data=gpkg_path,
-            bbox=bbox,
-            crs="EPSG:2154",
-        )
-
         if self.catalog is not None:
             entry_id = self.catalog.register(
                 variable="geology",
-                source="brgm_50k",
+                source=name,
                 file_path=str(gpkg_path),
                 bbox=bbox,
                 crs="EPSG:2154",
             )
             self.catalog.subsume_entries(
                 variable="geology",
-                source="brgm_50k",
+                source=name,
                 bbox=bbox,
                 date_start=None,
                 date_end=None,
@@ -256,9 +174,3 @@ class GeologyManager(SourceTable):
                     )
 
         return records
-
-    SOURCES = {"brgm_1m": _fetch_brgm_1m, "brgm_50k": _fetch_brgm_50k}
-    """Each source is a method of this hand-written manager, called with the manager."""
-
-    def _fetch_listed_source(self, fetch, source_cfg) -> list:
-        return fetch(self, source_cfg)

@@ -138,7 +138,6 @@ class BdTopageSource(FeatureSource):
     """The French BD Topage river network, served by the Sandre WFS."""
 
     source_id: ClassVar[str] = "bdtopage"
-    hosts: ClassVar[tuple[str, ...]] = (sandre_topage.SANDRE_WFS_HOST,)
     extent_crs: ClassVar[str] = sandre_topage.QUERY_CRS
 
     def __init__(self, *, page_size: int = DEFAULT_PAGE_SIZE) -> None:

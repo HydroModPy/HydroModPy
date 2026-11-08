@@ -16,7 +16,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._cohort import (
     COHORT_SITE_COLUMN,
     cohort_refusal,
@@ -34,7 +33,6 @@ _JITTER_SEED = 0
 """Seed of the vertical spread of the points, so a figure redraws the same."""
 
 
-@register
 class CohortDistribution(BaseFigure):
     """How a metric or a parameter spreads over the sites of a project."""
 

@@ -1,7 +1,8 @@
 """``[data.crossings]``: the config, the custom file, the manager and the resolver.
 
-No network: a downloading source is replaced in ``CrossingsManager.SOURCES`` by
-a function that answers with a recorded sample.
+No network: both downloading sources have their provider replaced by a function
+that answers with a recorded sample, so the class of the port, the manager and
+the resolver all run against the same pages the real WFS would hand out.
 """
 
 from __future__ import annotations
@@ -21,8 +22,10 @@ from shapely.geometry import LineString, Point
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.source.port import Extent, FetchRequest
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import bdtopo, roe
+from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings
 from hydromodpy.data.variables.crossings.config import (
     BdtopoCrossingsSource,
     CrossingsConfig,
@@ -55,26 +58,44 @@ def _custom_file(path: Path, **columns: list) -> Path:
     return path
 
 
+BOX_2154 = (340000.0, 6800000.0, 350000.0, 6810000.0)
+
+
+def _pages(asked: list[tuple], sample):
+    """A provider that records the box it was asked and serves the sample in pages."""
+
+    def fetch(*, bbox, page_size):
+        asked.append(bbox)
+        frame = sample()
+        for start in range(0, len(frame), page_size):
+            yield frame.iloc[start : start + page_size]
+
+    return fetch
+
+
 @pytest.fixture
 def offline(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
     """Replace both providers with their sample, and record the boxes they were asked.
 
-    The sample is handed out in pages of four records, as the providers do.
+    The sample is handed out in pages of four records, as the providers do,
+    through the eager ``page_size`` the source class passes down.
     """
     asked: list[tuple] = []
 
-    def _answer(sample):
-        def fetch(source_cfg, *, bbox, context):
-            asked.append(bbox)
-            frame = sample()
-            for start in range(0, len(frame), 4):
-                yield frame.iloc[start : start + 4]
-
-        return fetch
-
-    monkeypatch.setitem(CrossingsManager.SOURCES, "bdtopo", _answer(_bdtopo_sample))
-    monkeypatch.setitem(CrossingsManager.SOURCES, "roe", _answer(_roe_sample))
+    monkeypatch.setattr(bdtopo, "fetch_pages", _pages(asked, _bdtopo_sample))
+    monkeypatch.setattr(roe, "fetch_pages", _pages(asked, _roe_sample))
     return asked
+
+
+def _request(out_dir: Path) -> FetchRequest:
+    """A request a crossings source accepts, over a small Lambert-93 box."""
+    return FetchRequest(out_dir=out_dir, extent=_extent())
+
+
+def _extent() -> Extent:
+    return Extent(
+        xmin=BOX_2154[0], ymin=BOX_2154[1], xmax=BOX_2154[2], ymax=BOX_2154[3], crs="EPSG:2154"
+    )
 
 
 # --- config -----------------------------------------------------------------
@@ -434,10 +455,8 @@ def test_an_api_source_without_an_outlet_is_refused(tmp_path: Path, offline: lis
 
 
 def test_a_box_without_any_crossing_is_refused(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setitem(
-        CrossingsManager.SOURCES,
-        "roe",
-        lambda source_cfg, *, bbox, context: iter([records.empty("EPSG:2154")]),
+    monkeypatch.setattr(
+        roe, "fetch_pages", lambda *, bbox, page_size: iter([records.empty("EPSG:2154")])
     )
     cfg = _cfg([RoeCrossingsSource()])
 
@@ -464,44 +483,38 @@ def test_the_pages_of_a_download_are_written_as_they_arrive(
     tmp_path: Path, monkeypatch, caplog
 ) -> None:
     """The file holds the first page while the second is still to be fetched."""
-    cache = tmp_path / "cache"
+    out_dir = tmp_path / "out"
     held: list[int] = []
 
-    def fetch(source_cfg, *, bbox, context):
+    def fetch(*, bbox, page_size):
         sample = _roe_sample()
         for start in range(0, len(sample), 2):
-            staged = list(cache.glob("*.tmp-*.gpkg"))
+            staged = list(out_dir.glob("*.tmp-*.gpkg"))
             held.append(len(gpd.read_file(staged[0])) if staged else 0)
             yield sample.iloc[start : start + 2]
 
-    monkeypatch.setitem(CrossingsManager.SOURCES, "roe", fetch)
-    cfg = _cfg([RoeCrossingsSource()])
+    monkeypatch.setattr(roe, "fetch_pages", fetch)
 
     with caplog.at_level("INFO"):
-        out = resolve_crossings_path_from_data_sources(
-            cfg, config_path=tmp_path / "p.toml", cache_dir=cache
-        )
+        result = RoeCrossings(page_size=2).fetch(_request(out_dir))
 
     assert held == [0, 2, 4]
-    assert len(gpd.read_file(out)) == 5
-    assert not list(cache.glob("*.tmp-*.gpkg"))
+    assert len(gpd.read_file(result.files[0].path)) == 5
+    assert not list(out_dir.glob("*.tmp-*.gpkg"))
     messages = [record.getMessage() for record in caplog.records]
     assert any("Crossings from roe: 5 features in" in message for message in messages)
 
 
 def test_a_failure_in_the_middle_of_the_pages_leaves_no_file(tmp_path: Path, monkeypatch) -> None:
-    cache = tmp_path / "cache"
+    out_dir = tmp_path / "out"
 
-    def fetch(source_cfg, *, bbox, context):
+    def fetch(*, bbox, page_size):
         yield _roe_sample().iloc[:2]
         raise RuntimeError("the service stopped")
 
-    monkeypatch.setitem(CrossingsManager.SOURCES, "roe", fetch)
-    cfg = _cfg([RoeCrossingsSource()])
+    monkeypatch.setattr(roe, "fetch_pages", fetch)
 
     with pytest.raises(RuntimeError, match="stopped"):
-        resolve_crossings_path_from_data_sources(
-            cfg, config_path=tmp_path / "p.toml", cache_dir=cache
-        )
+        RoeCrossings().fetch(_request(out_dir))
 
-    assert list(cache.glob("*.gpkg")) == []
+    assert list(out_dir.glob("*.gpkg")) == []

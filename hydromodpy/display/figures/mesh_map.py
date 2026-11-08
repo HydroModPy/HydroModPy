@@ -14,7 +14,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Overlays
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
     RELATIVE_MAP_COLORBAR_TICK_SIZE,
@@ -29,7 +28,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class MeshMap(BaseFigure):
     """Plan view of the model mesh with visible cell edges."""
 

@@ -36,7 +36,7 @@ and the selector is declared:
 selector there.** D116 refuses two selectors on a *request*, where both come
 from the caller. Here the mask does not: ``_apply_default_masks`` fills
 ``mask_path`` on every source whose model declares the field, so a source that
-names nothing but ``station_ids`` arrives at :func:`fetch_for_config` carrying a watershed
+names nothing but ``station_ids`` arrives at :meth:`fetch` carrying a watershed
 it never asked for. Refusing that pair makes ``station_ids`` unusable on every
 project run -- measured, and it is what the first version of this phase did.
 The named station is the specific answer and wins, the way ``mask_path`` wins
@@ -48,20 +48,31 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
-import pandas as pd
 import requests
 
 from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 if TYPE_CHECKING:
-    from hydromodpy.data.managers.base_manager_common import SourceContext
-    from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
+    import pandas as pd
+
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
 
@@ -75,6 +86,7 @@ def fetch(
     station_id: str | None = None,
     near_lat: float | None = None,
     near_lon: float | None = None,
+    bbox: tuple[float, ...] | None = None,
     fallback_search_radius_km: float | None = None,
     cache_dir: Path | None = None,
     write: bool = True,
@@ -104,6 +116,12 @@ def fetch(
     list[PointRecord]
         A single PointRecord with the sea-level time series.
     """
+
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
     has_point = near_lat is not None and near_lon is not None
     if (near_lat is None) != (near_lon is None):
         raise ValueError("SHOM needs both near_lat and near_lon, or neither.")
@@ -172,70 +190,95 @@ def fetch(
     ]
 
 
-def fetch_for_config(
-    cfg: OceanicSourceConfig,
-    *,
-    bbox: tuple | None,
-    period: tuple[datetime, datetime] | None,
-    context: SourceContext,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "shom"``: the gauges one section names.
+def _parse_date(value: datetime | str | None) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
 
-    The window is the run's period, else the ``date_start``/``date_end`` of the
-    ``[data.oceanic]`` section. Readings are cached in ``context.data_dir``.
-    """
-    from hydromodpy.data.common.source_extent import resolve_source_extent
 
-    del bbox
-    start, end = _shom_window(period, context.config_period)
-    station_ids = list(cfg.station_ids or ())
+class ShomSeaLevel:
+    """SHOM tide-gauge API client DataSource for sea-level observations."""
 
-    if station_ids:
-        records = []
-        for station_id in station_ids:
-            records.extend(
-                fetch(
-                    date_start=start,
-                    date_end=end,
-                    station_id=station_id,
-                    cache_dir=context.data_dir,
-                )
+    section: ClassVar[str] = "oceanic"
+    source_id: ClassVar[str] = "shom"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "optional"
+    writes_out_dir: ClassVar[bool] = True
+
+    variables: tuple[str, ...]
+    hosts: tuple[str, ...]
+
+    def __init__(
+        self,
+        *,
+        fallback_search_radius_km: float | None = None,
+        require_observations: bool = True,
+        date_start: datetime | str | None = None,
+        date_end: datetime | str | None = None,
+    ) -> None:
+        self.fallback_search_radius_km = fallback_search_radius_km
+        self.require_observations = require_observations
+        self.date_start = _parse_date(date_start)
+        self.date_end = _parse_date(date_end)
+        self.variables = ("sea_level",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        if period is not None:
+            start, end = period.start, period.end
+        elif self.date_start is not None and self.date_end is not None:
+            start, end = self.date_start, self.date_end
+        else:
+            raise DataRequestError(
+                "SHOM source requires a period in the request or date_start/date_end on the source."
             )
-        return records
 
-    extent = resolve_source_extent(cfg, project_extent=context.project_extent)
-    if extent is None:
-        raise ValueError(
-            "A SHOM source needs one selector: station_ids, or mask_path (a project "
-            "run fills it in from the delineated watershed)."
+        cache_dir = request.out_dir
+        records: list[PointRecord] = []
+        extent = extent_for(self, request) if request.extent is not None else None
+        if request.station_ids:
+            for station_id in request.station_ids:
+                records.extend(
+                    fetch(
+                        date_start=start,
+                        date_end=end,
+                        station_id=station_id,
+                        cache_dir=cache_dir,
+                    )
+                )
+        else:
+            assert extent is not None
+            near_lat = (extent.ymin + extent.ymax) / 2.0
+            near_lon = (extent.xmin + extent.xmax) / 2.0
+            records = fetch(
+                date_start=start,
+                date_end=end,
+                near_lat=near_lat,
+                near_lon=near_lon,
+                bbox=extent.bbox,
+                fallback_search_radius_km=self.fallback_search_radius_km,
+                cache_dir=cache_dir,
+            )
+
+        require_declared_variables(self, [r.variable for r in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
         )
-
-    lonlat = extent.to_crs("EPSG:4326")
-    return fetch(
-        date_start=start,
-        date_end=end,
-        near_lat=(lonlat.ymin + lonlat.ymax) / 2.0,
-        near_lon=(lonlat.xmin + lonlat.xmax) / 2.0,
-        fallback_search_radius_km=cfg.fallback_search_radius_km,
-        cache_dir=context.data_dir,
-    )
-
-
-def _shom_window(
-    period: tuple[datetime, datetime] | None,
-    config_period: tuple[datetime, datetime] | None,
-) -> tuple[datetime, datetime]:
-    if period is not None:
-        return period
-    if config_period is not None:
-        return config_period
-    raise ValueError(
-        "SHOM source requires date_start/date_end in oceanic config or a project_period."
-    )
 
 
 def _discover_tide_gauges(session: requests.Session) -> pd.DataFrame:
     """Fetch the list of SHOM tide gauge stations."""
+    import pandas as pd
+
     url = f"{API_BASE}/service/tidegauges"
     response = session.get(url, timeout=60)
     response.raise_for_status()
@@ -300,6 +343,8 @@ def _download_sea_level(
     zh_ref: float,
 ) -> pd.DataFrame:
     """Download sea-level data in chunked 31-day windows."""
+    import pandas as pd
+
     sources = "3"  # hourly validated data
     interval = "60"  # minutes
     chunks: list[pd.DataFrame] = []
@@ -348,6 +393,8 @@ def _try_load_cached(
     date_end: datetime,
 ) -> pd.DataFrame | None:
     """Try to load previously downloaded SHOM data from local cache."""
+    import pandas as pd
+
     if cache_dir is None:
         return None
     filepath = _cache_file(cache_dir, tg_id, date_start, date_end)

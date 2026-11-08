@@ -51,16 +51,8 @@ from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
 from hydromodpy.data.managers.base_manager_common import SourceTable
-from hydromodpy.data.source import registry
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN, PERMANENT, UNKNOWN
-from hydromodpy.data.variables.hydrography.api_source import (
-    NETWORK_PAYLOAD_KIND,
-    fetch_network,
-    source_from_section,
-)
-from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
-from hydromodpy.data.variables.hydrography.apis.euhydro import EuHydroSource
-from hydromodpy.data.variables.hydrography.apis.osm import OsmSource
+from hydromodpy.data.variables.hydrography.api_source import fetch_network, source_from_section
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -78,13 +70,6 @@ class HydrographyManager(SourceTable):
 
     VARIABLE_NAME = "hydrography"
     """Name of the data type, as ``[data.hydrography]`` writes it."""
-
-    SOURCES = {
-        BdTopageSource.source_id: BdTopageSource,
-        EuHydroSource.source_id: EuHydroSource,
-        OsmSource.source_id: OsmSource,
-    }
-    """The built-in network sources. A section may also name one a plugin registered."""
 
     def __init__(
         self,
@@ -300,22 +285,24 @@ class HydrographyManager(SourceTable):
 
         return custom.load_custom(source_cfg)
 
-    def _listed_source(self, name: str) -> type:
-        """A built-in of ``SOURCES``, or a network source a plugin registered."""
-        return registry.get_serving(name, NETWORK_PAYLOAD_KIND)
-
     def _fetch_listed_source(
         self,
-        source_cls: type,
+        source: object,
         source_cfg: HydrographySourceConfig,
     ) -> gpd.GeoDataFrame:
-        """Ask the source the section names for the box, or reuse the cached network."""
-        del source_cls
+        """Ask the source the section names for the box, or reuse the cached network.
+
+        The source arrives built from the section by the shared table, and the
+        seam that resolves one from a section alone is
+        :func:`~hydromodpy.data.variables.hydrography.api_source.source_from_section`;
+        passing the instance down keeps each name resolved once.
+        """
         return fetch_network_through_cache(
             source_cfg,
             self._require_mask_path(),
             catalog=self._catalog,
             data_dir=self._data_dir,
+            source=source,
         )
 
     # ------------------------------------------------------------------
@@ -540,22 +527,27 @@ def fetch_network_through_cache(
     *,
     catalog: DataCatalogDuckDB | None,
     data_dir: Path | None,
+    source: object | None = None,
 ) -> gpd.GeoDataFrame:
     """Return the network a listed source answers over the box of *mask_path*.
 
     The cached answer is reused unless the source asks ``force_refresh``. A
     new answer is stored and registered when a workspace *data_dir* is given;
     an in-memory catalog with no folder writes nothing.
+
+    *source* is the source already built from *source_cfg*, which the manager
+    hands down so a name is resolved once. A caller that only has a section --
+    the workspace store -- leaves it unset and the seam builds it.
     """
-    source = source_from_section(source_cfg)
-    extent = mask_extent_in(Path(mask_path), source.extent_crs)
-    question = _fetch_question(source)
+    network_source = source if source is not None else source_from_section(source_cfg)
+    extent = mask_extent_in(Path(mask_path), network_source.extent_crs)
+    question = _fetch_question(network_source)
     cache = NetworkCache(catalog, data_dir)
     if not source_cfg.force_refresh:
         cached = cache.load(source_cfg.source, extent.bbox, question)
         if cached is not None:
             return cached
-    gdf = fetch_network(source, extent)
+    gdf = fetch_network(network_source, extent)
     cache.store(gdf, source_cfg.source, extent.bbox, question)
     return gdf
 

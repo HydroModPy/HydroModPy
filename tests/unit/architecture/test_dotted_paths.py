@@ -124,6 +124,16 @@ def resolve_chain(chain: str) -> str | None:
             return f"{'.'.join(parts[: depth + 1])} is not a module"
         if name not in _defined_names(file):
             return f"{'.'.join(parts[:depth])} has no {name}"
+        # The facade ``hydromodpy/__init__.py`` is the one module that
+        # re-exports names, so a name defined in it may be an exported CLI
+        # verb and no module. A chain written through it stops there: an
+        # entry-point group named after a verb, for example, is refused
+        # instead of being read as a module path.
+        if depth == 1 and len(parts) > 2:
+            return (
+                f"{'.'.join(parts[: depth + 1])} is a name written in "
+                f"hydromodpy/__init__.py, and no module {'.'.join(parts)} follows it"
+            )
         return None
     if attribute:
         file = _module_file(parts)

@@ -33,9 +33,9 @@ from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
-from hydromodpy.display import get as _get_figure
-from hydromodpy.display import list_figures as _list_figures
 from hydromodpy.display.figure import FigureNotApplicable
+from hydromodpy.display.figure_registry import get as _get_figure
+from hydromodpy.display.figure_registry import list_figures as _list_figures
 from hydromodpy.display.png_metadata import stamp_png_identity
 from hydromodpy.display.style import apply_theme
 from hydromodpy.results.derive.config_flags import (

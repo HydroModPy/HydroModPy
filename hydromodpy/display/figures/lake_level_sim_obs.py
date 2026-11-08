@@ -16,7 +16,6 @@ import numpy as np
 from hydromodpy.core.scoring.metrics import bias, kge, nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
@@ -143,7 +142,6 @@ def _plot_pair(ax: Axes, sim_ts, obs_ts, *, variable: str, sim_label: str, obs_l
     return paired.to_numpy()[keep], aligned.to_numpy()[keep]
 
 
-@register
 class LakeStageSimObs(BaseFigure):
     """Simulated lake stage over the gauged record."""
 
@@ -196,7 +194,6 @@ class LakeStageSimObs(BaseFigure):
         return ax
 
 
-@register
 class LakeVolumeSimObs(BaseFigure):
     """Simulated lake storage over the storage implied by the gauged stage."""
 

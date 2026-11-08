@@ -518,7 +518,7 @@ def _serve_installed(
     from hydromodpy.data.source import registry
 
     try:
-        source = registry.data_sources.get(name)(**options)
+        source = registry.installed_source_cls(name)(**options)
     except Exception as exc:
         # An installed source is somebody else's code reading somebody else's
         # options; its refusal is a fault of the request, not of HydroModPy.
@@ -548,7 +548,7 @@ def _serve_installed(
             result.features, target_dir / f"{stem}.gpkg", extent=selector.extent
         ),
         "files": lambda: write_raster(
-            Path(result.files[0]), target_dir / f"{stem}.tif", extent=selector.extent
+            result.files[0].path, target_dir / f"{stem}.tif", extent=selector.extent
         ),
     }
     written = None if result.is_empty else writers[result.kind]()

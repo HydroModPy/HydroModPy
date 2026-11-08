@@ -20,20 +20,30 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING
-
-import pandas as pd
+from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json, paginate_json
 from hydromodpy.data.common.clients.hubeau import station_location
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
 
 if TYPE_CHECKING:
-    from hydromodpy.data.managers.base_manager_common import SourceContext
-    from hydromodpy.data.variables.intermittency.config import IntermittencySourceConfig
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+    from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 logger = get_logger(__name__)
 
@@ -111,6 +121,8 @@ def fetch(
         f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
     records: list[PointRecord] = []
     for sid in progress.track(ids, "Fetching ONDE stations"):
         location = _fetch_station_location(sid)
@@ -136,26 +148,57 @@ def fetch(
     return records
 
 
-def fetch_for_config(
-    cfg: IntermittencySourceConfig,
-    *,
-    bbox: tuple | None,
-    station_ids: Sequence[str] | None,
-    start: datetime,
-    end: datetime,
-    context: SourceContext,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section."""
-    del context
-    return fetch(
-        bbox=bbox,
-        station_ids=station_ids,
-        date_start=start,
-        date_end=end,
-        code_departement=cfg.code_departement,
-        require_observations=cfg.require_observations,
-        fallback_search_radius_km=cfg.fallback_search_radius_km,
-    )
+class HubeauIntermittency:
+    """The ONDE flow-state campaigns of Hub'Eau, behind the data-source port.
+
+    ``code_departement`` narrows the discovery the request's extent drives;
+    the download stays in :func:`fetch`, whose body this class does not
+    restate.
+    """
+
+    source_id: ClassVar[str] = "hubeau"
+    section: ClassVar[str] = "intermittency"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        *,
+        code_departement: Sequence[str] | None = None,
+        require_observations: bool = True,
+        fallback_search_radius_km: float | None = None,
+    ) -> None:
+        self.code_departement = list(code_departement) if code_departement else None
+        self.require_observations = require_observations
+        self.fallback_search_radius_km = fallback_search_radius_km
+        self.variables: tuple[str, ...] = ("flow_state",)
+        self.hosts: tuple[str, ...] = shipped_hosts("hubeau")
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request) if request.extent is not None else None
+        records = fetch(
+            bbox=None if extent is None else extent.bbox,
+            station_ids=list(request.station_ids) or None,
+            date_start=period.start,
+            date_end=period.end,
+            code_departement=self.code_departement,
+            require_observations=self.require_observations,
+            fallback_search_radius_km=self.fallback_search_radius_km,
+        )
+        require_declared_variables(self, [record.variable for record in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +244,7 @@ def _discover_stations(
 
 def _fetch_station_location(station_id: str) -> StationLocation | None:
     """Fetch one station's reference info and return a ``StationLocation``."""
+
     payload = get_json(
         f"{API_BASE}/stations",
         params={"code_station": station_id, "size": 1, "format": "json"},
@@ -232,6 +276,8 @@ def _download_observations(
     date_end: datetime,
 ) -> pd.DataFrame:
     """Download all ONDE observations for one station in the given period."""
+    import pandas as pd
+
     params: dict = {
         "code_station": station_id,
         "date_observation_min": date_start.strftime("%Y-%m-%d"),

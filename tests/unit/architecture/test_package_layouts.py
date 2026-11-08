@@ -417,11 +417,14 @@ def test_calibration_reaches_solver_only_through_generic_ports() -> None:
 
 
 def test_the_display_registry_names_only_the_figures_package() -> None:
-    """The registry imports ``hydromodpy.display.figures`` by name on first
-    lookup, so that importing the registry stays light. That is the one module
-    it may name as text."""
-    named = {edge.target_module for edge in _text_edges("display")}
-    assert named <= {"hydromodpy.display.figures"}, sorted(named)
+    """The dotted paths written as text are the built-in figures."""
+    from hydromodpy.display.figure_table import FIGURES
+
+    builtins = {path.split(":", 1)[0] for path in FIGURES.values()}
+    offenders = _text_edges_outside_the_builtins("display", builtins)
+    assert not offenders, (
+        "a text path names a module that is not a built-in figure:\n  " + "\n  ".join(offenders)
+    )
 
 
 # -- hydromodpy/solver ------------------------------------------------------------

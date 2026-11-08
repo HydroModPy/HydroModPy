@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -14,6 +14,7 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -25,13 +26,19 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     paths, masks, units, and cache refresh behavior.
     """
 
-    source: Annotated[Literal["custom", "sim2", "explore2"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
         description=(
-            "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, "
-            "'explore2' for a local DRIAS Explore2 NetCDF (no network)."
+            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "for the ETP section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a "
+            "local DRIAS Explore2 NetCDF (no network)."
         ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_etp(cls, source: str) -> str:
+        return registered_section_source(source, "etp")
 
     # --- Custom source fields ---
     path: Annotated[

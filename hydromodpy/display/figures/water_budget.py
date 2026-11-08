@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.budget.flux import select_budget_zone
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -14,7 +13,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class WaterBudget(BaseFigure):
     """Per-component IN/OUT bar chart, over the delineated catchment or the domain."""
 

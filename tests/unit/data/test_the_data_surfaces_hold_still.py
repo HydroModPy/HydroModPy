@@ -3,7 +3,9 @@
 A reorganisation of the package moves modules, never what a user writes or
 imports. These tests pin that: the JSON schema of
 the ``[data]`` section, every public name, and the two data files the wheel
-must ship.
+must ship. The source classes of ``hydromodpy.data.source`` are resolved
+through its registry and not re-exported by the package, so their names are
+pinned where they are read: at the registry, by ``test_data_source_registry``.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from hydromodpy._lazy import LAZY_IMPORTS
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CACHE_MIGRATION_SHA256 = "d49fa9377e3baf9f1df94c553992132c39e97185f6f833304b192075e133a25d"
 
-DATA_SCHEMA_SHA256 = "272ff42e783a7f7876d42a33481b85c2e2875bba3195740b2795f1971acffed9"
+DATA_SCHEMA_SHA256 = "f4666676c522693d0e482093aef8fa459446532be10bfdf3f41285d5c793e07a"
 
 
 def test_the_shipped_cache_migration_keeps_its_checksum() -> None:
@@ -54,7 +56,6 @@ def test_the_data_config_schema_keeps_its_fingerprint() -> None:
 
 def _public_data_names() -> list[tuple[str, str]]:
     from hydromodpy import data
-    from hydromodpy.data import source
 
     names = [("hydromodpy.data", name) for name in data.__all__]
     names += [
@@ -62,7 +63,6 @@ def _public_data_names() -> list[tuple[str, str]]:
         for name, target in sorted(LAZY_IMPORTS.items())
         if target.startswith("hydromodpy.data.")
     ]
-    names += [("hydromodpy.data.source", name) for name in source.__all__]
     return names
 
 

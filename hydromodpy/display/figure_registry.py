@@ -1,16 +1,16 @@
 """Registry of named figures.
 
-Each figure class registers itself by decorating with :func:`register`. The
-registry is consumed by ``hmp viz`` and by the comparison helpers.
+The figure registry resolves a figure name to its implementation class.
+Built-in figures are listed in the generated :mod:`hydromodpy.display.figure_table`
+and loaded on first lookup via :class:`~hydromodpy.core.plugin_registry.PluginRegistry`.
 """
 
 from __future__ import annotations
 
-import importlib
 import warnings
-from collections.abc import Iterable
 from typing import Any
 
+from hydromodpy.core.plugin_registry import PluginRegistry
 from hydromodpy.display.figure import (
     BaseFigure,
     FigureSpec,
@@ -18,32 +18,27 @@ from hydromodpy.display.figure import (
     option_types_of,
     options_of,
 )
-
-_REGISTRY: dict[str, type[BaseFigure]] = {}
-_FORMER_NAMES: dict[str, str] = {}
-_FIGURES_REGISTERED = False
-
-
-def _ensure_figures_registered() -> None:
-    global _FIGURES_REGISTERED
-    if _FIGURES_REGISTERED:
-        return
-    importlib.import_module("hydromodpy.display.figures")
-    _FIGURES_REGISTERED = True
+from hydromodpy.display.figure_table import (
+    FIGURES,
+    FORMER_NAMES,
+    OPTIONS,
+    PYTHON_ONLY_OPTIONS,
+)
 
 
-def register(cls: type[BaseFigure]) -> type[BaseFigure]:
-    """Class decorator. Registers ``cls`` under ``cls.spec.name``."""
-    name = cls.spec.name
-    if name in _REGISTRY and _REGISTRY[name] is not cls:
-        raise ValueError(f"figure '{name}' is already registered to {_REGISTRY[name]!r}")
-    _REGISTRY[name] = cls
-    for former in cls.spec.former_names:
-        held = _FORMER_NAMES.get(former)
-        if held is not None and held != name:
-            raise ValueError(f"figure '{former}' is already the former name of '{held}'")
-        _FORMER_NAMES[former] = name
-    return cls
+def _figure_members() -> tuple[str, ...]:
+    return ("name", "spec", "render", "plot")
+
+
+figures = PluginRegistry(
+    kind="figure",
+    id_attributes=("name",),
+    group=None,
+    builtin_paths=dict(FIGURES),
+    members=_figure_members,
+    error=KeyError,
+)
+"""The figure registry: ``figures.get``, ``names`` and ``register``."""
 
 
 def resolve(name: str) -> str:
@@ -52,11 +47,8 @@ def resolve(name: str) -> str:
     A name a figure used to carry still resolves, and warns with both spellings
     so a reader learns what to write. An unknown name is refused as before.
     """
-    _ensure_figures_registered()
-    if name in _REGISTRY:
-        return name
-    current = _FORMER_NAMES.get(name)
-    if current is not None:
+    if name in FORMER_NAMES:
+        current = FORMER_NAMES[name]
         warnings.warn(
             f"figure '{name}' is now called '{current}'; the old name still resolves "
             "and will stop being read in a later version.",
@@ -64,38 +56,37 @@ def resolve(name: str) -> str:
             stacklevel=2,
         )
         return current
-    available = ", ".join(sorted(_REGISTRY)) or "<empty>"
+    if name in FIGURES or name in figures.classes:
+        return name
+    available = ", ".join(sorted(set(FIGURES) | set(figures.classes))) or "<empty>"
     raise KeyError(f"unknown figure '{name}' (registered: {available})")
 
 
 def get(name: str) -> BaseFigure:
     """Return a fresh instance of the registered figure ``name``."""
-    return _REGISTRY[resolve(name)]()
+    return figures.get(resolve(name))()
 
 
 def list_figures() -> list[FigureSpec]:
     """Return the list of all registered figure specs, sorted by name."""
-    _ensure_figures_registered()
-    return [cls.spec for _, cls in sorted(_REGISTRY.items())]
+    return [figures.get(name).spec for name in figures.names()]
 
 
-def names() -> Iterable[str]:
+def names() -> tuple[str, ...]:
     """Iterate over the names of registered figures."""
-    _ensure_figures_registered()
-    return sorted(_REGISTRY)
+    return figures.names()
 
 
 def figure_option_names(name: str) -> frozenset[str]:
     """Return the keys ``[display.overrides.<name>]`` accepts.
 
     They are the named parameters of the figure's ``plot`` and ``render``,
-    read along the MRO while a ``**`` parameter forwards them. ``figsize``
-    comes from :meth:`BaseFigure.plot`. A figure that draws one instant
-    accepts ``time``, which the display layer resolves to the step it draws;
-    the internal ``timestep`` is never a user option. ``dpi`` belongs to
-    ``[display]`` itself.
+    read along the MRO while a ``**`` parameter forwards them.
     """
-    return option_names_of(_REGISTRY[resolve(name)])
+    target = resolve(name)
+    if target in OPTIONS:
+        return frozenset(OPTIONS[target])
+    return option_names_of(figures.get(target))
 
 
 def figure_option_types(name: str) -> dict[str, Any]:
@@ -103,10 +94,15 @@ def figure_option_types(name: str) -> dict[str, Any]:
 
     See :func:`hydromodpy.display.figure.option_types_of`.
     """
-    return option_types_of(_REGISTRY[resolve(name)])
+    return option_types_of(figures.get(resolve(name)))
 
 
 def figure_python_only_options(name: str) -> frozenset[str]:
     """Return the options of ``name`` that take a Python object, such as another run."""
-    figure_cls = _REGISTRY[resolve(name)]
-    return frozenset(option.name for option in options_of(figure_cls) if option.python_only)
+    target = resolve(name)
+    if target in PYTHON_ONLY_OPTIONS:
+        return frozenset(PYTHON_ONLY_OPTIONS[target])
+    if target in FIGURES:
+        return frozenset()
+    cls = figures.get(target)
+    return frozenset(option.name for option in options_of(cls) if option.python_only)

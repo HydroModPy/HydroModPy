@@ -19,12 +19,23 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
-from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.exceptions import DataContractViolation, DataRequestError
 from hydromodpy.data.common.unit_helpers import convert_array
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+)
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -139,37 +150,60 @@ def read_explore2(
 
 
 class Explore2Source:
-    """The ``SOURCES`` entry of a variable read from a local DRIAS Explore2 file.
+    """Base DataSource for local DRIAS Explore2 NetCDF files."""
 
-    Called as ``fetch(cfg, *, bbox, period, context)`` by the grid managers; it
-    reads only ``cfg.path``, the file this source is served from.
-    """
+    source_id: ClassVar[str] = "explore2"
+    payload_kind: ClassVar[PayloadKind] = "fields"
+    extent_crs: ClassVar[str] = EXPLORE2_CRS
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+    section: ClassVar[str] = ""
 
-    def __init__(self, variable: str) -> None:
-        self.variable = variable
+    variables: tuple[str, ...]
+    hosts: tuple[str, ...]
 
-    def variables(self, cfg: object) -> list[str]:
-        """Name of the one grid this config yields."""
-        del cfg
-        return [self.variable]
-
-    def __call__(
+    def __init__(
         self,
-        cfg: object,
         *,
-        bbox: tuple[float, float, float, float] | None,
-        period: tuple[datetime, datetime] | None,
-        context: object,
-    ) -> list[FieldRecord]:
-        del context
-        return read_explore2(
-            Path(cfg.path), variable=self.variable, bbox=bbox, project_period=period
+        path: str | Path | None = None,
+        section: str | None = None,
+    ) -> None:
+        if section is not None:
+            self.section = section
+        self.path = Path(path) if path is not None else None
+        self.variables = (self.section,) if self.section else ()
+        self.hosts = ()
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        if self.path is None:
+            raise DataRequestError(f"Explore2 source for {self.section!r} requires a path.")
+        extent = extent_for(self, request)
+        records = read_explore2(
+            self.path,
+            variable=self.section,
+            bbox=extent.bbox,
+            project_period=period.as_tuple if period is not None else None,
+        )
+        require_declared_variables(self, [r.variable for r in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            fields=tuple(records),
         )
 
 
-def explore2_source(variable: str) -> Explore2Source:
-    """The ``SOURCES`` entry that reads ``variable`` from a local Explore2 file."""
-    return Explore2Source(variable)
+class Explore2Precipitation(Explore2Source):
+    section: ClassVar[str] = "precipitation"
+
+
+class Explore2Etp(Explore2Source):
+    section: ClassVar[str] = "etp"
 
 
 # ----------------------------------------------------------------------
@@ -295,7 +329,8 @@ __all__ = [
     "EXPLORE2_CELL_SIZE_M",
     "EXPLORE2_CRS",
     "EXPLORE2_NATIVE_CRS",
+    "Explore2Etp",
+    "Explore2Precipitation",
     "Explore2Source",
-    "explore2_source",
     "read_explore2",
 ]

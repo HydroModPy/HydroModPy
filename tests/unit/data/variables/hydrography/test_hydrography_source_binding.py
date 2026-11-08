@@ -36,11 +36,14 @@ BOUND_FIELDS: dict[str, tuple[str, ...]] = {
 """Section fields each source takes, measured against its own signature."""
 
 SECTION_ONLY_FIELDS = ("source", "path", "rasterize_field")
-"""Fields of the section no source may take.
+"""Fields of the section no source of THIS family may take.
 
 ``source`` is the selector, ``path`` belongs to the ``custom`` loader, and
 ``rasterize_field`` is the manager's: what a vector is burned onto a grid by is
-decided after a fetch, never inside one.
+decided after a fetch, never inside one. A file-reading source of another
+family (the Explore2 grids, and the ``file`` source of the full cache lot) does
+take a path of its own; the table holds what a river network may name, and
+says so in the test that walks it.
 """
 
 
@@ -49,12 +52,12 @@ def _bindable_parameters(source_id: str) -> tuple[str, ...]:
     import inspect
 
     bindable = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    parameters = inspect.signature(registry.data_sources.get(source_id)).parameters
+    parameters = inspect.signature(registry.data_sources.get("hydrography", source_id)).parameters
     return tuple(name for name, parameter in parameters.items() if parameter.kind in bindable)
 
 
-def test_the_table_covers_every_source_this_build_ships() -> None:
-    assert set(BOUND_FIELDS) == set(registry.data_sources.names(shipped_only=True))
+def test_the_table_covers_every_source_the_section_ships() -> None:
+    assert set(BOUND_FIELDS) == set(registry.data_sources.names("hydrography", shipped_only=True))
 
 
 @pytest.mark.parametrize("source_id", sorted(BOUND_FIELDS))
@@ -64,8 +67,8 @@ def test_the_bound_fields_are_exactly_the_shared_names(source_id: str) -> None:
     assert shared == BOUND_FIELDS[source_id]
 
 
-def test_no_source_takes_a_field_the_manager_owns() -> None:
-    for source_id in registry.data_sources.names(shipped_only=True):
+def test_no_source_of_the_section_takes_a_field_the_manager_owns() -> None:
+    for source_id in registry.data_sources.names("hydrography", shipped_only=True):
         taken = set(_bindable_parameters(source_id)) & set(SECTION_ONLY_FIELDS)
         assert not taken, f"{source_id} would be handed {sorted(taken)}"
 
@@ -106,7 +109,7 @@ def test_a_source_the_section_says_nothing_about_gets_its_own_defaults() -> None
     )
 
     source = registry.build_from_section(
-        registry.data_sources.get("euhydro"),
+        registry.data_sources.get("hydrography", "euhydro"),
         SimpleNamespace(source="euhydro"),
     )
 
@@ -236,6 +239,7 @@ class AcmeLineworkSource:
     """A river-network source a third party ships, named in no file of this tree."""
 
     source_id: ClassVar[str] = "acme-linework"
+    section: ClassVar[str] = "hydrography"
     payload_kind: ClassVar[PayloadKind] = "features"
     extent_crs: ClassVar[str] = "EPSG:3035"
     selectors: ClassVar[tuple[str, ...]] = ("extent",)

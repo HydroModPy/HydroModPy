@@ -1,76 +1,20 @@
 """The data-source port: what a fetch owes its callers, and no more.
 
-Why a port at all, and what it reconciles
------------------------------------------
-Twenty-five fetch functions live under ``data/variables/*/apis/`` and they
-carry **seventeen distinct signatures**. The divergence is not cosmetic, it is
-four incompatible answers to the same four questions, measured on this tree:
+One form for every source, the port the campaign measured into place: a request
+carries what varies between two calls to one source, a constructor carries what
+varies between two sources, and eight declarations answer the four questions
+the census of phase 3 found (which CRS the extent is in, what the extent is
+called, whether a period is part of the request, what comes back). Why the port
+took that shape, with the numbers, is the README of this folder.
 
-- **In which CRS is the extent?** ``fetch_ign_dem`` and the nine SIM2 variables
-  want EPSG:2154; ``bdtopage``, ``euhydro``, ``osm`` and the four Hub'Eau
-  adapters want WGS84. Nothing carries that answer: the parameter is a bare
-  ``tuple`` of four floats, and the CRS lives in a docstring, in a hardcoded
-  literal stamped onto the output, or nowhere at all.
-- **What is the extent called?** ``bbox``, ``bbox_wgs84``, or -- for
-  ``oceanic/apis/shom.py`` -- nothing, the extent being read off a duck-typed
-  ``geographic: object`` as ``centroid_long_lat``.
-- **Is a period part of the request?** Hub'Eau requires ``date_start`` and
-  ``date_end`` with no default, SIM2 *looks* optional and is not, and the three
-  hydrography sources take no time argument at all. Two behaviors behind three
-  signatures, which is why :data:`PeriodNeed` has two values.
-- **What comes back?** ``GeoDataFrame``, ``Path``, ``list[Path]``,
-  ``list[PointRecord]``, ``list[FieldRecord]``.
-
-This module is sized by those four questions and nothing else. Everything a
-single source needs and no other does -- ``code_field``, ``waterway_types``,
-``site_type``, ``dataset``, ``resolution_m``, ``parameters`` -- stays where it
-is and is fixed when the source is constructed, not when it is asked. A
-request carries what varies between two calls to the same source; a
-constructor carries what varies between two sources.
-
-The extent carries its CRS, and the reprojection belongs here
--------------------------------------------------------------
-:class:`Extent` is a bounding box **and** the CRS it is expressed in, and
-:func:`extent_for` converts it into the one a source declares. A caller asking
-for a DEM and a river network over the same basin passes one extent; it
-reaches IGN in Lambert-93 and the Sandre WFS in WGS84 without the caller
-knowing either. A port that took "a bbox" would put that knowledge back in
-every caller, which is the defect this campaign removed from the terrain
-chain.
-
-The conversion densifies the edges rather than transforming four corners,
-because a projected bounding box is not the image of its own corners. Measured
-here on EPSG:4326 to EPSG:2154: over a basin-sized 1 degree square the two
-agree to the meter, but over the French mainland envelope
-``(-5, 41, 10, 51.5)`` a four-corner transform puts the southern edge
-**26 163 m** too far north -- the conic parallels curve between the corners --
-and a request built that way comes back short of what was asked for.
-
-What is deliberately absent
----------------------------
-**No registry in this module.** Resolving a name to a class is
-:mod:`hydromodpy.data.source.registry`, which the vocabulary must not depend on:
-a source implements the port, and nothing it implements should require it to be
-findable. **No cache.** The station cache is a method of
-``BaseVariableManager``: it needs a manager, a catalog and a project directory,
-and those are exactly the three things a source must not know about. **No config object in the signature.** Seven of the
-nine SIM2 adapters never read the config they are handed, and each hydrography
-adapter reads one or two fields of a nine-field model: a port that passed one
-would declare a dependency that is mostly false.
-
-What a source promises, and who checks
---------------------------------------
-Eight declarations, each answering a divergence the census measured, and every
-one of them is compared against a real fetch by
-``tests/contract/test_data_source_contract.py``. Seven are ``ClassVar``;
-``variables`` is the instance's, because two of the adapters shipped here
-serve a narrower set once configured, and a declaration wider than what the
-source emits is a check that cannot fail.
-
-The declaration is not enforced at run time -- nothing here wraps a source to
-police it -- for the same reason F5a gave for ``reaches_network``: a gate that
-reads the truth off a real run is worth more than a guard the implementation
-can route around.
+Two rules the declarations carry. A source is registered under its
+``section`` and its ``source_id``, the two parts of its identity, so a word
+that serves nine sections serves each of them under its own key. And a
+shipped source writes no host of its own: it reads them from
+:func:`shipped_hosts`, the one table the licence pages also read. The registry
+is :mod:`hydromodpy.data.source.registry`, which this module must not depend
+on, and the check that a declaration matches a real fetch is
+``tests/contract/test_data_source_contract.py``.
 """
 
 from __future__ import annotations
@@ -92,6 +36,7 @@ from hydromodpy.core.exceptions import (
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.data.contracts.file_record import FileRecord
     from hydromodpy.data.contracts.spatial_field import FieldRecord
     from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -113,21 +58,16 @@ Both, in the Hub'Eau adapters, where ``station_ids`` short-circuits bbox
 discovery entirely. Only ``extent`` everywhere else.
 """
 
-PeriodNeed = Literal["required", "refused"]
+PeriodNeed = Literal["required", "refused", "optional"]
 """Whether a period is part of the request.
 
-Two values and not three, and the third is the one worth explaining. The SIM2
-family *looks* like it takes an optional window -- ``fetch_sim2(variable, *,
-bbox=None, project_period=None)`` serves all nine variables -- but its own
-guard raises ``SIM2 source requires project_period`` the moment it is left
-out. The default is a signature, not a behavior, and no source of this
-tree treats a period as genuinely optional. A value nothing can declare is
-decoration, so ``optional`` is not offered until a provider serves it.
+Three values: ``required`` (time series, forcings), ``refused`` (DEM, river network),
+or ``optional`` (constant, synthetic, SHOM).
 """
 
 ALL_PAYLOAD_KINDS: tuple[PayloadKind, ...] = ("points", "fields", "features", "files")
 ALL_SELECTORS: tuple[Selector, ...] = ("extent", "station_ids")
-ALL_PERIOD_NEEDS: tuple[PeriodNeed, ...] = ("required", "refused")
+ALL_PERIOD_NEEDS: tuple[PeriodNeed, ...] = ("required", "refused", "optional")
 
 
 # --------------------------------------------------------------------------- #
@@ -258,6 +198,11 @@ class FetchRequest:
     left it out would have to invent one. A source that declares
     ``writes_out_dir = False`` leaves it alone, and the conformance suite reads
     the directory back to check.
+
+    A request that carries neither an extent nor a station id is accepted **by
+    the type**, because a source that selects nothing (a file content, a
+    computed constant) is asked exactly that. :func:`require_selectors` refuses
+    it for every source that selects, which is the source's first line.
     """
 
     out_dir: Path
@@ -289,10 +234,6 @@ class FetchRequest:
             duplicates = sorted({sid for sid in ids if ids.count(sid) > 1})
             raise DataRequestError(f"Station ids repeat: {duplicates}.")
         object.__setattr__(self, "station_ids", ids)
-        if self.extent is None and not ids:
-            raise DataRequestError(
-                "A request selects nothing: it carries neither an extent nor a station id."
-            )
 
     @property
     def selectors(self) -> tuple[Selector, ...]:
@@ -323,6 +264,12 @@ class FetchResult:
     ``extent`` is the extent that was really queried, in the CRS it was really
     queried in -- not the one the caller passed. It is what lets a caller see
     that its WGS84 box reached IGN as Lambert-93 meters.
+
+    ``records`` is the number of records a source wrote behind a ``files``
+    payload, when it counts them; a source that cannot leaves ``None``. It is
+    how :attr:`is_empty` answers for a cached empty file, a file a source
+    wrote so an empty answer is one no caller has to ask the provider for
+    again.
     """
 
     source_id: str
@@ -333,12 +280,21 @@ class FetchResult:
     points: tuple[PointRecord, ...] = ()
     fields: tuple[FieldRecord, ...] = ()
     features: gpd.GeoDataFrame | None = None
-    files: tuple[Path, ...] = ()
+    files: tuple[FileRecord, ...] = ()
+    records: int | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_id, str) or not self.source_id.strip():
             raise DataProductError(f"A result carries source_id={self.source_id!r}.")
+        if self.records is not None and (
+            isinstance(self.records, bool) or not isinstance(self.records, int) or self.records < 0
+        ):
+            raise DataProductError(
+                f"A result carries records={self.records!r}, which is not a record count. "
+                "A source that knows how many records it handed back declares the number; "
+                "one that cannot leaves it as None."
+            )
         if self.kind not in ALL_PAYLOAD_KINDS:
             raise DataProductError(
                 f"Unknown payload kind {self.kind!r}. Expected one of {list(ALL_PAYLOAD_KINDS)}."
@@ -351,7 +307,16 @@ class FetchResult:
             )
         object.__setattr__(self, "points", tuple(self.points))
         object.__setattr__(self, "fields", tuple(self.fields))
-        object.__setattr__(self, "files", tuple(Path(p) for p in self.files))
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        bare = [value for value in self.files if not isinstance(value, FileRecord)]
+        if bare:
+            raise DataProductError(
+                f"Result of {self.source_id!r} carries files as {type(bare[0]).__name__} "
+                "instead of FileRecord. A bare path says nothing about the bytes it names, "
+                "and the seal needs what it says: build them with FileRecord.of."
+            )
+        object.__setattr__(self, "files", tuple(self.files))
         filled = {
             "points": bool(self.points),
             "fields": bool(self.fields),
@@ -373,10 +338,14 @@ class FetchResult:
         decides what that means. ``features`` counts as empty when the frame
         holds no row, which is how the hydrography adapters report it -- all
         three return ``GeoDataFrame(geometry=[], crs="EPSG:4326")``, never
-        ``None``.
+        ``None``. A ``files`` answer that cached an empty file alongside (the
+        writes-a-file sources) still held nothing: the source says so with
+        ``records = 0``, rather than the port opening the bytes to count them.
         """
         if self.kind == "features":
             return self.features is None or len(self.features) == 0
+        if self.kind == "files" and self.records is not None:
+            return self.records == 0
         return not (self.points or self.fields or self.files)
 
 
@@ -390,9 +359,10 @@ class DataSource(Protocol):
     """One source answers one question about one provider.
 
     Sources conform structurally: there is no base class, just ``fetch`` and
-    eight class-level declarations. A third-party source needs no import from
-    HydroModPy beyond this module and ``hydromodpy.data.contracts``, which
-    holds the record types its payload is made of.
+    the declarations, two of which -- ``variables`` and ``hosts`` -- belong to
+    the built instance and the rest to the class. A third-party source needs
+    no import of HydroModPy beyond this module and ``hydromodpy.data.contracts``,
+    which holds the record types its payload is made of.
 
     A source that cannot serve what it is asked raises
     :class:`~hydromodpy.core.exceptions.DataCapabilityError` naming the option;
@@ -402,21 +372,31 @@ class DataSource(Protocol):
     """
 
     source_id: ClassVar[str]
-    """Stable identity of this adapter.
+    """Stable identity of this adapter within its section.
 
-    Not necessarily the ``source`` its records carry, and the difference is
-    deliberate: a record names the provider while the identity names the
-    question put to it. One provider answers several questions, and two
-    sources asking Hub'Eau for two products would stamp the same word.
+    The word the TOML writes, ``hubeau`` or ``bdtopage``, not necessarily the
+    ``source`` its records carry, and the difference is deliberate: a record
+    names the provider while the identity names the question put to it. One
+    word serves up to nine sections here, so it is never unique on its own;
+    the section beside it makes it a key.
+    """
+
+    section: ClassVar[str]
+    """The ``[data.<section>]`` this class serves, exactly one.
+
+    The registry keys a source on this pair, so a word serving nine sections is
+    nine sources, one per section, and a section cannot reach a source another
+    section names. A third-party source that serves no section of the TOML
+    writes its own word here and is then reachable only through ``installed``.
     """
 
     variables: tuple[str, ...]
     """Every variable name **this source** emits, configuration included.
 
-    The one member that is not a ``ClassVar``, and the adversarial gate is
-    what settled it. A Hub'Eau piezometry class can serve two products; an
-    instance built with ``product="level"`` serves one. Declared on the class,
-    the set would have been the union, and
+    The one member of the declaration that is neither a ``ClassVar``, and the
+    adversarial gate is what settled it. A Hub'Eau piezometry class can serve
+    two products; an instance built with ``product="level"`` serves one.
+    Declared on the class, the set would have been the union, and
     :func:`require_declared_variables` would have accepted a depth-labeled
     record from a level source while the result it returned still said
     ``("groundwater_level",)``. Declared on the instance, the check is exactly
@@ -444,11 +424,15 @@ class DataSource(Protocol):
     period_need: ClassVar[PeriodNeed]
     """Whether a period is required or refused; see :data:`PeriodNeed`."""
 
-    hosts: ClassVar[tuple[str, ...]]
+    hosts: tuple[str, ...]
     """Every host this source contacts, on the pattern F5a set for a capability.
 
-    A list and not a boolean, so the capability that composes several sources
-    publishes the union rather than an opaque "yes".
+    A member of the instance, like ``variables``: it is read only once a source
+    is built, and a source this repository ships does not write it -- it reads
+    :func:`shipped_hosts`, which holds the one table the licence pages read too.
+    A third-party source writes its own, and a list and not a boolean, so the
+    capability that composes several sources publishes the union rather than an
+    opaque "yes".
     """
 
     writes_out_dir: ClassVar[bool]
@@ -472,6 +456,7 @@ class DataSource(Protocol):
 
 SOURCE_MEMBERS: tuple[str, ...] = (
     "source_id",
+    "section",
     "variables",
     "payload_kind",
     "extent_crs",
@@ -490,16 +475,19 @@ silently lost one.
 """
 
 
-INSTANCE_SOURCE_MEMBERS: tuple[str, ...] = ("variables",)
+INSTANCE_SOURCE_MEMBERS: tuple[str, ...] = ("variables", "hosts")
 """The members only an instance carries, so a class cannot be asked for them.
 
-One member, and it is the one D114 moved off the class on purpose: a Hub'Eau
-piezometry class serves two products and an instance built with
+Two members, and each was moved off the class on purpose. ``variables``: a
+Hub'Eau piezometry class serves two products and an instance built with
 ``product="level"`` serves one, so the set is the instance's or it is a union
-that no check can falsify. The consequence is that ``hasattr`` on the class is
-``False`` for it, and anything that validates a *class* -- the registry, which
-resolves a name before anyone can construct it -- has to know that and say so
-rather than report a conformance failure that is really a design choice.
+that no check can falsify. ``hosts``: a shipped source reads them from
+:func:`shipped_hosts`, the one table the licence pages read, and what it reads
+belongs to the built source, not to the class. The consequence is that
+``hasattr`` on the class is ``False`` for both, and anything that validates a
+*class* -- the registry, which resolves a name before anyone can construct it
+-- has to know that and say so rather than report a conformance failure that is
+really a design choice.
 """
 
 CLASS_SOURCE_MEMBERS: tuple[str, ...] = tuple(
@@ -526,17 +514,26 @@ def missing_source_members(candidate: object) -> tuple[str, ...]:
 def require_selectors(source: DataSource, request: FetchRequest) -> None:
     """Refuse a request this source would have to answer by ignoring part of it.
 
-    Two refusals, and the second is the one that matters. A selector the source
-    does not declare is obvious. A request that carries **both** an extent and
-    station identifiers is not: no provider of this tree serves them together,
-    and every Hub'Eau adapter resolves it the same silent way -- ``if
-    station_ids: ... elif bbox:`` -- so the box is dropped and the result looks
-    exactly like a box that held those stations and no others.
+    Three refusals. A selector the source does not declare is obvious. A
+    request that carries **neither** an extent nor a station id is accepted by
+    the type and refused here, unless the source declares ``selectors = ()``:
+    a file content and a computed constant are asked exactly nothing, and that
+    is the declaration saying so. And a request that carries **both** an
+    extent and station identifiers is not: no provider of this tree serves
+    them together, and every Hub'Eau adapter resolves it the same silent way --
+    ``if station_ids: ... elif bbox:`` -- so the box is dropped and the result
+    looks exactly like a box that held those stations and no others.
 
     Combining is refused for every source rather than declared per source,
     because no implementation can serve it today. The declaration arrives with
     the first provider that can, and not before.
     """
+    if not request.selectors and source.selectors:
+        raise DataRequestError(
+            f"A request to {source.source_id!r} selects nothing: it carries neither an "
+            f"extent nor a station id, and the source selects by {list(source.selectors)}. "
+            "Only a source that declares selectors = () answers such a request."
+        )
     unsupported = [name for name in request.selectors if name not in source.selectors]
     if unsupported:
         raise DataCapabilityError(
@@ -592,6 +589,35 @@ def require_declared_variables(source: DataSource, names: Sequence[str]) -> None
         )
 
 
+def shipped_hosts(source_id: str) -> tuple[str, ...]:
+    """Return the hosts the licence table records for a source this build ships.
+
+    The one place hosts are written is ``hydromodpy.schema.sources``: the entry
+    of a slug carries the licence, the pages it was read on, and the hosts a
+    fetch contacts. A shipped source reads this function instead of writing its
+    own copy, so the two can never disagree -- the test that used to hold them
+    equal compares one table with itself now.
+
+    Raises
+    ------
+    DataRequestError
+        When the slug has no entry, which is a source this repository ships
+        without a licence page, or a source of a third party reaching for a
+        table that was never its side of the fence. A third-party source writes
+        ``hosts`` itself.
+    """
+    from hydromodpy.schema.sources import source_entry
+
+    entry = source_entry(source_id)
+    if entry is None:
+        raise DataRequestError(
+            f"No licence entry exists for the source id {source_id!r}, so its hosts are "
+            "not known here. A source this build ships has an entry in "
+            "hydromodpy.schema.sources; a third-party source declares its own hosts."
+        )
+    return tuple(entry.hosts)
+
+
 __all__ = [
     "ALL_PAYLOAD_KINDS",
     "ALL_PERIOD_NEEDS",
@@ -612,4 +638,5 @@ __all__ = [
     "require_declared_variables",
     "require_period",
     "require_selectors",
+    "shipped_hosts",
 ]

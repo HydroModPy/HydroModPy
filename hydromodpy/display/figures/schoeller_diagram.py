@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_samples_reason
 
 if TYPE_CHECKING:
@@ -19,7 +18,6 @@ if TYPE_CHECKING:
 _IONS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
 
 
-@register
 class SchoellerDiagramFigure(BaseFigure):
     """Schoeller profile: ion concentration vs ion on a log axis."""
 

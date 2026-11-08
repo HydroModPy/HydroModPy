@@ -10,7 +10,6 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Station, Variable
-from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class DurationCurveFigure(BaseFigure):
     """Exceedance-probability (flow-duration) curve for one station."""
 

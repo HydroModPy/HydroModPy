@@ -27,26 +27,12 @@ BUILTIN_TABLES: frozenset[str] = frozenset({"_BUILTIN_PATHS", "_BUILTIN_EXTRACTO
 """The module-level names of the ``id -> "module:Class"`` tables of a registry."""
 
 EXCEPTIONS: dict[str, dict[str, str]] = {
-    "display/figures/__init__.py": {
-        "why": (
-            "the figure registry fills itself by importing every module of the figures"
-            " package, and turns into a plain table with the display contract"
-        ),
-        "lifted_by": "3.9",
-    },
     "calibration/optim/optimizer.py": {
         "why": (
             "the optimizers are found by walking the adapters package, until the search"
             " methods are declared in one table"
         ),
         "lifted_by": "3.7",
-    },
-    "catchment/delineation/registry.py": {
-        "why": (
-            "the Whitebox facade keeps one environment per process behind a dict of"
-            " loaders; its surface for a third party is the terrain engine"
-        ),
-        "lifted_by": "3.6",
     },
 }
 """Files that still discover classes their own way, each with the reason and who lifts it."""

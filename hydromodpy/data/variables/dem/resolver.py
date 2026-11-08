@@ -27,8 +27,9 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.common.io_helpers import declared_source_path
+from hydromodpy.data.source.port import Extent, FetchRequest
+from hydromodpy.data.source.registry import build_from_section, data_sources
 
-_API_SOURCES = {"ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
 
 
@@ -104,7 +105,7 @@ def resolve_dem_path_from_data_sources(
             resolved = _resolve_custom_path(source_cfg, config_dir)
             if resolved is not None:
                 return resolved
-        elif source_kind in _API_SOURCES:
+        elif source_kind in data_sources.names("dem"):
             return _bootstrap_api_source(
                 source_cfg,
                 cfg=cfg,
@@ -151,8 +152,6 @@ def _bootstrap_api_source(
     output_dir = cache_dir or (_hmp_cache_dir() / "dem")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
-
     dataset = getattr(source_cfg, "dataset", "bd-alti")
     resolution_m = getattr(source_cfg, "resolution_m", None)
     if dataset == "rge-alti" and resolution_m is not None and float(resolution_m) == 1.0:
@@ -164,16 +163,15 @@ def _bootstrap_api_source(
             "[geographic].dem_init_path a file."
         )
 
-    return fetch_ign_dem(
-        output_dir=output_dir,
-        bbox=bbox,
-        departments=getattr(source_cfg, "departments", None) or None,
-        dataset=dataset,
-        resolution_m=resolution_m,
-        file_format=getattr(source_cfg, "file_format", "ASC"),
-        crs=getattr(source_cfg, "crs", None),
-        force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
+    source_cls = data_sources.get("dem", str(getattr(source_cfg, "source", "")).strip())
+    source = build_from_section(source_cls, source_cfg)
+    result = source.fetch(
+        FetchRequest(
+            out_dir=Path(output_dir),
+            extent=Extent(xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:2154"),
+        )
     )
+    return result.files[0].path
 
 
 def require_dem_crs(path: Path | str) -> None:

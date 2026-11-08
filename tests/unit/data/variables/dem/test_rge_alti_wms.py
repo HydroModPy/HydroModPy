@@ -465,11 +465,27 @@ def test_the_project_path_refuses_1_m_before_any_request(tmp_path, monkeypatch) 
 
 
 def test_the_project_path_passes_5_m_to_the_fetch(tmp_path, monkeypatch) -> None:
+    import rasterio
+
     calls = []
 
     def fake(**kw):
+        """The real fetch returns the path of a raster it has written."""
         calls.append(kw)
-        return tmp_path / "dem.tif"
+        out = tmp_path / "dem.tif"
+        profile = {
+            "driver": "GTiff",
+            "height": 1,
+            "width": 1,
+            "count": 1,
+            "dtype": "float32",
+            "transform": from_origin(314100.0, 6836100.0, 5.0, 5.0),
+            "crs": "EPSG:2154",
+            "nodata": -9999.0,
+        }
+        with rasterio.open(out, "w", **profile) as dst:
+            dst.write(np.zeros((1, 1), dtype="float32"), 1)
+        return out
 
     monkeypatch.setattr(ign_dem_fr, "fetch_rge_alti", fake)
 

@@ -36,7 +36,6 @@ import numpy as np
 from hydromodpy.core.io.crs import project_gdf_for_metric_operations
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Extent, Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
     cell_count,
@@ -135,7 +134,6 @@ ActiveTimestep = Annotated[
 ]
 
 
-@register
 class SimulatedActiveNetworkMap(BaseFigure):
     """Map the active drainage network inferred from a simulated flux field.
 
@@ -409,7 +407,6 @@ def _draw_persistence(
     ]
 
 
-@register
 class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
     """Overlay simulated active cells with the observed reference linework."""
 

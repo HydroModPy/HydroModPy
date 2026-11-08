@@ -6,22 +6,28 @@ sinusoidal modulation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
-import pandas as pd
-from pandas.tseries.frequencies import to_offset
-from pandas.tseries.offsets import MonthEnd, QuarterEnd, YearEnd
 
-from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+)
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
 if TYPE_CHECKING:
-    from hydromodpy.data.managers.base_manager_common import SourceContext
+    import pandas as pd
 
-# Calendar offsets whose pandas date_range stamps land on the period end.
-_PERIOD_END_OFFSETS = (MonthEnd, QuarterEnd, YearEnd)
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
 
 def _synthetic_index(
@@ -39,8 +45,15 @@ def _synthetic_index(
     'YE' value for 2020 would land on 2020-12-31 and leave January to
     November with no value. Those aliases are stamped at their period start.
     """
+    import pandas as pd
+    from pandas.tseries.frequencies import to_offset
+    from pandas.tseries.offsets import MonthEnd, QuarterEnd, YearEnd
+
+    # Calendar offsets whose pandas date_range stamps land on the period end.
+    period_end_offsets = (MonthEnd, QuarterEnd, YearEnd)
+
     offset = to_offset(freq)
-    if isinstance(offset, _PERIOD_END_OFFSETS):
+    if isinstance(offset, period_end_offsets):
         if end is not None:
             spans = pd.period_range(start=start, end=end, freq=offset)
         else:
@@ -61,6 +74,8 @@ def _sine_period_means(
     so it holds the mean of the wave over that period: a full wave then brings no
     net water.
     """
+    import pandas as pd
+
     next_stamp = _synthetic_index(freq, start=index[-1], periods=2)[1]
     edges = index.append(pd.DatetimeIndex([next_stamp]))
     days = (edges - edges[0]).total_seconds().to_numpy(dtype=float) / 86400.0
@@ -79,6 +94,10 @@ def generate(
 
     Returns a list with a single PointRecord containing the synthetic series.
     """
+    import pandas as pd
+
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
     values = [float(v) for v in config.values]
 
     # Determine time index
@@ -134,13 +153,70 @@ def generate(
     ]
 
 
-def fetch(
-    cfg: RechargeSourceConfig,
-    *,
-    bbox: tuple | None,
-    period: tuple[datetime, datetime] | None,
-    context: SourceContext,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "synthetic"``: a series built from the section."""
-    del bbox, context
-    return generate(cfg, project_period=period)
+class SyntheticRecharge:
+    """Synthetic recharge time series DataSource."""
+
+    section: ClassVar[str] = "recharge"
+    source_id: ClassVar[str] = "synthetic"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:2154"
+    selectors: ClassVar[tuple[Selector, ...]] = ()
+    period_need: ClassVar[PeriodNeed] = "optional"
+    writes_out_dir: ClassVar[bool] = False
+
+    variables: tuple[str, ...]
+    hosts: tuple[str, ...]
+
+    def __init__(
+        self,
+        *,
+        values: Sequence[float] | None = None,
+        start_date: str | None = None,
+        freq: str | None = None,
+        periods: int | None = None,
+        amplitude: float | None = None,
+        period_days: int | float | None = None,
+        offset: float | None = None,
+    ) -> None:
+        self.values = tuple(values) if values is not None else (1.0,)
+        self.start_date = start_date
+        self.freq = freq or "D"
+        self.periods = periods
+        self.amplitude = amplitude
+        self.period_days = float(period_days) if period_days is not None else None
+        self.offset = offset
+        self.variables = ("recharge",)
+        self.hosts = ()
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        cfg = RechargeSourceConfig(
+            source="synthetic",
+            values=list(self.values),
+            start_date=self.start_date,
+            freq=self.freq,
+            periods=self.periods,
+            amplitude=self.amplitude,
+            period_days=int(self.period_days) if self.period_days is not None else None,
+            offset=self.offset,
+        )
+        records = generate(
+            cfg,
+            project_period=period.as_tuple if period is not None else None,
+        )
+        require_declared_variables(self, [r.variable for r in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=request.extent,
+            period=period,
+            points=tuple(records),
+        )
+
+
+__all__ = [
+    "SyntheticRecharge",
+    "generate",
+]

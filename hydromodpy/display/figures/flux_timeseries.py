@@ -27,7 +27,6 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
@@ -61,7 +60,6 @@ _BAR_COMPONENTS: frozenset[str] = frozenset({"well"})
 _DEPTH_TOKEN = "mm/period"
 
 
-@register
 class FluxTimeseries(BaseFigure):
     """Signed domain fluxes per stress period."""
 

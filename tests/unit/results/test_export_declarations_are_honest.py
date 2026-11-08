@@ -18,12 +18,12 @@ from pydantic import ValidationError
 
 from hydromodpy.results.exporters.export_spec import (
     STEP_DATE_TOKEN,
-    ExportFormat,
     ExportKind,
     ExportRequest,
     format_from_path,
     plan_outputs,
 )
+from hydromodpy.results.exporters.registry import run_formats
 
 F, S, V, R, T = (
     ExportKind.field,
@@ -86,10 +86,10 @@ class TestTheRequestRefusesWhatItCanDecideAlone:
         with pytest.raises(ValidationError, match="sizes the pixels of a GeoTIFF"):
             ExportRequest(variables="head", format="geopackage", time="last", resolution=10.0)
 
-    @pytest.mark.parametrize("fmt", ["stac", "rocrate", "prov"])
-    def test_a_run_format_takes_all_only(self, fmt: str) -> None:
-        with pytest.raises(ValidationError, match='Write variables = "all"'):
-            ExportRequest(variables="head", format=fmt)
+    def test_a_run_format_takes_all_only(self) -> None:
+        for fmt in run_formats():
+            with pytest.raises(ValidationError, match='Write variables = "all"'):
+                ExportRequest(variables="head", format=fmt)
 
     def test_a_run_format_refuses_a_selector(self) -> None:
         with pytest.raises(ValidationError, match="time selects nothing"):
@@ -138,11 +138,9 @@ class TestTheRequestAcceptsWhatItSays:
         ]
 
     def test_the_extension_gives_the_format(self) -> None:
-        assert ExportRequest(variables="head", file="fields.nc").output_format is (
-            ExportFormat.netcdf
-        )
+        assert ExportRequest(variables="head", file="fields.nc").output_format == "netcdf"
         assert format_from_path("run.hmp") is None
-        assert format_from_path(Path("layer.GPKG")) is ExportFormat.geopackage
+        assert format_from_path(Path("layer.GPKG")) == "geopackage"
 
     def test_an_integer_stays_a_step_index(self) -> None:
         assert ExportRequest(variables="head", time=33).times == [33]
@@ -249,9 +247,9 @@ class TestThePlanSpellsANameAsTheTomlDoes:
 
     def test_a_view_in_a_windows_folder(self) -> None:
         request = self._on_windows(
-            ExportRequest(variables="all", format="prov", folder="a"), folder="a\\b"
+            ExportRequest(variables="all", format="rocrate", folder="a"), folder="a\\b"
         )
-        assert _plan(request) == ["a/b/prov.jsonld"]
+        assert _plan(request) == ["a/b/ro-crate-metadata.json"]
 
 
 class TestEveryFileStaysUnderTheExportsOfTheRun:

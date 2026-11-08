@@ -33,7 +33,6 @@ import numpy as np
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import CmapOrOwn, Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import cell_count, map_legend
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
@@ -131,7 +130,6 @@ def reading_for(shows: str) -> Reading:
         ) from None
 
 
-@register
 class DepressionMap(BaseFigure):
     """Cells of the mesh top that cannot get out, and the fill each one needs.
 

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import hydromodpy as hmp
-from hydromodpy.display import names
+from hydromodpy.display.figure_registry import names
 
 HERE = Path(__file__).resolve().parent
 

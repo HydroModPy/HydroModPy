@@ -18,6 +18,7 @@ from hydromodpy.calibration.evaluation import registry as evaluator_registry
 from hydromodpy.catchment.terrain import registry as terrain_registry
 from hydromodpy.data.source import registry as source_registry
 from hydromodpy.mesh import registry as mesh_registry
+from hydromodpy.results.exporters.registry import EXPORT_FORMAT_GROUP
 from hydromodpy.solver.base import registry as solver_registry
 
 pytestmark = pytest.mark.fast
@@ -43,6 +44,7 @@ PORT_STABILITY = {
     evaluator_registry.ENTRY_POINT_GROUP: "experimental",
     solver_registry.ENTRY_POINT_GROUP: "experimental",
     solver_registry.EXTRACTOR_ENTRY_POINT_GROUP: "experimental",
+    EXPORT_FORMAT_GROUP: "experimental",
 }
 
 

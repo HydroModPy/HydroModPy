@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 from jsonschema.validators import Draft202012Validator
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.schema.config_schema import editor_schema, export_schema
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -43,7 +44,7 @@ def _as_an_editor_sends_it(value: Any) -> Any:
 
 @pytest.fixture(scope="module")
 def validator() -> Draft202012Validator:
-    return Draft202012Validator(editor_schema())
+    return Draft202012Validator(editor_schema(HydroModPyConfig))
 
 
 def _problems(validator: Draft202012Validator, text: str) -> list[str]:
@@ -127,16 +128,16 @@ def test_a_mistake_is_still_flagged(validator: Draft202012Validator, name: str) 
 
 
 def test_the_editor_schema_is_valid_json_schema_2020_12() -> None:
-    schema = editor_schema()
+    schema = editor_schema(HydroModPyConfig)
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     Draft202012Validator.check_schema(schema)
 
 
 def test_the_model_schema_keeps_its_required_keys() -> None:
     """Frontends and the lockfile read the model schema, not the editor one."""
-    assert "geographic" in export_schema().get("required", [])
-    assert "required" not in editor_schema()
-    assert "base_config" not in export_schema()["properties"]
+    assert "geographic" in export_schema(HydroModPyConfig).get("required", [])
+    assert "required" not in editor_schema(HydroModPyConfig)
+    assert "base_config" not in export_schema(HydroModPyConfig)["properties"]
 
 
 @pytest.mark.allow_subprocess

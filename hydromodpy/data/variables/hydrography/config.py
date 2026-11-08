@@ -131,17 +131,23 @@ class HydrographySourceConfig(HydroModelBase):
         ``data.hydrography.sources[i]``, and a section carrying nine fields
         deserves to be told which one it got wrong.
 
-        Checking only that the name resolves would let a plugin serving grids
-        into a hydrography section, refused much later by the fetch itself; the
-        payload kind is read here for the same reason it is read at the build
-        seam, and it costs an import of the adapter module. Measured on this
-        tree: 0.2 ms and four modules for the first one, and no adapter pulls
+        The name is resolved within the section this model serves, so the refusal
+        a hydrography section can still meet is the payload kind: a plugin
+        registered for river linework that answers with grids would be built,
+        contacted, and read as a network. Reading the kind off the declaration
+        costs one lazy import of the adapter module, and no adapter pulls
         geopandas, rasterio or xarray at import.
         """
         if source == "custom":
             return source
         try:
-            registry.get_serving(source, NETWORK_PAYLOAD_KIND)
+            source_cls = registry.data_sources.get("hydrography", source)
+            if getattr(source_cls, "payload_kind", None) != NETWORK_PAYLOAD_KIND:
+                raise DataCapabilityError(
+                    f"Source {source!r} serves a {source_cls.payload_kind!r} payload, and "
+                    "this section accepts a 'features' payload. A source of another kind "
+                    "belongs to another variable."
+                )
         except (DataRequestError, DataCapabilityError) as exc:
             raise ValueError(str(exc)) from exc
         return source

@@ -124,9 +124,8 @@ def option_details(cls: type) -> list[dict[str, Any]]:
 
 def figures() -> list[dict[str, Any]]:
     """One row per registered figure, with what it needs and the options it takes."""
-    from hydromodpy.display import list_figures
     from hydromodpy.display.figure import BaseFigure
-    from hydromodpy.display.figure_registry import figure_option_names, get
+    from hydromodpy.display.figure_registry import figure_option_names, get, list_figures
 
     rows = []
     for spec in list_figures():
@@ -140,7 +139,6 @@ def figures() -> list[dict[str, Any]]:
                 "required_fields": list(spec.required_fields),
                 "optional_fields": list(spec.optional_fields),
                 "required_tables": list(spec.required_tables),
-                "required_solvers": list(spec.required_solvers),
                 "options": sorted(figure_option_names(spec.name)),
                 "option_details": option_details(cls),
                 "summary": _first_paragraph(inspect.getdoc(cls)),

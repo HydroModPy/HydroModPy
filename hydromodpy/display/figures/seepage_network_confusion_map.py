@@ -32,7 +32,6 @@ from hydromodpy.display.figure_options import (
     NetworkTimestep,
     TauSpecificRatio,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
@@ -89,7 +88,6 @@ the three. The weight is carried once, by the casing under all of them.
 """
 
 
-@register
 class SeepageNetworkConfusionMap(BaseFigure):
     """Valid, excess and missing cells of a simulated stream network.
 

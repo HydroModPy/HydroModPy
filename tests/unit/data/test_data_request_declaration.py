@@ -25,11 +25,15 @@ NETWORK = {"hydrography": {"sources": [{"source": "bdtopage"}]}}
 
 
 def _served_slugs() -> set[str]:
-    """Every source a [data] section reaches: the managers' tables and the port."""
-    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+    """Every source a [data] section reaches: the words the shipped keys are made of."""
+    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 
-    slugs = {key for name in VARIABLE_SPECS for key in get_manager_class(name).SOURCES}
-    return slugs | set(registry.data_sources.names(shipped_only=True))
+    slugs = {"custom"}
+    for key in registry.data_sources.names(shipped_only=True):
+        for variable in VARIABLE_SPECS:
+            if key.startswith(f"{variable}_"):
+                slugs.add(key[len(variable) + 1 :])
+    return slugs
 
 
 def test_the_declared_hosts_are_the_hosts_of_the_served_sources() -> None:
@@ -67,6 +71,7 @@ class AcmeRadarSource:
     """A conforming source a third party ships, named in no file of this tree."""
 
     source_id: ClassVar[str] = "acme-radar"
+    section: ClassVar[str] = "acme-weather"
     payload_kind: ClassVar[str] = "fields"
     extent_crs: ClassVar[str] = "EPSG:3035"
     selectors: ClassVar[tuple[str, ...]] = ("extent",)

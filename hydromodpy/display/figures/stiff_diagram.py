@@ -8,7 +8,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_samples_reason
 
 if TYPE_CHECKING:
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class StiffDiagramFigure(BaseFigure):
     """Horizontal Stiff polygon (cations left, anions right)."""
 

@@ -1,27 +1,30 @@
 """Shared base for variable and field data managers.
 
 Private to the ``hydromodpy.data`` package: provides the constructor, the
-source table, and the spatial helpers that both manager families share.
+source resolution, and the spatial helpers that both manager families share.
 ``BaseVariableManager`` and ``BaseFieldManager`` both inherit from
-:class:`BaseManagerCommon`.
+:class:`BaseManagerCommon`, and the lake variables inherit
+:class:`SourceTable` through :class:`BaseFileManager`.
 
-A manager reaches its providers through ``SOURCES``: each value a user may
-write in ``source =``, except ``custom``, maps to the function that fetches it.
-``custom`` is always the user's own files, loaded by ``load_custom``.
+A manager resolves the source a section names on the source registry, within
+its own section: ``data_sources.get(self.VARIABLE_NAME, cfg.source)``, built
+with :func:`~hydromodpy.data.source.registry.build_from_section`. ``custom`` is
+always the user's own files, loaded by ``load_custom``, and stays outside the
+registry until the lot that makes it a source.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
-from hydromodpy.core.exceptions import DataSourceError
+from hydromodpy.core.exceptions import DataProductError, DataSourceError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import FetchResult
+from hydromodpy.data.source.registry import build_from_section, data_sources
 
 logger = get_logger(__name__)
 
@@ -29,47 +32,63 @@ CUSTOM_SOURCE = "custom"
 """The ``source =`` value that names the user's own files."""
 
 
-@dataclass(frozen=True, slots=True)
-class SourceContext:
-    """What a manager knows beyond the source config and its extent.
-
-    Handed to every function of a ``SOURCES`` table, which reads only what it
-    needs: the SHOM tide gauges keep their cache in ``data_dir`` and fall back on
-    ``config_period``, a nearest-station search starts from ``nearest_to``.
-    """
-
-    project_extent: tuple | None
-    data_dir: Path | None
-    config_period: tuple[datetime, datetime] | None
-    """The ``date_start`` and ``date_end`` of the ``[data.<name>]`` section, when both are set."""
-    nearest_to: tuple[float, float] | None = None
-    """Where a nearest-station search starts, when the source config asks for one."""
-
-
 class SourceTable:
-    """Dispatch a source config to ``load_custom`` or to its ``SOURCES`` entry."""
+    """Dispatch a source config to ``load_custom`` or to the port it registers on."""
 
     VARIABLE_NAME: ClassVar[str] = ""
-    SOURCES: ClassVar[Mapping[str, Callable[..., Any]]] = {}
 
     def _fetch_from_source(self, source_cfg: Any) -> Any:
         if source_cfg.source == CUSTOM_SOURCE:
             return self.load_custom(source_cfg)
-        return self._fetch_listed_source(self._listed_source(source_cfg.source), source_cfg)
+        source = self._build_configured_source(source_cfg)
+        return self._fetch_listed_source(source, source_cfg)
 
-    def _listed_source(self, name: str) -> Callable[..., Any]:
-        try:
-            return self.SOURCES[name]
-        except KeyError:
-            raise ValueError(f"Unknown {self.VARIABLE_NAME} source: {name}") from None
+    def _build_configured_source(self, source_cfg: Any) -> Any:
+        """The source the section names, built from that section.
+
+        A name this section does not serve is refused here with the registry's
+        own message, which lists what it does serve, so a source id that
+        belongs to another variable never builds.
+        """
+        source_cls = data_sources.get(self.VARIABLE_NAME, str(source_cfg.source))
+        return build_from_section(
+            source_cls, source_cfg, **self._resolved_source_values(source_cfg)
+        )
+
+    def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
+        """What only the manager can compute, handed to the source constructor.
+
+        A family overrides this: the station family resolves the point a
+        nearest-station search starts from, the field family hands the dates
+        the section writes as datetimes. Each key a constructor does not name
+        is dropped by ``build_from_section``, so a source asks for what it
+        reads.
+        """
+        del source_cfg
+        return {}
 
     def load_custom(self, source_cfg: Any) -> Any:
         """Load the user's own files for one source config."""
         raise NotImplementedError
 
-    def _fetch_listed_source(self, fetch: Callable[..., Any], source_cfg: Any) -> Any:
-        """Call one ``SOURCES`` function the way this manager family calls them."""
+    def _fetch_listed_source(self, source: Any, source_cfg: Any) -> Any:
+        """Call one source the way this manager family does."""
         raise NotImplementedError
+
+
+def point_records_of(result: FetchResult) -> list[PointRecord]:
+    """The point records a station variable holds, refusing any other payload.
+
+    An empty list is an answer -- a box over the sea holds no gauging station --
+    and the cache is what records it, so the caller decides what it means.
+    """
+    if result.kind != "points":
+        raise DataProductError(
+            f"Source {result.source_id!r} answered a station variable with a "
+            f"{result.kind!r} payload. A station variable holds point records, and the "
+            "sources registered under its section serve exactly that."
+        )
+    return list(result.points)
 
 
 class BaseManagerCommon(SourceTable, ABC):
@@ -85,19 +104,12 @@ class BaseManagerCommon(SourceTable, ABC):
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         data_dir: Path | None = None,
-    ):
+    ) -> None:
         self.config = config
         self.catalog = catalog
         self.project_extent = project_extent
         self.project_period = project_period
         self.data_dir = Path(data_dir) if data_dir else None
-
-    def _source_context(self, source_cfg: Any) -> SourceContext:
-        return SourceContext(
-            project_extent=self.project_extent,
-            data_dir=self.data_dir,
-            config_period=self._config_period(),
-        )
 
     def _config_period(self) -> tuple[datetime, datetime] | None:
         start = getattr(self.config, "date_start", None)

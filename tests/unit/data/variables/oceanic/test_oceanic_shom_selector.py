@@ -26,6 +26,7 @@ import pandas as pd
 import pytest
 from shapely.geometry import Polygon
 
+from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
 from hydromodpy.data.variables.oceanic.apis import shom
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
@@ -112,7 +113,7 @@ def test_a_named_station_survives_the_mask_the_loader_injects(tmp_path, monkeypa
 def test_no_selector_at_all_is_refused(monkeypatch):
     _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom")
-    with pytest.raises(ValueError, match="station_ids"):
+    with pytest.raises((ValueError, DataRequestError), match="station"):
         _manager(source)._fetch_from_source(source)
 
 

@@ -14,8 +14,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.cli.commands.export import FILE_FORMATS, _destination
-from hydromodpy.results.exporters.export_spec import ExportFormat
+from hydromodpy.cli.commands.export import _destination
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from tests._helpers.cli_runner import CliRunner
@@ -196,8 +195,14 @@ def test_a_request_the_model_refuses_is_refused_before_writing(workspace: Path) 
     assert "time and period are both given" in result.stderr
 
 
-def test_the_format_choices_are_the_export_formats() -> None:
-    assert set(FILE_FORMATS) == {fmt.value for fmt in ExportFormat}
+def test_an_unknown_as_format_is_refused_with_the_candidates(workspace: Path) -> None:
+    result = _invoke("demo", "head", "--time", "last", "--as", "datapackage", "-w", str(workspace))
+    assert result.exit_code != 0
+    message = result.stderr
+    assert "datapackage" in message
+    for served in ("csv", "geotiff", "netcdf", "rocrate", "vtu"):
+        assert served in message
+    assert "hydromodpy.export.format" in message
 
 
 @pytest.mark.parametrize(

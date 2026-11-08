@@ -185,9 +185,9 @@ def run_figure_names(
     A figure is named by the stem of its PNG. A PNG the registry does not draw
     is left out: some other step writes it.
     """
-    from hydromodpy.display.figure_registry import list_figures
+    from hydromodpy.display.figure_registry import names
 
-    registered = {spec.name for spec in list_figures()}
+    registered = set(names())
     stems = dict.fromkeys(
         Path(candidate.relative_path).stem
         for spec in artifact_specs

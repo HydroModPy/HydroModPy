@@ -204,7 +204,7 @@ class TestVariableConfigContract:
         cfg = var_case.source_cls(source="custom", path=tmp_path)
         assert cfg.source == "custom"
 
-    def test_valid_sim2_source(self, var_case):
+    def test_valid_sim2_config(self, var_case):
         cfg = var_case.source_cls(source="sim2")
         assert cfg.source == "sim2"
 

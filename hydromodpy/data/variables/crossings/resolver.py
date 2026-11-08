@@ -178,26 +178,47 @@ def _write_merged(
     crs: str,
 ) -> dict[str, int]:
     """Write every source into *staged*, reprojected to *crs*, and count the records per source."""
-    from hydromodpy.data.managers.base_manager_common import SourceContext
-    from hydromodpy.data.variables.crossings import custom, records
-    from hydromodpy.data.variables.crossings.manager import CrossingsManager
+    from tempfile import TemporaryDirectory
 
-    context = SourceContext(project_extent=None, data_dir=None, config_period=None)
+    import geopandas as gpd
+
+    from hydromodpy.data.source.port import Extent, FetchRequest
+    from hydromodpy.data.source.registry import build_from_section, data_sources
+    from hydromodpy.data.variables.crossings import custom, records
+
     counts: dict[str, int] = {}
-    for index, source in enumerate(sources):
-        name = str(source.source)
-        started = time.perf_counter()
-        if name == "custom":
-            pages = [custom.load_custom(source, path=custom_files[index])]
-        elif name in CrossingsManager.SOURCES:
-            pages = CrossingsManager.SOURCES[name](source, bbox=bbox, context=context)
-        else:
-            raise ValueError(f"Unknown crossings source: {name}")
-        written = records.append_pages(staged, pages, crs)
-        counts[name] = counts.get(name, 0) + written
-        logger.info(
-            "Crossings from %s: %d features in %.1f s", name, written, time.perf_counter() - started
-        )
+    with TemporaryDirectory(prefix="hmp-crossings-") as scratch:
+        for index, source in enumerate(sources):
+            name = str(source.source)
+            started = time.perf_counter()
+            if name == "custom":
+                pages = [custom.load_custom(source, path=custom_files[index])]
+                written = records.append_pages(staged, pages, crs)
+            elif name in data_sources.names("crossings"):
+                # The source writes its own GeoPackage, page by page inside a
+                # scratch of this merge, and the merge reads it back.
+                source_cls = data_sources.get("crossings", name)
+                port_source = build_from_section(source_cls, source)
+                result = port_source.fetch(
+                    FetchRequest(
+                        out_dir=Path(scratch),
+                        extent=Extent(
+                            xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:2154"
+                        ),
+                    )
+                )
+                written = records.append_pages(
+                    staged, [gpd.read_file(file_record.path) for file_record in result.files], crs
+                )
+            else:
+                raise ValueError(f"Unknown crossings source: {name}")
+            counts[name] = counts.get(name, 0) + written
+            logger.info(
+                "Crossings from %s: %d features in %.1f s",
+                name,
+                written,
+                time.perf_counter() - started,
+            )
     return counts
 
 

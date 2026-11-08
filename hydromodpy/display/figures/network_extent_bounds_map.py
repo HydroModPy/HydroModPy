@@ -27,7 +27,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import DiagonalNeighbors, Extent, Opt, TauSpecificRatio
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
@@ -97,7 +96,6 @@ _RULE = (
 """How an extent rule left out of the figure options is chosen."""
 
 
-@register
 class NetworkExtentBoundsMap(BaseFigure):
     """Maximal and minimal simulated extents beside the maximal and minimal maps.
 

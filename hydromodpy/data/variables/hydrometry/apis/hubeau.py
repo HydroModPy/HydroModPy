@@ -3,6 +3,7 @@
 Produces ``PointRecord`` instances from the Hub'Eau v2 hydrometrie endpoints.
 This adapter is self-contained: it manages its own HTTP calls via the
 shared ``api_client`` module and converts raw JSON to the standard contract.
+:class:`HubeauHydrometry` holds the port-facing side of the same download.
 """
 
 from __future__ import annotations
@@ -10,21 +11,31 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
-
-import pandas as pd
+from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import station_location, station_period_overlaps
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 if TYPE_CHECKING:
-    from hydromodpy.data.managers.base_manager_common import SourceContext
-    from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
 
@@ -125,6 +136,8 @@ def fetch(
         f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
     records: list[PointRecord] = []
     empty: list[str] = []
     for sid in progress.track(ids, "Fetching hydrometry stations"):
@@ -172,27 +185,65 @@ def fetch(
     return records
 
 
-def fetch_for_config(
-    cfg: HydrometrySourceConfig,
-    *,
-    bbox: tuple | None,
-    station_ids: Sequence[str] | None,
-    start: datetime,
-    end: datetime,
-    context: SourceContext,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section."""
-    del context
-    return fetch(
-        product=cfg.product,
-        bbox=bbox,
-        station_ids=station_ids,
-        date_start=start,
-        date_end=end,
-        require_observations=cfg.require_observations,
-        fallback_search_radius_km=cfg.fallback_search_radius_km,
-        max_stations=cfg.max_stations,
-    )
+class HubeauHydrometry:
+    """The discharge and stage stations of Hub'Eau, behind the data-source port.
+
+    The class holds what one ``[[data.hydrometry.sources]]`` entry names
+    (``product``, ``require_observations``, and the discovery fallbacks); the
+    request holds what varies between two calls. The download itself stays in
+    :func:`fetch`, whose body this class does not restate.
+    """
+
+    source_id: ClassVar[str] = "hubeau"
+    section: ClassVar[str] = "hydrometry"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        *,
+        product: str = "QmnJ",
+        require_observations: bool = True,
+        fallback_search_radius_km: float | None = None,
+        max_stations: int | None = None,
+    ) -> None:
+        self.product = product
+        self.require_observations = require_observations
+        self.fallback_search_radius_km = fallback_search_radius_km
+        self.max_stations = max_stations
+        # Same fold as the unit of a record in fetch: an unknown product
+        # serves a height, because that is what the download would return.
+        self.variables: tuple[str, ...] = (
+            ("discharge",) if product in _DISCHARGE_VARS else ("water_level",)
+        )
+        self.hosts: tuple[str, ...] = shipped_hosts("hubeau")
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request) if request.extent is not None else None
+        records = fetch(
+            product=self.product,
+            bbox=None if extent is None else extent.bbox,
+            station_ids=list(request.station_ids) or None,
+            date_start=period.start,
+            date_end=period.end,
+            require_observations=self.require_observations,
+            fallback_search_radius_km=self.fallback_search_radius_km,
+            max_stations=self.max_stations,
+        )
+        require_declared_variables(self, [record.variable for record in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +349,8 @@ def _download_observations(
     date_end: datetime,
 ) -> pd.DataFrame:
     """Download observations, chunked if period > MAX_DAYS_PER_CHUNK."""
+    import pandas as pd
+
     total_days = (date_end - date_start).days + 1
     if total_days <= MAX_DAYS_PER_CHUNK:
         return _get_obs_chunk(station_id, product, date_start, date_end)
@@ -328,6 +381,8 @@ def _get_obs_chunk(
     end: datetime,
 ) -> pd.DataFrame:
     """Fetch one chunk of observations from ``obs_elab`` endpoint."""
+    import pandas as pd
+
     payload = get_json(
         f"{API_BASE}/obs_elab",
         params={

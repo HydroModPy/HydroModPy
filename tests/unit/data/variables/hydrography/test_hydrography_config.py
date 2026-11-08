@@ -398,6 +398,7 @@ class TestDocumentedContracts:
 
         class AcmeGaugeSource:
             source_id: ClassVar[str] = "acme-gauge"
+            section: ClassVar[str] = "hydrography"
             payload_kind: ClassVar[str] = "points"
             extent_crs: ClassVar[str] = "EPSG:4326"
             selectors: ClassVar[tuple[str, ...]] = ("extent",)

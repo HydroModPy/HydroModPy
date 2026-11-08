@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 import tomllib
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +46,6 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
 )
 from hydromodpy.results.storage.json_io import read_sealed_json
-from hydromodpy.schema.generated_views import VIEW_FILENAMES
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.documents import check_job_document
 from hydromodpy.schema.job.extent import SpatialExtent
@@ -119,34 +118,29 @@ def context_from_directory(directory: Path | str) -> FairExportContext:
     )
 
 
-def write_views(
-    directory: Path | str,
-    formats: Iterable[str] = tuple(VIEW_FILENAMES),
-) -> tuple[Path, ...]:
-    """Write the requested views of a sealed directory inside it.
+def sealed_root_of(path: Path | str) -> Path:
+    """Return the sealed directory a view renders, for a path inside or equal to one.
 
-    *formats* takes the names ``hmp export <run> --format`` uses: ``rocrate``,
-    ``stac`` and ``prov``. The context is built once and shared by all three,
-    so they describe the same seal.
+    A whole-run format writes either in the sealed directory itself, where
+    its relative paths resolve, or at one path under it, an export the run
+    asked for. Either way the view renders the same seal, and this returns
+    the directory that carries it.
+
+    Raises
+    ------
+    ExportError
+        When no directory from *path* upwards carries ``manifest.json``.
     """
-    from hydromodpy.results.export.prov import write_prov_view
-    from hydromodpy.results.export.rocrate import write_ro_crate_view
-    from hydromodpy.results.export.stac import write_stac_item_view
-
-    writers = {
-        "rocrate": write_ro_crate_view,
-        "stac": write_stac_item_view,
-        "prov": write_prov_view,
-    }
-    requested = tuple(dict.fromkeys(formats))
-    unknown = [name for name in requested if name not in writers]
-    if unknown:
-        raise ValueError(
-            f"unknown view format(s) {', '.join(unknown)}; expected one of {', '.join(writers)}"
-        )
-    root = Path(directory)
-    context = context_from_directory(root)
-    return tuple(writers[name](root, context=context) for name in requested)
+    here = Path(path)
+    here = here if here.is_dir() else here.parent
+    while not (here / RUN_MANIFEST_FILENAME).is_file():
+        if here.parent == here:
+            raise ExportError(
+                f"no sealed directory carries {path!r}: a generated view renders the seal, "
+                "and none is reachable from there."
+            )
+        here = here.parent
+    return here
 
 
 # ---------------------------------------------------------------------------
@@ -556,5 +550,6 @@ def _optional_object(path: Path, window: VersionWindow) -> Mapping[str, Any]:
 
 __all__ = [
     "context_from_directory",
-    "write_views",
+    "publication_of",
+    "sealed_root_of",
 ]

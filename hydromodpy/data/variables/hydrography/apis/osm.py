@@ -109,7 +109,6 @@ class OsmSource(FeatureSource):
     """OpenStreetMap waterways, served by the Overpass API."""
 
     source_id: ClassVar[str] = "osm"
-    hosts: ClassVar[tuple[str, ...]] = ("overpass-api.de",)
 
     def __init__(self, *, waterway_types: tuple[str, ...] = DEFAULT_WATERWAY_TYPES) -> None:
         types = tuple(waterway_types)

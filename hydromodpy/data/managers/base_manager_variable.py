@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import warnings
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, ClassVar
 
 import pandas as pd
@@ -15,11 +15,12 @@ import pandas as pd
 from hydromodpy.core.exceptions import MissingForcingError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import safe_file_token
+from hydromodpy.data.common.source_extent import STATION_EXTENT_CRS
 from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers.base_manager_common import BaseManagerCommon, SourceContext
+from hydromodpy.data.managers.base_manager_common import BaseManagerCommon, point_records_of
 from hydromodpy.data.provenance.sidecars import (
     load_sidecar,
     sidecar_path_for,
@@ -30,6 +31,7 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
+from hydromodpy.data.source.port import Extent, FetchRequest, Period
 
 logger = get_logger(__name__)
 
@@ -75,10 +77,13 @@ def _chronicle_sidecar(path: Path) -> dict[str, str | None]:
 class BaseVariableManager(BaseManagerCommon):
     """Base orchestrator inherited by each station-based variable manager.
 
-    Subclasses set ``VARIABLE_NAME``, ``INTERNAL_UNIT`` and ``SOURCES``. A
-    ``SOURCES`` function has the form
-    ``fetch(cfg, *, bbox, station_ids, start, end, context)``; the station cache
-    decides which stations and which periods it is asked for.
+    Subclasses set ``VARIABLE_NAME`` and ``INTERNAL_UNIT``; the source a section
+    names is a class of the data-source port, and this family translates its
+    call into one :class:`~hydromodpy.data.source.port.FetchRequest`: the
+    stations when the list is not empty, else the extent as a WGS84 box, with
+    the window the station cache asks for. The station cache alone decides
+    which stations and which periods the source is asked for, and the request
+    is rebuilt for each of its calls.
     """
 
     RECORD_VARIABLE: ClassVar[str | None] = None
@@ -149,27 +154,66 @@ class BaseVariableManager(BaseManagerCommon):
         )
         return self._apply_mask(records, source_cfg)
 
-    def _source_context(self, source_cfg: Any) -> SourceContext:
-        context = super()._source_context(source_cfg)
+    def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
+        """The point a nearest-station search starts from, when the config asks for one."""
         if not getattr(source_cfg, "nearest", False):
-            return context
-        return replace(context, nearest_to=self._resolve_nearest_to(source_cfg))
+            return {}
+        nearest_to = self._resolve_nearest_to(source_cfg)
+        return {} if nearest_to is None else {"nearest_to": nearest_to}
 
-    def _fetch_listed_source(self, fetch, source_cfg: Any) -> list[PointRecord]:
-        context = self._source_context(source_cfg)
+    def _fetch_listed_source(self, source: Any, source_cfg: Any) -> list[PointRecord]:
         bbox = self._resolve_bbox(source_cfg)
 
-        def _fetch_for(station_ids, start, end) -> list[PointRecord]:
-            return fetch(
-                source_cfg,
-                bbox=bbox,
-                station_ids=station_ids,
-                start=start,
-                end=end,
-                context=context,
+        # No cache folder means no side file worth keeping: a scratch owned by
+        # this call is the out_dir, and goes when the call does, which is what
+        # an empty data_dir has always meant for the station families.
+        with TemporaryDirectory(prefix="hmp-stations-") as scratch:
+            out_dir = self.data_dir if self.data_dir is not None else Path(scratch)
+
+            def _fetch_for(station_ids, start, end) -> list[PointRecord]:
+                request = self._station_request(
+                    source_cfg,
+                    out_dir=out_dir,
+                    station_ids=station_ids,
+                    bbox=bbox,
+                    start=start,
+                    end=end,
+                )
+                return point_records_of(source.fetch(request))
+
+            return self._fetch_with_station_cache(
+                source_cfg, _fetch_for, source_name=source_cfg.source
             )
 
-        return self._fetch_with_station_cache(source_cfg, _fetch_for, source_name=source_cfg.source)
+    def _station_request(
+        self,
+        source_cfg: Any,
+        *,
+        out_dir: Path,
+        station_ids: list[str] | None,
+        bbox: tuple | None,
+        start: datetime | None,
+        end: datetime | None,
+    ) -> FetchRequest:
+        """The question a station source is asked: stations it names, or a box.
+
+        One selector, never the two, on the rule the source itself enforces. A
+        source that selects by station ids is handed them alone, and a source
+        asked to discover is handed the box the mask or the project extent
+        resolves to, as an :class:`Extent` in WGS84, the frame every station
+        provider of this tree is asked in.
+        """
+        del source_cfg
+        period = Period(start=start, end=end) if start is not None and end is not None else None
+        station_ids = list(station_ids or ())
+        if station_ids:
+            return FetchRequest(out_dir=out_dir, station_ids=tuple(station_ids), period=period)
+        extent = None
+        if bbox is None:
+            bbox = self.project_extent
+        if bbox is not None:
+            extent = Extent(*bbox, crs=STATION_EXTENT_CRS)
+        return FetchRequest(out_dir=out_dir, extent=extent, period=period)
 
     # ------------------------------------------------------------------
     # Bbox resolution and spatial mask (station APIs expect WGS84)

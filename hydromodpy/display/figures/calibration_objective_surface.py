@@ -15,7 +15,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt, TrialsSessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 
 if TYPE_CHECKING:
@@ -64,7 +63,6 @@ def _interp_cubic_then_linear(
     return zz.reshape(xi.shape), method
 
 
-@register
 class CalibrationObjectiveSurfaceFigure(BaseFigure):
     """Heatmap/contour of the calibration objective over a 2D parameter plane."""
 

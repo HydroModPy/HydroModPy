@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -15,6 +15,7 @@ from hydromodpy.data.managers.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -28,10 +29,18 @@ class IntermittencySourceConfig(
     department code, project extent, or a spatial mask.
     """
 
-    source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.",
+        description=(
+            "Data provider: 'custom' for user files, or the id of a source registered for the "
+            "intermittency section, such as 'hubeau' for the Hub'Eau stream-flow API."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_intermittency(cls, source: str) -> str:
+        return registered_section_source(source, "intermittency")
 
     # --- Custom source fields ---
     path: Annotated[

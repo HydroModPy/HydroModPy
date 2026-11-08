@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.run.sfr import sfr_reach_links
@@ -46,7 +45,6 @@ def no_reach_series_reason(sim: Run, variable: str = "downstream_flow") -> str |
     return None
 
 
-@register
 class SfrReachTimeseries(BaseFigure):
     """Time series of one quantity on one SFR reach.
 

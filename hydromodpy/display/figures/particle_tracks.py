@@ -13,7 +13,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Overlays
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
     RELATIVE_MAP_COLORBAR_TICK_SIZE,
@@ -36,7 +35,6 @@ if TYPE_CHECKING:
 _DAYS_PER_YEAR = 365.25
 
 
-@register
 class ParticleTracks(BaseFigure):
     """Plan view of particle pathlines, colored by travel time."""
 

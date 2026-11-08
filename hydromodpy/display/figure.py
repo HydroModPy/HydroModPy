@@ -17,7 +17,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
 
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.display.figure_options import (
@@ -70,8 +70,7 @@ class FigureSpec:
 
     ``required_fields`` lists Zarr fields the figure reads (e.g. ``"head"``).
     ``required_tables`` lists DuckDB tables (e.g. ``"timeseries"``).
-    ``required_solvers`` restricts the figure to specific solver backends
-    (empty means any). Together they define whether one figure applies to a
+    Together they define whether one figure applies to a
     given run: :meth:`BaseFigure.unavailable_reason` turns them into a
     human-readable reason, so a figure that does not fit the configured
     processes is skipped explicitly instead of failing at render time.
@@ -100,7 +99,6 @@ class FigureSpec:
     required_fields: tuple[str, ...] = ()
     optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
-    required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
@@ -227,10 +225,14 @@ class Figure(Protocol):
 class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
 
+    name: ClassVar[str] = ""
     spec: FigureSpec
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+        spec = cls.__dict__.get("spec")
+        if spec is not None and hasattr(spec, "name"):
+            cls.name = spec.name
         own_plot = cls.__dict__.get("plot")
         if own_plot is not None:
             # A figure that lays out its own figure still takes the common options.
@@ -251,11 +253,6 @@ class BaseFigure(ABC):
         run without particle tracking reports ``particle_tracks`` as
         unavailable rather than drawing an empty axes.
         """
-        solvers = self.spec.required_solvers
-        if solvers:
-            solver = str(getattr(sim, "solver", "") or "")
-            if solver and solver not in solvers:
-                return f"requires solver {' or '.join(solvers)}, run used '{solver}'"
         missing_fields = [name for name in self.spec.required_fields if not sim.has_field(name)]
         if missing_fields:
             return f"missing result field(s): {', '.join(missing_fields)}"

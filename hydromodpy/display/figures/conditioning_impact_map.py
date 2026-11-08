@@ -8,7 +8,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Cmap, Opt, ReferenceRun
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import render_face_field
 
 if TYPE_CHECKING:
@@ -28,7 +27,6 @@ def _top_surface(run: Run) -> np.ndarray:
     return np.asarray(topo, dtype=float).ravel()
 
 
-@register
 class ConditioningImpactMap(BaseFigure):
     """Per-cell top difference between two runs on one mesh (``sim`` minus ``reference``).
 

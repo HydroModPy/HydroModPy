@@ -797,7 +797,7 @@ def produced_by(
 
 def session_figure() -> str:
     """A registered figure to show in the minimal session."""
-    from hydromodpy.display import list_figures
+    from hydromodpy.display.figure_registry import list_figures
 
     names = [spec.name for spec in list_figures()]
     return "flux_timeseries" if "flux_timeseries" in names else names[0]

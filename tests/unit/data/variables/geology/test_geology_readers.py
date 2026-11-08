@@ -374,17 +374,21 @@ def test_grid_from_raster_support_errors():
         geo_io._grid_from_raster_support(SimpleNamespace(nrows=1, ncols=1))
 
 
-def test_data_source_facade(tmp_path, raster):
-    src = geo_io.default_geology_data_source()
-    assert isinstance(src, geo_io.GeologyDataIO)
-    assert src.normalize_zone_key(3.0) == "3"
-    assert src.resolve_data_path(raster) == raster
+def test_the_geology_io_surface(tmp_path, raster):
+    """The one object was a re-binding of these functions, and the surface is the module.
+
+    ``GeologyDataIO`` was a concrete facade with no second implementation and no
+    production caller, so the port goes to the functions it packed; what this
+    case held is read on the module itself now.
+    """
+    assert geo_io.resolve_data_path(str(raster)) == str(raster)
+    assert geo_io.normalize_zone_key(3.0) == "3"
     cfg = {"source": {"path": raster}}
-    assert src.load_encoded_grid(cfg)["encoded_to_zone"] == {1: "7", 2: "12"}
-    on_support = src.load_encoded_grid_on_raster_support(cfg, raster_support=support())
+    assert geo_io.load_geology_encoded_grid(cfg)["encoded_to_zone"] == {1: "7", 2: "12"}
+    on_support = geo_io.load_geology_encoded_grid_on_raster_support(cfg, raster_support=support())
     assert on_support["source_kind"] == "raster"
     vec = write_vector(tmp_path / "v.gpkg", ["A", "B"])
-    frame = src.load_vector_dataframe({"source": {"path": vec, "code_field": "CODE"}})
+    frame = geo_io.load_vector_geology_dataframe({"source": {"path": vec, "code_field": "CODE"}})
     assert len(frame["gdf"]) == 2
 
 
