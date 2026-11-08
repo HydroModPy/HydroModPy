@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+
 
 def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
     from hydromodpy.schema.config_schema import (
@@ -16,7 +18,7 @@ def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
         export_full_schema,
     )
 
-    paths = export_full_schema(tmp_path / "schema")
+    paths = export_full_schema(tmp_path / "schema", root=ROOT_CONFIG)
 
     assert set(paths.keys()) == {"config", "meta", "validators"}
     assert paths["config"].name == SCHEMA_FILE
@@ -30,7 +32,7 @@ def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
 def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
     from hydromodpy.schema.config_schema import export_full_schema
 
-    paths = export_full_schema(tmp_path)
+    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
 
     config = json.loads(paths["config"].read_text(encoding="utf-8"))
     meta = json.loads(paths["meta"].read_text(encoding="utf-8"))
@@ -54,7 +56,7 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
 def test_build_config_meta_reports_groups() -> None:
     from hydromodpy.schema.config_schema import build_config_meta
 
-    meta = build_config_meta()
+    meta = build_config_meta(ROOT_CONFIG)
     assert "sections" in meta
     assert "groups" in meta
     # groups is a dict keyed by the 'group' json_schema_extra; may be
@@ -65,7 +67,7 @@ def test_build_config_meta_reports_groups() -> None:
 def test_build_field_validators_has_known_types() -> None:
     from hydromodpy.schema.config_schema import build_field_validators
 
-    flat = build_field_validators()
+    flat = build_field_validators(ROOT_CONFIG)
     # Known boolean field under flow: flow_regime is an enum ('steady'|'transient').
     assert flat.get("flow.flow_regime") in {"enum", "string"}
     # At least one entry must resolve to a 'number' or 'enum' validator.
@@ -75,8 +77,8 @@ def test_build_field_validators_has_known_types() -> None:
 def test_export_full_schema_idempotent(tmp_path: Path) -> None:
     from hydromodpy.schema.config_schema import export_full_schema
 
-    p1 = export_full_schema(tmp_path / "a")
-    p2 = export_full_schema(tmp_path / "a")
+    p1 = export_full_schema(tmp_path / "a", root=ROOT_CONFIG)
+    p2 = export_full_schema(tmp_path / "a", root=ROOT_CONFIG)
     assert p1 == p2
     first = p1["config"].read_text(encoding="utf-8")
     second = p2["config"].read_text(encoding="utf-8")
@@ -101,6 +103,6 @@ def test_schema_cli_export_produces_files(tmp_path: Path, monkeypatch: pytest.Mo
 def test_exported_files_are_well_formed_json(tmp_path: Path, key: str) -> None:
     from hydromodpy.schema.config_schema import export_full_schema
 
-    paths = export_full_schema(tmp_path)
+    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
     data = json.loads(paths[key].read_text(encoding="utf-8"))
     assert isinstance(data, (dict, list))

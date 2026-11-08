@@ -17,30 +17,45 @@ import queue
 import threading
 import warnings
 from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 
+from hydromodpy.calibration.optim.method_config import DaMhGpMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 
-try:
-    from sklearn.exceptions import ConvergenceWarning
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
+_SKLEARN_AVAILABLE = True
 
-    _SKLEARN_AVAILABLE = True
-except ImportError:  # pragma: no cover - tested via sklearn availability guard
-    _SKLEARN_AVAILABLE = False
-    ConvergenceWarning = None
-    GaussianProcessRegressor = None
-    ConstantKernel = None
-    RBF = None
-    WhiteKernel = None
+
+def _get_sklearn():
+    if not _SKLEARN_AVAILABLE:
+        raise ImportError(
+            "scikit-learn is required for the 'da_mh_gp' optimizer. "
+            "Install it via `pip install scikit-learn`."
+        )
+    try:
+        from sklearn.exceptions import ConvergenceWarning
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
+
+        return {
+            "ConvergenceWarning": ConvergenceWarning,
+            "GaussianProcessRegressor": GaussianProcessRegressor,
+            "ConstantKernel": ConstantKernel,
+            "RBF": RBF,
+            "WhiteKernel": WhiteKernel,
+        }
+    except ImportError as exc:
+        raise ImportError(
+            "scikit-learn is required for the 'da_mh_gp' optimizer. "
+            "Install it via `pip install scikit-learn`."
+        ) from exc
+
 
 _SENTINEL = object()
 
@@ -100,7 +115,6 @@ class _EngineBridge:
         return self._done.is_set()
 
 
-@register_optimizer("da_mh_gp")
 class DaMhGpOptimizer:
     """Delayed-Acceptance Metropolis-Hastings with GP surrogate.
 
@@ -114,6 +128,7 @@ class DaMhGpOptimizer:
     """
 
     name = "da_mh_gp"
+    options = DaMhGpMethodConfig
 
     # The log-likelihood is written for an RMSE: -0.5 * (cost / sigma_noise)**2.
     # The chain proposes its next point once the previous one is told, so a
@@ -153,11 +168,7 @@ class DaMhGpOptimizer:
           reuse the cached log-score instead of re-submitting the
           evaluation. ``None`` (default) disables caching.
         """
-        if not _SKLEARN_AVAILABLE:
-            raise ImportError(
-                "scikit-learn is required for the 'da_mh_gp' optimizer. "
-                "Install it via `pip install scikit-learn`."
-            )
+        _get_sklearn()
         self.space = space
         self._dim = space.dim
 
@@ -267,7 +278,14 @@ class DaMhGpOptimizer:
     # GP surrogate
     # ------------------------------------------------------------------
 
-    def _fit_gp(self) -> GaussianProcessRegressor | None:
+    def _fit_gp(self) -> Any | None:
+        skl = _get_sklearn()
+        ConstantKernel = skl["ConstantKernel"]
+        RBF = skl["RBF"]
+        WhiteKernel = skl["WhiteKernel"]
+        GaussianProcessRegressor = skl["GaussianProcessRegressor"]
+        ConvergenceWarning = skl["ConvergenceWarning"]
+
         if len(self._x_train) < 2:
             return None
         x = np.asarray(self._x_train, dtype=float)
@@ -293,7 +311,7 @@ class DaMhGpOptimizer:
             return None
         return gp
 
-    def _gp_mean(self, gp: GaussianProcessRegressor | None, x_t: np.ndarray) -> float:
+    def _gp_mean(self, gp: Any | None, x_t: np.ndarray) -> float:
         if gp is None:
             return 0.0
         return float(gp.predict(np.atleast_2d(x_t))[0])

@@ -23,14 +23,12 @@ from tests.unit.display._network_comparison_run import comparison_run, legend_la
 # landing 140 m away, which is what makes the legend counts checkable by hand.
 
 
-def _sealed_run(**heads):
+def _sealed_run(**map_knobs):
     run = comparison_run()
     output = {
         "support": "network",
-        "observed_network": "data.hydrography",
-        "tau_specific_ratio": 0.0,
-        "observed_rasterization": "heads",
-        **heads,
+        "model": {"seepage_threshold": 0.0},
+        "map": {"complete": "data.hydrography", "drawn_by": "heads", **map_knobs},
     }
     run.dir = sealed_search({"outputs": {"streams": output}})
     return run
@@ -47,7 +45,7 @@ def test_a_run_without_release_flux_is_told_so() -> None:
 
 
 def test_a_run_scored_under_heads_redraws_with_its_sealed_radius(mpl) -> None:
-    run = _sealed_run(heads_snap_radius=150.0, heads_min_drained_area_km2=0.06)
+    run = _sealed_run(heads={"radius": 150.0, "min_drained_area": 0.06})
     fig, ax = mpl.subplots()
 
     ObservedNetworkHeadsMap().render(run, ax)
@@ -65,7 +63,7 @@ def test_a_run_scored_under_heads_redraws_with_its_sealed_radius(mpl) -> None:
 
 
 def test_a_run_scored_under_crossing_is_redrawn_under_heads_anyway(mpl) -> None:
-    run = _sealed_run(observed_rasterization="crossing")
+    run = _sealed_run(drawn_by="crossing")
     fig, ax = mpl.subplots()
 
     ObservedNetworkHeadsMap().render(run, ax)
@@ -82,7 +80,7 @@ def test_a_run_scored_under_crossing_is_redrawn_under_heads_anyway(mpl) -> None:
 
 def test_a_radius_the_fixture_cannot_reach_refuses_to_render(mpl) -> None:
     """A single-reach map has one head candidate: lost means none is kept."""
-    run = _sealed_run(heads_snap_radius="30 m", heads_min_drained_area_km2=0.04)
+    run = _sealed_run(heads={"radius": "30 m", "min_drained_area": 0.04})
     fig, ax = mpl.subplots()
 
     with pytest.raises(ValueError, match="snap radius 30 m"):
@@ -99,7 +97,7 @@ def test_a_run_with_permanent_reaches_draws_their_heads_too(mpl) -> None:
 
     from tests.unit.display._network_comparison_run import AXIS_COLUMN, CELL_M, CRS
 
-    run = _sealed_run(heads_snap_radius="45 m", heads_min_drained_area_km2=0.0)
+    run = _sealed_run(heads={"radius": "45 m", "min_drained_area": 0.0})
     axis_x = (AXIS_COLUMN + 0.5) * CELL_M
     permanent = gpd.GeoDataFrame(
         geometry=[LineString([(axis_x, 0.1 * CELL_M), (axis_x, 1.5 * CELL_M)])],

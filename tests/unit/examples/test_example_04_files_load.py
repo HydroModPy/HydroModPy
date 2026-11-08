@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.project.check import check_project
 
@@ -71,7 +72,7 @@ def test_each_calibration_passes_the_preflight(name: str) -> None:
 
 def test_the_project_names_its_catchment_and_its_window_once() -> None:
     """[site] carries the gauge, [metrics] the window; no station is written twice."""
-    raw = load_toml_with_base_config(EXAMPLE_04 / "project.toml")
+    raw = load_toml_with_base_config(EXAMPLE_04 / "project.toml", root=ROOT_CONFIG)
     assert "workspace" not in raw
     for variable in ("hydrometry", "recharge", "runoff"):
         assert "station_ids" not in raw["data"][variable]["sources"][0]
@@ -102,7 +103,7 @@ def test_the_metrics_window_lies_inside_the_run(name: str) -> None:
 
 @pytest.mark.parametrize("name", FILES)
 def test_no_file_writes_a_retired_key(name: str) -> None:
-    raw = load_toml_with_base_config(EXAMPLE_04 / name)
+    raw = load_toml_with_base_config(EXAMPLE_04 / name, root=ROOT_CONFIG)
     assert "workspace" not in raw
     assert raw.get("simulation", {}).get("if_exists") != "replace"
     assert "rerun_best_with_outputs" not in raw.get("calibration", {})

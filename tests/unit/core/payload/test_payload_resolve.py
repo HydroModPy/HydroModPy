@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.payload.resolve import authored_configs, authored_files, project_data
 
@@ -45,7 +46,7 @@ def test_the_mapped_networks_of_an_output_ship_with_the_project(
     project.mkdir()
     (project / "calibration.toml").write_text(CALIBRATION.format(maps=maps), encoding="utf-8")
 
-    files, stations = project_data(project, tmp_path / "data")
+    files, stations = project_data(project, tmp_path / "data", root=ROOT_CONFIG)
 
     assert [path.name for path in files] == shipped
     assert stations == ()
@@ -60,7 +61,7 @@ def test_an_output_with_an_old_map_key_is_refused_not_shipped_empty(
     )
 
     with pytest.raises(ConfigError, match="hmp doctor --fix-config"):
-        project_data(tmp_path, tmp_path / "data")
+        project_data(tmp_path, tmp_path / "data", root=ROOT_CONFIG)
 
 
 # ---------------------------------------------------------- authored files
@@ -121,7 +122,7 @@ def test_a_station_folder_source_ships_the_station_files_and_registry_rows(tmp_p
         SOURCE.format(variable="discharge", path="discharge", extra='station_ids = ["B2", "A1"]'),
     )
 
-    files, stations = project_data(project, data)
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
 
     assert [p.name for p in files] == [
         _station_name("discharge", "A1"),
@@ -143,7 +144,7 @@ def test_a_source_without_station_ids_reads_the_gauge_of_the_site(tmp_path: Path
         '[site]\ngauge = "G9"\n' + SOURCE.format(variable="discharge", path="discharge", extra=""),
     )
 
-    files, stations = project_data(project, data)
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
 
     assert [p.name for p in files] == [_station_name("discharge", "G9")]
     assert [s.id for s in stations] == ["G9"]
@@ -160,7 +161,7 @@ def test_a_file_source_is_found_in_the_project_first_then_in_the_variable_folder
     (project / "mine.csv").write_text("", encoding="utf-8")
     _config(project, SOURCE.format(variable="recharge", path="mine.csv", extra=""), "b.toml")
 
-    files, stations = project_data(project, data)
+    files, stations = project_data(project, data, root=ROOT_CONFIG)
 
     assert sorted(p.parent.name for p in files) == ["project", "recharge"]
     assert stations == ()
@@ -181,7 +182,7 @@ def test_what_is_not_a_custom_file_source_ships_nothing(tmp_path: Path, body: st
     project = tmp_path / "project"
     _config(project, body)
 
-    assert project_data(project, tmp_path / "data") == ([], ())
+    assert project_data(project, tmp_path / "data", root=ROOT_CONFIG) == ([], ())
 
 
 def test_the_regional_dem_is_located_by_name_under_the_data_root(tmp_path: Path) -> None:
@@ -191,7 +192,7 @@ def test_the_regional_dem_is_located_by_name_under_the_data_root(tmp_path: Path)
     project = tmp_path / "project"
     _config(project, '[geographic.catchment]\ndem_init_path = "elsewhere/regional.tif"\n')
 
-    files, _ = project_data(project, data)
+    files, _ = project_data(project, data, root=ROOT_CONFIG)
 
     assert [p.name for p in files] == ["regional.tif"]
 
@@ -266,7 +267,7 @@ def test_a_reference_that_does_not_resolve_to_exactly_one_file_is_an_error_not_a
     _config(project, body)
 
     with pytest.raises(ConfigError, match=match):
-        project_data(project, data)
+        project_data(project, data, root=ROOT_CONFIG)
 
 
 def test_a_dem_name_carried_by_two_folders_is_ambiguous(tmp_path: Path) -> None:
@@ -278,4 +279,4 @@ def test_a_dem_name_carried_by_two_folders_is_ambiguous(tmp_path: Path) -> None:
     _config(project, '[geographic.catchment]\ndem_init_path = "regional.tif"\n')
 
     with pytest.raises(ConfigError, match="2 file"):
-        project_data(project, data)
+        project_data(project, data, root=ROOT_CONFIG)

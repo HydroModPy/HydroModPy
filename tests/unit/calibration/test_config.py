@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from hydromodpy.calibration.config import (
     CALIBRATION_RENAMES,
@@ -28,13 +28,14 @@ from hydromodpy.calibration.config import (
     CalibPhaseDecl,
     CalibPhaseUncertaintyDecl,
     CalibrationConfig,
+    CalibrationMethod,
     CalibrationProtocolDecl,
     CalibUncertaintyDecl,
     _same_instant,
     apply_project_defaults,
     validate_calib_output,
 )
-from hydromodpy.calibration.optim.optimizer import announced_optimizers, available_optimizers
+from hydromodpy.calibration.optim.optimizer import announced_optimizers, optimizers
 from hydromodpy.calibration.protocols import options_the_recipe_already_runs
 from hydromodpy.catchment.drainage.distance import build_downslope_metric
 from hydromodpy.config import HydroModPyConfig
@@ -1109,9 +1110,9 @@ def _description(model: type, field_name: str) -> str:
 def test_the_method_description_names_the_announced_optimizers_and_no_other(model: type) -> None:
     text = _description(model, "method")
 
-    named = [name for name in available_optimizers() if f"'{name}'" in text]
+    named = [name for name in optimizers.names() if f"'{name}'" in text]
     assert named == list(announced_optimizers())
-    assert "da_mh_gp" in available_optimizers()
+    assert "da_mh_gp" in optimizers.names()
     assert "da_mh_gp" not in named
 
 
@@ -1929,10 +1930,12 @@ class TestCalibrationConfigExtraForbidden:
 class TestCalibrationConfigMethodLiteral:
     @pytest.mark.parametrize("method", ["bayesian", "genetic", "GRID"])
     def test_rejects_unsupported_method(self, method: str):
-        cfg = CalibrationConfig.model_validate({"method": method})
-        with pytest.raises(ValueError, match="Unknown calibration method") as refused:
-            cfg.validate_registry()
-        assert str(announced_optimizers()) in str(refused.value)
+        # The name is checked when the file is read, against the registry.
+        with pytest.raises(ValidationError, match="calibration.method names") as refused:
+            CalibrationConfig.model_validate({"method": method})
+        assert method in str(refused.value)
+        for name in announced_optimizers():
+            assert name in str(refused.value)
 
     def test_an_unannounced_method_still_validates(self):
         CalibrationConfig.model_validate({"method": "da_mh_gp"}).validate_registry()
@@ -2284,7 +2287,7 @@ def test_a_length_margin_of_the_section_is_refused_when_no_phase_scores_distance
 
 
 def test_the_section_options_answer_for_a_search_without_phase() -> None:
-    cfg = _section(precision=0.02, method="nelder_mead", method_options={"xatol": 1e-3})
+    cfg = _section(precision=0.02, method="scipy_nelder_mead", method_options={"xatol": 1e-3})
 
     assert cfg.precision_for(None) == 0.02
     assert cfg.method_options_for(None) == {"xatol": 1e-3}
@@ -2299,3 +2302,24 @@ def test_a_point_output_keeps_its_form_when_neither_it_nor_the_site_names_a_stat
     output = {"support": "point", "variable": "discharge"}
 
     assert _defaults({"outputs": {"q": output}}, gauge=None)["outputs"]["q"] == output
+
+
+# -- calibration.method, checked when the file is read -------------------------
+# Four fields name an optimizer: the method of the section, the method of a
+# phase, and the steady and transient methods of the protocol. One validator,
+# ``CalibrationMethod``, checks each of them the same way, and a greffon
+# already registered is accepted without a viva.
+
+
+def test_an_unknown_method_written_in_the_section_is_refused_at_the_read_of_the_file() -> None:
+    with pytest.raises(ValidationError, match="serves"):
+        TypeAdapter(CalibrationMethod).validate_python("nope")
+
+
+def test_the_refusal_lists_the_ten_names_served() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        TypeAdapter(CalibrationMethod).validate_python("nope")
+
+    refusal = str(exc_info.value)
+    for name in ("bisection", "scipy_nelder_mead", "optuna", "bisection"):
+        assert name in refusal

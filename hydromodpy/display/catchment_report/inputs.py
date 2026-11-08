@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.scratch import kept_preprocessing_dir, preprocessing_dir
@@ -23,6 +24,9 @@ from hydromodpy.display.overview.location import (
 )
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME, RUN_REPORT_DIRNAME
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 
 CONTEXT_DIRNAME = "context"
 """Folder of ``report/`` holding the context summary, its series and its page."""
@@ -52,6 +56,7 @@ class CatchmentReportInputs:
     pipeline_build_report_html: bool = True
     pipeline_stream_run_logs: bool = False
     pipeline_strict_figure_postflight: bool = False
+    root: RootConfig | None = None
 
     @property
     def run_dir(self) -> Path:
@@ -92,7 +97,8 @@ class CatchmentReportInputs:
     def overview_dir(self) -> Path:
         """``runs/<overview>/`` of the data-overview project, named by its configuration."""
         return overview_run_dir(
-            self.data_overview_project_dir, overview_name_of_file(self.overview_config)
+            self.data_overview_project_dir,
+            overview_name_of_file(self.overview_config, root=self.root),
         )
 
     @property
@@ -115,13 +121,15 @@ class CatchmentReportInputs:
         return replace(self, simulation_name=name)
 
     @classmethod
-    def from_toml(cls, path: Path) -> CatchmentReportInputs:
-        return cls.from_settings(CatchmentReportSettings.from_toml(path))
+    def from_toml(cls, path: Path, *, root: RootConfig | None = None) -> CatchmentReportInputs:
+        return cls.from_settings(CatchmentReportSettings.from_toml(path), root=root)
 
     @classmethod
     def from_settings(
         cls,
         settings: CatchmentReportSettings,
+        *,
+        root: RootConfig | None = None,
     ) -> CatchmentReportInputs:
         observed = settings.observed_discharge
         return cls.from_project_layout(
@@ -145,6 +153,7 @@ class CatchmentReportInputs:
             pipeline_build_report_html=settings.pipeline.build_report_html,
             pipeline_stream_run_logs=settings.pipeline.stream_run_logs,
             pipeline_strict_figure_postflight=settings.pipeline.strict_figure_postflight,
+            root=root,
         )
 
     @classmethod
@@ -171,6 +180,7 @@ class CatchmentReportInputs:
         pipeline_build_report_html: bool = True,
         pipeline_stream_run_logs: bool = False,
         pipeline_strict_figure_postflight: bool = False,
+        root: RootConfig | None = None,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -202,6 +212,7 @@ class CatchmentReportInputs:
             pipeline_build_report_html=pipeline_build_report_html,
             pipeline_stream_run_logs=pipeline_stream_run_logs,
             pipeline_strict_figure_postflight=pipeline_strict_figure_postflight,
+            root=root,
         )
 
 

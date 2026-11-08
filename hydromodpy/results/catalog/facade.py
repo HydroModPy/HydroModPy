@@ -16,12 +16,12 @@ reader never creates one.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import duckdb
 
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.io.document_version import check_exact
 from hydromodpy.core.logging import get_logger
@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     import xarray as xr
+    from pydantic import BaseModel
 
 logger = get_logger(__name__)
 
@@ -59,6 +60,11 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
     ----------
     project_root
         The project directory, the one holding ``runs/`` and ``.hmp/``.
+    read_config
+        The function that validates a sealed configuration snapshot, handed to
+        every run this catalog builds. Without one, ``run.hydromodpy_config``
+        is refused. A catalog opened by ``hmp.open`` or by a ``Project``
+        carries it.
 
     Raises
     ------
@@ -83,9 +89,15 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         Multi-run view returned by cohort queries.
     """
 
-    def __init__(self, project_root: Path | str) -> None:
+    def __init__(
+        self,
+        project_root: Path | str,
+        *,
+        read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+    ) -> None:
         root = Path(project_root).expanduser().resolve()
         self._workspace = root
+        self._read_config = read_config
         self._db_path = catalog_path_for(root)
         self._runs_dir = runs_dir_for(root)
         if not self._db_path.is_file():
@@ -123,25 +135,16 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         """
         return cls(Path(workspace.project_root))  # type: ignore[attr-defined]
 
-    @classmethod
-    def from_toml(cls, toml_path: str | Path) -> Catalog:
-        """Open the index of the project a TOML configuration names."""
-        cfg = get_root_config_provider().from_toml(toml_path)
-        return cls.from_workspace(cfg.workspace)
-
-    @classmethod
-    def from_json(cls, payload: str | bytes) -> Catalog:
-        """Open the index of the project a JSON configuration names."""
-        cfg = get_root_config_provider().from_json(payload)
-        return cls.from_workspace(cfg.workspace)
-
-    @classmethod
-    def from_dict(cls, payload: dict) -> Catalog:
-        """Open the index of the project a mapping configuration names."""
-        cfg = get_root_config_provider().from_dict(payload)
-        return cls.from_workspace(cfg.workspace)
-
     # -- Handles --------------------------------------------------------------
+
+    @property
+    def read_config(self) -> Callable[[Mapping[str, Any]], BaseModel] | None:
+        """The function the runs of this catalog validate a sealed snapshot with.
+
+        ``None`` when the opener passed none: the runs read their raw
+        configuration snapshot, and :attr:`Run.hydromodpy_config` is refused.
+        """
+        return self._read_config
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -281,7 +284,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
 
     def _reopen(self) -> Catalog:
         """Return a new handle on the same index, for a run that outlives this one."""
-        return type(self)(self._workspace)
+        return type(self)(self._workspace, read_config=self._read_config)
 
     def __enter__(self) -> Catalog:
         return self

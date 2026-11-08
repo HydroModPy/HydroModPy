@@ -11,6 +11,7 @@ from rasterio.transform import from_origin
 
 from hydromodpy.core.state.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.data.variables.geology.io import geology_field_from_config
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.model.properties.cell_sampling import sample_points_in_cell
 from hydromodpy.model.properties.field_param import FieldParam
@@ -24,7 +25,7 @@ from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 def _raster_field(tmp_path: Path) -> GeologyField:
     source = {"path": str(cases.geology_raster(tmp_path / "geology.tif")), "kind": "raster"}
-    return GeologyField.from_dict({"id": "field_geology", "source": source, "cell_samples_per_axis": 8})  # fmt: skip
+    return geology_field_from_config({"id": "field_geology", "source": source, "cell_samples_per_axis": 8})  # fmt: skip
 
 
 def _reference_fractions(field: GeologyField, mesh) -> dict[str, np.ndarray]:
@@ -137,24 +138,6 @@ def test_a_geology_map_it_cannot_key_is_refused(kwargs, match):
     }
     with pytest.raises(ValueError, match=match):
         GeologyField(**(base | {"encoded_to_zone": {1: "granite", 2: "schist"}} | kwargs))
-
-
-def test_a_raster_geology_reads_its_toml_section(tmp_path: Path):
-    path = cases.geology_raster(tmp_path / "geology.tif")
-    toml = cases.write_text(
-        tmp_path / "geology.toml",
-        f'[geology]\nid = "field_geology"\ncell_samples_per_axis = 6\nsource = {{ path = "{path}", kind = "raster" }}',
-    )
-
-    field = GeologyField.from_toml(toml)
-
-    assert field.as_dict() == {
-        "id": "field_geology",
-        "source_kind": "raster",
-        "shape": (4, 4),
-        "zone_keys": ("1", "2"),
-        "default_cell_samples_per_axis": 6,
-    }
 
 
 def test_geology_config_requires_reference_raster_for_vector_source():

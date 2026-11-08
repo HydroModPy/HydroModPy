@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.model.contracts import LoadResultProto, get_field_aggregator
+from hydromodpy.model.contracts import LoadResultProto
+from hydromodpy.model.forcing.cells import spatial_mean_from_fields
 from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
 from hydromodpy.model.forcing.types import InterpolationMethod, SpatialMode
 
@@ -112,7 +113,7 @@ def build_forcing_series(
     series = extract_homogeneous_series(load_result)
 
     if series is None and force_homogeneous:
-        series = get_field_aggregator()(load_result)
+        series = spatial_mean_from_fields(load_result)
 
     if series is None:
         return None

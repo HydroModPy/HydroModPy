@@ -20,9 +20,10 @@ REQUIRED_UI_KEYS = {
 
 
 def _full_schema() -> dict:
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.schema.config_schema import export_schema
 
-    return export_schema()
+    return export_schema(HydroModPyConfig)
 
 
 def test_flow_physical_properties_annotations_survive_export() -> None:
@@ -69,10 +70,11 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
     ``FlowPhysicalProperties`` is reachable via the ``FlowConfig`` model,
     so the assertion uses the model-level exporter directly.
     """
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_full_schema, export_schema
 
-    paths = export_full_schema(tmp_path)
+    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
     assert paths["config"].is_file()
 
     phys_schema = export_schema(FlowPhysicalProperties)

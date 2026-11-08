@@ -22,7 +22,6 @@ no network output reads the defaults, and says so.
 
 from __future__ import annotations
 
-import copy
 import datetime
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -30,7 +29,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
@@ -176,35 +174,16 @@ def network_outputs_of_run(sim: Run) -> dict[str, Mapping[str, Any]]:
 
 
 def _calibration_section(sim: Run) -> Mapping[str, Any]:
-    """Return the ``[calibration]`` table the run sealed beside its solve, empty without one."""
+    """Return the ``[calibration]`` table the run sealed beside its solve, empty without one.
+
+    The snapshot holds the table the way the run sealed it: the keys carry the
+    names of the version that wrote it, and this module reads them as sealed.
+    """
     try:
-        calibration = search_of(sim)
-        snapshot = getattr(sim, "config_snapshot", None)
+        return search_of(sim)
     except _MISSING_SNAPSHOT as exc:
         logger.debug("Run %s: no configuration snapshot (%s).", getattr(sim, "sim_id", "?"), exc)
         return {}
-    if not calibration:
-        return {}
-    return _read_as_renamed(snapshot if isinstance(snapshot, Mapping) else {}, calibration)
-
-
-def _read_as_renamed(
-    snapshot: Mapping[str, Any], calibration: Mapping[str, Any]
-) -> Mapping[str, Any]:
-    """Return the sealed ``[calibration]`` table under the names of today.
-
-    A run sealed before a key was renamed holds the old one. The snapshot is
-    read raw, so it goes through the rename the loader applies to a sealed
-    config, on a copy: the extent rules, for one, were counts of timesteps and
-    are now durations read with the step of the run's ``[simulation.time]``.
-    """
-    simulation = snapshot.get("simulation")
-    time = simulation.get("time") if isinstance(simulation, Mapping) else None
-    doc: dict[str, Any] = {"calibration": copy.deepcopy(dict(calibration))}
-    if isinstance(time, Mapping):
-        doc["simulation"] = {"time": copy.deepcopy(dict(time))}
-    get_root_config_provider().migrate_sealed(doc)
-    return doc["calibration"]
 
 
 def network_criterion_settings(sim: Run, *, output: str | None = None) -> NetworkCriterionSettings:

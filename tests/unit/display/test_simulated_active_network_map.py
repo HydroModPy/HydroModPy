@@ -346,9 +346,11 @@ def _sealed(visible_flow: str) -> dict:
         "outputs": {
             "streams": {
                 "support": "network",
-                "observed_network": "data.hydrography",
-                "tau_specific_ratio": 1.0e-4,
-                "extent": {"visible_flow": visible_flow},
+                "model": {
+                    "seepage_threshold": 1.0e-4,
+                    "extent": {"visible_flow": visible_flow},
+                },
+                "map": {"complete": "data.hydrography"},
             }
         }
     }

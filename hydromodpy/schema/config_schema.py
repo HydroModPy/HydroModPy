@@ -55,19 +55,20 @@ Python API::
 
     from hydromodpy.schema.config_schema import export_schema
     from hydromodpy.model.flow_config import FlowConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     schema = export_schema(FlowConfig)
     # full root schema:
-    schema = export_schema()
+    schema = export_schema(HydroModPyConfig)
 
     # by section name (e.g. "flow", "workspace", ...)
-    schema = export_schema(section="flow")
+    schema = export_schema(HydroModPyConfig, section="flow")
 
     # by dotted path into a section
-    schema = export_schema(section="flow.properties")
+    schema = export_schema(HydroModPyConfig, section="flow.properties")
 
     # filtered by profile
-    schema = export_schema(profile="user")
+    schema = export_schema(HydroModPyConfig, profile="user")
 
 CLI::
 
@@ -88,9 +89,8 @@ without knowing anything about Python:
 * ``field_validators.json``: a flat ``field_path -> validator_type`` map, so
   the frontend picks a widget and a local validator without parsing the schema.
 
-The root model is read through
-:mod:`hydromodpy.core.config_kit.root_config_protocol`, so this package never
-imports :mod:`hydromodpy.config`.
+The functions of this package take the root model class as their first
+argument, so this package never imports :mod:`hydromodpy.config`.
 """
 
 from __future__ import annotations
@@ -101,6 +101,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema
 
 from hydromodpy.core.config_kit.introspect import (
@@ -114,7 +115,7 @@ from hydromodpy.core.config_kit.registry import (
     root_scalar_fields,
     root_sections,
 )
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.config_kit.root import RootConfig, model_of
 
 JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 """The dialect Pydantic v2 emits, declared so an external validator stops guessing."""
@@ -124,6 +125,14 @@ SCHEMA_URN_PREFIX = "urn:hmp:schema"
 
 ROOT_SCOPE = "config"
 """The scope of the full ``HydroModPyConfig`` document."""
+
+_ROOT_MODEL_NAME = "HydroModPyConfig"
+"""Name the root model keeps, the anchor of its exported identity."""
+
+
+def _is_root_model(model_cls: type) -> bool:
+    """Whether *model_cls* is the root configuration model."""
+    return model_cls.__name__ == _ROOT_MODEL_NAME
 
 
 def schema_urn(scope: str) -> str:
@@ -237,13 +246,14 @@ def _prune_orphan_defs(schema: dict[str, Any]) -> None:
         schema.pop("$defs", None)
 
 
-def _resolve_section_model(section: str) -> type:
+def _resolve_section_model(section: str, root: type[BaseModel] | RootConfig) -> type:
     """Return the model a root section name or a dotted path under one names.
 
-    The first segment is a root TOML section. Every further segment is a field
-    of the model resolved so far, and it must reach exactly one model: a field
-    that reaches none names a value and not a section, and one that reaches
-    several is a union whose variant the caller has to pick by class.
+    ``root`` is the model the root sections are walked from. The first segment
+    is a root TOML section. Every further segment is a field of the model
+    resolved so far, and it must reach exactly one model: a field that reaches
+    none names a value and not a section, and one that reaches several is a
+    union whose variant the caller has to pick by class.
     """
     segments = section.split(".")
     if any(not part for part in segments):
@@ -252,7 +262,7 @@ def _resolve_section_model(section: str) -> type:
         # would mint two identities for one document.
         raise ValueError(f"config section {section!r} carries an empty segment")
 
-    sections = root_sections()
+    sections = root_sections(root)
     head, *rest = segments
     if head not in sections:
         allowed = ", ".join(sorted(sections))
@@ -526,17 +536,16 @@ def _admit_flat_flow_ic(schema: dict[str, Any]) -> None:
     flow["ic"] = {**extras, "anyOf": [{"$ref": "#/$defs/FlowInitialConditions"}, *variants]}
 
 
-def editor_schema(model_cls: type | None = None) -> dict[str, Any]:
+def editor_schema(model_cls: type) -> dict[str, Any]:
     """Return the JSON Schema a TOML file is checked against in an editor.
 
-    See the module docstring for what it accepts beyond the model schema. The
-    full model is exported by :func:`export_schema` and stays the contract for
-    frontends and for the lockfile fingerprint.
+    ``model_cls`` is usually the root ``HydroModPyConfig``. See the module
+    docstring for what it accepts beyond the model schema. The full model is
+    exported by :func:`export_schema` and stays the contract for frontends and
+    for the lockfile fingerprint.
     """
-    if model_cls is None:
-        model_cls = get_root_config_provider().root_model()
     schema = json.loads(json.dumps(_cached_editor_schema(model_cls)))
-    if model_cls.__name__ == "HydroModPyConfig":
+    if _is_root_model(model_cls):
         _admit_flat_flow_ic(schema)
     _relax_for_loader(schema)
     properties = schema.setdefault("properties", {})
@@ -551,18 +560,15 @@ def editor_schema(model_cls: type | None = None) -> dict[str, Any]:
     return document
 
 
-def schema_sha256(model_cls: type | None = None) -> str:
+def schema_sha256(model_cls: type) -> str:
     """Return the SHA-256 of the canonical JSON Schema for *model_cls*.
 
-    Defaults to the full ``HydroModPyConfig`` schema. Used by the lockfile
-    writer to record the schema fingerprint at freeze time so consumers can
-    detect when the configuration schema has changed between freeze and
-    replay.
+    Usually the root ``HydroModPyConfig``. Used by the lockfile writer to
+    record the schema fingerprint at freeze time so consumers can detect when
+    the configuration schema has changed between freeze and replay.
     """
     import hashlib
 
-    if model_cls is None:
-        model_cls = get_root_config_provider().root_model()
     payload = json.dumps(cached_full_schema(model_cls), sort_keys=True).encode()
     return hashlib.sha256(payload).hexdigest()
 
@@ -595,19 +601,18 @@ def _drop_loader_filled_requirements(schema: dict[str, Any]) -> None:
 
 
 def export_schema(
-    model_cls: type | None = None,
+    model_cls: type,
     *,
     section: str | None = None,
     profile: ProfileName | Profile | None = None,
     scope: str | None = None,
 ) -> dict[str, Any]:
-    """Export a JSON Schema dict for a HydroModPy configuration model.
+    """Export a JSON Schema dict for *model_cls*, a HydroModPy configuration model.
 
     Parameters
     ----------
     model_cls
-        A Pydantic ``BaseModel`` subclass. If ``None``, the root
-        ``HydroModPyConfig`` model is used.
+        A Pydantic ``BaseModel`` subclass, usually the root ``HydroModPyConfig``.
     section
         Name of a root TOML section (see :func:`~hydromodpy.core.config_kit.registry.root_sections`), or a
         dotted path under one such as ``"flow.properties"``. When given,
@@ -627,15 +632,12 @@ def export_schema(
         carrying its dialect and its ``urn:`` identity.
     """
     if section is not None:
-        model_cls = _resolve_section_model(section)
+        model_cls = _resolve_section_model(section, model_cls)
         default_scope = section
-    elif model_cls is None:
+    elif _is_root_model(model_cls):
         default_scope = ROOT_SCOPE
     else:
         default_scope = model_scope(model_cls)
-
-    if model_cls is None:
-        model_cls = get_root_config_provider().root_model()
 
     threshold = _resolve_profile(profile)
     schema = json.loads(json.dumps(cached_full_schema(model_cls)))
@@ -656,8 +658,8 @@ def export_schema(
 
 def write_schema(
     path: str | Path,
+    model_cls: type,
     *,
-    model_cls: type | None = None,
     section: str | None = None,
     profile: ProfileName | Profile | None = None,
     indent: int = 2,
@@ -685,7 +687,7 @@ META_FILE = "config_meta.json"
 VALIDATORS_FILE = "field_validators.json"
 
 
-def build_config_meta() -> dict[str, Any]:
+def build_config_meta(root: type[BaseModel] | RootConfig) -> dict[str, Any]:
     """Return metadata describing the TOML layout (sections, order, groups).
 
     The returned document is **derived** from the JSON Schema but flattened
@@ -696,12 +698,12 @@ def build_config_meta() -> dict[str, Any]:
     * ``groups`` aggregates ``json_schema_extra.group`` across all annotated
       fields so a UI can render tabs / accordions.
     """
-    return _config_meta(export_schema())
+    return _config_meta(root, export_schema(model_of(root)))
 
 
-def _config_meta(full_schema: dict[str, Any]) -> dict[str, Any]:
-    sections = root_sections()
-    root_fields = root_scalar_fields()
+def _config_meta(root: type[BaseModel] | RootConfig, full_schema: dict[str, Any]) -> dict[str, Any]:
+    sections = root_sections(root)
+    root_fields = root_scalar_fields(root)
     root_props = full_schema.get("properties", {})
 
     ordered_root_fields: list[dict[str, Any]] = []
@@ -718,7 +720,7 @@ def _config_meta(full_schema: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    repeated = repeated_root_sections()
+    repeated = repeated_root_sections(root)
     ordered_sections: list[dict[str, Any]] = []
     for name in sections:
         if name not in root_props:
@@ -790,27 +792,35 @@ def _infer_validator_type(field_schema: dict[str, Any]) -> str:
     return "any"
 
 
-def build_field_validators() -> dict[str, str]:
+def build_field_validators(root: type[BaseModel] | RootConfig) -> dict[str, str]:
     """Flatten every root-level field into a ``path -> validator_type`` map."""
-    return _field_validators(export_schema())
+    return _field_validators(root, export_schema(model_of(root)))
 
 
-def _field_validators(full_schema: dict[str, Any]) -> dict[str, str]:
+def _field_validators(
+    root: type[BaseModel] | RootConfig, full_schema: dict[str, Any]
+) -> dict[str, str]:
     root_schema = full_schema.get("properties", {})
-    flat = {name: _infer_validator_type(root_schema.get(name, {})) for name in root_scalar_fields()}
-    for section_name, cls in root_sections().items():
+    flat = {
+        name: _infer_validator_type(root_schema.get(name, {})) for name in root_scalar_fields(root)
+    }
+    for section_name, cls in root_sections(root).items():
         for field_name, field_schema in cached_full_schema(cls).get("properties", {}).items():
             flat[f"{section_name}.{field_name}"] = _infer_validator_type(field_schema)
     return flat
 
 
-def export_full_schema(output_dir: str | Path, *, indent: int = 2) -> dict[str, Path]:
+def export_full_schema(
+    output_dir: str | Path, *, root: type[BaseModel] | RootConfig, indent: int = 2
+) -> dict[str, Path]:
     """Write the three companion JSON files into *output_dir*.
 
     Parameters
     ----------
     output_dir
         Destination directory (created if missing).
+    root
+        The root configuration model the documents describe.
     indent
         JSON indent used for human-readable output.
 
@@ -823,9 +833,9 @@ def export_full_schema(output_dir: str | Path, *, indent: int = 2) -> dict[str, 
     out = Path(output_dir).expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
 
-    schema = export_schema()
-    meta = _config_meta(schema)
-    validators = _field_validators(schema)
+    schema = export_schema(model_of(root))
+    meta = _config_meta(root, schema)
+    validators = _field_validators(root, schema)
 
     config_path = out / SCHEMA_FILE
     meta_path = out / META_FILE

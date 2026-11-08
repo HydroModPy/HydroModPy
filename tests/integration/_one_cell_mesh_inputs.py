@@ -541,7 +541,7 @@ def prepare_nwt(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
 def prepare_boussinesq(pair: MeshPair, flow: Flow) -> SolverInputs:
     """The per-cell K, Sy and recharge series a Boussinesq model is built with."""
     model = model_of(pair, flow)
-    mesh = resolve_runtime_solver_mesh(model, mesh_summary=None)
+    mesh = resolve_runtime_solver_mesh(model)
     resolver = BoussinesqForcingResolver(mesh=mesh, inputs=model)
     series = resolver.resolve_recharge_series(NPER)
     return SolverInputs(

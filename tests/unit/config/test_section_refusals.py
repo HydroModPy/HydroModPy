@@ -16,7 +16,6 @@ from hydromodpy.catchment.preprocess.capped_breach_config import (
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigValidationError,
@@ -488,6 +487,7 @@ def test_a_sealed_run_rebuilds_its_config(monkeypatch, caplog) -> None:
     monkeypatch.setattr(Run, "config_snapshot", property(lambda self: snapshot))
     run = Run.__new__(Run)
     run._sim_id = "0123456789abcdef"
+    run._read_config = lambda payload: HydroModPyConfig.from_dict(payload, sealed=True)
 
     with caplog.at_level(logging.WARNING):
         cfg = run.hydromodpy_config
@@ -497,8 +497,8 @@ def test_a_sealed_run_rebuilds_its_config(monkeypatch, caplog) -> None:
 
 
 @pytest.mark.unit
-def test_the_provider_reads_a_sealed_document() -> None:
-    cfg = get_root_config_provider().from_dict(_snapshot(), sealed=True)
+def test_a_sealed_document_is_read_by_the_class_with_the_sealed_rule() -> None:
+    cfg = HydroModPyConfig.from_dict(_snapshot(), sealed=True)
 
     assert cfg.simulation.time.end_datetime.year == 2020
 

@@ -2,7 +2,7 @@ AmbiguousReferenceError	class	(ref: str, candidates: list[tuple[str, str | None]
 BackupFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 CalibrationError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 CapabilityVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-Catalog	class	(project_root: Path | str) -> None
+Catalog	class	(project_root: Path | str, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
 CatalogError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 CatalogUnreadableError	class	(db_path: str, *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 CommandUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
@@ -27,11 +27,11 @@ PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: st
 Project	class	(config: str | Path | object | dict, *, solver: str | None = None, headless: bool = False, no_display: bool = False) -> None
 ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-Run	class	(sim_id: str, catalog: Catalog) -> None
+Run	class	(sim_id: str, catalog: Catalog, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
 RunNotSealedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 RunSet	class	(sim_ids: list[str], catalog: Catalog) -> None
 SchemaVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-Session	class	(session_dir: str | Path) -> None
+Session	class	(session_dir: str | Path, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
 SimulationNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 SolverError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 StepError	class	(step_name: str, cause: BaseException, *, run_id: str | None = None, sim_id: str | None = None, **context: Any) -> None

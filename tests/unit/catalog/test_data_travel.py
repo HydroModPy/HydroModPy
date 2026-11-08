@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index, sidecar_name, stored_name
 from hydromodpy.core.site import SiteRow
@@ -73,7 +74,11 @@ def _project(tmp_path: Path) -> Path:
 def _package(tmp_path: Path, *extras: str) -> Path:
     project = _project(tmp_path)
     return export_project(
-        project, tmp_path / "nancon.tar", with_=extras, bundle_of=inputs_of(project)
+        project,
+        tmp_path / "nancon.tar",
+        with_=extras,
+        bundle_of=inputs_of(project),
+        root_config=ROOT_CONFIG,
     )
 
 
@@ -197,6 +202,7 @@ def test_with_mesh_the_package_takes_the_cache_entries_the_runs_read(tmp_path) -
         tmp_path / "nancon.tar",
         with_=("runs", "mesh", "sessions"),
         bundle_of=inputs_of(project),
+        root_config=ROOT_CONFIG,
     )
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="other")

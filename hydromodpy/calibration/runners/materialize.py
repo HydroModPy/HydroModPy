@@ -30,8 +30,8 @@ from typing import Any
 from pydantic import BaseModel
 
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.runners.trial import trial_pipeline
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 
@@ -155,7 +155,7 @@ def _load_base_payload(
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():
         raise FileNotFoundError(f"base_config not found: {base_path}")
-    return load_toml_with_base_config(base_path), base_path
+    return trial_pipeline().load_document(base_path), base_path
 
 
 def _apply_parameter_mode(

@@ -67,6 +67,7 @@ def test_example_project_toml_round_trip_across_dumpers(tmp_path: Path) -> None:
             profile="expert",
             exclude_defaults=True,
             exclude_none=True,
+            root=HydroModPyConfig,
         )
         generated_cfg = HydroModPyConfig.from_toml(generated_path)
         assert _json_payload(generated_cfg) == expected

@@ -82,6 +82,7 @@ from tests.unit.calibration._factories_runners import (
     TRANSIENT_SY,
     TWO_PHASES,
     FakeCtx,
+    FakePipeline,
     FakeRunner,
     calibration_head,
     journal_trial,
@@ -91,6 +92,11 @@ from tests.unit.calibration._factories_runners import (
     write_document,
 )
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
+
+# Every phase here runs real trials, so the module asks for the trial pipeline
+# the way a session would: filled once by the project package, before the first
+# trial forks.
+pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
 
 # From test_a_budget_only_phase_freezes_and_says_so.py
 # A phase freezes what it found when its search settled, and says how.
@@ -2065,8 +2071,8 @@ def test_a_phase_override_that_names_no_field_is_refused_with_its_path(
 
     monkeypatch.setattr(
         trial_module,
-        "get_root_config_provider",
-        lambda: SimpleNamespace(from_toml=lambda path: Root()),
+        "_PIPELINE",
+        FakePipeline(config=Root(), document={"simulation": {"name": "toy"}}),
     )
     cfg_path = tmp_path / "project.toml"
     cfg_path.write_text('[simulation]\nname = "toy"\n', encoding="utf-8")

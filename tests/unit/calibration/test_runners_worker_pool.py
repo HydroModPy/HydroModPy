@@ -25,10 +25,10 @@ from unittest.mock import Mock
 import pytest
 from pydantic import BaseModel
 
-import hydromodpy
 from hydromodpy.calibration.evaluation import registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
+from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners import worker_pool
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
@@ -40,6 +40,7 @@ from hydromodpy.calibration.runners.worker_pool import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
 pytestmark = pytest.mark.allow_subprocess
@@ -157,7 +158,7 @@ def _child_of_the_hanging_trial_is_dead(tmp_path: Path) -> bool:
 
 
 def test_a_trial_in_a_process_gives_the_digits_of_a_trial_in_a_thread(tmp_path: Path) -> None:
-    hydromodpy.bootstrap()
+    fill_trial_pipeline()
     cfg = SimpleNamespace(
         objective="nse", variable="head", reject_water_budget_above=None, persist_trial_series=False
     )
@@ -172,6 +173,49 @@ def test_a_trial_in_a_process_gives_the_digits_of_a_trial_in_a_thread(tmp_path: 
     assert (in_thread.status, in_process.status) == ("completed", "completed")
     assert in_thread.cost == in_process.cost == 6.017109178612426
     assert in_thread.components == in_process.components == {"a": 0.2068192306661892}
+
+
+class _Substitute:
+    """Scores without a model, so a pool of it needs no pipeline and no project."""
+
+    evaluator_id: ClassVar[str] = "substitute_for_the_pool"
+    needs_prepared_model: ClassVar[bool] = False
+
+    def __init__(self) -> None:
+        self.trial_series_sink = TrialSeriesSink()
+
+    def evaluate(self, request: TrialRequest) -> TrialOutcome:
+        return TrialOutcome(cost=0.5, status="completed", duration_s=0.0)
+
+
+def test_a_pool_without_an_installed_pipeline_serves_an_evaluator_that_needs_no_model(
+    monkeypatch,
+) -> None:
+    """A substitute evaluator reads no pipeline, so its pool starts without one."""
+    monkeypatch.setattr(trial_module, "_PIPELINE", None)
+    monkeypatch.setattr(trial_module, "_INITIALIZER", None)
+
+    with closing(TrialWorkerPool(_Substitute, {}, width=1)) as pool:
+        outcome = _ask(pool, 1, 0.5)
+
+    assert (outcome.status, outcome.cost) == ("completed", 0.5)
+
+
+def _burst() -> None:
+    """An initializer that fails, at module level so that the worker can import it."""
+    raise RuntimeError("the initializer is broken")
+
+
+def test_an_initializer_that_fails_costs_its_trial_with_the_reason(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(trial_module, "_PIPELINE", None)
+    monkeypatch.setattr(trial_module, "_INITIALIZER", f"{__name__}:_burst")
+    trial_ctx = _trial_ctx(tmp_path)
+
+    with closing(TrialWorkerPool(_Scripted, {"trial_ctx": trial_ctx}, width=1)) as pool:
+        with pytest.raises(CalibrationError, match=r"RuntimeError: the initializer is broken"):
+            _ask(pool, 1, 0.5)
 
 
 def test_the_parent_decides_which_solves_stay_and_a_worker_lasts(tmp_path: Path) -> None:
@@ -328,7 +372,9 @@ def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
     if registered:
         registry.evaluators.register(_Scripted)
     trial_ctx = _trial_ctx(tmp_path)
-    state = pickle.dumps((_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity()))
+    state = pickle.dumps(
+        (_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity(), None)
+    )
     request = TrialRequest(trial_id=5, values={"cost": 0.5})
     conn = Mock(recv_bytes=Mock(return_value=state), recv=Mock(side_effect=[request, EOFError()]))
 
@@ -358,7 +404,7 @@ def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
 ) -> None:
     monkeypatch.setattr(registry.evaluators, "classes", {})
     state = pickle.dumps(
-        (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity())
+        (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity(), None)
     )
     conn = Mock(
         recv_bytes=Mock(return_value=state),

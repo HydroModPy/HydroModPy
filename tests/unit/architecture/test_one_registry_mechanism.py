@@ -26,15 +26,7 @@ ENGINE = "core/plugin_registry.py"
 BUILTIN_TABLES: frozenset[str] = frozenset({"_BUILTIN_PATHS", "_BUILTIN_EXTRACTOR_PATHS"})
 """The module-level names of the ``id -> "module:Class"`` tables of a registry."""
 
-EXCEPTIONS: dict[str, dict[str, str]] = {
-    "calibration/optim/optimizer.py": {
-        "why": (
-            "the optimizers are found by walking the adapters package, until the search"
-            " methods are declared in one table"
-        ),
-        "lifted_by": "3.7",
-    },
-}
+EXCEPTIONS: dict[str, dict[str, str]] = {}
 """Files that still discover classes their own way, each with the reason and who lifts it."""
 
 

@@ -260,8 +260,14 @@ class TestGPMappingFailuresAndBatches:
         def explode(*args, **kwargs):
             raise RuntimeError("broken")
 
+        real = gp_module._get_sklearn()
         if broken == "fit":
-            monkeypatch.setattr(gp_module.GaussianProcessRegressor, "fit", explode)
+            # The surrogate's fit explodes mid-search; the adapter falls back.
+            broken_fit = dict(real)
+            broken_fit["GaussianProcessRegressor"] = type(
+                "BrokenGP", (real["GaussianProcessRegressor"],), {"fit": explode}
+            )
+            monkeypatch.setattr(gp_module, "_get_sklearn", lambda: broken_fit)
         else:
             monkeypatch.setattr(gp_module, "_scipy_minimize", explode)
         opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3, n_init=3, max_trials=8)

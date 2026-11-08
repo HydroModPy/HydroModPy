@@ -114,10 +114,11 @@ def _sealed(**extent) -> dict:
         "outputs": {
             "streams": {
                 "support": "network",
-                "observed_network": "data.hydrography",
-                "minimal_observed_network": "data.hydrography",
-                "tau_specific_ratio": 0.0,
-                "extent": extent,
+                "model": {"seepage_threshold": 0.0, "extent": extent},
+                "map": {
+                    "complete": "data.hydrography",
+                    "permanent": "data.hydrography",
+                },
             }
         }
     }

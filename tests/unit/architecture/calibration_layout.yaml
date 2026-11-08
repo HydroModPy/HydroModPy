@@ -79,7 +79,7 @@ public:
   - hydromodpy.calibration.runners.cli_runner
   - hydromodpy.calibration.runners.document
   - hydromodpy.calibration.runners.staged_runner
+  - hydromodpy.calibration.runners.trial
   - hydromodpy.calibration.runners.programmatic_runner
-  - hydromodpy.calibration.runners.contracts
   - hydromodpy.calibration.runners.promotion
   - hydromodpy.calibration.runners.recap

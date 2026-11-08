@@ -150,6 +150,66 @@ class FakeCtx:
         self.store = None
 
 
+@dataclass
+class FakePipeline:
+    """The eight methods of the ``TrialPipeline`` protocol, installed on ``trial._PIPELINE``.
+
+    The pipeline methods call the real workflow objects, so a test fakes the steps
+    themselves; ``with_solver_launcher`` therefore returns the steps unchanged, and a
+    step a test names ``run_solver`` keeps the launcher the test gave it. A subclass
+    overrides the one method whose behavior it studies, the rest stay.
+
+    ``load_config`` and ``load_document`` answer from ``config`` and ``document``, or
+    raise ``config_error`` when the test drives a failing load; called with neither
+    they fail loudly, so a test never reads a configuration file by accident.
+    """
+
+    config: Any = None
+    document: Any = None
+    config_error: BaseException | None = None
+
+    def standard_steps(self) -> tuple:
+        from hydromodpy.workflow.steps.sequence import standard_steps
+
+        return standard_steps()
+
+    def earliest_affected_step(self, override_paths, steps) -> int:
+        from hydromodpy.workflow.steps.dependencies import earliest_affected_step
+
+        return earliest_affected_step(override_paths, steps)
+
+    def make_pipeline(self, steps, *, run_dir=None):
+        from hydromodpy.workflow.runner import Pipeline
+
+        return Pipeline(steps, run_dir=run_dir)
+
+    def with_solver_launcher(self, steps, launcher):
+        del launcher
+        return tuple(steps)
+
+    def make_state(self, run_id, data):
+        from hydromodpy.workflow.state import PipelineState
+
+        return PipelineState(run_id=run_id, data=dict(data))
+
+    def apply_structural_updates_from_data(self, ctx) -> None:
+        del ctx
+
+    def load_config(self, path):
+        del path
+        if self.config_error is not None:
+            raise self.config_error
+        if self.config is None:
+            raise AssertionError("this test installs no configuration to load")
+        return self.config
+
+    def load_document(self, path):
+        del path
+        if self.document is None:
+            raise AssertionError("this test installs no document to load")
+        return self.document
+
+
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
     """Fake ``prepare_trials`` and ``promote_prepared_trial`` so a calibration runs in seconds.

@@ -9,6 +9,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit import registry
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.root import RootConfig
 
 
 class _Flow(HydroModelBase):
@@ -37,21 +38,22 @@ class _Root(HydroModelBase):
     tags: list[str] = []
 
 
-class _Provider:
-    def root_model(self) -> type[HydroModelBase]:
-        return _Root
-
-
-@pytest.fixture(autouse=True)
-def _fake_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(registry, "get_root_config_provider", lambda: _Provider())
-    monkeypatch.setattr(registry, "_CACHE", None)
-    monkeypatch.setattr(registry, "_REPEATED_CACHE", None)
-    monkeypatch.setattr(registry, "_SCALAR_CACHE", None)
-
-
 def test_a_section_is_a_field_whose_type_is_a_model_even_when_optional_or_repeated() -> None:
-    assert registry.root_sections() == {
+    assert registry.root_sections(_Root) == {
+        "flow": _Flow,
+        "mesh": _Mesh,
+        "export": _Export,
+        "stations": _Station,
+    }
+
+
+def test_root_sections_accepts_root_config_wrapper() -> None:
+    wrapper = RootConfig(
+        model=_Root,
+        migrate_layers=lambda layers: [],
+        migrate_merged=lambda doc, layers: [],
+    )
+    assert registry.root_sections(wrapper) == {
         "flow": _Flow,
         "mesh": _Mesh,
         "export": _Export,
@@ -60,24 +62,24 @@ def test_a_section_is_a_field_whose_type_is_a_model_even_when_optional_or_repeat
 
 
 def test_sections_come_in_declaration_order() -> None:
-    assert list(registry.root_sections()) == ["flow", "mesh", "export", "stations"]
+    assert list(registry.root_sections(_Root)) == ["flow", "mesh", "export", "stations"]
 
 
 def test_an_array_of_tables_is_told_from_a_single_table() -> None:
-    assert registry.repeated_root_sections() == frozenset({"export", "stations"})
+    assert registry.repeated_root_sections(_Root) == frozenset({"export", "stations"})
 
 
 def test_scalars_are_the_fields_that_are_not_sections() -> None:
-    scalars = registry.root_scalar_fields()
+    scalars = registry.root_scalar_fields(_Root)
     assert list(scalars) == ["workflow", "seed", "tags"]
     assert scalars["seed"].description == "Random seed."
 
 
 def test_the_returned_mapping_can_be_changed_without_touching_the_registry() -> None:
-    registry.root_sections().pop("flow")
-    registry.root_scalar_fields().pop("seed")
-    assert "flow" in registry.root_sections()
-    assert "seed" in registry.root_scalar_fields()
+    registry.root_sections(_Root).pop("flow")
+    registry.root_scalar_fields(_Root).pop("seed")
+    assert "flow" in registry.root_sections(_Root)
+    assert "seed" in registry.root_scalar_fields(_Root)
 
 
 @pytest.mark.parametrize(

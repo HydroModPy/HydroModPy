@@ -46,6 +46,11 @@ def calibrate_a_file(
         declared_calibration_phases,
         no_such_phase,
     )
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    # A calibration reads its files through the trial pipeline, the one global
+    # the library keeps. Fill it before the routing question and the launch read.
+    fill_trial_pipeline()
 
     target = Path(config_path).expanduser().resolve()
     # Routing alone tolerates an unreadable file: the runner that reads it next
@@ -102,6 +107,9 @@ def calibrate_project(
     what each mode does and raises.
     """
     from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
 
     python_mode = {
         "outputs": outputs,
@@ -233,6 +241,9 @@ def _calibrate_embedded(
     """
     from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigMissingError
     from hydromodpy.project.dispatch.workflow import no_such_phase
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
 
     embedded = getattr(proj._cfg, "calibration", None)
     if embedded is None:
@@ -318,6 +329,9 @@ def _preflight_in_memory(project: Project, calibration: Any) -> None:
     """
     from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.programmatic_runner import with_project_defaults
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
 
     config = getattr(project, "config", None)
     source = getattr(project, "_config_path", None)

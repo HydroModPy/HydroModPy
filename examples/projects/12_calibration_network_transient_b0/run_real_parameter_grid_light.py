@@ -39,7 +39,8 @@ from validation_cases.calibration.network_transient_b0.network_transient_truth i
 )
 from hydromodpy.calibration.runners.materialize import write_overlay_toml  # noqa: E402
 from hydromodpy.calibration.runners.trial import prepare_trials, run_trial_light  # noqa: E402
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider  # noqa: E402
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig  # noqa: E402
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline  # noqa: E402
 from hydromodpy.results.catalog import Catalog  # noqa: E402
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions  # noqa: E402
 from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing  # noqa: E402
@@ -454,7 +455,7 @@ def _ensure_dirs() -> None:
 
 
 def _write_steady_light_base_config() -> Path:
-    cfg = get_root_config_provider().from_toml(SOURCE_TRANSIENT_CONFIG)
+    cfg = HydroModPyConfig.from_toml(SOURCE_TRANSIENT_CONFIG)
     payload = cfg.model_dump(mode="json", exclude_none=True)
     recharge_values = _source_recharge_values_mm_per_day(payload)
     steady_recharge = float(np.mean(recharge_values)) if recharge_values.size else 0.0
@@ -510,7 +511,7 @@ def _steady_ic_payload() -> dict[str, str]:
 
 
 def _write_transient_light_base_config() -> Path:
-    cfg = get_root_config_provider().from_toml(SOURCE_TRANSIENT_CONFIG)
+    cfg = HydroModPyConfig.from_toml(SOURCE_TRANSIENT_CONFIG)
     payload = cfg.model_dump(mode="json", exclude_none=True)
     recharge_values = _source_recharge_values_mm_per_day(payload)
     payload["simulation"]["name"] = "b0_light_transient_mf6"
@@ -642,6 +643,7 @@ def _prepare_context(
     label: str,
     timings: list[dict[str, Any]],
 ):
+    fill_trial_pipeline()
     start = time.perf_counter()
     ctx = prepare_trials(cfg_path, override_paths=override_paths)
     elapsed = time.perf_counter() - start

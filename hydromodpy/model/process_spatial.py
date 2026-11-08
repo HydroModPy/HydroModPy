@@ -34,20 +34,13 @@ from collections.abc import Iterable, Mapping
 from typing import Generic, TypeVar
 
 from hydromodpy.model.payloads import BoundaryCondition
+from hydromodpy.model.properties.field_param import FieldParam
 
 TInitialConditions = TypeVar("TInitialConditions")
 
 
 def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
-    """Coerce one raw config value into a runtime parameter object.
-
-    Uses the registered ``FieldParamLike`` factory so this module never
-    imports ``model.properties``.
-    """
-    from hydromodpy.model.contracts import FieldParamLike, get_field_param_factory
-
-    if isinstance(raw_parameter, FieldParamLike):
-        return raw_parameter
+    """Coerce one raw config value into a runtime parameter object."""
     if not isinstance(raw_parameter, Mapping):
         return raw_parameter
 
@@ -60,7 +53,7 @@ def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
     payload.setdefault("id", parameter_id)
     if "kind" not in payload:
         return raw_parameter
-    return get_field_param_factory()(payload)
+    return FieldParam.from_dict(payload)
 
 
 class ProcessSpatial(ABC, Generic[TInitialConditions]):

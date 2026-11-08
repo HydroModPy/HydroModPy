@@ -8,9 +8,10 @@ in the source file.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import shapely
@@ -18,7 +19,6 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
-from hydromodpy.catchment.protocols import get_geology_data_source
 from hydromodpy.core.exceptions import MeshRequestError
 
 __all__ = ["GeologyLines", "contact_lines", "geology_lines", "support_contacts"]
@@ -44,9 +44,16 @@ class GeologyLines:
 
 
 def geology_lines(
-    config: Mapping[str, object], *, config_path: str | Path | None, crs_wkt: str
+    config: Mapping[str, object],
+    *,
+    config_path: str | Path | None,
+    crs_wkt: str,
+    read_vector: Callable[[Mapping[str, Any], str | Path | None], Mapping[str, Any]],
 ) -> GeologyLines | None:
     """Read the contacts of the geology support *config*, or None for a raster source.
+
+    ``read_vector`` is the reader of one vector geology map, passed by the caller;
+    it takes the config mapping and the config path, and returns the ``gdf`` payload.
 
     The zones are reprojected to *crs_wkt*, the CRS of the project; a map with no CRS is refused.
 
@@ -61,7 +68,7 @@ def geology_lines(
         kind == "auto" and Path(str(source["path"])).suffix.lower() in _RASTER_SUFFIXES
     ):
         return None
-    payload = get_geology_data_source().load_vector_dataframe(config, config_path=config_path)
+    payload = read_vector(config, config_path)
     frame = payload["gdf"]
     if frame.crs is None:
         raise MeshRequestError(f"the geology map {source['path']!r} declares no CRS")

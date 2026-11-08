@@ -75,63 +75,52 @@ what holds today. The gate refuses an entry that the tree no longer needs.
      - Why
    * - ``<root>``
      - ``calibration``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``config``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``data``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``display``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``results``
      - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``solver``
-     - ``hydromodpy/_bootstrap.py``, ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``workflow``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``<root>``
      - ``model``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
-   * - ``<root>``
-     - ``catchment``
-     - ``hydromodpy/_bootstrap.py``
-     - The verbs of _api.py, the providers of _bootstrap.py and the lazy
-       names of _lazy.py still sit at the root. The root reads only core
-       and project once they live in project.
+     - ``hydromodpy/_api.py``
+     - The verbs of _api.py and the lazy names of _lazy.py still sit at
+       the root. The root reads only core and project once they live in
+       project.
    * - ``cli``
      - ``<root>``
      - ``hydromodpy/cli/commands/calibrate.py``,

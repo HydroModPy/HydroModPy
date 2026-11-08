@@ -83,7 +83,7 @@ def check_project(path: str | Path) -> CheckReport:
 def _check(target: Path) -> CheckReport:
     try:
         # As written: the load below says the old forms, and the report collects them.
-        chain = read_toml_chain(target, migrate=False)
+        chain = read_toml_chain(target, root=None)
     except tomllib.TOMLDecodeError as exc:
         return CheckReport(path=target, kind="simulation", errors=(f"Invalid TOML syntax: {exc}",))
     except (TypeError, ValueError, OSError) as exc:
@@ -96,7 +96,7 @@ def _check(target: Path) -> CheckReport:
         return CheckReport(path=target, kind="sites", errors=(str(exc),))
     if sites_file is not None:
         return _check_sites_project(target)
-    document = merge_toml_chain(chain, migrate=False)
+    document = merge_toml_chain(chain, root=None)
     try:
         declared = extract_workflow_field(document)
         if declared is not None:
@@ -170,7 +170,9 @@ def _check_run(target: Path) -> CheckReport:
 
 def _check_calibration(target: Path) -> CheckReport:
     from hydromodpy.calibration.preflight import preflight_calibration
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
+    fill_trial_pipeline()
     cfg, errors, noted = _load(target)
     if cfg is not None:
         for finding in preflight_calibration(cfg, source=target):

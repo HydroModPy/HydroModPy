@@ -46,7 +46,7 @@ Enriched TOML (twin-benchmark style)::
 from __future__ import annotations
 
 import datetime
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
@@ -202,7 +202,33 @@ MetricKind = Literal[*TRIAL_METRIC_NAMES]
 _METRIC_VALUE_DOCS: dict[str, str] = {name: METRIC_SPECS[name].doc for name in TRIAL_METRIC_NAMES}
 """What each metric a TOML may select measures, shown beside every key that picks one."""
 
-CalibrationMethod = NonEmptyStr
+
+def _validated_method_for(key: str) -> Callable[[str], str]:
+    def _validate(value: str) -> str:
+        from hydromodpy.calibration.optim.optimizer import ENTRY_POINT_GROUP, optimizers
+
+        return check_registered_name(
+            value,
+            names=optimizers.names(),
+            key=key,
+            group=ENTRY_POINT_GROUP,
+        )
+
+    return _validate
+
+
+CalibrationMethod = Annotated[
+    str,
+    AfterValidator(_validated_method_for("calibration.method")),
+]
+"""A calibration method name, one of the optimizers this installation serves.
+
+Validated once, when the file is read, so a typo fails beside the field that wrote
+it and not in the depths of an adapter. The shared registry is the single source:
+``optimizers.names()`` and the refusal sentence are the ones
+:func:`hydromodpy.core.plugin_registry.check_registered_name` prints, and
+``da_mh_gp`` is one of the names served.
+"""
 
 
 def _no_list_of_dates(value: Any) -> Any:
@@ -338,11 +364,18 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "the mean offset: a diagnostic, and the estimator of the reference script, "
         "whose interior minimum sits nowhere in particular.",
     )
-    steady_method: Annotated[str, Profile.USER] = Field(
+    steady_method: Annotated[
+        str,
+        Profile.USER,
+        AfterValidator(_validated_method_for("calibration.protocol.steady_method")),
+    ] = Field(
         default="bisection",
-        description="Engine of stage one. The signed criterion crosses zero once over "
-        "several decades, which is what a root search wants; any registered engine is "
-        "accepted.",
+        description=(
+            "Engine of stage one. The signed criterion crosses zero once over "
+            "several decades, which is what a root search wants; any registered engine is "
+            "accepted. An unknown name is refused when the file is read, "
+            "with the names this installation serves."
+        ),
     )
     steady_max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
         default="auto",
@@ -389,11 +422,16 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "as peaks, which is where storage shows.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
-    transient_method: Annotated[str, Profile.USER] = Field(
+    transient_method: Annotated[
+        str,
+        Profile.USER,
+        AfterValidator(_validated_method_for("calibration.protocol.transient_method")),
+    ] = Field(
         default="scipy_nelder_mead",
         description=(
             "Search method of stage two, named as calibration.method names one, such "
-            "as 'scipy_nelder_mead'."
+            "as 'scipy_nelder_mead'. An unknown name is refused when the file is read, "
+            "with the names this installation serves."
         ),
     )
     transient_max_trials: Annotated[int, Profile.USER] = Field(
@@ -1919,7 +1957,10 @@ class CalibPhaseDecl(HydroModelBase):
         default="",
         description="What this phase calibrates and against what, in one sentence.",
     )
-    method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
+    method: Annotated[
+        Annotated[str, AfterValidator(_validated_method_for("calibration.phases.method"))] | None,
+        Profile.USER,
+    ] = Field(
         default=None,
         description=(
             "Optimization method for this phase only. Unset, the phase runs the "
@@ -1935,7 +1976,7 @@ class CalibPhaseDecl(HydroModelBase):
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
-            "An unknown name is refused when the optimizer is built, "
+            "An unknown name is refused when the file is read, "
             "with the list installed here."
         ),
     )
@@ -2427,7 +2468,7 @@ class CalibrationConfig(HydroModelBase):
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
-            "An unknown name is refused when the optimizer is built, "
+            "An unknown name is refused when the file is read, "
             "with the list installed here. "
             "Optuna is installed by default; install the calibration extra for "
             "cma_es and Optuna's cmaes sampler."
@@ -2786,17 +2827,8 @@ class CalibrationConfig(HydroModelBase):
         chooses it.
         """
         from hydromodpy.calibration.optim.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optim.optimizer import (
-            announced_optimizers,
-            available_optimizers,
-        )
 
         method, _reason = self.method_for()
-        if method not in available_optimizers():
-            raise ValueError(
-                f"Unknown calibration method {method!r}. "
-                f"Available methods: {announced_optimizers()}"
-            )
         validate_method_kwargs(method, self.method_options)
 
     def map_files(self) -> list[tuple[str, str, Path]]:

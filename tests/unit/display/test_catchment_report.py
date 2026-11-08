@@ -14,6 +14,7 @@ from typing import get_args
 import pandas as pd
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catchment_report import (
@@ -88,7 +89,7 @@ def test_the_cell_count_is_the_one_of_the_simulated_run(monkeypatch, tmp_path, n
     )
     monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda store: None)
 
-    summary_path = context_module.build_context(_inputs(tmp_path))
+    summary_path = context_module.build_context(_inputs(tmp_path), root=ROOT_CONFIG)
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["baseline_run"]["n_cells"] == n_cells
@@ -116,7 +117,7 @@ def test_the_context_reads_the_station_the_observed_discharge_names(monkeypatch,
     inputs = _inputs(tmp_path)
     inputs.observed_discharge_station_id = "NANCON"
 
-    context_module.build_context(inputs)
+    context_module.build_context(inputs, root=ROOT_CONFIG)
 
     assert asked == ["NANCON"]
 

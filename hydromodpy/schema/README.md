@@ -13,8 +13,8 @@ rules, and where to add what.
 
 | part | answers |
 |---|---|
-| `config_schema.py` | the JSON Schema of the configuration: `export_schema` (the root, a section or a model, filtered by profile, with its `urn:` identity), `editor_schema` (what an editor checks one TOML file against), `schema_sha256` (the fingerprint the lockfile records), and `export_full_schema(dir)`, which writes three files for a front end: `config.json`, `config_meta.json` (ordered root sections, groups, which sections are repeated tables) and `field_validators.json` (field path to validator type) |
-| `partial_validator.py` | `validate_field(path, value)`: the type of one field of `HydroModPyConfig`, checked on its own, with a `ValidationResult` |
+| `config_schema.py` | the JSON Schema of the configuration: `export_schema(model_cls, ...)` (the root, a section or a model, filtered by profile, with its `urn:` identity), `editor_schema(model_cls)` (what an editor checks one TOML file against), `schema_sha256(model_cls)` (the fingerprint the lockfile records), and `export_full_schema(dir, root=model_cls)`, which writes three files for a front end: `config.json`, `config_meta.json` (ordered root sections, groups, which sections are repeated tables) and `field_validators.json` (field path to validator type) |
+| `partial_validator.py` | `validate_field(path, value, root=model_cls)`: the type of one field of the root configuration, checked on its own, with a `ValidationResult` |
 | `capability.py` | `CapabilityDecl` and `OutputDecl`: what a capability declares about itself before it runs. Standard library only |
 | `processes/` | the machine-readable description of each capability this build serves (`<id>@<major>.json`) and `index.json`, read as package data |
 | `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal and reuse. See `job/README.md` |
@@ -25,9 +25,8 @@ rules, and where to add what.
 
 `tests/unit/architecture/layer_matrix.yaml` gives schema `core` and itself, and
 nothing else. `config_schema.py` and `partial_validator.py` walk the root model
-`HydroModPyConfig` without importing `config`: they ask
-`core/config_kit/root_config_protocol.py` for it, and `hydromodpy/_bootstrap.py`
-wires the provider. No `schema_layout.yaml` orders the parts. Three rules hold:
+they receive as their `model_cls` or `root` argument, so they never import
+`config`. No `schema_layout.yaml` orders the parts. Three rules hold:
 
 1. `job/` and `capability.py` stay readable by a layer that owns no engine.
    `capability.py` carries the request model as an opaque type, so it names no engine.

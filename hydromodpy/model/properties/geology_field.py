@@ -36,13 +36,10 @@ A regular planar cell mesh over a bounding box, for the geology demos.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 from rasterio.transform import rowcol
 
-from hydromodpy.catchment.protocols import get_geology_data_source
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.properties.cell_sampling import (
     quadrilateral_points_in_cells,
@@ -307,28 +304,6 @@ class GeologyField(Field):
             "zone_keys": tuple(self.zone_keys),
             "default_cell_samples_per_axis": int(self.default_cell_samples_per_axis),
         }
-
-    @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> GeologyField:
-        """Build field from validated geology config mapping (standalone use)."""
-        data_source = get_geology_data_source()
-        cfg = data_source.validate_config(config)
-        loaded = data_source.load_encoded_grid(cfg)
-        return cls(
-            identifier=str(cfg["id"]),
-            encoded_codes=loaded["encoded_codes"],
-            encoded_to_zone=loaded["encoded_to_zone"],
-            transform=loaded["transform"],
-            crs=loaded["crs"],
-            source_kind=str(loaded["source_kind"]),
-            default_cell_samples_per_axis=int(cfg.get("cell_samples_per_axis", 8)),
-        )
-
-    @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "geology") -> GeologyField:
-        """Build field directly from one TOML section (standalone use)."""
-        cfg = get_geology_data_source().load_toml(toml_path, section=section)
-        return cls.from_dict(cfg)
 
 
 def regular_cell_mesh_over_bounds(

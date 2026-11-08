@@ -87,7 +87,8 @@ period, and the solvers call it.
   trials that score a run and the figures that redraw it use one mean recharge. A period before the first
   sample has no data, so `forcing_period_rates` gives it NaN and `criterion_mean_recharge` gives it no
   weight.
-- On the series path, `forcing_bridge.py` reads `time_alignment.py`, `types.py` and `model/contracts.py`.
+- On the series path, `forcing_bridge.py` reads `cells.py`, `time_alignment.py`, `types.py` and
+  `model/contracts.py`.
   `time_forcing.py` reads `dated_forcing.py` and `time_alignment.py`, and `steady_periods.py` reads
   `types.py`. `time_alignment.py` reads only `core.time`.
 - Outside the package, `area_weights.py` reads `derive_geometry` from `mesh/planar/geometry.py`.
@@ -112,8 +113,8 @@ of the package. The theory is in `docs/source/theory/soil-reservoir.md`.
 
 The recharge and ETP packages of the solvers call the cells path (`solver/modflow6/builders/recharge.py`,
 `solver/modflow_nwt/nwt/payloads/recharge_etp.py` and `solver/boussinesq/forcing/recharge_resolution.py`).
-The workflow step `workflow/steps/prepare_solver/forcings.py`, the hook registered in
-`hydromodpy/_bootstrap.py` and `calibration/metrics/series.py` use the spatial mean. `interpolation.py`
+The workflow step `workflow/steps/prepare_solver/forcings.py`, the recharge binder of
+`model/boundaries/climate.py` and `calibration/metrics/series.py` use the spatial mean. `interpolation.py`
 is also used by the Explore2 client in `data/common/clients/explore2_files.py`.
 
 ## Changing the code

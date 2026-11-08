@@ -45,6 +45,7 @@ from hydromodpy.solver.base.plan import (
 )
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import model_percent_discrepancies
+from tests.unit.calibration._factories_runners import FakePipeline
 
 # From test_calibration_protocols.py
 # A published calibration method has to be nameable, not retyped.
@@ -1009,7 +1010,15 @@ def test_the_gate_is_on_by_default() -> None:
     assert CalibrationConfig().reject_water_budget_above == 1.0
 
 
-class _FakeProvider:
+class _FakePipeline(FakePipeline):
+    """The pipeline of a trial whose solver step is the recorder itself.
+
+    The steps are bare objects, so the pipeline runs nothing: ``make_pipeline``
+    answers a runner that walks into the crash the trial must report, and
+    ``with_solver_launcher`` records the run results the way the solver step of a
+    real pipeline would hand them to the launcher.
+    """
+
     def __init__(self, metrics: dict[str, float], crash: Exception | None = None) -> None:
         self._metrics = metrics
         self._crash = crash
@@ -1060,8 +1069,8 @@ def _run(
         metrics[WATER_BUDGET_METRIC] = discrepancy
     if worst is not None:
         metrics[WATER_BUDGET_WORST_METRIC] = worst
-    provider = _FakeProvider(metrics, crash)
-    monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", lambda: provider)
+    pipeline = _FakePipeline(metrics, crash)
+    monkeypatch.setattr(trial_module, "_PIPELINE", pipeline)
     return trial_module.run_trial_light(
         _FakeTrialContext(),
         {"K": 1.0},

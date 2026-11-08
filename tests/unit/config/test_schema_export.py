@@ -43,7 +43,7 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 def test_export_schema_returns_dict_for_root():
     from hydromodpy.schema.config_schema import export_schema
 
-    schema = export_schema()
+    schema = export_schema(HydroModPyConfig)
     assert isinstance(schema, dict)
     assert "properties" in schema
     # Root model must expose the main top-level sections.
@@ -54,7 +54,7 @@ def test_export_schema_returns_dict_for_root():
 def test_export_schema_by_section_name():
     from hydromodpy.schema.config_schema import export_schema
 
-    schema = export_schema(section="flow")
+    schema = export_schema(HydroModPyConfig, section="flow")
     assert isinstance(schema, dict)
     # FlowConfig exposes flow_regime etc. as properties.
     assert "properties" in schema
@@ -82,7 +82,7 @@ def test_export_schema_unknown_section_raises():
     from hydromodpy.schema.config_schema import export_schema
 
     with pytest.raises(ValueError):
-        export_schema(section="not_a_real_section")
+        export_schema(HydroModPyConfig, section="not_a_real_section")
 
 
 def test_flow_physical_properties_schema_has_rich_annotations():
@@ -111,7 +111,7 @@ def test_write_schema_creates_valid_json_file(tmp_path: Path):
     from hydromodpy.schema.config_schema import write_schema
 
     out = tmp_path / "subdir" / "schema.json"
-    written = write_schema(out, section="flow")
+    written = write_schema(out, HydroModPyConfig, section="flow")
     assert written.exists()
     data = json.loads(written.read_text(encoding="utf-8"))
     assert "properties" in data
@@ -121,8 +121,8 @@ def test_write_schema_creates_valid_json_file(tmp_path: Path):
 def test_root_sections_lists_expected_keys():
     from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
 
-    sections = root_sections()
-    scalars = root_scalar_fields()
+    sections = root_sections(HydroModPyConfig)
+    scalars = root_scalar_fields(HydroModPyConfig)
     # Registry derives from HydroModPyConfig.model_fields; nested
     # ``flow_physical_properties`` is reachable via FlowConfig, not as a
     # root section.
@@ -154,7 +154,7 @@ def test_root_sections_lists_expected_keys():
 
 
 def test_the_root_export_declares_its_dialect_and_identity_and_no_package_version() -> None:
-    schema = export_schema()
+    schema = export_schema(HydroModPyConfig)
 
     assert schema["$schema"] == JSON_SCHEMA_DIALECT
     assert schema["$id"] == schema_urn(ROOT_SCOPE) == "urn:hmp:schema:config"
@@ -164,7 +164,7 @@ def test_the_root_export_declares_its_dialect_and_identity_and_no_package_versio
 
 
 def test_a_section_export_is_named_after_the_section() -> None:
-    assert export_schema(section="flow")["$id"] == schema_urn("flow")
+    assert export_schema(HydroModPyConfig, section="flow")["$id"] == schema_urn("flow")
 
 
 def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> None:
@@ -177,22 +177,22 @@ def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> Non
 
 
 def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None:
-    full = export_schema(section="flow")
-    trimmed = export_schema(section="flow", profile="user")
+    full = export_schema(HydroModPyConfig, section="flow")
+    trimmed = export_schema(HydroModPyConfig, section="flow", profile="user")
 
     assert trimmed["$id"] == schema_urn("flow:user")
     assert trimmed["$id"] != full["$id"]
 
 
 def test_an_explicit_scope_overrides_the_derived_one() -> None:
-    schema = export_schema(section="flow", scope="domain-build:1.0.0")
+    schema = export_schema(HydroModPyConfig, section="flow", scope="domain-build:1.0.0")
     assert schema["$id"] == schema_urn("domain-build:1.0.0")
 
 
 def test_a_dotted_path_exports_the_nested_model() -> None:
     from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 
-    nested = export_schema(section="simulation.time")
+    nested = export_schema(HydroModPyConfig, section="simulation.time")
 
     assert nested["$id"] == schema_urn("simulation.time")
     assert set(nested["properties"]) == set(SimulationTimeConfig.model_fields)
@@ -200,22 +200,22 @@ def test_a_dotted_path_exports_the_nested_model() -> None:
 
 def test_an_unknown_root_segment_names_what_is_allowed() -> None:
     with pytest.raises(ValueError, match="unknown config section 'not_a_real_section'"):
-        export_schema(section="not_a_real_section.time")
+        export_schema(HydroModPyConfig, section="not_a_real_section.time")
 
 
 def test_an_unknown_nested_segment_names_the_model_it_looked_in() -> None:
     with pytest.raises(ValueError, match="unknown field 'nowhere'"):
-        export_schema(section="simulation.nowhere")
+        export_schema(HydroModPyConfig, section="simulation.nowhere")
 
 
 def test_a_segment_that_names_a_value_is_refused() -> None:
     with pytest.raises(ValueError, match="names a value, not a section"):
-        export_schema(section="flow.flow_regime")
+        export_schema(HydroModPyConfig, section="flow.flow_regime")
 
 
 def test_a_segment_that_names_a_union_names_its_variants() -> None:
     with pytest.raises(ValueError, match="names a union of 2 models"):
-        export_schema(section="flow.bc")
+        export_schema(HydroModPyConfig, section="flow.bc")
 
 
 @pytest.mark.parametrize(
@@ -224,11 +224,11 @@ def test_a_segment_that_names_a_union_names_its_variants() -> None:
 def test_a_path_with_an_empty_segment_is_refused_rather_than_normalised(section: str) -> None:
     """Dropping the empty segment would mint two identities for one document."""
     with pytest.raises(ValueError, match="empty segment"):
-        export_schema(section=section)
+        export_schema(HydroModPyConfig, section=section)
 
 
 def test_a_property_extracts_with_the_definitions_it_reaches() -> None:
-    root = export_schema(section="simulation")
+    root = export_schema(HydroModPyConfig, section="simulation")
     extracted = extract_property_schema(root, "time")
 
     assert set(extracted.get("$defs", {})) <= set(root.get("$defs", {}))
@@ -236,14 +236,14 @@ def test_a_property_extracts_with_the_definitions_it_reaches() -> None:
 
 
 def test_an_extracted_property_carries_no_definition_it_does_not_reach() -> None:
-    root = export_schema(section="simulation")
+    root = export_schema(HydroModPyConfig, section="simulation")
     extracted = extract_property_schema(root, "time")
 
     assert "TransportProcessConfig" not in extracted.get("$defs", {})
 
 
 def test_extracting_an_absent_property_names_what_is_there() -> None:
-    root = export_schema(section="simulation")
+    root = export_schema(HydroModPyConfig, section="simulation")
     with pytest.raises(KeyError, match="is not a property of this schema"):
         extract_property_schema(root, "no_such_property")
 
@@ -252,7 +252,7 @@ def test_the_default_schema_does_not_require_what_the_loader_fills():
     """A real file never names the project root, and a synthetic support has no catchment."""
     from hydromodpy.schema.config_schema import export_schema
 
-    schema = export_schema()
+    schema = export_schema(HydroModPyConfig)
     defs = schema["$defs"]
 
     assert "workspace" not in schema.get("required", [])
@@ -268,13 +268,13 @@ def _properties(schema: dict) -> dict:
 
 
 def test_export_schema_full_includes_all_profiles() -> None:
-    schema = export_schema()
+    schema = export_schema(HydroModPyConfig)
     assert _properties(schema), "root schema must expose properties"
 
 
 def test_export_schema_user_drops_dev_and_expert_fields() -> None:
-    full = export_schema()
-    user = export_schema(profile="user")
+    full = export_schema(HydroModPyConfig)
+    user = export_schema(HydroModPyConfig, profile="user")
 
     assert set(_properties(user)).issubset(set(_properties(full)))
     for field_schema in _properties(user).values():
@@ -285,8 +285,8 @@ def test_export_schema_user_drops_dev_and_expert_fields() -> None:
 
 
 def test_export_schema_dev_includes_user_and_dev_fields() -> None:
-    user = export_schema(profile="user")
-    dev = export_schema(profile="dev")
+    user = export_schema(HydroModPyConfig, profile="user")
+    dev = export_schema(HydroModPyConfig, profile="dev")
 
     assert set(_properties(user)).issubset(set(_properties(dev)))
     for field_schema in _properties(dev).values():
@@ -297,14 +297,14 @@ def test_export_schema_dev_includes_user_and_dev_fields() -> None:
 
 
 def test_export_schema_expert_keeps_all_fields() -> None:
-    full = export_schema()
-    expert = export_schema(profile="expert")
+    full = export_schema(HydroModPyConfig)
+    expert = export_schema(HydroModPyConfig, profile="expert")
     assert set(_properties(full)) == set(_properties(expert))
 
 
 def test_export_schema_unknown_profile_raises() -> None:
     with pytest.raises(ValueError, match="unknown profile"):
-        export_schema(profile="nope")
+        export_schema(HydroModPyConfig, profile="nope")
 
 
 def test_merge_replaces_lists_by_default() -> None:
@@ -427,10 +427,12 @@ def test_a_taught_key_is_a_user_key(model, name) -> None:
 
 
 def test_the_user_template_now_shows_the_structured_layers() -> None:
-    text = generate_toml(modules=["domain"], profile="user")
+    text = generate_toml(modules=["domain"], profile="user", root=HydroModPyConfig)
     assert "[domain.layers]" in text
     assert "lay_proportions" in text
-    assert "mf6_newton" not in generate_toml(modules=["solver"], profile="user")
+    assert "mf6_newton" not in generate_toml(
+        modules=["solver"], profile="user", root=HydroModPyConfig
+    )
 
 
 def test_a_switch_condition_is_declared_with_a_boolean() -> None:

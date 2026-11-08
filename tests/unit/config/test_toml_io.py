@@ -10,6 +10,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 import hydromodpy.config
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.registry import (
     _section_shape,
@@ -78,7 +79,7 @@ def test_dumps_serializes_datetimes_and_inline_tables() -> None:
 
 @pytest.fixture(scope="module")
 def calibration_template() -> str:
-    return generate_toml(modules=["calibration"])
+    return generate_toml(modules=["calibration"], root=HydroModPyConfig)
 
 
 def test_the_mapping_of_parameters_shows_one_entry(calibration_template: str) -> None:
@@ -111,7 +112,7 @@ def test_the_staged_table_stays_commented_out(calibration_template: str) -> None
 
 def test_the_whole_template_stays_parseable() -> None:
     # Every skeleton is commented, so adding them must not cost validity.
-    parsed = tomllib.loads(generate_toml())
+    parsed = tomllib.loads(generate_toml(root=HydroModPyConfig))
 
     assert "workflow" in parsed
 
@@ -139,9 +140,9 @@ class _Probe(BaseModel):
 
 
 def test_a_factory_key_carries_its_value_and_a_required_key_stays_commented(monkeypatch) -> None:
-    monkeypatch.setattr(generator, "root_sections", lambda: {"probe": _Probe})
+    monkeypatch.setattr(generator, "root_sections", lambda _root=None: {"probe": _Probe})
 
-    text = generate_toml(modules=["probe"], profile="user")
+    text = generate_toml(modules=["probe"], profile="user", root=HydroModPyConfig)
 
     assert 'kinds = ["road", "bridge"]' in text
     assert "kinds = []" not in text
@@ -154,7 +155,9 @@ def test_a_factory_key_carries_its_value_and_a_required_key_stays_commented(monk
 def test_the_crossings_section_of_the_template_is_valid_as_written() -> None:
     from hydromodpy.catchment.preprocess.crossings_config import CrossingNotchConfig
 
-    section = tomllib.loads(generate_toml(modules=["geographic"], profile="user"))["geographic"]
+    section = tomllib.loads(
+        generate_toml(modules=["geographic"], profile="user", root=HydroModPyConfig)
+    )["geographic"]
 
     assert section["crossings"]["kinds"] == ["road", "railway", "bridge"]
     CrossingNotchConfig.model_validate(section["crossings"])
@@ -254,14 +257,14 @@ def test_section_shape_leaves_scalars_and_records_alone() -> None:
 
 
 def test_export_is_a_repeated_root_section() -> None:
-    assert root_sections()["export"] is ExportRequest
-    assert "export" in repeated_root_sections()
-    assert "export" not in root_scalar_fields()
-    assert "display" not in repeated_root_sections()
+    assert root_sections(HydroModPyConfig)["export"] is ExportRequest
+    assert "export" in repeated_root_sections(HydroModPyConfig)
+    assert "export" not in root_scalar_fields(HydroModPyConfig)
+    assert "display" not in repeated_root_sections(HydroModPyConfig)
 
 
 def test_the_template_shows_one_commented_export_block() -> None:
-    text = generate_toml(modules=["export"], profile="user")
+    text = generate_toml(modules=["export"], profile="user", root=HydroModPyConfig)
 
     assert "export = []" not in text
     assert "REQUIRED\nexport" not in text
@@ -273,7 +276,7 @@ def test_the_template_shows_one_commented_export_block() -> None:
 
 
 def test_the_full_template_parses_and_carries_no_export() -> None:
-    text = generate_toml(profile="user")
+    text = generate_toml(profile="user", root=HydroModPyConfig)
 
     assert "# [[export]]" in text
     assert "export" not in tomllib.loads(text)
@@ -281,7 +284,9 @@ def test_the_full_template_parses_and_carries_no_export() -> None:
 
 def test_the_template_writes_each_given_export_as_a_block() -> None:
     requests = [{"variables": ["head"], "time": ["last"]}, {"variables": "discharge"}]
-    text = generate_toml(modules=["export"], profile="user", overrides={"export": requests})
+    text = generate_toml(
+        modules=["export"], profile="user", overrides={"export": requests}, root=HydroModPyConfig
+    )
 
     assert text.count("\n[[export]]\n") == 2
     parsed = tomllib.loads(text)
@@ -294,7 +299,9 @@ def test_a_config_written_from_instances_keeps_its_exports() -> None:
     requests = load_export_requests(
         [{"variables": ["head"], "time": ["last"], "format": "netcdf"}, {"variables": "all"}]
     )
-    text = generate_toml_from_instances({"export": requests}, exclude_none=True)
+    text = generate_toml_from_instances(
+        {"export": requests}, exclude_none=True, root=HydroModPyConfig
+    )
 
     parsed = tomllib.loads(text)
     reloaded = load_export_requests(parsed["export"])
@@ -302,7 +309,7 @@ def test_a_config_written_from_instances_keeps_its_exports() -> None:
 
 
 def test_a_config_written_from_instances_without_exports_has_no_block() -> None:
-    text = generate_toml_from_instances({"export": []})
+    text = generate_toml_from_instances({"export": []}, root=HydroModPyConfig)
 
     assert "[[export]]" not in text
 
@@ -310,7 +317,7 @@ def test_a_config_written_from_instances_without_exports_has_no_block() -> None:
 def test_config_meta_marks_export_as_repeated() -> None:
     from hydromodpy.schema.config_schema import build_config_meta
 
-    sections = {entry["name"]: entry for entry in build_config_meta()["sections"]}
+    sections = {entry["name"]: entry for entry in build_config_meta(HydroModPyConfig)["sections"]}
 
     assert sections["export"]["repeated"] is True
     assert sections["export"]["ref"] == "#/$defs/ExportRequest"

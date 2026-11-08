@@ -15,9 +15,6 @@ Catalog.diff	method	(self, ref_a: str, ref_b: str, *, project: str | None = None
 Catalog.fields_path_for	method	(self, sim_id: str | UUID) -> Path
 Catalog.find	method	(self, *, mixed_windows: bool = False, **filters) -> RunSet
 Catalog.frame	property	
-Catalog.from_dict	classmethod	(payload: dict) -> Catalog
-Catalog.from_json	classmethod	(payload: str | bytes) -> Catalog
-Catalog.from_toml	classmethod	(toml_path: str | Path) -> Catalog
 Catalog.from_workspace	classmethod	(workspace: object) -> Catalog
 Catalog.get_provenance	method	(self, sim_id: str | UUID, variable: str | None = None) -> pd.DataFrame
 Catalog.latest	method	(self, project: str | None = None, *, site: str | None = None) -> Run
@@ -34,6 +31,7 @@ Catalog.query_mass_balance	method	(self, sim_id: str | UUID) -> pd.DataFrame
 Catalog.query_timeseries	method	(self, sim_id: str | UUID, station_id: str, variable: str, period: tuple | None = None, *, source: str = 'simulated') -> pd.Series
 Catalog.rank	method	(self, project: str, metric: str = 'nse', *, ascending: bool | None = None, n: int = 1, best_first: bool = True, site: str | None = None, mixed_windows: bool = False) -> RunSet
 Catalog.read	method	(self, ref: str, variable: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
+Catalog.read_config	property	Callable[[Mapping[str, Any]], BaseModel] | None
 Catalog.read_geographic_feature	method	(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame
 Catalog.read_geographic_metadata	method	(self, sim_id: str | UUID) -> dict[str, str]
 Catalog.rel_dir_of	method	(self, sim_id: str | UUID) -> str

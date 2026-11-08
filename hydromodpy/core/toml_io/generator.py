@@ -10,19 +10,23 @@ Usage::
 
     from hydromodpy.core.toml_io.generator import generate_toml
 
-    print(generate_toml(modules=["geographic"], profile="user"))
+    print(
+        generate_toml(modules=["geographic"], profile="user", root=HydroModPyConfig)
+    )
 
     from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 
     generate_toml_from_instances(
         {"hydrometry": cfg_h, "piezometry": cfg_p},
         output_path="config.toml",
+        root=HydroModPyConfig,
     )
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from collections.abc import Mapping as _abc_Mapping
 from pathlib import Path
 
@@ -39,9 +43,7 @@ from hydromodpy.core.config_kit.registry import (
     root_scalar_fields,
     root_sections,
 )
-from hydromodpy.core.toml_io.dynamic_examples_protocol import (
-    get_dynamic_flow_examples_provider,
-)
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.toml_io.model_types import restore_variant_tags
 from hydromodpy.core.toml_io.render import (
     UNDEFINED,
@@ -53,9 +55,9 @@ from hydromodpy.core.toml_io.render import (
 from hydromodpy.core.toml_io.section import repeated_root_section, section
 
 
-def available_modules() -> list[str]:
+def available_modules(root: type[BaseModel] | RootConfig) -> list[str]:
     """Return the list of registered config module names."""
-    return list(root_sections().keys())
+    return list(root_sections(root).keys())
 
 
 def generate_toml(
@@ -63,6 +65,9 @@ def generate_toml(
     modules: list[str] | None = None,
     profile: str = "expert",
     overrides: dict[str, dict] | None = None,
+    *,
+    root: type[BaseModel] | RootConfig,
+    flow_examples: Callable[[int, Callable[..., list[str]]], list[str]] | None = None,
 ) -> str:
     """Generate a commented TOML template filtered by modules and profile.
 
@@ -81,6 +86,12 @@ def generate_toml(
         Fields present in overrides with a non-None value are written
         uncommented; fields set to None follow the default commented-out
         behavior for optional fields.
+    root : model class or RootConfig
+        The root configuration the template enumerates the sections of.
+    flow_examples : callable or None
+        ``(threshold, section_renderer) -> lines`` that renders the example
+        blocks of the dynamic ``[flow.*]`` tables. Without it, the template
+        has no such block.
 
     Returns
     -------
@@ -89,7 +100,7 @@ def generate_toml(
     """
     threshold = resolve_profile(profile)
 
-    registry = root_sections()
+    registry = root_sections(root)
 
     if modules is None:
         selected = dict(registry)
@@ -102,7 +113,7 @@ def generate_toml(
             )
         selected = {k: registry[k] for k in modules}
 
-    scalar_fields = root_scalar_fields()
+    scalar_fields = root_scalar_fields(root)
     selected_root_names = [
         name
         for name, field_info in scalar_fields.items()
@@ -112,17 +123,19 @@ def generate_toml(
     lines = _header(profile, [*selected_root_names, *list(selected.keys())])
     lines.extend(_root_scalars(scalar_fields, threshold))
 
-    repeated = repeated_root_sections()
+    repeated = repeated_root_sections(root)
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
         if section_name in repeated:
             lines.extend(
-                repeated_root_section(section_name, model_cls, threshold, values=section_values)
+                repeated_root_section(
+                    section_name, model_cls, threshold, values=section_values, root=root
+                )
             )
             continue
         lines.extend(section(section_name, model_cls, threshold, values=section_values))
-        if section_name == "flow":
-            lines.extend(_flow_dynamic_examples(threshold))
+        if section_name == "flow" and flow_examples is not None:
+            lines.extend(flow_examples(threshold, section))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -138,6 +151,7 @@ def generate_toml_from_instances(
     exclude_defaults: bool = False,
     exclude_none: bool = False,
     comment: str | None = None,
+    root: type[BaseModel] | RootConfig,
 ) -> str:
     """Generate a fully-filled TOML from instantiated Pydantic models.
 
@@ -163,6 +177,9 @@ def generate_toml_from_instances(
         Omit fields whose value is ``None``.
     comment : str or None
         Optional header comment (may be multi-line).
+    root : model class or RootConfig
+        The root configuration a repeated section reads its field description
+        from.
 
     Returns
     -------
@@ -196,7 +213,12 @@ def generate_toml_from_instances(
                 ]
                 lines.extend(
                     repeated_root_section(
-                        section_name, type(model[0]), threshold, entries, from_instance=True
+                        section_name,
+                        type(model[0]),
+                        threshold,
+                        entries,
+                        from_instance=True,
+                        root=root,
                     )
                 )
             continue
@@ -274,21 +296,8 @@ def _header(profile: str, modules: list[str]) -> list[str]:
 
 
 # --------------------------------------------------------------------------
-# Dynamic flow examples (parameters / BC / sinks-sources)
+# Header and root scalars
 # --------------------------------------------------------------------------
-
-
-def _flow_dynamic_examples(threshold: int) -> list[str]:
-    """Emit commented template blocks for the dynamic [flow.param.<id>.*],
-    [flow.bc.<type>.<id>] and [flow.sinks_sources.recharge] payloads.
-
-    Delegates to the provider installed by :mod:`hydromodpy._bootstrap`,
-    so this module stays in the ``core`` leaf layer.
-    """
-    provider = get_dynamic_flow_examples_provider()
-    if provider is None:
-        return []
-    return provider.render(threshold, section)
 
 
 def _root_scalars(

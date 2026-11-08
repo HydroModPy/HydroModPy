@@ -15,6 +15,7 @@ import csv
 import re
 from pathlib import Path
 
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.payload.index import PayloadStation
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -50,7 +51,7 @@ def authored_configs(project_dir: Path) -> list[Path]:
 
 
 def project_data(
-    project_dir: Path, data_root: Path
+    project_dir: Path, data_root: Path, *, root: RootConfig | None
 ) -> tuple[list[Path], tuple[PayloadStation, ...]]:
     """Resolve every data file and station row the project's authored TOMLs reference.
 
@@ -59,12 +60,13 @@ def project_data(
     its parent declared, exactly as it does at run time. The union over all of
     them and not just over one entry point: every step file and run variant
     travels with the project, so each one has to find its inputs. A path that
-    names a file of the project is returned as it is.
+    names a file of the project is returned as it is. The caller passes the
+    ``RootConfig`` it holds, or ``None`` to read a file the way it is written.
     """
     found: set[Path] = set()
     stations: dict[tuple[str, str], PayloadStation] = {}
     for config in authored_configs(project_dir):
-        document = load_toml_with_base_config(config)
+        document = load_toml_with_base_config(config, root=root)
         found.update(_references(document, data_root, config))
         for station in _station_rows(document, data_root, config):
             stations[(station.dest, station.id)] = station

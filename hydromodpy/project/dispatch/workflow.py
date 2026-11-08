@@ -112,6 +112,11 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
     summarized as a mapping, because every caller of this dispatcher expects one.
     """
     from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    # preflight_launch reads the trial pipeline outside its try: a calibration
+    # that enters here without a pipeline must refuse, naming the fill.
+    fill_trial_pipeline()
 
     target = Path(config_path).expanduser().resolve()
     # A caller naming a phase gets the reading that raises: answering "declares

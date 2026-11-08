@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-import hydromodpy
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from tests.regression.mesh.mesh_net.mesh_net_helpers import (
     ABS_FLOOR,
     GEOMETRY_REL_BY_METRIC,
@@ -29,7 +29,7 @@ from tests.regression.mesh.mesh_net.mesh_net_helpers import (
     write_golden,
 )
 
-hydromodpy.bootstrap()
+fill_trial_pipeline()
 
 pytestmark = [pytest.mark.regression, pytest.mark.fast]
 

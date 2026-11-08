@@ -55,7 +55,13 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
     out = tmp_path / "schema.json"
     calls: dict[str, object] = {}
 
-    def fake_write_schema(path: str, *, section: str | None, profile: str | None) -> Path:
+    def fake_write_schema(
+        path: str,
+        model_cls: object = None,
+        *,
+        section: str | None = None,
+        profile: str | None = None,
+    ) -> Path:
         calls["write_schema"] = {"path": path, "section": section, "profile": profile}
         out.write_text("{}", encoding="utf-8")
         return out
@@ -87,7 +93,7 @@ def test_config_schema_editor_writes_the_published_editor_schema(monkeypatch, tm
     out = tmp_path / "editor.json"
     monkeypatch.setattr(
         "hydromodpy.schema.config_schema.editor_schema",
-        lambda: {"$comment": "editor", "properties": {"base_config": {}}},
+        lambda _model_cls=None: {"$comment": "editor", "properties": {"base_config": {}}},
     )
 
     result = CliRunner().invoke(["config", "schema", "--editor", "--to", str(out)])
@@ -117,7 +123,7 @@ def test_config_template_list_modules_prints_modules_without_generating(
 
     monkeypatch.setattr(
         "hydromodpy.core.toml_io.generator.available_modules",
-        lambda: ["workspace", "flow"],
+        lambda _root=None: ["workspace", "flow"],
     )
     monkeypatch.setattr("hydromodpy.core.toml_io.generator.generate_toml", fake_generate_toml)
 
@@ -290,12 +296,13 @@ def test_config_validate_field_ends_in_the_usage_refusal() -> None:
 
 def test_the_validate_field_example_names_a_field_that_validates() -> None:
     """The example of the help is a real one: a registered name is valid, an absent one is not."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.schema import validate_field
 
     result = CliRunner().invoke(["config", "validate-field", "--help"])
 
     assert "hmp config validate-field solver.backend modflow6" in result.stdout
-    assert validate_field("solver.backend", "modflow6").valid
-    absent = validate_field("solver.backend", "nope")
+    assert validate_field("solver.backend", "modflow6", root=ROOT_CONFIG).valid
+    absent = validate_field("solver.backend", "nope", root=ROOT_CONFIG)
     assert not absent.valid
     assert "this installation serves" in str(absent.error)

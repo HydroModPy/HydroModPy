@@ -50,6 +50,7 @@ from hydromodpy.calibration.runners.session_scope import _protocol_of_session
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from tests.unit.calibration._factories_scoring import make_document
@@ -757,7 +758,8 @@ def test_stage_one_collapses_the_record_into_one_steady_period(
     # The protocol writes the regime; the paths are what the trials run with.
     assert calibration__reference_replication.phases[0].regime == "steady"
     assert phase_overrides(
-        calibration__reference_replication.phases[0], load_toml_with_base_config(REFERENCE)
+        calibration__reference_replication.phases[0],
+        load_toml_with_base_config(REFERENCE, root=ROOT_CONFIG),
     ) == {
         "flow.flow_regime": "steady",
         "simulation.time.start_datetime": "1995-01-01",

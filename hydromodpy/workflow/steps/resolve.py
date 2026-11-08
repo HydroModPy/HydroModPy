@@ -78,7 +78,9 @@ class ResolveStep:
 
             raw_toml = state.get("raw_toml")
             if raw_toml is None:
-                raw_toml = load_toml_with_base_config(config_path)
+                from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+                raw_toml = load_toml_with_base_config(config_path, root=ROOT_CONFIG)
 
             ctx = WorkflowContext(cfg=cfg, config_path=config_path, raw_toml=raw_toml)
         else:

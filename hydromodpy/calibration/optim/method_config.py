@@ -1,4 +1,4 @@
-"""Discriminated union for the calibration method and its options.
+"""Option models for calibration methods.
 
 A file writes ``method: str`` beside a free-form ``method_options`` table
 (``optimizer_kwargs`` before it was renamed). Mismatches between the two used to
@@ -6,27 +6,19 @@ surface at runtime only, in the depths of an optimizer adapter, and made TOML
 authoring fragile (``method = "cma_es"`` with ``method_options = {"n_trials": 50}``
 validated and crashed later).
 
-This module exposes one ``BaseModel`` per registered optimizer and a
-``CalibrationMethodConfig`` discriminated union keyed by ``method``. A
-helper :func:`validate_method_kwargs` converts the
-``(method, method_options)`` pair into a typed config so callers detect
-unknown keys eagerly, and :func:`method_options_problem` says in one sentence
-what an engine refuses, for a load-time refusal or a preflight finding.
-
-Adding a new optimizer requires three steps:
-
-1. Register the adapter via ``@register_optimizer("name")``.
-2. Declare a config class here with ``method: Literal["name"]`` and one
-   field per accepted constructor kwarg.
-3. List the new class in ``CalibrationMethodConfig``.
+This module exposes one ``BaseModel`` per registered optimizer that declares
+options. Each adapter carries its option model on its ``options`` attribute. A
+helper :func:`validate_method_kwargs` validates the ``method_options`` against
+the adapter's model, and :func:`method_options_problem` says in one sentence what
+an engine refuses.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal, get_args
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 # All method configs forbid unknown keys so typos and method/kwarg
 # mismatches raise at validation time instead of leaking into the adapter
@@ -45,7 +37,6 @@ class GridMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["grid"] = "grid"
     points_per_dim: int | list[int] | None = Field(
         default=None,
         description="Points sampled per dimension. Scalar applies to every "
@@ -63,8 +54,6 @@ class RandomSearchMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["random_search"] = "random_search"
-
 
 class LhsMethodConfig(BaseModel):
     """One Latin hypercube design, drawn before any solve and evaluated whole.
@@ -75,7 +64,6 @@ class LhsMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["lhs"] = "lhs"
     n_samples: int = Field(gt=0, description="Points drawn in the design. Required.")
     optimization: Literal["random-cd", "lloyd"] | None = Field(
         default=None,
@@ -98,7 +86,6 @@ class ScipyDEMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["scipy_de"] = "scipy_de"
     popsize: int = Field(
         default=15,
         description="Population size, as a multiple of the number of parameters, SciPy's popsize.",
@@ -120,7 +107,6 @@ class ScipyNelderMeadMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["scipy_nelder_mead"] = "scipy_nelder_mead"
     xatol: float | None = Field(
         default=None,
         description="Width of the simplex at which it stops, in the space the search "
@@ -144,7 +130,6 @@ class CmaEsMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["cma_es"] = "cma_es"
     sigma0: float = Field(
         default=0.25,
         description="Initial step size, in the unit cube when normalize is true, "
@@ -174,7 +159,6 @@ class BisectionMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["bisection"] = "bisection"
     rel_tol: float = Field(
         default=0.01,
         gt=0.0,
@@ -215,7 +199,6 @@ class OptunaMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["optuna"] = "optuna"
     sampler: Literal["tpe", "random", "cmaes", "nsga"] = Field(
         default="tpe",
         description="Optuna sampler. 'tpe', 'random' and 'nsga' come with the base "
@@ -237,7 +220,6 @@ class GPMappingMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["gp_mapping"] = "gp_mapping"
     n_init: int = Field(
         default=10,
         description="Random points of the initial design, drawn from the sampling of each parameter.",
@@ -298,7 +280,6 @@ class DaMhGpMethodConfig(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    method: Literal["da_mh_gp"] = "da_mh_gp"
     chain_length: int = Field(
         default=200,
         description="Length of the chain, in states. The search budget max_trials "
@@ -353,25 +334,6 @@ class DaMhGpMethodConfig(BaseModel):
     )
 
 
-CalibrationMethodConfig = Annotated[
-    BisectionMethodConfig
-    | GridMethodConfig
-    | RandomSearchMethodConfig
-    | LhsMethodConfig
-    | ScipyDEMethodConfig
-    | ScipyNelderMeadMethodConfig
-    | CmaEsMethodConfig
-    | OptunaMethodConfig
-    | GPMappingMethodConfig
-    | DaMhGpMethodConfig,
-    Field(discriminator="method", description="Calibration method discriminator."),
-]
-"""Discriminated union of calibration method configs, keyed by ``method``."""
-
-
-_METHOD_CONFIG_ADAPTER: TypeAdapter[CalibrationMethodConfig] = TypeAdapter(CalibrationMethodConfig)
-
-
 _BUDGET_IS_MAX_TRIALS = "the budget of a search is [calibration] max_trials, and only that"
 
 REFUSED_OPTIONS: Mapping[str, Mapping[str, str]] = {
@@ -411,39 +373,37 @@ def refused_options_problem(method: str, method_options: Mapping[str, Any] | Non
     return f"{method!r} does not take " + "; ".join(moved) + "."
 
 
+def _options_model(method: str) -> type[BaseModel] | None:
+    """Return the options class declared by the optimizer registered as *method*, or None."""
+    from hydromodpy.calibration.optim.optimizer import optimizers
+
+    try:
+        cls = optimizers.get(str(method))
+    except Exception:
+        return None
+    options = getattr(cls, "options", None)
+    if isinstance(options, type) and issubclass(options, BaseModel):
+        return options
+    return None
+
+
 def validate_method_kwargs(
     method: str,
     method_options: Mapping[str, Any] | None,
-) -> CalibrationMethodConfig:
-    """Validate ``(method, method_options)`` against the discriminated union.
+) -> BaseModel | None:
+    """Validate ``(method, method_options)`` against the adapter's options model.
 
-    Raises :class:`pydantic.ValidationError` when ``method`` is unknown or
-    when ``method_options`` carries keys foreign to that optimizer, and
-    :class:`ValueError` naming where the number goes when a key moved to
-    ``max_trials`` or ``chain_length``.
+    Raises :class:`pydantic.ValidationError` when ``method_options`` carries
+    keys foreign to that optimizer, and :class:`ValueError` naming where the
+    number goes when a key moved to ``max_trials`` or ``chain_length``.
     """
     refused = refused_options_problem(method, method_options)
     if refused is not None:
         raise ValueError(refused)
-    payload: dict[str, Any] = {"method": method}
-    if method_options:
-        payload.update(method_options)
-    return _METHOD_CONFIG_ADAPTER.validate_python(payload)
-
-
-_MODELS_BY_METHOD: dict[str, type[BaseModel]] = {
-    member.model_fields["method"].default: member
-    for member in get_args(get_args(CalibrationMethodConfig)[0])
-}
-
-
-def typed_methods() -> frozenset[str]:
-    """Return the methods this module carries a model for.
-
-    An engine registered by a plugin may have none. Its options are then left to
-    its own constructor, which is the only one that knows them.
-    """
-    return frozenset(_MODELS_BY_METHOD)
+    model = _options_model(method)
+    if model is None:
+        return None
+    return model.model_validate(method_options or {})
 
 
 def method_options_problem(method: str, method_options: Mapping[str, Any] | None) -> str | None:
@@ -453,7 +413,7 @@ def method_options_problem(method: str, method_options: Mapping[str, Any] | None
     does, so the reader can fix the file without opening this module. ``None``
     too for a method this module has no model for.
     """
-    model = _MODELS_BY_METHOD.get(str(method))
+    model = _options_model(str(method))
     if model is None:
         return None
     refused = refused_options_problem(str(method), method_options)
@@ -470,7 +430,7 @@ def method_options_problem(method: str, method_options: Mapping[str, Any] | None
             for error in exc.errors()
             if error["type"] != "extra_forbidden" and error["loc"]
         ]
-        accepted = sorted(name for name in model.model_fields if name != "method")
+        accepted = sorted(model.model_fields.keys())
         parts: list[str] = []
         if unknown:
             known = ", ".join(accepted) if accepted else "none"
@@ -490,12 +450,15 @@ def method_options_are_its_defaults(method: str, method_options: Mapping[str, An
     nothing. ``False`` for a method this module has no model for, and for
     options it refuses: nothing to compare them with.
     """
-    model = _MODELS_BY_METHOD.get(str(method))
+    model = _options_model(str(method))
     if model is None:
         return False
     try:
-        written = validate_method_kwargs(str(method), method_options).model_dump()
-    except ValidationError:
+        validated = validate_method_kwargs(str(method), method_options)
+        if validated is None:
+            return False
+        written = validated.model_dump()
+    except (ValidationError, ValueError):
         return False
     return written == model().model_dump()
 
@@ -511,7 +474,7 @@ def default_relative_precision(method: str, method_options: Mapping[str, Any]) -
     """
     from hydromodpy.calibration.optim.optimizer import engine_traits
 
-    model = _MODELS_BY_METHOD.get(str(method))
+    model = _options_model(str(method))
     traits = engine_traits(str(method))
     option = traits.precision_option
     if model is None or option is None or traits.precision_reads != "relative_value":
@@ -524,20 +487,19 @@ def default_relative_precision(method: str, method_options: Mapping[str, Any]) -
 
 __all__ = [
     "BisectionMethodConfig",
+    "CmaEsMethodConfig",
+    "DaMhGpMethodConfig",
+    "GPMappingMethodConfig",
     "GridMethodConfig",
+    "LhsMethodConfig",
+    "OptunaMethodConfig",
     "RandomSearchMethodConfig",
+    "REFUSED_OPTIONS",
     "ScipyDEMethodConfig",
     "ScipyNelderMeadMethodConfig",
-    "CmaEsMethodConfig",
-    "OptunaMethodConfig",
-    "GPMappingMethodConfig",
-    "DaMhGpMethodConfig",
-    "CalibrationMethodConfig",
-    "REFUSED_OPTIONS",
     "default_relative_precision",
     "method_options_are_its_defaults",
     "method_options_problem",
     "refused_options_problem",
-    "typed_methods",
     "validate_method_kwargs",
 ]

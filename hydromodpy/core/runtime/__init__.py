@@ -1,1 +1,1 @@
-"""The running process: environment variables, signal handling and the lazy bootstrap trigger."""
+"""The running process: environment variables and signal handling."""

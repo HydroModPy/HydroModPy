@@ -30,6 +30,7 @@ from hydromodpy.config.config_migration import (
     moved_paths,
     rewrite_dotted_path,
 )
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import read_toml_chain
@@ -611,7 +612,7 @@ def test_a_project_file_reads_its_bind_lines_under_the_new_name(tmp_path: Path) 
     path.write_text('[sites.bind]\n"mesh.size_before" = "size"\n', encoding="utf-8")
 
     with pytest.warns(ConfigKeyRenamedWarning):
-        chain = read_toml_chain(path)
+        chain = read_toml_chain(path, root=ROOT_CONFIG)
 
     assert chain[-1].own == {"sites": {"bind": {"mesh.cell_size": "size"}}}
 

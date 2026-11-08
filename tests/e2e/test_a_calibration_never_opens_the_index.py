@@ -118,9 +118,9 @@ _CELL = (0, 0, 3)
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    import hydromodpy
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
-    hydromodpy.bootstrap()
+    fill_trial_pipeline()
     root = tmp_path / "hillslope"
     root.mkdir()
     (root / "project.toml").write_text(_PROJECT_TOML, encoding="utf-8")

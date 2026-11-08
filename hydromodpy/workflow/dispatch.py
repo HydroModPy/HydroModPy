@@ -39,9 +39,10 @@ class WorkflowMismatchError(WorkflowError):
 
 def load_raw_toml(config_path: Path) -> dict[str, Any]:
     """Parse a TOML config file with recursive ``base_config`` inheritance."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-    return load_toml_with_base_config(config_path)
+    return load_toml_with_base_config(config_path, root=ROOT_CONFIG)
 
 
 def extract_workflow_field(raw_toml: Mapping[str, Any]) -> str | None:

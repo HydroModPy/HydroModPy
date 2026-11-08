@@ -225,9 +225,10 @@ def _sites_crs(frame: pd.DataFrame, project_root: Path) -> str | None:
     marker = project_root / PROJECT_MARKER_FILENAME
     if not marker.is_file():
         return None
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-    geographic = load_toml_with_base_config(marker).get("geographic")
+    geographic = load_toml_with_base_config(marker, root=ROOT_CONFIG).get("geographic")
     crs = geographic.get("crs_project") if isinstance(geographic, Mapping) else None
     return None if crs is None else str(crs)
 
@@ -362,11 +363,12 @@ class ProjectSessions(Mapping[str, Session]):
         return [directory.name for directory in list_session_dirs(self._root)]
 
     def __getitem__(self, name: str) -> Session:
+        from hydromodpy.project.facade import read_sealed_config
         from hydromodpy.results.catalog.registration import split_stem_version
 
         names = self._names()
         if name in names:
-            return Session(sessions_dir_for(self._root) / name)
+            return Session(sessions_dir_for(self._root) / name, read_config=read_sealed_config)
         versions = [
             (version or 1, candidate)
             for candidate in names
@@ -376,7 +378,9 @@ class ProjectSessions(Mapping[str, Session]):
         if not versions:
             held = ", ".join(names) or "none"
             raise KeyError(f"no calibration session {name!r} in {self._root}: {held}")
-        return Session(sessions_dir_for(self._root) / max(versions)[1])
+        return Session(
+            sessions_dir_for(self._root) / max(versions)[1], read_config=read_sealed_config
+        )
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._names())

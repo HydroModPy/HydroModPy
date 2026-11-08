@@ -14,7 +14,6 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-import hydromodpy
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace, set_by_path
@@ -59,7 +58,7 @@ from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.planning import step_configure_results
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests.unit.calibration._factories import Setup
-from tests.unit.calibration._factories_runners import ToyCtx, make_session
+from tests.unit.calibration._factories_runners import FakePipeline, ToyCtx, make_session
 from tests.unit.calibration.test_targets import _config
 
 # From test_a_parameter_must_reach_a_step.py
@@ -212,18 +211,6 @@ class _Step:
         return state.advance(step_index=state.step_index + 1, step_name=self.name)
 
 
-class _Provider:
-    def make_pipeline(self, steps, *, run_dir=None):
-        return Pipeline(steps, run_dir=run_dir)
-
-    def make_state(self, run_id, data):
-        return PipelineState(run_id=run_id, data=dict(data))
-
-    def with_solver_launcher(self, steps, launcher):
-        del launcher
-        return tuple(steps)
-
-
 def _claim(state: PipelineState) -> None:
     ctx = state.get("ctx")
     run_dir = state.get("run_dir")
@@ -256,8 +243,8 @@ def _trial_ctx(tmp_path: Path, steps) -> TrialContext:
 
 
 @pytest.fixture()
-def _provider(monkeypatch) -> None:
-    monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider)
+def _pipeline(monkeypatch) -> None:
+    monkeypatch.setattr(trial_module, "_PIPELINE", FakePipeline())
 
 
 def _run_dir(tmp_path: Path) -> Path:
@@ -266,7 +253,7 @@ def _run_dir(tmp_path: Path) -> Path:
     return run_dir
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_a_sealed_promotion_is_completed_and_keeps_no_attempt_state(tmp_path) -> None:
     run_dir = _run_dir(tmp_path)
     trial_ctx = _trial_ctx(tmp_path, [_Step("prepare_solver", _claim), _Step("export", _seal)])
@@ -280,7 +267,7 @@ def test_a_sealed_promotion_is_completed_and_keeps_no_attempt_state(tmp_path) ->
     assert not (run_dir / INTERNAL_DIRNAME).exists()
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_a_promotion_that_raises_is_failed_and_says_why(tmp_path) -> None:
     run_dir = _run_dir(tmp_path)
 
@@ -301,7 +288,7 @@ def test_a_promotion_that_raises_is_failed_and_says_why(tmp_path) -> None:
     assert not (run_dir / RUN_MANIFEST_FILENAME).exists()
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_an_interrupted_promotion_is_aborted(tmp_path) -> None:
     run_dir = _run_dir(tmp_path)
 
@@ -320,7 +307,7 @@ def test_an_interrupted_promotion_is_aborted(tmp_path) -> None:
     assert outcome.status == "aborted"
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_the_facts_of_the_session_travel_in_the_state_of_the_run(tmp_path) -> None:
     run_dir = _run_dir(tmp_path)
     seen: list[Any] = []
@@ -384,21 +371,6 @@ class _Ctx__saved_trial:
     budget_terms: BudgetKeep | None = None
 
 
-class _Provider__saved_trial:
-    def make_pipeline(self, steps, *, run_dir=None):
-        return Pipeline(steps, run_dir=run_dir)
-
-    def make_state(self, run_id, data):
-        return PipelineState(run_id=run_id, data=dict(data))
-
-    def with_solver_launcher(self, steps, launcher):
-        del launcher
-        return tuple(steps)
-
-    def apply_structural_updates_from_data(self, ctx) -> None:
-        del ctx
-
-
 @pytest.fixture
 def session(tmp_path: Path, monkeypatch):
     """A trial context and the budget each promoted run decided to keep."""
@@ -427,7 +399,7 @@ def session(tmp_path: Path, monkeypatch):
         flags[label] = ctx.cfg.simulation.results.keep_per_cell_budget
         ctx.sim_id = ctx.reserved_sim_id
 
-    monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider__saved_trial)
+    monkeypatch.setattr(trial_module, "_PIPELINE", FakePipeline())
     cfg = _Cfg__saved_trial()
     ctx = _Ctx__saved_trial(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={})
     trial_ctx = TrialContext(
@@ -1249,7 +1221,7 @@ def test_a_calibrated_factor_reaches_the_fork_the_frozen_file_and_the_replay(tmp
     assert _phase_samples_the_recharge(base)
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_a_promotion_that_takes_another_id_than_the_reserved_one_is_refused(tmp_path) -> None:
     def _other_id(state: PipelineState) -> None:
         state.get("ctx").sim_id = "b" * 32
@@ -1260,7 +1232,7 @@ def test_a_promotion_that_takes_another_id_than_the_reserved_one_is_refused(tmp_
         promote_prepared_trial(trial_ctx, {"K": 2.0}, name="calage", sim_id="a" * 32)
 
 
-@pytest.mark.usefixtures("_provider")
+@pytest.mark.usefixtures("_pipeline")
 def test_an_attempt_that_cannot_be_closed_still_raises_the_error_of_the_pipeline(
     tmp_path, monkeypatch, caplog
 ) -> None:

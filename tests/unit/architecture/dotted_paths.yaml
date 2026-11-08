@@ -9,6 +9,7 @@ not_modules:
   groups:
     - hydromodpy.calibration.evaluator
     - hydromodpy.calibration.forward_model
+    - hydromodpy.calibration.optimizer
     - hydromodpy.export.format
     - hydromodpy.mesh.engine
     - hydromodpy.solver.extractor

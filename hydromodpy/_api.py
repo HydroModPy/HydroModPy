@@ -122,7 +122,7 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     )
     from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.project.accessors import Workspace
-    from hydromodpy.project.facade import open_project
+    from hydromodpy.project.facade import open_project, read_sealed_config
     from hydromodpy.results.run.view import open_run_dir
     from hydromodpy.results.session.descriptor import session_descriptor_path
     from hydromodpy.results.session.view import Session
@@ -134,13 +134,13 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     if target.is_dir():
         # A session carries an outcome.json of its own, so it is told first.
         if session_descriptor_path(target).is_file():
-            return Session(target)
+            return Session(target, read_config=read_sealed_config)
         holds_a_run = any(
             (target / name).is_file() for name in (RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME)
         )
         if holds_a_run:
             # A run copied out of its project reads from its own seal and files.
-            return open_run_dir(target)
+            return open_run_dir(target, read_config=read_sealed_config)
         if not (target / PROJECT_MARKER_FILENAME).is_file() and is_workspace_root(target):
             return Workspace(target)
     root = resolve_project_root(target.parent if target.is_file() else target)
@@ -615,6 +615,11 @@ def calibration_phases(
     """
     from hydromodpy.calibration.runners.staged_runner import phase_summaries
     from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    # A calibration reads its files through the trial pipeline, the one global
+    # the library keeps. Fill it before anything here reads a file.
+    fill_trial_pipeline()
 
     if not isinstance(config, (str, Path)):
         section = getattr(config, "calibration", None)
@@ -689,11 +694,12 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     import tomllib
 
     from hydromodpy.calibration.protocols import expand_calibration_protocol, get_protocol
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     try:
-        raw = load_toml_with_base_config(target)
+        raw = load_toml_with_base_config(target, root=ROOT_CONFIG)
     except Exception as exc:
         raise ConfigError(f"{target} cannot be read: {exc}") from exc
     calibration = raw.get("calibration")

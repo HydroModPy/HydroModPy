@@ -128,9 +128,9 @@ def _dispatch(argv: list[str] | None) -> None:
     args.workspace = getattr(args, "workspace", None) or getattr(args, WORKSPACE_ROOT_DEST)
 
     from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
-    from hydromodpy.core.runtime.bootstrap_hook import ensure_bootstrapped
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
-    ensure_bootstrapped()
+    fill_trial_pipeline()
     bootstrap_proj()
     with stdout_for_a_program(args):
         try:

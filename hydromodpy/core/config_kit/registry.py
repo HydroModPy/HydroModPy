@@ -1,8 +1,8 @@
 """Single source of truth for HydroModPy root TOML sections.
 
-The registry is derived from ``HydroModPyConfig.model_fields`` so callers
-that need to enumerate root sections (TOML scaffolding, JSON Schema export,
-interactive UI) stay automatically in sync with the root model.
+The registry is derived from ``root.model_fields`` so callers that need to
+enumerate root sections (TOML scaffolding, JSON Schema export, interactive UI)
+stay automatically in sync with the root model.
 """
 
 from __future__ import annotations
@@ -13,11 +13,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import is_model, is_union_origin
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-
-_CACHE: dict[str, type[BaseModel]] | None = None
-_REPEATED_CACHE: frozenset[str] | None = None
-_SCALAR_CACHE: dict[str, FieldInfo] | None = None
+from hydromodpy.core.config_kit.root import RootConfig, model_of
 
 
 def _sequence_item_model(annotation: object) -> type[BaseModel] | None:
@@ -54,55 +50,44 @@ def _resolve_basemodel(annotation: object) -> type[BaseModel] | None:
     return shape[0] if shape is not None else None
 
 
-def _scan_sections() -> tuple[dict[str, type[BaseModel]], frozenset[str]]:
-    global _CACHE, _REPEATED_CACHE
-    if _CACHE is None or _REPEATED_CACHE is None:
-        root_cls = get_root_config_provider().root_model()
-
-        result: dict[str, type[BaseModel]] = {}
-        repeated: set[str] = set()
-        for name, info in root_cls.model_fields.items():
-            shape = _section_shape(info.annotation)
-            if shape is None:
-                continue
-            result[name] = shape[0]
-            if shape[1]:
-                repeated.add(name)
-        _CACHE = result
-        _REPEATED_CACHE = frozenset(repeated)
-    return _CACHE, _REPEATED_CACHE
-
-
-def root_sections() -> dict[str, type[BaseModel]]:
+def root_sections(root: type[BaseModel] | RootConfig) -> dict[str, type[BaseModel]]:
     """Return the map of root TOML section names to Pydantic model classes.
 
-    Iterates ``HydroModPyConfig.model_fields`` in declaration order and
-    keeps only fields whose annotation resolves to a ``BaseModel`` subclass
-    (scalars such as the ``workflow`` literal are skipped). A repeated
-    section such as ``[[export]]`` maps to the model of one entry; see
-    :func:`repeated_root_sections`. Returns a fresh dict on each call so
-    callers can safely mutate it.
+    Iterates ``root.model_fields`` in declaration order and keeps only fields
+    whose annotation resolves to a ``BaseModel`` subclass (scalars such as the
+    ``workflow`` literal are skipped). A repeated section such as ``[[export]]``
+    maps to the model of one entry; see :func:`repeated_root_sections`.
+    Returns a fresh dict on each call so callers can safely mutate it.
     """
-    return dict(_scan_sections()[0])
+    root_cls = model_of(root)
+    result: dict[str, type[BaseModel]] = {}
+    for name, info in root_cls.model_fields.items():
+        shape = _section_shape(info.annotation)
+        if shape is None:
+            continue
+        result[name] = shape[0]
+    return result
 
 
-def repeated_root_sections() -> frozenset[str]:
+def repeated_root_sections(root: type[BaseModel] | RootConfig) -> frozenset[str]:
     """Return the root sections written as an array of tables (``[[name]]``)."""
-    return _scan_sections()[1]
+    root_cls = model_of(root)
+    repeated: set[str] = set()
+    for name, info in root_cls.model_fields.items():
+        shape = _section_shape(info.annotation)
+        if shape is not None and shape[1]:
+            repeated.add(name)
+    return frozenset(repeated)
 
 
-def root_scalar_fields() -> dict[str, FieldInfo]:
+def root_scalar_fields(root: type[BaseModel] | RootConfig) -> dict[str, FieldInfo]:
     """Return root fields that are TOML scalars rather than sections."""
-    global _SCALAR_CACHE
-    if _SCALAR_CACHE is None:
-        root_cls = get_root_config_provider().root_model()
-
-        result: dict[str, FieldInfo] = {}
-        for name, info in root_cls.model_fields.items():
-            if _resolve_basemodel(info.annotation) is None:
-                result[name] = info
-        _SCALAR_CACHE = result
-    return dict(_SCALAR_CACHE)
+    root_cls = model_of(root)
+    result: dict[str, FieldInfo] = {}
+    for name, info in root_cls.model_fields.items():
+        if _resolve_basemodel(info.annotation) is None:
+            result[name] = info
+    return result
 
 
 __all__ = ["repeated_root_sections", "root_scalar_fields", "root_sections"]

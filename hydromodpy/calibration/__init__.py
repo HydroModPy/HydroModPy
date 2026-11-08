@@ -30,9 +30,7 @@ from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     Optimizer,
     ParamSuggestion,
-    available_optimizers,
     build_optimizer,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
@@ -68,8 +66,6 @@ __all__ = [
     "apply_parameter_to_config",
     "ParamSuggestion",
     "EvaluationResult",
-    "available_optimizers",
     "build_optimizer",
-    "register_optimizer",
     "materialize_candidate",
 ]

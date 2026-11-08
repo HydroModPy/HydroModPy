@@ -76,7 +76,14 @@ def _two_branch_run(cell_m: float = CELL_M):
     """
     run = comparison_run(seepage_cells=[cell(4, 2), cell(0, 1)], cell_m=cell_m)
     run.dir = sealed_search(
-        {"outputs": {"streams": {"support": "network", "observed_rasterization": "crossing"}}}
+        {
+            "outputs": {
+                "streams": {
+                    "support": "network",
+                    "map": {"complete": "data.hydrography", "drawn_by": "crossing"},
+                }
+            }
+        }
     )
     return run
 

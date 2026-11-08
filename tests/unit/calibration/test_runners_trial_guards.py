@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners import contracts, trial
+from hydromodpy.calibration.runners import trial
 from hydromodpy.calibration.runners.failure_watch import (
     ConsecutiveFailureWatch,
     EveryTrialFailedError,
@@ -23,6 +23,7 @@ from hydromodpy.calibration.runners.sandbox import (
     TrialSandbox,
 )
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
+from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import SlotRequest
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC
 
@@ -141,11 +142,43 @@ def test_a_model_evaluator_is_refused_a_search_that_prepared_no_model() -> None:
         PipelineTrialEvaluator(cfg=CalibrationConfig(), trial_ctx=None)
 
 
-def test_a_pipeline_provider_must_be_registered_before_it_is_asked_for(monkeypatch) -> None:
-    monkeypatch.setattr(contracts, "_provider", None)
+def test_the_pipeline_is_refused_until_project_installs_one(monkeypatch) -> None:
+    """Nothing installs the pipeline as a side effect of an import any more."""
+    monkeypatch.setattr(trial, "_PIPELINE", None)
 
-    with pytest.raises(RuntimeError, match="TrialPipelineProvider is not registered"):
-        contracts.get_trial_pipeline_provider()
+    with pytest.raises(CalibrationError, match="fill_trial_pipeline"):
+        trial.trial_pipeline()
+
+
+def test_a_second_installation_of_the_same_pipeline_is_silent(monkeypatch) -> None:
+    """Two sessions opening in two threads install an equal pipeline, and both read on."""
+    monkeypatch.setattr(trial, "_PIPELINE", None)
+    monkeypatch.setattr(trial, "_INITIALIZER", None)
+    pipeline = SimpleNamespace()
+
+    trial.install_trial_pipeline(pipeline, initializer="mod:first")
+    trial.install_trial_pipeline(pipeline, initializer="mod:second")
+
+    assert trial.trial_pipeline() is pipeline
+    assert trial.trial_pipeline_initializer() == "mod:first"
+
+
+def test_a_second_installation_of_another_pipeline_is_refused(monkeypatch) -> None:
+    """A run already reading the pipeline must never see it change (rule 15)."""
+    monkeypatch.setattr(trial, "_PIPELINE", SimpleNamespace(name="first"))
+    monkeypatch.setattr(trial, "_INITIALIZER", "mod:first")
+
+    with pytest.raises(CalibrationError, match="different TrialPipeline"):
+        trial.install_trial_pipeline(SimpleNamespace(name="second"), initializer="mod:second")
+
+
+def test_the_initializer_is_returned_as_installed(monkeypatch) -> None:
+    monkeypatch.setattr(trial, "_PIPELINE", None)
+    monkeypatch.setattr(trial, "_INITIALIZER", None)
+
+    trial.install_trial_pipeline(SimpleNamespace(), initializer="hydromodpy.mod:fill")
+
+    assert trial.trial_pipeline_initializer() == "hydromodpy.mod:fill"
 
 
 # ---------------------------------------------------------------------------

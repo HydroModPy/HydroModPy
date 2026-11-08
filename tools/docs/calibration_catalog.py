@@ -78,38 +78,36 @@ def _options(model: type) -> list[dict[str, Any]]:
 
 
 def _engine_class(name: str) -> type | None:
-    from hydromodpy.calibration.optim import optimizer
+    from hydromodpy.calibration.optim.optimizer import optimizers
+    from hydromodpy.core.exceptions import OptimizerError
 
-    optimizer._ensure_builtins_loaded()
-    engine = optimizer._BUILTIN.get(name)
+    try:
+        engine = optimizers.get(name)
+    except OptimizerError:
+        return None
     return engine if isinstance(engine, type) else None
 
 
 def methods() -> list[dict[str, Any]]:
     """One record per registered method, with its options and declared traits."""
-    from hydromodpy.calibration.optim import method_config
     from hydromodpy.calibration.optim.optimizer import (
         CHOSEN_FROM,
-        available_optimizers,
         engine_traits,
+        optimizers,
     )
     from hydromodpy.calibration.optim.stopping import UNCOUNTED_BUDGET
 
-    names = sorted(
-        name
-        for name in set(available_optimizers()) | set(method_config.typed_methods())
-        if engine_traits(name).announced
-    )
+    names = sorted(name for name in optimizers.names() if engine_traits(name).announced)
     rows = []
     for name in names:
-        model = method_config._MODELS_BY_METHOD.get(name)
+        engine = _engine_class(name)
+        model = getattr(engine, "options", None) if engine is not None else None
         paragraphs = _paragraphs(model.__doc__ if model is not None else None)
         traits = engine_traits(name)
-        engine = _engine_class(name)
         rows.append(
             {
                 "name": name,
-                "registered": name in available_optimizers(),
+                "registered": True,
                 "summary": paragraphs[0] if paragraphs else "",
                 "details": paragraphs[1:],
                 "options": _options(model) if model is not None else None,

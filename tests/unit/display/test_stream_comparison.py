@@ -174,12 +174,12 @@ SEALED = {
     "outputs": {
         "streams": {
             "support": "network",
-            "observed_network": "data.hydrography",
-            "tau_specific_ratio": 0.0,
-            "diagonal_neighbors": False,
-            "observed_rasterization": "touch",
-            "weighting": "area",
-            "observed_position_accuracy": 40.0,
+            "model": {
+                "seepage_threshold": 0.0,
+                "neighbours": "D4",
+                "weighting": "area",
+            },
+            "map": {"complete": "data.hydrography", "drawn_by": "touch", "position_accuracy": 40.0},
             "time": "first",
         }
     }

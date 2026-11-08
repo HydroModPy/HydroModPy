@@ -28,6 +28,9 @@ from hydromodpy.calibration.optim.parameters import (
     ParameterSpace,
     apply_parameter_to_config,
 )
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+fill_trial_pipeline()
 from hydromodpy.calibration.preflight import (
     PreflightFinding,
     _check_bounds_against_physics,
@@ -423,7 +426,7 @@ class TestWhatPreflightCatches:
             ),
             pytest.param(
                 '[calibration]\nmethod = "gradient_descent_by_hand"\n@KB',
-                ["not registered"],
+                ["gradient_descent_by_hand", "this installation serves"],
                 id="a_method_nobody_registered",
             ),
             pytest.param(
@@ -660,25 +663,6 @@ def _sealed(extent: dict, *, step: dict | None = None) -> SimpleNamespace:
             }
         ),
     )
-
-
-def test_the_redraw_reads_the_durations_a_run_sealed() -> None:
-    settings = network_criterion_settings(
-        _sealed({"maximal_flowing_duration": "30 d", "minimal_dry_duration": "1 month"})
-    )
-
-    assert settings.extent_rules.maximal_flowing_duration == "30 d"
-    assert settings.extent_rules.minimal_dry_duration == "1 month"
-
-
-def test_the_redraw_reads_the_counts_a_run_sealed_before_as_durations() -> None:
-    settings = network_criterion_settings(
-        _sealed({"maximal_flowing_steps": 2, "minimal_dry_steps": 1, "year_quorum": 1.0})
-    )
-
-    assert settings.extent_rules.maximal_flowing_duration == "2 months"
-    assert settings.extent_rules.minimal_dry_duration == "1 month"
-    assert settings.extent_rules.year_quorum == 1.0
 
 
 # -- the doctor --------------------------------------------------------------
@@ -2421,7 +2405,7 @@ _MONO, _PHASE_S = "[calibration]", "[[calibration.phases]] 's'"
     ("doc", "severity", "where", "said"),
     [
         ('[calibration]\nmethod = "bisection"\n' + _TWO_LOG_PARAMS, "error", _MONO, "moves 1"),
-        ('[calibration]\nmethod = "nope"\n@KB', "error", _MONO, "'nope' is not registered"),
+        ('[calibration]\nmethod = "nope"\n@KB', "error", "calib.toml", "this installation serves"),
         (
             '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
             "error",
@@ -2431,7 +2415,7 @@ _MONO, _PHASE_S = "[calibration]", "[[calibration.phases]] 's'"
         (
             '[calibration]\nmethod = "bisection"\n'
             + _TWO_LOG_PARAMS
-            + '[[calibration.phases]]\nname = "a"\nmethod = "nope"\nparameters = ["K"]\n'
+            + '[[calibration.phases]]\nname = "a"\nmethod = "grid"\nparameters = ["K"]\n'
             'objective_blocks = ["gap"]\n[[calibration.phases]]\nname = "b"\n'
             'method = "bisection"\nparameters = ["K", "Sy"]\nobjective_blocks = ["gap"]\n',
             "error",
@@ -2473,6 +2457,17 @@ def test_an_engine_refuses_the_options_of_its_own_search() -> None:
     ).model_copy(update={"method_options": {"bogus": 1}})
 
     found = [f for f in preflight._check_engines(config) if "method_options:" in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("error", "[calibration]")]
+
+
+def test_an_engine_refuses_an_unregistered_method_on_constructed_config() -> None:
+    config = CalibrationConfig.model_construct(
+        method="nope",
+        parameters={"K": {"bounds": [1e-7, 1e-3]}},
+    )
+
+    found = [f for f in preflight._check_engines(config) if "not registered" in f.detail]
 
     assert [(f.severity, f.where) for f in found] == [("error", "[calibration]")]
 

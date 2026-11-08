@@ -37,7 +37,7 @@ question, and each sub-package has its own `README.md`.
 | `contracts/` | what do two layers agree on without importing each other? Protocols, solver and cache contracts |
 | `time/` | when does a run start, stop and step? The time window, period aggregation, date-to-period selection (`time/README.md`) |
 | `io/` | how do I read, write and fetch files safely? JSON, rasters, vectors, Parquet, HTTP, DuckDB open, atomic replace |
-| `runtime/` | how does the process behave? `HMP_*` variables, SIGTERM as an interrupt, the lazy bootstrap trigger |
+| `runtime/` | how does the process behave? `HMP_*` variables, SIGTERM as an interrupt |
 | `console/` | what does a run show while it works? Live progress and its NDJSON sink |
 | `budget/` | what sign has a budget flux, and which terms does a run keep? |
 | `scoring/` | how well does a simulation match observations? Efficiency metrics, the cost margin and the numeric defaults of the stream-network criterion |
@@ -60,12 +60,12 @@ downslope distance) are in `catchment/drainage/`, the mean recharge of the strea
 allowed target, itself, and the layer test counts every import: module level, inside a function, under
 `TYPE_CHECKING`. Every other layer lists `core` among its targets.
 
-A kernel module that needs something from a higher layer takes it through a protocol defined in `core`
-and wired at bootstrap: the root config (`config_kit/root_config_protocol.py`), the dynamic flow
-examples (`toml_io/dynamic_examples_protocol.py`), the data cache backend
-(`contracts/data_cache_backend.py`) and the
-bootstrap itself (`runtime/bootstrap_hook.py`). A new sibling edge is a regression unless the YAML is
-updated with its rationale.
+A kernel module that needs something from a higher layer receives it as an argument from its caller.
+`config_kit` and `toml_io` receive the root config class as an argument of the functions that read and
+write the configuration, and the data cache surface stays the protocol of `contracts/data_cache_backend.py`.
+No kernel module reaches for a global: the bootstrap hooks are gone, and `TrialPipeline` in
+`calibration/runners` is the only provider left in the library. A new sibling edge is a regression unless
+the YAML is updated with its rationale.
 
 Keep `core` light: importing `hydromodpy.core` does not load the configuration or the data stack.
 

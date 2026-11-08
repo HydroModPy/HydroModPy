@@ -120,8 +120,8 @@ def test_forcing_bridge_averages_station_series_and_dispatches_spatial_modes(
 
     field_result = _LoadResult(fields=[object()])
     monkeypatch.setattr(
-        "hydromodpy.model.forcing.forcing_bridge.get_field_aggregator",
-        lambda: lambda _result: pd.Series([10.0], index=pd.to_datetime(["2020-01-01"])),
+        "hydromodpy.model.forcing.forcing_bridge.spatial_mean_from_fields",
+        lambda _result: pd.Series([10.0], index=pd.to_datetime(["2020-01-01"])),
     )
     assert build_forcing_series(field_result, force_homogeneous=True).tolist() == [10.0]
     assert resolve_forcing(field_result, spatial_mode="homogeneous") is not None

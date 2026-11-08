@@ -25,8 +25,16 @@ store. Only promotion creates run artifacts. A trial the session may
 promote leaves its solver folder in the run scratch
 (:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
-Workflow access goes through :func:`get_trial_pipeline_provider` so the
-calibration package never imports the workflow package directly.
+Workflow access goes through :func:`trial_pipeline` so the
+calibration package never imports the workflow or the configuration
+package directly. The :class:`TrialPipeline` protocol carries the eight
+calls a trial needs, six into the workflow layer and two loaders
+(:meth:`~TrialPipeline.load_config`, :meth:`~TrialPipeline.load_document`)
+that are the only path from calibration to a configuration file. The
+pipeline is installed once by :func:`install_trial_pipeline`, called from
+``hydromodpy.project`` only; a worker process of a parallel search receives
+the dotted path of that installer through :func:`trial_pipeline_initializer`
+and runs it itself.
 """
 
 from __future__ import annotations
@@ -38,15 +46,11 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from hydromodpy.calibration.optim.parameters import set_by_path
-from hydromodpy.calibration.runners.contracts import (
-    TrialStep,
-    get_trial_pipeline_provider,
-)
 from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
@@ -57,12 +61,16 @@ from hydromodpy.calibration.runners.kept_solves import (
 from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.console import progress
-from hydromodpy.core.exceptions import ConfigValidationError
+from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import ExecutionRegistry, SlotRequest
 from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS, PhysicalBoundsError
+from hydromodpy.model.domain.spatial_support import (
+    build_default_spatial_support_provider_registry,
+    collect_requested_support_ids,
+    resolve_support_configs,
+)
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
@@ -76,6 +84,107 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Trial pipeline contracts
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class TrialStep(Protocol):
+    """Minimal pipeline step contract used by the trial primitive."""
+
+    name: str
+
+    def run(self, state_in: Any) -> Any:
+        """Execute the step and return the next state."""
+
+
+@runtime_checkable
+class TrialPipelineRunner(Protocol):
+    """Minimal pipeline runner contract used by the trial primitive."""
+
+    def run(self, state: Any) -> Any:
+        """Execute every step over ``state`` and return the final state."""
+
+
+@runtime_checkable
+class TrialPipeline(Protocol):
+    """Pipeline and configuration primitives needed by calibration trials."""
+
+    def standard_steps(self) -> Sequence[TrialStep]:
+        """Return the canonical ordered pipeline steps."""
+
+    def earliest_affected_step(
+        self,
+        override_paths: Iterable[str],
+        steps: Sequence[TrialStep],
+    ) -> int:
+        """Return the lowest step index affected by any override path."""
+
+    def make_pipeline(
+        self,
+        steps: Sequence[TrialStep],
+        *,
+        run_dir: Path | None = None,
+    ) -> TrialPipelineRunner:
+        """Build a pipeline runner over the given steps."""
+
+    def with_solver_launcher(
+        self,
+        steps: Sequence[TrialStep],
+        launcher: Any,
+    ) -> tuple[TrialStep, ...]:
+        """Return ``steps`` with the run-solver step driven by ``launcher``."""
+
+    def make_state(self, run_id: str, data: Mapping[str, Any]) -> Any:
+        """Build a fresh pipeline state from ``run_id`` and an initial data mapping."""
+
+    def apply_structural_updates_from_data(self, ctx: Any) -> None:
+        """Bind freshly loaded data objects to runtime structures on ``ctx``."""
+
+    def load_config(self, path: Path | str) -> BaseModel:
+        """Load and validate the root project configuration from a TOML file."""
+
+    def load_document(self, path: Path | str) -> dict[str, Any]:
+        """Load the merged TOML document with base_config resolved."""
+
+
+_PIPELINE: TrialPipeline | None = None
+_INITIALIZER: str | None = None
+
+
+def install_trial_pipeline(pipeline: TrialPipeline, *, initializer: str) -> None:
+    """Register the global pipeline provider used by calibration trials.
+
+    Only ``hydromodpy.project`` may call this function. A second call with an
+    equal pipeline is a no-op; a different pipeline raises CalibrationError.
+    """
+    global _PIPELINE, _INITIALIZER
+    if _PIPELINE is not None:
+        if _PIPELINE == pipeline:
+            return
+        raise CalibrationError("A different TrialPipeline is already installed.")
+    _PIPELINE = pipeline
+    _INITIALIZER = initializer
+
+
+def trial_pipeline() -> TrialPipeline:
+    """Return the installed trial pipeline, or raise if none was wired."""
+    if _PIPELINE is None:
+        raise CalibrationError(
+            "TrialPipeline is not installed. Call "
+            "hydromodpy.project.trial_pipeline.fill_trial_pipeline() "
+            "before running calibration trials."
+        )
+    return _PIPELINE
+
+
+def trial_pipeline_initializer() -> str | None:
+    """Return the module:function path of the initializer, or None."""
+    return _INITIALIZER
+
 
 # ---------------------------------------------------------------------------
 # Results
@@ -231,7 +340,7 @@ class TrialContext:
             hasattr(new_ctx.loaded_data, "recharge")
             and getattr(new_setup, "domain", None) is not None
         ):
-            get_trial_pipeline_provider().apply_structural_updates_from_data(new_ctx)
+            trial_pipeline().apply_structural_updates_from_data(new_ctx)
 
         return TrialContext(
             base_cfg=self.base_cfg,
@@ -295,14 +404,12 @@ def prepare_trials(
         cuts the prepared prefix; an entry here changes what the prefix is
         prepared from.
     """
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
     cfg_path = Path(cfg_path).expanduser().resolve()
-    raw_toml = load_toml_with_base_config(cfg_path)
-    provider = get_trial_pipeline_provider()
+    pipeline = trial_pipeline()
+    raw_toml = pipeline.load_document(cfg_path)
     # from_toml handles base_config inheritance + resolves relative paths
     # against the TOML directory (e.g. data.dem.source_path -> absolute).
-    cfg = get_root_config_provider().from_toml(cfg_path)
+    cfg = pipeline.load_config(cfg_path)
 
     for dotted, value in (config_overrides or {}).items():
         try:
@@ -327,23 +434,23 @@ def prepare_trials(
     # the contract. Without this the pipeline crashes on multi-zone configs
     # (e.g. piecewise-K calibration) because requested_domain_supports stays
     # empty in the pipeline state.
-    requested_support_ids = provider.collect_requested_support_ids(cfg.flow)
-    requested_domain_supports = provider.resolve_support_configs(
+    requested_support_ids = collect_requested_support_ids(cfg.flow)
+    requested_domain_supports = resolve_support_configs(
         cfg.domain,
         requested_support_ids,
     )
-    spatial_support_registry = provider.build_default_spatial_support_provider_registry()
+    spatial_support_registry = build_default_spatial_support_provider_registry()
 
     pipeline_steps: tuple[TrialStep, ...] = tuple(
-        steps if steps is not None else provider.standard_steps()
+        steps if steps is not None else pipeline.standard_steps()
     )
     # Cap at 9 (extract) - the trial primitive never runs derive/export/display.
     max_downstream = 9
-    earliest = provider.earliest_affected_step(path_set, pipeline_steps)
+    earliest = pipeline.earliest_affected_step(path_set, pipeline_steps)
     earliest = min(earliest, max_downstream)
 
     prep_slice = pipeline_steps[:earliest]
-    state = provider.make_state(
+    state = pipeline.make_state(
         "calibration-prepare",
         {
             "cfg": cfg,
@@ -357,7 +464,7 @@ def prepare_trials(
     )
     if prep_slice:
         # The pipeline phases render the prep checklist themselves.
-        state = provider.make_pipeline(prep_slice).run(state)
+        state = pipeline.make_pipeline(prep_slice).run(state)
 
     ctx = state.get("ctx")
     if ctx is None:
@@ -432,7 +539,7 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
     launcher, in a sandbox of its own that is swept on exit. A check that needs the
     model before the first solve reads it here, with what a trial reads.
     """
-    provider = get_trial_pipeline_provider()
+    pipeline = trial_pipeline()
     sandbox = sandbox_of(trial_ctx, 0)
     request = sandbox.slot_request(
         owns_recharge=_phase_samples_the_recharge(trial_ctx), stop_before_solve=True
@@ -442,17 +549,17 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
         sandbox.track(forked.ctx.execution)
         names = [step.name for step in forked.downstream_steps]
         through_the_launcher = names.index("run_solver") + 1
-        steps = provider.with_solver_launcher(
+        steps = pipeline.with_solver_launcher(
             forked.downstream_steps[forked.earliest : through_the_launcher], _FlowBuildLauncher()
         )
-        state = _trial_state(provider, forked, "calibration-prepared-model")
-        provider.make_pipeline(steps).run(state)
+        state = _trial_state(pipeline, forked, "calibration-prepared-model")
+        pipeline.make_pipeline(steps).run(state)
         yield forked.ctx
 
 
-def _trial_state(provider: Any, forked: Any, run_id: str) -> Any:
+def _trial_state(pipeline: Any, forked: Any, run_id: str) -> Any:
     """Return the pipeline state of one forked trial context, display skipped."""
-    return provider.make_state(
+    return pipeline.make_state(
         run_id,
         {
             "cfg": forked.ctx.cfg,
@@ -511,7 +618,7 @@ def run_trial_light(
         trial's solver output is cleaned up afterwards, unless the session
         retention (``trial_ctx.kept_solves``) keeps it for a promotion.
     """
-    provider = get_trial_pipeline_provider()
+    pipeline = trial_pipeline()
     sandbox = sandbox_of(trial_ctx, trial_id) if trial_id is not None else None
     request = (
         sandbox.slot_request(owns_recharge=_phase_samples_the_recharge(trial_ctx))
@@ -548,12 +655,12 @@ def run_trial_light(
         # false`` no figure adds a term to the per-cell budget it keeps.
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
         if recorder is not None:
-            downstream_slice = provider.with_solver_launcher(downstream_slice, recorder)
-        state = _trial_state(provider, forked, "calibration-trial")
+            downstream_slice = pipeline.with_solver_launcher(downstream_slice, recorder)
+        state = _trial_state(pipeline, forked, "calibration-trial")
 
         try:
             if downstream_slice:
-                state = provider.make_pipeline(downstream_slice).run(state)
+                state = pipeline.make_pipeline(downstream_slice).run(state)
         except Exception as exc:
             logger.debug("Trial %s pipeline crashed", trial_id, exc_info=True)
             return TrialResult(
@@ -772,7 +879,7 @@ def promote_prepared_trial(
     set on the results section of the forked configuration, a copy: the base
     configuration of the session is never touched.
     """
-    provider = get_trial_pipeline_provider()
+    pipeline = trial_pipeline()
     forked = trial_ctx.fork(values)
     ctx = forked.ctx
     if keep_per_cell_budget is not None:
@@ -786,7 +893,7 @@ def promote_prepared_trial(
     ctx.sim_id = None
     ctx.reserved_sim_id = None if sim_id is None else str(sim_id)
 
-    state = provider.make_state(
+    state = pipeline.make_state(
         f"calibration-promote-{ctx.setup.run_id}",
         {
             "cfg": ctx.cfg,
@@ -815,10 +922,10 @@ def promote_prepared_trial(
     )
     downstream_slice: Sequence[TrialStep] = forked.downstream_steps[start_index:]
     if kept is not None:
-        downstream_slice = provider.with_solver_launcher(downstream_slice, KeptSolveLauncher(kept))
+        downstream_slice = pipeline.with_solver_launcher(downstream_slice, KeptSolveLauncher(kept))
 
     try:
-        final = provider.make_pipeline(downstream_slice, run_dir=run_dir).run(state)
+        final = pipeline.make_pipeline(downstream_slice, run_dir=run_dir).run(state)
     except BaseException as exc:
         if run_dir is not None:
             _close_attempt(run_dir, exc)
@@ -873,9 +980,16 @@ def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
 
 __all__ = (
     "TrialContext",
-    "TrialResult",
     "TrialMetricFn",
+    "TrialPipeline",
+    "TrialPipelineRunner",
+    "TrialResult",
+    "TrialStep",
+    "built_model",
+    "install_trial_pipeline",
     "prepare_trials",
-    "run_trial_light",
     "promote_prepared_trial",
+    "run_trial_light",
+    "trial_pipeline",
+    "trial_pipeline_initializer",
 )

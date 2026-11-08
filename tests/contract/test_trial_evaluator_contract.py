@@ -53,14 +53,18 @@ from __future__ import annotations
 import ast
 import inspect
 import math
+from contextlib import closing
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from pydantic import BaseModel
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest, TrialStatus
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -535,3 +539,90 @@ def test_the_runner_binds_exactly_the_options_the_registry_publishes() -> None:
     )
     bound = sorted(keyword.arg for keyword in options.keywords)
     assert bound == sorted(evaluation_registry.CONSTRUCTION_OPTIONS)
+
+
+# --------------------------------------------------------------------------- #
+# The pool: an evaluator of this build answers from a spawned worker process
+# --------------------------------------------------------------------------- #
+
+
+class _PoolConfig(BaseModel):
+    """The configuration a pool-borne trial of the pipeline evaluator reads."""
+
+    K: float = 3.7e-5
+
+
+def _pool_metric(ctx, *, objective, variable):
+    """A cost with all its digits, at module level so that it crosses to a worker."""
+    del objective, variable
+    return float(ctx.cfg.K), {"nse@outlet": float(ctx.cfg.K)}
+
+
+def _prepared_for_the_pool(tmp_path: Path) -> TrialContext:
+    """The smallest trial context a worker can rebuild: no step, a scratch, a config."""
+    return TrialContext(
+        base_cfg=_PoolConfig(),
+        ctx=SimpleNamespace(
+            setup=SimpleNamespace(
+                run_id="contract",
+                workspace=SimpleNamespace(solver_scratch_folder=tmp_path),
+            ),
+            data_plan=None,
+            loaded_data=None,
+            execution=SimpleNamespace(rng=None),
+        ),
+        earliest=0,
+        downstream_steps=(),
+        override_paths={"K": "K"},
+        workspace=tmp_path,
+        cfg_path=tmp_path / "project.toml",
+        raw_toml={},
+    )
+
+
+@pytest.mark.parametrize("shipped", evaluation_registry.evaluators.names(shipped_only=True))
+def test_a_shipped_evaluator_answers_from_a_worker_process(shipped, tmp_path, monkeypatch):
+    """One trial through a pool of width one: the pipeline rides on the initializer.
+
+    A worker is a fresh interpreter that holds no installed pipeline, and the pool
+    carries it nothing but the dotted path of the installer. The pipeline
+    evaluator is therefore filled here before the pool is built, and the workers
+    it spawns run that installer themselves; the evaluators that need no prepared
+    model answer with none installed, which is what lets a calibration of an
+    analytic cost run without importing the project package.
+    """
+    from hydromodpy.calibration.runners import trial as trial_module
+    from hydromodpy.calibration.runners.worker_pool import TrialWorkerPool
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    if evaluation_registry.needs_prepared_model(shipped):
+        fill_trial_pipeline()
+        cfg = SimpleNamespace(
+            objective="nse",
+            variable="head",
+            reject_water_budget_above=None,
+            persist_trial_series=False,
+        )
+        options = {
+            "cfg": cfg,
+            "trial_ctx": _prepared_for_the_pool(tmp_path),
+            "metric_fn": _pool_metric,
+        }
+    else:
+        monkeypatch.setattr(trial_module, "_PIPELINE", None)
+        monkeypatch.setattr(trial_module, "_INITIALIZER", None)
+        options = {
+            "cfg": _config(evaluator=shipped),
+            "trial_ctx": None,
+            "space": _space(),
+            "workspace": tmp_path,
+            "cfg_path": None,
+            "metric_fn": None,
+        }
+
+    evaluator_class = evaluation_registry.evaluators.get(shipped)
+    request = TrialRequest(trial_id=1, values=_midpoint(_space()))
+    with closing(TrialWorkerPool(evaluator_class, options, width=1)) as pool:
+        outcome = pool.evaluate(request)
+
+    assert outcome.status == "completed"

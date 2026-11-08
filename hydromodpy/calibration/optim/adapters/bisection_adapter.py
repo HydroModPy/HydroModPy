@@ -97,11 +97,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from hydromodpy.calibration.optim.cost_margin import ParameterInterval, root_interval
+from hydromodpy.calibration.optim.method_config import BisectionMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
-    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import CountedBudget
@@ -367,7 +367,6 @@ class RootTarget:
         return self.component if self.bound is None else f"{self.bound} bound ({self.component})"
 
 
-@register_optimizer("bisection")
 class BisectionAdapter:
     """Bracket the sign change of a residual, or of two, then close each bracket.
 
@@ -376,6 +375,7 @@ class BisectionAdapter:
     """
 
     name = "bisection"
+    options = BisectionMethodConfig
 
     traits = EngineTraits(
         max_parameters=1,

@@ -11,13 +11,19 @@ trial a dead worker held. ``concurrent.futures.ProcessPoolExecutor`` cannot say
 that: a dead worker breaks every pending future, and no limit can kill one worker.
 
 Workers start in ``spawn`` and inherit the environment, so the run scratch and the thread budget of the launcher
-hold in them. A script that calibrates at ``parallel > 1`` needs the usual
+hold in them. Each worker receives the dotted path of the trial-pipeline
+installer (:func:`~hydromodpy.calibration.runners.trial.trial_pipeline_initializer`)
+and runs it before it builds its evaluator, because a fresh process holds no
+installed pipeline. A pool of evaluators that need no prepared model carries no
+installer and imports nothing beyond the calibration package. A script that
+calibrates at ``parallel > 1`` needs the usual
 ``if __name__ == "__main__":`` guard, because ``spawn`` imports it again, and a
 pool built in a worker is refused.
 """
 
 from __future__ import annotations
 
+import importlib
 import multiprocessing as mp
 import os
 import pickle
@@ -36,9 +42,9 @@ from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
 from hydromodpy.calibration.runners.sandbox import sandbox_of
+from hydromodpy.calibration.runners.trial import trial_pipeline_initializer
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity, set_verbosity
-from hydromodpy.core.runtime.bootstrap_hook import ensure_bootstrapped
 from hydromodpy.results.derive.stream.geometry import recharge_session
 
 # A non-converging solve can spin forever, which would wedge a whole search on one
@@ -54,13 +60,20 @@ def _serve(conn: Connection) -> None:
     cannot read the worker's stderr, and a failure here is a bug or a bad setup.
     """
     try:
-        ensure_bootstrapped()
-        evaluator_class, options, keeps_solves, verbosity = pickle.loads(conn.recv_bytes())
+        evaluator_class, options, keeps_solves, verbosity, initializer = pickle.loads(
+            conn.recv_bytes()
+        )
         set_verbosity(verbosity)
+        if initializer is not None:
+            # A fresh process holds no installed pipeline: run the installer
+            # the parent carried, then build the evaluator on top of it.
+            mod_name, func_name = initializer.split(":")
+            module = importlib.import_module(mod_name)
+            getattr(module, func_name)()
         # Keeps every solve of this worker until the parent, which alone sees the
         # costs of all the workers, has said which ones the session keeps.
         retention = TrialSolveRetention(None) if keeps_solves else None
-        if keeps_solves:
+        if keeps_solves and "trial_ctx" in options and options["trial_ctx"] is not None:
             options["trial_ctx"].kept_solves = retention
         # A class registered at run time in the parent is not known to a new process.
         if evaluator_class.evaluator_id not in evaluation_registry.evaluators.names():
@@ -116,18 +129,27 @@ class TrialWorkerPool:
                 'each of them. Put the calibration under `if __name__ == "__main__":` '
                 "in the script, or write parallel = 1."
             )
-        self._trial_ctx = options["trial_ctx"]
-        self._retention: TrialSolveRetention | None = self._trial_ctx.kept_solves
-        solver = getattr(self._trial_ctx.base_cfg, "solver", None)
+        self._trial_ctx = options.get("trial_ctx")
+        self._retention: TrialSolveRetention | None = (
+            self._trial_ctx.kept_solves if self._trial_ctx is not None else None
+        )
+        solver = (
+            getattr(self._trial_ctx.base_cfg, "solver", None)
+            if self._trial_ctx is not None
+            else None
+        )
         mf6 = solver.options_of("modflow6") if solver is not None else None
         runtime = getattr(mf6, "runtime", None)
         override = getattr(runtime, "mf6_api_timeout_s", None)
         self._limit_s = float(override) if override is not None else DEFAULT_TRIAL_LIMIT_S
-        readable = {**options, "trial_ctx": replace(self._trial_ctx, kept_solves=None)}
+        readable = dict(options)
+        if self._trial_ctx is not None:
+            readable["trial_ctx"] = replace(self._trial_ctx, kept_solves=None)
         keeps_solves = self._retention is not None
+        initializer = trial_pipeline_initializer()
         try:
             self._state = pickle.dumps(
-                (evaluator_class, readable, keeps_solves, current_verbosity())
+                (evaluator_class, readable, keeps_solves, current_verbosity(), initializer)
             )
         except (pickle.PicklingError, AttributeError, TypeError) as exc:
             raise CalibrationError(

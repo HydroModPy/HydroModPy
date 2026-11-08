@@ -290,9 +290,12 @@ def _geology_contacts(
     )
     if source is None:
         return None, (skipped,)
+    from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
+
     contacts = geology_lines(
         {"id": geology.id, "source": {"path": str(source.path), "code_field": source.code_field}},
         config_path=ctx.config_path,
         crs_wkt=crs_wkt,
+        read_vector=load_vector_geology_dataframe,
     )
     return contacts, (() if contacts is not None else (skipped,))

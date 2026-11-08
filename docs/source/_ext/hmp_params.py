@@ -675,9 +675,10 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 def load_chain(path: Path) -> dict:
     try:
+        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
         from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-        return load_toml_with_base_config(path)
+        return load_toml_with_base_config(path, root=ROOT_CONFIG)
     except ImportError:
         pass
     data = tomllib.loads(path.read_text())
@@ -905,7 +906,9 @@ def resolved_toml_diff(older: Path, newer: Path, context: int = 1) -> str:
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     def dump(path: Path) -> list[str]:
-        return tomli_w.dumps(load_toml_with_base_config(path)).splitlines()
+        from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
+        return tomli_w.dumps(load_toml_with_base_config(path, root=ROOT_CONFIG)).splitlines()
 
     lines = difflib.unified_diff(
         dump(older), dump(newer), older.stem, newer.stem, n=context, lineterm=""
@@ -1299,11 +1302,19 @@ def on_build_finished(app: Sphinx, exception: Exception | None) -> None:
 
 def write_templates(folder: Path) -> None:
     """The file ``hmp config template --modules <section>`` writes, one per section."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config.toml_examples import flow_examples
     from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 
     folder.mkdir(parents=True, exist_ok=True)
-    for module in available_modules():
-        text = generate_toml(output_path=None, modules=[module], profile="user")
+    for module in available_modules(HydroModPyConfig):
+        text = generate_toml(
+            output_path=None,
+            modules=[module],
+            profile="user",
+            root=HydroModPyConfig,
+            flow_examples=flow_examples,
+        )
         (folder / f"{module}.toml").write_text(text)
 
 

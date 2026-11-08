@@ -4,7 +4,8 @@ This package takes a DEM and an outlet and gives the catchment, its river networ
 It routes flow on the DEM, delineates the catchment, cuts the domain polygons and extracts the streams. It also holds
 the surfaces the model sits on, the routing of water on the cells of the model top, and the French departments used to
 pick data tiles. The mesh itself is in `hydromodpy/mesh`. The aquifer geometry, the fields and the forcings are in
-`hydromodpy/model`. The package knows no solver and no data provider. The geology source is registered at start-up.
+`hydromodpy/model`. The package knows no solver and no data provider: a geology map is read by a function the caller
+passes as an argument.
 
 This file is the map of the package. One sub-package is a port and has a README of its own, `terrain/`. The other parts
 have none and are described here.
@@ -17,7 +18,6 @@ holds the same order.
 | part | answers |
 |---|---|
 | `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits (`RasterSupport`), the surfaces of the domain (`Surface`), and samplers prepared for repeated reads at points |
-| `protocols.py` | the `GeologyDataSource` Protocol that the package needs from outside, and its registration |
 | `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
 | `delineation/` | the one Whitebox Workflows environment of the process, in `whitebox_workflows_backend/`, and the two helpers that read a backend |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader (README) |
@@ -79,7 +79,7 @@ folder of the run, and `preprocess/preprocessing_cleanup.py` removes it once the
    reused when the inputs have not changed.
 2. Domain. `hydromodpy/model/domain/build.py` is the one constructor of a `Domain` from a `DomainConfig` (`[domain]`), a
    surface and a depth model. The zones come later, from `model/domain/structure_binders.py`, which reads
-   `algorithms/catchment_zones_field.py` and the geology source.
+   `algorithms/catchment_zones_field.py` and the geology field its caller brings.
 3. Mesh. `[mesh]` picks an engine in `hydromodpy/mesh`. Triangles and Voronoi cells follow the zones and the river
    trace, and the regular grid makes a staircase along them. The planner reads the river lines through
    `resolve_river_mesh_trace` in `algorithms/derived_features.py`.
@@ -93,7 +93,6 @@ catchment/
 ├── raster_support.py          RasterSupport, where a 2D surface sits in space
 ├── surface.py                 Surface, the surfaces of the domain
 ├── surface_sampling.py        PreparedSurfaceSampler, repeated sampling at points
-├── protocols.py               GeologyDataSource and its registration
 │
 ├── administrative/            French departments and regions
 │   ├── regions.py             names and codes of the regions
@@ -144,9 +143,8 @@ example `GeographicConfig` from `preprocess/geographic_config.py` and `build_syn
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives the package `core`, `schema` and itself. A grep of every
-`hydromodpy` import in the package, deferred ones included, finds only these. No module reads `data`. The one link to
-data goes through the caller, because geology reaches this package through `protocols.GeologyDataSource` and
-`hydromodpy/_bootstrap.py` registers the default source at start-up.
+`hydromodpy` import in the package, deferred ones included, finds only these. No module reads `data`: the reader of
+one vector geology map is a function the caller passes as an argument, as the mesh planner shows.
 
 `catchment_layout.yaml` orders the parts. Each part reads only the parts above it in the table of this file, so a cycle
 cannot be declared. Another layer of HydroModPy may import only the modules listed under `public` in that file. The
@@ -166,9 +164,8 @@ Four more rules hold inside.
 4. A third-party terrain engine joins through the entry-point group `hydromodpy.terrain.engine`. The conformance suite
    `tests/contract/test_terrain_engine_contract.py` runs on every engine the registry resolves.
 
-Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `results`, `calibration`, `config`, `project`,
-`data` and the package root (`_bootstrap.py`). The demos that load a whole project TOML live outside the package, in
-`tools/cases/`.
+Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `results`, `calibration`, `config`,
+`project` and `data`. The demos that load a whole project TOML live outside the package, in `tools/cases/`.
 
 ## Where to add what
 

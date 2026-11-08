@@ -131,6 +131,7 @@ from tests.unit.calibration._factories_config import (
 from tests.unit.calibration._factories_runners import (
     STAGED_HEAD,
     TWO_PHASES,
+    FakePipeline,
     FakeRunner,
     bare_trial_ctx,
     journal_trial,
@@ -140,6 +141,11 @@ from tests.unit.calibration._factories_runners import (
     write_document,
 )
 from tests.unit.calibration._factories_search import result_of
+
+# Every search here runs real trials, so the module asks for the trial pipeline
+# the way a session would: filled once by the project package, before the first
+# trial forks.
+pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
 
 # From test_a_calibration_file_takes_the_user_migration.py
 # A calibration file goes through the migration of user files when it is read.
@@ -4269,25 +4275,15 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
     monkeypatch, tmp_path
 ) -> None:
     from hydromodpy.calibration.parameter_resolution import UnresolvedParameterName
-    from hydromodpy.core.config_kit import root_config_protocol
-
-    class Provider:
-        def __init__(self, error):
-            self.error = error
-
-        def from_toml(self, path):
-            raise self.error
 
     cfg = SimpleNamespace(parameters={"K": object()})
     document._resolve_parameter_names(SimpleNamespace(parameters={}), tmp_path)
-    monkeypatch.setattr(
-        root_config_protocol, "get_root_config_provider", lambda: Provider(OSError("no data"))
-    )
+    monkeypatch.setattr(trial, "_PIPELINE", FakePipeline(config_error=OSError("no data")))
     document._resolve_parameter_names(cfg, tmp_path)
     monkeypatch.setattr(
-        root_config_protocol,
-        "get_root_config_provider",
-        lambda: Provider(UnresolvedParameterName("no such name")),
+        trial,
+        "_PIPELINE",
+        FakePipeline(config_error=UnresolvedParameterName("no such name")),
     )
 
     with pytest.raises(UnresolvedParameterName, match="no such name"):

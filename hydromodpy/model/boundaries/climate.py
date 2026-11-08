@@ -9,6 +9,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
 )
 from hydromodpy.model.contracts import LoadResultProto
+from hydromodpy.model.forcing.cells import spatial_mean_from_fields
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
@@ -48,11 +49,9 @@ def apply_oceanic_to_flow(
 
 def _peak_mm_day_of_a_recharge_source(source: LoadResultProto) -> float:
     """Return the largest rate of a recharge source, a grid through its spatial mean, in mm/day."""
-    from hydromodpy.model.contracts import get_field_aggregator
-
     peaks = [float(record.data["value"].abs().max()) for record in source.points]
     if source.has_fields:
-        spatial_mean = get_field_aggregator()(source)
+        spatial_mean = spatial_mean_from_fields(source)
         if spatial_mean is not None:
             peaks.append(float(spatial_mean.abs().max()))
     return max(peaks, default=0.0)

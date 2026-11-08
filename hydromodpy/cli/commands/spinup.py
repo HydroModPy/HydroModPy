@@ -65,10 +65,11 @@ def run(args: argparse.Namespace) -> None:
 
     target = toml_target(args.config)
 
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     try:
-        raw_toml = load_toml_with_base_config(target)
+        raw_toml = load_toml_with_base_config(target, root=ROOT_CONFIG)
     except Exception:
         raw_toml = {}
     apply_verbosity(args, raw_toml)

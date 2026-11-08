@@ -8,8 +8,9 @@ writes itself, :func:`load_toml_with_base_config` the merged document.
 
 Each file reads under the key names of today before the merge, so an old name in
 one file meets a new name in another as the same key does. The rules are the ones of
-``config_migration``, reached through the root-config provider. A warning names the
-file that holds the old key, and nothing here writes a file.
+``config_migration``, held by the :class:`~hydromodpy.core.config_kit.root.RootConfig`
+the caller passes as ``root``. With ``root=None`` the files are read the way they are
+written. A warning names the file that holds the old key, and nothing here writes a file.
 
 Every relative path a project file declares is read from one base, the
 project root: the folder that holds ``project.toml`` above the file, or,
@@ -29,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.result_dirs import is_sealed_run_dir, resolve_project_root
@@ -150,7 +151,7 @@ class ChainFile:
     own: dict[str, Any]
     """The document of the file, ``base_config`` removed, directives kept.
 
-    Under the key names of today, unless the chain was read with ``migrate=False``.
+    Under the key names of today, unless the chain was read with ``root=None``.
     """
 
 
@@ -167,12 +168,12 @@ def _base_config_of(path: Path, raw: Mapping[str, Any]) -> Path | None:
     return base_path
 
 
-def read_toml_chain(toml_path: str | Path, *, migrate: bool = True) -> tuple[ChainFile, ...]:
+def read_toml_chain(toml_path: str | Path, *, root: RootConfig | None) -> tuple[ChainFile, ...]:
     """Return the files of the ``base_config`` chain of *toml_path*, root first.
 
     The last element is *toml_path* itself. A cycle raises ``ValueError``. Each file
     is migrated on its own and warns under its own name, or is left as it is written
-    with ``migrate=False``.
+    with ``root=None``.
     """
     files: list[ChainFile] = []
     seen: list[Path] = []
@@ -188,8 +189,8 @@ def read_toml_chain(toml_path: str | Path, *, migrate: bool = True) -> tuple[Cha
         files.append(ChainFile(path=current, own=own))
         current = _base_config_of(current, raw)
     files.reverse()
-    if migrate:
-        get_root_config_provider().migrate_layers([(item.path, item.own) for item in files])
+    if root is not None:
+        root.migrate_layers([(item.path, item.own) for item in files])
     return tuple(files)
 
 
@@ -202,28 +203,29 @@ def _merged_files(files: Sequence[ChainFile]) -> dict[str, Any]:
 
 
 def merge_toml_chain(
-    files: tuple[ChainFile, ...] | list[ChainFile], *, migrate: bool = True
+    files: tuple[ChainFile, ...] | list[ChainFile], *, root: RootConfig | None
 ) -> dict[str, Any]:
     """Merge the files of a chain, root first, and strip the empty placeholders.
 
-    With ``migrate``, the rules that wait for the whole document run on the result.
+    With a *root*, the rules that wait for the whole document run on the result.
     """
     merged = _merged_files(files)
-    if migrate:
-        get_root_config_provider().migrate_merged(merged, [(item.path, item.own) for item in files])
+    if root is not None:
+        root.migrate_merged(merged, [(item.path, item.own) for item in files])
     return merged
 
 
 def merge_toml_layers(
     chains: Sequence[Sequence[ChainFile]],
     *,
+    root: RootConfig | None,
     cli_overrides: dict[str, Any] | None = None,
     env_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Merge a file, its overlays, ``--set`` and ``HMP_SET_*``, each migrated on its own.
 
     *chains* holds the chain of the file then the chain of each overlay, as
-    :func:`read_toml_chain` reads them with ``migrate=False``. The two payloads are
+    :func:`read_toml_chain` reads them with ``root=None``. The two payloads are
     migrated in place.
     """
     layers: list[tuple[Path | str, dict[str, Any]]] = [
@@ -233,22 +235,23 @@ def merge_toml_layers(
         layers.append((SET_SOURCE, cli_overrides))
     if env_overrides:
         layers.append((ENV_SOURCE, env_overrides))
-    provider = get_root_config_provider()
-    provider.migrate_layers(layers)
     # File by file: an overlay merged on nothing first would spend its directives.
+    if root is not None:
+        root.migrate_layers(layers)
     merged = merge_toml_payloads(
         _merged_files(chains[0]),
         overlays=[_strip_empty_strings(item.own) for chain in chains[1:] for item in chain],
         cli_overrides=cli_overrides,
         env_overrides=env_overrides,
     )
-    provider.migrate_merged(merged, layers)
+    if root is not None:
+        root.migrate_merged(merged, layers)
     return merged
 
 
-def load_toml_with_base_config(toml_path: str | Path) -> dict[str, Any]:
+def load_toml_with_base_config(toml_path: str | Path, *, root: RootConfig | None) -> dict[str, Any]:
     """Load one TOML file with recursive ``base_config`` inheritance."""
-    return merge_toml_chain(read_toml_chain(toml_path))
+    return merge_toml_chain(read_toml_chain(toml_path, root=root), root=root)
 
 
 def config_base_dir(toml_path: str | Path) -> Path:
@@ -268,13 +271,14 @@ def config_base_dir(toml_path: str | Path) -> Path:
     root = resolve_project_root(resolved.parent)
     if root != resolved.parent or (root / PROJECT_MARKER_FILENAME).is_file():
         return root
-    return read_toml_chain(resolved, migrate=False)[0].path.parent
+    return read_toml_chain(resolved, root=None)[0].path.parent
 
 
 def validate_toml(
     model_cls: type[M],
     path: Path | str,
     *,
+    root: RootConfig | None,
     section: str | None = None,
     context: dict[str, Any] | None = None,
     base_dir_resolver: Callable[[M, Path], M | None] | None = None,
@@ -290,6 +294,9 @@ def validate_toml(
         Pydantic ``BaseModel`` subclass to validate the payload through.
     path
         Path to the input TOML file. Expanded and resolved.
+    root
+        Root configuration the file is migrated with, or ``None`` to read the
+        file the way it is written.
     section
         Optional dotted section path (e.g. ``"data.precipitation"``) to
         extract from the raw payload before validation. When the section is
@@ -305,7 +312,7 @@ def validate_toml(
         relative paths post-validation.
     """
     resolved = Path(path).expanduser().resolve()
-    payload: Any = load_toml_with_base_config(resolved)
+    payload: Any = load_toml_with_base_config(resolved, root=root)
     if section is not None:
         for key in section.split("."):
             if not isinstance(payload, Mapping) or key not in payload:

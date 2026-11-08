@@ -146,6 +146,7 @@ def test_the_generated_table_reloads_into_the_same_variant(
         profile="expert",
         exclude_defaults=exclude_defaults,
         exclude_none=True,
+        root=HydroModPyConfig,
     )
     reloaded = type(instance).model_validate(tomllib.loads(destination.read_text())["section"])
 
@@ -173,6 +174,7 @@ def test_the_generated_table_names_the_variant_and_none_of_its_siblings(
         output_path=destination,
         profile="expert",
         exclude_none=True,
+        root=HydroModPyConfig,
     )
     section = tomllib.loads(destination.read_text())["section"]
     # A model declaring toml_flatten renders its single member at the section
@@ -218,6 +220,7 @@ def test_the_generated_solver_names_its_backend_and_holds_its_table(
         profile="expert",
         exclude_defaults=exclude_defaults,
         exclude_none=True,
+        root=HydroModPyConfig,
     )
     section = tomllib.loads(destination.read_text())["section"]
 

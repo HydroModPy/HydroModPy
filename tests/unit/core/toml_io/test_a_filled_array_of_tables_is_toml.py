@@ -66,6 +66,7 @@ def written(tmp_path: Path) -> dict:
         output_path=destination,
         profile="expert",
         exclude_none=True,
+        root=CalibrationConfig,
     )
     return tomllib.loads(destination.read_text())["calibration"]
 
@@ -101,7 +102,12 @@ def test_the_entry_parses_at_the_documented_default(tmp_path: Path) -> None:
     config = CalibrationConfig.model_validate(_STAGED)
     destination = tmp_path / "with_nones.toml"
 
-    generate_toml_from_instances({"calibration": config}, output_path=destination, profile="expert")
+    generate_toml_from_instances(
+        {"calibration": config},
+        output_path=destination,
+        profile="expert",
+        root=CalibrationConfig,
+    )
     reloaded = CalibrationConfig.model_validate(
         tomllib.loads(destination.read_text())["calibration"]
     )
@@ -120,7 +126,11 @@ def test_a_quote_and_a_newline_in_a_value_survive(tmp_path: Path) -> None:
     destination = tmp_path / "escaped.toml"
 
     generate_toml_from_instances(
-        {"calibration": config}, output_path=destination, profile="expert", exclude_none=True
+        {"calibration": config},
+        output_path=destination,
+        profile="expert",
+        exclude_none=True,
+        root=CalibrationConfig,
     )
     written = tomllib.loads(destination.read_text())["calibration"]
 
@@ -137,7 +147,11 @@ def test_a_none_inside_a_mapping_steps_out_rather_than_breaking_the_file(
     destination = tmp_path / "with_null.toml"
 
     generate_toml_from_instances(
-        {"calibration": config}, output_path=destination, profile="expert", exclude_none=True
+        {"calibration": config},
+        output_path=destination,
+        profile="expert",
+        exclude_none=True,
+        root=CalibrationConfig,
     )
     overrides = tomllib.loads(destination.read_text())["calibration"]["phases"][0]["overrides"]
 

@@ -99,7 +99,7 @@ hydromodpy/calibration/
                 downslope_network.py  scored_forward.py
   runners/      cli_runner.py (entry)  document.py (read the TOML)  search.py (one search)
                 session_scope.py (open, close, promote)  staged_runner.py  programmatic_runner.py
-                trial.py  contracts.py  sandbox.py  verdict.py  materialize.py
+                trial.py (prepare once, evaluate many, TrialPipeline)  sandbox.py  verdict.py  materialize.py
                 phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
                 session.py (case name, session directory, frozen config)
@@ -120,12 +120,11 @@ from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
-    register_optimizer,
+    optimizers,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
-@register_optimizer("mymethod")
 class MyMethod:
     name = "mymethod"
     traits = EngineTraits(max_parameters=None, supports_parallel=False, takes_max_trials=True)
@@ -136,7 +135,15 @@ class MyMethod:
     def suggest_next(self) -> ParamSuggestion: ...
     def best(self) -> EvaluationResult | None: ...
     def converged(self) -> bool: ...
+
+
+optimizers.register(MyMethod)
 ```
+
+No decorator, and no list to edit: the class joins the registry through
+```optimizers.register(MyMethod)```, read off the ``name`` attribute of the
+class, or in another distribution through one entry point of the
+```hydromodpy.calibration.optimizer`` group, named on the same id.
 
 Its options are a Pydantic model in `optim/method_config.py`, one member of the
 `CalibrationMethodConfig` union, so an unknown option is refused when the file
@@ -168,8 +175,8 @@ is read rather than inside the adapter.
    (`optim.optimizer.build_optimizer`), the evaluator (`evaluation.registry`)
    and the `CalibrationEngine`.
 4. **Prepare once.** `runners/trial.py` prepares the model once: geography,
-   mesh and data are built a single time, through the provider registered in
-   `runners/contracts.py` by the workflow layer. The provider finds the first
+   mesh and data are built a single time, through the `TrialPipeline` installed
+   by `project`. The pipeline finds the first
    pipeline step that reads one of the calibrated config paths
    (`earliest_affected_step` of `hydromodpy/workflow/steps/dependencies.py`).
    The steps before it run once and are shared by every trial; the steps from it
@@ -565,8 +572,9 @@ declared share when the blocks have different units.
   `runners.programmatic_runner.run_calibration_programmatic` and
   `runners.staged_runner`: the three entry points.
 - `hydromodpy.calibration.optim.engine.CalibrationEngine`: the ask and tell loop.
-- `optim.optimizer.{available_optimizers, build_optimizer, register_optimizer}`:
-  the registry of search methods.
+- `optim.optimizer.{build_optimizer, optimizers}`:
+  the registry of search methods, `optimizers.get`, `optimizers.names` and
+  `optimizers.register`, per :mod:`hydromodpy.core.plugin_registry`.
 - `optim.objective.{Objective, build_objective_from_config}`: the cost.
 - `optim.diagnostics.correlated_parameter_pairs`: the parameters a finished search
   moved together, which the report flags. `convergence_rate` fits the decrease of
@@ -580,7 +588,7 @@ declared share when the blocks have different units.
 and `results` (`tests/unit/architecture/layer_matrix.yaml`). It never
 imports `display`. The root facade, `config`,
 `workflow`, `project` and `cli` import it. `workflow` is reached only through the
-provider of `runners/contracts.py`, which the bootstrap fills.
+`TrialPipeline` protocol, which `project` installs.
 
 ## Reading path
 
@@ -597,16 +605,14 @@ Only these modules, listed under `public` in `calibration_layout.yaml`:
 `hydromodpy.calibration`, `config`, `targets`, `parameter_resolution`,
 `preflight`, `protocols`, `report`, `optim.parameters`,
 `runners.cli_runner`, `runners.document`, `runners.staged_runner`,
-`runners.programmatic_runner`, `runners.contracts`.
+`runners.programmatic_runner`, `runners.trial`.
 
-A model outside HydroModPy joins through two entry-point groups: an
-evaluator (`hydromodpy.calibration.evaluator`, written against
-`evaluation.port`) or a forward model (`hydromodpy.calibration.forward_model`,
-against `evaluation.forward`). Search methods ship with HydroModPy and are not
-plugged from outside. A search of one's own runs from Python: an object that
-satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
-`suggest_next`, `best`, `converged`), handed to
-`CalibrationEngine(optimizer=...)` (`optim/engine.py`), with no registration.
+A plugin outside HydroModPy joins through entry-point groups: an
+optimizer (`hydromodpy.calibration.optimizer`, written against
+`optim.optimizer.Optimizer`), an evaluator (`hydromodpy.calibration.evaluator`,
+written against `evaluation.port`) or a forward model
+(`hydromodpy.calibration.forward_model`, against `evaluation.forward`).
+In-tree optimizers are declared under `_BUILTIN_PATHS` in `optim/optimizer.py`.
 
 ## Vocabulary
 

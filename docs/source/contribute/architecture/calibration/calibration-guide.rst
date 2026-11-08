@@ -13,8 +13,11 @@ The loop
 
 A calibration is an ask/tell loop. An optimizer adapter proposes points
 (``ask``), the engine evaluates them, and the costs go back (``tell``). The
-adapters live in ``calibration/optim/adapters/`` and register with
-``@register_optimizer``; :doc:`../how-to/add-a-calibration-method` says how to
+adapters live in ``calibration/optim/adapters/`` and join the shared plugin
+registry of ``calibration/optim/optimizer.py`` through
+``optimizers.register(TheAdapter)``, or through one entry point of the
+``hydromodpy.calibration.optimizer`` group named on the adapter id;
+:doc:`../how-to/add-a-calibration-method` says how to
 add one. Each adapter declares ``EngineTraits``: how many parameters it moves,
 the search space it needs, whether it reads a signed residual, whether it stops on
 a precision and which of its options that precision writes, whether it can run

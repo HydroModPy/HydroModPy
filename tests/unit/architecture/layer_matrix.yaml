@@ -43,20 +43,18 @@ transitional:
   edges:
     - src: "<root>"
       tgt: calibration
-      files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py]
+      files: [hydromodpy/_api.py, hydromodpy/_lazy.py]
       reason: &root_reason >-
-        The verbs of _api.py, the providers of _bootstrap.py and the lazy names
-        of _lazy.py still sit at the root. The root reads only core and project
-        once they live in project.
-    - {src: "<root>", tgt: config,   files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
-    - {src: "<root>", tgt: data,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
-    - {src: "<root>", tgt: display,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+        The verbs of _api.py and the lazy names of _lazy.py still sit at the
+        root. The root reads only core and project once they live in project.
+    - {src: "<root>", tgt: config,   files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: data,     files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: display,  files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: results,  files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
-    - {src: "<root>", tgt: solver,   files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
-    - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: solver,   files: [hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
     # The root files also read the packages that were built from the old ones.
-    - {src: "<root>", tgt: model,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py], reason: *root_reason}
-    - {src: "<root>", tgt: catchment, files: [hydromodpy/_bootstrap.py], reason: *root_reason}
+    - {src: "<root>", tgt: model,     files: [hydromodpy/_api.py], reason: *root_reason}
     - src: cli
       tgt: "<root>"
       files:

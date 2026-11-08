@@ -63,10 +63,10 @@ itself included: `core`, `schema`, `catchment`, `mesh`, `model`, `data`,
 `results`, `solver`, `calibration`, `display`, `config` and `workflow`. Rules:
 
 1. No lower layer imports `workflow`. Only `project`, `cli` and the package root
-   do. A lower layer that needs a workflow function receives it through a
-   provider: calibration reaches the trial pipeline through
-   `calibration/runners/contracts.py`, filled by
-   `register_default_trial_pipeline_provider`.
+   do. A lower layer that needs a workflow function receives it as an argument:
+   calibration reaches these steps through the `TrialPipeline` protocol of
+   `calibration/runners/trial.py`, whose implementation lives in
+   `project/trial_pipeline.py` and is filled there.
 2. Inside the package, `steps/` imports `record`, `state`, `step` and `runner`;
    `runner.py` imports `dag`, `parallel`, `state`, `step` and `record`. `record/`
    imports `state` and `step` and never `steps`. `replay_checks.py` imports

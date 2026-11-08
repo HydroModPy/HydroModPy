@@ -6,11 +6,13 @@ import time
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+
 
 def test_validate_field_valid_enum() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.flow_regime", "steady")
+    result = validate_field("flow.flow_regime", "steady", root=ROOT_CONFIG)
     assert result.valid is True
     assert result.error is None
     assert result.path == "flow.flow_regime"
@@ -19,7 +21,7 @@ def test_validate_field_valid_enum() -> None:
 def test_validate_field_rejects_noncanonical_flow_regime() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.flow_regime", "permanent")
+    result = validate_field("flow.flow_regime", "permanent", root=ROOT_CONFIG)
     assert result.valid is False
     assert result.error is not None
     assert "steady" in result.error or "transient" in result.error
@@ -28,7 +30,7 @@ def test_validate_field_rejects_noncanonical_flow_regime() -> None:
 def test_validate_field_invalid_enum() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.flow_regime", "wrong_value")
+    result = validate_field("flow.flow_regime", "wrong_value", root=ROOT_CONFIG)
     assert result.valid is False
     assert result.error is not None
     assert "steady" in result.error or "transient" in result.error
@@ -37,7 +39,7 @@ def test_validate_field_invalid_enum() -> None:
 def test_validate_field_unknown_path() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.does_not_exist", 42)
+    result = validate_field("flow.does_not_exist", 42, root=ROOT_CONFIG)
     assert result.valid is False
     assert result.error is not None
     assert "does_not_exist" in result.error or "unknown" in result.error.lower()
@@ -47,7 +49,7 @@ def test_validate_field_empty_path() -> None:
     from hydromodpy.schema import validate_field
 
     with pytest.raises(ValueError):
-        validate_field("", 42)
+        validate_field("", 42, root=ROOT_CONFIG)
 
 
 def test_validate_field_latency_under_100ms() -> None:
@@ -55,11 +57,11 @@ def test_validate_field_latency_under_100ms() -> None:
     from hydromodpy.schema import validate_field
 
     # Warm the adapter cache.
-    validate_field("flow.flow_regime", "steady")
+    validate_field("flow.flow_regime", "steady", root=ROOT_CONFIG)
 
     start = time.perf_counter()
     for _ in range(50):
-        validate_field("flow.flow_regime", "steady")
+        validate_field("flow.flow_regime", "steady", root=ROOT_CONFIG)
     elapsed_ms = (time.perf_counter() - start) * 1000.0 / 50
     assert elapsed_ms < 100, f"mean per-call latency {elapsed_ms:.2f}ms exceeds 100ms"
 
@@ -67,14 +69,14 @@ def test_validate_field_latency_under_100ms() -> None:
 def test_validate_field_returns_timing() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.flow_regime", "steady")
+    result = validate_field("flow.flow_regime", "steady", root=ROOT_CONFIG)
     assert result.timing_ms >= 0.0
 
 
 def test_validation_result_as_dict() -> None:
     from hydromodpy.schema import validate_field
 
-    result = validate_field("flow.flow_regime", "steady")
+    result = validate_field("flow.flow_regime", "steady", root=ROOT_CONFIG)
     payload = result.as_dict()
     assert set(payload.keys()) >= {
         "valid",
@@ -91,7 +93,7 @@ def test_validate_field_context_accepted_but_ignored() -> None:
     from hydromodpy.schema import validate_field
 
     ctx = {"flow": {"flow_regime": "transient"}}
-    result = validate_field("flow.flow_regime", "steady", context=ctx)
+    result = validate_field("flow.flow_regime", "steady", context=ctx, root=ROOT_CONFIG)
     assert result.valid is True
 
 
@@ -113,7 +115,7 @@ def test_validate_field_nested_path() -> None:
                 path = f"{field_name}.{leaf_name}"
                 # Any validation call should not raise; just confirms we
                 # can traverse without crashing.
-                validate_field(path, None)
+                validate_field(path, None, root=ROOT_CONFIG)
                 return
     pytest.fail("HydroModPyConfig exposes no nested BaseModel field to validate")
 
@@ -170,7 +172,7 @@ def test_a_field_is_checked_as_the_file_is_read(
     """The checks of the annotation run here too: the registry, a bound, a named table."""
     from hydromodpy.schema import validate_field
 
-    result = validate_field(path, value)
+    result = validate_field(path, value, root=ROOT_CONFIG)
 
     assert result.valid is valid
     if error is not None:

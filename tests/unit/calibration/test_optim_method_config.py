@@ -19,7 +19,6 @@ from hydromodpy.calibration.optim.method_config import (
     default_relative_precision,
     method_options_are_its_defaults,
     method_options_problem,
-    typed_methods,
     validate_method_kwargs,
 )
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, best_completed, build_optimizer
@@ -471,7 +470,6 @@ def test_a_frozen_protocol_run_with_the_old_budget_keys_reads_back(tmp_path: Pat
 def test_grid_method_with_default_kwargs_validates() -> None:
     cfg = validate_method_kwargs("grid", {})
     assert isinstance(cfg, GridMethodConfig)
-    assert cfg.method == "grid"
     assert cfg.points_per_dim is None
 
 
@@ -535,7 +533,6 @@ def test_options_the_method_takes_raise_no_problem() -> None:
 
 
 def test_a_method_with_no_model_here_is_left_to_its_own_constructor() -> None:
-    assert "a_plugin_engine" not in typed_methods()
     assert method_options_problem("a_plugin_engine", {"anything": 1}) is None
 
 
@@ -696,3 +693,41 @@ def test_only_a_relative_stopping_option_has_a_default_precision() -> None:
     assert default_relative_precision("bisection", {"rel_tol": 0.02}) is None
     assert default_relative_precision("scipy_nelder_mead", {}) is None
     assert default_relative_precision("optuna", {}) is None
+
+
+@pytest.mark.parametrize(
+    ("method", "valid_opts", "unknown_key", "refused_key"),
+    [
+        ("bisection", {"sweep_points": 7}, "unknown", "max_trials"),
+        ("cma_es", {"sigma0": 0.25}, "unknown", "max_evaluations"),
+        ("da_mh_gp", {"chain_length": 100}, "unknown", "max_iter"),
+        ("gp_mapping", {"n_init": 5}, "unknown", "max_iter"),
+        ("grid", {"points_per_dim": 3}, "unknown", "max_trials"),
+        ("lhs", {"n_samples": 10}, "unknown", "max_trials"),
+        ("optuna", {"sampler": "tpe"}, "unknown", "max_trials"),
+        ("random_search", {}, "unknown", "max_trials"),
+        ("scipy_de", {"popsize": 10}, "unknown", "maxiter"),
+        ("scipy_nelder_mead", {"xatol": 0.01}, "unknown", "maxfev"),
+    ],
+)
+def test_each_optimizer_declares_its_options_model(
+    method: str, valid_opts: dict, unknown_key: str, refused_key: str
+) -> None:
+    from pydantic import BaseModel
+
+    from hydromodpy.calibration.optim.optimizer import optimizers
+
+    cls = optimizers.get(method)
+    assert hasattr(cls, "options")
+    model = cls.options
+    assert issubclass(model, BaseModel)
+
+    validated = validate_method_kwargs(method, valid_opts)
+    assert isinstance(validated, model)
+
+    problem = method_options_problem(method, {unknown_key: 1})
+    assert problem is not None
+    assert f"'{method}' does not take {unknown_key}" in problem
+
+    with pytest.raises(ValueError, match="does not take"):
+        validate_method_kwargs(method, {refused_key: 1})

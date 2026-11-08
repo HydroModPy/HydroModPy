@@ -25,6 +25,7 @@ basin for the whole experiment, and ``None`` would say that no run exists.
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -46,6 +47,8 @@ from hydromodpy.results.session.phase import PhaseDescriptor, list_phases
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from hydromodpy.results.run.view import Run
 
 TRIAL_COLUMNS: tuple[str, ...] = (
@@ -77,6 +80,11 @@ class Session:
     ----------
     session_dir
         The session directory, ``sessions/<case>[.vN]``.
+    read_config
+        The function that validates a sealed configuration snapshot, passed
+        to the runs the session opens. Without one, ``run.hydromodpy_config``
+        is refused. A session opened by ``hmp.open`` or by a ``Project``
+        carries it.
 
     Raises
     ------
@@ -92,7 +100,12 @@ class Session:
     >>> session.best.label()  # doctest: +SKIP
     """
 
-    def __init__(self, session_dir: str | Path) -> None:
+    def __init__(
+        self,
+        session_dir: str | Path,
+        *,
+        read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+    ) -> None:
         directory = Path(session_dir).expanduser().resolve()
         if not session_descriptor_path(directory).is_file():
             raise FileNotFoundError(
@@ -100,6 +113,7 @@ class Session:
                 "it is not a calibration session"
             )
         self._dir = directory
+        self._read_config = read_config
         self._descriptor: SessionDescriptor | None = None
 
     @property
@@ -236,7 +250,7 @@ class Session:
             directory = project_root / rel_dir
             if not is_sealed(directory):
                 continue
-            run = open_run_dir(directory)
+            run = open_run_dir(directory, read_config=self._read_config)
             if case.sim_id is not None:
                 if run.sim_id == case.sim_id:
                     return run

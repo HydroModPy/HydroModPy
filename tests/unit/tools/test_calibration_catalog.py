@@ -17,8 +17,7 @@ import pytest
 
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
-from hydromodpy.calibration.optim.method_config import CalibrationMethodConfig
-from hydromodpy.calibration.optim.optimizer import CHOSEN_FROM, announced_optimizers
+from hydromodpy.calibration.optim.optimizer import CHOSEN_FROM, announced_optimizers, optimizers
 from tools.docs import calibration_catalog
 
 EXT = Path(__file__).resolve().parents[3] / "docs" / "source" / "_ext"
@@ -30,8 +29,11 @@ def payload() -> dict:
 
 
 def _models() -> dict[str, type]:
-    members = get_args(get_args(CalibrationMethodConfig)[0])
-    return {member.model_fields["method"].default: member for member in members}
+    return {
+        name: optimizers.get(name).options
+        for name in optimizers.names()
+        if getattr(optimizers.get(name), "options", None) is not None
+    }
 
 
 def test_every_announced_method_is_in_the_catalog(payload: dict) -> None:
@@ -43,7 +45,8 @@ def test_every_announced_method_is_in_the_catalog(payload: dict) -> None:
 def test_each_method_lists_exactly_the_options_its_model_accepts(payload: dict) -> None:
     models = _models()
     for row in payload["methods"]:
-        accepted = set(models[row["name"]].model_fields) - {"method"}
+        model = models.get(row["name"])
+        accepted = set(model.model_fields) if model is not None else set()
         assert {option["name"] for option in row["options"]} == accepted, row["name"]
 
 
