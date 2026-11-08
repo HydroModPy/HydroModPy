@@ -12,11 +12,15 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from hydromodpy.model.soil.budget import _no_negative_zero, _parameters_line, soil_budget_lines
-from hydromodpy.model.soil.columns import SoilColumns
-from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_budget import (
+    _no_negative_zero,
+    _parameters_line,
+    soil_budget_lines,
+)
+from hydromodpy.model.forcing.soil_columns import SoilColumns
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_forcing import SoilForcings
 from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
-from hydromodpy.model.soil.recharge import SoilForcings
 
 
 def _forcings() -> SoilForcings:

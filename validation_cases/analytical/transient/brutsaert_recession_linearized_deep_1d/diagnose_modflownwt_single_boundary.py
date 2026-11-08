@@ -15,7 +15,9 @@ from flopy.utils.binaryfile import HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.model.model import Flow
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
 from hydromodpy.project import Project
 from hydromodpy.solver.modflow_nwt import (
     ModflowNwt,
@@ -154,6 +156,23 @@ def _summarize_budget(model_ws: Path) -> tuple[float | None, float | None, int |
     return float(np.max(abs_percent)), float(signed_percent[-1]), first_bad
 
 
+def _probe_model(flow: Flow, domain, geographic, preprocess_options) -> Model:
+    """Return the frozen model of one probe: the regular mesh, the domain and the DEM grid."""
+    return model_from_flow(
+        flow,
+        geometry=Geometry(
+            cells=regular_cell_mesh_of(domain.surface_topo),
+            domain=domain,
+            raster=RasterGeometry.from_geographic(geographic),
+            catchment=CatchmentGeometry.from_geographic(
+                geographic, crs=getattr(geographic, "crs_proj", None)
+            ),
+        ),
+        time=ModelTime.from_flow(flow, preprocess_options.time_grid),
+        options=ModelOptions.from_settings(preprocess_options),
+    )
+
+
 def _run_probe(
     *,
     probe_id: str,
@@ -171,7 +190,6 @@ def _run_probe(
     """Run one direct MODFLOW-NWT probe and return its summary plus final head."""
     preprocess_options = ModflowPreprocessOptions(time_grid=time_grid)
     model = ModflowNwt(
-        geographic,
         model_folder=str(model_folder),
         model_name=probe_id,
         bin_path=bin_path,
@@ -179,10 +197,7 @@ def _run_probe(
         preprocess_options=preprocess_options,
     )
     model.pre_processing(
-        flow=flow,
-        domain=domain,
-        options=preprocess_options,
-        cell_mesh=regular_cell_mesh_of(domain.surface_topo),
+        _probe_model(flow, domain, geographic, preprocess_options), preprocess_options
     )
     if restart_head is not None:
         model.bas.strt = np.asarray(restart_head, dtype=float).copy()

@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import _PREPARSED_KEYS, FlowConfig, resolve_forcing_paths
-from hydromodpy.model.model import Flow
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
 
 

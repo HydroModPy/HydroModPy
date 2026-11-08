@@ -7,12 +7,11 @@ import warnings
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.initial.state import CyclicStart, SteadyStart
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     apply_modflow6_cyclic_spinup_heads,
     apply_modflow6_steady_state_initial_heads,
-    flow_uses_cyclic_spinup,
-    flow_uses_steady_state_initial_condition,
     run_modflow6_cyclic_spinup,
     run_modflow6_steady_state_initialization,
 )
@@ -35,10 +34,11 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         raise TypeError("processing options must be ModflowRunOptions")
 
     steady_initial_heads_applied = False
+    inputs = model.inputs
     if (
         options.run_model
-        and getattr(model, "flow_regime", None) == "transient"
-        and flow_uses_steady_state_initial_condition(getattr(model, "flow", None))
+        and inputs.time.regime == "transient"
+        and isinstance(inputs.initial, SteadyStart)
     ):
         with progress.status("Steady-state initialization"):
             steady_heads = run_modflow6_steady_state_initialization(
@@ -50,8 +50,8 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
 
     if (
         options.run_model
-        and getattr(model, "flow_regime", None) == "transient"
-        and flow_uses_cyclic_spinup(getattr(model, "flow", None))
+        and inputs.time.regime == "transient"
+        and isinstance(inputs.initial, CyclicStart)
     ):
         with progress.status("Cyclic spin-up"):
             heads, cycles, settled = run_modflow6_cyclic_spinup(

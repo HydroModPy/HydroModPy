@@ -1,8 +1,10 @@
-"""The generated river network A, read from its rasters and projected onto the mesh cells.
+"""The generated river network A: which rasters a run reads, read and projected onto the mesh cells.
 
 A was traced by the river network step on the D8 pointer of the routing DEM.
-Its projection gives the pinned receivers of D: each cell A crosses drains to
-the next cell along A, and the pins must not close a loop.
+``channel_rasters_for_run`` chooses its rasters once, before the solve, and the
+choice sits in ``Model.geometry.raster.channel``. ``channel_tree_for_run`` reads
+them around the mesh. The projection gives the pinned receivers of D: each cell
+A crosses drains to the next cell along A, and the pins must not close a loop.
 """
 
 from __future__ import annotations
@@ -14,8 +16,16 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.geometry import ChannelRasters
 
-__all__ = ["ChannelTree", "channel_tree_for_run", "project_channel_tree", "read_channel_tree"]
+__all__ = [
+    "ChannelTree",
+    "active_channel_raster",
+    "channel_rasters_for_run",
+    "channel_tree_for_run",
+    "project_channel_tree",
+    "read_channel_tree",
+]
 
 logger = get_logger(__name__)
 
@@ -44,42 +54,73 @@ class ChannelTree:
     transform: Any
 
 
-def channel_tree_for_run(
-    geographic: object, solver_mesh: Any, *, required: bool = False
-) -> ChannelTree | None:
-    """The generated network A around the mesh, or None when the run has none.
+def channel_rasters_for_run(geographic: object | None) -> ChannelRasters | None:
+    """The rasters of the generated network A that this run reads, chosen once.
 
     A is the full-extent stream-link raster of the river-network step (the
-    stream raster when links were not computed), with the D8 pointer it was
-    traced on and its accumulation, all in ``geographic.correcflow_path``. The
-    clipped rasters are cut to the watershed and miss the buffer.
+    stream raster when links were not computed, see :func:`active_channel_raster`),
+    with the D8 pointer it was traced on and its accumulation, all in
+    ``geographic.correcflow_path``. Their paths are returned whether or not the
+    files exist, and the reader checks. The rasters cut to the watershed
+    (``river_stream_link_id_tif`` then ``river_streams_tif``) that exist are
+    kept in ``clipped``: they miss the buffer, so the zonal top sampling reads
+    them only when the full-extent raster is missing.
 
-    A belongs to the run only when ``geographic.river_network_enabled`` says the
-    step ran for it; rasters an earlier configuration left in the folder are
-    never read. The step writes the link raster from its stream raster, so a
-    link raster older than the stream raster beside it was left by an earlier
-    configuration with links on, and the stream raster is read instead (see
-    :func:`active_channel_raster`). ``required`` is set when a network of the run
-    was delineated from A, so missing rasters are an error.
+    ``enabled`` is ``geographic.river_network_enabled``. Nothing is returned for a
+    run that has no corrected-flow folder, no clipped raster and no river
+    network step, which is the run without A.
     """
     from hydromodpy.catchment.algorithms.flow_products import DIRECTION_NAME
 
-    if not required and not getattr(geographic, "river_network_enabled", False):
+    enabled = bool(getattr(geographic, "river_network_enabled", False))
+    folder = getattr(geographic, "correcflow_path", None)
+    clipped = tuple(
+        str(candidate)
+        for name in ("river_stream_link_id_tif", "river_streams_tif")
+        if (candidate := getattr(geographic, name, None)) and os.path.exists(str(candidate))
+    )
+    if folder is None and not clipped and not enabled:
+        return None
+    if folder is None:
+        return ChannelRasters(
+            enabled=enabled, link=None, pointer=None, accumulation=None, clipped=clipped
+        )
+    return ChannelRasters(
+        enabled=enabled,
+        link=active_channel_raster(folder),
+        pointer=os.path.join(str(folder), DIRECTION_NAME),
+        accumulation=os.path.join(str(folder), _ACCUMULATION_NAME),
+        clipped=clipped,
+    )
+
+
+def channel_tree_for_run(
+    rasters: ChannelRasters | None, solver_mesh: Any, *, required: bool = False
+) -> ChannelTree | None:
+    """The generated network A around the mesh, or None when the run has none.
+
+    ``rasters`` is ``Model.geometry.raster.channel``, the choice of
+    :func:`channel_rasters_for_run`. The clipped rasters are cut to the
+    watershed and miss the buffer, so they are never read here.
+
+    A belongs to the run only when ``rasters.enabled`` says the river-network
+    step ran for it; rasters an earlier configuration left in the folder are
+    never read. ``required`` is set when a network of the run was delineated
+    from A, so missing rasters are an error.
+    """
+    if not required and not (rasters is not None and rasters.enabled):
         logger.info(
             "The river network is off for this run: the descent D has no pinned cell and "
             "follows the steepest descent everywhere."
         )
         return None
-    folder = getattr(geographic, "correcflow_path", None)
-    if folder is None:
+    if rasters is None or rasters.link is None:
         logger.info(
             "No corrected-flow folder for this run: the descent D has no pinned cell and "
             "follows the steepest descent everywhere."
         )
         return None
-    link = active_channel_raster(folder)
-    pointer = os.path.join(str(folder), DIRECTION_NAME)
-    accumulation = os.path.join(str(folder), _ACCUMULATION_NAME)
+    link, pointer, accumulation = rasters.link, rasters.pointer, rasters.accumulation
     missing = [path for path in (link, pointer, accumulation) if not os.path.exists(path)]
     if missing and required:
         raise FileNotFoundError(
@@ -90,7 +131,7 @@ def channel_tree_for_run(
         logger.info(
             "No generated river network A in %s: the descent D has no pinned cell and "
             "follows the steepest descent everywhere.",
-            folder,
+            os.path.dirname(link),
         )
         return None
     vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)[:, :2]

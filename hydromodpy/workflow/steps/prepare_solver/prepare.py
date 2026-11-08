@@ -15,6 +15,7 @@ prepared-run path keep importing them by name.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,7 +42,6 @@ from hydromodpy.workflow.steps.data_description import (
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.model.domain.domain import Domain
-    from hydromodpy.model.model import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
 
 logger = get_logger(__name__)
@@ -50,16 +50,15 @@ logger = get_logger(__name__)
 def step_persist_params(
     store: SimulationStore,
     sim_id: str,
-    flow: Flow,
+    profiles: Mapping[str, Any],
     *,
     domain: Domain | None = None,
 ) -> None:
-    """Write hydraulic parameters from a Flow object into the catalog."""
+    """Write the hydraulic parameter profiles of a ``Model`` into the catalog."""
     params: list[dict] = []
 
-    params_dict = getattr(flow, "parameters", None)
-    if params_dict:
-        for pid, fp in params_dict.items():
+    if profiles:
+        for pid, fp in profiles.items():
             kind = getattr(fp, "kind", "homogeneous")
             if kind == "homogeneous":
                 params.append(

@@ -1,13 +1,14 @@
 # Intentional duplication with the MF6 flow_to_modflow_adapter: MODFLOW-NWT is
 # scheduled for removal after the Lake (LAK) module lands on the MF6 side - not
 # worth factoring the payload builders out.
-"""Flow -> MODFLOW-NWT adaptation layer.
+"""Model -> MODFLOW-NWT adaptation layer.
 
 Purpose
 -------
-Convert process-level objects into solver-level data structures:
+Convert the frozen ``Model`` of a run into solver-level data structures:
 
-- from ``Flow`` / ``Domain`` runtime objects,
+- from the geometry, properties, boundaries, sinks and sources, start state and
+  time of the ``Model``,
 - to MODFLOW-ready arrays and stress-period data dictionaries.
 
 The class is a thin facade. Concerns are split across:
@@ -22,23 +23,18 @@ by ``ModflowNwt`` after adaptation is complete.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.core.fields.grid_reference import GridReference
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    boundary_conditions_mapping_from_flow,
-    is_boundary_condition_active,
-)
+from hydromodpy.model.model import Model
 from hydromodpy.model.properties.property_table import (
     require_positive_conductivity,
     require_positive_storage,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
@@ -52,7 +48,6 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
 from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     build_etp_payload,
     build_recharge_payload,
-    resolve_flow_regime,
     steady_period_flags,
 )
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import (
@@ -76,7 +71,7 @@ def _sink_mask_on_grid(solver_mesh: SolverMesh, sink: np.ndarray) -> np.ndarray:
 
 @dataclass(slots=True)
 class FlowModflowInputs:
-    """Solver-ready payloads produced from one validated ``Flow`` runtime object.
+    """Solver-ready payloads produced from one ``Model``.
 
     Notes
     -----
@@ -103,18 +98,19 @@ class FlowModflowInputs:
     evt_surface_offset: float = 2.0
     evt_extinction_depth: float = 1.0
     kv: np.ndarray | None = None
-    """Vertical conductivity per cell [m/s], None when the flow sets no ``Kv``."""
+    """Vertical conductivity per cell [m/s], None when the model has no ``Kv``."""
     recharge_own_rates: dict[int, object] | None = None
     """Each period's own recharge [m/s], before ``first_clim``, clipped at zero."""
 
 
 class FlowToModflowAdapter:
-    """Build MODFLOW-NWT arrays/stress-period structures from Flow + context.
+    """Build MODFLOW-NWT arrays/stress-period structures from a ``Model`` + context.
 
     Scope
     -----
     This class only prepares solver data. FLOPY package construction is done
-    by the caller (`ModflowNwt`), after adaptation is complete.
+    by the caller (`ModflowNwt`), after adaptation is complete. It reads the
+    ``Model`` and never changes it.
 
     The class delegates concern-specific work to private modules in this
     package: see ``payloads.chd``, ``payloads.well_drainage``, and
@@ -124,8 +120,7 @@ class FlowToModflowAdapter:
     def __init__(
         self,
         *,
-        flow: object,
-        domain: DomainLike,
+        model: Model,
         solver_mesh: SolverMesh,
         nper: int,
         grid: GridReference | None = None,
@@ -138,7 +133,6 @@ class FlowToModflowAdapter:
         drain_band_depth_m: float = 0.0,
         drain_bed_thickness_m: float = 1.0,
         drain_conductance_floor_m2_s: float = 1e-12,
-        flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Store adaptation context and normalize primitive arrays/scalars."""
         if not solver_mesh.is_structured:
@@ -147,8 +141,7 @@ class FlowToModflowAdapter:
                 "(MODFLOW NWT only supports structured grids)"
             )
 
-        self.flow = flow
-        self.domain = domain
+        self.model = model
         self.solver_mesh = solver_mesh
 
         self.nlay = solver_mesh.nlay
@@ -161,7 +154,7 @@ class FlowToModflowAdapter:
         self.grid = grid
         self.simulation_window = simulation_window
         # Per-period steady flags of the DIS package. None rebuilds them from the
-        # flow regime and first_period_steady (payloads.recharge_etp).
+        # regime and first_period_steady of the model (payloads.recharge_etp).
         self.steady = None if steady is None else np.asarray(steady, dtype=bool).reshape(-1)
         # The length of each period, which weighs the mean first_clim states. None
         # counts the periods of a run built without dates as equally long. The
@@ -186,24 +179,12 @@ class FlowToModflowAdapter:
         self.drain_bed_thickness_m = float(drain_bed_thickness_m)
         self.drain_conductance_floor_m2_s = float(drain_conductance_floor_m2_s)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.closed_surface())
-        self.flow_runtime_overrides = (
-            None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
-        )
         self._negative_recharge_evt_spd: dict[int, object] | None = None
-
-    @property
-    def _boundary_conditions(self) -> Mapping[str, object]:
-        """Return flow boundary-condition mapping with a strict runtime check."""
-        return boundary_conditions_mapping_from_flow(self.flow)
-
-    def _is_bc_active(self, bc_id: str) -> bool:
-        """Return True when the boundary ``bc_id`` is declared and not switched off."""
-        return is_boundary_condition_active(self.flow, bc_id)
 
     def _build_initial_heads_and_sides(
         self,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Build startup ``ibound`` and ``strt`` arrays from flow IC + side BCs."""
+        """Build startup ``ibound`` and ``strt`` arrays from the start state + side BCs."""
         return build_initial_heads_and_sides(self)
 
     def _validate_ibound_strt_contract(
@@ -259,15 +240,15 @@ class FlowToModflowAdapter:
         return build_drainage_spd(self, drain_array=drain_array, hk=hk)
 
     def _build_well_stress_period_data(self) -> dict[int, list[list[float]]]:
-        """Normalize flow wells into MODFLOW WEL stress-period format."""
+        """Normalize the wells of the model into MODFLOW WEL stress-period format."""
         return build_well_stress_period_data(self)
 
     def _build_recharge_payload(self) -> object | None:
-        """Build the RCH payload from ``flow.sinks_sources["recharge"]``."""
+        """Build the RCH payload from ``Model.recharge``."""
         return build_recharge_payload(self)
 
     def _build_etp_payload(self) -> tuple[dict[int, object] | None, float, float]:
-        """Build the EVT payload from ``flow.sinks_sources["etp"]``."""
+        """Build the EVT payload from ``Model.etp``."""
         return build_etp_payload(self)
 
     def build(self) -> FlowModflowInputs:
@@ -289,26 +270,27 @@ class FlowToModflowAdapter:
         )
         refuse_constant_heads_below_bottom(self, ibound=ibound, strt=strt, chd_spd=chd_spd)
 
+        profiles = self.model.properties.profiles
         required_properties = resolve_required_flow_properties(
-            flow_regime=resolve_flow_regime(self.flow),
+            flow_regime=self.model.time.regime,
         )
         # NWT writes a DIS grid: the flat cell arrays go back to (nlay, nrow, ncol).
         properties = {
             name: self.solver_mesh.reshape_to_grid(values)
             for name, values in resolve_flow_property_arrays(
-                flow=self.flow,
-                domain=self.domain,
+                profiles=profiles,
+                domain=self.model.geometry.domain,
                 solver_mesh=self.solver_mesh,
                 required_properties=required_properties,
                 optional_fill_values={"Sy": 0.0, "Ss": 0.0},
-                runtime_property_overrides=self.flow_runtime_overrides,
+                runtime_property_overrides=self.model.properties.overrides,
             ).items()
         }
         hk = properties["hk"]
         require_positive_conductivity(
             hk,
             active_mask=np.asarray(ibound, dtype=float) != 0.0,
-            flow=self.flow,
+            profiles=profiles,
         )
 
         kv = properties.get("kv")
@@ -317,7 +299,7 @@ class FlowToModflowAdapter:
             require_positive_conductivity(
                 kv,
                 active_mask=np.asarray(ibound, dtype=float) != 0.0,
-                flow=self.flow,
+                profiles=profiles,
                 property_label="Kv",
             )
 
@@ -329,7 +311,7 @@ class FlowToModflowAdapter:
             active_mask=np.asarray(ibound, dtype=float) > 0.0,
             iconvert=1,
             steady=steady_period_flags(self),
-            flow=self.flow,
+            profiles=profiles,
         )
 
         drn_spd = self._build_drainage_spd(

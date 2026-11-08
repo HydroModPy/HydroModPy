@@ -33,7 +33,6 @@ from hydromodpy.workflow.steps.prepare_solver.freeze import freeze_run_config
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_geographic,
     step_persist_mesh,
-    step_persist_params,
 )
 from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
 
@@ -410,14 +409,6 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 
     _register_tracked_input_files(ctx, store=store)
-
-    if ctx.setup.flow is not None:
-        step_persist_params(
-            store,
-            ctx.sim_id,
-            ctx.setup.flow,
-            domain=ctx.setup.domain,
-        )
 
     step_persist_mesh(ctx, ctx.sim_id, store=store)
     step_persist_geographic(ctx, ctx.sim_id, store=store)

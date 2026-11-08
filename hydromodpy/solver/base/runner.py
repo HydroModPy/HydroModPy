@@ -9,7 +9,9 @@ objects. The runner therefore does not decide *what* should run or *in which
 order*. Its job is narrower:
 
 - walk through the runs in the order provided by the planner,
-- ensure each process-family block has its required runtime objects,
+- ensure each process-family block has its required runtime objects (the
+  ``Model`` of a flow run is one of them, built by ``prepare_solver``, which the
+  runner requires and never creates),
 - open and close process-family blocks via optional callbacks,
 - resolve the exact upstream models referenced by ``depends_on``,
 - delegate solver-specific execution to the matching adapter,
@@ -32,9 +34,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.model.model import Flow
 from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunExecutionResult, SimulationPlan
 
@@ -45,15 +47,8 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 _REQUIRED_COMPONENTS_BY_PROCESS: dict[str, tuple[str, ...]] = {
-    "flow": ("flow",),
-    "transport": ("flow", "transport"),
+    "transport": ("transport",),
 }
-
-
-def ensure_flow(state: Any) -> None:
-    """Create ``state.setup.flow`` from ``state.cfg.flow`` when missing."""
-    if state.setup.flow is None:
-        state.setup.flow = Flow(config=state.cfg.flow)
 
 
 def ensure_transport(state: Any) -> None:
@@ -63,7 +58,6 @@ def ensure_transport(state: Any) -> None:
 
 
 _COMPONENT_ENSURERS: dict[str, Callable[[Any], None]] = {
-    "flow": ensure_flow,
     "transport": ensure_transport,
 }
 
@@ -237,6 +231,11 @@ class SimulationRunner:
             self._call_after_run(run, result, state)
             return result
 
+        if run.process_type == "flow" and getattr(state.setup, "model", None) is None:
+            raise ConfigError(
+                f"Flow run '{run.id}' needs the Model of the run (setup.model), and the "
+                "prepare_solver step has not built one."
+            )
         dependency_models = self._resolve_dependency_models(state, run)
         adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
         # No ``model`` and no ``output_dir``: this run has produced neither yet,

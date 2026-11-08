@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -9,6 +10,7 @@ import pytest
 from shapely.geometry import LineString, box
 
 from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.sfr import (
@@ -23,6 +25,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     sfr_drain_cells_to_drop,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
@@ -64,7 +67,9 @@ def _reach_row(
 
 def _fake_model(payloads: dict, nper: int = 1, perlen: tuple[float, ...] = (86400.0,)):
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": payloads}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)), sfr=payloads
+        ),
         nper=nper,
         perlen=np.asarray(perlen, dtype=float),
         steady=(False,) * nper,
@@ -659,6 +664,8 @@ def test_multiple_networks_are_rejected() -> None:
 def test_inactive_sfr_returns_no_network() -> None:
     mesh = _mesh()
     model = _fake_model({"net0": _trace_payload(_two_reach_trace())})
-    model.flow.active_bc = ["drainage"]
+    model.inputs = replace(
+        model.inputs, boundaries=BoundaryConditionBundle(conditions={}, active_ids=("drainage",))
+    )
     assert resolve_sfr_networks(model, solver_mesh=mesh) == {}
     assert build_sfr_package_args(model, networks={}) is None

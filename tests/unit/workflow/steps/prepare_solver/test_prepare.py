@@ -251,10 +251,44 @@ def _persist(config: DomainConfig) -> list[dict]:
     step_persist_params(
         store,
         "sim",
-        SimpleNamespace(parameters={}),
+        {},
         domain=SimpleNamespace(config=config),
     )
     return store.written
+
+
+def test_the_profiles_of_the_model_reach_the_parameters_table() -> None:
+    profiles = {
+        "K": SimpleNamespace(kind="homogeneous", value=5e-6, unit="m/s"),
+        "Sy": SimpleNamespace(kind="geology", values_by_key={1: 0.1, 2: 0.2}, unit="-"),
+    }
+
+    store = _Store()
+    step_persist_params(store, "sim", profiles)
+
+    assert store.written == [
+        {
+            "param_name": "K",
+            "zone_id": None,
+            "value": 5e-6,
+            "unit": "m/s",
+            "parameterization": "homogeneous",
+        },
+        {
+            "param_name": "Sy",
+            "zone_id": "1",
+            "value": 0.1,
+            "unit": "-",
+            "parameterization": "geology_mapped",
+        },
+        {
+            "param_name": "Sy",
+            "zone_id": "2",
+            "value": 0.2,
+            "unit": "-",
+            "parameterization": "geology_mapped",
+        },
+    ]
 
 
 def test_a_constant_thickness_reaches_the_parameters_table() -> None:

@@ -9,7 +9,9 @@ import numpy as np
 
 from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.catchment.surface import Surface
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from tests._helpers.geotiffs import write_geotiff
+from tests._helpers.model_factory import make_model
 
 EXTENT = 100.0
 NCELL = 10
@@ -71,8 +73,11 @@ def stack_mesh(botm=(70.0, 40.0, BASE), idomain=None):
 
 def lake_model(payload: dict) -> SimpleNamespace:
     """The model double ``carve_lake_bed`` reads: one active lake ``lac0``."""
-    flow = SimpleNamespace(active_bc=["lake"], sinks_sources={"lakes": {"lac0": payload}})
-    return SimpleNamespace(flow=flow)
+    inputs = make_model(
+        boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+        lakes={"lac0": payload},
+    )
+    return SimpleNamespace(inputs=inputs)
 
 
 def abacus() -> dict[str, list[float]]:

@@ -62,8 +62,11 @@ Code map
 - ``hydromodpy.model.boundaries.boundary_condition_registry``:
   the canonical boundary registry (``FLOW_BOUNDARY_DEFINITIONS``) and the runtime
   bundle helpers.
-- ``hydromodpy.model.model``:
+- ``hydromodpy.model.flow``:
   runtime ``Flow`` object storing the boundary bundle.
+- ``hydromodpy.model.model``:
+  the frozen ``Model``, which hands the bundle to a solver adapter as
+  ``inputs.boundaries``.
 - ``hydromodpy.solver.modflow6.builders.boundary_conditions``:
   MF6 ``CHD`` / ``DRN`` translation.
 - ``hydromodpy.solver.modflow_nwt.nwt.payloads.chd`` and ``well_drainage``:

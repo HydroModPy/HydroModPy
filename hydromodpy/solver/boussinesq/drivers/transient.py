@@ -257,14 +257,14 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     record_runtime_backend_summary(solver, contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
-    period_lengths = _resolve_period_lengths_seconds(solver.time_grid)
+    period_lengths = _resolve_period_lengths_seconds(solver.inputs.time.grid)
     if not period_lengths:
         return True
-    n_steps = _resolve_time_steps_per_period(solver.time_grid)
+    n_steps = _resolve_time_steps_per_period(solver.inputs.time.grid)
     solver.runtime_summary["time_steps_per_period"] = int(n_steps)
 
     nper = len(period_lengths)
-    steady_periods = steady_period_flags(solver.flow, nper)
+    steady_periods = steady_period_flags(solver.inputs, nper)
     solver.runtime_summary["first_period_steady"] = bool(steady_periods[0])
     runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=nper)
     recharge_series_m_s = runtime_forcing.recharge_series_m_s

@@ -268,7 +268,13 @@ def _normalize_id_sequence(values: Iterable[object] | None) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class BoundaryConditionBundle:
-    """Runtime view grouping configured and active flow boundary conditions."""
+    """Configured and active flow boundary conditions, read by every backend.
+
+    ``conditions`` maps a boundary id to its typed payload, and ``active_ids``
+    lists the ids the run builds. A backend reads ``Model.boundaries``, whose
+    ``conditions`` is a read-only mapping, through ``get``, ``is_active`` and
+    ``active_side_dirichlet_ids``.
+    """
 
     conditions: Mapping[str, object]
     active_ids: tuple[str, ...]
@@ -312,7 +318,11 @@ class BoundaryConditionBundle:
 
 
 def boundary_condition_bundle_from_flow(flow: object) -> BoundaryConditionBundle:
-    """Return the current boundary-condition bundle for a Flow-like object."""
+    """Return the current boundary-condition bundle of a setup ``Flow``.
+
+    The bundle the flow keeps is returned while its conditions and active ids
+    are still those of the flow, and rebuilt otherwise.
+    """
     bundle = getattr(flow, "boundary_condition_bundle", None)
     if isinstance(bundle, BoundaryConditionBundle):
         current_conditions = getattr(flow, "boundary_conditions", {})
@@ -323,18 +333,8 @@ def boundary_condition_bundle_from_flow(flow: object) -> BoundaryConditionBundle
 
 
 def boundary_conditions_mapping_from_flow(flow: object) -> Mapping[str, object]:
-    """Return configured boundary conditions from a Flow-like object."""
+    """Return the configured boundary conditions of a setup ``Flow``, for the data binders."""
     return boundary_condition_bundle_from_flow(flow).conditions
-
-
-def is_boundary_condition_active(flow: object, bc_id: str) -> bool:
-    """Return whether one boundary id is active on a Flow-like object."""
-    return boundary_condition_bundle_from_flow(flow).is_active(bc_id)
-
-
-def active_side_dirichlet_boundary_ids(flow: object) -> tuple[str, ...]:
-    """Return active side Dirichlet ids for one Flow-like object."""
-    return boundary_condition_bundle_from_flow(flow).active_side_dirichlet_ids()
 
 
 __all__ = [
@@ -349,10 +349,8 @@ __all__ = [
     "FlowBoundarySupportKind",
     "SIDE_DIRICHLET_BC_IDS_ORDERED",
     "SUPPORTED_FLOW_BOUNDARY_IDS",
-    "active_side_dirichlet_boundary_ids",
     "boundary_condition_bundle_from_flow",
     "boundary_conditions_mapping_from_flow",
     "boundary_definition",
-    "is_boundary_condition_active",
     "supported_boundary_ids_for_backend",
 ]

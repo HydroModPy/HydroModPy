@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.model.model import Model
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
@@ -42,16 +41,12 @@ from hydromodpy.solver.modflow_common import (
 )
 from hydromodpy.solver.modflow_grid import SolverGridContext
 
-if TYPE_CHECKING:
-    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-
 
 class Modflow6:
     """Flow solver based on MODFLOW 6 (GWF)."""
 
     def __init__(
         self,
-        geographic: object,
         modflow_config: Modflow6Config | Mapping[str, object] | None = None,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
@@ -65,10 +60,9 @@ class Modflow6:
         self.model_name = model_name
         self.model_name_mf6 = mf6_safe_name(model_name)
         self.model_output_name = model_name
-        self.geographic = geographic
-        self.flow = None
-        self.domain = None
-        self.flow_regime: str | None = None
+        # The frozen Model this solver builds from, bound by pre_processing. It is
+        # read and never changed: a build leaves the Model as it found it.
+        self.inputs: Model | None = None
         self.last_flow_solve_time_seconds: float | None = None
 
         self.full_path = os.path.join(model_folder, model_name)
@@ -149,39 +143,32 @@ class Modflow6:
 
     def pre_processing(
         self,
-        flow: object,
-        domain: DomainLike,
+        model: Model,
         options: ModflowPreprocessOptions | None = None,
         *,
-        cell_mesh: PlanarCellMesh,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Build the MODFLOW 6 simulation in memory, before it is written and run.
 
-        Binds the flow process and the domain, applies the options, checks the
-        inputs, then assembles the discretization and the flopy packages.
+        Binds the model, applies the options, checks the inputs, then assembles
+        the discretization and the flopy packages.
 
         Parameters
         ----------
-        flow
-            The flow process: parameters, boundaries, sinks and sources.
-        domain
-            The domain the grid is built on.
+        model
+            The frozen ``Model``: its geometry (the cell mesh the grid is extruded
+            from and the domain), properties, boundaries, sinks and sources, start
+            state, time and options. It is kept as ``self.inputs`` and never changed.
         options
-            Pre-processing options. None keeps the ones the model holds.
-        cell_mesh
-            The planar cell mesh the grid is extruded from: the regular grid or the
-            unstructured mesh the run built.
+            Pre-processing options. None keeps the ones the solver holds.
         flow_runtime_overrides
-            Flow values that replace the configured ones for this build only,
-            as a calibration trial sets them.
+            Settings of one trial that apply to this build only, such as the
+            private recharge folder of a calibration trial.
         """
         run_pre_processing(
             self,
-            flow,
-            domain,
+            model,
             options,
-            cell_mesh=cell_mesh,
             flow_runtime_overrides=flow_runtime_overrides,
         )
 

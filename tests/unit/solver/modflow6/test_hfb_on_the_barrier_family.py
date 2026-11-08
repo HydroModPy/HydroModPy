@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -29,6 +30,7 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wal
 from hydromodpy.solver.modflow6.builders.flow_barrier import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
+from tests._helpers.model_factory import make_model
 from tests._helpers.reservoir_dam import DOMAIN, X0, Y0
 
 FENCE = LineString([(X0 + 250.0, Y0 + 120.0), (X0 + 560.0, Y0 + 420.0), (X0 + 880.0, Y0 + 500.0)])
@@ -68,9 +70,7 @@ def _hfb(cell_mesh: PlanarCellMesh) -> list[list]:
     )
     barrier = FlowBarrierConfig(line=[list(xy) for xy in FENCE.coords], depths=[8.0], hydchr=1e-9)
     model = SimpleNamespace(
-        flow=SimpleNamespace(
-            sinks_sources={"flow_barriers": {"f": {"barrier": barrier, "line": FENCE}}}
-        )
+        inputs=make_model(flow_barriers={"f": {"barrier": barrier, "line": FENCE}})
     )
     return resolve_flow_barrier_hfb_rows(model, solver_mesh)
 

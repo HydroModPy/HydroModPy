@@ -37,6 +37,7 @@ from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
+from hydromodpy.solver.modflow_nwt.modpath.resolvers import get_raster
 from hydromodpy.solver.modflow_nwt.mt3dms import masstransfer
 
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
@@ -92,7 +93,7 @@ class Mt3dms:
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
-        self.geographic = self._get_geographic()
+        self.raster = get_raster(model_modflow)
 
         self.model_folder = model_folder
         self.model_name = model_name
@@ -148,10 +149,6 @@ class Mt3dms:
         self.mf = model_modflow.mf
 
         self.new_stepsize = 1
-
-    def _get_geographic(self):
-        """Return geographic context from MODFLOW model when available."""
-        return getattr(self.model_modflow, "geographic", None)
 
     # %% PRE-PROCESSING
 
@@ -450,7 +447,7 @@ class Mt3dms:
                 routing_ctx = self.model_modflow._ensure_solver_routing_context()
 
                 accumulated_mass = masstransfer.Masstransfer(
-                    self.geographic,
+                    self.raster,
                     "mass_seepage_t(" + the_time + ").tif",
                     "tracept_conc_t(" + the_time + ").shp",
                     "mass_accumulated_t(" + the_time + ").tif",

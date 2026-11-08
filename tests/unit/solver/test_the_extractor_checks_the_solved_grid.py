@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import IncompatibleMeshError, MeshError
+from hydromodpy.results.storage.prior_state import reoriented_rows, written_step
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.extractors.grid_check import (
     grb_rings,
@@ -24,7 +25,6 @@ from hydromodpy.solver.modflow6.extractors.grid_check import (
     verify_grid_against_store,
 )
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
-from hydromodpy.solver.modflow6.support.written_grid import reoriented_rows, written_step
 from hydromodpy.solver.modflow_nwt.extractors.flow import verify_dis_grid
 from tests._helpers.ugrid_meshes import quad_mesh
 

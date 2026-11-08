@@ -37,7 +37,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
     boundary_definition,
 )
 from hydromodpy.model.boundaries.boundary_conditions import BCEntry, FlowBoundaryConditionConfig
-from hydromodpy.model.initial.config import FlowInitialConditions, normalize_flow_initial_conditions
+from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.properties.property_ids import default_unit_of, refusal_of_a_retired_id
 from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig

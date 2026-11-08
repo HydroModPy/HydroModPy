@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.model.contracts import LoadResultProto
-from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_forcing import SoilForcings
 from hydromodpy.model.soil.kernel import annual_budget
-from hydromodpy.model.soil.recharge import SoilForcings
 
 
 def gauged_discharge_line(

@@ -86,10 +86,14 @@ from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.soil_config import (
+    soil_reservoir_of,
+    spinup_refusal,
+    steady_start_refusal,
+)
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
-from hydromodpy.model.initial.spinup_config import SpinupConfig
+from hydromodpy.model.initial_config import SpinupConfig
 from hydromodpy.model.properties.property_table import k_tensor_parameter_ids
-from hydromodpy.model.soil.config import soil_reservoir_of, spinup_refusal, steady_start_refusal
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 from hydromodpy.results.metric_rule import MetricsConfig

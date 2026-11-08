@@ -57,6 +57,14 @@ class SolverAdapter(Protocol):
     nothing else of the pipeline the run belongs to. An adapter
     that needs something the view does not carry is asking for something a run
     invoked from outside would not have.
+
+    A flow adapter reads what it solves from ``ctx.state.setup.model``, the frozen
+    :class:`~hydromodpy.model.model.Model` the ``prepare_solver`` step built for
+    the run, and never from the ``Flow``, the domain, the cell mesh, the
+    delineation or the configuration it was built from. It does not change the
+    ``Model``: a solve leaves it as it found it, and an auxiliary solve runs on
+    a variant that is a new object. The folder, the run id and the trial keys of
+    ``setup.flow_runtime_overrides`` stay on ``setup``.
     """
 
     process_type: ClassVar[str]

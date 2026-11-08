@@ -2,12 +2,11 @@
 Tests for RCH/EVT payload building via FlowToModflowAdapter._build_recharge_payload.
 
 These tests exercise the logic that was previously in ForcingToModflowAdapter,
-now merged into FlowToModflowAdapter (see flow.sinks_sources.recharge).
+now merged into FlowToModflowAdapter (see ``Model.recharge``).
 """
 
 from __future__ import annotations
 
-import types
 from datetime import datetime
 
 import numpy as np
@@ -18,8 +17,10 @@ from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from tests._helpers.model_factory import make_model
 
 from ._test_forcing_adapter_builders import _build_solver_mesh
 
@@ -36,16 +37,13 @@ def _make_adapter(
     """Build a minimal FlowToModflowAdapter focused on the recharge path."""
     if active_sinks_sources is None:
         active_sinks_sources = ["recharge"]
-    flow = types.SimpleNamespace(
-        sinks_sources={"recharge": recharge_cfg},
-        flow_regime=flow_regime,
-        active_sinks_sources=active_sinks_sources,
-        first_period_steady=first_period_steady,
-        config=None,
+    model = make_model(
+        recharge=recharge_cfg,
+        active_sinks_sources=tuple(active_sinks_sources),
+        time=ModelTime(grid=None, regime=flow_regime, first_period_steady=first_period_steady),
     )
     return FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
+        model=model,
         solver_mesh=_build_solver_mesh(),
         nper=nper,
         simulation_window=simulation_window,
@@ -239,11 +237,11 @@ def test_recharge_first_clim_numeric_scalar():
 
 
 def test_recharge_rejects_invalid_flow_regime():
+    """The model refuses a regime that is neither steady nor transient, before any payload."""
     cfg = FlowRechargeConfig(values=0.001)
-    adapter = _make_adapter(cfg, "invalid_regime", nper=1)
 
     with pytest.raises(ValueError, match="flow.flow_regime must be"):
-        adapter._build_recharge_payload()
+        _make_adapter(cfg, "invalid_regime", nper=1)
 
 
 # ---------------------------------------------------------------------------

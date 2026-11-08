@@ -32,6 +32,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from validation_cases.shared.lake_inputs import lake_inputs
 from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import PleasantTransientGeometry, load_geometry
@@ -123,10 +124,7 @@ def _hmp_model(geometry: PleasantTransientGeometry) -> SimpleNamespace:
         model_output_name=_MODEL_NAME,
         model_name=_MODEL_NAME,
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={"lakes": {_LAKE_ID: _lake_definition(geometry, period=0)}},
-        ),
+        inputs=lake_inputs({_LAKE_ID: _lake_definition(geometry, period=0)}),
     )
 
 

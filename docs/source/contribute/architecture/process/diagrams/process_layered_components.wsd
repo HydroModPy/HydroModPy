@@ -17,12 +17,13 @@ package "Configuration" {
 package "Data and forcing" {
   component "Data managers\n(hydromodpy.data)" as DataManagers
   component "Binders\n(model.boundaries)" as Binders
-  component "Forcing\n(model.forcing, model.soil)" as Forcing
+  component "Forcing\n(model.forcing, model.soil.kernel)" as Forcing
 }
 
 package "Runtime process objects (model)" {
   component "ProcessSpatial" as ProcessSpatial
   component "Flow" as Flow
+  component "Model\n(frozen)" as Model
   component "Transport" as Transport
 }
 
@@ -50,11 +51,13 @@ Transport --> ProcessSpatial : extends
 DataManagers --> Binders : loaded data
 Forcing --> Binders : aligned series
 Binders --> Flow : fills recharge, ETP,\nlakes, SFR
+Flow --> Model : model_from_flow\n(prepare_solver)
 
 SimulationConfig --> Planner
 Planner --> Runner : SimulationPlan
-Runner --> Flow
+Runner --> Model : setup.model
 Runner --> Transport
 Runner --> Adapter : by run.solver
+Adapter --> Model : reads only this
 Adapter --> Backends : only layer that\ntranslates to solver input
 @enduml

@@ -2,8 +2,45 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
+
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.model import Geometry, ModelTime, model_from_flow
+from tests._helpers.model_factory import default_options
+
+
+def adapter_state(
+    tmp_path: Path,
+    *,
+    flow: Flow,
+    cell_mesh: object = None,
+    domain: object = None,
+    time_grid: object = None,
+    **setup: object,
+) -> RunState:
+    """The run state the Boussinesq adapter reads: the Model of ``flow`` and the setup facts.
+
+    The setup keeps what is not in the Model: the scratch folder, the mesh bundle
+    and the mesh summary. ``[flow.runtime]`` comes from ``cfg.flow``.
+    """
+    model = model_from_flow(
+        flow,
+        geometry=Geometry(cells=cell_mesh, domain=domain),
+        time=ModelTime.from_flow(flow, time_grid),
+        options=default_options(),
+    )
+    facts = {
+        "mesh_bundle": None,
+        "mesh_summary": None,
+        "workspace": SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+    }
+    return RunState(
+        cfg=SimpleNamespace(flow=flow.config),
+        setup=SimpleNamespace(model=model, **{**facts, **setup}),
+    )
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:

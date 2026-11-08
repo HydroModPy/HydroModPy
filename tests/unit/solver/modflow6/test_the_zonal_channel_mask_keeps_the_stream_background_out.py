@@ -15,6 +15,8 @@ from rasterio.transform import from_origin
 
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
+from tests._helpers.mf6_toy_models import geometry_of
+from tests._helpers.model_factory import make_model
 
 
 def test_only_the_stream_pixels_are_channel(tmp_path) -> None:
@@ -43,8 +45,12 @@ def test_only_the_stream_pixels_are_channel(tmp_path) -> None:
         modflow_config=SimpleNamespace(
             sgrid=SimpleNamespace(top_sampling=TopSamplingConfig(mode="zonal"))
         ),
-        geographic=SimpleNamespace(river_stream_link_id_tif=str(path), river_streams_tif=None),
-        domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+        inputs=make_model(
+            geometry=geometry_of(
+                SimpleNamespace(river_stream_link_id_tif=str(path), river_streams_tif=None),
+                domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+            )
+        ),
     )
 
     mask = build._resolve_channel_mask_for_zonal(model)
@@ -88,12 +94,16 @@ def test_the_full_extent_tree_is_read_before_the_clipped_raster(tmp_path, caplog
         modflow_config=SimpleNamespace(
             sgrid=SimpleNamespace(top_sampling=TopSamplingConfig(mode="zonal"))
         ),
-        geographic=SimpleNamespace(
-            river_stream_link_id_tif=str(clipped_path),
-            river_streams_tif=None,
-            correcflow_path=str(folder),
+        inputs=make_model(
+            geometry=geometry_of(
+                SimpleNamespace(
+                    river_stream_link_id_tif=str(clipped_path),
+                    river_streams_tif=None,
+                    correcflow_path=str(folder),
+                ),
+                domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+            )
         ),
-        domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
     )
 
     with caplog.at_level("INFO"):
@@ -116,10 +126,16 @@ def test_the_streams_full_raster_is_the_second_choice(tmp_path) -> None:
         modflow_config=SimpleNamespace(
             sgrid=SimpleNamespace(top_sampling=TopSamplingConfig(mode="zonal"))
         ),
-        geographic=SimpleNamespace(
-            river_stream_link_id_tif=None, river_streams_tif=None, correcflow_path=str(folder)
+        inputs=make_model(
+            geometry=geometry_of(
+                SimpleNamespace(
+                    river_stream_link_id_tif=None,
+                    river_streams_tif=None,
+                    correcflow_path=str(folder),
+                ),
+                domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+            )
         ),
-        domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
     )
 
     assert int(build._resolve_channel_mask_for_zonal(model).sum()) == 4

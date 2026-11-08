@@ -8,9 +8,13 @@ from pydantic import ValidationError
 
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.soil_config import (
+    SoilReservoirConfig,
+    spinup_refusal,
+    steady_start_refusal,
+)
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig, spinup_refusal, steady_start_refusal
 
 # A recharge rate written beside a soil reservoir would be silently ignored.
 #

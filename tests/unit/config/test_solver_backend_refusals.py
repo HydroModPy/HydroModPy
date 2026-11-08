@@ -11,12 +11,14 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
+from hydromodpy.model.model import ModelTime, model_from_flow
 from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.registry import capabilities
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.solver_contract import assert_supported_runtime_subset
+from tests._helpers.model_factory import default_options, small_geometry
 
 # A flow solver name that is neither built in nor a plugin is refused by name.
 #
@@ -223,8 +225,14 @@ def test_lake_on_modflow6_is_accepted(tmp_path) -> None:
 
 def test_boussinesq_solver_contract_rejects_lake_with_typed_error() -> None:
     flow = Flow(FlowConfig(sinks_sources={"lakes": LAKES}))
+    model = model_from_flow(
+        flow,
+        geometry=small_geometry(),
+        time=ModelTime.from_flow(flow, None),
+        options=default_options(),
+    )
     with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        assert_supported_runtime_subset(flow)
+        assert_supported_runtime_subset(model)
     assert "lake" in str(excinfo.value)
     assert excinfo.value.code == "HMPY.E407"
 

@@ -62,7 +62,7 @@ class ResolveStep:
         from hydromodpy.core.state.run_state import WorkflowContext
         from hydromodpy.data import DataPlanner
         from hydromodpy.model.domain.spatial_support import support_provider_names
-        from hydromodpy.model.soil.config import soil_reservoir_of
+        from hydromodpy.model.forcing.soil_config import soil_reservoir_of
         from hydromodpy.workflow.steps.data import log_data_plan
 
         ctx = state.get("ctx")

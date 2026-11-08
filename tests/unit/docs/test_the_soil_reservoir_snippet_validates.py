@@ -24,7 +24,7 @@ def _block() -> str:
 
 
 def test_the_soil_section_of_the_page_reads_as_a_request() -> None:
-    from hydromodpy.model.soil.config import SoilReservoirConfig
+    from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 
     raw = tomllib.loads(_block())["flow"]["sinks_sources"]["recharge"]["soil"]
     config = SoilReservoirConfig(**raw)

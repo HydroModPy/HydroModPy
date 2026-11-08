@@ -17,17 +17,16 @@ from tests._helpers.mf6_toy_models import (
 
 def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "cell", "cell": (0, 0, 0)},
-                    units="m3/day",
-                    forcing={"kind": "constant", "value": -86400.0},
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location={"kind": "cell", "cell": (0, 0, 0)},
+                units="m3/day",
+                forcing={"kind": "constant", "value": -86400.0},
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     wel_spd = build_well_stress_period_data(model, 2)
@@ -39,16 +38,15 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
 
 def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "absolute_xy", "x": 0.75, "y": 0.25},
-                    flux=-1.0,
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location={"kind": "absolute_xy", "x": 0.75, "y": 0.25},
+                flux=-1.0,
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     wel_spd = build_well_stress_period_data(model, 2)
@@ -59,17 +57,16 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
 
 def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": {
-                    "cell": (0, 0, 1),
-                    "location": {"kind": "absolute_xy", "x": 0.75, "y": 0.25, "layer": 0},
-                    "flux": -1.0,
-                }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": {
+                "cell": (0, 0, 1),
+                "location": {"kind": "absolute_xy", "x": 0.75, "y": 0.25, "layer": 0},
+                "flux": -1.0,
             }
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     with pytest.raises(ValueError, match="Extra inputs"):
@@ -78,16 +75,15 @@ def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
 
 def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "absolute_xy", "x": 2.0, "y": 2.0},
-                    flux=-1.0,
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location={"kind": "absolute_xy", "x": 2.0, "y": 2.0},
+                flux=-1.0,
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     with pytest.raises(ValueError, match="W1 coordinates .* are outside the mesh domain"):
@@ -96,16 +92,15 @@ def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
 
 def test_modflow6_rejects_well_flux_length_mismatch() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "cell", "cell": (0, 0, 0)},
-                    flux=[-1.0, -2.0, -3.0],
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location={"kind": "cell", "cell": (0, 0, 0)},
+                flux=[-1.0, -2.0, -3.0],
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     with pytest.raises(ValueError, match="must be 1 or match nper"):
@@ -114,17 +109,16 @@ def test_modflow6_rejects_well_flux_length_mismatch() -> None:
 
 def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "cell", "cell": (0, 0, 0)},
-                    units="m3/day",
-                    forcing={"kind": "constant", "value": -86400.0},
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location={"kind": "cell", "cell": (0, 0, 0)},
+                units="m3/day",
+                forcing={"kind": "constant", "value": -86400.0},
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     wel_spd = build_well_stress_period_data(model, 2)
@@ -134,9 +128,10 @@ def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
 
 
 def _model_with_well(model, location: dict, flux: float = -1.0):
-    model.flow = SimpleNamespace(
-        sinks_sources={"wells": {"W1": FlowWellConfig(location=location, flux=flux)}},
-        active_sinks_sources=["wells"],
+    model.inputs = replace(
+        model.inputs,
+        wells={"W1": FlowWellConfig(location=location, flux=flux)},
+        active_sinks_sources=("wells",),
     )
     return model
 
@@ -213,7 +208,7 @@ def test_a_coordinate_well_without_a_layer_goes_to_the_top_active_cell() -> None
         "W1": FlowWellConfig(location={"kind": "absolute_xy", "x": 0.5, "y": 1.5}, flux=-1.0),
         "W2": FlowWellConfig(location={"kind": "absolute_xy", "x": 1.5, "y": 1.5}, flux=-1.0),
     }
-    model.flow = SimpleNamespace(sinks_sources={"wells": wells}, active_sinks_sources=["wells"])
+    model.inputs = replace(model.inputs, wells=wells, active_sinks_sources=("wells",))
 
     wel_spd = build_well_stress_period_data(model, 1)
 
@@ -224,17 +219,16 @@ def test_a_coordinate_well_without_a_layer_goes_to_the_top_active_cell() -> None
 
 
 def _with_well(model, location, *, units="m3/day", value=-86400.0):
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "W1": FlowWellConfig(
-                    location=location,
-                    units=units,
-                    forcing={"kind": "constant", "value": value},
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "W1": FlowWellConfig(
+                location=location,
+                units=units,
+                forcing={"kind": "constant", "value": value},
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
     return model
 

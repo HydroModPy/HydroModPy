@@ -26,8 +26,8 @@ from hydromodpy.model.boundaries.climate import (
     _peak_mm_day_of_a_recharge_source,
     apply_recharge_load_result_to_flow,
 )
+from hydromodpy.model.forcing.soil_config import soil_reservoir_of
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
-from hydromodpy.model.soil.config import soil_reservoir_of
 
 SOIL_PROJECT_TOML = """
 [workflow]

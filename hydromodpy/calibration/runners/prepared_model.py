@@ -66,7 +66,7 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
     surface, so a pre-existing config issue is never blamed on a bound.
     """
     from hydromodpy.calibration.optim.parameters import apply_parameter_to_config
-    from hydromodpy.model.model import Flow
+    from hydromodpy.model.flow import Flow
 
     base_cfg = getattr(trial_ctx, "base_cfg", None) or getattr(
         getattr(trial_ctx, "ctx", None), "cfg", None

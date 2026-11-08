@@ -38,8 +38,9 @@ from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.planning.input_triangulation import domain_polygon_of, read_input_triangulation
 from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
+from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
 from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import resolve_runtime_solver_mesh
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.modflow6.builders.recharge import (
@@ -50,6 +51,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow6.support.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from tests._helpers.model_factory import default_options
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ISLAND_MSH = (
@@ -427,6 +429,16 @@ class SolverInputs:
     recharge: dict[int, np.ndarray]
 
 
+def model_of(pair: MeshPair, flow: Flow) -> Model:
+    """The ``Model`` the ``prepare_solver`` step builds from ``flow`` on the cells of ``pair``."""
+    return model_from_flow(
+        flow,
+        geometry=Geometry(cells=pair.cell_mesh, domain=pair.domain),
+        time=ModelTime.from_flow(flow, SimpleNamespace(window=WINDOW)),
+        options=default_options(),
+    )
+
+
 def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     """The NPF ``k`` and RCHA arrays of a MODFLOW 6 model, as flopy holds them.
 
@@ -434,22 +446,22 @@ def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     calls; the arrays go through a DISV grid, an NPF and an RCHA package.
     """
     solver_mesh = pair.solver_mesh
+    model_inputs = model_of(pair, flow)
     properties = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=model_inputs.properties.profiles,
         domain=pair.domain,
         solver_mesh=solver_mesh,
         required_properties=frozenset({"K", "Sy", "Ss"}),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
     )
     model = SimpleNamespace(
-        flow=flow,
+        inputs=model_inputs,
         recharge=None,
         first_clim=None,
         nper=NPER,
         ncpl=solver_mesh.n_cells,
         perlen=np.ones(NPER),
         steady=np.zeros(NPER, dtype=bool),
-        time_grid=SimpleNamespace(window=WINDOW),
         solver_mesh=solver_mesh,
     )
     bind_recharge_from_flow(model)
@@ -487,8 +499,7 @@ def prepare_nwt(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     solver_mesh = pair.solver_mesh
     nrow, ncol = solver_mesh.structured_shape
     adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=pair.domain,
+        model=model_of(pair, flow),
         solver_mesh=solver_mesh,
         nper=NPER,
         simulation_window=WINDOW,
@@ -527,23 +538,11 @@ def prepare_nwt(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     )
 
 
-def boussinesq_setup(pair: MeshPair, flow: Flow) -> SimpleNamespace:
-    """The setup state the Boussinesq flow adapter reads: the cell mesh, the flow, the domain."""
-    return SimpleNamespace(
-        cell_mesh=pair.cell_mesh,
-        flow=flow,
-        domain=pair.domain,
-        mesh_summary=None,
-        geographic_features=None,
-    )
-
-
 def prepare_boussinesq(pair: MeshPair, flow: Flow) -> SolverInputs:
     """The per-cell K, Sy and recharge series a Boussinesq model is built with."""
-    mesh = resolve_runtime_solver_mesh(boussinesq_setup(pair, flow))
-    resolver = BoussinesqForcingResolver(
-        mesh=mesh, flow=flow, time_grid=SimpleNamespace(window=WINDOW)
-    )
+    model = model_of(pair, flow)
+    mesh = resolve_runtime_solver_mesh(model, mesh_summary=None)
+    resolver = BoussinesqForcingResolver(mesh=mesh, inputs=model)
     series = resolver.resolve_recharge_series(NPER)
     return SolverInputs(
         k=np.asarray(mesh.hydraulic_conductivity_m_s, dtype=float).reshape(1, -1),

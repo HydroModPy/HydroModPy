@@ -21,10 +21,12 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_outlets
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _LAKE_CELLS = [5, 6, 9, 10]
@@ -187,18 +189,16 @@ def _model_with_outlet() -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": polygon,
-                        "bedleak": 0.3,
-                        "abacus": abacus,
-                        "initial_stage": 80.0,
-                        "outlets": [{"kind": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0}],
-                        "rainfall": {"value": 4.0, "units": "mm/day"},
-                    }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": polygon,
+                    "bedleak": 0.3,
+                    "abacus": abacus,
+                    "initial_stage": 80.0,
+                    "outlets": [{"kind": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0}],
+                    "rainfall": {"value": 4.0, "units": "mm/day"},
                 }
             },
         ),
@@ -230,15 +230,13 @@ def test_lak_package_args_omit_outlets_when_none() -> None:
     model = SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": polygon,
-                        "bedleak": 0.3,
-                        "abacus": [(50.0, 0.0, 4.0), (100.0, 200.0, 4.0)],
-                    }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": polygon,
+                    "bedleak": 0.3,
+                    "abacus": [(50.0, 0.0, 4.0), (100.0, 200.0, 4.0)],
                 }
             },
         ),

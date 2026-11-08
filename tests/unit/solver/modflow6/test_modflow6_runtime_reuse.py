@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.options import ModflowRunOptions
+from tests._helpers.model_factory import make_model
 
 
 def test_modflow6_processing_writes_only_dirty_packages() -> None:
@@ -33,6 +34,7 @@ def test_modflow6_processing_writes_only_dirty_packages() -> None:
     model.sto = _FakePackage()
     model.drn = _FakePackage()
     model.nper = 1
+    model.inputs = make_model()
     model._runtime_dirty_packages = ("npf", "sto")
 
     success = Modflow6.processing(

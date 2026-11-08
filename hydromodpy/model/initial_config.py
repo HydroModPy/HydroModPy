@@ -1,24 +1,13 @@
-"""
-Flow Initial Condition Models
-=============================
+"""The ``[flow.ic]`` and ``[spinup]`` sections, and the start state ``[flow.ic]`` asks for.
 
-Typed initial-condition structures for the flow process.
-
-This module defines:
-
-- `FlowICTop`, `FlowICTopOffset`, `FlowICBottom`, `FlowICCustom`,
-  `FlowICSteadyState`: the five discriminated variants describing how head
-  values are initialized.
-- `FlowInitialCondition`: discriminated union (on the `kind` field) over the
-  five variants above.
-- `FlowInitialConditions`: the runtime container currently exposing the `h`
-  initial condition consumed by the flow process and solver adapters.
-
-The flow process currently exposes one initial-condition variable (`h`) used
-to initialize hydraulic heads before solver assembly.
-
-`normalize_flow_initial_conditions` turns a raw flat `[flow.ic]` payload into
-`FlowInitialConditions`.
+``FlowICTop``, ``FlowICTopOffset``, ``FlowICBottom``, ``FlowICCustom``,
+``FlowICSteadyState`` and ``FlowICSpinupCyclic`` are the six kinds of the
+discriminated union ``FlowInitialCondition``, held by ``FlowInitialConditions``
+under ``h``. ``normalize_flow_initial_conditions`` reads a flat ``[flow.ic]``
+table. ``SpinupConfig`` holds the loop settings of ``hmp spinup``.
+``initial_state_of`` turns a validated ``[flow.ic]`` into one of the start
+states of ``hydromodpy.model.initial.state``, with the strategy of a steady or
+cyclic start read and checked in SI units.
 """
 
 from __future__ import annotations
@@ -36,6 +25,15 @@ from hydromodpy.core.units import (
     Length,
     check_unit_compatible,
     parse_to_canonical_magnitude,
+)
+from hydromodpy.core.units.types import LengthMeters
+from hydromodpy.model.initial.state import (
+    HEAD_RULE_KINDS,
+    CyclicSpinupStrategy,
+    CyclicStart,
+    HeadRule,
+    SteadyStart,
+    SteadyStateStrategy,
 )
 from hydromodpy.model.payloads import InitialCondition as BaseInitialCondition
 from hydromodpy.model.payloads import declared_unit
@@ -476,6 +474,148 @@ def _normalize_single_ic_payload(
     return payload_dict
 
 
+class SpinupConfig(HydroModelBase):
+    """Settings for the cyclic spin-up loop (``[spinup]``)."""
+
+    max_cycles: Annotated[int, Profile.USER] = Field(
+        default=10,
+        ge=1,
+        description="Maximum spin-up cycles before the loop stops without converging.",
+        json_schema_extra={"unit": "-"},
+    )
+    tol_head: Annotated[float, Profile.USER] = Field(
+        default=0.01,
+        gt=0.0,
+        description=(
+            "Head convergence tolerance [m]. The loop converges when the largest "
+            "absolute head change between two cycles (L-inf over active cells) is "
+            "below this."
+        ),
+        json_schema_extra={"unit": "m"},
+    )
+    tol_stage: Annotated[float, Profile.USER] = Field(
+        default=0.01,
+        gt=0.0,
+        description=(
+            "Lake-stage convergence tolerance [m]. The loop converges when the "
+            "largest absolute stage change between two cycles, over every lake, is "
+            "below this. A model without a lake does not read it."
+        ),
+        json_schema_extra={"unit": "m"},
+    )
+    window_start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative "
+            "forcing period each cycle repeats. None reuses [simulation.time]."
+        ),
+    )
+    window_end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Cycle window end (ISO datetime). None reuses [simulation.time]. Set both "
+            "window bounds to spin up on a shorter representative period than the "
+            "production chronicle."
+        ),
+    )
+
+
+_RATE_ADAPTER: TypeAdapter[float] = TypeAdapter(FluxDensityMPerS)
+_LENGTH_ADAPTER: TypeAdapter[float] = TypeAdapter(LengthMeters)
+
+
+def _field(initial_condition: object, name: str, default: object = None) -> object:
+    return getattr(initial_condition, name, default)
+
+
+def steady_state_strategy_of(initial_condition: object) -> SteadyStateStrategy:
+    """Read and check the forcing strategy of a ``steady_state`` initial condition."""
+    source = str(_field(initial_condition, "source", "mean_recharge") or "mean_recharge").strip()
+    boundary_policy = str(
+        _field(initial_condition, "boundary_condition_policy", "first_period") or "first_period"
+    ).strip()
+    raw_rate = _field(initial_condition, "rate")
+
+    if source not in {"recharge", "mean_recharge", "prescribed"}:
+        raise ValueError("flow.ic.source must be 'recharge', 'mean_recharge', or 'prescribed'")
+    if boundary_policy != "first_period":
+        raise ValueError("flow.ic.boundary_condition_policy must be 'first_period'")
+
+    if source == "prescribed":
+        if raw_rate is None:
+            raise ValueError(
+                "flow.ic.rate is required when flow.ic.source='prescribed'; "
+                "write the equilibrium rate with its unit, for example rate = '500 mm/yr'"
+            )
+        return SteadyStateStrategy(
+            source=source,
+            recharge_statistic=None,
+            boundary_condition_policy=boundary_policy,
+            rate_m_s=_RATE_ADAPTER.validate_python(raw_rate),
+        )
+
+    if raw_rate is not None:
+        raise ValueError(
+            "flow.ic.rate is only read when flow.ic.source='prescribed'; "
+            f"got source={source!r}, which reads the recharge chronicle instead"
+        )
+    recharge_statistic = str(
+        _field(initial_condition, "recharge_statistic", "time_mean") or "time_mean"
+    ).strip()
+    if recharge_statistic != "time_mean":
+        raise ValueError("flow.ic.recharge_statistic must be 'time_mean'")
+    return SteadyStateStrategy(
+        source=source,
+        recharge_statistic=recharge_statistic,
+        boundary_condition_policy=boundary_policy,
+    )
+
+
+def cyclic_spinup_strategy_of(initial_condition: object) -> CyclicSpinupStrategy:
+    """Read and check the loop settings of a ``spinup_cyclic`` initial condition."""
+    max_cycles = int(_field(initial_condition, "max_cycles", 4) or 4)
+    if max_cycles < 1:
+        raise ValueError("flow.ic.max_cycles has to be at least one cycle.")
+    raw_tol = _field(initial_condition, "tol_head", 0.01)
+    tol = _LENGTH_ADAPTER.validate_python(raw_tol if raw_tol is not None else 0.01)
+    if tol <= 0.0:
+        raise ValueError(
+            "flow.ic.tol_head has to be strictly positive: it is the head change below "
+            "which two cycles count as the same state."
+        )
+    first = str(_field(initial_condition, "first_cycle_from", "top") or "top").strip()
+    if first not in {"top", "steady_state"}:
+        raise ValueError("flow.ic.first_cycle_from must be 'top' or 'steady_state'")
+    return CyclicSpinupStrategy(
+        max_cycles=max_cycles, tol_head_m=float(tol), first_cycle_from=first
+    )
+
+
+def initial_state_of(
+    initial_conditions: FlowInitialConditions | None,
+) -> HeadRule | SteadyStart | CyclicStart:
+    """The start state a validated ``[flow.ic]`` asks for.
+
+    ``steady_state`` and ``spinup_cyclic`` become a ``SteadyStart`` and a
+    ``CyclicStart`` with their checked strategy. The four other kinds become a
+    ``HeadRule``, with the value in metres for ``top_offset`` and ``custom``.
+    """
+    if initial_conditions is None or getattr(initial_conditions, "h", None) is None:
+        raise ValueError("flow.initial_conditions.h is required to build the Model of a run")
+    head = initial_conditions.h
+    kind = str(head.kind).strip().lower()
+    if kind == "steady_state":
+        return SteadyStart(steady_state_strategy_of(head))
+    if kind == "spinup_cyclic":
+        return CyclicStart(cyclic_spinup_strategy_of(head))
+    if kind not in HEAD_RULE_KINDS:
+        raise ValueError("flow.ic.kind must be one of: " + ", ".join(sorted(known_ic_types())))
+    value = _field(head, "value")
+    if kind not in {"top_offset", "custom"} or value is None:
+        return HeadRule(kind)
+    return HeadRule(kind, float(getattr(value, "magnitude", value)))
+
+
 __all__ = [
     "FlowICBottom",
     "FlowICCustom",
@@ -485,4 +625,10 @@ __all__ = [
     "FlowICTopOffset",
     "FlowInitialCondition",
     "FlowInitialConditions",
+    "SpinupConfig",
+    "cyclic_spinup_strategy_of",
+    "initial_state_of",
+    "known_ic_types",
+    "normalize_flow_initial_conditions",
+    "steady_state_strategy_of",
 ]

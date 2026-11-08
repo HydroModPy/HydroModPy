@@ -8,9 +8,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.initial.config import FlowICCustom, FlowICSteadyState, FlowInitialConditions
-from hydromodpy.model.initial.heads import steady_flow_copy_for_initialization
+from hydromodpy.model.initial.state import HeadRule, SteadyStart
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.results.storage.run_store import SOLVER_DIAGNOSTICS_DIRNAME
 from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -26,6 +25,7 @@ from hydromodpy.solver.boussinesq.jacobian.common import (
 from hydromodpy.solver.boussinesq.runtimes.vi_bounds import variable_bounds
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
+from tests._helpers.model_factory import make_model
 
 # Boussinesq lumped budget: always written, MODFLOW in/out orientation.
 
@@ -209,8 +209,7 @@ def test_boussinesq_steady_state_initial_condition_uses_top_as_initial_guess() -
         z_top_m=np.asarray([10.0, 11.0, 12.0], dtype=float),
         z_bottom_m=np.asarray([1.0, 1.0, 1.0], dtype=float),
     )
-    flow = SimpleNamespace(initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")))
-    resolver = BoussinesqForcingResolver(mesh=mesh, flow=flow, time_grid=None)
+    resolver = BoussinesqForcingResolver(mesh=mesh, inputs=make_model(initial=SteadyStart()))
 
     head = resolver.resolve_initial_head_field()
 
@@ -223,15 +222,11 @@ def test_boussinesq_initial_state_records_head_bounds_summary(tmp_path) -> None:
         z_top_m=np.asarray([5.0, 5.0, 5.0], dtype=float),
         z_bottom_m=np.asarray([1.0, 1.0, 1.0], dtype=float),
     )
-    flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=6.0, units="m"))
-    )
     solver = Boussinesq(
         mesh_bundle=None,
         mesh=mesh,
-        flow=flow,
-        domain=SimpleNamespace(),
-        time_grid=None,
+        model=make_model(initial=HeadRule("custom", 6.0)),
+        runtime=FlowRuntimeConfig(),
         model_folder=tmp_path,
         model_name="bounds_summary",
     )
@@ -244,42 +239,6 @@ def test_boussinesq_initial_state_records_head_bounds_summary(tmp_path) -> None:
     assert bounds["below_bottom_count"] == 0
     assert bounds["max_above_top_m"] == 1.0
     assert bounds["within_bounds"] is False
-
-
-def test_petsc_ts_vi_initialization_uses_regularized_steady_solve() -> None:
-    flow = SimpleNamespace(
-        flow_regime="transient",
-        runtime_backend="petsc",
-        surface_interaction_model="ts_vi_obstacle",
-        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
-        sinks_sources={},
-    )
-
-    steady_flow = steady_flow_copy_for_initialization(flow)
-
-    assert steady_flow.flow_regime == "steady"
-    assert steady_flow.runtime_backend == "petsc"
-    assert steady_flow.surface_interaction_model == "regularized_partition"
-    assert steady_flow.initial_conditions.h.kind == "top"
-
-
-def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
-    flow = SimpleNamespace(
-        flow_regime="transient",
-        runtime_backend="petsc",
-        config=FlowConfig(
-            flow_regime="transient",
-            runtime={"backend": "petsc", "surface_interaction_model": "ts_vi_obstacle"},
-        ),
-        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
-        sinks_sources={},
-    )
-
-    steady_flow = steady_flow_copy_for_initialization(flow)
-
-    assert steady_flow.surface_interaction_model == "regularized_partition"
-    assert steady_flow.config.runtime.surface_interaction_model == "regularized_partition"
-    assert steady_flow.config.ic.h.kind == "top"
 
 
 def test_resolve_period_lengths_seconds_uses_positive_grid_lengths() -> None:

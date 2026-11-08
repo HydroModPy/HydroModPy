@@ -58,7 +58,9 @@ class Masstransfer:
         Parameters
         ----------
         geographic : object
-            Variable object of the model domain (watershed).
+            Object that may carry the routing rasters of the watershed: a
+            delineation, or the ``RasterGeometry`` of a ``Model``.
+            ``routing_fill_path`` and ``routing_direc_path`` win over it.
         raw_rast_name : str
             Name of the inital raster dicharge outflow simulated, e.g. 'outflow_drain.tif.
         trace_shp_name : str

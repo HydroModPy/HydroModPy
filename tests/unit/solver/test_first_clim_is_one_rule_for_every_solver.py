@@ -10,8 +10,6 @@ not the one stated. One rule now, read from
 
 from __future__ import annotations
 
-import types
-
 import numpy as np
 import pytest
 
@@ -20,6 +18,7 @@ from hydromodpy.model.forcing.steady_periods import (
     split_net_recharge,
     steady_flags,
 )
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.modflow6.builders.recharge import (
@@ -30,6 +29,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 )
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from tests._helpers.mf6_toy_models import toy_model
+from tests._helpers.model_factory import make_model
 
 from .modflow_nwt._test_forcing_adapter_builders import _build_solver_mesh
 
@@ -104,9 +104,7 @@ def _bind_mf6_series(values, *, first_clim, steady, deferred: bool):
     cfg = FlowRechargeConfig(
         values=list(values), first_clim=first_clim, units="m/s", negative_to_evt=True
     )
-    model.flow = types.SimpleNamespace(
-        active_sinks_sources=["recharge"], sinks_sources={"recharge": cfg}
-    )
+    model.inputs = make_model(active_sinks_sources=("recharge",), recharge=cfg)
     if deferred:
         del model.nper
         bind_recharge_from_flow(model)
@@ -189,15 +187,13 @@ def test_modflow6_one_steady_period_reads_first_clim_on_the_whole_record(first_c
 
 
 def _nwt_adapter(cfg, *, flow_regime: str, first_period_steady: bool, nper: int):
-    flow = types.SimpleNamespace(
-        sinks_sources={"recharge": cfg},
-        flow_regime=flow_regime,
-        active_sinks_sources=["recharge"],
-        first_period_steady=first_period_steady,
-        config=None,
+    model = make_model(
+        recharge=cfg,
+        active_sinks_sources=("recharge",),
+        time=ModelTime(grid=None, regime=flow_regime, first_period_steady=first_period_steady),
     )
     return FlowToModflowAdapter(
-        flow=flow, domain=None, solver_mesh=_build_solver_mesh(), nper=nper, sink_fill=False
+        model=model, solver_mesh=_build_solver_mesh(), nper=nper, sink_fill=False
     )
 
 
@@ -224,10 +220,9 @@ def test_modflow_nwt_keeps_a_transient_first_period():
 
 class _BoussinesqForcing(ForcingCommonMixin):
     def __init__(self, flow_regime: str, *, first_period_steady: bool = False) -> None:
-        self.flow = types.SimpleNamespace(
-            flow_regime=flow_regime, first_period_steady=first_period_steady
+        self.inputs = make_model(
+            time=ModelTime(grid=None, regime=flow_regime, first_period_steady=first_period_steady)
         )
-        self.time_grid = None
 
 
 def test_boussinesq_keeps_period_zero_of_a_transient_run():
@@ -240,7 +235,7 @@ def test_boussinesq_keeps_period_zero_of_a_transient_run():
 
 @pytest.mark.parametrize(("first_clim", "expected"), [("mean", 5.0), ("first", 2.0), (7.0, 7.0)])
 def test_boussinesq_steady_first_period_of_a_transient_run_takes_first_clim(first_clim, expected):
-    # flow.first_period_steady: period 0 is steady, as in MODFLOW, and takes the rule.
+    # model.time.first_period_steady: period 0 is steady, as in MODFLOW, and takes the rule.
     series = _BoussinesqForcing("transient", first_period_steady=True).recharge_period_series(
         payload=[2.0, 4.0, 9.0], nper=3, first_clim=first_clim, label="recharge"
     )

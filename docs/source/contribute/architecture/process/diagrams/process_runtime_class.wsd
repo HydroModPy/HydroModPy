@@ -18,15 +18,14 @@ package "hydromodpy.model.process_spatial" {
   class SinkSource
 }
 
-package "hydromodpy.model.model" {
+package "hydromodpy.model.flow" {
   class Flow {
     +config: FlowConfig
     +flow_regime: str
     +initial_conditions: FlowInitialConditions | None
-    +boundary_condition_application_domains: dict[str, str]
     +set_config(config)
     +set_initial_conditions(initial_conditions)
-    +set_boundary_conditions(boundary_conditions, application_domains)
+    +set_boundary_conditions(boundary_conditions)
     +set_sinks_sources(sinks_sources)
   }
 
@@ -39,6 +38,21 @@ package "hydromodpy.model.model" {
     +h: FlowInitialCondition
   }
   class FlowSinksSourcesConfig
+}
+
+package "hydromodpy.model.model" {
+  class Model <<frozen>> {
+    +geometry: Geometry
+    +properties: Properties
+    +boundaries: BoundaryConditionBundle
+    +recharge, etp, wells
+    +lakes, sfr, flow_barriers
+    +initial: InitialState
+    +time: ModelTime
+    +options: ModelOptions
+    +with_properties(**values) Model
+    +with_initial(initial) Model
+  }
 }
 
 package "hydromodpy.model.transport" {
@@ -69,6 +83,7 @@ ProcessSpatialT <|-- Flow
 ProcessSpatialT <|-- Transport
 
 Flow --> FlowConfig : consumes
+Flow ..> Model : model_from_flow
 Transport --> TransportConfig : consumes
 
 InitialCondition <|-- FlowInitialCondition

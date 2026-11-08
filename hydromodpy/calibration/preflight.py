@@ -469,7 +469,7 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
         unresolved_parameter_names,
     )
     from hydromodpy.calibration.targets import calibration_targets, targets_by_path
-    from hydromodpy.model.soil.config import soil_reservoir_of
+    from hydromodpy.model.forcing.soil_config import soil_reservoir_of
 
     findings: list[PreflightFinding] = []
     reachable = targets_by_path(calibration_targets(cfg))

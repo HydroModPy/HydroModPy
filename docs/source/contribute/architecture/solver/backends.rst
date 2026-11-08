@@ -46,6 +46,14 @@ adapter says so in ``declared_observables``. Use MODFLOW 6 for a lake.
 What the MODFLOW family shares
 ------------------------------
 
+Every flow backend reads one frozen ``Model`` (``hydromodpy/model/model.py``) through
+``ctx.state.setup.model``, built once by ``prepare_solver`` in SI units. A backend does
+not read the ``Flow``, the configuration or the geographic object, it does not change
+the ``Model``, and it never opens the Zarr store of a prior run. The contract is the
+README of ``solver/base``, and ``tests/unit/architecture/test_backends_read_the_model.py``
+holds it. The auxiliary solves of the starting head are variants of the ``Model``
+(``steady_variant``, ``cycle_variant``), and each backend builds them from the top.
+
 Backend adapters stay thin. The shared lifecycle (preprocessing, processing,
 postprocessing) is in ``solver/modflow_common/flow_adapter_helpers.py``. The rest of
 ``solver/modflow_common/`` centralizes temporal discretization units, routing helpers,
@@ -247,12 +255,18 @@ Assembly point:
 Application order
 ^^^^^^^^^^^^^^^^^
 
-The ``strt`` initialization policy comes from
-``flow.initial_conditions.h.type``:
+The ``strt`` initialization policy comes from the initial state of the ``Model``
+(``inputs.initial``, built from ``[flow.ic]`` by ``initial_state_of``). A ``HeadRule``
+gives it by ``kind``:
 
 1. ``top``: initialize from the DEM.
-2. ``bottom``: initialize from the bottom-layer elevation.
-3. ``custom``: initialize from a user scalar value.
+2. ``top_offset``: initialize from the DEM, lowered by the ``value``.
+3. ``bottom``: initialize from the bottom-layer elevation.
+4. ``custom``: initialize from a user scalar value.
+
+A ``SteadyStart`` or a ``CyclicStart`` starts the main model from the top, and the
+auxiliary solve sets the head after that. A ``PriorState`` or a ``SolvedState`` gives
+the head itself.
 
 Then lateral Dirichlet conditions (``west``, ``east``, ``north``,
 ``south``) are applied:

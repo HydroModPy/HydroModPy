@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.runtime_boussinesq import (
@@ -21,6 +21,7 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_run_state,
     boussinesq_variant_flow_section,
 )
 from validation_cases.shared.runtime import (
@@ -53,40 +54,34 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(86400.0 * DT_DAYS for _ in range(NPER))
 
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    boussinesq_variant_flow_section(
-                        {
-                            "flow_regime": "transient",
-                            "ic": {"kind": "custom", "value": EAST_HEAD_M},
-                            "sinks_sources": {
-                                "recharge": {
-                                    "values": mm_day_to_m_s(RECHARGE_MM_DAY),
-                                    "first_clim": "mean",
-                                    "units": "m/s",
-                                }
-                            },
-                            "bc": {
-                                "east_side": {"value": EAST_HEAD_M},
-                            },
+    state = boussinesq_run_state(
+        flow=Flow(
+            _build_flow_config(
+                boussinesq_variant_flow_section(
+                    {
+                        "flow_regime": "transient",
+                        "ic": {"kind": "custom", "value": EAST_HEAD_M},
+                        "sinks_sources": {
+                            "recharge": {
+                                "values": mm_day_to_m_s(RECHARGE_MM_DAY),
+                                "first_clim": "mean",
+                                "units": "m/s",
+                            }
                         },
-                        flow_regime="transient",
-                        solver=public_solver_label,
-                    )
+                        "bc": {
+                            "east_side": {"value": EAST_HEAD_M},
+                        },
+                    },
+                    flow_regime="transient",
+                    solver=public_solver_label,
                 )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+            )
+        ),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
     )
     run = ProcessRun(

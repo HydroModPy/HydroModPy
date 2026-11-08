@@ -23,6 +23,7 @@ import pytest
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_time_boundaries
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
+from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.builders.period_forcing import resolve_use_ts6
 from hydromodpy.solver.modflow6.support.time_series import (
@@ -30,6 +31,7 @@ from hydromodpy.solver.modflow6.support.time_series import (
     attach_time_series,
     build_ts6_table,
 )
+from tests._helpers.model_factory import make_model
 
 
 def test_build_ts6_table_packs_same_axis_series_into_columns() -> None:
@@ -126,7 +128,11 @@ class _FakeTimeGrid:
 
 class _FakeModel:
     def __init__(self, *, window, nper, perlen, mode, min_periods) -> None:
-        self.time_grid = _FakeTimeGrid(window=window)
+        self.inputs = make_model(
+            time=ModelTime(
+                grid=_FakeTimeGrid(window=window), regime="transient", first_period_steady=True
+            )
+        )
         self.nper = nper
         self.perlen = perlen
         self.modflow_config = _FakeConfig(

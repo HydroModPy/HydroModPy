@@ -24,6 +24,8 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth, seepage_mask
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.model import ModelOptions, steady_variant
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.base.drain_conductance import drain_discharge_band
 from hydromodpy.solver.base.solver_config import SolverConfig
@@ -36,6 +38,7 @@ from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import build_drainage_spd
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NROW = 2
@@ -94,11 +97,20 @@ def _mf6_model(*, band_depth_m: float) -> SimpleNamespace:
     )
 
 
+def _drainage_model(conductance: float):
+    """A model whose only active boundary is a drainage of the given conductance."""
+    drainage = SimpleNamespace(value=conductance, units="m2/s")
+    return make_model(
+        boundaries=BoundaryConditionBundle(
+            conditions={"drainage": drainage}, active_ids=("drainage",)
+        )
+    )
+
+
 def _nwt_adapter(mesh: SolverMesh, *, band_depth_m: float) -> SimpleNamespace:
     """A stand-in carrying exactly what ``build_drainage_spd`` reads."""
     return SimpleNamespace(
-        _is_bc_active=lambda bc_id: bc_id == "drainage",
-        _boundary_conditions={"drainage": SimpleNamespace(value=DRAIN_COND_M2_S, units="m2/s")},
+        model=_drainage_model(DRAIN_COND_M2_S),
         solver_mesh=mesh,
         dem=mesh.reshape_to_grid(mesh.top),
         nrow=NROW,
@@ -126,9 +138,7 @@ def _mf6_rows(*, band_depth_m: float, conductance: float = DRAIN_COND_M2_S) -> d
 def _nwt_rows(*, band_depth_m: float, conductance: float = DRAIN_COND_M2_S) -> dict[int, tuple]:
     mesh = _mesh()
     adapter = _nwt_adapter(mesh, band_depth_m=band_depth_m)
-    adapter._boundary_conditions = {
-        "drainage": SimpleNamespace(value=conductance, units="m2/s"),
-    }
+    adapter.model = _drainage_model(conductance)
     spd = build_drainage_spd(
         adapter,
         drain_array=np.ones((NROW, NCOL), dtype=int),
@@ -143,8 +153,8 @@ class TestZeroIsTodaysBehaviour:
     def test_the_default_is_zero_everywhere_in_the_chain(self) -> None:
         assert SolverConfig().drain_band_depth_m == 0.0
         assert ModflowPreprocessOptions().drain_band_depth_m == 0.0
-        state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
-        assert build_preprocess_options(state).drain_band_depth_m == 0.0
+        model = make_model(options=ModelOptions.from_settings(SolverConfig()))
+        assert build_preprocess_options(model).drain_band_depth_m == 0.0
 
     def test_mf6_rows_are_the_bare_top_and_the_declared_conductance(self) -> None:
         rows = _mf6_rows(band_depth_m=0.0)
@@ -339,17 +349,13 @@ class TestTheDepthReachesTheDrainRows:
         cfg = SolverConfig.model_validate(tomllib.loads(self.TOML)["solver"])
         assert cfg.drain_band_depth_m == BAND_M
         assert cfg.drain_bed_thickness_m == BED_M
-        state = SimpleNamespace(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=cfg))
-        return build_preprocess_options(state)
+        return build_preprocess_options(make_model(options=ModelOptions.from_settings(cfg)))
 
     def test_the_parsed_toml_reaches_the_preprocess_options(self) -> None:
         assert self._options().drain_band_depth_m == BAND_M
 
     def test_it_reaches_the_mf6_drain_rows(self) -> None:
         model = _mf6_model(band_depth_m=0.0)
-        model.geographic = SimpleNamespace(
-            watershed_box_buff_dem="box.tif", watershed_buff_dem="dem.tif"
-        )
         mf6_apply_options(model, self._options())
         assert model.drain_band_depth_m == BAND_M
 
@@ -383,18 +389,29 @@ class TestTheDepthReachesTheDrainRows:
 
     def test_the_steady_initial_condition_model_inherits_the_depth(self) -> None:
         # The auxiliary steady model must build the same drains as the transient
-        # one, or the initial heads come from a different boundary condition.
+        # one, or the initial heads come from a different boundary condition. The
+        # variant keeps the options of the model, and each auxiliary solver builds
+        # from the preprocess options of the solver it follows.
         import inspect
 
         from hydromodpy.solver.modflow6.support import steady_initial_conditions as mf6_ssic
         from hydromodpy.solver.modflow_nwt.nwt import steady_initial_conditions as nwt_ssic
 
+        options = ModelOptions(
+            sink_fill=False,
+            drain_band_depth_m=BAND_M,
+            drain_bed_thickness_m=BED_M,
+            drain_conductance_floor_m2_s=1e-12,
+        )
+        variant = steady_variant(make_model(options=options))
+        assert variant.options is options
+
         for module, name in (
-            (mf6_ssic, "_preprocess_options_like"),
+            (mf6_ssic, "run_modflow6_steady_state_initialization"),
             (nwt_ssic, "run_nwt_steady_state_initialization"),
         ):
             source = inspect.getsource(getattr(module, name))
-            assert "drain_band_depth_m" in source, f"{name} drops the discharge band"
+            assert "model.preprocess_options" in source, f"{name} drops the discharge band"
 
 
 class TestTheSeepageCriterionFollowsTheBand:

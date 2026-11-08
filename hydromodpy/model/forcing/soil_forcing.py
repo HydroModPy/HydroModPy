@@ -16,14 +16,14 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.contracts import FieldRecordProto, LoadResultProto
-from hydromodpy.model.soil.columns import (
+from hydromodpy.model.forcing.soil_columns import (
     SoilColumns,
     aggregate_to_cells,
     capacity_classes,
     catchment_cell_weights,
 )
-from hydromodpy.model.soil.config import SoilReservoirConfig
-from hydromodpy.model.soil.grids import (
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_grids import (
     grid_field_record,
     guard_paired_grids,
     load_forcing_grid,

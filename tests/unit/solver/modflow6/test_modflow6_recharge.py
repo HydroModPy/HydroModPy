@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import os
 import weakref
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -58,15 +59,14 @@ def _make_recharge_point_record(
 
 def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "recharge": FlowRechargeConfig(
-                values=pd.Series([0.5, 0.3], dtype=float),
-                first_clim="first",
-                units="mm/day",
-            )
-        },
-        active_sinks_sources=["recharge"],
+    model.inputs = replace(
+        model.inputs,
+        recharge=FlowRechargeConfig(
+            values=pd.Series([0.5, 0.3], dtype=float),
+            first_clim="first",
+            units="mm/day",
+        ),
+        active_sinks_sources=("recharge",),
     )
 
     bind_recharge_from_flow(model)
@@ -121,15 +121,14 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
         y=0.25,
         january_value_mm_day=8.0,
     )
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "recharge": FlowRechargeConfig(
-                values=0.0,
-                heterogeneous_source=LoadResult(points=[point]),
-                interpolation_method="nearest",
-            )
-        },
-        active_sinks_sources=["recharge"],
+    model.inputs = replace(
+        model.inputs,
+        recharge=FlowRechargeConfig(
+            values=0.0,
+            heterogeneous_source=LoadResult(points=[point]),
+            interpolation_method="nearest",
+        ),
+        active_sinks_sources=("recharge",),
     )
 
     bind_recharge_from_flow(model)
@@ -148,10 +147,7 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
 
 def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        sinks_sources={},
-        active_sinks_sources=[],
-    )
+    model.inputs = replace(model.inputs, active_sinks_sources=())
 
     bind_recharge_from_flow(model)
     spd = recharge_to_spd(model)

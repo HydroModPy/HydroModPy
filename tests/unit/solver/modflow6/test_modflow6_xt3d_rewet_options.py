@@ -53,7 +53,6 @@ def test_modflow6_rewet_flag_matrix(
     expected_wetdry: np.ndarray | None,
 ) -> None:
     model = toy_model()
-    model.flow_regime = "transient"
     if enable_rewet:
         model.modflow_config = model.modflow_config.model_copy(
             update={

@@ -402,55 +402,44 @@ def resolve_flow_barrier_hfb_rows(
     ``lake_cells_by_lake``. Returns ``[]`` when none is configured, keeping the
     HFB wiring in ``build.py`` a no-op.
     """
-    flow = getattr(model, "flow", None)
-    if flow is None:
-        return []
-    sinks_sources = getattr(flow, "sinks_sources", {})
-    if not isinstance(sinks_sources, Mapping):
-        return []
-
     rows: list[list] = []
 
-    lakes = sinks_sources.get("lakes")
-    if isinstance(lakes, Mapping):
-        for lake_id, payload in lakes.items():
-            cfg = _barrier_attr(payload, "cutoff_wall")
-            if cfg is None:
-                continue
-            line = _barrier_attr(payload, "cutoff_wall_line")
-            if line is None:
-                raise ValueError(
-                    f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
-                    "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
-                )
-            cells = (lake_cells_by_lake or {}).get(str(lake_id), ())
-            rows.extend(
-                _rows_for_barrier(
-                    model,
-                    solver_mesh,
-                    cfg,
-                    line,
-                    f"lake '{lake_id}' cutoff wall",
-                    faces=lake_wall_faces(solver_mesh, payload, cells),
-                    trace=_wall_trace(payload, line),
-                )
+    for lake_id, payload in model.inputs.lakes.items():
+        cfg = _barrier_attr(payload, "cutoff_wall")
+        if cfg is None:
+            continue
+        line = _barrier_attr(payload, "cutoff_wall_line")
+        if line is None:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
+                "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
             )
+        cells = (lake_cells_by_lake or {}).get(str(lake_id), ())
+        rows.extend(
+            _rows_for_barrier(
+                model,
+                solver_mesh,
+                cfg,
+                line,
+                f"lake '{lake_id}' cutoff wall",
+                faces=lake_wall_faces(solver_mesh, payload, cells),
+                trace=_wall_trace(payload, line),
+            )
+        )
 
-    barriers = sinks_sources.get("flow_barriers")
-    if isinstance(barriers, Mapping):
-        for barrier_id, payload in barriers.items():
-            cfg = _barrier_attr(payload, "barrier")
-            if cfg is None:
-                continue
-            line = _barrier_attr(payload, "line")
-            if line is None:
-                raise ValueError(
-                    f"flow.sinks_sources.flow_barriers.{barrier_id} is declared but its "
-                    "trace was not resolved; bind it with apply_flow_barriers_to_flow first."
-                )
-            rows.extend(
-                _rows_for_barrier(model, solver_mesh, cfg, line, f"flow barrier '{barrier_id}'")
+    for barrier_id, payload in model.inputs.flow_barriers.items():
+        cfg = _barrier_attr(payload, "barrier")
+        if cfg is None:
+            continue
+        line = _barrier_attr(payload, "line")
+        if line is None:
+            raise ValueError(
+                f"flow.sinks_sources.flow_barriers.{barrier_id} is declared but its "
+                "trace was not resolved; bind it with apply_flow_barriers_to_flow first."
             )
+        rows.extend(
+            _rows_for_barrier(model, solver_mesh, cfg, line, f"flow barrier '{barrier_id}'")
+        )
 
     return rows
 
@@ -473,11 +462,7 @@ def check_cutoff_wall_seal(
     between the lake and the wall. Raises ``SolverInputError`` naming the lake
     and the counts.
     """
-    flow = getattr(model, "flow", None)
-    sinks_sources = getattr(flow, "sinks_sources", {}) if flow is not None else {}
-    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
-    if not isinstance(lakes, Mapping):
-        return
+    lakes = model.inputs.lakes
     ifno = {lake_id: index for index, lake_id in enumerate(_active_lake_definitions(model))}
     rows = {(int(r[0][0]), *sorted((int(r[0][1]), int(r[1][1])))) for r in hfb_rows}
     for lake_id, payload in lakes.items():

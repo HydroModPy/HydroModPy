@@ -16,12 +16,13 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.assembly import saturated_thickness_from_head
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_bundle_model,
     boussinesq_variant_flow_section,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
@@ -124,9 +125,8 @@ def _solve_steady(
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR, config_name=config_name))
     model = Boussinesq(
         mesh_bundle=load_catchment_mesh_bundle(bundle_dir),
-        flow=flow,
-        domain=None,
-        time_grid=None,
+        model=boussinesq_bundle_model(flow),
+        runtime=flow.config.runtime,
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )

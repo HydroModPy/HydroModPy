@@ -1,4 +1,9 @@
-"""Process-to-runtime contract helpers for the Boussinesq solver."""
+"""Process-to-runtime contract helpers for the Boussinesq solver.
+
+The solver reads two objects. The ``Model`` says what is solved, and the options
+object, the ``FlowRuntimeConfig`` of ``[flow.runtime]``, says how the nonlinear
+solve runs. The MODFLOW solvers read none of those options.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +11,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    boundary_condition_bundle_from_flow,
-    boundary_definition,
-)
-from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
-from hydromodpy.model.time.regime import normalize_flow_regime
+from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
@@ -23,6 +24,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 
 if TYPE_CHECKING:
     from hydromodpy.model.domain.layers_config import VerticalGridConfig
+    from hydromodpy.model.model import Model
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
@@ -33,7 +35,7 @@ DENSE_ENGINE_MAX_CELLS = 400
 
 @dataclass(frozen=True)
 class BoussinesqSolverContract:
-    """Explicit mapping from one `Flow` configuration to one solve path."""
+    """Explicit mapping from one ``Model`` and its options to one solve path."""
 
     flow_regime: str
     runtime_backend_requested: str
@@ -42,10 +44,9 @@ class BoussinesqSolverContract:
     runtime_backend: ResolvedBoussinesqRuntimeBackend
 
 
-def runtime_backend_name(flow: object) -> str:
+def runtime_backend_name(runtime: FlowRuntimeConfig) -> str:
     """Return the requested runtime backend token, ``"auto"`` when unset."""
-    raw = getattr(flow, "runtime_backend", None)
-    return str(raw or AUTO_RUNTIME_BACKEND).strip().lower() or AUTO_RUNTIME_BACKEND
+    return str(runtime.backend or AUTO_RUNTIME_BACKEND).strip().lower() or AUTO_RUNTIME_BACKEND
 
 
 def resolve_runtime_backend_name(requested: str, *, n_cells: int | None) -> str:
@@ -63,46 +64,55 @@ def resolve_runtime_backend_name(requested: str, *, n_cells: int | None) -> str:
     return "local"
 
 
-def resolve_flow_regime(flow: object) -> str:
-    """Return the normalized flow regime expected by the Boussinesq driver."""
-    flow_regime = getattr(flow, "flow_regime", None)
-    if flow_regime is None:
-        raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
-    return normalize_flow_regime(flow_regime)
+def resolve_flow_regime(model: Model) -> str:
+    """Return the flow regime of the model, ``"steady"`` or ``"transient"``."""
+    return str(model.time.regime)
 
 
-def resolve_surface_interaction_model(flow: object, *, n_cells: int | None = None) -> str:
+def resolve_surface_interaction_model(
+    runtime: FlowRuntimeConfig, *, n_cells: int | None = None
+) -> str:
     """Return the selected groundwater/surface interaction closure."""
     return resolve_surface_interaction_model_token(
         runtime_backend_name=resolve_runtime_backend_name(
-            runtime_backend_name(flow),
+            runtime_backend_name(runtime),
             n_cells=n_cells,
         ),
-        surface_interaction_model=getattr(
-            flow,
-            "surface_interaction_model",
-            "auto",
-        ),
+        surface_interaction_model=runtime.surface_interaction_model,
     )
 
 
+def steady_initialization_runtime(runtime: FlowRuntimeConfig) -> FlowRuntimeConfig:
+    """Return the options of the auxiliary steady solve of a ``steady_state`` start.
+
+    PETSc integrates ``ts_vi_obstacle`` in time, so its steady form is not the
+    problem the auxiliary solve has to answer. That solve runs the
+    ``regularized_partition`` closure instead, and the transient solve that
+    follows brings the head back inside its bounds. Every other option set
+    runs unchanged.
+    """
+    requested = str(runtime.surface_interaction_model or "").strip().lower()
+    if runtime_backend_name(runtime) == "petsc" and requested == "ts_vi_obstacle":
+        return runtime.model_copy(update={"surface_interaction_model": "regularized_partition"})
+    return runtime
+
+
 def resolve_solver_contract(
-    flow: object,
+    model: Model,
+    runtime: FlowRuntimeConfig,
     *,
     n_cells: int | None = None,
 ) -> BoussinesqSolverContract:
-    """Return the explicit solver contract derived from the current `Flow`.
+    """Return the explicit solver contract of one model and its options.
 
     ``n_cells`` is the size of the solver mesh. It resolves ``"auto"``.
     """
-    runtime_backend_requested = runtime_backend_name(flow)
+    runtime_backend_requested = runtime_backend_name(runtime)
     runtime_backend_resolved = resolve_runtime_backend_name(
         runtime_backend_requested,
         n_cells=n_cells,
     )
-    surface_requested = (
-        str(getattr(flow, "surface_interaction_model", "auto") or "auto").strip().lower() or "auto"
-    )
+    surface_requested = str(runtime.surface_interaction_model or "auto").strip().lower() or "auto"
     surface_resolved = resolve_surface_interaction_model_token(
         runtime_backend_name=runtime_backend_resolved,
         surface_interaction_model=surface_requested,
@@ -112,7 +122,7 @@ def resolve_solver_contract(
         surface_interaction_model=surface_resolved,
     )
     return BoussinesqSolverContract(
-        flow_regime=resolve_flow_regime(flow),
+        flow_regime=resolve_flow_regime(model),
         runtime_backend_requested=runtime_backend_requested,
         surface_interaction_model_requested=surface_requested,
         surface_interaction_model_resolved=surface_resolved,
@@ -121,13 +131,13 @@ def resolve_solver_contract(
 
 
 def build_runtime_options(
-    flow: object,
+    runtime: FlowRuntimeConfig,
     *,
     n_cells: int | None = None,
 ) -> NonlinearRuntimeOptions:
     """Build backend-neutral nonlinear options for the selected runtime."""
     runtime_backend_resolved = resolve_runtime_backend_name(
-        runtime_backend_name(flow),
+        runtime_backend_name(runtime),
         n_cells=n_cells,
     )
     max_iterations = 20
@@ -136,27 +146,20 @@ def build_runtime_options(
         # a linear rate near the kink of the release: 39 iterations on an island
         # under 7 mm/day, residual 1e-8 at the 30th and falling 20 % per iteration.
         max_iterations = 60
-    runtime_max_iterations = getattr(flow, "runtime_max_iterations", None)
-    if runtime_max_iterations is not None:
-        max_iterations = int(runtime_max_iterations)
-    tol_residual_inf = float(getattr(flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9)
-    tol_state_update_inf = float(getattr(flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9)
-    vi_substeps_per_period = int(getattr(flow, "vi_substeps_per_period", 1) or 1)
-    vi_substep_on_failure = bool(getattr(flow, "vi_substep_on_failure", False))
-    vi_max_adaptive_substeps = int(
-        getattr(flow, "vi_max_adaptive_substeps", vi_substeps_per_period) or vi_substeps_per_period
-    )
-    ts_vi_steps_per_period = int(getattr(flow, "ts_vi_steps_per_period", 4) or 4)
-    ts_vi_adapt = bool(getattr(flow, "ts_vi_adapt", False))
-    ts_vi_dt_min_fraction = float(
-        getattr(flow, "ts_vi_dt_min_fraction", 1.0 / 64.0) or (1.0 / 64.0)
-    )
-    ts_vi_dt_max_fraction = float(getattr(flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0))
-    ts_vi_type = str(getattr(flow, "ts_vi_type", "beuler") or "beuler")
-    ts_vi_snes_type = str(getattr(flow, "ts_vi_snes_type", "vinewtonrsls") or "vinewtonrsls")
-    release_depth_m = float(
-        getattr(flow, "partition_release_depth_m", DEFAULT_PARTITION_RELEASE_DEPTH_M)
-    )
+    if runtime.max_iterations is not None:
+        max_iterations = int(runtime.max_iterations)
+    tol_residual_inf = float(runtime.tol_residual_inf or 1.0e-9)
+    tol_state_update_inf = float(runtime.tol_state_update_inf or 1.0e-9)
+    vi_substeps_per_period = int(runtime.vi_substeps_per_period or 1)
+    vi_substep_on_failure = bool(runtime.vi_substep_on_failure)
+    vi_max_adaptive_substeps = int(runtime.vi_max_adaptive_substeps or vi_substeps_per_period)
+    ts_vi_steps_per_period = int(runtime.ts_vi_steps_per_period or 4)
+    ts_vi_adapt = bool(runtime.ts_vi_adapt)
+    ts_vi_dt_min_fraction = float(runtime.ts_vi_dt_min_fraction or (1.0 / 64.0))
+    ts_vi_dt_max_fraction = float(runtime.ts_vi_dt_max_fraction or (1.0 / 4.0))
+    ts_vi_type = str(runtime.ts_vi_type or "beuler")
+    ts_vi_snes_type = str(runtime.ts_vi_snes_type or "vinewtonrsls")
+    release_depth_m = float(runtime.partition_release_depth_m)
     return NonlinearRuntimeOptions(
         regularization_radius=release_depth_m,
         max_iterations=int(max_iterations),
@@ -174,10 +177,10 @@ def build_runtime_options(
     )
 
 
-def assert_supported_runtime_subset(flow: object) -> None:
+def assert_supported_runtime_subset(model: Model) -> None:
     """Fail fast when the requested problem exceeds the implemented slice."""
-    boundary_bundle = boundary_condition_bundle_from_flow(flow)
-    active_sinks_sources = tuple(getattr(flow, "active_sinks_sources", ()) or ())
+    boundary_bundle = model.boundaries
+    active_sinks_sources = model.active_sinks_sources
     unsupported_bc = sorted(
         set(boundary_bundle.unknown_active_ids())
         | set(boundary_bundle.unsupported_active_ids("boussinesq"))
@@ -250,4 +253,5 @@ __all__ = [
     "resolve_solver_contract",
     "resolve_surface_interaction_model",
     "runtime_backend_name",
+    "steady_initialization_runtime",
 ]

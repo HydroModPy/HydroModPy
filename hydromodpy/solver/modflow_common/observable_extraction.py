@@ -291,7 +291,7 @@ def extract_common_modflow_observables(
         if routed_discharge_reader is not None:
             series = routed_discharge_reader(output_dir, model_name, time_index)
             routed = series is not None
-        if routed and not networks_route_drainage(getattr(model, "flow", None)):
+        if routed and not networks_route_drainage(getattr(model, "inputs", None)):
             try:
                 hillslope = extract_discharge_from_cbc(
                     output_dir,

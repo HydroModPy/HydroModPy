@@ -268,7 +268,6 @@ def test_spaced_name_listing_matches_the_sanitised_model_name() -> None:
 
 def test_mf6_evt_extinction_depth_from_process_specific() -> None:
     model = toy_model()
-    model.flow_regime = "transient"
     model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
     model.modflow_config = _coerce_modflow6_config(
         {"process_specific": {"evt_extinction_depth": 2.5}}

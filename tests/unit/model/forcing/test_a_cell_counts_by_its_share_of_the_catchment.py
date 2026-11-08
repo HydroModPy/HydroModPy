@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.model.soil.columns import catchment_cell_weights
+from hydromodpy.model.forcing.soil_columns import catchment_cell_weights
 
 _X = np.array([0.0, 1000.0, 2000.0])
 _Y = np.array([0.0, 1000.0])

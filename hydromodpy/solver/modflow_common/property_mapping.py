@@ -2,7 +2,8 @@
 
 ``resolve_flow_property_arrays`` maps K, Kv, Sy and Ss onto the cells of the
 solver mesh at its layer-center depths through the one mapping every solver
-shares (``model.properties.property_table.map_flow_properties``). The arrays are
+shares (``model.properties.property_table.map_flow_properties``), from the
+``Model.properties.profiles`` of the run. The arrays are
 flat, ``(nlay, n_cells)`` and ``(n_cells,)``: a backend that writes a structured
 grid reshapes them.
 """
@@ -22,7 +23,7 @@ MODFLOW_PROPERTIES = ("K", "Kv", "Sy", "Ss")
 
 def resolve_flow_property_arrays(
     *,
-    flow: object,
+    profiles: Mapping[str, object],
     domain: object,
     solver_mesh,
     required_properties: frozenset[str] | set[str] | None = None,
@@ -33,9 +34,10 @@ def resolve_flow_property_arrays(
     """Map ``properties`` (K, Kv, Sy and Ss by default) onto ``solver_mesh``, flat per cell.
 
     Returns ``hk``, ``kv``, ``sy``, ``ss`` as ``(nlay, n_cells)`` and their values
-    at depth zero ``hk_value``, ... as ``(n_cells,)``. A runtime override (a
-    calibration trial) wins over the flow parameter. ``kv`` is present only when
-    the flow declares a vertical conductivity, and so are ``k22`` and the angles.
+    at depth zero ``hk_value``, ... as ``(n_cells,)``. A runtime override (the
+    ``Model.properties.overrides`` a calibration trial sets) wins over the
+    profile. ``kv`` is present only when the model declares a vertical
+    conductivity, and so are ``k22`` and the angles.
     """
     required = (
         frozenset(str(name).strip() for name in required_properties)
@@ -43,7 +45,7 @@ def resolve_flow_property_arrays(
         else frozenset({"K", "Sy", "Ss"})
     )
     return map_flow_properties(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         cell_mesh=solver_mesh.cell_mesh,
         layer_depths=solver_mesh.layer_center_depths(),

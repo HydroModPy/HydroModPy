@@ -358,7 +358,7 @@ def _resolve_run_start_datetime(ctx: RunContext) -> str | None:
 def _drainage_outside_routed(ctx: RunContext) -> bool:
     """True when no network routes the hillslope drainage, a lake alone included."""
     setup = getattr(getattr(ctx, "state", None), "setup", None)
-    return not networks_route_drainage(getattr(setup, "flow", None))
+    return not networks_route_drainage(getattr(setup, "model", None))
 
 
 def derive_run_outputs(

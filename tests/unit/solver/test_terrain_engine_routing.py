@@ -1,6 +1,6 @@
 """Both solver families build their routing context with the engine the delineation used.
 
-A solver reads the engine off the runtime geographic object. MODFLOW-NWT does not share
+A solver reads the engine off the raster geometry of its model. MODFLOW-NWT does not share
 ``ensure_solver_routing_context`` with MODFLOW 6, it carries its own copy of the call, so plumbing
 only one of the two leaves half the runs routing with the build default.
 """
@@ -10,6 +10,9 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.catchment.terrain import registry
+from hydromodpy.model.domain.geometry import RasterGeometry
+from hydromodpy.model.model import Geometry
+from tests._helpers.model_factory import make_model
 
 pytestmark = pytest.mark.fast
 
@@ -44,7 +47,13 @@ def test_the_solver_routing_context_is_built_with_the_configured_engine(
         grid_ctx=SimpleNamespace(),
         dem_watershed_path=str(tmp_path / "dem.tif"),
         full_path=str(tmp_path),
-        geographic=SimpleNamespace(terrain_engine=engine_id),
+        inputs=make_model(
+            geometry=Geometry(
+                cells=None,
+                domain=None,
+                raster=RasterGeometry.from_geographic(SimpleNamespace(terrain_engine=engine_id)),
+            )
+        ),
     )
     ensure(solver)
     assert captured["engine_id"] == engine_id

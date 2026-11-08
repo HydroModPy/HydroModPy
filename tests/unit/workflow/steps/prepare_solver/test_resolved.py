@@ -190,6 +190,15 @@ def test_the_etp_the_data_step_injected_is_recorded_with_its_surface(tmp_path: P
     assert etp["extinction_depth_m"] == pytest.approx(1.5)
 
 
+def test_the_etp_is_read_from_the_model_once_it_is_built(tmp_path: Path) -> None:
+    ctx = _build_ctx(_config(tmp_path))
+    ctx.setup.model = SimpleNamespace(etp=FlowEtpConfig(surface_offset=3.0))
+
+    held = resolved_at_build(ctx)["flow"]["sinks_sources"]["etp"]
+
+    assert held["surface_offset_m"] == pytest.approx(3.0)
+
+
 def test_the_etp_a_soil_leaves_is_read_against_the_drain(tmp_path: Path) -> None:
     etp = FlowEtpConfig(surface_offset=0.0)
     etp._from_soil_reservoir = True

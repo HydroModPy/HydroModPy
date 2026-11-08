@@ -28,6 +28,7 @@ from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import MESH_BUNDLES
+from tests._helpers.model_factory import make_model
 
 pytestmark = pytest.mark.fast
 
@@ -282,7 +283,7 @@ def test_the_adapter_has_no_cell_to_give_without_a_model() -> None:
 @pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
 def test_a_support_label_resolves_on_the_families_of_the_mesh(build) -> None:
     mesh = build(BUNDLE_CASES[1])
-    resolver = BoussinesqForcingResolver(mesh=mesh, flow=SimpleNamespace(), time_grid=None)
+    resolver = BoussinesqForcingResolver(mesh=mesh, inputs=make_model())
 
     label, edges, cells = resolver.resolve_labelled_support(
         boundary={"support_label": "west_side"}, bc_id="west_side"
@@ -296,7 +297,7 @@ def test_a_support_label_resolves_on_the_families_of_the_mesh(build) -> None:
 @pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
 def test_the_stream_support_is_the_river_faces_and_the_cells_on_both_banks(build) -> None:
     mesh = build(BUNDLE_CASES[1])
-    resolver = BoussinesqForcingResolver(mesh=mesh, flow=SimpleNamespace(), time_grid=None)
+    resolver = BoussinesqForcingResolver(mesh=mesh, inputs=make_model())
 
     label, edges, cells = resolver.resolve_stream_dirichlet_support(boundary={})
 

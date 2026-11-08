@@ -21,6 +21,7 @@ from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.lake_structures import LakeStructure
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.request import BARRIER_FAMILY
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.boundaries.cutoff_wall_shore import snap_wall_to_shore
 from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, lake_shore_faces
@@ -35,6 +36,7 @@ from hydromodpy.solver.modflow6.builders.lake_cells import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
+from tests._helpers.model_factory import make_model
 from tests._helpers.reservoir_dam import DOMAIN, reservoir, trace
 
 ENGINES = {
@@ -85,7 +87,10 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
         "cutoff_wall_shore": shore,
     }
     model = SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["lake"], sinks_sources={"lakes": {"r": payload}})
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={"r": payload},
+        )
     )
     cells = resolve_lake_cells_for_active_lakes(model, solver_mesh)
     masked = apply_lake_idomain_mask(solver_mesh, lake_cell_ids_by_lake=cells)

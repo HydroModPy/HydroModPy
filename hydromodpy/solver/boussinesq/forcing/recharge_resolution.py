@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -10,18 +11,19 @@ from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretiz
 from hydromodpy.model.forcing.steady_periods import apply_first_clim, first_clim_sets_a_deficit
 from hydromodpy.model.forcing.validation import ensure_non_negative_numeric_payload
 
+if TYPE_CHECKING:
+    from hydromodpy.model.model import Model
+
 
 class RechargeResolutionMixin:
     """Resolve recharge payloads to one scalar or cell vector per period."""
 
     mesh: object
-    flow: object
-    time_grid: object
+    inputs: Model
 
     def resolve_recharge_series(self, nper: int) -> tuple[float | np.ndarray, ...]:
         """Resolve one recharge payload per stress period."""
-        active = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
-        if "recharge" not in active:
+        if "recharge" not in self.inputs.active_sinks_sources:
             return tuple(0.0 for _ in range(int(nper)))
 
         recharge_cfg = self.recharge_config()

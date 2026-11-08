@@ -33,7 +33,6 @@ from ._pre_processing import (
     load_modflow_for_modpath,
 )
 from .resolvers import (
-    get_geographic,
     resolve_crs_proj,
     resolve_domain_raster,
     resolve_seepage_clip_raster,
@@ -91,7 +90,6 @@ class Modpath:
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
-        self.geographic = get_geographic(model_modflow)
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
@@ -171,9 +169,6 @@ class Modpath:
         self.filt_inout = True
         self.calc_rtd = True
         self.random_id = None
-
-    def _get_geographic(self) -> object | None:
-        return get_geographic(self.model_modflow)
 
     def _get_crs_proj(self) -> object | None:
         return resolve_crs_proj(self.model_modflow, self.domain)

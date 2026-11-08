@@ -1,7 +1,8 @@
 """Small MODFLOW 6 models for the unit tests of the boundary-condition builders.
 
 ``toy_model`` is a ``Modflow6`` on a 2 x 3 regular grid of unit cells, two
-transient monthly periods. ``two_triangle_model`` swaps its grid for the two
+transient monthly periods, whose ``inputs`` is a ``Model`` of the factory with the
+members the test gives. ``two_triangle_model`` swaps its grid for the two
 triangles of ``two_triangle_solver_mesh``. ``regular_solver_mesh`` is the solver
 mesh the ``regular`` engine builds on unit cells. Not public API.
 """
@@ -21,10 +22,14 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.mesh.request import LineFamilySpec
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.model import Geometry, ModelTime
 from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow_common.channel_tree import channel_rasters_for_run
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
+from tests._helpers.model_factory import make_model, small_geometry
 
 
 class _DummyGeographic:
@@ -38,6 +43,24 @@ class _DummyGeographic:
         self.dem_data = np.asarray(dem, dtype=float)
         self.watershed_box_buff_dem = "dummy_box.tif"
         self.watershed_buff_dem = "dummy_buff.tif"
+
+
+def geometry_of(geographic: object | None = None, *, domain: object | None = None) -> Geometry:
+    """The ``Geometry`` ``prepare_solver`` builds from a delineation: DEM grid, rasters of A and catchment.
+
+    Without a delineation the DEM grid and the catchment are ``None``, as for a run
+    that has none.
+    """
+    if geographic is None:
+        return Geometry(cells=small_geometry().cells, domain=domain)
+    return Geometry(
+        cells=small_geometry().cells,
+        domain=domain,
+        raster=RasterGeometry.from_geographic(
+            geographic, channel=channel_rasters_for_run(geographic)
+        ),
+        catchment=CatchmentGeometry.from_geographic(geographic, crs=None),
+    )
 
 
 def regular_solver_mesh(
@@ -63,11 +86,14 @@ def regular_solver_mesh(
     )
 
 
-def toy_model() -> Modflow6:
-    """Return a ``Modflow6`` on the 2 x 3 regular grid, one layer, two transient monthly periods."""
+def toy_model(**members) -> Modflow6:
+    """Return a ``Modflow6`` on the 2 x 3 regular grid, one layer, two transient monthly periods.
+
+    ``inputs`` is ``make_model(**members)`` with a transient time of the two monthly
+    periods and the DEM raster of unit cells.
+    """
     dem = np.array([[10.0, 10.0, 10.0], [10.0, 10.0, 10.0]], dtype=float)
-    geo = _DummyGeographic(dem)
-    model = Modflow6(geographic=geo, model_folder=".")
+    model = Modflow6(model_folder=".")
     model.solver_mesh = regular_solver_mesh(2, 3)
     model.nlay = 1
     model.ncpl = 6
@@ -75,15 +101,28 @@ def toy_model() -> Modflow6:
     model.perlen = np.array([31.0, 28.0]) * 86400.0
     model.steady = np.array([False, False])  # all transient by default
     model.dem_mask = np.zeros(6, dtype=bool)  # flat (ncpl,)
-    model.time_grid = SimpleNamespace(
-        window=ResolvedSimulationTimeWindow(
-            start=pd.Timestamp("2003-01-01"),
-            end=pd.Timestamp("2003-02-28"),
-            step_value=1,
-            step_unit="month",
-            coverage_policy="error",
-        )
+    window = ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2003-01-01"),
+        end=pd.Timestamp("2003-02-28"),
+        step_value=1,
+        step_unit="month",
+        coverage_policy="error",
     )
+    members.setdefault(
+        "time",
+        ModelTime(
+            grid=SimpleNamespace(window=window), regime="transient", first_period_steady=True
+        ),
+    )
+    members.setdefault(
+        "geometry",
+        Geometry(
+            cells=small_geometry().cells,
+            domain=None,
+            raster=RasterGeometry.from_geographic(_DummyGeographic(dem)),
+        ),
+    )
+    model.inputs = make_model(**members)
     return model
 
 
@@ -142,9 +181,10 @@ def two_triangle_model(
     *,
     river_internal_edge: bool = False,
     boundary_labels_by_edge_id: dict[int, str] | None = None,
+    **members,
 ) -> Modflow6:
     """Return ``toy_model`` on the two triangles of ``two_triangle_solver_mesh``."""
-    model = toy_model()
+    model = toy_model(**members)
     model.solver_mesh = two_triangle_solver_mesh(
         river_internal_edge=river_internal_edge,
         boundary_labels_by_edge_id=boundary_labels_by_edge_id,

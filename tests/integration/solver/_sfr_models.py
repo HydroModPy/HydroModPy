@@ -16,6 +16,7 @@ import numpy as np
 from shapely.geometry import LineString
 
 from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
     resolve_sfr_networks,
@@ -24,6 +25,7 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_ground import leave_ground_beside
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 INFLOW_M3S = 0.05
@@ -79,11 +81,13 @@ def _fake_model(connected: bool) -> SimpleNamespace:
         "runoff": {"kind": "constant", "value": RUNOFF_M3S, "units": "m3/s"},
     }
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {NETWORK_ID: payload}}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)),
+            sfr={NETWORK_ID: payload},
+        ),
         nper=1,
         perlen=np.asarray([86400.0]),
         steady=(True,),
-        time_grid=None,
         time_units="seconds",
         model_output_name=MODEL_NAME,
     )
@@ -262,11 +266,13 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         "route_drainage": route_drainage,
     }
     model = SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {NETWORK_ID: payload}}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)),
+            sfr={NETWORK_ID: payload},
+        ),
         nper=1,
         perlen=np.asarray([86400.0]),
         steady=(True,),
-        time_grid=None,
         time_units="seconds",
         model_output_name=COUPLED_MODEL_NAME,
     )

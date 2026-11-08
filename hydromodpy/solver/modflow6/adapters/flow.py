@@ -199,19 +199,19 @@ class Modflow6FlowAdapter:
 
         The method is intentionally narrow in scope:
 
-        - resolve the shared preprocessing options,
+        - read the ``Model`` the ``prepare_solver`` step put on the setup and
+          resolve the shared preprocessing options from it,
         - derive the stable model folder name for this run,
         - build the concrete ``Modflow6`` object,
         - delegate the common run lifecycle to ``run_flow_model``.
         """
 
         state = ctx.state
-        preprocess_options = build_preprocess_options(state)
+        preprocess_options = build_preprocess_options(state.setup.model)
         model_name = resolve_run_model_name(ctx)
         # This is the only MODFLOW 6-specific part of the adapter: wiring the
         # MF6 config block into the concrete solver implementation.
         model_modflow = Modflow6(
-            state.setup.geographic,
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,

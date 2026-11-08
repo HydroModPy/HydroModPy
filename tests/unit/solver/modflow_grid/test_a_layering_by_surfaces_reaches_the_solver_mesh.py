@@ -22,10 +22,12 @@ from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.request import RasterGridSpec
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
 from tests._helpers.mesh_cases import mesh_request
+from tests._helpers.model_factory import make_model
 
 NODATA = -9999.0
 STEP = 100.0
@@ -167,7 +169,8 @@ def test_a_triangle_mesh_samples_the_base_at_its_cell_centres() -> None:
 
 def test_modflow_nwt_refuses_a_grid_with_pass_through_cells() -> None:
     domain = _domain()
-    solver = SimpleNamespace(cell_mesh=_regular_cell_mesh(domain), domain=domain, sgrid_config=None)
+    geometry = Geometry(cells=_regular_cell_mesh(domain), domain=domain)
+    solver = SimpleNamespace(inputs=make_model(geometry=geometry), sgrid_config=None)
 
     with pytest.raises(ConfigError, match="MODFLOW-NWT does not have"):
         ModflowNwt._build_spatial_discretization(solver)

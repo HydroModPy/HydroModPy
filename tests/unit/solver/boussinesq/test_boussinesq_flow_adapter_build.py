@@ -6,11 +6,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.state.run_state import RunState
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import get_solver_adapter
@@ -23,6 +22,7 @@ from ._test_boussinesq_flow_adapter_builders import (
     _homogeneous_param,
     _write_custom_bundle,
     _write_minimal_bundle,
+    adapter_state,
 )
 
 
@@ -98,18 +98,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
             }
         )
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            cell_mesh=cell_mesh_of(planar_mesh),
-            mesh_bundle=None,
-            mesh_summary=None,
-            flow=flow,
-            domain=domain,
-            domain_geographic=None,
-            time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
-    )
+    state = adapter_state(tmp_path, flow=flow, cell_mesh=cell_mesh_of(planar_mesh), domain=domain)
     run = ProcessRun(
         id="flow_main::boussinesq_runtime_mesh",
         process_id="flow_main",
@@ -172,18 +161,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
             }
         )
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            cell_mesh=cell_mesh_of(planar_mesh),
-            mesh_bundle=None,
-            mesh_summary=None,
-            flow=flow,
-            domain=domain,
-            domain_geographic=None,
-            time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
-    )
+    state = adapter_state(tmp_path, flow=flow, cell_mesh=cell_mesh_of(planar_mesh), domain=domain)
     run = ProcessRun(
         id="flow_main::boussinesq_runtime_mesh_heterogeneous",
         process_id="flow_main",
@@ -206,17 +184,15 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
-def _bundle_context(tmp_path: Path, *, bundle_dir: Path, flow: Flow, **setup: object) -> RunContext:
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=flow,
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-            **setup,
-        ),
+def _bundle_context(
+    tmp_path: Path, *, bundle_dir: Path, flow: Flow, **model_parts: object
+) -> RunContext:
+    state = adapter_state(
+        tmp_path,
+        flow=flow,
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+        **model_parts,
     )
     run = ProcessRun(
         id="flow_main::boussinesq_bundle",
@@ -263,10 +239,14 @@ def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_the_k_of_a_bundle(
             }
         )
     )
-    ctx = _bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow)
-    ctx.state.setup.cell_mesh = cell_mesh_of(planar_mesh)
-    ctx.state.setup.domain = SimpleNamespace(
-        zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
+    ctx = _bundle_context(
+        tmp_path,
+        bundle_dir=bundle_dir,
+        flow=flow,
+        cell_mesh=cell_mesh_of(planar_mesh),
+        domain=SimpleNamespace(
+            zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
+        ),
     )
 
     with pytest.raises(ValueError, match=r"Two sources set K") as error:
@@ -324,15 +304,10 @@ def test_boussinesq_flow_adapter_completes_bundle_k_from_metadata_default(
 
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(FlowConfig.model_validate({"ic": {"kind": "bottom"}})),
-            domain=None,
-            time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "bottom"}})),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
     )
     run = ProcessRun(
         id="flow_main::boussinesq",
@@ -361,15 +336,11 @@ def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
         storage_values=("", ""),
         storage_default=0.02,
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}})),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}})),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_bundle_default_storage",
@@ -398,17 +369,10 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
         tmp_path / "bundle_steady_missing_storage",
         storage_values=("", ""),
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})
-            ),
-            domain=None,
-            time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
     )
     run = ProcessRun(
         id="flow_main::boussinesq_bundle_steady_missing_storage",

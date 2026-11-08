@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import types
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,7 +10,8 @@ from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.catchment.algorithms.flow_products import FlowProducts
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, SolverInputError
-from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.properties.property_table import resolve_required_flow_properties
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
@@ -38,6 +38,7 @@ from hydromodpy.solver.modflow_nwt.extractors.flow import (
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig, ModflowSpecifParams
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import refuse_constant_heads_below_bottom
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.terrain_doubles import fake_flow_products
 
@@ -460,16 +461,24 @@ def test_build_temporal_discretization_from_time_grid_defaults_first_period_stea
     assert np.array_equal(result.steady, np.array([True, False, False]))
 
 
-def test_resolve_first_period_steady_uses_explicit_flow_config() -> None:
-    flow = SimpleNamespace(config=FlowConfig(first_period_steady=False))
+def _transient_model(*, first_period_steady: bool):
+    return make_model(
+        time=ModelTime(grid=None, regime="transient", first_period_steady=first_period_steady)
+    )
 
-    assert resolve_first_period_steady(flow=flow) is False
+
+def test_resolve_first_period_steady_uses_explicit_flow_config() -> None:
+    model = _transient_model(first_period_steady=False)
+
+    assert resolve_first_period_steady(model=model) is False
 
 
 def test_resolve_first_period_steady_uses_flow_config_default() -> None:
-    flow = SimpleNamespace(config=FlowConfig())
+    model = _transient_model(first_period_steady=True)
 
-    assert resolve_first_period_steady(flow=flow) is True
+    assert resolve_first_period_steady(model=model) is True
+    assert resolve_first_period_steady() is True
+    assert resolve_first_period_steady(default=False) is False
 
 
 def test_resolve_required_flow_properties_steady_requires_only_k() -> None:
@@ -647,13 +656,10 @@ def test_unreadable_listing_fails_loudly(tmp_path: Path) -> None:
 
 def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowToModflowAdapter:
     dem = np.array([[20.0, 20.0, 20.0], [20.0, 20.0, 20.0]])
-    flow = SimpleNamespace(
-        initial_conditions=SimpleNamespace(h=SimpleNamespace(kind="top", value=0.0)),
-        boundary_conditions=boundary_conditions,
-        active_bc=list(boundary_conditions),
-        sinks_sources={},
-        active_sinks_sources=[],
-        parameters={},
+    model = make_model(
+        boundaries=BoundaryConditionBundle(
+            conditions=boundary_conditions, active_ids=tuple(boundary_conditions)
+        )
     )
     solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
@@ -664,8 +670,7 @@ def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowTo
         dy=5.0,
     )
     return FlowToModflowAdapter(
-        flow=flow,
-        domain=SimpleNamespace(zones={}),
+        model=model,
         solver_mesh=solver_mesh,
         nper=nper,
         sink_fill=False,
@@ -711,22 +716,19 @@ def test_the_build_refuses_before_any_package_is_assembled() -> None:
 #
 # Mirrors ``test_a_calibration_trial_value_reaches_the_soil_evt_package.py`` for
 # MODFLOW-NWT: ``FlowToModflowAdapter._build_etp_payload`` reads
-# ``flow.sinks_sources['etp'].extinction_depth`` straight off the typed config a
-# trial just patched with ``set_by_path``, the same path
-# ``TrialContext.fork`` rebuilds the runtime ``Flow`` from before every trial
-# solve.
+# ``Model.etp.extinction_depth`` straight off the typed config a trial just
+# patched with ``set_by_path``, the same path ``TrialContext.fork`` rebuilds the
+# runtime ``Flow`` and its ``Model`` from before every trial solve.
 
 
 def _adapter_for(etp_cfg: FlowEtpConfig) -> FlowToModflowAdapter:
-    flow = types.SimpleNamespace(
-        sinks_sources={"etp": etp_cfg},
-        flow_regime="transient",
-        active_sinks_sources=["etp"],
-        config=None,
+    model = make_model(
+        etp=etp_cfg,
+        active_sinks_sources=("etp",),
+        time=ModelTime(grid=None, regime="transient", first_period_steady=True),
     )
     return FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
+        model=model,
         solver_mesh=_build_solver_mesh(),
         nper=1,
         sink_fill=False,

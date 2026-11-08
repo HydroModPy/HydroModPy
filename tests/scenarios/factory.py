@@ -1,7 +1,8 @@
 """Synthetic projects for the scenario tests, written as TOML text.
 
 The island is a 610 m square grid with one layer and an ocean on the shore.
-Five variants play it with a different solver or workflow. Every project is
+Five variants play it with a different solver or workflow, and five more start
+it from a computed or an earlier state. Every project is
 built from the literal texts below. The factory reads no file, opens no network
 and draws no random number, so a project has the same bytes on every machine.
 """
@@ -13,6 +14,14 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 ISLAND_VARIANTS: tuple[str, ...] = ("gwt", "nwt", "boussinesq", "spinup", "calage")
+
+INITIAL_STATE_VARIANTS: tuple[str, ...] = (
+    "steady_ic_modflow6",
+    "steady_ic_nwt",
+    "steady_ic_boussinesq",
+    "cyclic_ic",
+    "restart",
+)
 
 TRANSIENT = """\
 [workflow]
@@ -138,6 +147,21 @@ SPINUP_TAIL = """
 max_cycles = 4
 tol_head = 0.05
 tol_stage = 0.05
+"""
+
+STEADY_IC_TAIL = """
+
+[flow.ic]
+kind = "steady_state"
+source = "mean_recharge"
+"""
+
+CYCLIC_IC_TAIL = """
+
+[flow.ic]
+kind = "spinup_cyclic"
+max_cycles = 3
+tol_head = "1e-9 m"
 """
 
 STEADY = """\
@@ -311,6 +335,40 @@ def island_files(variant: str) -> dict[str, str]:
     else:
         raise KeyError(variant)
     return {"project.toml": text}
+
+
+def _first_period_unsteady(text: str) -> str:
+    """Turn the steady first period off, so that the start state reaches the heads."""
+    return text.replace("first_period_steady = true", "first_period_steady = false")
+
+
+def initial_state_files(variant: str) -> dict[str, str]:
+    """Return the files of one island that starts from a computed or an earlier state.
+
+    The steady variants start from the steady solve of their own solver. The
+    cyclic variant repeats the three months up to three times. The restart
+    variant holds three configurations to play in this order: ``prior.toml``,
+    ``resumed.toml``, which names the first run in ``flow.restart_from``, and
+    ``cold.toml``, the same run without a restart.
+    """
+    if variant == "steady_ic_modflow6":
+        text = transient_island(variant, "modflow6", tail=STEADY_IC_TAIL)
+    elif variant == "steady_ic_nwt":
+        text = transient_island(variant, "modflow_nwt", tail=STEADY_IC_TAIL)
+    elif variant == "steady_ic_boussinesq":
+        text = transient_island(variant, "boussinesq", mesh=TRIANGLE_MESH, tail=STEADY_IC_TAIL)
+    elif variant == "cyclic_ic":
+        text = transient_island(variant, "modflow6", tail=CYCLIC_IC_TAIL)
+    elif variant == "restart":
+        prior = transient_island("prior", "modflow6")
+        resumed = _first_period_unsteady(transient_island("resumed", "modflow6")).replace(
+            "[flow]\n", '[flow]\nrestart_from = "prior"\n', 1
+        )
+        cold = _first_period_unsteady(transient_island("cold", "modflow6"))
+        return {"prior.toml": prior, "resumed.toml": resumed, "cold.toml": cold}
+    else:
+        raise KeyError(variant)
+    return {"project.toml": _first_period_unsteady(text)}
 
 
 def write_project(root: Path, files: Mapping[str, str]) -> Path:

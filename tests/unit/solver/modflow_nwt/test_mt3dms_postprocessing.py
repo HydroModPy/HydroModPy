@@ -105,7 +105,7 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
         _ensure_solver_routing_context=lambda: routing_ctx,
         dict_outflow_drain=outflow_drain,
     )
-    model.geographic = SimpleNamespace()
+    model.raster = SimpleNamespace()
 
     save_file = Path(model.full_path) / "_postprocess"
 
@@ -162,7 +162,7 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
 
     assert len(captured) == 1
     call = captured[0]
-    assert call["geographic"] is model.geographic
+    assert call["geographic"] is model.raster
     assert call["raw_rast_name"] == "mass_seepage_t(1).tif"
     assert call["trace_shp_name"] == "tracept_conc_t(1).shp"
     assert call["mass_rast_name"] == "mass_accumulated_t(1).tif"

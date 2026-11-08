@@ -15,8 +15,8 @@ import xarray as xr
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
-from hydromodpy.model.soil.config import SoilReservoirConfig
-from hydromodpy.model.soil.recharge import compute_soil_forcings
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
 
 _CRS = "EPSG:2154"
 

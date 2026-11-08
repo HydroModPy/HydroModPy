@@ -13,7 +13,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.model import ModelOptions
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
@@ -23,6 +24,7 @@ from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_common.sink_mask import closed_depression_mask, resolve_sink_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import build_drainage_spd
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NROW = 5
@@ -80,11 +82,20 @@ def _mf6_model(*, sink_fill: bool, sink: np.ndarray | None) -> SimpleNamespace:
     )
 
 
+def _drainage_model(conductance: float):
+    """A model whose only active boundary is a drainage of the given conductance."""
+    drainage = SimpleNamespace(value=conductance, units="m2/s")
+    return make_model(
+        boundaries=BoundaryConditionBundle(
+            conditions={"drainage": drainage}, active_ids=("drainage",)
+        )
+    )
+
+
 def _nwt_adapter(mesh: SolverMesh, *, sink_fill: bool, sink: np.ndarray | None) -> SimpleNamespace:
     """A stand-in carrying exactly what ``build_drainage_spd`` reads."""
     return SimpleNamespace(
-        _is_bc_active=lambda bc_id: bc_id == "drainage",
-        _boundary_conditions={"drainage": SimpleNamespace(value=DRAIN_COND_M2_S, units="m2/s")},
+        model=_drainage_model(DRAIN_COND_M2_S),
         solver_mesh=mesh,
         dem=mesh.reshape_to_grid(mesh.top),
         nrow=NROW,
@@ -109,14 +120,14 @@ def _nwt_conductance_by_cell(spd: dict[int, np.ndarray]) -> dict[int, float]:
 def test_default_is_off_so_no_existing_run_changes() -> None:
     assert ModflowPreprocessOptions().sink_fill is False
     assert SolverConfig().sink_fill is False
-    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
-    assert build_preprocess_options(state).sink_fill is False
+    model = make_model(options=ModelOptions.from_settings(SolverConfig()))
+    assert build_preprocess_options(model).sink_fill is False
 
 
 def test_toml_switch_reaches_the_preprocess_options() -> None:
     cfg = SolverConfig.model_validate({"sink_fill": True})
-    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=cfg))
-    assert build_preprocess_options(state).sink_fill is True
+    model = make_model(options=ModelOptions.from_settings(cfg))
+    assert build_preprocess_options(model).sink_fill is True
 
 
 def test_mask_holds_the_dug_cell_and_nothing_else() -> None:

@@ -6,7 +6,7 @@ differ, a field sealed into the store would sit on the wrong cells, so the
 extractor compares them and refuses to go on when they do not agree.
 
 Two differences are expected and accepted: flopy rounds every coordinate it
-writes (see ``support.written_grid``), and DISV wants clockwise rings, so a
+writes (see ``written_step`` in ``results.storage.prior_state``), and DISV wants clockwise rings, so a
 counter-clockwise cell comes back with its ring walked the other way.
 """
 
@@ -19,7 +19,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import IncompatibleMeshError, MeshError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.support.written_grid import reoriented_rows, written_step
+from hydromodpy.results.storage.prior_state import reoriented_rows, written_step
 
 logger = get_logger(__name__)
 

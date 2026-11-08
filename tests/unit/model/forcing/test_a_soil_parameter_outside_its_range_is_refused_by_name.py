@@ -11,7 +11,7 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 
 _CASES = [
     (
@@ -141,7 +141,7 @@ def test_a_transit_time_string_with_no_unit_names_the_syntax_to_write() -> None:
     ],
 )
 def test_the_range_is_declared_on_the_field(name: str, bounds: dict[str, float]) -> None:
-    from hydromodpy.model.soil.config import SoilReservoirConfig
+    from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 
     declared: dict[str, float] = {}
     for item in SoilReservoirConfig.model_fields[name].metadata:

@@ -65,7 +65,7 @@ def configure(
         resolve_support_configs,
         support_provider_names,
     )
-    from hydromodpy.model.soil.config import soil_reservoir_of
+    from hydromodpy.model.forcing.soil_config import soil_reservoir_of
     from hydromodpy.workflow.steps.data import log_data_plan
 
     raw_toml = _read_config(project, config)

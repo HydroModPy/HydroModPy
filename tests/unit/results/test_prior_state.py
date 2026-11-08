@@ -1,15 +1,15 @@
-"""A ``restart_from`` store is read cell by cell, so it must come from the same mesh.
+"""The earlier run a ``restart_from`` names is read once, on the mesh of this run.
 
-The guard compares ``mesh/face_node_connectivity`` exactly and ``mesh/vertices``
-to half the rounding step flopy writes, and names both mesh identities when the
-two differ. A store without a mesh keeps the cell-count rule and a warning.
+``read_prior_state`` checks ``mesh/face_node_connectivity`` exactly and
+``mesh/vertices`` to half the rounding step flopy writes, names both mesh
+identities when the two differ, and only then reads the last head and the final
+lake stages. A store without a mesh keeps the cell-count rule and a warning.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -17,12 +17,14 @@ import zarr
 
 from hydromodpy.core.exceptions import IncompatibleMeshError
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.solver.modflow6.builders.initial_conditions import (
-    build_start_heads,
+from hydromodpy.model.initial.heads import restart_start_heads
+from hydromodpy.model.initial.state import PriorState
+from hydromodpy.results.storage.prior_state import (
+    read_final_head,
+    read_prior_state,
+    read_restart_lake_stages,
     verify_restart_mesh,
 )
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 
 # Lambert-93 magnitudes: flopy keeps 1e-3 m in x (3.5e5) and 1e-2 m in y (6.8e6).
@@ -129,43 +131,111 @@ def test_a_store_without_a_mesh_keeps_the_cell_count_rule_and_warns(
     assert any("stores no mesh" in record.getMessage() for record in caplog.records)
 
 
-def _model(restart_from: str) -> SimpleNamespace:
-    model = toy_model()
-    model.flow = SimpleNamespace(
-        initial_conditions=None,
-        boundary_conditions={},
-        active_bc=[],
-        config=SimpleNamespace(restart_from=restart_from),
-    )
-    return model
-
-
-def test_the_start_heads_are_not_read_from_another_mesh(tmp_path: Path) -> None:
+def test_the_prior_state_is_not_read_from_another_mesh(tmp_path: Path) -> None:
     mesh = _mesh()
     moved = mesh.mesh.vertices[:, :2].copy()
     moved[0, 0] += 0.5
     prior = _store(tmp_path / "prior.zarr", mesh, vertices=moved)
-    solver_mesh = SolverMesh(
-        cell_mesh=mesh,
-        top=np.full(6, 10.0),
-        botm=np.zeros((1, 6)),
-        idomain=np.ones((1, 6), dtype=int),
-    )
 
     with pytest.raises(IncompatibleMeshError, match="another mesh"):
-        build_start_heads(_model(prior), solver_mesh)
+        read_prior_state(prior, mesh)
 
 
 def test_the_start_heads_of_the_same_mesh_are_the_prior_heads(tmp_path: Path) -> None:
     mesh = _mesh()
     prior = _store(tmp_path / "prior.zarr", mesh)
-    solver_mesh = SolverMesh(
-        cell_mesh=mesh,
-        top=np.full(6, 10.0),
-        botm=np.zeros((1, 6)),
-        idomain=np.ones((1, 6), dtype=int),
-    )
 
-    strt = build_start_heads(_model(prior), solver_mesh)
+    state = read_prior_state(prior, mesh)
+    strt = restart_start_heads(state.head, nlay=1, ncpl=6, top=np.full(6, 10.0))
 
     assert np.array_equal(strt, np.arange(6, dtype=float).reshape(1, 6))
+
+
+def _write_heads(path: Path, head: np.ndarray) -> str:
+    zarr.open(str(path), mode="w")["head"] = head
+    return str(path)
+
+
+def test_a_prior_state_carries_what_the_store_holds(tmp_path: Path) -> None:
+    mesh = _mesh()
+    path = _store(tmp_path / "prior.zarr", mesh)
+    root = zarr.open(path, mode="r+")
+    group = root.require_group("lake_state_final")
+    group["stage"] = np.array([86.9])
+    group.attrs["lake_ids"] = ["forebay"]
+
+    state = read_prior_state(path, mesh, sim_id="abc123")
+
+    assert isinstance(state, PriorState)
+    assert (state.path, state.sim_id) == (path, "abc123")
+    assert dict(state.lake_stages) == {"forebay": pytest.approx(86.9)}
+    assert state.head.shape == (1, 6)
+    assert not state.head.flags.writeable
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        pytest.param(
+            np.array([[[1.0, 2.0, 3.0]], [[4.0, 5.0, 6.0]]]),
+            [[4.0, 5.0, 6.0]],
+            id="the last time step is read",
+        ),
+        pytest.param(
+            np.array([[[1.0, 1.0e30, np.nan], [4.0, 5.0, 6.0]]]),
+            [[1.0, np.nan, np.nan], [4.0, 5.0, 6.0]],
+            id="sentinel and NaN cells come back NaN",
+        ),
+        pytest.param(np.array([[7.0, 8.0, 9.0]]), [[7.0, 8.0, 9.0]], id="one layer, flat steps"),
+    ],
+)
+def test_the_heads_read_are_the_last_step_with_nan_on_inactive_cells(
+    tmp_path: Path, stored: np.ndarray, expected: list[list[float]]
+) -> None:
+    path = _write_heads(tmp_path / "prior.zarr", stored)
+
+    np.testing.assert_array_equal(read_final_head(path), np.array(expected))
+
+
+@pytest.mark.parametrize(
+    ("reader", "label"),
+    [
+        pytest.param(read_final_head, "read_final_head", id="the spin-up read"),
+        pytest.param(lambda path: read_prior_state(path, _mesh()), "restart_from", id="a restart"),
+    ],
+)
+def test_a_store_without_heads_is_refused_by_name(tmp_path: Path, reader, label: str) -> None:
+    path = tmp_path / "prior.zarr"
+    zarr.open(str(path), mode="w")["other"] = np.zeros(3)
+
+    with pytest.raises(ValueError, match=f"{label}: no 'head' field"):
+        reader(str(path))
+
+
+def test_read_restart_lake_stages_roundtrip_raw_zarr(tmp_path: Path) -> None:
+    """The reader parses the ``lake_state_final`` group written by the store."""
+    path = tmp_path / "prior.zarr"
+    root = zarr.open(str(path), mode="w")
+    grp = root.require_group("lake_state_final")
+    grp["stage"] = np.array([86.9, 74.2])
+    grp.attrs["lake_ids"] = ["forebay", "sill"]
+
+    stages = read_restart_lake_stages(str(path))
+    assert stages == {"forebay": pytest.approx(86.9), "sill": pytest.approx(74.2)}
+
+
+def test_read_restart_lake_stages_absent_group_returns_empty(tmp_path: Path) -> None:
+    """A prior run with no lake (no group) yields {} so initial_stage is kept."""
+    path = tmp_path / "prior.zarr"
+    zarr.open(str(path), mode="w")["head"] = np.zeros((1, 1, 3))
+    assert read_restart_lake_stages(str(path)) == {}
+
+
+def test_read_restart_lake_stages_length_mismatch_returns_empty(tmp_path: Path) -> None:
+    """A corrupt group (ids vs stages length mismatch) is refused, not guessed."""
+    path = tmp_path / "prior.zarr"
+    root = zarr.open(str(path), mode="w")
+    grp = root.require_group("lake_state_final")
+    grp["stage"] = np.array([1.0, 2.0, 3.0])
+    grp.attrs["lake_ids"] = ["a", "b"]
+    assert read_restart_lake_stages(str(path)) == {}

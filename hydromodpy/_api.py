@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.model.initial.spinup_config import SpinupConfig
+    from hydromodpy.model.initial_config import SpinupConfig
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.compare import Comparison
     from hydromodpy.project.examples.install import InstallReport

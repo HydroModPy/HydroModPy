@@ -8,14 +8,13 @@ import numpy as np
 import xarray as xr
 from shapely.geometry import LineString
 
-from hydromodpy.core.state.run_state import RunState
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from tests._helpers.cell_meshes import cell_mesh_of
@@ -25,6 +24,7 @@ from ._test_boussinesq_flow_adapter_builders import (
     _DummySurface,
     _homogeneous_param,
     _write_minimal_bundle,
+    adapter_state,
 )
 
 
@@ -105,17 +105,12 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
         fields=[_make_static_recharge_field_record()]
     )
     flow.sinks_sources["recharge"].interpolation_method = "nearest"
-    state = RunState(
-        setup=SimpleNamespace(
-            cell_mesh=cell_mesh_of(planar_mesh),
-            mesh_bundle=None,
-            mesh_summary=None,
-            flow=flow,
-            domain=domain,
-            domain_geographic=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=flow,
+        cell_mesh=cell_mesh_of(planar_mesh),
+        domain=domain,
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_runtime_mesh_heterogeneous_recharge",
@@ -186,17 +181,12 @@ def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
         zone_left=[-1],
         zone_right=[-1],
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=river_faces),
-            mesh_bundle=None,
-            mesh_summary=None,
-            flow=flow,
-            domain=domain,
-            domain_geographic=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=flow,
+        cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=river_faces),
+        domain=domain,
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_runtime_mesh_stream",
@@ -223,17 +213,11 @@ def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
 
 def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_transient")
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                FlowConfig.model_validate({"ic": {"kind": "top"}, "first_period_steady": False})
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}, "first_period_steady": False})),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq",
@@ -263,26 +247,22 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_supported_inputs")
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    {
-                        "ic": {"kind": "custom", "value": 7.0},
-                        "first_period_steady": False,
-                        "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
-                        "bc": {
-                            "west_side": {"kind": "dirichlet", "value": 10.0},
-                        },
-                    }
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(
+            _build_flow_config(
+                {
+                    "ic": {"kind": "custom", "value": 7.0},
+                    "first_period_steady": False,
+                    "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
+                    "bc": {
+                        "west_side": {"kind": "dirichlet", "value": 10.0},
+                    },
+                }
+            )
         ),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_supported_inputs",
@@ -315,34 +295,30 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_well")
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    {
-                        "ic": {"kind": "custom", "value": 8.0},
-                        "first_period_steady": False,
-                        "sinks_sources": {
-                            "wells": {
-                                "W1": {
-                                    "location": {
-                                        "kind": "absolute_xy",
-                                        "x": 0.75,
-                                        "y": 0.25,
-                                    },
-                                    "flux": -1.0e-5,
-                                }
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(
+            _build_flow_config(
+                {
+                    "ic": {"kind": "custom", "value": 8.0},
+                    "first_period_steady": False,
+                    "sinks_sources": {
+                        "wells": {
+                            "W1": {
+                                "location": {
+                                    "kind": "absolute_xy",
+                                    "x": 0.75,
+                                    "y": 0.25,
+                                },
+                                "flux": -1.0e-5,
                             }
-                        },
-                    }
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+                        }
+                    },
+                }
+            )
         ),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_well",
@@ -370,25 +346,21 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_stream", river_internal_edge=True)
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    {
-                        "ic": {"kind": "custom", "value": 8.0},
-                        "first_period_steady": False,
-                        "bc": {
-                            "stream": {"kind": "dirichlet", "value": 7.0},
-                        },
-                    }
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(
+            _build_flow_config(
+                {
+                    "ic": {"kind": "custom", "value": 8.0},
+                    "first_period_steady": False,
+                    "bc": {
+                        "stream": {"kind": "dirichlet", "value": 7.0},
+                    },
+                }
+            )
         ),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_stream",
@@ -415,25 +387,21 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_ocean")
-    state = RunState(
-        setup=SimpleNamespace(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    {
-                        "ic": {"kind": "custom", "value": 8.0},
-                        "first_period_steady": False,
-                        "bc": {
-                            "ocean": {"kind": "dirichlet", "value": 10.5},
-                        },
-                    }
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+    state = adapter_state(
+        tmp_path,
+        flow=Flow(
+            _build_flow_config(
+                {
+                    "ic": {"kind": "custom", "value": 8.0},
+                    "first_period_steady": False,
+                    "bc": {
+                        "ocean": {"kind": "dirichlet", "value": 10.5},
+                    },
+                }
+            )
         ),
+        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
     run = ProcessRun(
         id="flow_main::boussinesq_ocean",

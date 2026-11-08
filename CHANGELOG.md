@@ -47,7 +47,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   (`physics.flow.initial_conditions` as `initial.config`, `solver.base.initial_conditions` as `initial.heads`, and
   `simulation.spinup_config`), `time` (`regime`, `history_contract`), `soil` (`physics.hydrology.soil_reservoir` and
   `simulation.soil`) and `transport`.
-- `Flow` is now in `hydromodpy.model.model`. `FlowConfig` and its TOML loader are one module,
+- `Flow` is now in `hydromodpy.model.flow`. `FlowConfig` and its TOML loader are one module,
   `hydromodpy.model.flow_config`, which also holds `from_toml_section`, `normalize_bc_payloads` and
   `resolve_forcing_paths`. `physics.contracts`, `physics.base.payloads`, `physics.base.process_spatial`,
   `physics.flow.runtime_config` and `physics.flow.toml_examples` are modules at the top of `hydromodpy.model`.
@@ -93,6 +93,53 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   other port names from `hydromodpy.catchment.terrain.port`, and the two engines from `numpy_engine` and
   `whitebox_engine`. The entry-point group of terrain engines is still `hydromodpy.terrain.engine`.
 - The bundled `departement.gpkg` moved with `administrative` to `hydromodpy/catchment/administrative/`.
+- The solver backends read a frozen `hydromodpy.model.model.Model`: the geometry, the properties as profiles, the
+  boundaries, the recharge, the ETP, the wells, the lakes, the SFR networks, the barriers, the start state, the time and
+  four `[solver]` options. The `prepare_solver` step builds it once per run with `model_from_flow` and puts it on
+  `setup.model`. `Modflow6`, `ModflowNwt` and `Boussinesq` keep it in `inputs` and never change it.
+- `Modflow6` and `ModflowNwt` no longer take the geographic object, and their `pre_processing(model, options)` takes the
+  `Model` in place of the flow, the domain and the cell mesh. `Boussinesq(model=..., runtime=...)` reads the `Model`
+  and the `[flow.runtime]` options.
+- `Flow` loses the fifteen Boussinesq settings it copied from `[flow.runtime]` (`runtime_backend`,
+  `surface_interaction_model`, `partition_release_depth_m`, `runtime_max_iterations`, `runtime_tol_residual_inf`,
+  `runtime_tol_state_update_inf`, `vi_substeps_per_period`, `vi_substep_on_failure`, `vi_max_adaptive_substeps`,
+  `ts_vi_steps_per_period`, `ts_vi_adapt`, `ts_vi_dt_min_fraction`, `ts_vi_dt_max_fraction`, `ts_vi_type`,
+  `ts_vi_snes_type`) and the unread `initial_condition_types` and `boundary_condition_application_domains`. Boussinesq
+  reads `[flow.runtime]`.
+- The start of a run is one of five records of `hydromodpy.model.initial.state`: `HeadRule`, `SteadyStart`,
+  `CyclicStart`, `PriorState` and `SolvedState`. The models of the steady start and of a spin-up cycle are
+  `steady_variant` and `cycle_variant` of `hydromodpy.model.model`, which return a new model. They replace
+  `steady_flow_copy_for_initialization`, `cyclic_flow_copy_for_initialization`,
+  `flow_uses_steady_state_initial_condition`, `flow_uses_cyclic_spinup` and `resolve_head_initial_condition`.
+- `hydromodpy.model.initial.config` and `spinup_config` are one module, `hydromodpy.model.initial_config`. It also holds
+  the `[flow.ic]` strategy readers (`initial_state_of`, `steady_state_strategy_of`, `cyclic_spinup_strategy_of`), which
+  leave `hydromodpy.model.initial.heads`. `heads.py` keeps the numpy kernels and gains `restart_start_heads`.
+- The soil reservoir modules other than the kernel move to `hydromodpy.model.forcing`: `soil.config`, `soil.columns`,
+  `soil.grids`, `soil.recharge` and `soil.budget` are now `forcing.soil_config`, `soil_columns`, `soil_grids`,
+  `soil_forcing` and `soil_budget`. `hydromodpy.model.soil` keeps `kernel`.
+- The earlier run that `flow.restart_from` names is read once, before the solve, by
+  `hydromodpy.results.storage.prior_state`. A run solved on another mesh is refused there with the same message as
+  before, and the lake stages of the restart come from the `PriorState` of the model. `verify_restart_mesh`,
+  `read_restart_lake_stages` and `read_final_head` move there from
+  `hydromodpy.solver.modflow6.builders.initial_conditions`, with `written_step` and `reoriented_rows` from
+  `hydromodpy.solver.modflow6.support.written_grid`, which is gone.
+- `map_flow_properties`, `resolve_flow_property_arrays`, `require_positive_conductivity` and `require_positive_storage`
+  take `profiles=` instead of `flow=`. A per-cell property override is set with `Model.with_properties`, which refuses a
+  name that sets no property, and a `properties` key in the per-run overrides of the run context is refused by name.
+- `ensure_flow` moves from `hydromodpy.solver.base.runner` to `hydromodpy.workflow.steps.data`. The runner no longer
+  builds a `Flow`, and a flow run without the `Model` of the `prepare_solver` step stops with a `ConfigError` that names
+  the step.
+- `build_preprocess_options`, `require_cell_mesh` and `run_flow_model` read `setup.model` instead of `setup.flow`,
+  `setup.domain`, `setup.cell_mesh` and `cfg.solver`. `channel_tree_for_run` takes the `ChannelRasters` that
+  `channel_rasters_for_run` chooses, `run_basin` and the catchment functions take a `CatchmentGeometry`,
+  `networks_route_drainage` takes a `Model`, `resolve_first_period_steady` takes `model=` and `step_persist_params` takes
+  the parameter profiles of the `Model` instead of a `Flow`.
+- The MODPATH and MT3DMS models read the DEM grid and the catchment polygon from `Model.geometry` through the MODFLOW-NWT
+  solver. `get_geographic` of `hydromodpy.solver.modflow_nwt.modpath.resolvers` is replaced by `get_raster` and
+  `get_catchment`.
+- The auxiliary steady solve of MODFLOW 6 and MODFLOW-NWT always starts from the top of the model. It started 0.01 m
+  below the top when `[flow.runtime]` set `backend = "petsc"` and `surface_interaction_model = "vi_obstacle"`, two
+  Boussinesq settings. See the recipe `modflow_steady_start_ignores_boussinesq_runtime` of `changes.toml`.
 
 ### Removed
 
@@ -102,6 +149,15 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `filter_pathlines` of the annex. `hydromodpy.physics.hydrology.pyhelp` and the chain names of `hydromodpy.schema.job`
   are gone.
 - `hmp dev manage` is gone and has no replacement yet.
+- `is_boundary_condition_active` and `active_side_dirichlet_boundary_ids` of
+  `hydromodpy.model.boundaries.boundary_condition_registry` are gone. A backend reads `Model.boundaries`.
+
+### Fixed
+
+- The steady start of a transient Boussinesq run with the `petsc` backend and `ts_vi_obstacle` stopped with
+  `AttributeError` in 2.0.0. It runs again, with `regularized_partition` for the auxiliary solve, as in 2.0.0a5.
+- A `flow.restart_from` given as a run name or a sim_id is now read on a resume and in a calibration trial, as it is on
+  a first run. Before, only a path worked there.
 
 ## [v2.0.0] - 2026-11-07
 

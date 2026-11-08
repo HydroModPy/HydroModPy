@@ -21,10 +21,12 @@ from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTra
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import LineFamilySpec
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders._sfr_network import chain_pieces
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, mesh_request
+from tests._helpers.model_factory import make_model
 
 X0, Y0 = L93_ORIGIN
 _LENGTH_RTOL = 1e-9
@@ -89,7 +91,10 @@ def _model() -> SimpleNamespace:
         "reach_trace": SfrReachTrace(reaches=rows, crs_wkt=LAMBERT93_WKT),
     }
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {"net": payload}})
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)),
+            sfr={"net": payload},
+        )
     )
 
 

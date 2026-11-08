@@ -20,9 +20,9 @@ from pydantic import ValidationError
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.climate import apply_recharge_load_result_to_flow
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
-from hydromodpy.model.soil.config import SoilReservoirConfig
 from tests.unit.workflow.steps.prepare_solver.test_forcings import _runoff_field_record
 
 _MM_PER_DAY_IN_M_PER_S = 1e-3 / 86400.0

@@ -16,12 +16,17 @@ the truth, and the DuckDB index `.hmp/index.duckdb` is derived from these direct
 5. `sealing.py` builds the record from the store and writes the seal last. A directory without a seal never finished.
 6. `scratch.py` empties the solver scratch when the attempt ends.
 
+A run that restarts from another run reads it once, before the solve. `prior_state.py` opens the Zarr store of
+the prior run, checks that its mesh is the mesh of the new run, and gives the final head and the lake stages
+as a `PriorState`. No solver adapter opens that store.
+
 ## The folder map
 
 ```text
 storage/
 ├── contract.py          names inside a run and a session directory, GEOGRAPHIC_FEATURE_PREFIX, geographic_feature_files
 ├── run_store.py         RunStore, the store of one run (arrays, tables, facts)
+├── prior_state.py       the prior run read as a PriorState, read_final_head, verify_restart_mesh
 ├── run_facts.py         facts a run gathers before its seal
 ├── sealing.py           seal_completed, build_record, provenance
 ├── attempt.py           claim of a directory, finish_attempt, typed refusals

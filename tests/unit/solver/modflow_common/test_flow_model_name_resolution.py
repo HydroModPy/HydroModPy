@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.model import ModelOptions, ModelTime
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.modflow6.support.names import mf6_output_name, mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
@@ -10,6 +11,7 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     resolve_base_model_name,
     resolve_run_model_name,
 )
+from tests._helpers.model_factory import make_model, time_grid
 
 
 def test_resolve_base_model_name_prefers_run_id() -> None:
@@ -33,21 +35,40 @@ def test_resolve_base_model_name_defaults_when_missing() -> None:
 
 
 def test_build_preprocess_options_returns_defaults() -> None:
-    """build_preprocess_options uses ModflowPreprocessOptions defaults directly.
-
-    settings.py is deprecated; options are sourced from FlowConfig /
-    ModflowPreprocessOptions defaults instead.
-    """
+    """A model built with the defaults of ``[solver]`` gives the defaults of the options."""
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 
-    state = RunState(setup=SimpleNamespace(), cfg=SimpleNamespace(solver=SolverConfig()))
-    options = build_preprocess_options(state)
+    options = build_preprocess_options(
+        make_model(options=ModelOptions.from_settings(SolverConfig()))
+    )
 
     defaults = ModflowPreprocessOptions()
     assert options.box is defaults.box
     assert options.sink_fill is defaults.sink_fill
     assert options.check_grid is defaults.check_grid
+
+
+def test_build_preprocess_options_reads_the_time_grid_and_the_options_of_the_model() -> None:
+    """The grid and the four ``[solver]`` settings come from the members of the model."""
+    grid = time_grid(10, 20)
+    model = make_model(
+        time=ModelTime(grid=grid, regime="transient", first_period_steady=True),
+        options=ModelOptions(
+            sink_fill=True,
+            drain_band_depth_m=0.5,
+            drain_bed_thickness_m=2.0,
+            drain_conductance_floor_m2_s=1e-9,
+        ),
+    )
+
+    options = build_preprocess_options(model)
+
+    assert options.time_grid is grid
+    assert options.sink_fill is True
+    assert options.drain_band_depth_m == 0.5
+    assert options.drain_bed_thickness_m == 2.0
+    assert options.drain_conductance_floor_m2_s == 1e-9
 
 
 def test_resolve_run_model_name_prefers_runtime_override() -> None:

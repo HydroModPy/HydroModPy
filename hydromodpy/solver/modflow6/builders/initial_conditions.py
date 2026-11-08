@@ -4,15 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.core.exceptions import IncompatibleMeshError
-from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
-from hydromodpy.core.logging import get_logger
-from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.initial.heads import (
     build_head_initial_condition_array,
-    initial_condition_field,
-    resolve_head_initial_condition,
+    restart_start_heads,
 )
+from hydromodpy.model.initial.state import PriorState, SolvedState
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     apply_side_boundary_start_heads,
     ocean_chd_support_mask,
@@ -20,9 +16,6 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     resolve_stream_boundary_series,
     stream_chd_support_mask,
 )
-from hydromodpy.solver.modflow6.support.written_grid import reoriented_rows, written_step
-
-logger = get_logger(__name__)
 
 
 def rewet_is_enabled(model) -> bool:
@@ -32,200 +25,56 @@ def rewet_is_enabled(model) -> bool:
     return bool(enable_rewet) if enable_rewet is not None else False
 
 
-def resolve_restart_from(model) -> str | None:
-    """Resolve the ``[flow] restart_from`` hotstart source path, or None."""
-    flow = getattr(model, "flow", None)
-    config = getattr(flow, "config", None) if flow is not None else None
-    value = getattr(config, "restart_from", None)
-    if value is None and flow is not None:
-        value = getattr(flow, "restart_from", None)
-    text = str(value).strip() if value else ""
-    return text or None
-
-
-def _open_restart_zarr(path: str):
-    import zarr
-
-    if path.endswith(".zip"):
-        return zarr.open(zarr.storage.ZipStore(path, mode="r"), mode="r")
-    return zarr.open(path, mode="r")
-
-
-def _identity_text(engine: object, version: object, request_hash: object) -> str:
-    """One mesh identity as a phrase; attributes a store never recorded read ``unrecorded``."""
-    request = str(request_hash or "unrecorded")[:12]
-    return f"engine {engine or 'unrecorded'} {version or ''}, request {request}"
-
-
-def verify_restart_mesh(path: str, cell_mesh: PlanarCellMesh) -> None:
-    """Refuse a ``restart_from`` store that was solved on another mesh than ``cell_mesh``.
-
-    A hotstart copies heads cell by cell, so it needs the same cells in the
-    same order. The source ``mesh/`` group is compared with the current mesh:
-    ``face_node_connectivity`` exactly (a ring walked the other way is the same
-    cell, as MODFLOW 6 stores its DISV clockwise) and the vertices to half the
-    rounding step flopy writes (a finer difference never reaches the solver).
-    A source store that holds no mesh keeps the cell-count rule of
-    :func:`read_restart_heads` and a warning.
-
-    Raises
-    ------
-    IncompatibleMeshError
-        When the connectivity or a vertex differs. The message names the
-        engine, version and request hash of both meshes.
-    """
-    root = _open_restart_zarr(path)
-    if "mesh" not in root or "face_node_connectivity" not in root["mesh"]:
-        logger.warning(
-            "restart_from: %r stores no mesh, so only the cell count is checked; the heads are "
-            "copied cell by cell and are wrong if the cell order differs.",
-            path,
-        )
-        return
-    group = root["mesh"]
-    stored_rows = np.asarray(group["face_node_connectivity"][:], dtype=np.int64)
-    current_rows = np.asarray(cell_mesh.geometry.padded_connectivity, dtype=np.int64)
-    width = max(stored_rows.shape[1], current_rows.shape[1])
-    stored_rows, current_rows = (
-        np.pad(rows, ((0, 0), (0, width - rows.shape[1])), constant_values=-1)
-        for rows in (stored_rows, current_rows)
-    )
-    stored_xy = np.asarray(group["vertices"][:], dtype=float)[:, :2]
-    current_xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
-    reason = None
-    if stored_rows.shape != current_rows.shape or stored_xy.shape != current_xy.shape:
-        reason = (
-            f"{stored_rows.shape[0]} cells and {stored_xy.shape[0]} vertices stored, "
-            f"{current_rows.shape[0]} and {current_xy.shape[0]} in this run"
-        )
-    else:
-        same_ring = (stored_rows == current_rows).all(axis=1) | (
-            stored_rows == reoriented_rows(current_rows)
-        ).all(axis=1)
-        moved = np.abs(stored_xy - current_xy) > 0.505 * written_step(stored_xy)
-        if not same_ring.all():
-            first = int(np.flatnonzero(~same_ring)[0])
-            reason = f"the cell connectivity differs from cell {first}"
-        elif moved.any():
-            first = int(np.flatnonzero(moved.any(axis=1))[0])
-            shift = float(np.abs(stored_xy - current_xy)[moved].max())
-            reason = (
-                f"{int(moved.any(axis=1).sum())} vertices moved (first: {first}, "
-                f"up to {shift:.3g} m)"
-            )
-    if reason is None:
-        return
-    identity = cell_mesh.identity
-    prior = _identity_text(
-        group.attrs.get("engine"),
-        group.attrs.get("engine_version"),
-        group.attrs.get("mesh_request_hash"),
-    )
-    current = _identity_text(identity.engine_id, identity.engine_version, identity.request_hash)
-    raise IncompatibleMeshError(
-        f"restart_from: {path!r} was solved on another mesh than this run: {reason}. "
-        f"Prior run: {prior}. This run: {current}. "
-        "Restart from a run with the same [mesh] settings, on the same engine build."
-    )
-
-
-def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray) -> np.ndarray:
-    """Return start heads ``(nlay, ncpl)`` from a prior run's last time step (hotstart).
-
-    The prior run must share this run's mesh (same cell count), which is what the
-    mesh cache guarantees; a shape mismatch raises rather than silently reindexing.
-    """
-    root = _open_restart_zarr(path)
-    if "head" not in root:
-        raise ValueError(f"restart_from: no 'head' field in {path!r}")
-    head = np.asarray(root["head"][-1], dtype=float)
-    head = head.reshape(head.shape[0], -1) if head.ndim > 1 else head.reshape(1, -1)
-    if head.shape != (nlay, ncpl):
-        raise ValueError(
-            f"restart_from: prior head shape {head.shape} does not match this run "
-            f"({nlay}, {ncpl}). Use the same [mesh] settings as the prior run so the "
-            f"cell count is identical between the two runs."
-        )
-    # Inactive cells carry a NaN / large sentinel; MF6 ignores strt there but the array must
-    # be finite, so fill them with the cell top like the default initial condition.
-    head = np.where(np.abs(head) > SENTINEL_ABS_THRESHOLD, np.nan, head)
-    top = np.asarray(top_flat, dtype=float).reshape(-1)
-    for ilay in range(nlay):
-        missing = ~np.isfinite(head[ilay])
-        head[ilay][missing] = top[missing]
-    return head
-
-
-def read_restart_lake_stages(path: str) -> dict[str, float]:
-    """Return each lake's final stage ``{lake_id: stage}`` from a prior run's Zarr.
-
-    Reads the ``lake_state_final`` group written at extraction time, the lake
-    companion of the ``head`` field for ``[flow] restart_from``. Returns an empty
-    mapping when the prior run had no lake (older stores, non-lake runs), so
-    callers keep the per-lake ``initial_stage``.
-    """
-    root = _open_restart_zarr(path)
-    if "lake_state_final" not in root:
-        return {}
-    group = root["lake_state_final"]
-    if "stage" not in group:
-        return {}
-    stages = np.asarray(group["stage"][:], dtype=float).reshape(-1)
-    lake_ids = [str(lake_id) for lake_id in group.attrs.get("lake_ids", [])]
-    if len(lake_ids) != len(stages):
-        return {}
-    return {lake_id: float(value) for lake_id, value in zip(lake_ids, stages, strict=True)}
-
-
-def read_final_head(path: str) -> np.ndarray:
-    """Return a prior run's last-step head field ``(nlay, ncpl)`` for convergence.
-
-    Inactive cells (NaN / large sentinel) come back as NaN so a cycle-to-cycle
-    diff can ignore them. Unlike :func:`read_restart_heads` this does not fill
-    them with the cell top; it is a read-only companion for the spin-up loop.
-    """
-    root = _open_restart_zarr(path)
-    if "head" not in root:
-        raise ValueError(f"read_final_head: no 'head' field in {path!r}")
-    head = np.asarray(root["head"][-1], dtype=float)
-    head = head.reshape(head.shape[0], -1) if head.ndim > 1 else head.reshape(1, -1)
-    return np.where(np.abs(head) > SENTINEL_ABS_THRESHOLD, np.nan, head)
-
-
 def build_start_heads(model, solver_mesh) -> np.ndarray:
-    """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
+    """Build MF6 starting heads as flat (nlay, ncpl) for DISV.
+
+    ``Model.initial`` says where the heads come from. A ``SolvedState`` is the
+    head an auxiliary solve returned and is set as it is, without the constant
+    heads laid over it. A ``PriorState`` is the last head of an earlier run, with
+    the top of the grid in its inactive cells. The other states start from the
+    rule they name, the top for a steady or a cyclic start, whose auxiliary
+    solve replaces the array once it has run. The constant heads of the ocean,
+    the stream and the sides are laid over every state but a ``SolvedState``.
+    """
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
     botm_flat = solver_mesh.botm  # (nlay, ncpl)
+    nlay = int(model.nlay)
+    initial = model.inputs.initial
 
-    restart_source = resolve_restart_from(model)
-    if restart_source:
-        verify_restart_mesh(restart_source, solver_mesh.cell_mesh)
-        strt = read_restart_heads(
-            restart_source, nlay=int(model.nlay), ncpl=int(ncpl), top_flat=top_flat
-        )
+    if isinstance(initial, SolvedState):
+        return _solved_start_heads(initial, nlay=nlay, ncpl=int(ncpl))
+    if isinstance(initial, PriorState):
+        strt = restart_start_heads(initial.head, nlay=nlay, ncpl=int(ncpl), top=top_flat)
     else:
-        h_ic = resolve_head_initial_condition(model)
-        if h_ic is None:
-            raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
         strt = build_head_initial_condition_array(
-            h_ic,
+            initial,
             top=top_flat,
             bottom=botm_flat[-1],
-            target_shape=(int(model.nlay), int(ncpl)),
+            target_shape=(nlay, int(ncpl)),
             location_prefix="flow.ic",
         )
     ocean_series = resolve_ocean_boundary_series(model)
     ocean_mask = ocean_chd_support_mask(model, ocean_series)
     if np.any(ocean_mask):
-        for ilay in range(int(model.nlay)):
+        for ilay in range(nlay):
             strt[ilay][ocean_mask] = float(ocean_series[0])
     stream_series = resolve_stream_boundary_series(model)
     stream_mask = stream_chd_support_mask(model, stream_series)
     if np.any(stream_mask):
-        for ilay in range(int(model.nlay)):
+        for ilay in range(nlay):
             strt[ilay][stream_mask] = float(stream_series[0])
     return apply_side_boundary_start_heads(model, strt)
+
+
+def _solved_start_heads(initial: SolvedState, *, nlay: int, ncpl: int) -> np.ndarray:
+    """The head of an auxiliary solve as a writable ``(nlay, ncpl)`` array."""
+    if initial.head.size != nlay * ncpl:
+        raise ValueError(
+            f"The start head of a {initial.solver} solve holds {initial.head.size} value(s), "
+            f"and this run has {nlay} layer(s) of {ncpl} cell(s)."
+        )
+    return np.array(initial.head, dtype=float, copy=True).reshape(nlay, ncpl)
 
 
 def resolve_rewet_npf_options(
@@ -262,9 +111,6 @@ def resolve_rewet_npf_options(
 
 __all__ = [
     "build_start_heads",
-    "initial_condition_field",
-    "resolve_head_initial_condition",
     "resolve_rewet_npf_options",
     "rewet_is_enabled",
-    "verify_restart_mesh",
 ]

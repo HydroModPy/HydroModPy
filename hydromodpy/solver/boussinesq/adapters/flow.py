@@ -65,8 +65,10 @@ def _published_support(ctx: RunContext) -> np.ndarray | None:
     covers. A trial scores the same cells. Like the run, a domain with no polygon,
     no declared CRS or no cell inside the polygon stays the whole domain.
     """
-    watershed = catchment_outline(getattr(ctx.state.setup, "geographic", None))
-    crs = getattr(getattr(ctx.state.cfg, "geographic", None), "crs_project", None)
+    geometry = getattr(getattr(ctx.state.setup, "model", None), "geometry", None)
+    catchment = getattr(geometry, "catchment", None)
+    watershed = catchment_outline(catchment)
+    crs = getattr(catchment, "crs", None)
     cell_mesh = getattr(getattr(ctx.model, "mesh", None), "cell_mesh", None)
     if watershed is None or crs is None or cell_mesh is None:
         return None
@@ -216,13 +218,16 @@ class BoussinesqFlowAdapter:
         read, or a rerun of a sealed run, does not pass the load check.
         """
         state = ctx.state
-        layers = getattr(getattr(state.cfg, "domain", None), "layers", None)
+        inputs = state.setup.model
+        layers = getattr(getattr(inputs.geometry.domain, "config", None), "layers", None)
         refusal = None if layers is None else layering_refusal(layers)
         if refusal is not None:
             raise ConfigError(refusal)
         mesh_bundle = None
         try:
-            solver_mesh = resolve_runtime_solver_mesh(state.setup)
+            solver_mesh = resolve_runtime_solver_mesh(
+                inputs, mesh_summary=getattr(state.setup, "mesh_summary", None)
+            )
         except ValueError:
             mesh_summary = getattr(state.setup, "mesh_summary", None)
             bundle_dir = (
@@ -235,13 +240,10 @@ class BoussinesqFlowAdapter:
             solver_mesh = None
         if solver_mesh is None:
             mesh_bundle = resolve_mesh_bundle(state.setup)
-            solver_mesh = resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)
-        solver_cfg = getattr(state.cfg, "solver", None)
-        if solver_cfg is not None:
-            solver_mesh = replace(
-                solver_mesh,
-                drain_bed_thickness_m=float(solver_cfg.drain_bed_thickness_m),
-            )
+            solver_mesh = resolve_bundle_solver_mesh(inputs, bundle=mesh_bundle)
+        solver_mesh = replace(
+            solver_mesh, drain_bed_thickness_m=inputs.options.drain_bed_thickness_m
+        )
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
             Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()
@@ -250,9 +252,8 @@ class BoussinesqFlowAdapter:
         model = Boussinesq(
             mesh_bundle=mesh_bundle,
             mesh=solver_mesh,
-            flow=state.setup.flow,
-            domain=state.setup.domain,
-            time_grid=getattr(state.setup, "time_grid", None),
+            model=inputs,
+            runtime=state.cfg.flow.runtime,
             model_folder=model_folder,
             model_name=ctx.run.id.replace("::", "__"),
         )

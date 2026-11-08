@@ -2,8 +2,8 @@
 allowmixing
 title Boussinesq solver - package context
 
-package "process" {
-  class Flow
+package "model" {
+  class Model <<frozen>>
 }
 
 package "hydromodpy.solver.boussinesq" {
@@ -24,7 +24,7 @@ package "hydromodpy.solver.boussinesq" {
   package "runtimes/" as Runtimes
 }
 
-Flow --> Boussinesq : hydrological definition
+Model --> Boussinesq : hydrological definition
 Boussinesq --> BoussinesqMesh : builds and uses
 Boussinesq --> SolverContractModule : normalizes regime, closure, options
 Boussinesq --> RuntimeSelection : resolves method + engine

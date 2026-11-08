@@ -23,6 +23,7 @@ from shapely.geometry import LineString, box
 from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
@@ -38,6 +39,7 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import worst_percent_
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_ground import leave_ground_beside
+from tests._helpers.model_factory import make_model
 from tests._helpers.tolerances import tol
 
 _WKT = 'PROJCS["RGF93 / Lambert-93"]'
@@ -152,11 +154,14 @@ def _model(mesh: SolverMesh) -> SimpleNamespace:
         }
     }
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["lake", "sfr"], sinks_sources={"lakes": lakes, "sfr": sfr}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake", "sfr")),
+            lakes=lakes,
+            sfr=sfr,
+        ),
         nper=4,
         perlen=np.full(4, 2 * 86400.0),
         steady=(False,) * 4,
-        time_grid=None,
         time_units="seconds",
         model_output_name=_NAME,
     )

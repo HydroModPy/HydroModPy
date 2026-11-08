@@ -22,9 +22,12 @@ from shapely.geometry import box
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.domain.geometry import CatchmentGeometry
+from hydromodpy.model.model import Geometry
 from hydromodpy.results.derive.catchment_aggregation import _build_catchment_mask
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter, _published_support
+from tests._helpers.model_factory import make_model
 
 
 def _write_state_history(
@@ -220,8 +223,17 @@ def _ctx_on_a_watershed(
         _build_ctx("flow_main::boussinesq", output_dir),
         model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh)),
         state=RunState(
-            setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=str(watershed))),
-            cfg=SimpleNamespace(geographic=SimpleNamespace(crs_project=crs)),
+            setup=SimpleNamespace(
+                model=make_model(
+                    geometry=Geometry(
+                        cells=None,
+                        domain=None,
+                        catchment=CatchmentGeometry.from_geographic(
+                            SimpleNamespace(watershed_shp=str(watershed)), crs=crs
+                        ),
+                    )
+                )
+            ),
         ),
     )
 

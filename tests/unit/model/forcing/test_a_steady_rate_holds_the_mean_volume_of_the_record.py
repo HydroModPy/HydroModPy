@@ -34,6 +34,7 @@ from hydromodpy.model.forcing.steady_periods import (
     steady_rate,
 )
 from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.results.derive.stream.geometry import RECHARGE_MOVE_TOLERANCE
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
@@ -46,6 +47,7 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
 )
 from tests._helpers import forcing_cases as fc
 from tests._helpers.mf6_toy_models import toy_model
+from tests._helpers.model_factory import make_model
 from tests.unit.solver.modflow_nwt._test_forcing_adapter_builders import _build_solver_mesh
 
 pytestmark = pytest.mark.fast
@@ -57,8 +59,11 @@ TIME_MEAN = (31.0 + 112.0 + 62.0) / 90.0
 STEADY_FIRST = np.array([True, False, False])
 
 
-def _modflow6(steady=STEADY_FIRST, recharge=None, first_clim="mean"):
-    model = toy_model()
+def _modflow6(steady=STEADY_FIRST, recharge=None, first_clim="mean", time_grid=None):
+    members = {}
+    if time_grid is not None:
+        members["time"] = ModelTime(grid=time_grid, regime="transient", first_period_steady=True)
+    model = toy_model(**members)
     model.nper = int(np.size(steady))
     model.perlen = LENGTHS_S if model.nper == 3 else np.array([LENGTHS_S.sum()])
     model.ncpl = 2
@@ -70,8 +75,9 @@ def _modflow6(steady=STEADY_FIRST, recharge=None, first_clim="mean"):
 
 class _Boussinesq(RechargeResolutionMixin, ForcingCommonMixin):
     def __init__(self, time_grid: object, *, flow_regime: str = "transient") -> None:
-        self.flow = SimpleNamespace(flow_regime=flow_regime, first_period_steady=True)
-        self.time_grid = time_grid
+        self.inputs = make_model(
+            time=ModelTime(grid=time_grid, regime=flow_regime, first_period_steady=True)
+        )
         self.mesh = SimpleNamespace(n_cells=2)
 
 
@@ -116,14 +122,11 @@ def test_the_net_rate_of_a_split_recharge_is_the_time_mean_of_the_net_rates() ->
 def test_every_solver_gives_the_steady_period_the_same_rate() -> None:
     cfg = FlowRechargeConfig(values=RATES, first_clim="mean", units="m/s")
     adapter = FlowToModflowAdapter(
-        flow=SimpleNamespace(
-            sinks_sources={"recharge": cfg},
-            flow_regime="transient",
-            active_sinks_sources=["recharge"],
-            first_period_steady=True,
-            config=None,
+        model=make_model(
+            recharge=cfg,
+            active_sinks_sources=("recharge",),
+            time=ModelTime(grid=None, regime="transient", first_period_steady=True),
         ),
-        domain=None,
         solver_mesh=_build_solver_mesh(),
         nper=3,
         steady=STEADY_FIRST,
@@ -179,8 +182,7 @@ def test_the_auxiliary_steady_solve_of_every_solver_reads_the_time_mean() -> Non
         SimpleNamespace(period_lengths_seconds=tuple(LENGTHS_S))
     )
 
-    model = _modflow6(steady=[True], recharge=np.array(RATES))
-    model.time_grid = grid
+    model = _modflow6(steady=[True], recharge=np.array(RATES), time_grid=grid)
     boussinesq = _Boussinesq(grid, flow_regime="steady")
     nwt = assemble_rch_data(
         payload=RATES,

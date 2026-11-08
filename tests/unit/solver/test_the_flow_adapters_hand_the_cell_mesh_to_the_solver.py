@@ -1,7 +1,8 @@
 """MODFLOW 6 and MODFLOW-NWT receive the cell mesh of the run, and a run without one stops.
 
 The planar grid is the mesh the run built, never one a solver rebuilds from the
-DEM. An adapter that finds no ``setup.cell_mesh`` says the mesh step did not run.
+DEM. It reaches the solver in ``Model.geometry.cells``. An adapter that finds
+none says the mesh step did not run.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import pytest
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.model import ModelOptions
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import _BUILTIN_ACCEPTED_MESHES
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
@@ -34,14 +36,16 @@ class _FakeSolver:
 
     instances: list[_FakeSolver] = []
 
-    def __init__(self, geographic, *, model_folder, model_name, **kwargs) -> None:
-        del geographic, kwargs
+    def __init__(self, *, model_folder, model_name, **kwargs) -> None:
+        del kwargs
         self.model_name = model_name
         self.full_path = str(Path(model_folder) / model_name)
+        self.pre_model: object | None = None
         self.pre_kwargs: dict[str, object] = {}
         type(self).instances.append(self)
 
-    def pre_processing(self, **kwargs) -> None:
+    def pre_processing(self, model, **kwargs) -> None:
+        self.pre_model = model
         self.pre_kwargs = dict(kwargs)
 
     def processing(self, options) -> bool:
@@ -49,7 +53,23 @@ class _FakeSolver:
         return True
 
 
-def _context(solver: str, *, tmp_path: Path, cell_mesh: object | None) -> RunContext:
+def _model_on(cell_mesh: object | None) -> SimpleNamespace:
+    """The members of a ``Model`` an adapter reads before it builds a solver."""
+    return SimpleNamespace(
+        geometry=SimpleNamespace(cells=cell_mesh),
+        time=SimpleNamespace(grid=None),
+        options=ModelOptions(
+            sink_fill=False,
+            drain_band_depth_m=1.0,
+            drain_bed_thickness_m=1.0,
+            drain_conductance_floor_m2_s=1e-12,
+        ),
+    )
+
+
+def _context(
+    solver: str, *, tmp_path: Path, cell_mesh: object | None, model: object | None = None
+) -> RunContext:
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -69,22 +89,13 @@ def _context(solver: str, *, tmp_path: Path, cell_mesh: object | None) -> RunCon
         cfg=SimpleNamespace(
             modflow6=SimpleNamespace(),
             modflownwt=SimpleNamespace(),
-            solver=SimpleNamespace(
-                sink_fill=False,
-                drain_band_depth_m=1.0,
-                drain_bed_thickness_m=1.0,
-                drain_conductance_floor_m2_s=1e-12,
-            ),
             postprocess=SimpleNamespace(flow=flow_off),
         ),
         setup=SimpleNamespace(
-            geographic=SimpleNamespace(dem_res=1.0, xmin=0.0, ymax=1.0),
             workspace=SimpleNamespace(
                 simulations_folder="unused", bin_path="bin", solver_scratch_folder=str(tmp_path)
             ),
-            flow=SimpleNamespace(active_bc=[]),
-            domain=SimpleNamespace(),
-            cell_mesh=cell_mesh,
+            model=model if model is not None else _model_on(cell_mesh),
         ),
     )
     return RunContext(plan=plan, run=plan.runs[0], state=state)
@@ -97,13 +108,14 @@ def test_the_adapter_hands_the_cell_mesh_to_pre_processing(
     adapter_cls, solver_path = _ADAPTERS[solver]
     _FakeSolver.instances = []
     monkeypatch.setattr(solver_path, _FakeSolver)
-    cell_mesh = object()
+    the_model = _model_on(object())
 
-    adapter_cls().execute(_context(solver, tmp_path=tmp_path, cell_mesh=cell_mesh))
+    adapter_cls().execute(_context(solver, tmp_path=tmp_path, cell_mesh=None, model=the_model))
 
-    (model,) = _FakeSolver.instances
-    assert model.pre_kwargs["cell_mesh"] is cell_mesh
-    assert "mesh_support" not in model.pre_kwargs
+    (solver_run,) = _FakeSolver.instances
+    assert solver_run.pre_model is the_model
+    assert "cell_mesh" not in solver_run.pre_kwargs
+    assert "mesh_support" not in solver_run.pre_kwargs
 
 
 @pytest.mark.parametrize("solver", sorted(_ADAPTERS))
@@ -117,15 +129,13 @@ def test_a_run_without_a_cell_mesh_stops_before_the_solver_builds(
     with pytest.raises(MeshError, match="mesh step"):
         adapter_cls().execute(_context(solver, tmp_path=tmp_path, cell_mesh=None))
 
-    assert all(not model.pre_kwargs for model in _FakeSolver.instances)
+    assert all(solver_run.pre_model is None for solver_run in _FakeSolver.instances)
 
 
-def test_require_cell_mesh_returns_the_mesh_of_the_setup() -> None:
-    cell_mesh = object()
-
-    assert require_cell_mesh(SimpleNamespace(cell_mesh=cell_mesh)) is cell_mesh
+def test_require_cell_mesh_returns_the_mesh_of_the_model() -> None:
+    assert require_cell_mesh(_model_on(cell_mesh := object())) is cell_mesh
     with pytest.raises(MeshError):
-        require_cell_mesh(SimpleNamespace(cell_mesh=None))
+        require_cell_mesh(_model_on(None))
 
 
 @pytest.mark.parametrize(

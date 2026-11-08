@@ -1,21 +1,21 @@
-"""Same-solver steady-state initial-condition support for MODFLOW-NWT."""
+"""Same-solver steady-state initial-condition support for MODFLOW-NWT.
+
+The auxiliary solve runs on ``steady_variant`` of the model of the run, which
+starts from the top. Its final head is set in the BAS package of the main
+model, so the transient run starts from the steady state.
+"""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import flopy
 import numpy as np
 
 from hydromodpy.core.console import progress
-from hydromodpy.core.time.steady_initialization import (
-    single_period_mean_forcing_time_grid,
-)
-from hydromodpy.model.initial.heads import (
-    flow_uses_steady_state_initial_condition,
-    steady_flow_copy_for_initialization,
-)
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.model.model import steady_variant
+from hydromodpy.solver.modflow_common import ModflowRunOptions
 
 
 def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.ndarray:
@@ -39,36 +39,24 @@ def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.
 
 
 def run_nwt_steady_state_initialization(model: object) -> np.ndarray:
-    """Run one auxiliary steady NWT model and return heads for transient BAS."""
+    """Run one auxiliary steady NWT model and return heads for transient BAS.
+
+    ``model`` is the ``ModflowNwt`` of the run, built from its ``inputs``. The
+    auxiliary solver keeps its options (the drain band, the sink fill, the
+    grid check) and takes the one-period time grid of the steady variant.
+    """
+    steady_inputs = steady_variant(model.inputs)
     init_root = Path(str(model.full_path)) / "_steady_state_initialization"
     init_name = f"{model.model_name}_steady_ic"
     steady_model = model.__class__(
-        geographic=model.geographic,
         modflow_config=model.modflow_config,
         model_folder=str(init_root),
         model_name=init_name,
         bin_path=str(Path(str(model.exe)).parent),
-        preprocess_options=ModflowPreprocessOptions(
-            box=bool(getattr(model.preprocess_options, "box", True)),
-            sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
-            drain_band_depth_m=float(getattr(model.preprocess_options, "drain_band_depth_m", 0.0)),
-            drain_bed_thickness_m=float(
-                getattr(model.preprocess_options, "drain_bed_thickness_m", 1.0)
-            ),
-            drain_conductance_floor_m2_s=float(
-                getattr(model.preprocess_options, "drain_conductance_floor_m2_s", 1e-12)
-            ),
-            check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
-            time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
-        ),
+        preprocess_options=replace(model.preprocess_options, time_grid=steady_inputs.time.grid),
     )
     steady_model.auxiliary = True
-    steady_model.pre_processing(
-        flow=steady_flow_copy_for_initialization(model.flow),
-        domain=model.domain,
-        cell_mesh=model.cell_mesh,
-        flow_runtime_overrides=getattr(model, "flow_runtime_overrides", None),
-    )
+    steady_model.pre_processing(steady_inputs)
     # Auxiliary single-period solve: keep it out of the live display.
     with progress.suppressed():
         success = steady_model.processing(ModflowRunOptions(write_model=True, run_model=True))
@@ -105,6 +93,5 @@ def apply_nwt_steady_state_initial_heads(model: object, head_m: np.ndarray) -> N
 
 __all__ = [
     "apply_nwt_steady_state_initial_heads",
-    "flow_uses_steady_state_initial_condition",
     "run_nwt_steady_state_initialization",
 ]

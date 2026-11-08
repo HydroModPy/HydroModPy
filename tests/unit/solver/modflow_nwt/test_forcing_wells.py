@@ -5,79 +5,58 @@ Covers the active_sinks_sources gate for wells plus location resolution
 (cell / absolute_xy / relative_xy) and forcing resolution.
 
 Asserts on the private ``_build_well_stress_period_data`` decision unit: the
-public ``build()`` path needs a full flow (initial_conditions.h, hk/sy/ss) and
+public ``build()`` path needs a full model (start state, hk/sy/ss) and
 domain, so it cannot reach ``wel_spd`` with these minimal fixtures.
 """
 
 from __future__ import annotations
-
-import types
 
 import pytest
 
 from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from tests._helpers.model_factory import make_model
 
 from ._test_forcing_adapter_builders import _build_solver_mesh
 
 
-def test_wells_not_activated_returns_empty_spd():
-    """When 'wells' is absent from active_sinks_sources, WEL payload is empty."""
-
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(location={"kind": "cell", "cell": (0, 0, 0)}, flux=-1e-4)
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["recharge"],
-        config=None,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
-        solver_mesh=_build_solver_mesh(),
+def _adapter(wells, *, active=("wells",), solver_mesh=None, grid=None) -> FlowToModflowAdapter:
+    """A two-period adapter over a model that holds ``wells`` and activates ``active``."""
+    return FlowToModflowAdapter(
+        model=make_model(wells=wells, active_sinks_sources=active),
+        solver_mesh=_build_solver_mesh() if solver_mesh is None else solver_mesh,
         nper=2,
+        grid=grid,
         sink_fill=False,
     )
 
-    wel_spd = adapter._build_well_stress_period_data()
+
+def _grid(bounds, size) -> GridReference:
+    return GridReference(
+        n_cells=20, bounds=bounds, crs=None, structured_shape=(4, 5), cell_size_hint=size
+    )
+
+
+def test_wells_not_activated_returns_empty_spd():
+    """When 'wells' is absent from active_sinks_sources, WEL payload is empty."""
+    wells = {"W1": FlowWellConfig(location={"kind": "cell", "cell": (0, 0, 0)}, flux=-1e-4)}
+
+    wel_spd = _adapter(wells, active=("recharge",))._build_well_stress_period_data()
 
     assert wel_spd == {}
 
 
 def test_well_absolute_xy_is_resolved_to_solver_cell():
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "absolute_xy", "layer": 1, "x": 125.0, "y": 365.0},
-                    flux=-1e-4,
-                )
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["wells"],
-        config=None,
-    )
-    grid = GridReference(
-        n_cells=20,
-        bounds=(0.0, 0.0, 250.0, 400.0),
-        crs=None,
-        structured_shape=(4, 5),
-        cell_size_hint=50.0,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
+    wells = {
+        "W1": FlowWellConfig(
+            location={"kind": "absolute_xy", "layer": 1, "x": 125.0, "y": 365.0}, flux=-1e-4
+        )
+    }
+    adapter = _adapter(
+        wells,
         solver_mesh=_build_solver_mesh(nrow=4, ncol=5, nlay=2, dx=50.0, dy=100.0),
-        nper=2,
-        grid=grid,
-        sink_fill=False,
+        grid=_grid((0.0, 0.0, 250.0, 400.0), 50.0),
     )
 
     wel_spd = adapter._build_well_stress_period_data()
@@ -87,39 +66,16 @@ def test_well_absolute_xy_is_resolved_to_solver_cell():
 
 
 def test_well_relative_xy_is_resolved_to_solver_cell():
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={
-                        "kind": "relative_xy",
-                        "layer": 0,
-                        "x_rel": 0.4,
-                        "y_rel": 0.25,
-                    },
-                    flux=[-1e-4, -2e-4],
-                )
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["wells"],
-        config=None,
-    )
-    grid = GridReference(
-        n_cells=20,
-        bounds=(100.0, 200.0, 150.0, 240.0),
-        crs=None,
-        structured_shape=(4, 5),
-        cell_size_hint=10.0,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
+    wells = {
+        "W1": FlowWellConfig(
+            location={"kind": "relative_xy", "layer": 0, "x_rel": 0.4, "y_rel": 0.25},
+            flux=[-1e-4, -2e-4],
+        )
+    }
+    adapter = _adapter(
+        wells,
         solver_mesh=_build_solver_mesh(nrow=4, ncol=5, dx=10.0, dy=10.0, xoff=100.0, yoff=200.0),
-        nper=2,
-        grid=grid,
-        sink_fill=False,
+        grid=_grid((100.0, 200.0, 150.0, 240.0), 10.0),
     )
 
     wel_spd = adapter._build_well_stress_period_data()
@@ -129,34 +85,15 @@ def test_well_relative_xy_is_resolved_to_solver_cell():
 
 
 def test_well_absolute_xy_outside_grid_raises():
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "absolute_xy", "layer": 0, "x": 1000.0, "y": 1000.0},
-                    flux=-1e-4,
-                )
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["wells"],
-        config=None,
-    )
-    grid = GridReference(
-        n_cells=20,
-        bounds=(0.0, 0.0, 250.0, 400.0),
-        crs=None,
-        structured_shape=(4, 5),
-        cell_size_hint=50.0,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
+    wells = {
+        "W1": FlowWellConfig(
+            location={"kind": "absolute_xy", "layer": 0, "x": 1000.0, "y": 1000.0}, flux=-1e-4
+        )
+    }
+    adapter = _adapter(
+        wells,
         solver_mesh=_build_solver_mesh(nrow=4, ncol=5, nlay=1, dx=50.0, dy=100.0),
-        nper=2,
-        grid=grid,
-        sink_fill=False,
+        grid=_grid((0.0, 0.0, 250.0, 400.0), 50.0),
     )
 
     with pytest.raises(ValueError, match="outside the structured solver grid extent"):
@@ -164,30 +101,14 @@ def test_well_absolute_xy_outside_grid_raises():
 
 
 def test_well_flux_length_mismatch_raises():
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "cell", "cell": (0, 0, 0)},
-                    flux=[-1e-4, -2e-4, -3e-4],
-                )
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["wells"],
-        config=None,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
-        solver_mesh=_build_solver_mesh(),
-        nper=2,
-        sink_fill=False,
-    )
+    wells = {
+        "W1": FlowWellConfig(
+            location={"kind": "cell", "cell": (0, 0, 0)}, flux=[-1e-4, -2e-4, -3e-4]
+        )
+    }
 
     with pytest.raises(ValueError, match="must be 1 or match nper"):
-        adapter._build_well_stress_period_data()
+        _adapter(wells)._build_well_stress_period_data()
 
 
 def test_a_well_without_a_layer_leaves_it_to_the_top_active_cell():
@@ -196,30 +117,15 @@ def test_a_well_without_a_layer_leaves_it_to_the_top_active_cell():
 
 
 def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
-    flow = types.SimpleNamespace(
-        sinks_sources={
-            "recharge": None,
-            "wells": {
-                "W1": FlowWellConfig(
-                    location={"kind": "cell", "cell": (0, 0, 0)},
-                    units="m3/day",
-                    forcing={"kind": "constant", "value": -86400.0},
-                )
-            },
-        },
-        flow_regime="transient",
-        active_sinks_sources=["wells"],
-        config=None,
-    )
-    adapter = FlowToModflowAdapter(
-        flow=flow,
-        domain=None,
-        solver_mesh=_build_solver_mesh(),
-        nper=2,
-        sink_fill=False,
-    )
+    wells = {
+        "W1": FlowWellConfig(
+            location={"kind": "cell", "cell": (0, 0, 0)},
+            units="m3/day",
+            forcing={"kind": "constant", "value": -86400.0},
+        )
+    }
 
-    wel_spd = adapter._build_well_stress_period_data()
+    wel_spd = _adapter(wells)._build_well_stress_period_data()
 
     assert wel_spd[0] == [[0, 0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, 0, pytest.approx(-1.0)]]

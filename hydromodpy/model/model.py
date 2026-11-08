@@ -1,615 +1,347 @@
-"""
-Flow Runtime Process
-====================
+"""The frozen ``Model`` every flow backend reads, and the functions that derive one model from another.
 
-Purpose
--------
-Provide the runtime representation of the groundwater flow process, built from
-one validated ``FlowConfig`` and consumed by solver adapter layers.
+The ``prepare_solver`` step builds one ``Model`` per run with ``model_from_flow``,
+from the ``Flow`` the setup and data steps bound, the mesh, the domain, the
+delineation, the time grid and ``[solver]``. A backend reads it and nothing it
+was built from, and never changes it: a solve leaves the ``Model`` as it found
+it. ``steady_variant`` and ``cycle_variant`` give the model an auxiliary solve
+runs on, ``with_initial`` and ``with_properties`` a model with one member set.
 
-Scope
------
-``Flow`` is process-level and solver-agnostic. It exposes the following
-runtime attributes after ``set_config(...)`` is called:
-
-- ``flow_regime`` : ``'steady'`` or ``'transient'``, forwarded from config.
-- ``runtime_backend`` : optional nonlinear runtime backend hint used by the
-  Boussinesq solver implementation (for example ``local``, ``scipy``,
-  ``scipy_sparse``, ``petsc``).
-- ``surface_interaction_model`` : optional Boussinesq closure selector for the
-  groundwater/surface interaction (``auto``, ``regularized_partition``,
-  ``complementarity``, ``vi_obstacle``, ``ts_vi_obstacle``).
-- ``runtime_max_iterations`` / ``runtime_tol_*`` : optional nonlinear runtime
-  overrides forwarded to the Boussinesq backend.
-- ``vi_substeps_per_period`` / ``vi_substep_on_failure`` /
-  ``vi_max_adaptive_substeps`` : optional substepping controls for the
-  experimental PETSc VI obstacle Boussinesq runtime.
-- ``ts_vi_steps_per_period`` / ``ts_vi_adapt`` : optional PETSc TS controls
-  for the experimental TS VI obstacle Boussinesq runtime.
-- ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
-  keyed by parameter id and containing ``FieldParam`` objects.
-- ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
-  the head IC policy (type + optional scalar value).
-- ``initial_condition_types`` : compact cache ``{"h": type_str}`` for fast
-  IC-type inspection downstream.
-- ``boundary_conditions`` : typed ``BoundaryCondition`` objects keyed by
-  BC id (``"ocean"``, ``"drainage"``, ``"west_side"``, …).
-- ``boundary_condition_application_domains`` : optional per-BC domain strings
-  (e.g. ``"top"``, ``"west side"``), used by some spatial adapters.
-- ``active_bc`` : list of BC ids declared in the config and not switched off;
-  only these ids will be processed by the solver adapter.
-- ``sinks_sources`` : dict with two keys:
-  ``"wells"`` → ``dict[str, FlowWellConfig]``,
-  ``"recharge"`` → ``FlowRechargeConfig | None``.
-- ``active_sinks_sources`` : list of sink/source categories declared
-  activated (e.g. ``["wells", "recharge"]``).
-
-Runtime lifecycle
------------------
-1. ``FlowConfig`` is validated by Pydantic from a TOML/dict payload.
-2. ``Flow(config)`` calls ``set_config(config)`` which normalizes each
-   config section into the typed runtime containers listed above.
-3. Solver adapters (outside this module) read those containers and transform
-   them into solver-ready arrays and stress-period payloads.
-
-Data path (high-level)
-----------------------
-.. code-block:: text
-
-    TOML
-     └─> FlowConfig (Pydantic)
-          └─> Flow.set_config()
-               ├─ [flow]               -> flow_regime
-               ├─ [flow.param]         -> parameters
-               ├─ [flow.ic]            -> initial_conditions
-               ├─ [flow.bc]            -> boundary_conditions, active_bc
-               └─ [flow.sinks_sources] -> sinks_sources, active_sinks_sources
-                                               └─> FlowToModflowAdapter -> MODFLOW
-
-Design rule
------------
-Any transformation to solver-specific formats (for example MODFLOW stress-period
-dictionaries) is performed outside this class, in solver adapter layers.
-``Flow`` itself never references FLOPY or any solver convention.
-
-Non-goals
----------
-- no direct FLOPY/MODFLOW package creation in this module,
-- no spatial discretization or gridding logic in this module,
-- no temporal stress-period formatting in this module.
+Each member keeps the object the ``Flow`` held, without a copy. A mapping is
+read-only, a sequence is a tuple. The ``Model`` carries no configuration, no
+delineation object, no folder and no setting of one backend.
 """
 
-from numbers import Real
+from __future__ import annotations
 
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import (
-    convert_payload_to_m_per_s,
-    convert_to_m_per_s,
-    normalize_m_per_s_unit,
+import copy
+from collections.abc import Mapping
+from dataclasses import dataclass, fields, replace
+from types import MappingProxyType
+from typing import Any
+
+from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
+from hydromodpy.core.units.quantities import factor_to_m_per_s
+from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.boundaries.boundary_condition_registry import (
+    BoundaryConditionBundle,
+    boundary_condition_bundle_from_flow,
 )
-from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
-from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
-from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
-from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.initial.config import FlowInitialConditions, normalize_flow_initial_conditions
-from hydromodpy.model.payloads import BoundaryCondition
-from hydromodpy.model.process_spatial import ProcessSpatial
-from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.domain.domain import Domain
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing.time_forcing import compact_pre_resolved_forcings
+from hydromodpy.model.initial.state import (
+    INITIAL_STATE_TYPES,
+    HeadRule,
+    InitialState,
+    SolvedState,
+    SteadyStart,
+    SteadyStateStrategy,
+)
+from hydromodpy.model.initial_config import initial_state_of
+from hydromodpy.model.properties.property_table import refuse_unknown_override_names
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.model.sinks_sources.wells import FlowWellConfig
+from hydromodpy.model.time.regime import FlowRegime, normalize_flow_regime
 
 
-def _flux_payload_update(
-    payload: object,
-    *,
-    values_si: object,
-    canonical_units: str,
-    location_prefix: str,
-) -> dict[str, object]:
-    """Return the SI update for a flux payload, first period included.
-
-    ``first_clim`` overrides one entry of ``values``, so a numeric override is
-    written in the payload unit and has to follow it into m/s. The two keywords
-    name a statistic of the converted series and stay as they are.
-    """
-    update: dict[str, object] = {"values": values_si, "units": "m/s"}
-    first_clim = getattr(payload, "first_clim", "mean")
-    if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
-        update["first_clim"] = convert_to_m_per_s(
-            first_clim,
-            unit=canonical_units,
-            label=f"{location_prefix}.first_clim",
-        )
-    return update
+def _frozen(mapping: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    """A read-only mapping over a shallow copy: the values are the same objects."""
+    return MappingProxyType(dict(mapping or {}))
 
 
-logger = get_logger(__name__)
+@dataclass(frozen=True, slots=True, eq=False)
+class Geometry:
+    """Where the model lies.
 
-
-class Flow(ProcessSpatial):
-    """
-    Runtime flow-process object built from a validated ``FlowConfig``.
-
-    Quick reading guide
-    -------------------
-    For a first pass, focus on these three methods:
-    - ``set_config``: one-shot synchronization from ``FlowConfig`` to runtime.
-    - ``_build_boundary_conditions``: validation and normalization of BC payloads.
-    - ``set_sinks_sources``: runtime storage of wells and recharge payloads.
-
-    Inherits from ``ProcessSpatial``, which initializes the base containers
-    (``parameters``, ``initial_conditions``, ``boundary_conditions``,
-    ``sinks_sources``, ``active_bc``, ``active_sinks_sources``) and provides
-    the parameter-ingestion helpers.
-
-    ``Flow`` specializes those containers with:
-
-    - ``FlowInitialConditions`` as the typed IC structure (head policy),
-    - ``BoundaryCondition`` Pydantic objects for each configured BC,
-    - a ``{"wells": ..., "recharge": ...}`` namespace for sinks/sources.
-
-    Runtime attributes (populated by ``set_config``)
-    -------------------------------------------------
-    flow_regime : str
-        ``'steady'`` or ``'transient'``, forwarded from ``FlowConfig``.
-    runtime_backend : str
-        Optional nonlinear runtime backend hint, currently consumed by the
-        Boussinesq solver implementation.
-    surface_interaction_model : str
-        Optional groundwater/surface interaction closure selector consumed by
-        the Boussinesq solver implementation.
-    partition_release_depth_m : float
-        Depth scale in meters of the Boussinesq regularized partition closure.
-    runtime_max_iterations : int | None
-        Optional nonlinear iteration-budget override forwarded to Boussinesq.
-    runtime_tol_residual_inf : float | None
-        Optional residual-tolerance override forwarded to Boussinesq.
-    runtime_tol_state_update_inf : float | None
-        Optional state-update-tolerance override forwarded to Boussinesq.
-    vi_substeps_per_period : int
-        Fixed substeps per stress period for PETSc VI obstacle.
-    vi_substep_on_failure : bool
-        Whether PETSc VI obstacle retries failed periods with more substeps.
-    vi_max_adaptive_substeps : int | None
-        Maximum PETSc VI obstacle adaptive substep count.
-    ts_vi_steps_per_period : int
-        Fixed PETSc TS steps per stress period for TS VI obstacle.
-    ts_vi_adapt : bool
-        Whether PETSc TS adaptivity is enabled for TS VI obstacle.
-    config : FlowConfig
-        Reference to the last validated config applied via ``set_config``.
-    parameters : dict[str, FieldParam | object]
-        Hydraulic property parameters (K, Sy, Ss, …) keyed by id.
-    initial_conditions : FlowInitialConditions | None
-        Typed IC container; exposes ``h`` (head IC: type + optional value).
-    initial_condition_types : dict[str, str]
-        Compact cache ``{"h": type_str}``; allows fast IC-type inspection
-        without traversing the full ``FlowInitialConditions`` object.
-    boundary_conditions : dict[str, FlowBoundaryConditionConfig]
-        Typed BC objects keyed by BC id.
-    boundary_condition_application_domains : dict[str, str]
-        Optional per-BC spatial domain strings (e.g. ``"top"``,
-        ``"west side"``); used by spatial adapters that need to know where
-        a BC is applied.
-    active_bc : list[str]
-        BC ids declared as active in config; only these are processed by
-        the solver adapter.
-    sinks_sources : dict[str, object]
-        Namespace with keys ``"wells"`` (``dict[str, FlowWellConfig]``)
-        and ``"recharge"`` (``FlowRechargeConfig | None``).
-    active_sinks_sources : list[str]
-        Sink/source categories explicitly activated
-        (e.g. ``["wells", "recharge"]``).
+    ``cells`` is the planar cell mesh MODFLOW 6 and Boussinesq build their grid
+    on, and ``domain`` the vertical (top, base, layers, supports). ``raster``
+    is the DEM grid NWT builds its grid on, and MODFLOW 6 reads it for the DEM
+    its routing is conditioned on. ``catchment`` says where the catchment
+    closes. A member the run does not have is ``None``.
     """
 
-    def __init__(self, config: FlowConfig):
-        """
-        Build one `Flow` runtime object from one validated config.
+    cells: PlanarCellMesh | None
+    domain: Domain | None
+    raster: RasterGeometry | None = None
+    catchment: CatchmentGeometry | None = None
 
-        Parameters
-        ----------
-        config : FlowConfig
-            Typed flow configuration payload.
-        """
-        super().__init__()
-        if not isinstance(config, FlowConfig):
-            raise TypeError("config must be a FlowConfig instance")
-        self.config: FlowConfig
-        self.flow_regime: str
-        self.first_period_steady: bool
-        self.runtime_backend: str
-        self.surface_interaction_model: str
-        self.partition_release_depth_m: float
-        self.runtime_max_iterations: int | None
-        self.runtime_tol_residual_inf: float | None
-        self.runtime_tol_state_update_inf: float | None
-        self.vi_substeps_per_period: int
-        self.vi_substep_on_failure: bool
-        self.vi_max_adaptive_substeps: int | None
-        self.ts_vi_steps_per_period: int
-        self.ts_vi_adapt: bool
-        self.ts_vi_dt_min_fraction: float
-        self.ts_vi_dt_max_fraction: float
-        self.ts_vi_type: str
-        self.ts_vi_snes_type: str
-        self.initial_conditions: FlowInitialConditions | None
-        self.boundary_condition_application_domains: dict[str, str] = {}
-        self.boundary_condition_bundle: BoundaryConditionBundle = BoundaryConditionBundle(
-            conditions={},
-            active_ids=(),
+
+@dataclass(frozen=True, slots=True, eq=False)
+class Properties:
+    """The hydraulic properties of the model.
+
+    ``profiles`` maps a ``[flow.param]`` id to its ``FieldParam`` (K, Sy, Ss
+    and the others), in SI with its vertical profile, in the declared order.
+    Each backend samples them on its own grid through ``map_flow_properties``.
+    ``overrides`` maps a property name to a value per cell set by
+    ``Model.with_properties``. A backend passes it to
+    ``resolve_flow_property_runtime_overrides`` with its grid, and it wins over
+    the profiles.
+    """
+
+    profiles: Mapping[str, Any]
+    overrides: Mapping[str, Any] = MappingProxyType({})
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "profiles", _frozen(self.profiles))
+        object.__setattr__(self, "overrides", _frozen(self.overrides))
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle the two mappings as dicts, which the constructor makes read-only again."""
+        return (Properties, (dict(self.profiles), dict(self.overrides)))
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class ModelTime:
+    """When the model runs.
+
+    ``grid`` is the resolved time grid of ``[simulation.time]``, period
+    lengths in seconds, or ``None`` for a steady run without one. ``regime``
+    is ``steady`` or ``transient``. ``first_period_steady`` makes the first
+    period of a transient run steady.
+    """
+
+    grid: Any
+    regime: FlowRegime
+    first_period_steady: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "regime", normalize_flow_regime(self.regime))
+
+    @classmethod
+    def from_flow(cls, flow: Flow, grid: Any) -> ModelTime:
+        """The regime and the first period of a bound ``Flow`` on ``grid``."""
+        return cls(grid=grid, regime=flow.flow_regime, first_period_steady=flow.first_period_steady)
+
+
+@dataclass(frozen=True, slots=True)
+class ModelOptions:
+    """The four settings of ``[solver]`` that every backend reads the same way.
+
+    ``sink_fill`` fills the DEM sinks before the top is sampled.
+    ``drain_band_depth_m`` is the depth in metres of the band below the top
+    where the drains sit. ``drain_bed_thickness_m`` is the thickness in metres
+    of the drain bed, and ``drain_conductance_floor_m2_s`` the smallest drain
+    conductance in m2/s.
+    """
+
+    sink_fill: bool
+    drain_band_depth_m: float
+    drain_bed_thickness_m: float
+    drain_conductance_floor_m2_s: float
+
+    @classmethod
+    def from_settings(cls, solver: Any) -> ModelOptions:
+        """Read the four settings off a ``[solver]`` section by name."""
+        return cls(
+            sink_fill=bool(solver.sink_fill),
+            drain_band_depth_m=float(solver.drain_band_depth_m),
+            drain_bed_thickness_m=float(solver.drain_bed_thickness_m),
+            drain_conductance_floor_m2_s=float(solver.drain_conductance_floor_m2_s),
         )
-        self.initial_condition_types: dict[str, str] = {}
-        self.set_config(config)
 
-    def set_config(self, config: FlowConfig) -> None:
+
+@dataclass(frozen=True, slots=True, kw_only=True, eq=False)
+class Model:
+    """What a flow backend solves, frozen for the whole run.
+
+    ``boundaries`` holds the typed ``[flow.bc]`` payloads and the active ids,
+    with a read-only ``conditions``. ``recharge`` and ``etp`` are in m/s with
+    their factor applied, and ``wells`` maps a well id to its payload with the
+    flux in m3/s. ``lakes``, ``sfr`` and ``flow_barriers`` are the payloads the
+    data step bound, by id. They keep the units the user wrote for
+    ``bedleak`` (``bedleak_unit``), ``streambed_k`` (``streambed_k_unit``) and
+    a barrier's ``hydchr``, ``k`` and ``thickness``, which MODFLOW 6 converts
+    when it builds the package. ``active_sinks_sources`` lists the sink and
+    source families the run builds. ``initial`` is one of the five start
+    states of ``hydromodpy.model.initial.state``.
+    """
+
+    geometry: Geometry
+    properties: Properties
+    boundaries: BoundaryConditionBundle
+    recharge: FlowRechargeConfig | None
+    etp: FlowEtpConfig | None
+    wells: Mapping[str, FlowWellConfig]
+    lakes: Mapping[str, Mapping[str, Any]]
+    sfr: Mapping[str, Mapping[str, Any]]
+    flow_barriers: Mapping[str, Mapping[str, Any]]
+    active_sinks_sources: tuple[str, ...]
+    initial: InitialState
+    time: ModelTime
+    options: ModelOptions
+
+    def __post_init__(self) -> None:
+        for name in ("wells", "lakes", "sfr", "flow_barriers"):
+            object.__setattr__(self, name, _frozen(getattr(self, name)))
+        object.__setattr__(self, "active_sinks_sources", tuple(self.active_sinks_sources))
+        if not isinstance(self.boundaries.conditions, MappingProxyType):
+            object.__setattr__(
+                self,
+                "boundaries",
+                BoundaryConditionBundle(
+                    conditions=_frozen(self.boundaries.conditions),
+                    active_ids=tuple(self.boundaries.active_ids),
+                ),
+            )
+        if not isinstance(self.initial, INITIAL_STATE_TYPES):
+            raise TypeError(
+                "Model.initial is one of "
+                f"{', '.join(cls.__name__ for cls in INITIAL_STATE_TYPES)}; "
+                f"got {type(self.initial).__name__}."
+            )
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle the mappings as dicts, which the constructor makes read-only again.
+
+        A read-only mapping does not pickle, and a worker of a parallel
+        calibration sends the models of the solves it keeps over a pipe.
         """
-        Apply one validated ``FlowConfig`` payload to runtime state.
+        members = {member.name: getattr(self, member.name) for member in fields(self)}
+        for name in ("wells", "lakes", "sfr", "flow_barriers"):
+            members[name] = dict(members[name])
+        members["boundaries"] = BoundaryConditionBundle(
+            conditions=dict(self.boundaries.conditions),
+            active_ids=self.boundaries.active_ids,
+        )
+        return (_rebuild_model, (members,))
 
-        This is the main synchronization point between config and runtime
-        containers. All existing runtime attributes are replaced in one
-        deterministic pass. Calling this method a second time with a new
-        config fully resets the runtime state.
+    def with_properties(self, **values: Any) -> Model:
+        """A new model whose per-cell overrides gain ``values``, by property name.
 
-        Steps performed (in order)
-        --------------------------
-        1. ``flow_regime`` is forwarded directly from the config string.
-        2. ``parameters`` are resolved in the order declared by
-           ``config.param_list`` (preserves user intent for K/Sy/Ss ordering).
-        3. ``initial_conditions`` are built from ``config.ic`` via the
-           process-specific normalizer (delegates to
-           ``normalize_flow_initial_conditions``).
-        4. ``active_*`` lists are read from what config declares, then
-           ``boundary_conditions`` and ``boundary_condition_bundle`` are built
-           from ``config.bc``.
-        5. ``sinks_sources`` is populated from ``config.sinks_sources``
-           (wells dict + recharge config).
+        The names are those ``resolve_flow_property_runtime_overrides`` reads:
+        K, Kv, Sy, Ss, K22, angle1, angle2, angle3 or their output names. An
+        other name is refused. A value is one number, one per planar cell or
+        one per model cell. The backend checks its size and range on its grid.
         """
-        if not isinstance(config, FlowConfig):
-            raise TypeError("config must be a FlowConfig instance")
-
-        self.config = config
-        self.flow_regime = config.flow_regime
-        self.first_period_steady = config.first_period_steady
-        self.runtime_backend = config.runtime.backend
-        self.surface_interaction_model = config.runtime.surface_interaction_model
-        self.partition_release_depth_m = config.runtime.partition_release_depth_m
-        self.runtime_max_iterations = config.runtime.max_iterations
-        self.runtime_tol_residual_inf = config.runtime.tol_residual_inf
-        self.runtime_tol_state_update_inf = config.runtime.tol_state_update_inf
-        self.vi_substeps_per_period = config.runtime.vi_substeps_per_period
-        self.vi_substep_on_failure = config.runtime.vi_substep_on_failure
-        self.vi_max_adaptive_substeps = config.runtime.vi_max_adaptive_substeps
-        self.ts_vi_steps_per_period = config.runtime.ts_vi_steps_per_period
-        self.ts_vi_adapt = config.runtime.ts_vi_adapt
-        self.ts_vi_dt_min_fraction = config.runtime.ts_vi_dt_min_fraction
-        self.ts_vi_dt_max_fraction = config.runtime.ts_vi_dt_max_fraction
-        self.ts_vi_type = config.runtime.ts_vi_type
-        self.ts_vi_snes_type = config.runtime.ts_vi_snes_type
-        # Parameters are resolved in the declared order from `flow.param_list`.
-        self.set_parameters_from_config(
-            self._runtime_parameter_payloads(config),
-            parameter_ids=config.param_list,
-            context_label="flow.param",
+        refuse_unknown_override_names(values)
+        merged = {**self.properties.overrides, **values}
+        return replace(
+            self, properties=Properties(profiles=self.properties.profiles, overrides=merged)
         )
-        # Flow has one typed IC structure (`FlowInitialConditions`).
-        self.set_initial_conditions(config.ic)
-        # Solver adapters process what is declared and not switched off.
-        self.active_sinks_sources = list(config.active_sinks_sources)
-        self.active_bc = list(config.active_bc)
-        # Boundary conditions are normalized as typed objects + domain hints.
-        bc, application_domains = self._build_boundary_conditions(config.bc)
-        self.set_boundary_conditions(
-            boundary_conditions=bc,
-            application_domains=application_domains,
-        )
-        # Sinks/sources are stored in a process-level dictionary namespace.
-        self.set_sinks_sources(config.sinks_sources)
 
-    @staticmethod
-    def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:
-        """Resolve typed flow parameter sections for runtime ingestion."""
-        payloads: dict[str, object] = {}
-        for param_id, param_cfg in config.param.items():
-            resolved_payload = getattr(param_cfg, "resolved_payload", None)
-            if callable(resolved_payload):
-                payloads[param_id] = resolved_payload(
-                    param_id=param_id,
-                    section_label=f"flow.param.{param_id}",
-                )
-            else:
-                payloads[param_id] = param_cfg
+    def with_initial(self, initial: InitialState) -> Model:
+        """A new model that starts from ``initial``."""
+        return replace(self, initial=initial)
+
+
+def _rebuild_model(members: dict[str, Any]) -> Model:
+    """The ``Model`` a pickle holds, built again by its constructor."""
+    return Model(**members)
+
+
+def _steady_recharge(
+    recharge: FlowRechargeConfig | None, strategy: SteadyStateStrategy
+) -> FlowRechargeConfig | None:
+    """The recharge of a steady start: the time mean, or the prescribed rate on every period.
+
+    A prescribed rate replaces the values too, because ``first_clim`` alone is
+    read only for a sequence payload. It is written in the payload unit and
+    drops a per-cell field, which would win over it.
+    """
+    if recharge is None:
+        return None
+    if strategy.rate_m_s is None:
+        return recharge.model_copy(update={"first_clim": "mean"})
+    payload_units = str(getattr(recharge, "units", "m/s") or "m/s")
+    rate = strategy.rate_m_s / factor_to_m_per_s(payload_units)
+    return recharge.model_copy(
+        update={"values": rate, "first_clim": rate, "heterogeneous_source": None}
+    )
+
+
+def _averaged_over_periods(payloads: Mapping[str, Any], period_lengths: Any) -> Mapping[str, Any]:
+    """The payloads with every per-period forcing replaced by its duration-weighted mean.
+
+    The data step resolves lake and SFR forcings to one value per run period.
+    The steady model has one period, so it reads their mean. The payloads are
+    copied first, so the run's own model keeps its series.
+    """
+    if period_lengths is None or not payloads:
         return payloads
+    averaged = copy.deepcopy(dict(payloads))
+    compact_pre_resolved_forcings(averaged, period_lengths=list(period_lengths))
+    return averaged
 
-    def build_initial_conditions(
-        self,
-        initial_conditions: object | None,
-    ) -> FlowInitialConditions | None:
-        """
-        Normalize one raw IC payload into `FlowInitialConditions`.
 
-        Delegates to the dedicated normalizer used by `FlowConfig`, so runtime
-        and configuration validation rules stay aligned.
-        """
-        return normalize_flow_initial_conditions(initial_conditions, location_prefix="flow.ic")
+def steady_variant(model: Model, *, start: HeadRule | None = None) -> Model:
+    """The model of the auxiliary steady solve, a new object.
 
-    def _build_boundary_conditions(
-        self,
-        boundary_conditions_cfg: dict[str, object],
-    ) -> tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]:
-        """
-        Convert raw boundary-condition payloads into typed runtime structures.
+    One period spanning the run (``single_period_mean_forcing_time_grid``), a
+    steady regime, and the lake, SFR and barrier forcings averaged over the run
+    periods. When ``model.initial`` is a ``SteadyStart`` the recharge follows
+    its strategy, else it is unchanged, as for the first cycle of a spin-up
+    that starts from the steady state. The solve starts from ``start``, the
+    top by default for every backend.
+    """
+    lengths = getattr(model.time.grid, "period_lengths_seconds", None)
+    recharge = model.recharge
+    if isinstance(model.initial, SteadyStart):
+        recharge = _steady_recharge(recharge, model.initial.strategy)
+    return replace(
+        model,
+        time=ModelTime(
+            grid=single_period_mean_forcing_time_grid(model.time.grid),
+            regime="steady",
+            first_period_steady=model.time.first_period_steady,
+        ),
+        recharge=recharge,
+        lakes=_averaged_over_periods(model.lakes, lengths),
+        sfr=_averaged_over_periods(model.sfr, lengths),
+        flow_barriers=_averaged_over_periods(model.flow_barriers, lengths),
+        initial=start if start is not None else HeadRule("top"),
+    )
 
-        Each entry in ``boundary_conditions_cfg`` is either:
 
-        - an already-typed ``FlowBoundaryConditionConfig``;
-        - a legacy base ``BoundaryCondition`` converted to the flow model; or
-        - a raw mapping validated via ``FlowBoundaryConditionConfig``.
+def cycle_variant(model: Model, seed: SolvedState | None) -> Model:
+    """The model of one spin-up cycle, a new object that starts from ``seed`` or the top.
 
-        For mapping payloads, ``id`` is always forced to the TOML section key
-        (e.g. ``"ocean"``, ``"west_side"``). This prevents the ``id`` field
-        in the TOML from diverging from the key actually used to look up the
-        BC at runtime, which would cause silent mismatches in the adapter.
+    Only the heads cycle. A lake starts each cycle from its ``initial_stage``.
+    """
+    return replace(model, initial=seed if seed is not None else HeadRule("top"))
 
-        ``application_domain`` is stored on the typed BC model. A legacy
-        ``boundary_condition_application_domains`` mirror is still populated
-        for spatial adapters that have not moved to the typed payload yet.
 
-        Returns
-        -------
-        tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]
-            - typed BC objects keyed by BC id,
-            - per-BC application-domain strings keyed by the same BC id.
-        """
-        parsed: dict[str, FlowBoundaryConditionConfig] = {}
-        application_domains: dict[str, str] = {}
+def model_from_flow(
+    flow: Flow,
+    *,
+    geometry: Geometry,
+    time: ModelTime,
+    options: ModelOptions,
+    initial: InitialState | None = None,
+) -> Model:
+    """The ``Model`` of a bound ``Flow``, its members the objects the flow holds.
 
-        for bc_id, raw_payload in boundary_conditions_cfg.items():
-            # Allow already-instantiated typed payloads.
-            if isinstance(raw_payload, FlowBoundaryConditionConfig):
-                if raw_payload.value is None and raw_payload.forcing is None:
-                    # A head boundary declared with no head. A solver treats it as
-                    # one with nothing to build, or refuses it where it must have one.
-                    if raw_payload.enabled:
-                        logger.warning(
-                            "[flow.bc.%s] gives no value and no forcing, so MODFLOW builds "
-                            "no constant head there and Boussinesq refuses the run.",
-                            bc_id,
-                        )
-                    continue
-                parsed[bc_id] = raw_payload
-                application_domain = raw_payload.application_domain
-                if isinstance(application_domain, str) and application_domain.strip():
-                    application_domains[bc_id] = application_domain.strip()
-                continue
-            if isinstance(raw_payload, BoundaryCondition):
-                parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(
-                    raw_payload.model_dump(mode="python")
-                )
-                continue
-            # For mapping payloads, enforce `id` from section key to keep
-            # one stable identifier path.
-            payload = dict(raw_payload)
-            raw_application_domain = payload.pop("application_domain", None)
-            payload["id"] = bc_id
-            parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(payload)
+    ``initial`` defaults to the state ``[flow.ic]`` asks for. A restart passes
+    the ``PriorState`` it read instead.
+    """
+    sinks_sources = flow.sinks_sources
+    return Model(
+        geometry=geometry,
+        properties=Properties(profiles=flow.parameters),
+        boundaries=boundary_condition_bundle_from_flow(flow),
+        recharge=sinks_sources.get("recharge"),
+        etp=sinks_sources.get("etp"),
+        wells=sinks_sources.get("wells"),
+        lakes=sinks_sources.get("lakes"),
+        sfr=sinks_sources.get("sfr"),
+        flow_barriers=sinks_sources.get("flow_barriers"),
+        active_sinks_sources=tuple(flow.active_sinks_sources),
+        initial=initial if initial is not None else initial_state_of(flow.initial_conditions),
+        time=time,
+        options=options,
+    )
 
-            # Keep domain information in a dedicated runtime map for explicit
-            # downstream usage.
-            if isinstance(raw_application_domain, str):
-                application_domain = raw_application_domain.strip()
-                if application_domain:
-                    application_domains[bc_id] = application_domain
 
-        return parsed, application_domains
-
-    def set_initial_conditions(
-        self,
-        initial_conditions: object | None,
-    ) -> None:
-        """
-        Normalize and store flow initial conditions.
-
-        Delegates normalization to ``build_initial_conditions`` (which calls
-        ``normalize_flow_initial_conditions``), then stores the result in
-        ``self.initial_conditions``.
-
-        Also maintains ``self.initial_condition_types``, a compact
-        ``{"h": type_str}`` dict. This cache lets downstream code (e.g.
-        solver adapters) check the IC type in O(1) without traversing the
-        full ``FlowInitialConditions`` object.
-        """
-        parsed = self.build_initial_conditions(initial_conditions)
-        self.initial_conditions = parsed
-        if parsed is None:
-            self.initial_condition_types = {}
-            return
-        self.initial_condition_types = {"h": parsed.h.kind}
-
-    def set_boundary_conditions(
-        self,
-        boundary_conditions: dict[str, FlowBoundaryConditionConfig] | None = None,
-        *,
-        application_domains: dict[str, str] | None = None,
-    ) -> None:
-        """
-        Replace boundary-condition runtime containers.
-
-        Parameters
-        ----------
-        boundary_conditions : dict[str, FlowBoundaryConditionConfig] | None
-            Typed BC payloads keyed by BC id.
-        application_domains : dict[str, str] | None
-            Optional per-BC domain targets (for example `top`, `west side`).
-        """
-        if boundary_conditions is None:
-            self.boundary_conditions = {}
-        else:
-            self.boundary_conditions = dict(boundary_conditions)
-        if application_domains is None:
-            self.boundary_condition_application_domains = {}
-        else:
-            self.boundary_condition_application_domains = dict(application_domains)
-        self._refresh_boundary_condition_bundle()
-
-    def _refresh_boundary_condition_bundle(self) -> None:
-        """Rebuild the compact runtime view over active and configured BCs."""
-        self.boundary_condition_bundle = BoundaryConditionBundle.from_flow(self)
-
-    def set_sinks_sources(
-        self,
-        sinks_sources: FlowSinksSourcesConfig | None = None,
-    ) -> None:
-        """
-        Replace flow sink/source runtime payloads.
-
-        Stores wells under `self.sinks_sources["wells"]` and recharge config
-        under `self.sinks_sources["recharge"]`.
-
-        Well fluxes are converted to SI volumetric flow (`m3/s`) at load time
-        using each well `units` field.
-        """
-        if sinks_sources is None:
-            self.sinks_sources["wells"] = {}
-            self.sinks_sources["lakes"] = {}
-            self.sinks_sources["sfr"] = {}
-            self.sinks_sources["flow_barriers"] = {}
-            self.sinks_sources["recharge"] = None
-            return
-
-        normalized_wells = {}
-        for well_id, well_cfg in sinks_sources.enabled_wells().items():
-            raw_units = getattr(well_cfg, "units", "m3/s")
-            try:
-                canonical_units = normalize_m3_per_s_unit(raw_units)
-            except ValueError as exc:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id}.units must be compatible with m3/s "
-                    f"(for example m3/day, m3/h, m3/s, l/s). Got: {raw_units!r}"
-                ) from exc
-
-            flux_payload = well_cfg.flux
-            if flux_payload is None:
-                normalized_wells[well_id] = well_cfg.model_copy(update={"units": canonical_units})
-                continue
-            if isinstance(flux_payload, list):
-                flux_si = [
-                    convert_to_m3_per_s(
-                        flux_item,
-                        unit=canonical_units,
-                        label=f"flow.sinks_sources.wells.{well_id}.flux[{idx}]",
-                    )
-                    for idx, flux_item in enumerate(flux_payload)
-                ]
-            else:
-                flux_si = convert_to_m3_per_s(
-                    flux_payload,
-                    unit=canonical_units,
-                    label=f"flow.sinks_sources.wells.{well_id}.flux",
-                )
-
-            normalized_wells[well_id] = well_cfg.model_copy(
-                update={"flux": flux_si, "units": "m3/s"}
-            )
-
-        self.sinks_sources["wells"] = normalized_wells
-        self.sinks_sources["lakes"] = sinks_sources.enabled_lakes()
-        self.sinks_sources["sfr"] = sinks_sources.enabled_networks()
-        self.sinks_sources["flow_barriers"] = sinks_sources.enabled_barriers()
-        self.sinks_sources["recharge"] = self._normalize_recharge_config(
-            sinks_sources.recharge,
-            location_prefix="flow.sinks_sources.recharge",
-        )
-        self.sinks_sources["etp"] = self._normalize_etp_config(
-            getattr(sinks_sources, "etp", None),
-            location_prefix="flow.sinks_sources.etp",
-        )
-
-    @staticmethod
-    def _normalize_recharge_config(
-        recharge: FlowRechargeConfig | None,
-        *,
-        location_prefix: str,
-    ) -> FlowRechargeConfig | None:
-        if recharge is None:
-            return None
-
-        raw_units = getattr(recharge, "units", "m/s")
-        try:
-            canonical_units = normalize_m_per_s_unit(raw_units)
-        except ValueError as exc:
-            raise ValueError(
-                f"{location_prefix}.units must be compatible with m/s "
-                f"(for example mm/day, m/day, m/s). Got: {raw_units!r}"
-            ) from exc
-
-        values_si = convert_payload_to_m_per_s(
-            getattr(recharge, "values", 0.0),
-            unit=canonical_units,
-            label=f"{location_prefix}.values",
-            scale=recharge.factor,
-        )
-        update = _flux_payload_update(
-            recharge,
-            values_si=values_si,
-            canonical_units=canonical_units,
-            location_prefix=location_prefix,
-        )
-        if "first_clim" in update:
-            update["first_clim"] *= recharge.factor
-        # The payload now holds the scaled rate, so normalizing it again moves nothing.
-        return recharge.model_copy(update={**update, "factor": 1.0})
-
-    def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:
-        """
-        Inject or replace the recharge payload at runtime.
-
-        Useful when recharge is computed dynamically (e.g. from a PyHELP run)
-        and must be set after `Flow` is already configured from TOML.
-
-        Parameters
-        ----------
-        recharge : FlowRechargeConfig | None
-            Typed recharge payload, or None to clear.
-        """
-        self.sinks_sources["recharge"] = self._normalize_recharge_config(
-            recharge,
-            location_prefix="flow.sinks_sources.recharge",
-        )
-
-    @staticmethod
-    def _normalize_etp_config(
-        etp: FlowEtpConfig | None,
-        *,
-        location_prefix: str,
-    ) -> FlowEtpConfig | None:
-        if etp is None:
-            return None
-        raw_units = getattr(etp, "units", "m/s")
-        try:
-            canonical_units = normalize_m_per_s_unit(raw_units)
-        except ValueError as exc:
-            raise ValueError(
-                f"{location_prefix}.units must be compatible with m/s "
-                f"(for example mm/day, m/day, m/s). Got: {raw_units!r}"
-            ) from exc
-
-        values_si = convert_payload_to_m_per_s(
-            getattr(etp, "values", 0.0),
-            unit=canonical_units,
-            label=f"{location_prefix}.values",
-        )
-        return etp.model_copy(
-            update=_flux_payload_update(
-                etp,
-                values_si=values_si,
-                canonical_units=canonical_units,
-                location_prefix=location_prefix,
-            )
-        )
-
-    def set_etp(self, etp: FlowEtpConfig | None) -> None:
-        """Inject or replace the ETP payload at runtime."""
-        self.sinks_sources["etp"] = self._normalize_etp_config(
-            etp,
-            location_prefix="flow.sinks_sources.etp",
-        )
+__all__ = [
+    "Geometry",
+    "Model",
+    "ModelOptions",
+    "ModelTime",
+    "Properties",
+    "cycle_variant",
+    "model_from_flow",
+    "steady_variant",
+]

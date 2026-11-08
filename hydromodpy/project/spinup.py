@@ -20,12 +20,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.model.initial.config import FlowInitialConditions
-from hydromodpy.model.initial.spinup_config import SpinupConfig
-from hydromodpy.solver.modflow6.builders.initial_conditions import (
-    read_final_head,
-    read_restart_lake_stages,
-)
+from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
+from hydromodpy.results.storage.prior_state import read_final_head, read_restart_lake_stages
 
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project

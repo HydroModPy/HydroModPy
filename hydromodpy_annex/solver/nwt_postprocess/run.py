@@ -185,7 +185,7 @@ def _process_one_period(
     if options.accumulation_flux:
         routing_ctx = solver._ensure_solver_routing_context()
         accumulated_flow = masstransfer.Masstransfer(
-            solver.geographic,
+            solver.inputs.geometry.raster,
             f"outflow_drain_t({lead_numb}).tif",
             f"tracept_t({lead_numb}).shp",
             f"accumulation_flux_t({lead_numb}).tif",

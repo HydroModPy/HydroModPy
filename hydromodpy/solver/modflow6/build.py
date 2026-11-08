@@ -14,13 +14,12 @@ import numpy as np
 from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
+from hydromodpy.model.model import Model
 from hydromodpy.model.properties.property_table import (
     require_positive_conductivity,
     require_positive_storage,
     resolve_required_flow_properties,
 )
-from hydromodpy.model.time.regime import normalize_flow_regime
-from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     assemble_constant_head_stress_period_data,
     build_drain_stress_period_data,
@@ -124,11 +123,9 @@ from hydromodpy.solver.modflow_common import (
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import (
-    active_channel_raster,
-    channel_tree_for_run,
-)
+from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
 from hydromodpy.solver.modflow_common.flow_directions import (
     build_solver_mesh_descent,
     resolve_dam_foot_cells,
@@ -142,7 +139,6 @@ from hydromodpy.solver.modflow_grid import (
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 
 if TYPE_CHECKING:
-    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
@@ -245,17 +241,18 @@ def _run_descent(
     """
     if getattr(model, "auxiliary", False) and not sfr_networks_walk_the_descent(model):
         return None
-    geographic = getattr(model, "geographic", None)
+    geometry = model.inputs.geometry
+    raster = geometry.raster
     return build_solver_mesh_descent(
         solver_mesh,
         lake_cells_by_lake=lake_cell_ids_by_lake,
         base_level_mask=constant_head,
         channel_tree=channel_tree_for_run(
-            geographic,
+            None if raster is None else raster.channel,
             solver_mesh,
             required=is_bc_active(model, "sfr") and sfr_networks_lie_on_the_river_network(model),
         ),
-        geographic=geographic,
+        geographic=geometry.catchment,
     )
 
 
@@ -317,7 +314,7 @@ def _build_descent_and_dam_feet(
     basin = (
         None
         if descent is None
-        else run_basin(getattr(model, "geographic", None), solver_mesh, descent)
+        else run_basin(model.inputs.geometry.catchment, solver_mesh, descent)
     )
     spillway_seed_by_lake: dict[str, int] = {}
     if lake_cell_ids_by_lake:
@@ -399,10 +396,10 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
 
     Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
     ``channel_source`` requests one. Reads the channel tree A over the whole model
-    domain, the full-extent raster that :func:`active_channel_raster` picks in
-    ``correcflow_path``, and reprojects it (nearest) onto the model-top DEM grid.
-    The rasters clipped to the watershed miss the buffer the grid keeps active, so
-    they are the fallback only. Returns ``None`` (channel class disabled, every
+    domain, the full-extent raster the model carries in
+    ``geometry.raster.channel.link``, and reprojects it (nearest) onto the model-top
+    DEM grid. The rasters clipped to the watershed miss the buffer the grid keeps
+    active, so they are the fallback only. Returns ``None`` (channel class disabled, every
     pixel treated as hillslope) when zonal is off, the source is 'none', or no
     stream raster / georeferenced surface is available.
     """
@@ -413,19 +410,16 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
     if top_sampling.channel_source == "none":
         return None
 
-    geographic = getattr(model, "geographic", None)
+    raster = model.inputs.geometry.raster
+    channel = None if raster is None else raster.channel
     path = None
-    folder = getattr(geographic, "correcflow_path", None)
-    if folder is not None:
-        candidate = active_channel_raster(folder)
-        if os.path.exists(candidate):
-            path = candidate
-            logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
-    if path is None:
-        for name in ("river_stream_link_id_tif", "river_streams_tif"):
-            candidate = getattr(geographic, name, None)
-            if candidate and os.path.exists(str(candidate)):
-                path = str(candidate)
+    if channel is not None and channel.link is not None and os.path.exists(channel.link):
+        path = channel.link
+        logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
+    if path is None and channel is not None:
+        for candidate in channel.clipped:
+            if os.path.exists(candidate):
+                path = candidate
                 logger.info(
                     "Zonal channel mask reads the stream raster clipped to the watershed "
                     "(no full-extent raster in the corrected-flow folder): %s.",
@@ -440,7 +434,7 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
         )
         return None
 
-    surface = getattr(model.domain, "surface_topo", None)
+    surface = getattr(model.inputs.geometry.domain, "surface_topo", None)
     support = getattr(surface, "support", None)
     fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
     if support is None or any(getattr(support, name, None) is None for name in fields):
@@ -547,36 +541,27 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
         raise ValueError("grid_ctx must exist before building solver routing products")
 
     from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_of
-    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 
-    # A geographic object without the key conditions the DEM as the config would.
-    default = GeographicConfig.model_fields["dem_correc_type"].default
+    raster = _require_raster(model)
     model.routing_ctx = build_solver_routing_context(
         dem_path=model.dem_watershed_path,
         output_dir=os.path.join(model.full_path, "_solver_routing"),
-        dem_correc_type=str(getattr(model.geographic, "dem_correc_type", default)),
-        crs_project=getattr(model.geographic, "crs_proj", None),
-        engine_id=getattr(model.geographic, "terrain_engine", None),
-        capped_breach=capped_breach_of(model.geographic),
+        dem_correc_type=str(raster.dem_correc_type),
+        crs_project=raster.crs_proj,
+        engine_id=raster.terrain_engine,
+        capped_breach=capped_breach_of(raster),
     )
     return model.routing_ctx
 
 
-def resolve_flow_regime(model) -> str | None:
-    """Resolve the flow regime label from the bound flow config."""
-    if model.flow is None:
-        return None
-
-    flow_regime = None
-    flow_cfg = getattr(model.flow, "config", None)
-    if flow_cfg is not None:
-        flow_regime = getattr(flow_cfg, "flow_regime", None)
-    if flow_regime is None:
-        flow_regime = getattr(model.flow, "flow_regime", None)
-    if flow_regime is None:
-        return None
-
-    return normalize_flow_regime(flow_regime)
+def _require_raster(model):
+    """The DEM grid of the model, or a refusal that says the run has none."""
+    raster = model.inputs.geometry.raster
+    if raster is None:
+        raise ValueError(
+            "MODFLOW 6 reads the DEM grid of the run (Model.geometry.raster), and this model has none."
+        )
+    return raster
 
 
 FLOW_PROPERTY_SIDECAR_SUFFIX = ".flow_properties.npz"
@@ -627,16 +612,13 @@ def _save_flow_property_sidecar(model) -> None:
 
 
 def validate_pre_processing_inputs(model) -> None:
-    """Validate that flow, domain and time grid are configured for pre_processing."""
-    if model.flow is None:
-        raise ValueError("pre_processing requires a configured Flow object.")
-    if model.domain is None:
+    """Validate that the model, its domain and its time grid are set."""
+    inputs = model.inputs
+    if inputs is None:
+        raise ValueError("pre_processing requires a Model object.")
+    if inputs.geometry.domain is None:
         raise ValueError("pre_processing requires a configured Domain object.")
-    flow_regime = resolve_flow_regime(model)
-    if flow_regime is None:
-        raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
-    model.flow_regime = flow_regime
-    if model.time_grid is None and model.flow_regime != "steady":
+    if inputs.time.grid is None and inputs.time.regime != "steady":
         raise ValueError(
             "Launcher flow preprocessing requires preprocess_options.time_grid "
             "derived from [simulation.time] for transient flow runs."
@@ -645,10 +627,11 @@ def validate_pre_processing_inputs(model) -> None:
 
 def select_active_dem(model, box: bool) -> None:
     """Select the DEM raster to use according to the box option."""
+    raster = _require_raster(model)
     if box:
-        model.dem_watershed_path = model.geographic.watershed_box_buff_dem
+        model.dem_watershed_path = raster.watershed_box_buff_dem
     else:
-        model.dem_watershed_path = model.geographic.watershed_buff_dem
+        model.dem_watershed_path = raster.watershed_buff_dem
 
 
 def apply_preprocess_options(
@@ -668,9 +651,7 @@ def apply_preprocess_options(
     model.drain_conductance_floor_m2_s = float(options.drain_conductance_floor_m2_s)
     model.recharge = getattr(options, "recharge", None)
     model.first_clim = getattr(options, "first_clim", None)
-    model.time_grid = getattr(options, "time_grid", None)
     model.check_grid = bool(options.check_grid)
-    select_active_dem(model, box=bool(options.box))
 
 
 def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
@@ -689,7 +670,7 @@ def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
         active_mask=solver_mesh.idomain > 0,
         iconvert=iconvert,
         steady=steady_flags,
-        flow=model.flow,
+        profiles=model.inputs.properties.profiles,
     )
     model.sto = flopy.mf6.ModflowGwfsto(
         model.gwf,
@@ -701,26 +682,18 @@ def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
     )
 
 
-def _settle_inputs(
-    model,
-    flow: object,
-    domain: DomainLike,
-    options,
-    cell_mesh: PlanarCellMesh,
-    flow_runtime_overrides,
-):
+def _settle_inputs(model, inputs: Model, options, flow_runtime_overrides):
     """Bind the inputs of the run and check them before any build."""
     # Concurrent calibration trials build one MFSimulation each; the flopy DFN
     # singleton must be fully loaded before any of them constructs a package.
     warm_flopy_structure()
     install_flopy_header_cache()
-    model.flow = flow
-    model.domain = domain
-    model.runtime_cell_mesh = cell_mesh
+    model.inputs = inputs
     model._flow_runtime_overrides = flow_runtime_overrides
     active_options = model.preprocess_options if options is None else options
     apply_preprocess_options(model, active_options)
     validate_pre_processing_inputs(model)
+    select_active_dem(model, box=bool(active_options.box))
     # Reject invalid solver-config combinations before any expensive grid build.
     guard_newton_linear_acceleration(model.modflow_config.runtime)
     bind_recharge_from_flow(model)
@@ -735,14 +708,11 @@ def _settle_inputs(
 
 def _discretize_time(model):
     """Stress periods and their TDIS time unit."""
-    model.flow_regime = resolve_flow_regime(model) or "transient"
-    launcher_time_grid = model.time_grid
+    inputs = model.inputs
     temporal = build_temporal_discretization_from_time_grid(
-        time_grid=launcher_time_grid,
-        flow_regime=model.flow_regime,
-        first_period_steady=resolve_first_period_steady(
-            flow=getattr(model, "flow", None),
-        ),
+        time_grid=inputs.time.grid,
+        flow_regime=inputs.time.regime,
+        first_period_steady=resolve_first_period_steady(model=inputs),
     )
     model.perlen = temporal.perlen
     model.nper = temporal.nper
@@ -758,11 +728,13 @@ def _discretize_time(model):
 
 def _discretize_space(model):
     """The solver mesh, and the forcing that waited for its size."""
+    geometry = model.inputs.geometry
+    cell_mesh = require_cell_mesh(model.inputs)
     model.grid_ctx = build_spatial_discretization(
-        domain=model.domain,
-        vertical_config=model.domain.config.layers,
+        domain=geometry.domain,
+        vertical_config=geometry.domain.config.layers,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
-        cell_mesh=model.runtime_cell_mesh,
+        cell_mesh=cell_mesh,
         channel_mask=_resolve_channel_mask_for_zonal(model),
     )
     solver_mesh = model.grid_ctx.solver_mesh
@@ -782,21 +754,22 @@ def _discretize_space(model):
     return solver_mesh
 
 
-def _map_hydraulic_properties(model, solver_mesh: SolverMesh, flow_runtime_overrides):
+def _map_hydraulic_properties(model, solver_mesh: SolverMesh):
     """K, K33, the rest of the K tensor, Sy and Ss on the cells, checked positive."""
+    inputs = model.inputs
     flow_params = resolve_flow_property_arrays(
-        flow=model.flow,
-        domain=model.domain,
+        profiles=inputs.properties.profiles,
+        domain=inputs.geometry.domain,
         solver_mesh=solver_mesh,
-        required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
+        required_properties=resolve_required_flow_properties(flow_regime=inputs.time.regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
-        runtime_property_overrides=flow_runtime_overrides,
+        runtime_property_overrides=inputs.properties.overrides,
     )
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     require_positive_conductivity(
         model.hk,
         active_mask=solver_mesh.idomain > 0,
-        flow=model.flow,
+        profiles=inputs.properties.profiles,
     )
     model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
     model.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
@@ -816,7 +789,7 @@ def _map_hydraulic_properties(model, solver_mesh: SolverMesh, flow_runtime_overr
         require_positive_conductivity(
             model.k22,
             active_mask=solver_mesh.idomain > 0,
-            flow=model.flow,
+            profiles=inputs.properties.profiles,
             property_label="K22",
         )
     log_xt3d_resolution(model, solver_mesh)
@@ -979,9 +952,9 @@ def _resolve_streams(model, solver_mesh: SolverMesh, lake_cell_ids_by_lake, side
     # SFR resolves against the lake cells so trace reaches are truncated at the
     # shoreline (never left sitting on a LAK cell once the DEM routes a stream
     # through the lake), then the mover builder hands their flow to that lake.
-    _geo = getattr(model, "geographic", None)
-    _x_out = getattr(_geo, "x_outlet", None)
-    _y_out = getattr(_geo, "y_outlet", None)
+    catchment = model.inputs.geometry.catchment
+    _x_out = getattr(catchment, "x_outlet", None)
+    _y_out = getattr(catchment, "y_outlet", None)
     sfr_outlet_xy = (
         (float(_x_out), float(_y_out)) if _x_out is not None and _y_out is not None else None
     )
@@ -1516,11 +1489,9 @@ def _build_mover_and_output(model, all_mover_rows):
 
 def run_pre_processing(
     model,
-    flow: object,
-    domain: DomainLike,
+    inputs: Model,
     options: ModflowPreprocessOptions | None = None,
     *,
-    cell_mesh: PlanarCellMesh,
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations.
@@ -1530,10 +1501,10 @@ def run_pre_processing(
     dropped, LAK comes before SFR so the SFR to LAK movers find a lake, and MVR
     comes last because it names packages that must exist.
     """
-    _settle_inputs(model, flow, domain, options, cell_mesh, flow_runtime_overrides)
+    _settle_inputs(model, inputs, options, flow_runtime_overrides)
     temporal, time_units = _discretize_time(model)
     solver_mesh = _discretize_space(model)
-    _map_hydraulic_properties(model, solver_mesh, flow_runtime_overrides)
+    _map_hydraulic_properties(model, solver_mesh)
     runtime = _build_simulation(model, solver_mesh, temporal, time_units)
     solver_mesh, lake_cell_ids_by_lake = _mask_lakes(model, solver_mesh)
     ocean, stream, side_chd_spd = _resolve_constant_heads(model, solver_mesh)

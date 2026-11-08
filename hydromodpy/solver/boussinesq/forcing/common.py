@@ -4,15 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    boundary_conditions_mapping_from_flow,
-    is_boundary_condition_active,
-)
-from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.steady_periods import apply_first_clim, one_period_rate, steady_flags
 from hydromodpy.model.forcing.validation import (
     complete_period_table,
@@ -20,35 +16,22 @@ from hydromodpy.model.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.model.time.regime import normalize_flow_regime
+
+if TYPE_CHECKING:
+    from hydromodpy.model.model import Model
 
 
-def first_period_is_steady(flow: object) -> bool:
-    """Return ``flow.first_period_steady``, read as the MODFLOW builders read it.
-
-    The validated config first, then the flow object. A flow that carries
-    neither takes the ``FlowConfig`` default.
-    """
-    config = getattr(flow, "config", None)
-    if config is not None and hasattr(config, "first_period_steady"):
-        return bool(config.first_period_steady)
-    if hasattr(flow, "first_period_steady"):
-        return bool(flow.first_period_steady)
-    return bool(FlowConfig.model_fields["first_period_steady"].default)
-
-
-def steady_period_flags(flow: object, nper: int) -> np.ndarray:
+def steady_period_flags(model: Model, nper: int) -> np.ndarray:
     """Return which periods a Boussinesq run solves steady.
 
     Every period of a steady run. Period 0 of a transient run when
-    ``flow.first_period_steady`` is true, as in MODFLOW. The rate rule
+    ``model.time.first_period_steady`` is true, as in MODFLOW. The rate rule
     (``first_clim``) and the transient driver both read these flags.
     """
-    regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
     return steady_flags(
         nper=int(nper),
-        flow_regime=regime,
-        first_period_steady=first_period_is_steady(flow),
+        flow_regime=model.time.regime,
+        first_period_steady=model.time.first_period_steady,
     )
 
 
@@ -56,8 +39,12 @@ class ForcingCommonMixin:
     """Shared helpers reused across forcing-resolution specializations."""
 
     mesh: object
-    flow: object
-    time_grid: object
+    inputs: Model
+
+    @property
+    def time_grid(self) -> object:
+        """The resolved time grid of the model, ``None`` for a steady run without one."""
+        return self.inputs.time.grid
 
     @staticmethod
     def boundary_attr(boundary: object, field_name: str, default=None):
@@ -203,7 +190,7 @@ class ForcingCommonMixin:
 
     def boussinesq_steady_flags(self, nper: int) -> np.ndarray:
         """Return which periods this run solves steady (see :func:`steady_period_flags`)."""
-        return steady_period_flags(self.flow, nper)
+        return steady_period_flags(self.inputs, nper)
 
     def period_durations(self, nper: int) -> np.ndarray:
         """Return the length of each period, in seconds.
@@ -289,19 +276,16 @@ class ForcingCommonMixin:
         )
 
     def recharge_config(self) -> object | None:
-        """Return the recharge config object when the flow contract provides one."""
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        if not isinstance(sinks_sources, Mapping):
-            return None
-        return sinks_sources.get("recharge")
+        """Return the recharge config object of the model, ``None`` when it has none."""
+        return self.inputs.recharge
 
     def boundary_conditions_mapping(self) -> Mapping[str, object]:
-        """Return the boundary-condition mapping from the flow contract."""
-        return boundary_conditions_mapping_from_flow(self.flow)
+        """Return the boundary conditions of the model by id."""
+        return self.inputs.boundaries.conditions
 
     def is_bc_active(self, bc_id: str) -> bool:
-        """Return whether one boundary id is active in the current flow setup."""
-        return is_boundary_condition_active(self.flow, bc_id)
+        """Return whether one boundary id is active in the model."""
+        return self.inputs.boundaries.is_active(bc_id)
 
 
-__all__ = ["ForcingCommonMixin", "first_period_is_steady", "steady_period_flags"]
+__all__ = ["ForcingCommonMixin", "steady_period_flags"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import pickle
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,10 +34,13 @@ from hydromodpy.calibration.runners.trial import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import ExecutionRegistry
+from hydromodpy.model.initial.state import PriorState
+from hydromodpy.model.model import Properties
 from hydromodpy.solver.base.plan import RunExecutionResult
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
+from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories import Setup
 from tests.unit.calibration._factories_runners import ToyCtx, make_session
 
@@ -232,6 +236,49 @@ def test_a_solve_whose_folder_is_gone_is_not_read(tmp_path: Path) -> None:
     folder.rmdir()
     kept, why_not = retention.take(1)
     assert kept is None and "is gone" in str(why_not)
+
+
+class _SolverStandIn:
+    """A solver object as an adapter returns it: the frozen Model in ``inputs``."""
+
+    def __init__(self, inputs: object) -> None:
+        self.inputs = inputs
+
+
+def test_a_kept_solve_crosses_the_worker_pipe_with_its_model(tmp_path: Path) -> None:
+    # A worker of a parallel calibration sends the solves it keeps to the parent
+    # with conn.send, which pickles them.
+    model = make_model(
+        properties=Properties(profiles={"K": 1e-5}, overrides={"K": 2e-5}),
+        lakes={"lake": {"bedleak": 1.0}},
+        sfr={"reach": {"streambed_k": 2.0}},
+        flow_barriers={"wall": {"hydchr": 3.0}},
+        initial=PriorState(head=[[1.0, 2.0]], lake_stages={"lake": 4.0}, path="prior"),
+    )
+    folder = _folder(tmp_path, "trial_1")
+    kept = KeptSolve(
+        trial_id=1,
+        cost=0.5,
+        folders=(folder,),
+        results={
+            "flow_main": RunExecutionResult(
+                primary_model=_SolverStandIn(model), solver_output_dir=folder
+            )
+        },
+    )
+
+    copy = pickle.loads(pickle.dumps(kept))
+
+    assert (copy.trial_id, copy.cost, copy.folders) == (1, 0.5, (folder,))
+    sent = copy.results["flow_main"].primary_model.inputs
+    assert copy.results["flow_main"].solver_output_dir == folder
+    assert sent.properties.overrides == {"K": 2e-5}
+    assert sent.lakes == {"lake": {"bedleak": 1.0}}
+    assert sent.sfr == {"reach": {"streambed_k": 2.0}}
+    assert sent.flow_barriers == {"wall": {"hydchr": 3.0}}
+    assert sent.initial.lake_stages == {"lake": 4.0}
+    with pytest.raises(TypeError):
+        sent.lakes["other"] = {}
 
 
 def test_a_trial_that_never_ran_here_says_so(tmp_path: Path) -> None:

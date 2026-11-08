@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.model.model import Flow
+    from hydromodpy.model.flow import Flow
 
 
 def payloads_as_mappings(flow: Flow, table: str) -> dict[str, dict[str, object]]:

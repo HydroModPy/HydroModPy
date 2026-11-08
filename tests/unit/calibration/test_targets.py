@@ -32,9 +32,9 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from tests.unit.calibration._factories import _Project
 from tests.unit.calibration._factories_config import sinks_project

@@ -3,9 +3,9 @@
 Boussinesq reads ``K`` as the per-cell hydraulic conductivity and ``Sy`` as the
 per-cell storage coefficient, both at depth zero: the backend has one layer.
 They come from the mapping every solver shares
-(``model.properties.property_table.map_flow_properties``). A runtime override
-(``flow_runtime_overrides``) of K or Sy wins over the flow parameter, as it
-does on MODFLOW. An override of a property Boussinesq does not read (Kv, Ss, K22,
+(``model.properties.property_table.map_flow_properties``), applied to the
+``profiles`` of the ``Model``. An override of K or Sy set by
+``Model.with_properties`` wins over the profile, as it does on MODFLOW. An override of a property Boussinesq does not read (Kv, Ss, K22,
 the angles of the K tensor) is refused by name rather than dropped.
 """
 
@@ -27,7 +27,7 @@ _MAPPED_NAMES = {"K": "hk_value", "Sy": "sy_value"}
 
 def resolve_flow_property_arrays(
     *,
-    flow: object,
+    profiles: Mapping[str, object],
     domain: object,
     cell_mesh: PlanarCellMesh,
     required_properties: frozenset[str] | set[str] | None = None,
@@ -35,9 +35,9 @@ def resolve_flow_property_arrays(
 ) -> dict[str, np.ndarray]:
     """Map the required Boussinesq properties onto ``cell_mesh``, one value per cell.
 
-    ``runtime_property_overrides`` is the ``flow_runtime_overrides`` of the run:
-    its K and Sy win over the flow, and a property the backend does not read
-    is refused (``map_flow_properties``).
+    ``runtime_property_overrides`` is ``Model.properties.overrides``: its K and Sy
+    win over the profiles, and a property the backend does not read is refused
+    (``map_flow_properties``).
     """
     required = (
         frozenset(str(name).strip() for name in required_properties)
@@ -46,7 +46,7 @@ def resolve_flow_property_arrays(
     )
     properties = tuple(name for name in ("K", "Sy") if name in required)
     mapped = map_flow_properties(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         cell_mesh=cell_mesh,
         layer_depths=np.zeros((1, cell_mesh.n_cells), dtype=float),

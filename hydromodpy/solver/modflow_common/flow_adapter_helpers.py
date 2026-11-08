@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.core.exceptions import MeshError, SolverDivergedError, SolverInputError
-from hydromodpy.core.state.run_state import RunState
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
@@ -38,6 +37,7 @@ from hydromodpy.solver.modflow_common.options import (
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+    from hydromodpy.model.model import Model
 
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 
@@ -266,22 +266,22 @@ def nwt_safe_name(name: str) -> str:
     return re.sub(r"\s+", "_", str(name).strip())
 
 
-def build_preprocess_options(state: RunState) -> ModflowPreprocessOptions:
-    """Build the flow pre-processing options from the runtime setup.
+def build_preprocess_options(model: Model) -> ModflowPreprocessOptions:
+    """Build the flow pre-processing options from the ``Model`` of the run.
 
     Both supported flow backends consume the same preprocessing contract, so
-    this helper keeps the mapping from launcher state to solver options in one
-    place.  Every option not declared under ``[solver]`` keeps its
+    this helper keeps the mapping from the model to solver options in one
+    place. The time grid and the four ``[solver]`` settings are members of the
+    model. Every option the model does not carry keeps its
     ``ModflowPreprocessOptions`` default.
     """
 
-    time_grid = getattr(state.setup, "time_grid", None)
     return ModflowPreprocessOptions(
-        time_grid=time_grid,
-        sink_fill=bool(state.cfg.solver.sink_fill),
-        drain_band_depth_m=float(state.cfg.solver.drain_band_depth_m),
-        drain_bed_thickness_m=float(state.cfg.solver.drain_bed_thickness_m),
-        drain_conductance_floor_m2_s=float(state.cfg.solver.drain_conductance_floor_m2_s),
+        time_grid=model.time.grid,
+        sink_fill=model.options.sink_fill,
+        drain_band_depth_m=model.options.drain_band_depth_m,
+        drain_bed_thickness_m=model.options.drain_bed_thickness_m,
+        drain_conductance_floor_m2_s=model.options.drain_conductance_floor_m2_s,
     )
 
 
@@ -314,12 +314,12 @@ def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"
     return "api" if str(declared()) == "api" else "subprocess"
 
 
-def require_cell_mesh(setup: object) -> PlanarCellMesh:
-    """Return the planar cell mesh of the run, or say that no mesh step ran."""
-    cell_mesh = getattr(setup, "cell_mesh", None)
+def require_cell_mesh(model: Model) -> PlanarCellMesh:
+    """Return the planar cell mesh of the model, or say that no mesh step ran."""
+    cell_mesh = model.geometry.cells
     if cell_mesh is None:
         raise MeshError(
-            "The solver needs the planar cell mesh of the run (setup.cell_mesh), and the "
+            "The solver needs the planar cell mesh of the run (Model.geometry.cells), and the "
             "mesh step has not built one."
         )
     return cell_mesh
@@ -335,22 +335,22 @@ def run_flow_model(
     The solver-specific adapters only choose and configure the concrete flow
     backend. Once the model object exists, the execution steps are identical:
 
-    1. run preprocessing against the shared ``flow`` and ``domain`` objects and
-       the cell mesh of the run,
+    1. run preprocessing against the ``Model`` the ``prepare_solver`` step put on
+       ``ctx.state.setup.model``,
     2. launch the numerical solve,
     3. return the result - post-processing is handled by ``post_run_results()``.
     """
 
     state = ctx.state
     flow_runtime_overrides = getattr(state.setup, "flow_runtime_overrides", None)
+    model = state.setup.model
+    require_cell_mesh(model)
     # Pre-processing materializes the grid, packages, and disk inputs for the
-    # chosen flow backend using the already-prepared shared domain objects.
+    # chosen flow backend from the frozen ``Model``, which it never changes.
     model_modflow.pre_processing(
-        flow=state.setup.flow,
-        domain=state.setup.domain,
+        model,
         options=preprocess_options,
         flow_runtime_overrides=flow_runtime_overrides,
-        cell_mesh=require_cell_mesh(state.setup),
     )
     if isinstance(flow_runtime_overrides, Mapping) and flow_runtime_overrides.get(
         STOP_BEFORE_THE_SOLVE

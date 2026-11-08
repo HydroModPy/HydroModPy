@@ -31,6 +31,7 @@ from hydromodpy.solver.modflow6.support.computational_top import raised_cells
 from hydromodpy.solver.modflow_common.sink_mask import closed_depression_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import toy_model
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
@@ -88,7 +89,6 @@ def test_modflow6_extracts_evt_payload_from_negative_2d_recharge(
 
 def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
     model = toy_model()
-    model.flow_regime = "transient"
     model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
@@ -171,7 +171,7 @@ def _mesh() -> SolverMesh:
 def _soil_mode_model(etp_cfg: FlowEtpConfig) -> SimpleNamespace:
     """Bind ``etp_cfg`` the way MODFLOW 6 soil mode does, with the real binder."""
     model = SimpleNamespace(
-        flow=SimpleNamespace(active_sinks_sources=["etp"], sinks_sources={"etp": etp_cfg}),
+        inputs=make_model(active_sinks_sources=("etp",), etp=etp_cfg),
         ncpl=_NCPL,
         nper=1,
         model_name_mf6="m",
@@ -511,16 +511,18 @@ def test_a_loaded_etp_without_the_soil_marker_reaches_no_evta_package(
     # SIM2 ETP loaded like [data.etp] would, same as an ordinary NWT EVT source.
     etp_cfg = SimpleNamespace(from_soil_reservoir=False, heterogeneous_source=object())
     model = SimpleNamespace(
-        flow=SimpleNamespace(
-            active_sinks_sources=["recharge", "etp"],
-            sinks_sources={"etp": etp_cfg},
+        inputs=make_model(
+            active_sinks_sources=(
+                "recharge",
+                "etp",
+            ),
+            etp=etp_cfg,
         ),
         ncpl=_NCPL,
         nper=1,
         model_name_mf6="atelier",
         drain_band_depth_m=0.0,
         solver_mesh=_mesh(),
-        time_grid=None,
     )
 
     with caplog.at_level(logging.WARNING):
@@ -566,10 +568,7 @@ class _Quantity:
 
 
 def _model_7(*, active: list[str], etp_cfg: object | None) -> SimpleNamespace:
-    sinks_sources = {} if etp_cfg is None else {"etp": etp_cfg}
-    return SimpleNamespace(
-        flow=SimpleNamespace(active_sinks_sources=active, sinks_sources=sinks_sources)
-    )
+    return SimpleNamespace(inputs=make_model(active_sinks_sources=tuple(active), etp=etp_cfg))
 
 
 def test_an_unmarked_etp_is_ignored_and_warned_about(caplog: pytest.LogCaptureFixture) -> None:

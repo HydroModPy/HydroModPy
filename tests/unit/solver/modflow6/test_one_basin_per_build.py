@@ -25,11 +25,14 @@ from hydromodpy.catchment.drainage import descent as core_descent
 from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.mf6_toy_models import geometry_of
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -77,10 +80,12 @@ def _geographic(**extra: object) -> SimpleNamespace:
 def _model(tmp_path, geographic: object) -> SimpleNamespace:
     return SimpleNamespace(
         model_name="flow",
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=()),
+            geometry=geometry_of(geographic),
+        ),
         full_path=str(tmp_path),
         model_output_name="flow",
-        geographic=geographic,
     )
 
 
@@ -154,7 +159,7 @@ def test_a_model_without_a_basin_falls_back_on_the_covered_centres(tmp_path, cap
     model = SimpleNamespace(
         model_name="flow",
         descent_basin=None,
-        geographic=SimpleNamespace(watershed_shp=str(shp)),
+        inputs=make_model(geometry=geometry_of(SimpleNamespace(watershed_shp=str(shp)))),
         solver_mesh=mesh,
     )
 

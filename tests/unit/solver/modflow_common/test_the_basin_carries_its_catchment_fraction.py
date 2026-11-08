@@ -17,6 +17,7 @@ from shapely.geometry import box
 
 from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.model.domain.geometry import CatchmentGeometry
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.descent_store import (
@@ -44,7 +45,7 @@ def _mesh():
     )
 
 
-def _geographic(tmp_path, *, polygon=POLYGON) -> SimpleNamespace:
+def _catchment(tmp_path, *, polygon=POLYGON) -> CatchmentGeometry:
     import geopandas as gpd
 
     outlet = (2 * 10.0 + 5.0, 5.0)
@@ -53,13 +54,14 @@ def _geographic(tmp_path, *, polygon=POLYGON) -> SimpleNamespace:
         shp = tmp_path / "watershed.gpkg"
         gpd.GeoDataFrame(geometry=[polygon], crs=CRS).to_file(shp)
         extra["watershed_shp"] = str(shp)
-    return SimpleNamespace(x_outlet=outlet[0], y_outlet=outlet[1], **extra)
+    geographic = SimpleNamespace(x_outlet=outlet[0], y_outlet=outlet[1], **extra)
+    return CatchmentGeometry.from_geographic(geographic, crs=CRS)
 
 
 def _basin(tmp_path, *, polygon=POLYGON) -> DescentBasin:
     mesh = _mesh()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    return run_basin(_geographic(tmp_path, polygon=polygon), mesh, descent)
+    return run_basin(_catchment(tmp_path, polygon=polygon), mesh, descent)
 
 
 def _overlay(polygon) -> np.ndarray:
@@ -94,7 +96,7 @@ def test_the_largest_basin_of_a_domain_carries_no_fraction(tmp_path) -> None:
     mesh = _mesh()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
 
-    basin = run_basin(SimpleNamespace(), mesh, descent)
+    basin = run_basin(CatchmentGeometry.from_geographic(SimpleNamespace(), crs=None), mesh, descent)
 
     assert basin.rule == "largest_basin"
     assert basin.catchment_fraction is None

@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
+from hydromodpy.core.state.run_state import RunState, SetupContext
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
 from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"
@@ -140,6 +146,46 @@ def analytical_boussinesq_solver_label(
     return str(public_solver or "boussinesq")
 
 
+def boussinesq_bundle_model(flow: Flow, *, time_grid: object = None) -> Model:
+    """Return the ``Model`` of a validation run on a mesh bundle.
+
+    The cells come from the bundle, so the model has no cell mesh, domain, DEM or
+    catchment, and the ``[solver]`` options are their defaults. ``time_grid`` is
+    ``None`` for a steady run.
+    """
+    return model_from_flow(
+        flow,
+        geometry=Geometry(cells=None, domain=None),
+        time=ModelTime.from_flow(flow, time_grid),
+        options=ModelOptions.from_settings(SolverConfig()),
+    )
+
+
+def boussinesq_run_state(
+    *,
+    flow: Flow,
+    bundle_dir: str | Path,
+    simulations_folder: str | Path,
+    time_grid: object = None,
+) -> RunState:
+    """Return the run state the Boussinesq adapter reads for a run on a mesh bundle.
+
+    The state carries the ``Model`` of ``flow`` and the ``[flow]`` section the
+    solver options come from. The scratch folder is ``simulations_folder``.
+    """
+    return RunState(
+        cfg=SimpleNamespace(flow=flow.config),
+        setup=SetupContext(
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            model=boussinesq_bundle_model(flow, time_grid=time_grid),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
+        ),
+    )
+
+
 __all__ = [
     "ANALYTICAL_RUNTIME_BACKEND",
     "ANALYTICAL_STEADY_SURFACE_MODEL",
@@ -148,6 +194,8 @@ __all__ = [
     "analytical_boussinesq_runtime_overrides",
     "analytical_boussinesq_solver_label",
     "apply_analytical_boussinesq_runtime_defaults",
+    "boussinesq_bundle_model",
+    "boussinesq_run_state",
     "boussinesq_variant_config_name",
     "boussinesq_variant_flow_section",
     "is_default_engine_solver",

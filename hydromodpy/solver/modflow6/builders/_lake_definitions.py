@@ -21,21 +21,14 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active lake definitions ``{lake_id: {polygon, bedleak, abacus}}``.
 
     A lake is active when its table is declared and not switched off, which
-    ``flow.active_bc`` says as ``lake``. Geometry, bedleak and abacus are surfaced by the data /
+    ``Model.boundaries`` says as ``lake``. Geometry, bedleak and abacus are surfaced by the data /
     model layers; this helper only normalizes the lookup so the orchestrator
     stays grid-focused.
     """
-    flow = getattr(model, "flow", None)
-    if flow is None:
+    inputs = model.inputs
+    if not inputs.boundaries.is_active("lake") or not inputs.lakes:
         return {}
-    active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
-    if "lake" not in active_bc:
-        return {}
-
-    sinks_sources = getattr(flow, "sinks_sources", {})
-    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
-    if not isinstance(lakes, Mapping) or not lakes:
-        return {}
+    lakes = inputs.lakes
 
     definitions: dict[str, dict[str, Any]] = {}
     for lake_id, payload in lakes.items():

@@ -173,21 +173,21 @@ class ModflowNwtFlowAdapter:
 
         The method is intentionally thin:
 
-        - resolve the shared preprocessing options,
+        - resolve the shared preprocessing options from the ``Model`` of the run,
         - derive the stable model folder name for this run,
         - build the concrete ``ModflowNwt`` object,
-        - delegate the rest of the lifecycle to ``run_flow_model``.
+        - delegate the rest of the lifecycle, which hands the ``Model`` to
+          ``ModflowNwt.pre_processing``, to ``run_flow_model``.
         """
 
         state = ctx.state
-        preprocess_options = build_preprocess_options(state)
+        preprocess_options = build_preprocess_options(state.setup.model)
         # MODFLOW-NWT truncates a NAME-file path at the first space, so collapse
         # whitespace before the name reaches the solver files (mirrors MF6).
         model_name = nwt_safe_name(resolve_run_model_name(ctx))
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = ModflowNwt(
-            state.setup.geographic,
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,

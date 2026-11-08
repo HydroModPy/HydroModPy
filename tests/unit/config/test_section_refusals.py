@@ -1180,10 +1180,12 @@ def test_a_k_profile_says_boussinesq_reads_the_top_only(
 
 @pytest.mark.unit
 def test_the_adapter_refuses_a_layering_assigned_after_the_load() -> None:
+    # The model's domain is built from ``cfg.domain`` when the run is prepared, so
+    # a layering assigned on the config after the load reaches the adapter here.
     layers = VerticalGridConfig(nlay=3)
-    ctx = SimpleNamespace(
-        state=SimpleNamespace(cfg=SimpleNamespace(domain=SimpleNamespace(layers=layers)))
-    )
+    domain = SimpleNamespace(config=SimpleNamespace(layers=layers))
+    model = SimpleNamespace(geometry=SimpleNamespace(domain=domain))
+    ctx = SimpleNamespace(state=SimpleNamespace(setup=SimpleNamespace(model=model)))
 
     with pytest.raises(ConfigError, match=rf"builds 3 layers .*{IGNORED}"):
         BoussinesqFlowAdapter().execute(ctx)

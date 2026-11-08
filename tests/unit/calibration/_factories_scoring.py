@@ -17,8 +17,8 @@ from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.model.soil.config import SoilReservoirConfig
-from hydromodpy.model.soil.recharge import compute_soil_forcings
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,

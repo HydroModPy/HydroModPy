@@ -14,10 +14,12 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.model.forcing.validation import complete_period_table, integer_period_keys
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd
 from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import assemble_rch_data
+from tests._helpers.model_factory import make_model
 
 pytestmark = pytest.mark.fast
 
@@ -86,8 +88,7 @@ def test_modflow_nwt_reads_a_list_as_the_other_solvers_do() -> None:
 
 
 class _Boussinesq(ForcingCommonMixin):
-    flow = SimpleNamespace(flow_regime="transient", first_period_steady=False)
-    time_grid = None
+    inputs = make_model(time=ModelTime(grid=None, regime="transient", first_period_steady=False))
 
 
 def test_boussinesq_reads_a_complete_table_and_refuses_a_partial_one() -> None:
