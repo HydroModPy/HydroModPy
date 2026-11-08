@@ -17,13 +17,6 @@ from hydromodpy.model.forcing.forcing_bridge import (
     extract_homogeneous_series,
     resolve_forcing,
 )
-from hydromodpy.model.runtime_config import (
-    normalize_bool,
-    normalize_positive_float,
-    normalize_positive_int,
-    normalize_runtime_backend,
-    normalize_surface_interaction_model,
-)
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.time.history_contract import (
     build_transient_time_axes,
@@ -105,43 +98,6 @@ def test_history_contract_payload_axes_validate_explicit_lengths() -> None:
         elapsed_seconds_for_time_keys([0.0], [1], name="head")
     with pytest.raises(ValueError, match="no elapsed-time axis"):
         elapsed_seconds_for_time_keys([], [0], name="head")
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        (None, "auto"),
-        ("local", "local"),
-        (" PETSC ", "petsc"),
-        ("scipy_sparse", "scipy_sparse"),
-    ],
-)
-def test_runtime_backend_normalization_accepts_known_values(raw: object, expected: str) -> None:
-    assert normalize_runtime_backend(raw) == expected
-
-
-def test_runtime_validator_rejects_invalid_numbers_and_booleans() -> None:
-    assert normalize_surface_interaction_model(" TS_VI_OBSTACLE ") == "ts_vi_obstacle"
-    assert normalize_positive_int("", field="runtime_max_iterations") is None
-    assert normalize_positive_int("4", field="vi_substeps_per_period", default=2) == 4
-    assert normalize_bool("yes", field="vi_substep_on_failure")
-    assert not normalize_bool("off", field="vi_substep_on_failure")
-    assert normalize_positive_float("", field="runtime_tol", default=1.0e-6) == pytest.approx(
-        1.0e-6
-    )
-    assert normalize_positive_float("0.25", field="runtime_tol") == pytest.approx(0.25)
-
-    for call in (
-        lambda: normalize_runtime_backend("gpu"),
-        lambda: normalize_surface_interaction_model("wetdry"),
-        lambda: normalize_positive_int(True, field="steps", default=1),
-        lambda: normalize_positive_int("1.2", field="steps", default=1),
-        lambda: normalize_bool("maybe", field="flag"),
-        lambda: normalize_positive_float(False, field="tol", default=1.0),
-        lambda: normalize_positive_float("0", field="tol"),
-    ):
-        with pytest.raises(ValueError):
-            call()
 
 
 def test_forcing_bridge_averages_station_series_and_dispatches_spatial_modes(

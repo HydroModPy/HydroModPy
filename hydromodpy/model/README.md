@@ -15,14 +15,13 @@ This file is the map of the package. Each folder has its own `README.md`, except
 | module | answers |
 |---|---|
 | `contracts.py` | What the model reads without importing it: `LoadResultProto`, `FieldRecordProto`, `FieldParamLike` and the two hooks `_bootstrap.py` fills |
-| `flow_config.py` | `FlowConfig`, the `[flow]` schema, and the reader of the raw `[flow]` table |
+| `flow_config.py` | `FlowConfig`, the `[flow]` schema, the reader of the raw `[flow]` table, and `FLOW_RUNTIME_KEYS`, the table of the old `flow.` names that the migration moves to `[solver.boussinesq]` |
 | `flow.py` | The runtime `Flow`, built from a `FlowConfig`, that the setup binds loaded data to |
 | `model.py` | The frozen `Model` a solver adapter reads, its factories (`with_properties`, `with_initial`, `steady_variant`, `cycle_variant`) and `model_from_flow` |
 | `supports.py` | The closed set of names a solver backend lists in `supports`: the boundaries, the fields of `ModelOptions`, the initial states a TOML can choose, the sinks and sources, the soil reservoir, the K tensor and the layering. Each name is read from the module that owns it |
 | `initial_config.py` | `[flow.ic]` and `[spinup]`: the payloads of the starting head and the readers of its strategies |
 | `payloads.py` | The generic initial-condition, boundary-condition and sink/source models, and their normalizers |
 | `process_spatial.py` | `ProcessSpatial`, the runtime parent of `Flow` and `Transport` |
-| `runtime_config.py` | `FlowRuntimeConfig`, the settings of the Boussinesq solve. A file writes them under `[solver.boussinesq]` |
 | `toml_examples.py` | The commented examples of the dynamic `[flow.*]` blocks of the TOML template |
 
 | folder | answers |
@@ -72,7 +71,8 @@ Who imports the model: `solver` (most of it), `workflow`, `calibration`, `config
    same cascade runs for a calibration trial.
 4. Freeze. `prepare_solver` calls `model_from_flow` and gets a `Model`. It holds the same objects as the
    `Flow`, in SI, with the geometry, the time grid and the shared solver options beside them. A prior run is
-   read into a `PriorState` there, so no adapter opens a Zarr.
+   read into a `PriorState` there, so no adapter opens a Zarr, and the river network A is read on the cells
+   there (`Geometry.channel_exits`, `None` for a run without A), so no adapter projects A itself.
 5. Solve. A solver adapter reads the `Model` and never the `Flow`. It resolves each dated forcing to one
    value per stress period with `forcing/time_forcing.resolve_period_values_from_forcing`. Boundary support
    per backend comes from `FLOW_BOUNDARY_DEFINITIONS`. A change to the model is a new object, made by

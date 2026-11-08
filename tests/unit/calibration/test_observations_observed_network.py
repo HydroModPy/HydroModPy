@@ -92,7 +92,9 @@ def _half(n_cells: int = 6) -> np.ndarray:
 
 
 def _ctx(basin: DescentBasin | None) -> SimpleNamespace:
-    return SimpleNamespace(model=SimpleNamespace(descent_basin=basin), state=None)
+    return SimpleNamespace(
+        solver_run=SimpleNamespace(solver_model=SimpleNamespace(descent_basin=basin)), state=None
+    )
 
 
 POLYGON = np.array([False, True, True, True, False, False])
@@ -132,7 +134,7 @@ def test_a_model_without_a_basin_keeps_the_polygon_and_says_so(polygon, caplog) 
 
 def test_a_model_that_builds_no_d_keeps_the_polygon_with_an_info_line(polygon, caplog) -> None:
     # Boussinesq has no D, so no basin: expected, not an anomaly to warn about at each trial.
-    ctx = SimpleNamespace(model=SimpleNamespace(), state=None)
+    ctx = SimpleNamespace(solver_run=SimpleNamespace(solver_model=SimpleNamespace()), state=None)
 
     with caplog.at_level(logging.INFO):
         reference = delineated_catchment_mask(ctx, None, None)
@@ -173,7 +175,7 @@ def test_no_calibration_reader_computes_the_basin_again(monkeypatch) -> None:
     delineated_catchment_mask(ctx, None, None)
     area = catchment_area_the_discharge_sums(ctx, SimpleNamespace())
 
-    assert area == pytest.approx(ctx.model.descent_basin.area_m2)
+    assert area == pytest.approx(ctx.solver_run.solver_model.descent_basin.area_m2)
 
 
 # --- the criterion publishes its gap to that reference --------------------------------
@@ -200,8 +202,10 @@ def _bench_ctx(basin: DescentBasin | None, outlet_xy: tuple[float, float]):
                 )
             )
         ),
-        model=SimpleNamespace(
-            solver_mesh=solver_mesh, recharge=1.0e-8, dam_foot_cells={}, descent_basin=basin
+        solver_run=SimpleNamespace(
+            solver_model=SimpleNamespace(
+                solver_mesh=solver_mesh, recharge=1.0e-8, dam_foot_cells={}, descent_basin=basin
+            )
         ),
     )
 
@@ -296,7 +300,7 @@ def _run_ctx(*, with_centres: bool = True):
     solver_mesh = SimpleNamespace(cell_centers=lambda: centres) if with_centres else None
     return SimpleNamespace(
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS))),
-        model=SimpleNamespace(solver_mesh=solver_mesh),
+        solver_run=SimpleNamespace(solver_model=SimpleNamespace(solver_mesh=solver_mesh)),
     )
 
 

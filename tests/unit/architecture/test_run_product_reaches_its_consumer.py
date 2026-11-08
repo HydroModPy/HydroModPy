@@ -1,23 +1,25 @@
-"""Who may reach the execution registries, and who receives a run's product.
+"""Who may reach the execution registry, and who receives a run's product.
 
 ``execution.models_by_run_id`` and ``execution.output_dirs_by_run_id`` were read
 from nine packages, and every read outside the runner asked for the entry keyed
 by the reader's own ``run.id``. That is not a registry lookup: it is a run
 asking shared mutable state for something it produced itself. F8d routed those
-reads through ``RunContext.model`` and ``RunContext.output_dir``, and left the
-registries to their one real purpose - the runner resolving the models a later
-run declares in ``depends_on``.
+reads through the run context. The two registries are now one,
+``execution.solver_runs``, which maps a run id to its ``SolverRun``, and a
+consumer receives the product of its own run as ``RunContext.solver_run``. The
+registry keeps its one real purpose, the runner handing a later run the runs it
+declares in ``depends_on``.
 
-Two gates, different in kind. The runtime one is free: ``RunState`` no longer
-declares ``execution``, and it has ``slots``, so ``ctx.state.execution`` raises
+Two gates, different in kind. The runtime one is free: ``RunState`` does not
+declare ``execution``, and it has ``slots``, so ``ctx.state.execution`` raises
 instead of returning an empty registry. The static one is here: it names every
-module allowed to touch a registry, so a new consumer that reaches back into
-one fails in the unit tier rather than at the next adversarial pass.
+module allowed to touch the registry, so a new consumer that reaches back into
+it fails in the unit tier rather than at the next adversarial pass.
 
-The allowlist is short on purpose. Three of its entries read a registry through
-a ``WorkflowContext``, which is the pipeline's own scope and not an adapter's;
-they are listed rather than silently tolerated so that growing the list is a
-decision somebody takes, not a drift.
+The allowlist is short on purpose. Several of its entries read the registry
+through a ``WorkflowContext``, which is the pipeline's own scope and not an
+adapter's; they are listed rather than silently tolerated so that growing the
+list is a decision somebody takes, not a drift.
 """
 
 from __future__ import annotations
@@ -33,39 +35,40 @@ from hydromodpy.solver.base.plan import RunContext
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = REPO_ROOT / "hydromodpy"
 
-REGISTRY_MEMBERS = frozenset({"models_by_run_id", "output_dirs_by_run_id"})
+REGISTRY_MEMBERS = frozenset({"solver_runs"})
 
-# Every module allowed to name a registry, and why. ``core/state/run_state.py``
-# is absent on purpose: it declares the two fields and reads neither, and a
+# Every module allowed to name the registry, and why. ``core/state/run_state.py``
+# is absent on purpose: it declares the field and reads it nowhere, and a
 # declaration is an annotated name, not an attribute this gate follows.
 REGISTRY_READERS = {
-    # The owner: it records what each run produced and resolves what the next
-    # one declares in ``depends_on``.
+    # The owner: it records what each run produced and hands a later run the
+    # runs it declares in ``depends_on``.
     "solver/base/runner.py",
     # ``RunContext.of``, the one place that reads a run's product out of the
     # registry to hand it over explicitly.
     "solver/base/plan.py",
-    # Releases the models before the derived stacks allocate; a transient flopy
-    # model carries its whole stress-period data.
+    # Releases the solver models before the derived stacks allocate; a
+    # transient flopy model carries its whole stress-period data.
     "workflow/steps/derive.py",
-    # A resume past the solver: puts back the folder the run solved in, read from
-    # its facts, so ``RunContext.of`` finds it as it does after a solve.
+    # A resume past the solver: puts back a SolverRun without a solver model,
+    # with the folder the run solved in read from its facts, so
+    # ``RunContext.of`` finds it as it does after a solve.
     "workflow/steps/run_solver.py",
     # Pipeline scope, not adapter scope: asks which dispatch the built flow
     # model resolved to, across the plan rather than for one run.
     "workflow/steps/prepare_solver/dispatch.py",
-    # Pipeline scope: finds the trial's single flow run among the models.
+    # Pipeline scope: finds the trial's single flow run among the runs.
     "calibration/metrics/solver_extract.py",
     # Pipeline scope: lists the scratch directories a trial has to clear.
     "calibration/runners/sandbox.py",
     # A launcher, the runner's own role: a promotion hands over the solve its
-    # trial kept, recording each run's model and folder as the runner does.
+    # trial kept, recording each run's SolverRun as the runner does.
     "calibration/runners/kept_solves.py",
 }
 
 # ``RunContext.of`` is the construction path for every consumer that runs after
 # the solver. The runner is the exception it documents: at the time it builds a
-# context, the run has produced neither a model nor an output directory.
+# context, the run has produced nothing.
 CONTEXT_BUILDERS = {"solver/base/plan.py", "solver/base/runner.py"}
 
 
@@ -79,13 +82,13 @@ def package_trees() -> dict[str, ast.AST]:
 
 
 def _registry_reads(tree: ast.AST) -> list[tuple[int, str]]:
-    """Every ``(line, member)`` where this module names an execution registry."""
+    """Every ``(line, member)`` where this module names the execution registry."""
     reads: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and node.attr in REGISTRY_MEMBERS:
             reads.append((node.lineno, node.attr))
         elif isinstance(node, ast.Constant) and node.value in REGISTRY_MEMBERS:
-            # ``getattr(execution, "models_by_run_id", None)`` is the same read
+            # ``getattr(execution, "solver_runs", None)`` is the same read
             # with the name moved into a string, and it is the spelling the
             # defensive helpers used.
             reads.append((node.lineno, str(node.value)))
@@ -138,9 +141,8 @@ def test_only_the_named_modules_reach_an_execution_registry(package_trees) -> No
     ]
 
     assert not offenders, (
-        "What one run produced reaches its consumer through RunContext.model and "
-        "RunContext.output_dir; these reach into the registry instead:\n"
-        + "\n".join(sorted(offenders))
+        "What one run produced reaches its consumer through RunContext.solver_run; "
+        "these reach into the registry instead:\n" + "\n".join(sorted(offenders))
     )
 
 
@@ -160,15 +162,16 @@ def test_every_allowed_reader_still_reads_a_registry(package_trees) -> None:
 
 def test_a_run_context_carries_what_its_run_produced() -> None:
     fields = {field.name for field in dataclasses.fields(RunContext)}
-    assert {"model", "output_dir"} <= fields
+    assert {"solver_run", "upstream"} <= fields
+    assert not fields & {"model", "output_dir", "dependency_models"}
 
 
 def test_a_post_solver_context_is_built_through_the_one_path(package_trees) -> None:
     """Only the runner builds a context by hand, and it builds one with no product.
 
     Every other consumer runs after the solver, so a hand-built context there
-    would carry ``model=None`` and ``output_dir=None`` by default: the missing
-    product would read as "this run produced nothing" rather than as an error.
+    would carry ``solver_run=None`` by default: the missing product would read
+    as "this run produced nothing" rather than as an error.
     """
     offenders = [
         f"{name}:{lineno}"
@@ -183,10 +186,10 @@ def test_a_post_solver_context_is_built_through_the_one_path(package_trees) -> N
 
 
 OFFENDING_SPELLINGS = (
-    ("attribute", "models = ctx.execution.models_by_run_id\n"),
-    ("getattr string", 'models = getattr(ctx.execution, "models_by_run_id", None)\n'),
-    ("subscript through attribute", "d = state.execution.output_dirs_by_run_id[run.id]\n"),
-    ("bare constant", 'KEY = "output_dirs_by_run_id"\n'),
+    ("attribute", "runs = ctx.execution.solver_runs\n"),
+    ("getattr string", 'runs = getattr(ctx.execution, "solver_runs", None)\n'),
+    ("subscript through attribute", "d = state.execution.solver_runs[run.id].output_dir\n"),
+    ("bare constant", 'KEY = "solver_runs"\n'),
 )
 
 
@@ -197,7 +200,7 @@ def test_the_gate_sees_every_spelling_of_a_registry_read(spelling: str, source: 
     """The gate's own angles, pinned.
 
     F8a shipped a gate blind to the majority spelling of what it guarded, and
-    F8c shipped one blind to the walrus and to an aliased import. A registry is
+    F8c shipped one blind to the walrus and to an aliased import. The registry is
     reached by an attribute and by a name in a string, and both count.
     """
     del spelling

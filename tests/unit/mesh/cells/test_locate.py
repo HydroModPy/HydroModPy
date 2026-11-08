@@ -21,7 +21,7 @@ import shapely
 from hydromodpy.mesh.cells.locate import locate_cells, locate_cells_near
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
 from tests._helpers.mesh_cases import grid_spec, mesh_request
 
@@ -211,7 +211,9 @@ def test_the_bound_is_the_size_of_the_nearest_cell_on_triangles() -> None:
 
 def test_the_boussinesq_adapter_locates_no_cell_far_from_its_mesh() -> None:
     cell_mesh = _small_grid()
-    ctx = SimpleNamespace(model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh)))
+    solver_run = SimpleNamespace(
+        solver_model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh))
+    )
     adapter = BoussinesqFlowAdapter()
-    assert adapter.locate_cell(ctx, 39.0, 5.0) == (0, 0, 1 * 3 + 2)
-    assert adapter.locate_cell(ctx, 41.0, 5.0) is None
+    assert adapter.locate_cell(solver_run, 39.0, 5.0) == (0, 0, 1 * 3 + 2)
+    assert adapter.locate_cell(solver_run, 41.0, 5.0) is None

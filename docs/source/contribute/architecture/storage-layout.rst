@@ -705,7 +705,7 @@ The vertical geometry follows the table.
      - float64
      - ``face``
      - Cell center, by the one center rule of the mesh; the attribute ``center_kind`` says
-       ``generator``, ``cell_center`` or ``vertex_mean``
+       ``generator``, ``cell_center``, ``vertex_mean`` or ``interior_point``
    * - ``face_family``
      - int32
      - ``face``

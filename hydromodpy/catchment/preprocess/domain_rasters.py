@@ -10,7 +10,7 @@ import rasterio
 
 from hydromodpy.catchment.algorithms.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.catchment.algorithms.geographic_paths import GeographicPaths
-from hydromodpy.catchment.delineation.registry import (
+from hydromodpy.catchment.delineation import (
     backend_has_callables,
     resolve_delineation_backend,
 )

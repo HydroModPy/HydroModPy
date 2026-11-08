@@ -16,16 +16,16 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.solver.modflow6.build import _shared_recharge_dir
+from hydromodpy.solver.base.plan import RunSlot
+from hydromodpy.solver.modflow6.build import _shared_forcing_dir
 from hydromodpy.solver.modflow6.builders.recharge import (
-    PRIVATE_TRIAL_RECHARGE_KEY,
     RECHARGE_BINARY_MIN_PERIODS,
-    TRIAL_RECHARGE_DIRNAME,
     bind_recharge_from_flow,
     externalize_recharge_spd,
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
 )
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import auxiliary_slot
 from tests._helpers.mf6_toy_models import (
     toy_model,
     two_triangle_model,
@@ -161,52 +161,68 @@ def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
 #
 # The calibration-wide ``_shared_recharge`` dir assumes the recharge is invariant
 # across trials. A phase that samples a recharge parameter breaks that
-# assumption, so its trials mark themselves with
-# ``PRIVATE_TRIAL_RECHARGE_KEY`` and each gets its own ``<trial>/_recharge``
-# folder instead, wherever the model that asks for it sits (leaf, nested, or the
-# ``_ssic`` steady-state auxiliary model).
+# assumption, so the sandbox of each of its trials names a folder of its own,
+# ``<trial>/_recharge``, in ``shared_forcing_dir`` of the slot. The build reads
+# the folder the slot names, wherever the model sits (leaf, nested, or the
+# ``_ssic`` steady-state auxiliary model, whose slot derives from its parent's),
+# and never its own path.
 
 _SCRATCH = os.path.join(os.sep, "p", ".hmp", "scratch")
-
-
 _TRIAL = os.path.join(_SCRATCH, "run_trial000016")
+_PRIVATE = os.path.join(_TRIAL, "_recharge")
+_SHARED = os.path.join(_SCRATCH, "_shared_recharge")
 
 
-_OVERRIDES = {PRIVATE_TRIAL_RECHARGE_KEY: True}
+def _model_in(folder: str, name: str, shared_forcing_dir: str | None) -> SimpleNamespace:
+    return SimpleNamespace(slot=RunSlot(folder, name, shared_forcing_dir=shared_forcing_dir))
 
 
-def test_a_leaf_model_writes_into_its_own_trial_recharge_folder() -> None:
-    model = SimpleNamespace(full_path=_TRIAL, _flow_runtime_overrides=_OVERRIDES)
-    assert _shared_recharge_dir(model) == os.path.join(_TRIAL, TRIAL_RECHARGE_DIRNAME)
+def _ssic_of(parent: SimpleNamespace) -> SimpleNamespace:
+    folder = os.path.join(str(parent.slot.directory), "_ssic")
+    return SimpleNamespace(slot=auxiliary_slot(parent, Path(folder), "ssic"))
 
 
-def test_a_nested_model_still_finds_its_trial_folder() -> None:
-    nested = os.path.join(_TRIAL, "cheze_cal_377f4b")
-    model = SimpleNamespace(full_path=nested, _flow_runtime_overrides=_OVERRIDES)
-    assert _shared_recharge_dir(model) == os.path.join(_TRIAL, TRIAL_RECHARGE_DIRNAME)
+SHARED_FORCING_CASES = (
+    (
+        "a leaf model writes into its own trial folder",
+        _model_in(_SCRATCH, "run_trial000016", _PRIVATE),
+        _PRIVATE,
+    ),
+    (
+        "a nested model writes into the folder of its trial",
+        _model_in(_TRIAL, "cheze_cal_377f4b", _PRIVATE),
+        _PRIVATE,
+    ),
+    (
+        "the ssic model shares the folder of its parent",
+        _ssic_of(_model_in(_TRIAL, "cheze", _PRIVATE)),
+        _PRIVATE,
+    ),
+    ("a trial of a session uses the shared folder", _model_in(_TRIAL, "cheze", _SHARED), _SHARED),
+    (
+        "the ssic model of a session trial shares it",
+        _ssic_of(_model_in(_TRIAL, "cheze", _SHARED)),
+        _SHARED,
+    ),
+    (
+        "outside a trial the files stay beside the model",
+        _model_in(_SCRATCH, "plain_run", None),
+        None,
+    ),
+    ("a model built without a slot keeps them beside it too", SimpleNamespace(), None),
+)
 
 
-def test_the_ssic_auxiliary_model_shares_its_parent_trials_folder() -> None:
-    ssic = os.path.join(_TRIAL, "cheze_cal_377f4b", "_ssic", "ssic")
-    model = SimpleNamespace(full_path=ssic, _flow_runtime_overrides=_OVERRIDES)
-    assert _shared_recharge_dir(model) == os.path.join(_TRIAL, TRIAL_RECHARGE_DIRNAME)
-
-
-def test_without_the_key_a_trial_keeps_using_the_shared_folder() -> None:
-    model = SimpleNamespace(full_path=_TRIAL, _flow_runtime_overrides={})
-    assert _shared_recharge_dir(model) == os.path.join(_SCRATCH, "_shared_recharge")
-
-
-def test_a_trial_with_no_overrides_at_all_keeps_using_the_shared_folder() -> None:
-    model = SimpleNamespace(full_path=_TRIAL)
-    assert _shared_recharge_dir(model) == os.path.join(_SCRATCH, "_shared_recharge")
-
-
-def test_outside_a_trial_there_is_no_recharge_folder_at_all() -> None:
-    model = SimpleNamespace(
-        full_path=os.path.join(_SCRATCH, "plain_run"), _flow_runtime_overrides=_OVERRIDES
-    )
-    assert _shared_recharge_dir(model) is None
+@pytest.mark.parametrize(
+    ("case", "model", "expected"),
+    SHARED_FORCING_CASES,
+    ids=[case for case, _, _ in SHARED_FORCING_CASES],
+)
+def test_the_recharge_folder_is_the_one_the_slot_names(
+    case: str, model: SimpleNamespace, expected: str | None
+) -> None:
+    del case
+    assert _shared_forcing_dir(model) == expected
 
 
 # Recharge keeps its RCHA name and header when EVTA gains the same machinery.

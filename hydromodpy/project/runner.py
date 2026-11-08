@@ -363,7 +363,7 @@ class ProjectRunner:
         rebind_flow_if_stale(project._ctx)
 
         step_build_plan(project._ctx, name=name)
-        project._ctx.setup.flow_runtime_overrides = None
+        project._ctx.setup.slot_request = None
         project._ctx.setup.run_id = name
         if project._store is not None:
             project._store.close()

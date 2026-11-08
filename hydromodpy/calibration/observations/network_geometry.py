@@ -59,7 +59,7 @@ def aquifer_extent(
     Each is None when the model does not carry it, or carries it on another
     cell count.
     """
-    mesh = run_ctx.model.solver_mesh
+    mesh = run_ctx.solver_run.solver_model.solver_mesh
     thickness = None
     botm = getattr(mesh, "botm", None)
     if botm is not None:
@@ -69,7 +69,7 @@ def aquifer_extent(
         if base.size == n_cells and top.size == n_cells:
             thickness = top - base
     inactive = None
-    mask = getattr(run_ctx.model, "inactive_mask", None)
+    mask = getattr(run_ctx.solver_run.solver_model, "inactive_mask", None)
     if mask is not None:
         closed = np.asarray(mask, dtype=bool).reshape(-1)
         inactive = closed if closed.size == n_cells else None
@@ -178,7 +178,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
         water_body_mask,
     )
 
-    model = run_ctx.model
+    model = run_ctx.solver_run.solver_model
     if model is None:
         raise ValueError(f"no model recorded for run {run_ctx.run.id!r}")
     solver_mesh = getattr(model, "solver_mesh", None)
@@ -349,7 +349,7 @@ def _heads_maps(
     )
 
     settings = heads_settings(output)
-    dam_foot = dam_foot_cells_of_model(run_ctx.model)
+    dam_foot = dam_foot_cells_of_model(run_ctx.solver_run.solver_model)
     candidates = replace(observed_head_candidates(run_ctx, resolved), forced_cells=dam_foot)
     if minimal_source is None:
         maximal = on_map(heads=(candidates, settings))

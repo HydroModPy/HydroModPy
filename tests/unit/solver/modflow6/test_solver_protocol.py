@@ -1,4 +1,9 @@
-"""Unit tests for the ``SolverAdapter`` Protocol and ``RunResult`` dataclass."""
+"""Unit tests for the ``SolverAdapter`` Protocol, the engine a run records, and the refusals.
+
+The ``RunResult`` dataclass left with the contract of build, run and rerun: its
+three tests left with it, since ``SolverRun`` is what a backend returns and
+``tests/unit/solver/base/test_plan.py`` holds its cases.
+"""
 
 from __future__ import annotations
 
@@ -12,16 +17,17 @@ import hydromodpy.solver.modflow6.extractors.lake as lake_extractor
 import hydromodpy.solver.modflow_common.calibration_extractors as calibration_extractors
 import hydromodpy.solver.modflow_common.observable_extraction as observable_extraction
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
-from hydromodpy.solver.base.adapter_protocol import RunResult, SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.modflow_common import binaries
 from tests._helpers.fake_solvers import fake_adapter
 
 DummyAdapter = fake_adapter("dummy")
-"""A structural conformer with the twelve attributes and the four methods."""
+"""A structural conformer with the twelve attributes and the five methods."""
 
-PartialAdapter = fake_adapter("partial", execute=None)
-"""Missing ``execute`` on purpose to check structural conformance."""
+PartialAdapter = fake_adapter("partial", run=None)
+"""Missing ``run`` on purpose to check structural conformance."""
 
 
 def test_dummy_adapter_is_recognised_as_solver_adapter() -> None:
@@ -32,32 +38,16 @@ def test_partial_adapter_fails_structural_check() -> None:
     assert not isinstance(PartialAdapter(), SolverAdapter)
 
 
-def test_lifecycle_order_on_dummy_adapter() -> None:
+def test_lifecycle_order_on_dummy_adapter(tmp_path: Path) -> None:
     adapter = DummyAdapter()
-    adapter.validate(ctx=None)
-    adapter.execute(ctx=None)
-    adapter.cleanup(ctx=None)
+    slot = RunSlot(tmp_path, "dummy")
+    adapter.validate(None, None, slot)
+    built = adapter.build(None, None, slot, None)
+    solved = adapter.run(built)
+    adapter.cleanup(solved)
 
-    assert adapter.calls == ["validate", "execute", "cleanup"]
-
-
-def test_run_result_defaults() -> None:
-    result = RunResult(converged=True)
-    assert result.output_dir is None
-    assert result.iterations is None
-    assert result.residual is None
-    assert result.diagnostics == {}
-
-
-def test_run_result_accepts_output_dir(tmp_path: Path) -> None:
-    result = RunResult(converged=True, output_dir=tmp_path)
-    assert result.output_dir == tmp_path
-
-
-def test_run_result_is_frozen() -> None:
-    result = RunResult(converged=True)
-    with pytest.raises(Exception):
-        result.converged = False  # type: ignore[misc]
+    assert adapter.calls == ["validate", "build", "run", "cleanup"]
+    assert (built.solved, solved.solved) == (False, True)
 
 
 # The engine a run records must be the one it executed.
@@ -139,8 +129,8 @@ def test_an_unresolvable_engine_never_raises(monkeypatch) -> None:
 # The test is parametrized on ``solvers.names()`` so it covers both eagerly
 # registered adapters and lazily loaded built-ins. A new adapter that lands in
 # ``_BUILTIN_PATHS`` without the twelve attributes and the
-# ``validate / execute / cleanup / extract_observables`` quartet would surface
-# here immediately.
+# ``validate / build / run / cleanup / extract`` members would surface here
+# immediately.
 
 
 @pytest.mark.parametrize("key", solvers.names())
@@ -161,23 +151,24 @@ def test_registered_adapter_advertises_its_key(key: str) -> None:
     [("flow", "modflow_nwt"), ("flow", "modflow6"), ("flow", "boussinesq")],
     ids=lambda p: f"{p[0]}/{p[1]}",
 )
-def test_flow_adapter_exposes_extract_observables(pair: tuple[str, str]) -> None:
-    """The 3 flow backends must each expose ``extract_observables``."""
+def test_flow_adapter_exposes_observables(pair: tuple[str, str]) -> None:
+    """The 3 flow backends must each expose ``observables`` on a solved run."""
     adapter = solvers.create(*pair)
-    method = getattr(adapter, "extract_observables", None)
-    assert callable(method), f"{pair} must define extract_observables"
+    method = getattr(adapter, "observables", None)
+    assert callable(method), f"{pair} must define observables"
     sig = inspect.signature(method)
-    assert "ctx" in sig.parameters
-    assert "store" in sig.parameters
+    assert "solver_run" in sig.parameters
+    assert "store" not in sig.parameters
     assert "requests" in sig.parameters
     assert "time_index" in sig.parameters
-    # The old per-variable signature must be gone, not shadowed by an alias.
+    # The old names must be gone, not shadowed by an alias.
+    assert not hasattr(adapter, "extract_observables")
     assert not hasattr(adapter, "extract_calibration_series")
 
 
 # An adapter that cannot serve an observable refuses with one named exception.
 #
-# ``SolverAdapter.extract_observables`` promises that a caller never reads a
+# ``observables`` of a flow backend promises that a caller never reads a
 # signature to learn what a backend supports: it asks, and an unavailable
 # observable comes back as :class:`ObservableNotAvailableError`. That promise only
 # holds if every refusal path raises that one type. The config-dependent paths did

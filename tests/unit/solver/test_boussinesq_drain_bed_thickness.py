@@ -16,10 +16,10 @@ import pytest
 
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.model import ModelOptions
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter_module
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq import adapter as flow_adapter_module
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.assembly import assemble_transient_residual
 from hydromodpy.solver.boussinesq.assembly.fluxes import (
     derived_drain_conductance_m2_s,
@@ -30,6 +30,7 @@ from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
@@ -221,27 +222,21 @@ def test_the_flow_adapter_threads_the_solver_bed_into_the_mesh(
             return True
 
     monkeypatch.setattr(
-        flow_adapter_module, "resolve_runtime_solver_mesh", lambda _inputs, **_: _line_mesh()
+        flow_adapter_module, "resolve_solver_mesh", lambda _model, _options: (_line_mesh(), None)
     )
     monkeypatch.setattr(flow_adapter_module, "Boussinesq", _Recorder)
     solver = SolverConfig.model_validate({"drain_bed_thickness_m": 0.4})
-    state = RunState(
-        setup=SimpleNamespace(
-            model=make_model(options=ModelOptions.from_settings(solver)),
-            workspace=SimpleNamespace(solver_scratch_folder=tmp_path),
-        ),
-        cfg=SimpleNamespace(solver=solver),
-    )
+    model = make_model(options=ModelOptions.from_settings(solver))
     run = ProcessRun(
         id="flow::boussinesq", process_id="flow", process_type="flow", solver="boussinesq"
     )
     ctx = RunContext(
         plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
         run=run,
-        state=state,
+        state=RunState(cfg=SimpleNamespace()),
     )
 
-    BoussinesqFlowAdapter().execute(ctx)
+    BoussinesqFlowAdapter().build(model, BoussinesqOptions(), RunSlot(tmp_path, "island"), ctx)
 
     assert captured["mesh"].drain_bed_thickness_m == pytest.approx(0.4)
     np.testing.assert_allclose(

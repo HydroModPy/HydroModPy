@@ -12,7 +12,8 @@ A mesh is made in four steps, and each step has its own place in the package.
 1. The planner in `planning/` reads the `[mesh]` table and the project inputs. It cleans the
    input lines, smooths the catchment outline and computes the target cell size at every
    point. It returns a `MeshRequest` (`request.py`), plain frozen data that holds everything
-   an engine needs.
+   an engine needs. For a lumped engine, which meshes the catchment as one cell, the request
+   also carries the catchment outline, and for no other engine.
 2. The registry (`registry.py`) finds the engine that `[mesh] engine` names.
 3. The engine in `engines/<name>/` builds the cells from the request. It reads no file and
    no config.
@@ -28,7 +29,7 @@ A mesh is made in four steps, and each step has its own place in the package.
         |
         |  registry.py              pick the engine
         v
-   engines/regular, triangle or voronoi
+   engines/regular, triangle, voronoi or catchment
         |
         v
    PlanarCellMesh                   planar/
@@ -84,8 +85,10 @@ mesh/
 │   ├── height_above_stream.py  height of each DEM pixel above its stream
 │   └── input_triangulation.py  a triangulation read from a .msh file
 │
-├── engines/                    from a MeshRequest to cells
-│   ├── face_families.py        face rows the three engines share
+├── engines/                    from a MeshRequest to cells, README.md is the port contract
+│   ├── face_families.py        face rows the regular, triangle and voronoi engines share
+│   ├── catchment/              the catchment as one polygon cell, for a global model
+│   │   └── engine.py           the engine class
 │   ├── regular/                square cells on the DEM grid
 │   │   ├── engine.py           the engine class
 │   │   ├── grid.py             shape, pitch and vertices, as FloPy builds them
@@ -195,7 +198,7 @@ module that calls them, for example `engines/voronoi/constraints/rivers.py` in
 `tests/_helpers/mesh_cases.py`, and the name of a test function says the behavior it checks.
 
 Three more checks guard the meshes. The engine contract
-(`tests/contract/test_mesh_engine_contract.py`) holds what all three engines must do. The mesh
+(`tests/contract/test_mesh_engine_contract.py`) holds what every engine must do. The mesh
 regression (`tests/regression/mesh/`) compares the meshes of fixed cases to committed
 references, so any change there must be wanted. The CI job `mesh-coverage` in
 `.github/workflows/main-ci.yml` fails when the branch coverage of this package drops below a
@@ -224,7 +227,8 @@ other page.
 An engine is a class with `engine_id`, `engine_version`, `capabilities` and a
 `build(request)` method that returns a `PlanarCellMesh`. It joins the registry through the
 `hydromodpy.mesh.engine` entry point, and then `[mesh] engine = "<id>"` selects it. Raise
-`engine_version` whenever the mesh returned for one request changes.
+`engine_version` whenever the mesh returned for one request changes. The contract of the port
+is `engines/README.md`.
 
 The full recipe and the capability table are in
 `docs/source/contribute/architecture/mesh/mesh-engines.rst`.

@@ -272,8 +272,8 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 
 1. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``, the lifecycle
    shared by the MODFLOW adapters;
-2. ``hydromodpy/solver/modflow6/adapters/flow.py`` or
-   ``hydromodpy/solver/modflow_nwt/adapters/flow.py``;
+2. ``hydromodpy/solver/modflow6/adapter.py`` or
+   ``hydromodpy/solver/modflow_nwt/adapter.py``;
 3. ``hydromodpy/solver/modflow_common/`` for the shared MODFLOW code;
 4. ``hydromodpy/solver/boussinesq/`` for the in-house backend.
 

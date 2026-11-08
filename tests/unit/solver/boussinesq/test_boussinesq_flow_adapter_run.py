@@ -5,9 +5,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import xarray as xr
 from shapely.geometry import LineString
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.mesh.planar.cell_types import CellType
@@ -15,16 +17,17 @@ from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (
+    AdapterCall,
     _DummyRasterSupport,
     _DummySurface,
     _homogeneous_param,
     _write_minimal_bundle,
-    adapter_state,
+    adapter_call,
 )
 
 
@@ -105,27 +108,16 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
         fields=[_make_static_recharge_field_record()]
     )
     flow.sinks_sources["recharge"].interpolation_method = "nearest"
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=flow,
         cell_mesh=cell_mesh_of(planar_mesh),
         domain=domain,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_runtime_mesh_heterogeneous_recharge",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.state is not None
     assert np.allclose(model.state.recharge_rate_m_s, [4.0e-7, 2.0e-7])
@@ -181,27 +173,16 @@ def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
         zone_left=[-1],
         zone_right=[-1],
     )
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=flow,
         cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=river_faces),
         domain=domain,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_runtime_mesh_stream",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.mesh is not None
     river_edges = model.mesh.river_edge_indices()
@@ -213,41 +194,34 @@ def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
 
 def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_transient")
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}, "first_period_steady": False})),
-        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        exchange_mesh=bundle_dir,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.has_numerical_solution is True
     assert model.state is not None
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (2, 2)
     # Post-processing is no longer called by the adapter - ResultStore
-    # extractors handle it.  Verify the solver output directory exists.
-    assert result.solver_output_dir is not None
+    # extractors handle it.  Verify the solver output directory exists, under the slot.
+    assert result.solved is True
+    assert result.written is True
+    assert result.output_dir == call.slot.directory
+    assert (result.output_dir / "_boussinesq_state_history.npz").exists()
+    assert result.metrics["flow_solve_time_seconds"] >= 0.0
 
 
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_supported_inputs")
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=Flow(
             _build_flow_config(
@@ -261,23 +235,12 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
                 }
             )
         ),
-        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        exchange_mesh=bundle_dir,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_supported_inputs",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.has_numerical_solution is True
     assert model.state is not None
@@ -295,7 +258,7 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_well")
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=Flow(
             _build_flow_config(
@@ -317,23 +280,12 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
                 }
             )
         ),
-        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        exchange_mesh=bundle_dir,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_well",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.has_numerical_solution is True
     assert model.state is not None
@@ -346,7 +298,7 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_stream", river_internal_edge=True)
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=Flow(
             _build_flow_config(
@@ -359,23 +311,12 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
                 }
             )
         ),
-        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        exchange_mesh=bundle_dir,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_stream",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.has_numerical_solution is True
     assert model.state is not None
@@ -387,7 +328,7 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_ocean")
-    state = adapter_state(
+    call = adapter_call(
         tmp_path,
         flow=Flow(
             _build_flow_config(
@@ -400,23 +341,12 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
                 }
             )
         ),
-        mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+        exchange_mesh=bundle_dir,
         time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
     )
-    run = ProcessRun(
-        id="flow_main::boussinesq_ocean",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
-    )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    result = call.solve()
+    model = result.solver_model
 
     assert model.has_numerical_solution is True
     assert model.state is not None
@@ -426,3 +356,88 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
     assert model.state.boundary_edge_flux_m3_s[1] < 0.0
     assert np.allclose(model.state.boundary_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
     assert model.state.head_m[0] > 8.0
+
+
+def test_boussinesq_flow_adapter_builds_without_solving_and_runs_the_built_run(
+    tmp_path: Path,
+) -> None:
+    """``build`` solves nothing and ``run`` solves the run it is handed, in the slot folder."""
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_build_then_run")
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})),
+        exchange_mesh=bundle_dir,
+    )
+
+    built = call.build()
+
+    assert built.solved is False
+    assert built.written is False
+    assert built.output_dir is None
+    assert built.options is call.options
+    assert built.model is call.model
+    assert built.solver_model.has_numerical_solution is False
+    assert built.solver_model.full_path == call.slot.directory
+
+    solved = BoussinesqFlowAdapter().run(built)
+
+    assert solved.solved is True
+    assert solved.output_dir == call.slot.directory
+    assert solved.solver_model is built.solver_model
+    assert solved.solver_model.has_numerical_solution is True
+    assert built.solved is False
+
+
+def test_a_slot_that_stops_before_the_solve_leaves_the_run_unsolved(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_stop_before_solve")
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})),
+        exchange_mesh=bundle_dir,
+    )
+    stopped = AdapterCall(
+        model=call.model,
+        options=call.options,
+        slot=replace(call.slot, stop_before_solve=True),
+        ctx=call.ctx,
+    )
+
+    result = stopped.solve()
+
+    assert result.solved is False
+    assert result.solver_model.has_numerical_solution is False
+    assert not (call.slot.directory / "_boussinesq_state_history.npz").exists()
+
+
+def test_a_run_that_fails_to_converge_names_the_run_by_its_slot(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_diverges")
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})),
+        exchange_mesh=bundle_dir,
+        name="a_trial",
+    )
+    built = call.build()
+    built.solver_model.processing = lambda **_: False
+
+    with pytest.raises(SolverDivergedError, match=r"failed for run 'a_trial'") as error:
+        BoussinesqFlowAdapter().run(built)
+
+    assert error.value.run_id is None
+
+
+def test_the_runner_function_puts_the_run_id_on_a_failed_solve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_diverges_in_solve_one")
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "bottom"}})),
+        exchange_mesh=bundle_dir,
+    )
+    monkeypatch.setattr(Boussinesq, "processing", lambda self, **_: False)
+
+    with pytest.raises(SolverDivergedError) as error:
+        call.solve()
+
+    assert error.value.run_id == call.ctx.run.id

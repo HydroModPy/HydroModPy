@@ -98,9 +98,19 @@ def test_fill_and_breach_call_the_tool_as_they_always_did(tmp_path, method) -> N
     assert result.breach_report is None
 
 
-def test_a_method_no_engine_names_is_still_refused(tmp_path) -> None:
-    with pytest.raises(TerrainCapabilityError):
-        _condition(tmp_path, 25.0, "carve")
+@pytest.mark.parametrize(
+    ("method", "error", "match"),
+    [
+        ("carve", TerrainCapabilityError, "carve"),
+        ("provided", TerrainRequestError, r"ConditionedDem\.provided"),
+    ],
+)
+def test_a_method_no_engine_names_is_still_refused(tmp_path, method, error, match) -> None:
+    """``provided`` names a DEM nobody conditions here, so the refusal says how to build it."""
+    flow, engine, _reads = _engine(tmp_path)
+    with pytest.raises(error, match=match):
+        _condition(tmp_path, 25.0, method, engine=(flow, engine, _reads))
+    assert flow.calls == []
 
 
 @pytest.mark.parametrize(

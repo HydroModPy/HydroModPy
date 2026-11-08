@@ -16,10 +16,15 @@ from hydromodpy.calibration.runners.failure_watch import (
     EveryTrialFailedError,
 )
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
-from hydromodpy.calibration.runners.sandbox import KEEP_ENV_VAR, TrialSandbox
+from hydromodpy.calibration.runners.sandbox import (
+    KEEP_ENV_VAR,
+    SHARED_RECHARGE_DIRNAME,
+    TRIAL_RECHARGE_DIRNAME,
+    TrialSandbox,
+)
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
+from hydromodpy.core.state.run_state import SlotRequest
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC
-from hydromodpy.solver.modflow6.builders.recharge import TRIAL_RECHARGE_DIRNAME
 
 # From test_a_trial_that_does_not_close_is_rejected.py
 # A trial whose water balance does not close is not a cheaper trial.
@@ -242,9 +247,9 @@ def test_an_infeasible_trial_is_counted_apart(trials, refusal) -> None:
 #
 # :class:`TrialSandbox` already removes the whole model directory on exit (or
 # keeps it when a solve is retained for a promotion): a ``_recharge`` folder
-# written inside it, as a trial that samples the recharge does
-# (:mod:`hydromodpy.solver.modflow6.builders.recharge`, ``§9.2``), goes with it,
-# with no special-casing needed.
+# written inside it, as a trial that samples the recharge does (the sandbox
+# names it in ``SlotRequest.shared_forcing_dir``), goes with it, with no
+# special-casing needed.
 
 
 def _write_recharge_file(scratch: Path, model_name: str) -> Path:
@@ -274,7 +279,7 @@ class TestSandboxRemovesItsRecharge:
 # Tests for per-trial solver isolation in parallel calibration.
 #
 # Covers:
-# - :class:`TrialSandbox`: per-trial ``model_name_override`` + output cleanup,
+# - :class:`TrialSandbox`: per-trial run name in a ``SlotRequest`` + output cleanup,
 # - the api-isolation decision: a PARALLEL session isolates each api solve in its
 #   own spawn child process; a serial session keeps the in-process api path.
 
@@ -288,7 +293,7 @@ class TestTrialIdentity:
         b = TrialSandbox("cheze", 2)
         assert a.model_name == "cheze_trial000001"
         assert b.model_name == "cheze_trial000002"
-        assert a.flow_overrides == {"model_name_override": "cheze_trial000001"}
+        assert a.slot_request() == SlotRequest(name="cheze_trial000001")
         assert a.model_name != b.model_name
 
     def test_base_name_is_sanitized(self):
@@ -301,11 +306,36 @@ class TestTrialIdentity:
         assert TrialSandbox("", 3).model_name == "trial_trial000003"
 
 
+@pytest.mark.parametrize(
+    ("owns_recharge", "stop_before_solve", "forcing"),
+    [
+        (False, False, SHARED_RECHARGE_DIRNAME),
+        (True, False, f"cheze_trial000004/{TRIAL_RECHARGE_DIRNAME}"),
+        (False, True, SHARED_RECHARGE_DIRNAME),
+    ],
+    ids=["shared_by_every_trial", "inside_the_trial_folder", "built_and_not_solved"],
+)
+def test_the_sandbox_asks_for_the_forcing_folder_of_its_trial(
+    tmp_path: Path, owns_recharge: bool, stop_before_solve: bool, forcing: str
+) -> None:
+    sandbox = TrialSandbox("cheze", 4, scratch_root=tmp_path)
+
+    request = sandbox.slot_request(owns_recharge=owns_recharge, stop_before_solve=stop_before_solve)
+
+    assert request == SlotRequest(
+        name="cheze_trial000004",
+        stop_before_solve=stop_before_solve,
+        shared_forcing_dir=tmp_path / forcing,
+    )
+
+
 # ---------------------------------------------------------------------------
 # TrialSandbox: output cleanup lifecycle
 # ---------------------------------------------------------------------------
 def _execution_with_outputs(*dirs: Path):
-    return SimpleNamespace(output_dirs_by_run_id={f"run-{i}": d for i, d in enumerate(dirs)})
+    return SimpleNamespace(
+        solver_runs={f"run-{i}": SimpleNamespace(output_dir=d) for i, d in enumerate(dirs)}
+    )
 
 
 class TestOutputCleanup:

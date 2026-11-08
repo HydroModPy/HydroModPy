@@ -61,7 +61,7 @@ class Mt3dms:
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",
         suffix_name: str = "_mt",
-        bin_path: str | None = None,
+        bin_path: str | os.PathLike[str] | None = None,
         # Specific settings
         spc_name: str | None = None,
         sconc_init: float | None = None,

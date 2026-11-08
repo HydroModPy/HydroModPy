@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.time_units import (
     TRACKING_TIME_UNIT,
     factor_to_tracking_unit,
@@ -35,22 +37,18 @@ class ModpathOutputAdapter:
     process_type = "transport"
     solver_name = "modpath"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read MODPATH output files and write pathlines into the store."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the MODPATH output files of a solved run and write its pathlines into the store.
 
-        solver_output_dir = Path(solver_output_dir)
-        # MODPATH reports tracking time in the flow model time unit, which the
-        # DIS file it was run against declares as ITMUNI.
-        to_tracking_unit = factor_to_tracking_unit(
-            resolve_solver_time_unit(solver_output_dir, model_name or "")
-        )
+        Particles keep no per-cell budget, so ``retention`` is not read.
+        """
+        del retention
+        sim_id = store.sim_id
+        solver_output_dir = Path(solver_run.output_dir)
+        # MODPATH reports tracking time in the flow model time unit. Without a
+        # model name the DIS file is not read, and the unit falls back to the
+        # launcher unit, which is the ITMUNI that NWT always writes.
+        to_tracking_unit = factor_to_tracking_unit(resolve_solver_time_unit(solver_output_dir, ""))
 
         pth_files = list(solver_output_dir.glob("*.mppth")) + list(
             solver_output_dir.glob("*pathline*")

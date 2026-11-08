@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
-import pandas as pd
 import rasterio
 from pydantic import BaseModel
 
-from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.model.transport.transport_config import TransportModpathConfig
+from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.base.transport_runs import required_flow_model
 from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
 
@@ -46,63 +47,62 @@ class ModpathTransportAdapter:
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
 
-    def validate(self, ctx: RunContext) -> None:
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
         """No precondition checks for Modpath transport runs."""
 
-    def cleanup(self, ctx: RunContext) -> None:
-        """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.output_dir
-        if solver_output_dir is not None:
-            cleanup_solver_files(solver_output_dir)
+    def build(
+        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+    ) -> SolverRun:
+        """Build the MODPATH model of the flow run it follows, in memory, under ``slot``.
 
-    def extract_observables(
-        self,
-        ctx: RunContext,
-        store: Any,
-        requests: Sequence[ObservableRequest],
-        *,
-        time_index: pd.DatetimeIndex | None = None,
-    ) -> dict[str, ObservableResult]:
-        """Fail explicitly because transport calibration is not implemented."""
-        del ctx, store, time_index
-        if not requests:
-            return {}
-        names = sorted({request.name for request in requests})
-        raise ObservableNotAvailableError(
-            f"MODPATH produces no calibration observable; asked for {names}."
-        )
-
-    def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one Modpath particle-tracking run."""
-
+        The tracking runs beside the flow model, in the folder of the slot and
+        under the name of the flow model, and reads its setup and its upstream
+        run on the run context until the transport port takes the ``Model``.
+        """
         state = ctx.state
         flow_model = required_flow_model(ctx)
         _restore_seepage_clip_raster(ctx, flow_model)
-        model_modpath = Modpath(
+        solver_model = Modpath(
             state.setup.domain,
             state.setup.transport,
             flow_model,
-            model_folder=state.setup.workspace.solver_scratch_folder,
+            model_folder=slot.folder,
             model_name=flow_model.model_name,
-            bin_path=state.setup.workspace.bin_path,
+            bin_path=slot.bin_dir,
         )
-        model_modpath.pre_processing()
-        success = model_modpath.processing(write_model=True, run_model=True)
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the MODPATH input files, solve, and return the solved run.
+
+        The legacy post-processing and filtering are skipped:
+        ``ModpathOutputAdapter.extract`` reads pathlines and endpoints into the
+        run store, and no shapefile is written any more.
+        """
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(write_model=not solver_run.written, run_model=True)
         if not success:
             raise SolverDivergedError(
-                f"[HMPY.E401] Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model_modpath, 'full_path', '<unknown>')} for diagnostics.",
-                run_id=ctx.run.id,
+                f"[HMPY.E401] Transport solver '{self.name}' failed for run "
+                f"'{solver_run.slot.name}'. "
+                f"See {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
             )
-        # Legacy post_processing / filt_processing skipped:
-        # ModpathOutputAdapter.extract() reads pathlines/endpoints into
-        # the Catalog (Zarr).  Shapefile generation is no longer needed.
-        return RunExecutionResult(
-            primary_model=model_modpath,
-            solver_output_dir=Path(model_modpath.full_path)
-            if hasattr(model_modpath, "full_path")
-            else None,
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path) if hasattr(solver_model, "full_path") else None,
+            written=True,
+            solved=True,
         )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the pathlines and endpoints of a solved run through its registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
 
 
 def _configured_zone_partic(transport: Any) -> str | None:

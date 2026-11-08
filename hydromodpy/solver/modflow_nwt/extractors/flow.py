@@ -8,18 +8,26 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.core.exceptions import ExtractError, IncompatibleMeshError, MeshError
+from hydromodpy.core.exceptions import (
+    ExtractError,
+    IncompatibleMeshError,
+    MeshError,
+    NothingThereError,
+)
 from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     layer_interfaces,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
+from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
     cf_time_axis_seconds,
 )
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
@@ -153,6 +161,13 @@ def _write_time_coordinate(
     writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
+def _vertical_layout_of(model: Any) -> str:
+    """Return how the layers of the ``Model`` were built, the default for a run without one."""
+    if model is None:
+        return VERTICAL_LAYOUT_COLUMN_FRACTIONS
+    return model.geometry.domain.config.layers.vertical_layout
+
+
 def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
     """Return the listing file MODFLOW-NWT wrote for ``model_name``.
 
@@ -182,40 +197,37 @@ class ModflowNwtOutputAdapter:
     process_type = "flow"
     solver_name = "modflow_nwt"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        hdry: float,
-        hnoflo: float,
-        model_name: str | None = None,
-        budget_terms: BudgetKeep = BudgetKeep.everything(),
-        start_datetime: object | None = None,
-        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
-    ) -> None:
-        """Read .hds and .cbc files and write fields into the store.
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the ``.hds`` and ``.cbc`` files of a solved run and write its fields into the store.
 
         ``hdry`` and ``hnoflo`` are the sentinels the run was configured with
         (``[solver.modflow_nwt.runtime.upw] hdry`` and
-        ``[solver.modflow_nwt.runtime.bas] hnoflo``). They carry no default here: masking a user's heads against
-        the stock -100 / -9999 would silently keep sentinel values in the
-        field, or blank out real heads that happen to sit near them.
+        ``[solver.modflow_nwt.runtime.bas] hnoflo``), read on the options of the
+        run. They carry no default: masking a user's heads against the stock
+        -100 / -9999 would silently keep sentinel values in the field, or blank
+        out real heads that happen to sit near them.
 
-        ``budget_terms`` says which per-cell budget terms go under
+        ``retention.budget`` says which per-cell budget terms go under
         ``budget/``. The lumped budget table holds every term whatever it says.
-        ``vertical_layout`` says how the layers were built, as ``[domain.layers]``
-        gives it; the store keeps it on ``mesh/``.
+        The vertical layout, as ``[domain.layers]`` gives it, and the start date
+        come from the ``Model`` of the run; the store keeps the layout on
+        ``mesh/``. A run without a ``Model`` takes the default layout and no date.
         """
         import flopy.utils.binaryfile as bf
 
-        solver_output_dir = Path(solver_output_dir)
-        if model_name is None:
-            hds_files = list(solver_output_dir.glob("*.hds"))
-            if not hds_files:
-                raise FileNotFoundError(f"No .hds file in {solver_output_dir}")
-            model_name = hds_files[0].stem
+        sim_id = store.sim_id
+        runtime = solver_run.options.runtime
+        hdry, hnoflo = float(runtime.upw.hdry), float(runtime.bas.hnoflo)
+        budget_terms = retention.budget
+        start_datetime = time_grid_start(
+            None if solver_run.model is None else solver_run.model.time.grid
+        )
+        vertical_layout = _vertical_layout_of(solver_run.model)
+        solver_output_dir = Path(solver_run.output_dir)
+        hds_files = list(solver_output_dir.glob("*.hds"))
+        if not hds_files:
+            raise NothingThereError(f"No .hds file in {solver_output_dir}")
+        model_name = hds_files[0].stem
 
         hds_path = solver_output_dir / f"{model_name}.hds"
         cbc_path = solver_output_dir / f"{model_name}.cbc"

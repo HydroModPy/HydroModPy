@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 class _ZarrHandle:
@@ -30,8 +31,9 @@ class _ZarrHandle:
 
 
 class _Store:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, sim_id: str):
         self.root = root
+        self.sim_id = sim_id
 
     def open_zarr(self, sim_id: str) -> _ZarrHandle:
         return _ZarrHandle(self.root / f"{sim_id}.zarr")
@@ -148,9 +150,9 @@ def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> N
         ),
         encoding="utf-8",
     )
-    store = _Store(tmp_path / "catalog")
+    store = _Store(tmp_path / "catalog", "sim_a")
 
-    Modflow6PrtOutputAdapter().extract("sim_a", output_dir, store)
+    Modflow6PrtOutputAdapter().extract(solved_run(output_dir), store, keep_all)
 
     handle = store.open_zarr("sim_a")
     try:
@@ -427,9 +429,9 @@ def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -
         ),
         encoding="utf-8",
     )
-    store = _Store(tmp_path / "catalog")
+    store = _Store(tmp_path / "catalog", "sim_time")
 
-    Modflow6PrtOutputAdapter().extract("sim_time", output_dir, store)
+    Modflow6PrtOutputAdapter().extract(solved_run(output_dir), store, keep_all)
 
     handle = store.open_zarr("sim_time")
     try:
@@ -444,7 +446,7 @@ def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -
 
 
 def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> None:
-    store = _Store(tmp_path / "catalog")
+    store = _Store(tmp_path / "catalog", "sim_b")
     handle = store.open_zarr("sim_b")
     try:
         grp = handle.root.require_group("particles")

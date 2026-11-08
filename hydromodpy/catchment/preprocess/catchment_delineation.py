@@ -26,7 +26,7 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
 )
 from hydromodpy.catchment.algorithms.river_network import RiverNetworkProducts
 from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.catchment.delineation.registry import resolve_delineation_backend
+from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.preprocess.pipeline import build_geographic_runtime_context
 from hydromodpy.catchment.terrain.port import CappedBreach

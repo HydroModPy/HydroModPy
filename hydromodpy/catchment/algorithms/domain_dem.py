@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.catchment.delineation.registry import (
+from hydromodpy.catchment.delineation import (
     backend_has_callables,
     resolve_delineation_backend,
 )

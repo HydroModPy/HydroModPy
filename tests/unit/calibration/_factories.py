@@ -25,7 +25,7 @@ class Setup:
     geographic: Any = None
     flow: Any = None
     transport: Any = None
-    flow_runtime_overrides: Any = None
+    slot_request: Any = None
     run_id: str = "toy"
     time_grid: Any = None
 

@@ -15,17 +15,14 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.loaders import merge_case_flow_section, resolve_case_mesh_bundle_dir
 from validation_cases.shared.runtime import (
@@ -110,7 +107,7 @@ def run_boussinesq_stream_depletion_case(
         flow_regime="transient",
     )
     config_name = boussinesq_variant_config_name(solver_name)
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(_build_flow_config(flow_section, config_name=config_name)),
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
@@ -127,23 +124,10 @@ def run_boussinesq_stream_depletion_case(
             # One TS step in each substep: the time steps of the MODFLOW runs.
             written={"ts_vi_steps_per_period": 1},
         ),
+        plan_name="Boussinesq stream depletion validation",
+        plan_description="Well beside a stream held on the west side, other sides closed",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq stream depletion validation",
-            description="Well beside a stream held on the west side, other sides closed",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-    model = BoussinesqFlowAdapter().execute(ctx).primary_model
+    model = solved.solver_model
     if model.state is None:
         raise RuntimeError("The Boussinesq run returned no state.")
 

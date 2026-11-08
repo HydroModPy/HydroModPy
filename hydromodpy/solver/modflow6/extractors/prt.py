@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow_common.time_units import (
     TRACKING_TIME_UNIT,
@@ -33,26 +35,24 @@ class Modflow6PrtOutputAdapter:
     process_type = "transport"
     solver_name = "modflow6_prt"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read the first PRT track CSV file found in *solver_output_dir*."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the first PRT track CSV file in the output folder of a solved run.
 
-        solver_output_dir = Path(solver_output_dir)
+        Particles keep no per-cell budget, so ``retention`` is not read. The
+        tracking time is in the unit the TDIS file of the folder declares, found
+        by its extension.
+        """
+        del retention
+        solver_output_dir = Path(solver_run.output_dir)
         csv_path = self._find_track_csv(solver_output_dir)
         if csv_path is None:
             logger.warning("No MODFLOW 6 PRT track CSV found in %s", solver_output_dir)
             return
         self._extract_track_csv(
-            sim_id,
+            store.sim_id,
             store,
             csv_path,
-            time_units=resolve_solver_time_unit(solver_output_dir, model_name or ""),
+            time_units=resolve_solver_time_unit(solver_output_dir, ""),
         )
 
     @staticmethod

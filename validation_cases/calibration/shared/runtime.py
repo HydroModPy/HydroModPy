@@ -824,8 +824,8 @@ def _build_twin_metric_fn(
     The default :func:`hydromodpy.calibration.metrics.build_metric_extractor`
     is MODFLOW-NWT specific; the twin benchmarks target MODFLOW 6 in
     lightweight trial mode (no catalog ingest), so we read the CBC
-    budget and head-save (HDS) files directly from the trial's
-    ``output_dirs_by_run_id`` and assemble the composite via
+    budget and head-save (HDS) files directly from the output folder of the
+    trial's flow run in ``execution.solver_runs`` and assemble the composite via
     :class:`ConfigBlockObjective`.
     """
     from hydromodpy.calibration.optim.objective import ConfigBlockObjective
@@ -893,8 +893,12 @@ def _extract_outputs_from_trial_ctx(
 ) -> dict[str, list[float]]:
     """Read configured outputs from the trial's solver output directory."""
     registry = getattr(trial_ctx, "execution", None)
-    output_dirs = getattr(registry, "output_dirs_by_run_id", None) or {}
-    models = getattr(registry, "models_by_run_id", None) or {}
+    solver_runs = getattr(registry, "solver_runs", None) or {}
+    output_dirs = {
+        run_id: solver_run.output_dir
+        for run_id, solver_run in solver_runs.items()
+        if solver_run.output_dir is not None
+    }
     plan = getattr(registry, "simulation_plan", None)
     flow_run_id: str | None = None
     if plan is not None:
@@ -912,7 +916,7 @@ def _extract_outputs_from_trial_ctx(
             out[str(name)] = [float("nan")] * length
         return out
     output_dir = Path(output_dirs[flow_run_id])
-    model = models.get(flow_run_id)
+    model = solver_runs[flow_run_id].solver_model
     if (output_dir / BOUSSINESQ_STATE_HISTORY).is_file():
         return _extract_outputs_from_boussinesq_dir(output_dir, model, output_decls)
     model_name = (

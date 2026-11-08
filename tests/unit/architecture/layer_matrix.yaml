@@ -51,7 +51,7 @@ transitional:
     - {src: "<root>", tgt: config,   files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: data,     files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: display,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
-    - {src: "<root>", tgt: results,  files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
+    - {src: "<root>", tgt: results,  files: [hydromodpy/_api.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: solver,   files: [hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     - {src: "<root>", tgt: workflow, files: [hydromodpy/_api.py, hydromodpy/_bootstrap.py, hydromodpy/_lazy.py], reason: *root_reason}
     # The root files also read the packages that were built from the old ones.

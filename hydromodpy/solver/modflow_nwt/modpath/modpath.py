@@ -63,7 +63,7 @@ class Modpath:
         # Workflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",
-        bin_path: str | None = None,
+        bin_path: str | os.PathLike[str] | None = None,
         # Specific settings
         zone_partic: str | None = None,
         track_dir: str | None = None,

@@ -21,9 +21,11 @@ from hydromodpy.core.time.window import (
     resolve_simulation_time_window,
     resolve_simulation_time_window_dates,
     simulation_time_pandas_frequency,
+    time_grid_start,
     validate_recharge_coverage,
 )
 from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
+from tests._helpers.model_factory import make_model
 
 
 def _cfg(
@@ -411,3 +413,34 @@ def test_shared_rule_rejects_a_boolean_step_value_before_the_missing_unit_check(
     """
     with pytest.raises(ValueError, match="must be a positive integer"):
         reject_invalid_step_value_spec(True, None)
+
+
+STARTS = (
+    ("no grid", None, None),
+    ("a steady run without a grid", make_model().time.grid, None),
+    (
+        "the first boundary",
+        SimpleNamespace(boundaries=("2020-01-01", "2020-02-01")),
+        "2020-01-01",
+    ),
+    (
+        "the start of the window",
+        SimpleNamespace(boundaries=(), window=SimpleNamespace(start="2019-06-01")),
+        "2019-06-01",
+    ),
+    (
+        "the first date",
+        SimpleNamespace(boundaries=(), window=None, datetimes=("2018-03-03",)),
+        "2018-03-03",
+    ),
+    ("a grid that dates nothing", SimpleNamespace(boundaries=(), window=None), None),
+)
+
+
+@pytest.mark.parametrize(("case", "grid", "expected"), STARTS, ids=[c[0] for c in STARTS])
+def test_the_start_of_a_run_is_read_on_its_time_grid(
+    case: str, grid: object, expected: str | None
+) -> None:
+    del case
+
+    assert time_grid_start(grid) == expected

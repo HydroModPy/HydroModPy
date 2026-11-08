@@ -415,13 +415,13 @@ def test_run_state_data_scope_is_explicit() -> None:
 def test_run_state_results_scope_holds_what_the_runner_recorded() -> None:
     result = _build_state()
     run = SimpleNamespace(id="flow_main__modflow_nwt", solver="modflow_nwt")
-    model = object()
+    solver_run = object()
 
     result.execution.process_runs_by_id = {run.id: run}
-    result.execution.models_by_run_id = {run.id: model}
+    result.execution.solver_runs[run.id] = solver_run
 
     assert result.execution.process_runs_by_id[run.id] is run
-    assert result.execution.models_by_run_id[run.id] is model
+    assert result.execution.solver_runs[run.id] is solver_run
 
 
 def test_run_state_loaded_data_and_execution_scopes_are_mutable() -> None:
@@ -431,7 +431,7 @@ def test_run_state_loaded_data_and_execution_scopes_are_mutable() -> None:
     assert result.loaded_data.climatic is climatic
 
     run = SimpleNamespace(id="flow_main__modflow_nwt", solver="modflow_nwt")
-    model = object()
+    solver_run = object()
     result.execution.process_runs_by_id = {run.id: run}
-    result.execution.models_by_run_id = {run.id: model}
-    assert result.execution.models_by_run_id[run.id] is model
+    result.execution.solver_runs[run.id] = solver_run
+    assert result.execution.solver_runs[run.id] is solver_run

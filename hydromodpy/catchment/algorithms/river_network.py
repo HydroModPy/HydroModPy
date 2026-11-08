@@ -31,7 +31,7 @@ from hydromodpy.catchment.algorithms.river_network_vector import (
     compute_river_network_summary,
     remove_vector_sidecars,
 )
-from hydromodpy.catchment.delineation.registry import (
+from hydromodpy.catchment.delineation import (
     backend_has_callables,
     resolve_delineation_backend,
 )

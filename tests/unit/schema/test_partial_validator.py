@@ -133,7 +133,7 @@ FIELD_CASES = (
         "mesh.engine",
         "nope",
         False,
-        "mesh.engine names 'nope', and this installation serves regular, triangle, voronoi",
+        "mesh.engine names 'nope', and this installation serves catchment, regular, triangle, voronoi",
     ),
     ("geographic.terrain_engine", None, True, None),
     (

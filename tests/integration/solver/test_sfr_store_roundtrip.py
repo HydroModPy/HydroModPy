@@ -22,10 +22,10 @@ from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.sfr import sfr_station_id
 from tests._helpers.run_stores import open_run_store
 from tests.integration.solver._sfr_models import (
-    MODEL_NAME,
     NETWORK_ID,
     run_standalone_sfr_model,
 )
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 @pytest.mark.integration
@@ -42,7 +42,7 @@ def test_sfr_series_roundtrip_through_reopened_store(tmp_path: Path) -> None:
     store = open_run_store(catalog_ws, "sfr_roundtrip", create_zarr=False)
     sim_id = store.sim_id
     try:
-        Modflow6OutputAdapter().extract(sim_id, model_ws, store, model_name=MODEL_NAME)
+        Modflow6OutputAdapter().extract(solved_run(model_ws), store, keep_all)
     except BaseException:
         store.close()
         raise

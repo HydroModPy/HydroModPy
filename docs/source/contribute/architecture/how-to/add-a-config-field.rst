@@ -78,7 +78,7 @@ A named table
 The settings of a flow solver are not a section of the root. A key of ``[solver]`` that is not one
 of its own fields is the name of a flow solver, and its table is validated by the ``options`` class
 that the adapter declares (``hydromodpy/solver/modflow6/modflow6_config.py``,
-``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``, ``hydromodpy/model/runtime_config.py``).
+``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``, ``hydromodpy/solver/boussinesq/options.py``).
 To add a field to such a table, add it on that class with the same rules as any other field.
 ``SolverConfig.named_tables(shipped_only=True)`` hands the classes of the shipped solvers to the
 schema, the template, the parameter pages and the dotted paths, so none of them needs a line for a

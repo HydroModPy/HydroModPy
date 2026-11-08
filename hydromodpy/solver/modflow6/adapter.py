@@ -1,8 +1,10 @@
 """Adapter for the ``flow/modflow6`` solver pair.
 
-This module contains only the MODFLOW 6-specific construction step. The
-shared flow execution lifecycle lives in
-``hydromodpy.solver.modflow_common.flow_adapter_helpers``.
+This module holds what is specific to MODFLOW 6: the construction of the
+``Modflow6`` object, the metrics of its wells and of its steady start, its lake
+observables, and ``rerun``, which solves a model again for a new K or Sy
+without a build (``solver/modflow6/rerun.py``). The shared flow lifecycle lives
+in ``hydromodpy.solver.modflow_common.flow_adapter_helpers``.
 """
 
 from __future__ import annotations
@@ -19,6 +21,11 @@ from hydromodpy.core.contracts.observables import ObservableRequest, ObservableR
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.model.sinks_sources.wells import WELLS_PUMPED_METRIC
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.cell_lookup import (
+    locate_cell_on_solver_mesh,
+    top_active_layer_on_solver_mesh,
+)
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -26,18 +33,20 @@ from hydromodpy.solver.base.observables import (
     servable,
     under_condition,
 )
-from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+from hydromodpy.solver.modflow6.rerun import rerun_modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+    build_flow_model,
     build_preprocess_options,
-    resolve_run_model_name,
+    resolve_solver_run_output,
     run_flow_model,
 )
 from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
-    resolve_run_output,
 )
 
 # LAK observation states this adapter serves, and the unit each carries. The
@@ -70,11 +79,6 @@ def _collapse_to_disv_cells(
         return dict(station_cells)
     ncol = int(mesh.ncol)
     return {sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()}
-
-
-def _active_bc(config: object) -> set[str]:
-    flow = getattr(config, "flow", None)
-    return {str(name).lower() for name in (getattr(flow, "active_bc", None) or [])}
 
 
 class Modflow6FlowAdapter:
@@ -160,21 +164,77 @@ class Modflow6FlowAdapter:
     options: ClassVar[type[BaseModel] | None] = Modflow6Config
     category: ClassVar[str] = "distributed"
     native_step: ClassVar[str | None] = None
-    mutable: ClassVar[frozenset[str]] = frozenset()
+    mutable: ClassVar[frozenset[str]] = frozenset({"K", "Sy"})
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
-    def validate(self, ctx: RunContext) -> None:
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""
 
-    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
-        """Say what this run can serve, reading the configuration it will build.
+    def build(
+        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+    ) -> SolverRun:
+        """Build the MODFLOW 6 model of ``model`` in memory, under ``slot``.
+
+        The method is intentionally thin:
+
+        - resolve the shared preprocessing options from the ``Model``,
+        - build the concrete ``Modflow6`` object in the folder and under the
+          name the slot gives, with the binaries of the slot and the options,
+        - delegate the rest to ``build_flow_model``, which hands the ``Model``
+          and the slot to ``Modflow6.pre_processing``.
+        """
+        preprocess_options = build_preprocess_options(model)
+        solver_model = Modflow6(
+            model_folder=slot.folder,
+            model_name=slot.name,
+            bin_path=slot.bin_dir,
+            modflow_config=options,
+            preprocess_options=preprocess_options,
+        )
+        return build_flow_model(solver_model, model, options, slot, ctx, preprocess_options)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the input files unless they are written, start, solve, and return the solved run.
+
+        On top of the shared lifecycle, the run carries the share of the asked
+        pumping its wells delivered, as a metric, and whether the steady solve
+        it started from converged, which the runner reads before a transport.
+        """
+        result = run_flow_model(solver_run, solver_name=self.name)
+        solver_model = result.solver_model
+        handed_back: dict[str, Any] = {}
+        pumped = getattr(solver_model, "well_pumped_percent", None)
+        if pumped is not None:
+            handed_back["metrics"] = {**result.metrics, WELLS_PUMPED_METRIC: float(pumped)}
+        # Set by the auxiliary steady solve of a steady start, None for any other start.
+        converged = getattr(solver_model, "initial_state_converged", None)
+        if converged is not None:
+            handed_back["initial_state_converged"] = bool(converged)
+        return replace(result, **handed_back) if handed_back else result
+
+    def rerun(self, previous: SolverRun, model: Any, slot: RunSlot) -> SolverRun | None:
+        """Solve ``model`` again from the solved run ``previous``, for a new K or Sy.
+
+        It copies the input files of ``previous`` into the folder of ``slot`` and
+        rewrites NPF and DRN for K, STO for Sy, and the file of the properties.
+        It consumes ``previous`` and returns ``None``, touching nothing, when the
+        change needs a build (see :func:`~hydromodpy.solver.modflow6.rerun.rerun_modflow6`).
+        """
+        return rerun_modflow6(previous, model, slot, mutable=self.mutable)
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the fields and tables of a solved run through its registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def declared_observables(self, active: frozenset[str]) -> tuple[ObservableSupport, ...]:
+        """Say what a run can serve, given the ids of the active conditions of ``[flow]``.
 
         MODFLOW 6 builds LAK and SFR when the file asks for them, so a lake stage
         and a routed reach discharge are one declaration away rather than out of
         reach. Everything else is served from the head and budget files this
         backend always writes.
         """
-        active = _active_bc(config)
+        active = {str(name).lower() for name in active}
         lake_declared = "lake" in active
         sfr_declared = "sfr" in active
         return (
@@ -203,45 +263,38 @@ class Modflow6FlowAdapter:
             ),
         )
 
-    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+    def locate_cell(self, solver_run: SolverRun, x: float, y: float) -> tuple[int, int, int] | None:
         """Return the cell that holds ``(x, y)`` on the mesh this run actually wrote."""
-        from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+        return locate_cell_on_solver_mesh(solver_run, x, y)
 
-        return locate_cell_on_solver_mesh(ctx, x, y)
-
-    def top_active_layer(self, ctx: RunContext, row: int, col: int) -> int | None:
+    def top_active_layer(self, solver_run: SolverRun, row: int, col: int) -> int | None:
         """Return the top active layer of the column at ``(row, col)``, from the run's idomain."""
-        from hydromodpy.solver.base.cell_lookup import top_active_layer_on_solver_mesh
+        return top_active_layer_on_solver_mesh(solver_run, row, col)
 
-        return top_active_layer_on_solver_mesh(ctx, row, col)
-
-    def cleanup(self, ctx: RunContext) -> None:
+    def cleanup(self, solver_run: SolverRun) -> None:
         """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.output_dir
-        if solver_output_dir is not None:
-            cleanup_solver_files(solver_output_dir)
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
 
-    def extract_observables(
+    def observables(
         self,
-        ctx: RunContext,
-        store: Any,
+        solver_run: SolverRun,
         requests: Sequence[ObservableRequest],
         *,
         time_index: pd.DatetimeIndex | None = None,
     ) -> dict[str, ObservableResult]:
-        """Read observables from the scratch CBC, HDS and LAK observation files.
+        """Read observables from the scratch CBC, HDS and LAK observation files of a run.
 
         MF6 binaries share the FloPy-readable format MODFLOW-NWT uses, so
         discharge, head and the per-cell fields come out of the shared helper.
         Lake states are MF6-only: the request names the state in ``name`` and
         the lake in ``key``, and they are read from the LAK observation CSV.
-        ``store`` is accepted for Protocol uniformity but unused on this path.
+        A trial reads straight from ``solver_run.output_dir``.
         """
-        del store
         if not requests:
             return {}
-        output_dir, model, model_name = resolve_run_output(
-            ctx, name_attributes=("model_output_name", "model_name", "name")
+        output_dir, model, model_name = resolve_solver_run_output(
+            solver_run, name_attributes=("model_output_name", "model_name", "name")
         )
         served, unserved = extract_common_modflow_observables(
             output_dir,
@@ -271,41 +324,6 @@ class Modflow6FlowAdapter:
                 request, series, units=_LAKE_STATE_UNITS[request.name]
             )
         return served
-
-    def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one MODFLOW 6 flow run.
-
-        The method is intentionally narrow in scope:
-
-        - read the ``Model`` the ``prepare_solver`` step put on the setup and
-          resolve the shared preprocessing options from it,
-        - derive the stable model folder name for this run,
-        - build the concrete ``Modflow6`` object,
-        - delegate the common run lifecycle to ``run_flow_model``.
-        """
-
-        state = ctx.state
-        preprocess_options = build_preprocess_options(state.setup.model)
-        model_name = resolve_run_model_name(ctx)
-        # This is the only MODFLOW 6-specific part of the adapter: wiring the
-        # MF6 config block into the concrete solver implementation.
-        model_modflow = Modflow6(
-            model_folder=state.setup.workspace.solver_scratch_folder,
-            model_name=model_name,
-            bin_path=state.setup.workspace.bin_path,
-            modflow_config=state.cfg.solver.options_of(self.name),
-            preprocess_options=preprocess_options,
-        )
-        result = run_flow_model(ctx, model_modflow, preprocess_options)
-        handed_back: dict[str, Any] = {}
-        pumped = getattr(model_modflow, "well_pumped_percent", None)
-        if pumped is not None:
-            handed_back["metrics"] = {**result.metrics, WELLS_PUMPED_METRIC: float(pumped)}
-        # Set by the auxiliary steady solve of a steady start, None for any other start.
-        converged = getattr(model_modflow, "initial_state_converged", None)
-        if converged is not None:
-            handed_back["initial_state_converged"] = bool(converged)
-        return replace(result, **handed_back) if handed_back else result
 
 
 def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:

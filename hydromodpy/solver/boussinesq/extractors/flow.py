@@ -9,13 +9,43 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import DOMAIN
+from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
+from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
+    write_ts_vi_obstacle_diagnostic_files,
+)
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    write_vi_obstacle_diagnostic_files,
+)
 
 logger = get_logger(__name__)
+
+
+def write_obstacle_diagnostics(solver_output_dir: Path, store: Any) -> None:
+    """Write the VI runtime diagnostics into ``exports/solver_diagnostics/`` of the run.
+
+    They go beside the results and not in the scratch, which the seal of a
+    completed run removes. A run without a store, or a scratch without its
+    summary, writes none.
+    """
+    diagnostics_dir = getattr(store, "solver_diagnostics_dir", None)
+    summary_path = solver_output_dir / "_boussinesq_summary.json"
+    if diagnostics_dir is None or not summary_path.exists():
+        return
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    diagnostics_dir = Path(diagnostics_dir)
+    write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
+    write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 
 
 def _storage_flux(payload, *, first_snapshot: int, n_periods: int) -> np.ndarray | None:
@@ -67,25 +97,26 @@ class BoussinesqOutputAdapter:
     process_type = "flow"
     solver_name = "boussinesq"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        budget_terms: BudgetKeep = BudgetKeep.everything(),
-        start_datetime: object | None = None,
-    ) -> None:
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
         """Read .npz state history and write head and budget fields to the store.
 
-        ``budget_terms`` says which per-cell budget terms are written; the
-        lumped budget table always holds every term.
+        ``retention.budget`` says which per-cell budget terms are written; the
+        lumped budget table always holds every term. The start date comes from
+        the ``Model`` of the run, and the VI runtime diagnostics go to the
+        diagnostics folder of the store before the fields are read.
         """
-        solver_output_dir = Path(solver_output_dir)
+        sim_id = store.sim_id
+        budget_terms = retention.budget
+        start_datetime = time_grid_start(
+            None if solver_run.model is None else solver_run.model.time.grid
+        )
+        solver_output_dir = Path(solver_run.output_dir)
         npz_path = solver_output_dir / "_boussinesq_state_history.npz"
 
+        write_obstacle_diagnostics(solver_output_dir, store)
+
         if not npz_path.exists():
-            raise FileNotFoundError(f"No _boussinesq_state_history.npz in {solver_output_dir}")
+            raise NothingThereError(f"No _boussinesq_state_history.npz in {solver_output_dir}")
 
         with np.load(npz_path) as payload:
             head_history = payload.get("head_history_m")

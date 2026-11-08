@@ -119,7 +119,9 @@ otherwise recompute:
      - Content
    * - ``centers``, ``center_kind``
      - The one cell center rule, shape ``(n_cells, 2)``. ``center_kind`` is ``generator``
-       (Voronoi), ``cell_center`` (regular grid) or ``vertex_mean`` (triangles).
+       (Voronoi), ``cell_center`` (regular grid), ``vertex_mean`` (triangles) or
+       ``interior_point`` (the one cell of the ``catchment`` engine, a point inside it from
+       shapely's ``point_on_surface``).
    * - ``crs_wkt``
      - The CRS of the vertices, as WKT. It is required.
    * - ``face_families``, ``cell_chains``
@@ -291,6 +293,8 @@ connections.
        ``cell_mesh_from_bundle`` turns into a cell mesh.
 
 Each flow adapter declares the engines it reads in ``accepted_meshes``, see :doc:`mesh-engines`.
+Whether a solver reads the meshes of an engine is decided by one rule, ``engine_accepted`` of
+``mesh/registry.py``.
 
 Design choices
 --------------
@@ -303,7 +307,7 @@ subset of that model, with round trips through the adapters.
 See also
 --------
 
-- :doc:`mesh-engines` for the port, the planner and the three engines.
+- :doc:`mesh-engines` for the port, the planner and the four engines.
 - :doc:`voronoi-engine` and :doc:`triangle-engine` for the two engines that use a size field.
 - :doc:`index` for the mesh section.
 - :doc:`../storage-layout` for the mesh in the Zarr store and its Parquet tables.

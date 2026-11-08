@@ -2,12 +2,15 @@
 
 This module contains only MODFLOW-agnostic flow lifecycle logic:
 
-- derive stable model names from the resolved simulation plan,
 - build flow pre-processing options for solver backends,
-- run the common pre/process sequence once a concrete flow model exists.
+- ``build_flow_model`` and ``run_flow_model``, the two halves of the common
+  lifecycle once a concrete solver object exists: the first builds the model
+  in memory, the second writes the input files, solves and reads the listing,
+- read back the folder, the solver object and the name of a solved run.
 
-Post-processing (derived variables, result extraction) is handled by
-the ``Catalog`` pipeline via ``post_run_results()``.
+The name and the folder of a run come from the ``RunSlot`` the runner fills,
+so nothing here derives a name. Result extraction and the derived variables
+belong to the extract and derive steps of the workflow.
 
 Keeping that code here avoids duplicating the same lifecycle in both
 ``modflow_nwt`` and ``modflow6`` adapters.
@@ -16,19 +19,24 @@ Keeping that code here avoids duplicating the same lifecycle in both
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from hydromodpy.core.exceptions import MeshError, SolverDivergedError, SolverInputError
-from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
+from pydantic import BaseModel
+
+from hydromodpy.core.exceptions import (
+    MeshError,
+    ObservableNotAvailableError,
+    SolverDivergedError,
+)
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
-    ProcessRun,
     RunContext,
-    RunExecutionResult,
-    SimulationPlan,
+    RunSlot,
+    SolverRun,
 )
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
@@ -184,76 +192,6 @@ def simulation_listing_failure_lines(model_dir: Path, *, max_lines: int = 10) ->
     return picked[-max_lines:]
 
 
-def _has_single_process_run(plan: SimulationPlan, process_type: str) -> bool:
-    """Return ``True`` when *plan* contains exactly one run of *process_type*.
-
-    The flow adapters use this to decide whether they can keep the base model
-    name unchanged or must append a deterministic suffix to avoid collisions.
-    """
-
-    return sum(1 for run in plan.runs if run.process_type == process_type) == 1
-
-
-def _run_label(plan: SimulationPlan, run: ProcessRun) -> str:
-    """Return a short stable label for *run* inside its process family.
-
-    Labels are positional within the family, not global to the plan. That
-    keeps generated names compact and predictable across repeated runs.
-    """
-
-    same_type_runs = [planned for planned in plan.runs if planned.process_type == run.process_type]
-    for index, planned in enumerate(same_type_runs, start=1):
-        if planned.id == run.id:
-            prefix = {
-                "flow": "f",
-                "transport": "t",
-            }.get(run.process_type, "r")
-            return f"{prefix}{index}"
-
-    raise SolverInputError(
-        f"[HMPY.E405] Process run '{run.id}' is not present in the provided simulation plan."
-    )
-
-
-def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> str:
-    """Return the stable model name used for one flow run.
-
-    When the plan contains a single flow run, the launcher base model name is
-    reused unchanged. When several flow runs exist, a short suffix such as
-    ``_f1`` or ``_f2`` is appended so each solver writes into its own folder.
-    """
-
-    if _has_single_process_run(plan, "flow"):
-        return base_name
-    return f"{base_name}_{_run_label(plan, run)}"
-
-
-def resolve_run_model_name(ctx) -> str:
-    """Resolve the model name from the run context.
-
-    Canonical source is ``ctx.state.setup.run_id``.
-    When the plan has multiple flow runs, a positional suffix is appended.
-    """
-    flow_runtime_overrides = getattr(ctx.state.setup, "flow_runtime_overrides", None)
-    if isinstance(flow_runtime_overrides, Mapping):
-        override_name = str(flow_runtime_overrides.get("model_name_override", "") or "").strip()
-        if override_name:
-            return flow_model_name(ctx.plan, override_name, ctx.run)
-    return flow_model_name(ctx.plan, resolve_base_model_name(ctx.state.setup), ctx.run)
-
-
-def resolve_base_model_name(setup) -> str:
-    """Resolve the launcher base model name from runtime setup state.
-
-    Canonical source is ``setup.run_id`` in the modern simulation runtime.
-    When missing or blank, ``"default"`` is returned.
-    """
-    run_id = str(getattr(setup, "run_id", "") or "").strip()
-    if run_id:
-        return run_id
-    return "default"
-
-
 def nwt_safe_name(name: str) -> str:
     """Collapse whitespace to underscores for a MODFLOW-NWT model name.
 
@@ -325,54 +263,64 @@ def require_cell_mesh(model: Model) -> PlanarCellMesh:
     return cell_mesh
 
 
-def run_flow_model(
+def build_flow_model(
+    solver_model: Any,
+    model: Model,
+    options: BaseModel | None,
+    slot: RunSlot,
     ctx: RunContext,
-    model_modflow,
-    preprocess_options,
-) -> RunExecutionResult:
-    """Execute the shared lifecycle for one already-instantiated flow model.
+    preprocess_options: ModflowPreprocessOptions,
+) -> SolverRun:
+    """Build one already-instantiated MODFLOW solver object in memory, writing nothing.
 
-    The solver-specific adapters only choose and configure the concrete flow
-    backend. Once the model object exists, the execution steps are identical:
+    The solver-specific adapter only chooses and configures the concrete
+    backend, ``Modflow6`` or ``ModflowNwt``. Once the object exists the build is
+    the same for both:
 
-    1. run preprocessing against the ``Model`` the ``prepare_solver`` step put on
-       ``ctx.state.setup.model``,
-    2. launch the numerical solve,
-    3. return the result - post-processing is handled by ``post_run_results()``.
+    1. check that the ``Model`` carries the planar cell mesh,
+    2. pre-process: the grid, the packages and the disk inputs the backend
+       needs, from the frozen ``Model``, which it never changes,
+    3. say on the solver object whether a downstream MT3DMS run reads the
+       output (``link_mt3dms``), because ``run`` no longer sees the plan.
+
+    The ``SolverRun`` returned holds the solver object, ``written`` and
+    ``solved`` false. ``run_flow_model`` writes and solves it.
     """
-
-    state = ctx.state
-    flow_runtime_overrides = getattr(state.setup, "flow_runtime_overrides", None)
-    model = state.setup.model
     require_cell_mesh(model)
-    # Pre-processing materializes the grid, packages, and disk inputs for the
-    # chosen flow backend from the frozen ``Model``, which it never changes.
-    model_modflow.pre_processing(
-        model,
-        options=preprocess_options,
-        flow_runtime_overrides=flow_runtime_overrides,
-    )
-    if isinstance(flow_runtime_overrides, Mapping) and flow_runtime_overrides.get(
-        STOP_BEFORE_THE_SOLVE
-    ):
-        return RunExecutionResult(primary_model=model_modflow)
+    solver_model.pre_processing(model, options=preprocess_options, slot=slot)
+    solver_model.link_mt3dms = _requires_mt3dms_link(ctx)
+    return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
 
-    # The numerical run is shared across flow backends: write files, execute
-    # the solver, and link MT3DMS-compatible outputs only when a downstream
-    # MT3DMS transport run depends on this flow run.
-    success = model_modflow.processing(
+
+def run_flow_model(solver_run: SolverRun, *, solver_name: str) -> SolverRun:
+    """Write, solve and measure a built MODFLOW solver object, and return the solved run.
+
+    The input files are written unless ``solver_run.written``. The solver
+    object lists the files it wrote in ``input_files``, relative to its folder,
+    and says in ``link_mt3dms`` whether to link MT3DMS-compatible outputs. The
+    numerical run is the same for both MODFLOW backends:
+
+    1. write the files, execute the solver and link the MT3DMS output,
+    2. read the water budget the listing prints,
+    3. return the run with its folder, its input files and its metrics.
+
+    A solve that fails raises ``SolverDivergedError`` naming the run by
+    ``solver_run.slot.name``. The runner puts the run id on it.
+    """
+    solver_model = solver_run.solver_model
+    success = solver_model.processing(
         options=ModflowRunOptions(
-            write_model=True,
+            write_model=not solver_run.written,
             run_model=True,
-            link_mt3dms=_requires_mt3dms_link(ctx),
-            runner=resolve_modflow_runner(model_modflow),
+            link_mt3dms=bool(getattr(solver_model, "link_mt3dms", False)),
+            runner=resolve_modflow_runner(solver_model),
         )
     )
     if not success:
-        model_dir = Path(getattr(model_modflow, "full_path", "")).resolve()
+        model_dir = Path(getattr(solver_model, "full_path", "")).resolve()
         diagnostics_path = model_dir
         detail = ""
-        if ctx.run.solver == "modflow6":
+        if solver_name == "modflow6":
             percent = last_percent_discrepancy(model_dir)
             if percent is not None:
                 detail = f" Final water-budget PERCENT DISCREPANCY = {percent}."
@@ -384,26 +332,57 @@ def run_flow_model(
             diagnostics_path = model_dir / "mfsim.lst"
             detail += xt3d_failure_hint(model_dir)
         raise SolverDivergedError(
-            f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'."
-            f"{detail} See {diagnostics_path} for diagnostics.",
-            run_id=ctx.run.id,
+            f"[HMPY.E401] Flow solver '{solver_name}' failed for run "
+            f"'{solver_run.slot.name}'.{detail} See {diagnostics_path} for diagnostics."
         )
     metrics: dict[str, float] = {}
-    flow_solve_time = getattr(model_modflow, "last_flow_solve_time_seconds", None)
+    flow_solve_time = getattr(solver_model, "last_flow_solve_time_seconds", None)
     if flow_solve_time is not None:
         metrics["flow_solve_time_seconds"] = float(flow_solve_time)
     # Convergence and a closed budget are two questions. A run that converges and
     # writes heads with a large imbalance was otherwise indistinguishable from a
     # sound one, so the number rides with every run rather than only with a failure.
-    discrepancies = model_percent_discrepancies(Path(model_modflow.full_path))
+    discrepancies = model_percent_discrepancies(Path(solver_model.full_path))
     if discrepancies:
         metrics[WATER_BUDGET_METRIC] = float(discrepancies[-1])
         metrics[WATER_BUDGET_WORST_METRIC] = float(max(discrepancies, key=abs))
-    return RunExecutionResult(
-        primary_model=model_modflow,
-        solver_output_dir=Path(model_modflow.full_path),
-        metrics=metrics,
+    return replace(
+        solver_run,
+        output_dir=Path(solver_model.full_path),
+        input_files=tuple(getattr(solver_model, "input_files", ())),
+        written=True,
+        solved=True,
+        metrics={**solver_run.metrics, **metrics},
     )
+
+
+def resolve_solver_run_output(
+    solver_run: SolverRun, *, name_attributes: Sequence[str]
+) -> tuple[Path, Any, str]:
+    """Return the output folder, the solver object and the model name of a solved run.
+
+    A lightweight trial writes nothing to the store, so the only trace of the
+    run is the folder its solver wrote in. ``name_attributes`` lists, in order,
+    the attributes of the solver object that can hold the name of the model.
+    The run is named by ``slot.name`` in the refusals.
+    """
+    output_dir = solver_run.output_dir
+    solver_model = solver_run.solver_model
+    if output_dir is None or solver_model is None:
+        raise ObservableNotAvailableError(
+            f"No solver output recorded for run {solver_run.slot.name!r}"
+        )
+    model_name = next(
+        (
+            value
+            for value in (getattr(solver_model, attr, None) for attr in name_attributes)
+            if value is not None
+        ),
+        None,
+    )
+    if model_name is None:
+        raise ObservableNotAvailableError(f"Model name is missing for run {solver_run.slot.name!r}")
+    return output_dir, solver_model, str(model_name)
 
 
 def xt3d_failure_hint(model_dir: Path) -> str:

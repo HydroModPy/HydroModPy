@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.assembly.surface import (
     regularized_partition_surface_rate_from_balance,
 )
+from hydromodpy.solver.boussinesq.options import DEFAULT_PARTITION_RELEASE_DEPTH_M
 
 depth = np.linspace(0.0, 1.2, 1201)
 cells = SimpleNamespace(

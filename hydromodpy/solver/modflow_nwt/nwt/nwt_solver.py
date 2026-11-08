@@ -25,6 +25,7 @@ from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
     build_solver_routing_context,
@@ -32,10 +33,12 @@ from hydromodpy.solver.modflow_common import (
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
-from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import (
+    build_solver_mesh_descent,
+    channel_exits_for_build,
+)
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -87,7 +90,7 @@ class ModflowNwt:
         modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
-        bin_path: str | None = None,
+        bin_path: str | os.PathLike[str] | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
         """Initialize the solver state and resolve the MODFLOW-NWT binary.
@@ -98,7 +101,7 @@ class ModflowNwt:
             Path where the model will be stored. Default is ``HydroModPy_outputs``.
         model_name : str, optional
             Model name. Default is ``Default``.
-        bin_path : str | None, optional
+        bin_path : str | PathLike | None, optional
             Folder that holds the MODFLOW executables. When None the
             HydroModPy-managed cache (``~/.cache/hydromodpy/bin``) is used
             and missing binaries are downloaded on first use.
@@ -120,6 +123,10 @@ class ModflowNwt:
         self.inputs: Model | None = None
         self.flow_regime: str | None = None
         self.last_flow_solve_time_seconds: float | None = None
+        # Set by ``build_flow_model``: a downstream MT3DMS run reads this output.
+        self.link_mt3dms = False
+        # The input files ``processing`` wrote, relative to ``full_path``.
+        self.input_files: tuple[str, ...] = ()
 
         # The DEM grid, read off ``inputs.geometry.raster`` by pre_processing.
         self.resolution: float | None = None
@@ -374,7 +381,7 @@ class ModflowNwt:
             solver_mesh,
             lake_cells_by_lake={},
             base_level_mask=constant_head,
-            channel_tree=channel_tree_for_run(geometry.raster.channel, solver_mesh),
+            channel_exits=channel_exits_for_build(geometry.raster.channel, geometry.channel_exits),
             active_column=(ibound_cells != 0).any(axis=0),
             geographic=geometry.catchment,
         )
@@ -427,7 +434,7 @@ class ModflowNwt:
         model: Model,
         options: ModflowPreprocessOptions | None = None,
         *,
-        flow_runtime_overrides: Mapping[str, object] | None = None,
+        slot: RunSlot | None = None,
     ):
         """Pre-processing to build the hydrologic model.
 
@@ -439,12 +446,13 @@ class ModflowNwt:
             raster geometry is the DEM the grid and the routing are built on.
         options : ModflowPreprocessOptions, optional
             Optional typed pre-processing options.
-        flow_runtime_overrides : Mapping, optional
-            The trial keys of the run, which ``run_flow_model`` hands to both
-            MODFLOW backends. MODFLOW-NWT reads none of them. A per-cell
-            property override is ``Model.with_properties``.
+        slot : RunSlot, optional
+            The slot of the run, which ``build_flow_model`` hands to both
+            MODFLOW backends. MODFLOW-NWT already holds its folder, its name
+            and its binary from the constructor and reads nothing more of it.
+            A per-cell property override is ``Model.with_properties``.
         """
-        del flow_runtime_overrides
+        del slot
         self.inputs = model
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
@@ -459,6 +467,18 @@ class ModflowNwt:
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
         self._build_descent(sgrid, flow_inputs)
         assemble_flopy_packages(self, flow_inputs, active_options)
+
+    def _written_input_files(self) -> tuple[str, ...]:
+        """Return the name file and the package files ``write_input`` wrote, in order."""
+        names = [self.mf.namefile]
+        for package in self.mf.packagelist:
+            names.extend(package.file_name)
+        written = (
+            name
+            for name in dict.fromkeys(names)
+            if os.path.isfile(os.path.join(self.mf.model_ws, name))
+        )
+        return tuple(written)
 
     def processing(
         self,
@@ -502,6 +522,7 @@ class ModflowNwt:
 
         if options.write_model:
             self.mf.write_input()
+            self.input_files = self._written_input_files()
         elif steady_initial_heads_applied:
             self.bas.write_file()
 

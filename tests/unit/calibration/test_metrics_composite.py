@@ -513,8 +513,8 @@ def _serve(monkeypatch, answers: dict[str, np.ndarray]) -> None:
     """Answer every request the producers make from ``answers``, keyed by request id."""
 
     class _Adapter:
-        def extract_observables(self, ctx, store, requests, *, time_index=None):
-            del ctx, store, time_index
+        def observables(self, ctx, requests, *, time_index=None):
+            del ctx, time_index
             return {
                 request.id: adapter_result(request.id, answers[request.id], "-", times=STAMPS)
                 for request in requests
@@ -526,7 +526,10 @@ def _serve(monkeypatch, answers: dict[str, np.ndarray]) -> None:
         "resolve_flow_adapter",
         lambda ctx: (
             _Adapter(),
-            SimpleNamespace(run=SimpleNamespace(solver="modflow6"), model=None),
+            SimpleNamespace(
+                run=SimpleNamespace(solver="modflow6"),
+                solver_run=SimpleNamespace(solver_model=None),
+            ),
         ),
     )
 
@@ -873,7 +876,9 @@ def _ctx__discharge_per(station_cells: dict[str, tuple[int, int, int]]) -> Simpl
     )
 
 
-_RUN_CTX = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), model=None)
+_RUN_CTX = SimpleNamespace(
+    run=SimpleNamespace(solver="fake_solver"), solver_run=SimpleNamespace(solver_model=None)
+)
 
 
 def _served_up(**flags):
@@ -961,16 +966,16 @@ def test_a_station_without_a_cell_falls_back_to_the_catchment_series():
 
 
 class _Recorder(FakeAdapter):
-    """A FakeAdapter that keeps every call whole: run, store, the requests and the time index."""
+    """A FakeAdapter that keeps every call whole: the solver run, the requests and the time index."""
 
     def __init__(self, served, **kwargs):
         super().__init__(served, **kwargs)
         self.calls = []
 
-    def extract_observables(self, run_ctx, store, requests, *, time_index=None):
+    def observables(self, solver_run, requests, *, time_index=None):
         asked = [(r.id, r.name, r.support, r.cell) for r in requests]
-        self.calls.append((run_ctx, store, asked, time_index))
-        return super().extract_observables(run_ctx, store, requests, time_index=time_index)
+        self.calls.append((solver_run, asked, time_index))
+        return super().observables(solver_run, requests, time_index=time_index)
 
 
 def test_the_solver_is_asked_for_the_catchment_and_for_the_cell_and_area_of_a_gauge():
@@ -978,8 +983,8 @@ def test_the_solver_is_asked_for_the_catchment_and_for_the_cell_and_area_of_a_ga
 
     _by_station(adapter, {"UP": (0, 1, 2)}, "UP")
 
-    ((run_ctx, store, asked, time_index),) = adapter.calls
-    assert run_ctx is _RUN_CTX and store is None and time_index is _INDEX
+    ((solver_run, asked, time_index),) = adapter.calls
+    assert solver_run is _RUN_CTX.solver_run and time_index is _INDEX
     cell = asked[1][3]
     assert asked == [
         ("catchment", "discharge", "domain", None),
@@ -1002,14 +1007,14 @@ def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
         "per-cell discharge); every gauge is scored against the catchment outlet series, "
         "which is only right for the outlet one."
     ) in caplog.text
-    (_, _, first, _), (run_ctx, store, second, time_index) = adapter.calls
+    (_, first, _), (solver_run, second, time_index) = adapter.calls
     assert len(first) == 3 and second == first[:1]
-    assert run_ctx is _RUN_CTX and store is None and time_index is _INDEX
+    assert solver_run is _RUN_CTX.solver_run and time_index is _INDEX
 
 
 def test_a_catchment_the_solver_does_not_answer_is_named():
     class _Silent:
-        def extract_observables(self, *_args, **_kwargs):
+        def observables(self, *_args, **_kwargs):
             return {}
 
     with pytest.raises(
@@ -1332,7 +1337,7 @@ def test_a_declared_window_still_wins(monkeypatch, bench, stream_file) -> None: 
 class _Raises:
     calls = 0
 
-    def extract_observables(self, *_args, **_kwargs):
+    def observables(self, *_args, **_kwargs):
         self.calls += 1
         raise RuntimeError("boom")
 
@@ -1354,7 +1359,7 @@ def test_an_outlet_series_the_solver_cannot_serve_is_raised_as_it_is() -> None:
 def test_the_variable_route_names_what_stops_a_trial(
     monkeypatch, caplog, ctx, producer, error, message
 ) -> None:
-    run_ctx = SimpleNamespace(run=SimpleNamespace(solver="s"))
+    run_ctx = SimpleNamespace(run=SimpleNamespace(solver="s"), solver_run=None)
     monkeypatch.setattr(composite, "resolve_flow_adapter", lambda _ctx: (object(), run_ctx))
 
     def failing(*_args, **_kwargs):

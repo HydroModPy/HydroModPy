@@ -91,11 +91,12 @@ What to do, by failing test
    touches must go.
 
 ``test_run_context_state_surface.py``, ``test_run_product_reaches_its_consumer.py``, ``test_workflow_context_members_have_a_reader.py``
-   These keep what a solver adapter receives narrow. An adapter reads the view
-   ``ctx.state`` (``setup``, ``cfg`` and ``sim_id``), the model and output folder
-   of its own run from ``ctx.model`` and ``ctx.output_dir``, the models it depends
-   on from ``ctx.dependency_models`` and the catalog handle from ``ctx.store``. It
-   does not reach into the execution registries. A member of ``WorkflowContext``
+   These keep what a solver adapter receives narrow. A flow adapter reads the
+   ``Model``, its options and its ``RunSlot``, and nothing of ``ctx.state`` or
+   ``ctx.store``. A transport adapter reads the view ``ctx.state`` (``setup``,
+   ``cfg`` and ``sim_id``), the runs it depends on from ``ctx.upstream`` and the
+   catalog handle from ``ctx.store``. Neither reaches into the execution
+   registries. A member of ``WorkflowContext``
    that nothing reads is removed. A module that really needs a registry is added
    to the short allowlist of the test, which is a decision to state in the pull
    request.

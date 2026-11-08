@@ -4,7 +4,7 @@ Three canonical scopes:
 
 - ``setup``: structural objects prepared once (workspace, domain, flow, ...);
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
-- ``execution``: run outputs and registries (planned runs, produced models).
+- ``execution``: run outputs and registries (planned runs, what each run produced).
 
 Plus the identity of the run being executed: ``sim_id``, the ``run_dir`` the
 run writes into, the attempt that writes it, the ``parent_sim_id`` a run is
@@ -36,6 +36,28 @@ if TYPE_CHECKING:
     from hydromodpy.core.workspace import WorkspaceLayout
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SlotRequest:
+    """What a calibration trial asks of the slot its runs solve in.
+
+    The runner of a plan reads it to fill the ``RunSlot`` of each run. ``name``
+    replaces ``setup.run_id`` as the run name, so each trial writes its own
+    folder. ``stop_before_solve`` builds the model of each run and solves
+    nothing. ``shared_forcing_dir`` is the folder a trial keeps its forcing
+    files in, the recharge binaries for instance, apart from its model folder.
+    It is the folder every trial of the session shares when the forcing is the
+    same for all of them, or a folder of the trial's own when the trial samples
+    a forcing parameter. ``None`` keeps the forcing files beside the model.
+
+    The folder and the solver binaries are not asked for: they are facts of the
+    machine, and the runner reads them on ``setup.workspace``.
+    """
+
+    name: str | None = None
+    stop_before_solve: bool = False
+    shared_forcing_dir: Path | None = None
+
+
 @dataclass
 class SetupContext:
     """Objects prepared during setup and reused by all runs.
@@ -64,10 +86,10 @@ class SetupContext:
     model: Any = None
     transport: Any = None
     mesh_summary: dict[str, Any] | None = None
-    mesh_bundle: Any = None
     # The planar cell mesh the solvers read (mesh.planar PlanarCellMesh).
     cell_mesh: Any = None
-    flow_runtime_overrides: dict[str, Any] | None = None
+    # What a calibration trial asks of the slot of each run. None outside a trial.
+    slot_request: SlotRequest | None = None
     run_id: str = "default"
     time_grid: Any = None
     # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
@@ -121,7 +143,7 @@ class LoadedDataContext:
 
 @dataclass
 class ExecutionRegistry:
-    """Execution-oriented metadata and produced model registry.
+    """Execution-oriented metadata and what each run produced.
 
     ``lightweight`` is set to ``True`` when the pipeline runs inside a
     calibration trial: in that mode steps 06/07 skip Zarr / Parquet /
@@ -129,10 +151,12 @@ class ExecutionRegistry:
     only. The flag is ``False`` for normal ``hmp run`` and for promoted
     trials.
 
-    ``output_dirs_by_run_id`` mirrors ``models_by_run_id`` and records
-    the raw solver output directory emitted by each run. Calibration
-    metric extractors read the solver binaries (``.hds`` / ``.cbc``)
-    directly from these paths without touching the catalog.
+    ``solver_runs`` maps a run id to the ``SolverRun`` that run produced:
+    the solver model it built, the folder its solver wrote and the metrics
+    it recorded about itself. Calibration metric extractors read the solver
+    binaries (``.hds`` / ``.cbc``) from that folder without touching the
+    catalog. A resume past the solver puts back a ``SolverRun`` without a
+    solver model, read from the facts of the run.
 
     ``rng`` is the master :class:`RngManager` for the simulation.
     Stochastic consumers derive their own deterministic ``Generator``
@@ -141,15 +165,13 @@ class ExecutionRegistry:
     ``np.random.default_rng()`` with a fresh entropy source.
 
     Field types are ``Any`` because ``core`` cannot import from sibling
-    layers. ``simulation_plan``, ``process_runs_by_id`` values, and
-    ``models_by_run_id`` values are produced by ``solver.base`` and the
-    solver backends respectively.
+    layers. ``simulation_plan``, ``process_runs_by_id`` values and
+    ``solver_runs`` values are ``solver.base.plan`` types.
     """
 
     simulation_plan: Any = None
     process_runs_by_id: dict[str, Any] = field(default_factory=dict)
-    models_by_run_id: dict[str, Any] = field(default_factory=dict)
-    output_dirs_by_run_id: dict[str, Path] = field(default_factory=dict)
+    solver_runs: dict[str, Any] = field(default_factory=dict)
     lightweight: bool = False
     rng: RngManager | None = None
 
@@ -158,10 +180,10 @@ class ExecutionRegistry:
 class WorkflowContext:
     """Mutable workflow state split into setup/loaded_data/execution scopes.
 
-    ``execution.models_by_run_id`` is where the runner records the model each
-    run produced, and the runner is its only reader: it resolves the upstream
-    models a run declares in ``depends_on``. Every other consumer reads what
-    one run produced, and receives it through ``RunContext``.
+    ``execution.solver_runs`` is where the runner records what each run
+    produced. The runner reads it to hand a run the runs it declares in
+    ``depends_on``. Every other consumer reads what one run produced, and
+    receives it through ``RunContext.solver_run``.
 
     Also carries the identity of the run being executed: ``sim_id``, the
     ``run_dir`` it writes into with the ``attempt`` that writes it, the
@@ -230,10 +252,9 @@ class RunState:
 
     The view carries no execution registry either. Every read an adapter made
     of it asked for the entry keyed by its own ``run.id``: the model that run
-    produced and the directory its solver wrote into. Both now reach the
-    adapter through ``RunContext.model`` and ``RunContext.output_dir``, so
-    reaching for another run's product is not forbidden by convention, it
-    raises ``AttributeError``.
+    produced and the directory its solver wrote into. Both now reach a
+    consumer through ``RunContext.solver_run``, so reaching for another run's
+    product is not forbidden by convention, it raises ``AttributeError``.
 
     ``cfg`` is typed ``Any`` because ``core`` cannot import from sibling
     layers; the concrete type is ``config.hydromodpy_config.HydroModPyConfig``.

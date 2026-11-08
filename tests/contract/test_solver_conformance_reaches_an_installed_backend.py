@@ -5,7 +5,9 @@ declared name means something to the build (a mesh engine, a stored field, a
 trait of the ``Model``, an extractor for its key) is only seen by
 ``tests/contract/test_solver_backend_contract.py``, so this file installs a
 backend the suite has never heard of and runs the suite against it in a
-subprocess. The probe solves nothing: what passes here is the plumbing
+subprocess. The probe solves nothing: it spells out the five members a runner
+calls and the two cell lookups of a flow, with the arguments the Protocol names,
+and no optional member. What passes here is the plumbing
 (discovered under the join of ``process_type`` and ``name``, held to the port),
 not a solver. The probe declares a settings class and two traits, so the suite
 also shows that the TOML accepts its name, reads its ``[solver.<name>]`` table
@@ -82,16 +84,25 @@ class ProbeFlowAdapter:
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
-    def validate(self, ctx):
+    def validate(self, model, options, slot):
         raise NotImplementedError
 
-    def execute(self, ctx):
+    def build(self, model, options, slot, ctx):
         raise NotImplementedError
 
-    def cleanup(self, ctx):
+    def run(self, solver_run):
         raise NotImplementedError
 
-    def extract_observables(self, ctx, store, requests, **kwargs):
+    def cleanup(self, solver_run):
+        raise NotImplementedError
+
+    def extract(self, solver_run, store, retention):
+        raise NotImplementedError
+
+    def locate_cell(self, solver_run, x, y):
+        raise NotImplementedError
+
+    def top_active_layer(self, solver_run, row, col):
         raise NotImplementedError
 
 

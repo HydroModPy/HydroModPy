@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import time
 import warnings
+from pathlib import Path
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
@@ -12,6 +14,7 @@ from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     apply_modflow6_cyclic_spinup_heads,
     apply_modflow6_steady_state_initial_heads,
+    is_auxiliary_folder,
     run_modflow6_cyclic_spinup,
     run_modflow6_steady_state_initialization,
 )
@@ -25,8 +28,32 @@ from hydromodpy.solver.modflow_common.progress import (
 logger = get_logger(__name__)
 
 
+def written_input_files(folder: str | os.PathLike[str] | None) -> tuple[str, ...]:
+    """Return every file under ``folder``, relative to it, in name order.
+
+    The folders of the auxiliary steady solve and of the spin-up cycles are left
+    out: they are models of their own, not inputs of the run. A folder that
+    does not exist, and no folder, have no files.
+    """
+    if folder is None or not os.path.isdir(folder):
+        return ()
+    root = Path(folder)
+    found: list[str] = []
+    for current, folders, files in os.walk(root):
+        folders[:] = sorted(name for name in folders if not is_auxiliary_folder(name))
+        found.extend((Path(current) / name).relative_to(root).as_posix() for name in files)
+    return tuple(sorted(found))
+
+
 def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
-    """Write packages and run the MODFLOW 6 simulation. Returns success flag."""
+    """Write the simulation unless told not to, start it, and solve it. Returns success flag.
+
+    A start from a steady solve or a spin-up runs its auxiliary model first and
+    puts its heads in IC. Then the whole simulation is written, and the files
+    under the folder of the model are listed in ``model.input_files``, before the
+    solve writes any output. With ``write_model`` false the files on disk are the
+    input, as after a rerun, and only an IC that a start changed is written.
+    """
     install_flopy_header_cache()
     if options is None:
         options = ModflowRunOptions()
@@ -73,19 +100,9 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
             warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     if options.write_model:
-        dirty_packages = tuple(getattr(model, "_runtime_dirty_packages", ()) or ())
-        if dirty_packages:
-            for package_name in dirty_packages:
-                package = getattr(model, str(package_name), None)
-                if package is None:
-                    continue
-                package.write()
-            if steady_initial_heads_applied:
-                model.ic.write()
-            model._runtime_dirty_packages = ()
-        else:
-            with write_listing_status():
-                model.sim.write_simulation(silent=False)
+        with write_listing_status():
+            model.sim.write_simulation(silent=False)
+        model.input_files = written_input_files(getattr(model, "full_path", None))
     elif steady_initial_heads_applied:
         model.ic.write()
 

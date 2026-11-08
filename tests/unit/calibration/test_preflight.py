@@ -2352,7 +2352,7 @@ def test_a_root_search_on_a_parameter_without_two_bounds_has_no_nominal_count() 
 def test_a_backend_that_cannot_serve_an_output_is_named_once(tmp_path: Path, monkeypatch) -> None:
     cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
     unserved = SimpleNamespace(name="release_flux", is_servable_now=False, reason="no flux")
-    adapter = SimpleNamespace(declared_observables=lambda _cfg: [unserved])
+    adapter = SimpleNamespace(declared_observables=lambda _active: [unserved])
     monkeypatch.setattr(preflight, "_flow_adapter_for", lambda _cfg: adapter)
     twice = [(None, "", []), (None, "", [])]
     monkeypatch.setattr(preflight, "_search_candidates", lambda _calibration: twice)

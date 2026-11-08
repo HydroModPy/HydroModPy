@@ -1,9 +1,8 @@
-"""Rerun adapter that depends on the public Project facade.
+"""Run a sealed configuration again through the public Project facade.
 
 Lives under :mod:`hydromodpy.project.dispatch` because :class:`Project` is the
-top-level facade and the architectural matrix forbids the ``results`` layer
-from depending on it; the catalog calls this through the ``RerunProvider``
-protocol registered at bootstrap.
+top-level facade. ``hmp catalog rerun`` calls :func:`rerun_config` directly,
+since ``cli`` reads ``project``.
 """
 
 from __future__ import annotations
@@ -11,8 +10,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-
-from hydromodpy.core.exceptions import PipelineError
 
 
 def rerun_config(
@@ -58,29 +55,4 @@ def rerun_config(
         return project.simulate(name=name, lineage=lineage)
 
 
-class ProjectRerunProvider:
-    """Re-launch a simulation from a config snapshot through ``Project``."""
-
-    def rerun(
-        self,
-        snapshot: Mapping[str, Any],
-        *,
-        overrides: Mapping[str, Any],
-        name: str | None,
-        source_sim_id: str | None = None,
-        source_dir: Path | None = None,
-    ) -> str:
-        """Rebuild the config, apply dotted-path overrides, and simulate (:func:`rerun_config`)."""
-        run = rerun_config(
-            snapshot,
-            changes=overrides,
-            name=name,
-            source_sim_id=source_sim_id,
-            source_dir=source_dir,
-        )
-        if run is None:
-            raise PipelineError("Rerun did not produce a run.")
-        return run.sim_id
-
-
-__all__ = ["ProjectRerunProvider", "rerun_config"]
+__all__ = ["rerun_config"]

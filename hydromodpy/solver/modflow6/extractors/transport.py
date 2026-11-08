@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.mt3dms_extractor_base import Mt3dmsExtractorBase
 
 logger = get_logger(__name__)
@@ -87,17 +89,10 @@ class Modflow6GwtOutputAdapter(Mt3dmsExtractorBase):
 
     solver_name = "modflow6"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read concentration fields, then persist the GWT solute mass balance."""
-        super().extract(sim_id, solver_output_dir, store, model_name=model_name)
-        self._extract_solute_mass_balance(sim_id, solver_output_dir, store)
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the concentration fields of a solved run, then store its GWT solute mass balance."""
+        super().extract(solver_run, store, retention)
+        self._extract_solute_mass_balance(store.sim_id, Path(solver_run.output_dir), store)
 
     def _open_concentration_file(self, ucn_path: Path) -> Any:
         """Open the GWT concentration file in the MODFLOW 6 double layout."""

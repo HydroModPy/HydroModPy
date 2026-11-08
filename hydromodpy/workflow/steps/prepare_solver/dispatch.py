@@ -71,8 +71,8 @@ def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:
 
     execution = getattr(ctx, "execution", None)
     plan = getattr(execution, "simulation_plan", None)
-    models = getattr(execution, "models_by_run_id", None) or {}
-    if plan is None or not models:
+    solver_runs = getattr(execution, "solver_runs", None) or {}
+    if plan is None or not solver_runs:
         return None
     for run in getattr(plan, "runs", ()) or ():
         is_primary_flow = (
@@ -81,9 +81,9 @@ def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:
         )
         if not is_primary_flow:
             continue
-        model = models.get(getattr(run, "id", None))
-        if model is not None:
-            return resolve_modflow_runner(model)
+        solver_run = solver_runs.get(getattr(run, "id", None))
+        if solver_run is not None and solver_run.solver_model is not None:
+            return resolve_modflow_runner(solver_run.solver_model)
     return None
 
 
@@ -104,10 +104,10 @@ def _solver_options_of_the_built_model(
 ) -> dict | None:
     """Return what the built flow model decided for its solver, or None before it exists."""
     plan = ctx.execution.simulation_plan
-    models = ctx.execution.models_by_run_id
+    solver_runs = ctx.execution.solver_runs
     for run in getattr(plan, "runs", ()) or ():
-        if run.process_type == "flow" and run.solver == solver_name and run.id in models:
-            read_back = getattr(models[run.id], "resolved_solver_options", None)
+        if run.process_type == "flow" and run.solver == solver_name and run.id in solver_runs:
+            read_back = getattr(solver_runs[run.id].solver_model, "resolved_solver_options", None)
             return None if read_back is None else read_back()
     return None
 

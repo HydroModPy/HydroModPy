@@ -22,7 +22,7 @@ rules, how a run goes through it, and where to add what.
 | `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), `ProjectCatalog` (the index binding of a project: `store`, `data`, `runs`, and its `close`), the campaign reads behind `project.cases`, `.sites`, `.best_runs` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
 | `launch/` | the launcher of a `[sites]` project: lease, case selection, prepare, local launch, SLURM array, status, collect into `summary/`, and the plan of a `[sites]` project, `sites/`. See `launch/README.md` |
 | `exchange/` | publish a run with its inputs, install a published copy, replay it from its own bytes. See `exchange/README.md` |
-| `dispatch/` | the adapters that need `Project` and that lower layers must not import: workflow name to run function, rerun provider. See `dispatch/README.md` |
+| `dispatch/` | the adapters that need `Project` and that lower layers must not import: workflow name to run function, and the rerun of a recorded run that `hmp catalog rerun` calls. See `dispatch/README.md` |
 | `compare.py` | how sealed runs of one site are compared, for `hmp report compare` and `hmp.compare`. Each run is read through the public `Run` API, so a comparison runs no simulation, opens no index and writes into no run. `hmp.compare_pair` reads the index and lives in `results/catalog/facade.py`, beside `Catalog.diff` |
 | `examples/` | the shipped examples behind `hmp example`: the catalog, the blob cache, the install into a workspace and the rows the command prints. See `examples/README.md` |
 | `lock.py` | `hmp lock update`, `hmp lock verify`, and the cache archive and restore behind `hmp data archive` and `hmp data restore`. It sits here because it reads `data`, `results` (two schema versions) and `schema` together, and only `project` may |
@@ -39,9 +39,9 @@ import every layer, itself included. Today it imports
 1. No lower layer imports `project`. Only the package root (lazy, a tolerated
    edge in `layer_matrix.yaml`) and `cli` do. A lower layer that needs a
    `Project` declares a Protocol and receives the adapter at start-up.
-2. The adapters are wired in `hydromodpy/_bootstrap.py`:
-   `ProjectRerunProvider` into `results.run.rerun_contract`. A new adapter
-   gets a hook there.
+2. The adapters are wired in `hydromodpy/_bootstrap.py`. A new adapter
+   gets a hook there. `hmp catalog rerun` is the one command that needs no
+   hook, because `cli` sits above `project` and calls `dispatch/rerun.py` directly.
 
 No `project_layout.yaml` orders the modules inside the package, because the modules import each other
 both ways (`facade.py` and `accessors.py`, `runner.py`, `calibrate.py`) and a layout row names only rows above

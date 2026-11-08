@@ -83,10 +83,11 @@ def _parse_overrides(items: list[str]) -> dict:
 def run(args: argparse.Namespace) -> None:
     import tomllib
 
+    from hydromodpy.core.exceptions import PipelineError
     from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
+    from hydromodpy.project.dispatch.rerun import rerun_config
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.catalog.registration import run_dir_holding, split_stem_version
-    from hydromodpy.results.run.rerun_contract import get_rerun_provider
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
     from hydromodpy.results.trash import identity_of
 
@@ -112,15 +113,16 @@ def run(args: argparse.Namespace) -> None:
             table=lambda: print(f"would rerun {rel_dir} as {new_dir}"),
         )
         return
-    new_sid = str(
-        get_rerun_provider().rerun(
-            snapshot,
-            overrides=overrides,
-            name=name,
-            source_sim_id=identity_of(source),
-            source_dir=source,
-        )
+    rerun = rerun_config(
+        snapshot,
+        changes=overrides,
+        name=name,
+        source_sim_id=identity_of(source),
+        source_dir=source,
     )
+    if rerun is None:
+        raise PipelineError("Rerun did not produce a run.")
+    new_sid = str(rerun.sim_id)
     from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
     reindex_if_indexed(root)

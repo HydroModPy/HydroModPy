@@ -418,7 +418,7 @@ hmp example show --format	choices=['csv', 'json', 'table'] default='table'
 hmp example show --workspace,-w	
 hmp example show <example_id>	required
 hmp export	command
-hmp export --as	choices=['csv', 'geopackage', 'geotiff', 'netcdf', 'prov', 'rocrate', 'shapefile', 'stac', 'vtu']
+hmp export --as	
 hmp export --crs	
 hmp export --debug	nargs=0
 hmp export --format	choices=['csv', 'json', 'table'] default='table'

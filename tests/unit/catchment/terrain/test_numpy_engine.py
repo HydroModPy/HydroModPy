@@ -9,8 +9,12 @@ import pytest
 import rasterio
 
 from hydromodpy.catchment.terrain.numpy_engine import NumpyTerrainEngine
-from hydromodpy.catchment.terrain.port import ConditioningExtent, Outlet
-from hydromodpy.core.exceptions import TerrainProductError
+from hydromodpy.catchment.terrain.port import ConditionedDem, ConditioningExtent, Outlet
+from hydromodpy.core.exceptions import (
+    TerrainCapabilityError,
+    TerrainProductError,
+    TerrainRequestError,
+)
 from tests._helpers.geotiffs import write_geotiff
 
 RES = 10.0
@@ -88,3 +92,49 @@ def test_a_pointer_off_the_grid_or_into_a_hole_ends_the_path(tmp_path) -> None:
     )  # fmt: skip
     with rasterio.open(counted.path) as src:
         assert src.read(1, masked=True).filled(0).tolist() == [[1, 0, 1], [1, 2, 3]]
+
+
+def _valley(size: int = 15) -> np.ndarray:
+    """A V valley draining south, with no depression."""
+    rows, cols = np.mgrid[0:size, 0:size]
+    return 100.0 - rows * 0.5 + np.abs(cols - size // 2) * 2.0
+
+
+def _route(engine, conditioned, out):
+    directions = engine.drainage_directions(conditioned, out=out / "pointer.tif")
+    accumulation = engine.flow_accumulation(
+        directions, units="cells", transform="none", out=out / "acc.tif"
+    )
+    exit_ = Outlet(outlet_id="exit", x=7.5 * RES, y=0.5 * RES)
+    (catchment,) = engine.delineate(accumulation, [exit_], out_dir=out / "c", snap_distance_m=RES)
+    return directions, accumulation, catchment
+
+
+def _band(path):
+    with rasterio.open(path) as src:
+        return src.read(1)
+
+
+def test_a_provided_dem_is_routed_as_the_engine_would_route_the_dem_it_filled(tmp_path) -> None:
+    dem = write_geotiff(tmp_path / "dem.tif", _valley(), cell=RES, nodata=-9999.0, dtype="float32")
+    engine = NumpyTerrainEngine()
+    filled = engine.condition_dem(
+        dem, method="fill", extent=ConditioningExtent.regional(), out=tmp_path / "fill.tif"
+    )
+    by_fill = _route(engine, filled, tmp_path / "fill")
+    provided = ConditionedDem.provided(filled.path)
+    assert provided.method == "provided"
+    by_provided = _route(engine, provided, tmp_path / "provided")
+    for filled_product, provided_product in zip(by_fill[:2], by_provided[:2], strict=True):
+        assert np.array_equal(_band(filled_product.path), _band(provided_product.path))
+    assert by_provided[2].cell_count == by_fill[2].cell_count == 15 * 15
+    assert by_provided[2].area_m2 == by_fill[2].area_m2
+
+
+def test_the_numpy_engine_does_not_condition_a_provided_dem(tmp_path) -> None:
+    dem = write_geotiff(tmp_path / "dem.tif", _plane_east(), cell=RES, nodata=-9999.0)
+    with pytest.raises(TerrainRequestError, match=r"ConditionedDem\.provided"):
+        NumpyTerrainEngine().condition_dem(
+            dem, method="provided", extent=ConditioningExtent.regional(), out=tmp_path / "c.tif"
+        )
+    assert not (tmp_path / "c.tif").exists()

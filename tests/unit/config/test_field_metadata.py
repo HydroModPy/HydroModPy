@@ -21,12 +21,12 @@ from hydromodpy.core.config_kit.field_metadata import (
 )
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from tools.docs import field_registry
 
@@ -36,7 +36,7 @@ PUBLISHED_SCHEMA = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.jso
 #: What decision D10 of the 2.0.0 campaign calls experimental, field by field.
 MARKED: dict[type[BaseModel], tuple[str, ...]] = {
     HydroModPyConfig: ("calibration",),
-    FlowRuntimeConfig: (
+    BoussinesqOptions: (
         "backend",
         "max_iterations",
         "tol_residual_inf",
@@ -72,7 +72,7 @@ MARKED_FIELDS = [(model, field) for model, fields in MARKED.items() for field in
 
 #: A value of a selector, on a key that stays stable for its other values.
 MARKED_VALUES: dict[tuple[type[BaseModel], str], tuple[str, ...]] = {
-    (FlowRuntimeConfig, "surface_interaction_model"): (
+    (BoussinesqOptions, "surface_interaction_model"): (
         "complementarity",
         "vi_obstacle",
         "ts_vi_obstacle",

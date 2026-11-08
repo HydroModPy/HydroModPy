@@ -7,5 +7,5 @@ here instead.
 
 - :mod:`.workflow` exposes ``dispatch_workflow``, ``DISPATCH`` and the
   ``run_*`` functions used by the CLI and the public ``hmp.run`` facade.
-- :mod:`.rerun` exposes the ``Project``-backed rerun provider.
+- :mod:`.rerun` runs a sealed configuration again, for ``hmp catalog rerun``.
 """

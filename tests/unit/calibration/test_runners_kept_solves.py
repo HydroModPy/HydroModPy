@@ -36,7 +36,7 @@ from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.model.model import Properties
-from hydromodpy.solver.base.plan import RunExecutionResult
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
@@ -68,8 +68,20 @@ def _folder(root: Path, name: str) -> Path:
     return folder
 
 
-def _results(folder: Path, run_id: str = "flow_main") -> dict[str, RunExecutionResult]:
-    return {run_id: RunExecutionResult(primary_model=object(), solver_output_dir=folder)}
+def _solved(folder: Path, solver_model: Any = None, **fields: Any) -> SolverRun:
+    """Return the solved run of a solver that wrote into ``folder``."""
+    return SolverRun(
+        slot=RunSlot(folder.parent, folder.name),
+        solver_model=solver_model,
+        output_dir=folder,
+        written=True,
+        solved=True,
+        **fields,
+    )
+
+
+def _results(folder: Path, run_id: str = "flow_main") -> dict[str, SolverRun]:
+    return {run_id: _solved(folder, object())}
 
 
 def _offer(retention: TrialSolveRetention, root: Path, trial_id: int, cost: float) -> Path:
@@ -260,18 +272,14 @@ def test_a_kept_solve_crosses_the_worker_pipe_with_its_model(tmp_path: Path) -> 
         trial_id=1,
         cost=0.5,
         folders=(folder,),
-        results={
-            "flow_main": RunExecutionResult(
-                primary_model=_SolverStandIn(model), solver_output_dir=folder
-            )
-        },
+        results={"flow_main": _solved(folder, _SolverStandIn(model))},
     )
 
     copy = pickle.loads(pickle.dumps(kept))
 
     assert (copy.trial_id, copy.cost, copy.folders) == (1, 0.5, (folder,))
-    sent = copy.results["flow_main"].primary_model.inputs
-    assert copy.results["flow_main"].solver_output_dir == folder
+    sent = copy.results["flow_main"].solver_model.inputs
+    assert copy.results["flow_main"].output_dir == folder
     assert sent.properties.overrides == {"K": 2e-5}
     assert sent.lakes == {"lake": {"bedleak": 1.0}}
     assert sent.sfr == {"reach": {"streambed_k": 2.0}}
@@ -313,8 +321,10 @@ def test_the_kept_solve_launcher_records_what_the_trial_produced(tmp_path: Path)
         cost=0.5,
         folders=(folder,),
         results={
-            "mesh_main": RunExecutionResult(primary_model=None, metrics={"backend": "catchment"}),
-            "flow_main": RunExecutionResult(primary_model=model, solver_output_dir=folder),
+            "mesh_main": SolverRun(
+                slot=RunSlot(tmp_path, "mesh_main"), metrics={"backend": "catchment"}
+            ),
+            "flow_main": _solved(folder, model),
         },
     )
     fired: list[tuple[str, str]] = []
@@ -328,8 +338,9 @@ def test_the_kept_solve_launcher_records_what_the_trial_produced(tmp_path: Path)
     executed = KeptSolveLauncher(kept).execute(plan, state, callbacks=callbacks)
 
     assert [run.id for run, _ in executed] == ["mesh_main", "flow_main"]
-    assert state.execution.models_by_run_id == {"flow_main": model}
-    assert state.execution.output_dirs_by_run_id == {"flow_main": folder}
+    assert state.execution.solver_runs == kept.results
+    assert state.execution.solver_runs["flow_main"].solver_model is model
+    assert state.execution.solver_runs["flow_main"].output_dir == folder
     assert fired == [("before", "mesh"), ("after", "mesh"), ("before", "flow"), ("after", "flow")]
 
 
@@ -375,21 +386,20 @@ class _Solver:
 
     def execute(self, plan, state, *, callbacks=None, store=None):
         del callbacks, store
-        overrides = state.setup.flow_runtime_overrides or {}
-        model_name = overrides.get("model_name_override") or state.setup.run_id
+        request = state.setup.slot_request
+        model_name = (request.name if request is not None else None) or state.setup.run_id
         folder = Path(state.setup.workspace.solver_scratch_folder) / model_name
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "model.hds").write_text(f"heads for K={state.cfg.K!r}", encoding="utf-8")
         self.solves.append(model_name)
         executed = []
         for run in plan.runs:
-            result = RunExecutionResult(
-                primary_model=SimpleNamespace(name=model_name),
-                solver_output_dir=folder,
+            result = _solved(
+                folder,
+                SimpleNamespace(name=model_name),
                 metrics={"water_budget_percent_discrepancy": 0.01},
             )
-            state.execution.models_by_run_id[run.id] = result.primary_model
-            state.execution.output_dirs_by_run_id[run.id] = folder
+            state.execution.solver_runs[run.id] = result
             executed.append((run, result))
         return tuple(executed)
 
@@ -451,7 +461,7 @@ def _toy_trial_context(tmp_path: Path, stores: dict[str, str]) -> TrialContext:
 
     def _extract(state: PipelineState) -> None:
         ctx = state.get("ctx")
-        folder = ctx.execution.output_dirs_by_run_id["flow_main"]
+        folder = ctx.execution.solver_runs["flow_main"].output_dir
         stores[ctx.setup.run_id] = (Path(folder) / "model.hds").read_text(encoding="utf-8")
 
     def _export(state: PipelineState) -> None:

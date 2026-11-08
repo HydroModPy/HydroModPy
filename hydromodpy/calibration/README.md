@@ -65,7 +65,7 @@ Five more rules:
 3. No re-export: a name is imported from the module that defines it.
 4. Calibration reaches a solver only through the generic ports of
    `solver.base` (registry, observables) and the run result
-   (`solver.base.plan.RunExecutionResult`), never through a backend
+   (`solver.base.plan.SolverRun`), never through a backend
    package (`solver.modflow6`, `solver.modflow_nwt`, `solver.modflow_common`,
    `solver.boussinesq`). A backend can then be added or replaced without
    touching calibration. `solver_access` in `calibration_layout.yaml` checks it.

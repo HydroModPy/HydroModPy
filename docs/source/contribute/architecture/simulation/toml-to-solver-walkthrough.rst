@@ -71,14 +71,15 @@ Execution
 
 ``SimulationRunner.execute`` walks the plan in order. It makes the process objects
 (``Flow``, ``Transport``) exist through the ``ensure_*`` functions, resolves the
-models a run declares in ``depends_on``, builds a ``RunContext`` and calls the
-adapter. It knows nothing of a solver API.
+runs a run declares in ``depends_on``, fills the ``RunSlot`` of the run, builds a
+``RunContext`` and calls the adapter through ``validate``, ``build`` and ``run``. It
+knows nothing of a solver API.
 
 The adapter is the narrow bridge to a solver:
 
-- ``solver/modflow_nwt/adapters/flow.py``
-- ``solver/modflow6/adapters/flow.py``
-- ``solver/boussinesq/adapters/flow.py``
+- ``solver/modflow_nwt/adapter.py``
+- ``solver/modflow6/adapter.py``
+- ``solver/boussinesq/adapter.py``
 - ``solver/modflow_nwt/adapters/transport_mt3dms.py`` and
   ``transport_modpath.py``
 - ``solver/modflow6/adapters/transport.py`` and ``prt.py``

@@ -19,8 +19,12 @@ function named after what it checks. Invariants are conditioned on what the
 engine declares in its capabilities: a structured engine covers the DEM
 rectangle, a graded engine follows a size ramp, an engine with exact faces
 follows its face lines to ``HAUSDORFF_RTOL`` of the extent and orients its rows,
-a deterministic engine builds the same mesh twice. Each mesh is built once per
-engine and per case, and every test of that pair reads the same mesh.
+a deterministic engine builds the same mesh twice. A lumped engine meshes the
+catchment as one cell: its requests carry the domain as the catchment, it refuses
+the cases with lines, a size field or a triangulation by a typed error, and its
+mesh is one cell of the area of the catchment with no face family. Each mesh is
+built once per engine and per case, and every test of that pair reads the same
+mesh.
 
 A built-in engine this environment cannot run is skipped, unless
 ``HMP_REQUIRE_GMSH`` is set (CI with the ``mesh`` extra, a developer machine):
@@ -30,6 +34,7 @@ missing engine gives skipped tests, never fewer collected tests.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import os
 import random
@@ -238,6 +243,17 @@ CASES: dict[str, Callable[[], MeshRequest]] = {
 """Every field situation, by name. An engine may refuse only the given triangulation."""
 
 EVERY_CASE = tuple(CASES)
+ONE_CELL_CANNOT_HOLD = (
+    "square",
+    "lines_drawn_the_other_way",
+    "square_with_a_hole",
+    "ramp",
+    "uniform_size_field",
+    "given_triangulation",
+)
+"""The cases with lines, a size field or a triangulation, which a lumped engine refuses."""
+HELD_BY_ONE_CELL = tuple(case for case in CASES if case not in ONE_CELL_CANNOT_HOLD)
+LUMPED_SKIP = "a lumped engine meshes the catchment as one cell and refuses lines"
 MESHED_BY_THE_ENGINE = tuple(case for case in CASES if case != "given_triangulation")
 """The cases whose cells the engine draws itself; a given triangulation keeps its own edges."""
 WITH_A_RIVER = ("square", "lines_drawn_the_other_way", "square_with_a_hole")
@@ -256,11 +272,29 @@ def _built(engine: MeshEngine, request: MeshRequest) -> PlanarCellMesh:
     return cell_mesh
 
 
+def _lumped(engine_id: str) -> bool:
+    return registry.mesh_engines.get(engine_id).capabilities.lumped
+
+
+def _request(engine_id: str, case: str) -> MeshRequest:
+    """The request of *case*; a lumped engine gets the domain as the catchment, as the planner gives."""
+    request = CASES[case]()
+    if _lumped(engine_id):
+        return dataclasses.replace(request, catchment=request.domain)
+    return request
+
+
 @functools.cache
 def _mesh(engine_id: str, case: str) -> PlanarCellMesh | None:
-    """The mesh of *case* by *engine_id*, built once; ``None`` when it refuses a given triangulation."""
-    request = CASES[case]()
+    """The mesh of *case* by *engine_id*, built once; ``None`` when the engine may refuse it.
+
+    Any engine may refuse a given triangulation, and a lumped engine every case
+    one cell cannot hold.
+    """
+    request = _request(engine_id, case)
     engine = registry.mesh_engines.create(engine_id)
+    if _lumped(engine_id) and case in ONE_CELL_CANNOT_HOLD:
+        return None
     if request.input_triangulation is None:
         return _built(engine, request)
     try:
@@ -271,15 +305,20 @@ def _mesh(engine_id: str, case: str) -> PlanarCellMesh | None:
 
 def _mesh_or_skip(engine_id: str, case: str) -> PlanarCellMesh:
     cell_mesh = _mesh(engine_id, case)
+    if cell_mesh is None and _lumped(engine_id):
+        pytest.skip(LUMPED_SKIP)
     if cell_mesh is None:
         pytest.skip("this engine refuses a given triangulation by MeshRequestError")
     return cell_mesh
 
 
-def _area_to_cover(request: MeshRequest, structured: bool) -> float:
+def _area_to_cover(request: MeshRequest, capabilities: MeshEngineCapabilities) -> float:
+    """The DEM rectangle, the catchment with its holes filled, or the domain."""
     grid = request.grid
-    if structured:
+    if capabilities.structured:
         return (grid.xmax - grid.xmin) * (grid.ymax - grid.ymin)
+    if capabilities.lumped:
+        return Polygon(request.catchment.exterior).area
     return request.domain.area
 
 
@@ -338,9 +377,9 @@ def assert_the_quality_report_is_whole(
 
 
 def assert_the_area_is_the_area_to_cover(
-    cell_mesh: PlanarCellMesh, request: MeshRequest, structured: bool
+    cell_mesh: PlanarCellMesh, request: MeshRequest, capabilities: MeshEngineCapabilities
 ) -> None:
-    wanted = _area_to_cover(request, structured)
+    wanted = _area_to_cover(request, capabilities)
     assert abs(cell_mesh.qa.area_sum_m2 - wanted) <= AREA_RTOL * wanted
     assert abs(float(cell_mesh.geometry.areas.sum()) - wanted) <= AREA_RTOL * wanted
 
@@ -483,6 +522,16 @@ def assert_no_centre_lies_in_a_hole(cell_mesh: PlanarCellMesh, domain: Polygon) 
         assert not shapely.contains_xy(Polygon(ring), *cell_mesh.centers.T).any()
 
 
+def assert_the_catchment_is_one_cell_with_no_face_family(
+    cell_mesh: PlanarCellMesh, request: MeshRequest
+) -> None:
+    outline_m2 = Polygon(request.catchment.exterior).area
+    assert cell_mesh.n_cells == 1
+    assert abs(float(cell_mesh.geometry.areas[0]) - outline_m2) <= AREA_RTOL * outline_m2
+    assert cell_mesh.face_families is None or cell_mesh.face_families.n_rows == 0
+    assert cell_mesh.cell_chains == ()
+
+
 # --------------------------------------------------------------------------- #
 # The port
 # --------------------------------------------------------------------------- #
@@ -490,7 +539,7 @@ def assert_no_centre_lies_in_a_hole(cell_mesh: PlanarCellMesh, domain: Polygon) 
 
 def test_the_builtin_engines_are_all_declared() -> None:
     """The floor: dropping a built-in from the registry cannot pass silently."""
-    assert {"regular", "triangle", "voronoi"} <= set(registry.mesh_engines.names())
+    assert {"catchment", "regular", "triangle", "voronoi"} <= set(registry.mesh_engines.names())
 
 
 def test_an_engine_satisfies_the_port(engine_id: str, engine: MeshEngine) -> None:
@@ -513,7 +562,9 @@ def test_an_engine_satisfies_the_port(engine_id: str, engine: MeshEngine) -> Non
 def test_a_mesh_states_who_built_it_and_from_which_request(engine_id, engine, case) -> None:
     cell_mesh = _mesh_or_skip(engine_id, case)
 
-    assert_the_mesh_names_its_engine_and_its_request(cell_mesh, type(engine), CASES[case]())
+    assert_the_mesh_names_its_engine_and_its_request(
+        cell_mesh, type(engine), _request(engine_id, case)
+    )
 
 
 @pytest.mark.parametrize("case", EVERY_CASE)
@@ -537,7 +588,7 @@ def test_the_cell_areas_add_up_to_the_area_to_cover(engine_id, engine, case) -> 
     cell_mesh = _mesh_or_skip(engine_id, case)
 
     assert_the_area_is_the_area_to_cover(
-        cell_mesh, CASES[case](), type(engine).capabilities.structured
+        cell_mesh, _request(engine_id, case), type(engine).capabilities
     )
 
 
@@ -590,7 +641,7 @@ def test_the_cells_of_an_unstructured_engine_stay_inside_the_domain(
     if type(engine).capabilities.structured:
         pytest.skip("a structured engine covers the DEM rectangle, not the domain")
     cell_mesh = _mesh_or_skip(engine_id, case)
-    domain = CASES[case]().domain
+    domain = _request(engine_id, case).domain
 
     assert_the_cells_stay_inside_the_domain(cell_mesh, domain)
     assert_no_centre_lies_in_a_hole(cell_mesh, domain)
@@ -668,9 +719,11 @@ def test_a_uniform_cell_size_gives_the_area_over_its_square_in_cells(
     engine_id, engine, case
 ) -> None:
     """A cell size is the side of the square of the same mean area, whatever the engine."""
-    request = CASES[case]()
+    if type(engine).capabilities.lumped:
+        pytest.skip("a lumped engine meshes the catchment as one cell whatever the size")
+    request = _request(engine_id, case)
     cell_mesh = _mesh_or_skip(engine_id, case)
-    area = _area_to_cover(request, type(engine).capabilities.structured)
+    area = _area_to_cover(request, type(engine).capabilities)
 
     expected = area / request.nominal_size_m**2
     assert cell_mesh.n_cells == pytest.approx(expected, rel=CELL_COUNT_RTOL)
@@ -679,10 +732,11 @@ def test_a_uniform_cell_size_gives_the_area_over_its_square_in_cells(
 def test_a_deterministic_engine_builds_the_same_mesh_twice(engine_id, engine) -> None:
     if not type(engine).capabilities.deterministic:
         pytest.skip("this engine does not declare itself deterministic")
-    first = _mesh_or_skip(engine_id, "square")
+    case = "island" if type(engine).capabilities.lumped else "square"
+    first = _mesh_or_skip(engine_id, case)
     np.random.seed(12345)
     random.seed(12345)
-    second = _built(engine, square_case())
+    second = _built(engine, _request(engine_id, case))
 
     np.testing.assert_array_equal(first.mesh.vertices, second.mesh.vertices)
     np.testing.assert_array_equal(first.connectivity_rows, second.connectivity_rows)
@@ -690,7 +744,8 @@ def test_a_deterministic_engine_builds_the_same_mesh_twice(engine_id, engine) ->
     assert [chain.cell_ids.tolist() for chain in first.cell_chains] == [
         chain.cell_ids.tolist() for chain in second.cell_chains
     ]
-    assert first.qa.as_dict() == second.qa.as_dict()
+    # A statistic over no face is NaN (one cell has no interior face), and NaN equals NaN here.
+    np.testing.assert_equal(first.qa.as_dict(), second.qa.as_dict())
 
 
 def test_an_engine_that_uses_a_given_triangulation_keeps_its_cells(engine_id, engine) -> None:
@@ -701,6 +756,28 @@ def test_an_engine_that_uses_a_given_triangulation_keeps_its_cells(engine_id, en
     if type(engine).capabilities.cell_types == (CellType.TRIANGLE,):
         assert cell_mesh.n_cells == len(triangulation.triangles)
     assert abs(cell_mesh.qa.area_sum_m2 - request.domain.area) <= AREA_RTOL * request.domain.area
+
+
+@pytest.mark.parametrize("case", HELD_BY_ONE_CELL)
+def test_a_lumped_engine_meshes_the_catchment_as_one_cell(engine_id, engine, case) -> None:
+    if not type(engine).capabilities.lumped:
+        pytest.skip("only a lumped engine meshes the catchment as one cell")
+
+    assert_the_catchment_is_one_cell_with_no_face_family(
+        _mesh_or_skip(engine_id, case), _request(engine_id, case)
+    )
+
+
+@pytest.mark.parametrize("case", ONE_CELL_CANNOT_HOLD)
+def test_a_lumped_engine_refuses_what_one_cell_cannot_hold_by_a_typed_error(
+    engine_id, engine, case
+) -> None:
+    """Lines, a size field or a triangulation are refused, never dropped in silence."""
+    if not type(engine).capabilities.lumped:
+        pytest.skip("only a lumped engine meshes the catchment as one cell")
+
+    with pytest.raises(MeshRequestError):
+        engine.build(_request(engine_id, case))
 
 
 def test_an_engine_refuses_a_request_it_cannot_honour_by_a_typed_error(engine) -> None:

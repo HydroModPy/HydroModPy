@@ -20,6 +20,7 @@ from dataclasses import dataclass, fields, replace
 from types import MappingProxyType
 from typing import Any
 
+from hydromodpy.catchment.drainage.channel_tree import ChannelExits
 from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
 from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -60,13 +61,16 @@ class Geometry:
     on, and ``domain`` the vertical (top, base, layers, supports). ``raster``
     is the DEM grid NWT builds its grid on, and MODFLOW 6 reads it for the DEM
     its routing is conditioned on. ``catchment`` says where the catchment
-    closes. A member the run does not have is ``None``.
+    closes. ``channel_exits`` is the generated river network A read on the
+    cells, which a backend turns into pinned receivers with its active columns
+    and its lakes. A member the run does not have is ``None``.
     """
 
     cells: PlanarCellMesh | None
     domain: Domain | None
     raster: RasterGeometry | None = None
     catchment: CatchmentGeometry | None = None
+    channel_exits: ChannelExits | None = None
 
 
 @dataclass(frozen=True, slots=True, eq=False)

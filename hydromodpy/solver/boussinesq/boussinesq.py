@@ -34,7 +34,6 @@ from hydromodpy.mesh.io.bundle import CatchmentMeshBundle
 from hydromodpy.model.initial.heads import summarize_head_initial_condition_bounds
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model, steady_variant
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
@@ -53,6 +52,7 @@ from hydromodpy.solver.boussinesq.export_payload import (
 )
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
 )
@@ -97,7 +97,7 @@ class Boussinesq:
         mesh_bundle: CatchmentMeshBundle | None,
         mesh: BoussinesqMesh | None = None,
         model: Model,
-        runtime: FlowRuntimeConfig,
+        runtime: BoussinesqOptions,
         model_folder: str | Path,
         model_name: str,
     ) -> None:

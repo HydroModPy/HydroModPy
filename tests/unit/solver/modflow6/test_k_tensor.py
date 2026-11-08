@@ -249,9 +249,10 @@ def test_a_solver_without_the_tensor_refuses_a_k22_override() -> None:
         )
 
 
-def test_the_trial_sandbox_keys_are_not_properties() -> None:
+def test_the_keys_beside_the_properties_are_not_properties() -> None:
+    """Only the mapping under ``properties`` sets a property; a source or a name sets none."""
     overrides = resolve_flow_property_runtime_overrides(
-        {"model_name_override": "trial000001", "trial_owns_its_recharge": True},
+        {"source": "project_run", "name": "run_a"},
         nlay=2,
         n_cells=N_CELLS,
         required_properties={"K", "Sy", "Ss"},

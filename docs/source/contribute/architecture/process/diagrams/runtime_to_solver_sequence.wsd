@@ -21,9 +21,12 @@ note right
   per stress period of [simulation.time].
 end note
 
-Runner -> Adapter: execute(ctx)\nctx.state reads Flow, config and time grid
-Adapter -> Adapter: translate the process payloads\nto solver inputs
-Adapter -> Backend: build and run the model
+Runner -> Adapter: validate(model, options, slot)
+Runner -> Adapter: build(model, options, slot, ctx)\nthe Model is read, the slot names the folder
+Adapter -> Adapter: translate the Model\nto solver inputs
+Adapter --> Runner: SolverRun, built in memory
+Runner -> Adapter: run(solver_run)
+Adapter -> Backend: write the input files and solve
 Backend --> Adapter: raw outputs
-Adapter --> Runner: RunExecutionResult
+Adapter --> Runner: SolverRun, solved
 @enduml

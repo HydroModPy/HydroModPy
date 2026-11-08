@@ -7,8 +7,8 @@ import pytest
 
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import _PREPARSED_KEYS, FlowConfig, resolve_forcing_paths
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 
 
 def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
@@ -79,6 +79,7 @@ _RUNTIME_PROBES: dict[str, Any] = {
     "ts_vi_dt_max_fraction": 1.0 / 2.0,
     "ts_vi_type": "cn",
     "ts_vi_snes_type": "vinewtonssls",
+    "exchange_mesh": Path("mesh_bundle"),
 }
 
 
@@ -95,7 +96,7 @@ def test_every_scalar_field_has_a_probe() -> None:
     """The probe table must cover all non-preparsed model fields."""
     expected = set(FlowConfig.model_fields) - set(_PREPARSED_KEYS)
     assert set(_SCALAR_PROBES) == expected
-    assert set(_RUNTIME_PROBES) == set(FlowRuntimeConfig.model_fields)
+    assert set(_RUNTIME_PROBES) == set(BoussinesqOptions.model_fields)
 
 
 @pytest.mark.parametrize(("key", "value"), sorted(_SCALAR_PROBES.items()))
@@ -126,7 +127,7 @@ def test_absent_keys_keep_the_model_defaults() -> None:
         assert getattr(cfg, key) == FlowConfig.model_fields[key].default
     options = SolverConfig().options_of("boussinesq")
     for key in _RUNTIME_PROBES:
-        assert getattr(options, key) == FlowRuntimeConfig.model_fields[key].default
+        assert getattr(options, key) == BoussinesqOptions.model_fields[key].default
 
 
 # A CSV forcing of a lake, an outlet or an SFR reach is found like a well forcing.

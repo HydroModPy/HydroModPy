@@ -4,8 +4,9 @@
 any member as an override. ``fake_engine`` makes a new engine class that builds
 the regular grid of the request under its own identity and counts its builds;
 ``registered`` keeps one in the mesh registry for a ``with`` block.
+``lumped_capabilities`` declares an engine that meshes the catchment as one cell.
 ``patch_builtin_engines`` makes ``mesh_engines.get`` answer the capabilities of the
-three built-in engines without importing them, which is all the planner reads.
+four built-in engines without importing them, which is all the planner reads.
 Not public API.
 """
 
@@ -31,6 +32,7 @@ __all__ = [
     "builtin_capabilities",
     "fake_capabilities",
     "fake_engine",
+    "lumped_capabilities",
     "patch_builtin_engines",
     "registered",
 ]
@@ -69,6 +71,21 @@ def builtin_capabilities(*, graded: bool) -> MeshEngineCapabilities:
         deterministic=not graded,
         needs_cache=graded,
     )
+
+
+def lumped_capabilities(**overrides: object) -> MeshEngineCapabilities:
+    """Return the capabilities of an engine that meshes the catchment as one cell.
+
+    They are those of the built-in ``catchment`` engine: one polygon, unstructured,
+    not graded, faces not exact, deterministic, no cache, lumped. *overrides*
+    replace members.
+    """
+    members: dict[str, object] = {
+        "graded": False,
+        "lumped": True,
+    }
+    members.update(overrides)
+    return fake_capabilities(**members)
 
 
 class FakeMeshEngine:
@@ -127,6 +144,7 @@ def patch_builtin_engines(monkeypatch: pytest.MonkeyPatch) -> dict[str, SimpleNa
     does not use this patch.
     """
     engines = {
+        "catchment": SimpleNamespace(capabilities=lumped_capabilities()),
         "regular": SimpleNamespace(capabilities=builtin_capabilities(graded=False)),
         "triangle": SimpleNamespace(capabilities=builtin_capabilities(graded=True)),
         "voronoi": SimpleNamespace(capabilities=builtin_capabilities(graded=True)),

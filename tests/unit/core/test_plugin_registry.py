@@ -76,7 +76,7 @@ _SPECS = {
         MeshRequestError,
         _MeshEngine,
         "build",
-        ("regular", "triangle", "voronoi"),
+        ("catchment", "regular", "triangle", "voronoi"),
         "regular",
         "No mesh engine is registered for",
     ),
@@ -627,3 +627,136 @@ def test_a_name_is_kept_when_served_and_refused_with_the_names_served(
     assert refusal in str(caught.value)
     if group is None:
         assert "third-party" not in str(caught.value)
+
+
+# --------------------------------------------------------------------------- #
+# What the engine gained for the figure and export registries
+# --------------------------------------------------------------------------- #
+
+
+def _figure_named(name: str) -> type:
+    return type(f"_{name}", (), {"name": name, "render": lambda self: None})
+
+
+class _StubEntryPoint:
+    """An entry point as ``importlib.metadata`` hands one over, or a broken one."""
+
+    def __init__(
+        self,
+        name: str,
+        target: str,
+        cls: type | None = None,
+        load_error: Exception | None = None,
+    ) -> None:
+        self.name = name
+        self.value = target
+        self._cls = cls
+        self._load_error = load_error
+
+    def load(self) -> type:
+        if self._load_error is not None:
+            raise self._load_error
+        assert self._cls is not None
+        return self._cls
+
+
+def _figures_registry() -> PluginRegistry:
+    return PluginRegistry(
+        kind="figure",
+        id_attributes=("name",),
+        group="hydromodpy.test.figures",
+        builtin_paths={"cross_section": "hydromodpy.nowhere:Figure"},
+        members=lambda: ("name", "render"),
+        error=ValueError,
+    )
+
+
+def _declare(monkeypatch: pytest.MonkeyPatch, *entries: _StubEntryPoint) -> PluginRegistry:
+    registry = _figures_registry()
+    monkeypatch.setattr(
+        plugin_registry,
+        "entry_points",
+        lambda group: list(entries) if group == registry.group else [],
+    )
+    return registry
+
+
+def test_a_registry_without_a_group_scans_nothing_and_names_no_group(monkeypatch) -> None:
+    """A closed surface takes no plugin, and its refusal does not offer one."""
+    scans: list[str] = []
+    monkeypatch.setattr(plugin_registry, "entry_points", lambda group: scans.append(group) or [])
+    plain = PluginRegistry(
+        kind="figure",
+        id_attributes=("name",),
+        group=None,
+        builtin_paths={"cross_section": "hydromodpy.nowhere:Figure"},
+        members=lambda: ("name", "render"),
+        error=ValueError,
+    )
+
+    assert plain.names() == ("cross_section",)
+    assert plain.load_plugins() == 0
+    assert plain.plugins_loaded
+    assert scans == []
+    with pytest.raises(ValueError) as raised:
+        plain.get("hydrograph")
+    assert "cross_section" in str(raised.value)
+    assert "entry-point" not in str(raised.value)
+
+
+def test_an_entry_point_that_cannot_be_imported_is_refused_with_its_target_and_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    warnings: pytest.LogCaptureFixture,
+) -> None:
+    """The name is not served in silence: the refusal names what to put on sys.path."""
+    broken = _StubEntryPoint(
+        "hydrograph_amazon",
+        "hydromodpy_figures.rivers:AmazonFigure",
+        load_error=ModuleNotFoundError("No module named 'hydromodpy_figures'"),
+    )
+    registry = _declare(monkeypatch, broken)
+
+    assert "hydrograph_amazon" not in registry.names()
+    assert "failed to load" in warnings.text
+    with pytest.raises(ValueError) as raised:
+        registry.get("hydrograph_amazon")
+    message = str(raised.value)
+    assert "'hydrograph_amazon' is declared by the entry point hydrograph_amazon = " in message
+    assert "hydromodpy_figures.rivers:AmazonFigure" in message
+    assert "No module named 'hydromodpy_figures'" in message
+    assert "Put the package that provides it on sys.path." in message
+
+
+def test_two_distributions_that_declare_the_same_target_are_one_plugin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A checkout installed twice, or a test probe beside it, joins the list once."""
+    cls = _figure_named("hydrograph_amazon")
+    twice = _StubEntryPoint("hydrograph_amazon", "hydromodpy_figures.rivers:AmazonFigure", cls)
+    registry = _declare(monkeypatch, twice, twice)
+
+    assert registry.load_plugins() == 1
+    assert registry.names() == ("cross_section", "hydrograph_amazon")
+    assert registry.get("hydrograph_amazon") is cls
+
+
+def test_two_entry_points_that_disagree_are_refused_naming_both(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name two entry points claim is served by neither, in silence of none."""
+    first = _StubEntryPoint(
+        "hydrograph_amazon", "figures.a:Amazon", _figure_named("hydrograph_amazon")
+    )
+    second = _StubEntryPoint(
+        "hydrograph_amazon", "figures.b:Amazon", _figure_named("hydrograph_amazon")
+    )
+    registry = _declare(monkeypatch, first, second)
+
+    assert "hydrograph_amazon" not in registry.names()
+    assert registry.load_plugins() == 0
+    with pytest.raises(ValueError) as raised:
+        registry.get("hydrograph_amazon")
+    message = str(raised.value)
+    assert "declared by two entry points that do not agree" in message
+    assert "figures.a:Amazon" in message and "figures.b:Amazon" in message
+    assert "serves neither" in message

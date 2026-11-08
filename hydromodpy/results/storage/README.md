@@ -15,6 +15,7 @@ the truth, and the DuckDB index `.hmp/index.duckdb` is derived from these direct
 4. The run collects its facts in `run_facts.py`. A soil run adds its columns and `soil_budget` rows (`soil_tables.py`).
 5. `sealing.py` builds the record from the store and writes the seal last. A directory without a seal never finished.
 6. `scratch.py` empties the solver scratch when the attempt ends.
+7. `kept.py` holds `Retention`, built once by the extract step from `[simulation.results]` and the per-cell budget the planning kept. Every `extract` of a solver adapter reads it to know which budget terms to write, and the export step reads it to know whether the raw solver files stay.
 
 A run that restarts from another run reads it once, before the solve. `prior_state.py` opens the Zarr store of
 the prior run, checks that its mesh is the mesh of the new run, and gives the final head and the lake stages
@@ -32,6 +33,7 @@ storage/
 ├── attempt.py           claim of a directory, finish_attempt, typed refusals
 ├── run_log.py           logs/run.log and the tail kept in the outcome
 ├── scratch.py           what leaves the solver scratch at the end
+├── kept.py              Retention, what a run keeps of its solver outputs
 ├── parquet_schemas.py   one PyArrow schema per Parquet view
 ├── arrow_tables.py      Arrow tables from records or columns
 ├── parquet_io.py        atomic Parquet writer, checked reader
@@ -59,3 +61,4 @@ finds the layers through that function, in the run directory.
 | a fact the run states about itself | `run_facts.py`, then its use in `sealing.py` |
 | a unit in a table | the spelling in `udunits.py` |
 | a rule on who may write in a directory | `attempt.py` |
+| something a run may keep or drop of its solver outputs | a member of `Retention` in `kept.py`, with the reader that uses it |

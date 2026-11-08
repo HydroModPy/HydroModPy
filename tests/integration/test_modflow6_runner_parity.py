@@ -55,6 +55,7 @@ from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
 )
 from tests._helpers.mf6_ground import leave_ground_beside  # noqa: E402
 from tests._helpers.model_factory import make_model
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 # Reuse the proven single-lake DISV builder + recording store double.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -93,7 +94,6 @@ class _ShimModel:
         self.full_path = str(full_path)
         self.inputs = make_model()
         self.last_flow_solve_time_seconds: float | None = None
-        self._runtime_dirty_packages: tuple[str, ...] = ()
         self._mf6_api_callback: Any = None
         self._mf6_api_lib_path: Any = None
 
@@ -116,7 +116,7 @@ def _extract(ws: Path) -> tuple[dict[str, list[float]], np.ndarray]:
     import flopy.utils.binaryfile as bf
 
     store = _RecordingStore()
-    Modflow6OutputAdapter().extract("sim", ws, store, model_name=_MODEL_NAME)
+    Modflow6OutputAdapter().extract(solved_run(ws), store, keep_all)
     station = lake_station_id("lac0")
     by_variable: dict[str, list[float]] = {}
     for record in store.timeseries:

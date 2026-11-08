@@ -25,7 +25,7 @@ from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
     TrialResult,
-    _trial_owns_its_recharge,
+    _phase_samples_the_recharge,
     promote_prepared_trial,
     run_trial_light,
 )
@@ -35,7 +35,7 @@ from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKee
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
-from hydromodpy.core.state.run_state import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry, SlotRequest
 from hydromodpy.core.units.physical_bounds import validate_physical_value
 from hydromodpy.model.flow import Flow
 from hydromodpy.results.outcome import read_outcome
@@ -43,7 +43,6 @@ from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.run_facts import PromotionFacts
 from hydromodpy.solver.base.results_config import ResultsConfig
-from hydromodpy.solver.modflow6.builders.recharge import PRIVATE_TRIAL_RECHARGE_KEY
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
@@ -123,7 +122,7 @@ def test_the_mesh_step_declares_the_sections_that_drive_it() -> None:
 
 
 # From test_a_phase_that_samples_the_recharge_owns_its_trial_recharge.py
-# ``_trial_owns_its_recharge`` reads what THIS phase samples, not what it reruns.
+# ``_phase_samples_the_recharge`` reads what THIS phase samples, not what it reruns.
 #
 # A phase after a frozen recharge phase carries ``soil.ru`` in
 # ``override_paths`` (it reruns the value) without carrying it in
@@ -181,7 +180,7 @@ def test_a_trial_owns_its_recharge_when_its_phase_samples_what_it_is_computed_fr
 ) -> None:
     ctx = _trial_context(parameter_space=_sampled(**sampled), override_paths=override_paths)
 
-    assert _trial_owns_its_recharge(ctx) is owns
+    assert _phase_samples_the_recharge(ctx) is owns
 
 
 # From test_a_promoted_run_closes_its_attempt.py
@@ -629,7 +628,7 @@ def _mesh() -> SolverMesh:
 def _trial(
     cfg__trial_moves: HydroModPyConfig, tmp_path: Path, values: dict[str, float]
 ) -> TrialContext:
-    setup = SimpleNamespace(flow=None, transport=None, flow_runtime_overrides=None)
+    setup = SimpleNamespace(flow=None, transport=None, slot_request=None)
     ctx = SimpleNamespace(
         setup=setup, data_plan=None, loaded_data=SimpleNamespace(), execution=ExecutionRegistry()
     )
@@ -726,11 +725,12 @@ def test_a_trial_that_brings_k22_back_on_axis_keeps_xt3d_off(
 # From test_a_trial_tells_the_solver_when_its_recharge_is_its_own.py
 # ``run_trial_light`` marks the sandbox only when the phase owns its recharge.
 #
-# A trial always gets a private ``model_name_override``; it gets
-# ``PRIVATE_TRIAL_RECHARGE_KEY`` on top only when its phase samples a value the
-# recharge is computed from (:func:`_trial_owns_its_recharge`). MODFLOW 6 reads
-# the key to decide whether this trial writes its RCHA/EVTA binaries into its
-# own ``_recharge`` folder or into the folder every trial of the phase shares.
+# A trial always gets a private run name in its ``SlotRequest``. Its
+# ``shared_forcing_dir`` is a ``_recharge`` folder inside the trial folder when
+# its phase samples a value the recharge is computed from
+# (:func:`_phase_samples_the_recharge`), and otherwise the ``_shared_recharge``
+# folder every trial of the phase shares. MODFLOW 6 writes its RCHA/EVTA
+# binaries into that folder.
 
 
 @dataclass
@@ -783,7 +783,7 @@ class _FakeSetup:
     domain: Any = None
     flow: Any = None
     transport: Any = None
-    flow_runtime_overrides: Any = None
+    slot_request: Any = None
     run_id: str = "toy"
     time_grid: Any = None
 
@@ -811,6 +811,7 @@ def _trial_context__trial_tells(
 ) -> TrialContext:
     cfg = _FakeCfg()
     ctx = _FakeCtx(cfg=cfg, config_path=tmp_path / "hydromodpy.toml", raw_toml={})
+    ctx.setup.workspace = SimpleNamespace(solver_scratch_folder=tmp_path / "scratch")
     # earliest=9 with no downstream steps: run_trial_light skips the pipeline
     # slice entirely and only exercises fork() + the metric extractor, which is
     # all this contract needs.
@@ -827,14 +828,13 @@ def _trial_context__trial_tells(
     )
 
 
-def _run_and_capture_overrides(
+def _run_and_capture_request(
     trial_ctx: TrialContext, values: dict[str, float], *, trial_id: int | None
-) -> dict[str, Any] | None:
-    captured: list[dict[str, Any] | None] = []
+) -> SlotRequest | None:
+    captured: list[SlotRequest | None] = []
 
     def _metric(ctx, *, objective, variable):
-        overrides = ctx.setup.flow_runtime_overrides
-        captured.append(dict(overrides) if overrides is not None else None)
+        captured.append(ctx.setup.slot_request)
         return 0.0, {}
 
     run_trial_light(trial_ctx, values, metric_fn=_metric, trial_id=trial_id)
@@ -842,7 +842,7 @@ def _run_and_capture_overrides(
 
 
 @pytest.mark.usefixtures("ensure_bootstrap")
-class TestPrivateRechargeKey:
+class TestTheTrialForcingFolder:
     @pytest.mark.parametrize(
         ("sampled", "values", "trial_id", "expected"),
         [
@@ -850,14 +850,14 @@ class TestPrivateRechargeKey:
                 {"ru": SOIL_RU},
                 {"ru": 120.0},
                 1,
-                {"model_name_override": "toy_trial000001", PRIVATE_TRIAL_RECHARGE_KEY: True},
+                ("toy_trial000001", "toy_trial000001/_recharge"),
                 id="a_sampled_soil_recharge_marks_its_own_folder",
             ),
             pytest.param(
                 {"K": K_VALUE},
                 {"K": 1.0},
                 2,
-                {"model_name_override": "toy_trial000002"},
+                ("toy_trial000002", "_shared_recharge"),
                 id="a_phase_that_samples_only_k_shares_the_recharge",
             ),
             pytest.param(
@@ -865,10 +865,15 @@ class TestPrivateRechargeKey:
             ),
         ],
     )
-    def test_the_trial_overrides(self, tmp_path, sampled, values, trial_id, expected) -> None:
+    def test_the_trial_slot_request(self, tmp_path, sampled, values, trial_id, expected) -> None:
         trial_ctx = _trial_context__trial_tells(tmp_path, parameter_space=_sampled(**sampled))
 
-        assert _run_and_capture_overrides(trial_ctx, values, trial_id=trial_id) == expected
+        request = _run_and_capture_request(trial_ctx, values, trial_id=trial_id)
+        if expected is None:
+            assert request is None
+            return
+        name, forcing = expected
+        assert request == SlotRequest(name=name, shared_forcing_dir=tmp_path / "scratch" / forcing)
 
 
 # From test_trial_primitive.py
@@ -979,7 +984,7 @@ class TestFork:
         # the trial's cfg.flow.
         assert forked.ctx.setup.flow is None
         assert forked.ctx.setup.transport is None
-        assert forked.ctx.setup.flow_runtime_overrides is None
+        assert forked.ctx.setup.slot_request is None
 
     def test_fork_is_lightweight(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
@@ -987,7 +992,7 @@ class TestFork:
         assert forked.ctx.execution.lightweight is True
         # Fresh execution registry: no residual plan / models carried
         # over from another trial or from the base.
-        assert forked.ctx.execution.models_by_run_id == {}
+        assert forked.ctx.execution.solver_runs == {}
         # A lightweight trial has no index to write to, and the context it
         # forks carries no handle to one.
         assert not hasattr(forked.ctx, "store")
@@ -1000,16 +1005,16 @@ class TestFork:
         assert forked.ctx.loaded_data is trial_ctx.ctx.loaded_data
         assert forked.ctx.loaded_data.hydrometry is hydro
 
-    def test_flow_runtime_overrides_seed_the_forked_setup(self, tmp_path: Path) -> None:
+    def test_a_slot_request_seeds_the_forked_setup(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        overrides = {"model_name_override": "toy_trial000001"}
-        forked = trial_ctx.fork({"K": 1.0}, flow_runtime_overrides=overrides)
-        assert forked.ctx.setup.flow_runtime_overrides == overrides
-        # A copy, not the caller's dict.
-        assert forked.ctx.setup.flow_runtime_overrides is not overrides
-        # Without overrides the forked setup resets them to None (legacy default).
+        request = SlotRequest(name="toy_trial000001")
+        forked = trial_ctx.fork({"K": 1.0}, slot_request=request)
+        assert forked.ctx.setup.slot_request == request
+        # The base setup keeps no request of a trial.
+        assert getattr(trial_ctx.ctx.setup, "slot_request", None) is None
+        # Without a request the forked setup has none.
         plain = trial_ctx.fork({"K": 1.0})
-        assert plain.ctx.setup.flow_runtime_overrides is None
+        assert plain.ctx.setup.slot_request is None
 
 
 # ---------------------------------------------------------------------------
@@ -1125,7 +1130,7 @@ class TestRunTrialLight:
         assert result.metrics == {"nse@outlet": 0.58}
 
     def test_trials_get_isolated_model_identity_and_cleanup(self, tmp_path: Path) -> None:
-        """Each trial gets a unique model_name_override and its outputs are cleaned."""
+        """Each trial gets a unique run name and its outputs are cleaned."""
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         trial_ctx.ctx.setup.run_id = "toy"
 
@@ -1133,12 +1138,12 @@ class TestRunTrialLight:
         created: list[Path] = []
 
         def _capture(ctx, *, objective, variable):
-            name = ctx.setup.flow_runtime_overrides["model_name_override"]
+            name = ctx.setup.slot_request.name
             seen.append(name)
             # Simulate the solver having written an output folder for this run.
             out = tmp_path / name
             out.mkdir(parents=True, exist_ok=True)
-            ctx.execution.output_dirs_by_run_id["run"] = out
+            ctx.execution.solver_runs["run"] = SimpleNamespace(output_dir=out)
             created.append(out)
             return 0.0, {}
 
@@ -1151,18 +1156,18 @@ class TestRunTrialLight:
         # Ephemeral: each trial's solver output is removed on exit.
         assert all(not d.exists() for d in created)
 
-    def test_trial_without_id_has_no_overrides(self, tmp_path: Path) -> None:
-        """trial_id=None keeps the legacy path: no sandbox, no overrides."""
+    def test_trial_without_id_has_no_slot_request(self, tmp_path: Path) -> None:
+        """trial_id=None keeps the path without a sandbox: no slot request."""
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
 
         captured: dict[str, object] = {}
 
         def _capture(ctx, *, objective, variable):
-            captured["overrides"] = ctx.setup.flow_runtime_overrides
+            captured["request"] = ctx.setup.slot_request
             return 0.0, {}
 
         run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_capture)
-        assert captured["overrides"] is None
+        assert captured["request"] is None
 
 
 @pytest.mark.usefixtures("ensure_bootstrap")
@@ -1241,7 +1246,7 @@ def test_a_calibrated_factor_reaches_the_fork_the_frozen_file_and_the_replay(tmp
     frozen = HydroModPyConfig.model_validate(written_payload(forked))
     assert frozen.flow.sinks_sources.recharge.factor == 1.5
     assert Flow(frozen.flow).sinks_sources["recharge"].values == pytest.approx(3e-3 / 86400.0)
-    assert _trial_owns_its_recharge(base)
+    assert _phase_samples_the_recharge(base)
 
 
 @pytest.mark.usefixtures("_provider")

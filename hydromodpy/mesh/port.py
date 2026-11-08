@@ -8,13 +8,15 @@ this module, the request module, the planar cell mesh model and
 
 The capabilities are declarations a caller can act on before building: a solver
 lists the engines it reads (``accepted_meshes``), the workflow caches what an
-engine cannot rebuild bit for bit (``needs_cache``), and the QA reports what the
-engine claims (``graded``, ``exact_faces``, ``deterministic``).
+engine cannot rebuild bit for bit (``needs_cache``), the planner hands the
+catchment outline to an engine that meshes it as one cell (``lumped``), and the
+QA reports what the engine claims (``graded``, ``exact_faces``,
+``deterministic``). Whether a reader reads the meshes of an engine is decided by
+``engine_accepted`` of :mod:`hydromodpy.mesh.registry`, which resolves the engine.
 """
 
 from __future__ import annotations
 
-from collections.abc import Collection
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args, runtime_checkable
 
@@ -30,7 +32,6 @@ __all__ = [
     "CellFamilyRule",
     "MeshEngine",
     "MeshEngineCapabilities",
-    "engine_accepted",
     "engine_members",
     "missing_engine_members",
 ]
@@ -44,12 +45,19 @@ PLANAR_CELL_TYPES: frozenset[CellType] = frozenset(
 """The cell types a planar cell mesh may hold."""
 
 ANY_PLANAR_ENGINE = "*planar"
-"""Token of ``accepted_meshes``: any engine whose cells are planar cell types."""
+"""Token of ``accepted_meshes``: any engine of planar cells that is not lumped."""
 
 
 @dataclass(frozen=True)
 class MeshEngineCapabilities:
-    """What an engine declares about every mesh it builds."""
+    """What an engine declares about every mesh it builds.
+
+    ``lumped`` marks an engine that meshes the catchment as one cell, for a
+    global model. The planner hands it ``MeshRequest.catchment``, and a solver
+    that accepts ``*planar`` does not read it: a solver that reads one cell names
+    the engine. It defaults to False, so an engine written before it stays valid,
+    and it is not one of the declarations the QA reports.
+    """
 
     cell_types: tuple[CellType, ...]
     structured: bool
@@ -58,6 +66,7 @@ class MeshEngineCapabilities:
     cell_families: CellFamilyRule
     deterministic: bool
     needs_cache: bool
+    lumped: bool = False
 
     def __post_init__(self) -> None:
         """Refuse a cell type outside the planar ones and an unknown family rule."""
@@ -71,7 +80,14 @@ class MeshEngineCapabilities:
             raise ValueError(
                 f"cell_families must be one of {get_args(CellFamilyRule)}, got {self.cell_families!r}"
             )
-        for name in ("structured", "graded", "exact_faces", "deterministic", "needs_cache"):
+        for name in (
+            "structured",
+            "graded",
+            "exact_faces",
+            "deterministic",
+            "needs_cache",
+            "lumped",
+        ):
             if not isinstance(getattr(self, name), bool):
                 raise ValueError(f"MeshEngineCapabilities.{name} must be a bool")
 
@@ -102,19 +118,6 @@ class MeshEngine(Protocol):
     def build(self, request: MeshRequest) -> PlanarCellMesh:
         """Build the planar cell mesh *request* asks for."""
         ...
-
-
-def engine_accepted(
-    accepted: Collection[str], engine_id: str, capabilities: MeshEngineCapabilities
-) -> bool:
-    """Whether a reader that accepts *accepted* reads the meshes of *engine_id*.
-
-    A reader names engine ids, or :data:`ANY_PLANAR_ENGINE` to read any engine
-    whose cell types are planar ones.
-    """
-    if engine_id in accepted:
-        return True
-    return ANY_PLANAR_ENGINE in accepted and set(capabilities.cell_types) <= PLANAR_CELL_TYPES
 
 
 def engine_members() -> tuple[str, ...]:

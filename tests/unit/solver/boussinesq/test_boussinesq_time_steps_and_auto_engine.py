@@ -11,12 +11,12 @@ import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.model import ModelTime
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.drivers.forcing import ResolvedRuntimeForcing
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.solver_contract import (
     DENSE_ENGINE_MAX_CELLS,
     resolve_runtime_backend_name,
@@ -124,9 +124,9 @@ def _run_relaxation(
 ) -> Boussinesq:
     """Relax a sloping water table on a closed strip and return the solver."""
     runtime = (
-        FlowRuntimeConfig()
+        BoussinesqOptions()
         if runtime_backend is None
-        else FlowRuntimeConfig(backend=runtime_backend)
+        else BoussinesqOptions(backend=runtime_backend)
     )
     time_grid = SimpleNamespace(period_lengths_seconds=period_lengths_seconds)
     if nstp_per_period is not None:

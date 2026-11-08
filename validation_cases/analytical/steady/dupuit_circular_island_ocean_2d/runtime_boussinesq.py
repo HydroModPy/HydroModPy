@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d import (
     runtime_boussinesq as circular_runtime,
 )
@@ -17,10 +13,10 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -77,7 +73,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)
     }
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             _build_flow_config(
                 boussinesq_variant_flow_section(
@@ -110,25 +106,10 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
             case_dir=CASE_DIR,
             config_name=boussinesq_variant_config_name(solver_name),
         ),
+        plan_name="Boussinesq circular-island ocean validation",
+        plan_description="Steady circular island with one uniform conductivity and one ocean boundary",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq circular-island ocean validation",
-            description="Steady circular island with one uniform conductivity and one ocean boundary",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = circular_runtime._aggregate_triangle_history_to_reference_fields(
         model,
         reference_cfg,

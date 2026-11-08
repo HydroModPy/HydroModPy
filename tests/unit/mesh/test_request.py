@@ -3,6 +3,7 @@
 The hash moves with every member and with the earlier runs the size field
 read. A request that reads no run keeps the hash the code gave it before the
 runs were hashed, so the meshes cached for every existing project stay valid.
+A request without a catchment outline keeps its hash the same way.
 A request refuses what no engine can mesh, with a message that names the
 member; the type of a member is its annotation's, not the request's. A size field is sampled bilinearly between its pixel centers.
 """
@@ -197,6 +198,7 @@ def _variants() -> dict[str, MeshRequest]:
         ),
         "no triangulation": _request(input_triangulation=None),
         "source runs": _request(source_runs=("a" * 32,)),
+        "catchment": _request(catchment=box(1010.0, 2010.0, 1090.0, 2040.0)),
     }
 
 
@@ -219,6 +221,40 @@ def test_a_request_that_reads_no_run_keeps_its_hash() -> None:
     assert _request_without_runs().source_runs == ()
     assert _request_without_runs().canonical_hash() == HASH_WITHOUT_RUNS
     assert _request_without_runs(source_runs=[]).canonical_hash() == HASH_WITHOUT_RUNS
+
+
+HASH_WITHOUT_A_CATCHMENT = "5f80505aea4c05f1edf81e35368962a2f6e5f1b2a54a2b67ebb4256587d57ba9"
+"""The hash of ``mesh_request()`` computed with the request of bcd98022e, which had no catchment."""
+
+_CATCHMENT = Polygon([(100.0, 100.0), (900.0, 150.0), (850.0, 900.0), (150.0, 800.0)])
+
+
+def test_a_request_without_a_catchment_keeps_its_hash() -> None:
+    assert mesh_request().catchment is None
+    assert mesh_request().canonical_hash() == HASH_WITHOUT_A_CATCHMENT
+    assert mesh_request(catchment=None).canonical_hash() == HASH_WITHOUT_A_CATCHMENT
+
+
+def test_a_catchment_moves_the_hash() -> None:
+    hashed = mesh_request(catchment=_CATCHMENT).canonical_hash()
+
+    assert hashed != HASH_WITHOUT_A_CATCHMENT
+    assert hashed != mesh_request(catchment=_CATCHMENT.buffer(1.0)).canonical_hash()
+
+
+@pytest.mark.parametrize(
+    "drawn",
+    [
+        Polygon(list(_CATCHMENT.exterior.coords)[::-1]),
+        Polygon([*list(_CATCHMENT.exterior.coords)[2:-1], *list(_CATCHMENT.exterior.coords)[:3]]),
+    ],
+    ids=["clockwise", "another_start"],
+)
+def test_the_hash_reads_the_catchment_in_its_normalized_form(drawn: Polygon) -> None:
+    assert (
+        mesh_request(catchment=drawn).canonical_hash()
+        == mesh_request(catchment=_CATCHMENT).canonical_hash()
+    )
 
 
 def test_the_runs_are_hashed_as_a_sorted_set() -> None:
@@ -296,6 +332,7 @@ def test_a_minimal_request_takes_the_defaults() -> None:
     assert request.seed == 0
     assert dict(request.options) == {}
     assert request.input_triangulation is None
+    assert request.catchment is None
     assert request.family("rivers") is None
 
 
@@ -399,6 +436,22 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "option of an integer key": (
         lambda: _request(options={1: "integer key"}),
         r"options keys must be strings",
+    ),
+    "empty catchment": (
+        lambda: _request(catchment=Polygon()),
+        r"MeshRequest.catchment must be one non-empty shapely Polygon",
+    ),
+    "catchment in two parts": (
+        lambda: _request(catchment=box(0, 0, 1, 1).union(box(2, 0, 3, 1))),
+        r"MeshRequest.catchment must be one non-empty shapely Polygon",
+    ),
+    "self-crossing catchment": (
+        lambda: _request(catchment=Polygon([(0, 0), (1, 1), (1, 0), (0, 1)])),
+        r"MeshRequest.catchment must be a valid polygon with an area > 0",
+    ),
+    "catchment of no area": (
+        lambda: _request(catchment=Polygon([(0, 0), (1, 0), (2, 0)])),
+        r"MeshRequest.catchment must be a valid polygon with an area > 0",
     ),
     "empty run": (
         lambda: _request_without_runs(source_runs=("",)),

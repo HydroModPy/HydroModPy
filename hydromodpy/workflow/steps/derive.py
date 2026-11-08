@@ -24,6 +24,7 @@ Outputs
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
@@ -91,22 +92,20 @@ class DeriveStep:
         # this point they are dead weight: a transient flopy model carries the
         # full stress-period data, which reaches GBs on multi-thousand-period
         # runs. Release them before the derive phase allocates.
-        ctx.execution.models_by_run_id.clear()
+        runs = ctx.execution.solver_runs
+        runs.update({run_id: replace(run, solver_model=None) for run_id, run in runs.items()})
 
         plan = ctx.execution.simulation_plan
         if plan is not None:
             from hydromodpy.solver.base.plan import RunContext
             from hydromodpy.workflow.steps.run_outputs import derive_run_outputs
 
-            results_cfg = ctx.cfg.simulation.results
             with run_store(ctx) as store:
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
                     derive_run_outputs(
                         ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
-                        sim_id=sim_id,
-                        results_config=results_cfg,
                         store=store,
                     )
                 sample_declared_points(ctx.cfg, store=store)

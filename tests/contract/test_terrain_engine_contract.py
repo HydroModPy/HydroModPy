@@ -24,6 +24,7 @@ from hydromodpy.catchment.terrain.port import (
     SNAPPED_OUTLET_LAYER_NAME,
     CappedBreach,
     CatchmentLayout,
+    ConditionedDem,
     ConditioningExtent,
     DrainageDirections,
     JensonSnap,
@@ -237,14 +238,18 @@ def test_conditioning_raises_a_pit_to_its_lowest_way_out(engine, tmp_path) -> No
 
 
 @pytest.mark.parametrize(
-    ("method", "extent"),
-    [("fill", ConditioningExtent.per_outlet_buffer(500.0)), ("carve", ConditioningExtent.regional())],
-    ids=["extent", "method"],
+    ("method", "extent", "error"),
+    [
+        ("fill", ConditioningExtent.per_outlet_buffer(500.0), TerrainCapabilityError),
+        ("carve", ConditioningExtent.regional(), TerrainCapabilityError),
+        ("provided", ConditioningExtent.regional(), TerrainRequestError),
+    ],
+    ids=["extent", "method", "provided"],
 )  # fmt: skip
 def test_a_conditioning_no_engine_serves_is_refused(
-    engine, plane_east, tmp_path, method, extent
+    engine, plane_east, tmp_path, method, extent, error
 ) -> None:
-    with pytest.raises(TerrainCapabilityError):
+    with pytest.raises(error):
         engine.condition_dem(plane_east, method=method, extent=extent, out=tmp_path / "c.tif")
 
 
@@ -593,6 +598,28 @@ def test_every_product_carries_the_crs_and_names_what_it_came_from(
     assert directions.conditioned_dem == conditioned
     assert accumulation.directions == directions
     assert (accumulation.units, accumulation.transform) == ("cells", "none")
+
+
+def test_a_provided_dem_is_routed_as_it_is_given(engine, valley, tmp_path) -> None:
+    """A DEM the user conditioned goes through the same members as one the engine filled."""
+    filled = _condition(engine, valley, tmp_path / "filled.tif")
+    own = tmp_path / "own"
+    given = tmp_path / "given"
+    _c, own_directions, own_accumulation = _products(engine, valley, own)
+    directions = engine.drainage_directions(
+        ConditionedDem.provided(filled.path), out=given / "p.tif"
+    )
+    accumulation = engine.flow_accumulation(
+        directions, units="cells", transform="none", out=given / "a.tif"
+    )
+    assert directions.conditioned_dem.method == "provided"
+    assert directions.conditioned_dem.crs == CRS
+    assert np.array_equal(_read(directions.path), _read(own_directions.path))
+    assert np.array_equal(_read(accumulation.path), _read(own_accumulation.path))
+    reference = _exit_catchment(engine, own_accumulation, own / "c", RES)
+    assert (
+        _exit_catchment(engine, accumulation, given / "c", RES).cell_count == reference.cell_count
+    )
 
 
 def test_an_accumulation_float32_cannot_order_is_refused(engine, valley_chain, tmp_path) -> None:

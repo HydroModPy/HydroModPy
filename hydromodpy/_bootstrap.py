@@ -90,14 +90,6 @@ def _register_calibration_contracts() -> None:
     register_default_trial_pipeline_provider()
 
 
-def _register_rerun_provider() -> None:
-    """Wire the Project-backed rerun provider used by ``catalog.rerun``."""
-    from hydromodpy.project.dispatch.rerun import ProjectRerunProvider
-    from hydromodpy.results.run.rerun_contract import register_rerun_provider
-
-    register_rerun_provider(ProjectRerunProvider())
-
-
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
@@ -165,7 +157,6 @@ _BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
     _register_physics_contracts,
     _register_spatial_contracts,
     _register_calibration_contracts,
-    _register_rerun_provider,
     _rebuild_forward_refs,
     _register_root_config_contracts,
     _register_dynamic_flow_examples_contract,

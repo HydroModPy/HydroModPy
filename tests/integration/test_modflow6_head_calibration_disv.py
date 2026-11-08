@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.adapters.flow import _collapse_to_disv_cells
+from hydromodpy.solver.modflow6.adapter import _collapse_to_disv_cells
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.calibration_extractors import extract_head_from_hds
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

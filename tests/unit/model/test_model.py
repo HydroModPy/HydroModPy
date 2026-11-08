@@ -33,8 +33,8 @@ from hydromodpy.model.model import (
     model_from_flow,
     steady_variant,
 )
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.model_factory import default_options, make_model, small_geometry, time_grid
@@ -331,7 +331,7 @@ def _member_names(cls: type, seen: set[type]) -> set[str]:
 
 
 @pytest.mark.parametrize(
-    "backend_config", [FlowRuntimeConfig, Modflow6Config, ModflowConfig], ids=lambda c: c.__name__
+    "backend_config", [BoussinesqOptions, Modflow6Config, ModflowConfig], ids=lambda c: c.__name__
 )
 def test_no_member_of_the_model_is_a_backend_setting(backend_config) -> None:
     clashes = _member_names(Model, set()) & set(backend_config.model_fields)

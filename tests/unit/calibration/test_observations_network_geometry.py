@@ -241,7 +241,11 @@ def test_the_maximal_heads_map_contains_the_minimal_trace() -> None:
 
 def _run_with(*, botm=None, top=(5.0, 6.0, 7.0), mask=None) -> SimpleNamespace:
     mesh = SimpleNamespace(botm=botm, top=np.array(top))
-    return SimpleNamespace(model=SimpleNamespace(solver_mesh=mesh, inactive_mask=mask))
+    return SimpleNamespace(
+        solver_run=SimpleNamespace(
+            solver_model=SimpleNamespace(solver_mesh=mesh, inactive_mask=mask)
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -277,7 +281,12 @@ def test_a_mesh_with_no_cell_and_a_model_with_no_mesh_are_refused() -> None:
         (SimpleNamespace(solver_mesh=SimpleNamespace()), "exposes no 'cell_centers'"),
     ]:
         with pytest.raises(ValueError, match=message):
-            network_maps_from_run(SimpleNamespace(model=model, run=SimpleNamespace(id="r")), None)
+            network_maps_from_run(
+                SimpleNamespace(
+                    solver_run=SimpleNamespace(solver_model=model), run=SimpleNamespace(id="r")
+                ),
+                None,
+            )
 
 
 def test_the_share_of_a_map_a_second_one_misses_is_nan_without_cells() -> None:

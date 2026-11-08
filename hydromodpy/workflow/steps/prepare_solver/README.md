@@ -21,7 +21,7 @@ In the order a run reaches them: `step` plans, `dispatch` opens the run (it call
 |---|---|
 | `step.py` | `PrepareSolverStep`: the order of the work below |
 | `dispatch.py` | binds the pipeline to its run directory and records what the run was built from (`bind_run_directory`, `initial_facts`, `step_open_run`) |
-| `model.py` | freezes the `Flow` into the `Model`, reads the earlier run a hotstart names and refuses a different mesh before the solve (`step_build_model`) |
+| `model.py` | freezes the `Flow` into the `Model`, reads the river network A on the mesh cells (`Model.geometry.channel_exits`), reads the earlier run a hotstart names and refuses a different mesh before the solve (`step_build_model`) |
 | `restart.py` | `[flow] restart_from` by reference: a run name, a `sim_id` or a path (`resolve_restart_source`) |
 | `facts.py` | the facts of the run, the config snapshot and the artifact paths (`collect_run_facts`, `store_sim_artifacts`) |
 | `freeze.py` | freezes the configuration the run was built from (`freeze_run_config`) |

@@ -196,7 +196,8 @@ def test_the_network_criterion_reads_the_outline_the_mesh_followed(tmp_path, fol
     mesh = _mesh(followed=followed)
     setup = SimpleNamespace(geographic=_geographic(tmp_path), cell_mesh=mesh.cell_mesh)
     run_ctx = SimpleNamespace(
-        model=SimpleNamespace(descent_basin=None), state=SimpleNamespace(setup=setup)
+        solver_run=SimpleNamespace(solver_model=SimpleNamespace(descent_basin=None)),
+        state=SimpleNamespace(setup=setup),
     )
 
     mask = delineated_catchment_mask(

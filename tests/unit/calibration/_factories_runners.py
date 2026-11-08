@@ -142,7 +142,7 @@ class FakeCtx:
         self.config_path = config_path
         self.raw_toml = raw_toml
         self.setup = SimpleNamespace(
-            workspace=workspace, flow=None, transport=None, flow_runtime_overrides=None
+            workspace=workspace, flow=None, transport=None, slot_request=None
         )
         self.loaded_data = SimpleNamespace()
         self.data_plan = None

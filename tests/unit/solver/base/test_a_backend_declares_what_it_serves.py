@@ -43,12 +43,13 @@ def _declared(backend: str, cfg) -> dict[str, ObservableSupport]:
     import importlib
 
     module, cls = {
-        "modflow6": ("hydromodpy.solver.modflow6.adapters.flow", "Modflow6FlowAdapter"),
-        "modflow_nwt": ("hydromodpy.solver.modflow_nwt.adapters.flow", "ModflowNwtFlowAdapter"),
-        "boussinesq": ("hydromodpy.solver.boussinesq.adapters.flow", "BoussinesqFlowAdapter"),
+        "modflow6": ("hydromodpy.solver.modflow6.adapter", "Modflow6FlowAdapter"),
+        "modflow_nwt": ("hydromodpy.solver.modflow_nwt.adapter", "ModflowNwtFlowAdapter"),
+        "boussinesq": ("hydromodpy.solver.boussinesq.adapter", "BoussinesqFlowAdapter"),
     }[backend]
     adapter = getattr(importlib.import_module(module), cls)()
-    return {item.name: item for item in adapter.declared_observables(cfg)}
+    active = frozenset(cfg.flow.active_bc or ())
+    return {item.name: item for item in adapter.declared_observables(active)}
 
 
 @pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt", "boussinesq"])

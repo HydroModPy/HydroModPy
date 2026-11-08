@@ -522,8 +522,6 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     from types import SimpleNamespace
 
     from hydromodpy.model.flow import Flow
-    from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-    from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
     from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.reference import (
         expected_linearized_unconfined_boundary_step_profiles,
     )
@@ -536,10 +534,10 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     )
     from validation_cases.shared import load_case_metadata
     from validation_cases.shared.boussinesq_analytical_runtime import (
-        boussinesq_run_state,
         boussinesq_variant_config_name,
         boussinesq_variant_flow_section,
         boussinesq_variant_options,
+        solve_boussinesq_bundle,
     )
     from validation_cases.shared.boussinesq_uniform_strip import (
         aggregate_triangle_history_to_structured_fields,
@@ -586,7 +584,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
         }
     simulations = workspace / "results_simulations"
     simulations.mkdir(exist_ok=True)
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             build_flow_config(
                 boussinesq_variant_flow_section(flow_section, flow_regime="transient"),
@@ -608,21 +606,10 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
             config_name=boussinesq_variant_config_name(solver),
             written=settings,
         ),
+        plan_name="Boussinesq sub-steps",
+        plan_description="Head step, N steps",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq sub-steps", description="Head step, N steps", runs=(run,)
-        ),
-        run=run,
-        state=state,
-    )
-    model = BoussinesqFlowAdapter().execute(ctx).primary_model
+    model = solved.solver_model
     fields = aggregate_triangle_history_to_structured_fields(
         model, nx=_BOUSSINESQ_NX, ny=_BOUSSINESQ_NY, export_initial_state=False
     )

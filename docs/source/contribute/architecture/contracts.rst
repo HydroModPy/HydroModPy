@@ -43,26 +43,31 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.tracking.input_file``: ``InputFile``, a file a run depends on.
 - ``hydromodpy.core.contracts.observables``: what a solver and a forward model
   answer.
-- ``hydromodpy.core.state.run_state``: ``RunState``, what a solver adapter reads.
+- ``hydromodpy.core.state.run_state``: ``RunState``, what a transport adapter reads,
+  and ``SlotRequest``, what a calibration trial asks of the slot its runs solve in.
 - ``hydromodpy.schema``: the JSON Schema export and the partial validator.
 - ``hydromodpy.catchment.terrain.port``: the terrain engine port.
 - ``hydromodpy.mesh.port``: the mesh engine port.
 - ``hydromodpy.data.source.port``: the data source port.
+- ``hydromodpy.results.exporters.port``: the export format port.
 - ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
 - ``hydromodpy.data.managers.base_config``: the base of a data variable config.
 - ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
 - ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
 - ``hydromodpy.model.transport.transport``: ``Transport``, the transport process.
-- ``hydromodpy.solver.base.adapter_protocol``: the solver port.
-- ``hydromodpy.solver.base.plan``: ``RunContext`` and ``RunExecutionResult``,
+- ``hydromodpy.solver.base.adapter_protocol``: the solver port and the extractor port,
+  ``SolverAdapter`` and ``OutputAdapter``.
+- ``hydromodpy.solver.base.plan``: ``RunSlot``, ``SolverRun`` and ``RunContext``,
   what a solver adapter receives and returns.
-- ``hydromodpy.workflow.steps.run_outputs``: the solver extractor port.
+- ``hydromodpy.results.storage.kept``: ``Retention``, what a run keeps of its solver
+  outputs, which ``extract`` receives.
 - ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
 - ``hydromodpy.calibration.evaluation.forward``: the forward model port.
 - ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
 - ``hydromodpy.calibration.optim.parameters``: ``ParameterSpace``.
 - ``hydromodpy.display.figure``: ``BaseFigure`` and ``FigureSpec``.
-- ``hydromodpy.display.figure_registry``: ``register``.
+- ``hydromodpy.display.figure_registry``: ``figures`` (the registry), ``get``,
+  ``resolve``, ``names``, ``figure_option_names``.
 - ``hydromodpy.display.figures.scalar_face_map``: the base of a map of one value per
   face.
 - ``hydromodpy.display.report_blocks``: the static HTML blocks of a report.
@@ -83,6 +88,8 @@ Plugin ports
 ------------
 
 A plugin joins through an entry-point group. Each group has one Protocol.
+The entry-point name of a plugin follows the key of its registry: a source is
+declared under ``<section>_<source_id>``, an export format under its ``name``.
 
 .. list-table::
    :header-rows: 1
@@ -100,6 +107,9 @@ A plugin joins through an entry-point group. Each group has one Protocol.
    * - ``hydromodpy.data.source``
      - ``DataSource``, ``hydromodpy.data.source.port``
      - stable
+   * - ``hydromodpy.export.format``
+     - ``ExportWriter``, ``hydromodpy.results.exporters.port``
+     - experimental
    * - ``hydromodpy.calibration.forward_model``
      - ``ForwardModel``, ``hydromodpy.calibration.evaluation.forward``
      - stable signature, experimental construction options
@@ -110,7 +120,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - ``SolverAdapter``, ``hydromodpy.solver.base.adapter_protocol``
      - experimental
    * - ``hydromodpy.solver.extractor``
-     - ``OutputAdapter``, ``hydromodpy.workflow.steps.run_outputs``
+     - ``OutputAdapter``, ``hydromodpy.solver.base.adapter_protocol``
      - experimental
 
 A stable port is frozen as the facade is: a change keeps the old form working for
@@ -122,16 +132,17 @@ for (``cfg``, ``cfg_path``, ``space``, ``workspace``) are experimental, because
 
 An experimental port can change in any minor version. ``TrialEvaluator`` waits for
 the rework of the calibration, and two of its construction options (``trial_ctx``,
-``metric_fn``) are internals of the calibration. ``SolverAdapter`` hands over
-``state.setup`` and ``state.cfg``, so a refactor of either reaches the adapter, and
-``OutputAdapter`` writes through the 30 methods of ``SimulationStore``. The stored
+``metric_fn``) are internals of the calibration. ``SolverAdapter`` still hands a
+transport adapter ``state.setup`` and ``state.cfg``, so a refactor of either reaches
+it, and ``OutputAdapter`` writes through the 30 methods of ``SimulationStore``. The stored
 result of a run is not experimental, whichever port wrote it.
 
 ``tests/contract/`` holds the conformance suites. They are not in the wheel, so run
 them from a clone with your distribution installed. The suites of the terrain, mesh,
-evaluator and forward model ports run on every engine the registry serves. The suite
-of the data source port runs its declarations and its refusals on every source the
-registry serves, as :doc:`how-to/add-a-data-source` explains. The suite of the solver port,
+evaluator and forward model ports run on every engine the registry serves. The suite of the data source port runs its declarations and its refusals on
+every source the registry serves, as :doc:`how-to/add-a-data-source` explains,
+and the suite of the export port holds every format of ``export_formats`` to
+what its declarations say, as :doc:`how-to/add-an-exporter` explains. The suite of the solver port,
 ``test_solver_backend_contract.py``, checks the twelve attributes of every backend the
 registry serves.
 
@@ -252,16 +263,32 @@ SolverAdapter: a Protocol and twelve attributes per backend
 ``hydromodpy/solver/base/adapter_protocol.py`` defines the Protocol. An adapter
 class carries twelve attributes (``name``, ``process_type``, ``accepted_meshes``,
 ``geometry``, ``writes``, ``reads``, ``supports``, ``options``, ``category``,
-``native_step``, ``mutable`` and ``requires``) and implements ``validate(ctx)``, ``execute(ctx)``, ``cleanup(ctx)``
-and ``extract_observables(ctx, store, requests)``. Concrete adapters sit beside
-their backend (``solver/modflow6/adapters/flow.py``, ``solver/boussinesq/adapters/``,
-``solver/modflow_nwt/adapters/``), registered in ``solver/base/registry.py``, which keys a backend on
-``<process_type>_<name>``. The planner resolves the key and the runner only sees
-the Protocol.
+``native_step``, ``mutable`` and ``requires``) and five members the runner calls:
+``validate(model, options, slot)``, ``build(model, options, slot, ctx)``,
+``run(solver_run)``, ``cleanup(solver_run)`` and ``extract(solver_run, store, retention)``.
+Three members are optional. ``rerun(previous, model, slot)`` is present if and only if
+``mutable`` is not empty, and ``observables`` and ``declared_observables`` serve a
+calibration trial. Every call that makes or changes a run returns a ``SolverRun``, the
+frozen record of the ``Model``, the options, the ``RunSlot`` the run solves in, the solver
+model, the output folder, the input files written and whether the run is written and
+solved. Concrete adapters sit beside their backend (``solver/modflow6/adapter.py``,
+``solver/boussinesq/adapter.py``, ``solver/modflow_nwt/adapter.py``, and the transports
+in ``solver/modflow6/adapters/`` and ``solver/modflow_nwt/adapters/``), registered in
+``solver/base/registry.py``, which keys a backend on ``<process_type>_<name>``. The
+planner resolves the key and the runner only sees the Protocol. ``extract`` hands the
+run to the extractor registered under the same key, a class that answers
+``OutputAdapter``, which a plugin publishes in the ``hydromodpy.solver.extractor`` group.
 
 *Why:* the domain objects (``Flow``, ``Transport``) stay independent of solver
 details. A solver is one adapter class with its attributes and a line in each registry table
 (:doc:`how-to/add-a-solver`).
+
+A backend gets no hook into the runner. The runner fills the ``RunSlot`` (the run folder,
+the run name, the folder of the binaries, the early stop of a trial) and reads the
+``options`` table, so a flow adapter reads nothing of the setup, the configuration or the
+store. ``rerun`` is a shortcut between two solves of a calibration. It rewrites only the
+input files that a changed K or Sy touches, and it is bit-identical to a new build. It has
+nothing to do with ``hmp catalog rerun``, which replays a sealed run from its configuration.
 
 The TOML meets this port in three places, and none of them names a backend.
 ``solver.backend`` is a string checked against the registry while the file is read, and an
@@ -295,23 +322,70 @@ Figure registry
 ~~~~~~~~~~~~~~~
 
 ``hydromodpy/display/figure.py`` defines ``BaseFigure``, ``FigureSpec`` (static
-metadata: the fields and tables the figure reads, the solvers it fits) and the
-``Figure`` Protocol. A subclass implements ``render(sim, ax)``; the base builds
-the matplotlib figure, applies the style and saves. Concrete figures live in
-``display/figures/`` and register by name in ``display/figure_registry.py``.
-``hmp.figure(run, "watertable_map")`` and the ``[display]`` section call them by
-name. A figure reads a ``Run`` and never a solver file.
+metadata: the fields and tables the figure reads) and the ``Figure`` Protocol.
+A subclass implements ``render(sim, ax)``; the base builds the matplotlib
+figure, applies the style and saves, and takes the name of the figure from its
+``spec``. Concrete figures live in ``display/figures/`` and are listed by the
+generated table ``display/figure_table.py`` (``python -m tools.figure_table``),
+which ``display/figure_registry.py`` reads to answer a name, so resolving a
+name imports no figure module. ``hmp.figure(run, "watertable_map")`` and the
+``[display]`` section call them by name. A figure reads a ``Run`` and never a
+solver file.
 
 *Why:* on-demand rendering, consistent across families (:doc:`how-to/add-a-figure`).
+
+Plugin registry
+~~~~~~~~~~~~~~~
+
+One engine, ``hydromodpy/core/plugin_registry.py``, holds every plugin
+surface of the package. Each surface is one instance with the attributes that
+key its members: the solver backends and the terrain, mesh, evaluator and
+forward-model engines on their entry-point groups, the data sources on
+``hydromodpy.data.source`` keyed by the section and the name of the class, the
+export formats on ``hydromodpy.export.format`` keyed by their name. The
+figures are the exception on purpose: they have no group, and their registry
+reads a table generated from the tree (``python -m tools.figure_table``), so a
+name is answered without importing a module. Every registry names the members
+it ships and the members the installation resolves, so a config field
+validated against it (:doc:`data-scopes`) refuses an unknown name with the
+names it serves.
+
+An entry point that cannot be imported is kept by the engine with its target
+and its reason: the name is refused with both when a user asks for it, and no
+package is named that the registry does not read. Two entry points of the same
+name and target, from two distributions, count as one.
+
+*Why:* one lookup story for every plugin (:doc:`how-to/add-a-solver`,
+:doc:`how-to/add-a-data-source`, :doc:`how-to/add-an-exporter`), and no list
+of names written beside a registry.
+
+Terrain engine
+~~~~~~~~~~~~~~
+
+``hydromodpy/catchment/terrain/port.py``. ``TerrainEngine`` has five members
+(``condition_dem``, ``drainage_directions``, ``flow_accumulation``, ``stream_network`` and
+``delineate``), the strings ``engine_id`` and ``engine_version``, and ``engine_digest()``.
+Each member writes where the caller says and returns a product that declares its units,
+transform, pointer convention and CRS. The conditioning method is ``fill``, ``breach``, a
+``CappedBreach`` or ``provided``. ``ConditionedDem.provided(path)`` wraps a DEM that another
+tool conditioned, and ``condition_dem`` refuses ``provided`` with ``TerrainRequestError``.
+The checks both engines share are ``require_conditioning``, ``require_accumulation``,
+``require_stream`` and ``require_delineable``. An engine is found through ``terrain_engines`` in
+``catchment/terrain/registry.py``.
+
+*Why:* the flow-routing library behind the port can change without a caller noticing.
 
 Delineation backend
 ~~~~~~~~~~~~~~~~~~~
 
-``hydromodpy/catchment/delineation/registry.py``. The integrated backend is
-``whitebox_workflows``. A backend registers with ``register_backend(name, loader)``
-and is looked up with ``get_backend(name)``. The loader imports lazily.
+``hydromodpy/catchment/delineation/__init__.py``. The one backend is
+``whitebox_workflows``. ``get_whitebox_backend()`` builds the Whitebox facade on the first
+call and returns the same object after that. A function that wants another backend takes it
+as an argument, and ``resolve_delineation_backend(backend)`` returns it. There is no registry.
+A third party reaches the routing through the terrain engine port.
 
-*Why:* a runtime backend can be added without a public placeholder.
+*Why:* one process holds one Whitebox environment, and a registry with one entry only added
+a name to remember.
 
 Data manager
 ~~~~~~~~~~~~

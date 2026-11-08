@@ -40,7 +40,7 @@ from hydromodpy.calibration.runners.worker_pool import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity
-from hydromodpy.solver.base.plan import RunExecutionResult
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
 pytestmark = pytest.mark.allow_subprocess
 
@@ -90,7 +90,13 @@ class _Scripted:
         )
         retention = self._trial_ctx.kept_solves
         if retention is not None:
-            result = RunExecutionResult(None, folder, {"m": cost})
+            result = SolverRun(
+                slot=RunSlot(folder.parent, folder.name),
+                output_dir=folder,
+                written=True,
+                solved=True,
+                metrics={"m": cost},
+            )
             retention.offer(request.trial_id, cost, [folder], {"flow": result})
         return TrialOutcome(
             cost=cost, status="completed", duration_s=0.0, components={"pid": float(os.getpid())}

@@ -31,6 +31,7 @@ from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 class _RecordingStore:
@@ -42,7 +43,8 @@ class _RecordingStore:
 
     save_zarr = False
 
-    def __init__(self) -> None:
+    def __init__(self, sim_id: str = "sim") -> None:
+        self.sim_id = sim_id
         self.timeseries: list[dict] = []
         self.budgets: list[dict] = []
 
@@ -209,8 +211,8 @@ def test_lake_extractor_end_to_end_disv(tmp_path: Path) -> None:
     success, _buff = sim.run_simulation(silent=True)
     assert success, "MF6 single-lake DISV run did not converge"
 
-    store = _RecordingStore()
-    Modflow6OutputAdapter().extract("sim-lake", tmp_path, store, model_name="lakd")
+    store = _RecordingStore("sim-lake")
+    Modflow6OutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     station = lake_station_id("lac0")
     by_variable: dict[str, list[float]] = {}

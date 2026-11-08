@@ -8,15 +8,18 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.solver.base import plan as plan_mod
+from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps import run_outputs
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
+from tests._helpers.fake_solvers import fake_adapter
 
 
 class _Launcher:
@@ -35,9 +38,7 @@ def _ctx(*, persisted: bool, plan: Any = "PLAN", run_dir: Any = "/run") -> Simpl
     return SimpleNamespace(
         sim_id="sim-1",
         run_dir=run_dir,
-        execution=SimpleNamespace(
-            simulation_plan=plan, lightweight=False, output_dirs_by_run_id={}
-        ),
+        execution=SimpleNamespace(simulation_plan=plan, lightweight=False, solver_runs={}),
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=persisted))
@@ -88,8 +89,8 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
 ) -> None:
     run_a = SimpleNamespace(id=7)
     run_b = SimpleNamespace(id=8)
-    res_a = SimpleNamespace(solver_output_dir=Path("/out/a"))
-    res_b = SimpleNamespace(solver_output_dir=None)
+    res_a = SimpleNamespace(output_dir=Path("/out/a"))
+    res_b = SimpleNamespace(output_dir=None)
     metrics: list[Any] = []
     says: list[Any] = []
     refreshed: list[Any] = []
@@ -182,28 +183,67 @@ def test_rebuild_state_without_ctx_raises() -> None:
         RunSolverStep().rebuild_state(prior_state=_state(), workspace=Path("."), run_id="r")
 
 
+def _resumed_ctx(*runs: ProcessRun, solver_options: Any = None) -> SimpleNamespace:
+    ctx = _ctx(persisted=True, plan=SimulationPlan(name="run", description="run", runs=runs))
+    ctx.setup = SimpleNamespace(model="the model of the run")
+    ctx.cfg.solver = SimpleNamespace(options_of=lambda name: solver_options)
+    return ctx
+
+
+MESH = ProcessRun(id="mesh::catchment", process_id="mesh", process_type="mesh", solver="catchment")
+FLOW = ProcessRun(id="flow::fake", process_id="flow", process_type="flow", solver="fake")
+
+
 def test_rebuild_state_reads_runtime_and_output_dirs_from_the_facts(
-    monkeypatch: pytest.MonkeyPatch, store: _Store
+    monkeypatch: pytest.MonkeyPatch, store: _Store, isolated_solvers
 ) -> None:
+    isolated_solvers.solvers.register(fake_adapter("fake"))
     store.facts.metrics = [
         SimpleNamespace(variable="head", metric="rmse", value=9.0),
         SimpleNamespace(variable="runtime", metric="duration_s", value=12.5),
     ]
-    store.facts.solver_output_dirs = {"a": "/out/a", "b": "/out/b"}
-    ctx = _ctx(persisted=True)
+    store.facts.solver_output_dirs = {FLOW.id: "/scratch/island", MESH.id: "/scratch/mesh"}
+    ctx = _resumed_ctx(MESH, FLOW)
     out = RunSolverStep().rebuild_state(
         prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r"
     )
     assert out.get("wall_seconds") == 12.5
-    assert ctx.execution.output_dirs_by_run_id == {"a": Path("/out/a"), "b": Path("/out/b")}
     assert out.step_name == "run_solver"
     assert out.step_index == 4
 
+    resumed = ctx.execution.solver_runs
+    assert set(resumed) == {FLOW.id, MESH.id}
+    run = resumed[FLOW.id]
+    assert run.output_dir == Path("/scratch/island")
+    assert (run.slot.folder, run.slot.name) == (Path("/scratch"), "island")
+    assert (run.written, run.solved) == (True, True)
+    assert run.solver_model is None, "no solver object is rebuilt on a resume"
+    assert run.model == "the model of the run"
 
-def test_rebuild_state_of_a_run_without_store_has_no_wall_time() -> None:
-    ctx = _ctx(persisted=False)
-    out = RunSolverStep().rebuild_state(
-        prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r"
-    )
-    assert out.get("wall_seconds") is None
-    assert ctx.execution.output_dirs_by_run_id == {}
+
+def test_a_resumed_flow_run_gets_the_options_the_runner_would_have_given_it(
+    store: _Store, isolated_solvers
+) -> None:
+    class _Table(BaseModel):
+        pass
+
+    table = _Table()
+    isolated_solvers.solvers.register(fake_adapter("fake", options=_Table))
+    store.facts.solver_output_dirs = {FLOW.id: "/scratch/island", MESH.id: "/scratch/mesh"}
+    ctx = _resumed_ctx(MESH, FLOW, solver_options=table)
+
+    RunSolverStep().rebuild_state(prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r")
+
+    assert ctx.execution.solver_runs[FLOW.id].options is table
+    assert ctx.execution.solver_runs[MESH.id].options is None, "a mesh run has no backend"
+
+
+def test_a_folder_of_a_run_the_plan_no_longer_holds_is_put_back_without_options(
+    store: _Store,
+) -> None:
+    store.facts.solver_output_dirs = {"flow::gone": "/scratch/gone"}
+    ctx = _resumed_ctx(MESH)
+
+    RunSolverStep().rebuild_state(prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r")
+
+    assert ctx.execution.solver_runs["flow::gone"].options is None

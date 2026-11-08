@@ -23,11 +23,11 @@ import pytest
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import ModelTime
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import steady as steady_driver
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.forcing.common import steady_period_flags
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.runtime_contract import TransientStepInputs
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.model_factory import make_model
@@ -63,7 +63,7 @@ def _solver(
             first_period_steady=first_period_steady,
         )
     )
-    runtime = FlowRuntimeConfig(
+    runtime = BoussinesqOptions(
         backend=runtime_backend,
         surface_interaction_model=surface_interaction_model,
         tol_residual_inf=1.0e-12,

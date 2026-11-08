@@ -599,10 +599,10 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional mesh settings loaded from the [mesh] section: which engine meshes "
-            "the model ('regular', 'triangle' or 'voronoi') and how fine. Without the "
-            "section the 'regular' engine meshes the model with the DEM pixels. The "
-            "solver must read the cells of the engine, which is checked before any "
-            "meshing."
+            "the model ('regular', 'triangle', 'voronoi' or 'catchment') and how fine. "
+            "Without the section the 'regular' engine meshes the model with the DEM "
+            "pixels. The solver must read the cells of the engine, which is checked "
+            "before any meshing."
         ),
         json_schema_extra=field_metadata(
             renamed_from=[
@@ -769,34 +769,25 @@ class HydroModPyConfig(HydroModelBase):
 
         Raised while the document is read, before any step of the pipeline runs.
         The engine is the one of ``[mesh]``, or ``regular`` when the section is
-        absent.
+        absent. The rule is ``engine_accepted`` of the mesh registry.
         """
         from hydromodpy.mesh import registry as mesh_registry
-        from hydromodpy.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
+        from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
         from hydromodpy.solver.base.registry import solvers
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
         solver_name = solver_cfg.backend_name
-
-        def reads(accepted: frozenset[str]) -> bool:
-            # The engine class is loaded only when the solver accepts engines by capability.
-            if engine_id in accepted:
-                return True
-            return ANY_PLANAR_ENGINE in accepted and engine_accepted(
-                accepted, engine_id, mesh_registry.mesh_engines.get(engine_id).capabilities
-            )
-
         accepted = solvers.get("flow", solver_name).accepted_meshes
-        if reads(accepted):
+        if mesh_registry.engine_accepted(accepted, engine_id):
             return
         names = ", ".join(sorted(accepted - {ANY_PLANAR_ENGINE}))
         if ANY_PLANAR_ENGINE in accepted:
-            names += " and any engine with planar cells"
+            names += " and any engine with planar cells that is not lumped"
         readers = sorted(
             name
             for name in solvers.names("flow")
-            if reads(solvers.get("flow", name).accepted_meshes)
+            if mesh_registry.engine_accepted(solvers.get("flow", name).accepted_meshes, engine_id)
         )
         origin = "" if mesh is not None and "engine" in mesh.model_fields_set else " (the default)"
         raise ValueError(

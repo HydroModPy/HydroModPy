@@ -6,9 +6,9 @@ A forward model hands back simulated values and something else scores them. That
 is not what this repository can promise yet: the scoring path
 (``calibration/metrics/composite.py``) does not read a vector, it reads the live
 ``WorkflowContext`` of the trial, through the solver adapter, the station-to-cell
-mapping and ``extract_observables``. A port that advertised simulated outputs
-would advertise a shape only the in-tree implementation could produce, which is
-the disguise the criterion contract removed in F6.
+mapping and the ``observables`` member of the adapter. A port that advertised
+simulated outputs would advertise a shape only the in-tree implementation could
+produce, which is the disguise the criterion contract removed in F6.
 
 So the port is drawn where the substitution is real: an evaluator receives one
 parameter sample and returns one cost, which is exactly what the ask/tell loop

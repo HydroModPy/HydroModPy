@@ -14,19 +14,16 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.ingest.custom_grids import load_custom_tif
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -122,7 +119,7 @@ def run_boussinesq_hantush_recharge_mound_case(
     )
     flow = Flow(FlowConfig.from_toml_section(merged_flow, base_dir=CASE_DIR))
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=flow,
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
@@ -136,23 +133,10 @@ def run_boussinesq_hantush_recharge_mound_case(
             case_dir=CASE_DIR,
             config_name=boussinesq_variant_config_name(solver_name),
         ),
+        plan_name="Boussinesq recharge mound validation",
+        plan_description="Transient mound under a rectangle of recharge, side Dirichlet boundaries",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq recharge mound validation",
-            description="Transient mound under a rectangle of recharge, side Dirichlet boundaries",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-    model = BoussinesqFlowAdapter().execute(ctx).primary_model
+    model = solved.solver_model
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq recharge mound case requires a solved model state.")
 

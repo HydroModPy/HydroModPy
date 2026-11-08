@@ -20,42 +20,60 @@ The backends
      - Mesh
    * - MODFLOW 6
      - ``("flow", "modflow6")``
-     - ``solver/modflow6/adapters/flow.py`` bridges a ``ProcessRun`` to
+     - ``solver/modflow6/adapter.py`` bridges a ``ProcessRun`` to
        ``Modflow6`` (``solver/modflow6/modflow6.py``). ``build.py`` wires the
-       packages and ``builders/`` holds one module per package.
+       packages, ``builders/`` holds one module per package and ``rerun.py``
+       solves a solved model again for a new K or Sy.
      - The cell mesh of any engine (``[mesh] engine``). The model is always written as
        DISV, through ``to_disv_kwargs`` of ``SolverMesh``.
    * - MODFLOW-NWT
      - ``("flow", "modflow_nwt")``
-     - ``solver/modflow_nwt/adapters/flow.py`` bridges to ``ModflowNwt``
+     - ``solver/modflow_nwt/adapter.py`` bridges to ``ModflowNwt``
        (``solver/modflow_nwt/nwt/nwt_solver.py``). ``flow_to_modflow_adapter.py``
        turns the runtime state into package inputs.
      - The ``regular`` engine only, written as a DIS grid. A file whose ``[mesh] engine``
        is another engine is refused when it is read.
    * - Boussinesq
      - ``("flow", "boussinesq")``
-     - ``solver/boussinesq/adapters/flow.py`` bridges to ``Boussinesq``
-       (``solver/boussinesq/boussinesq.py``).
+     - ``solver/boussinesq/adapter.py`` bridges to ``Boussinesq``
+       (``solver/boussinesq/boussinesq.py``). Its settings are the
+       ``BoussinesqOptions`` of ``solver/boussinesq/options.py``.
      - Triangular cell meshes: the cell mesh of the run, or a mesh bundle read as one.
 
 MODFLOW 6 and MODFLOW-NWT also serve transport: MODPATH, MT3DMS, GWT and PRT
-adapters sit beside the flow adapter of their backend. MODFLOW-NWT builds no LAK and
-no SFR package, so it serves no lake stage and no routed reach discharge, and its
-adapter says so in ``declared_observables``. Use MODFLOW 6 for a lake.
+adapters sit in the ``adapters/`` folder of their backend, beside the flow adapter
+``adapter.py``. MODFLOW-NWT builds no LAK and no SFR package, so it serves no lake
+stage and no routed reach discharge, and its adapter says so in
+``declared_observables``. Use MODFLOW 6 for a lake.
 
 What the MODFLOW family shares
 ------------------------------
 
-Every flow backend reads one frozen ``Model`` (``hydromodpy/model/model.py``) through
-``ctx.state.setup.model``, built once by ``prepare_solver`` in SI units. A backend does
-not read the ``Flow``, the configuration or the geographic object, it does not change
-the ``Model``, and it never opens the Zarr store of a prior run. The contract is the
-README of ``solver/base``, and ``tests/unit/architecture/test_backends_read_the_model.py``
-holds it. The auxiliary solves of the starting head are variants of the ``Model``
-(``steady_variant``, ``cycle_variant``), and each backend builds them from the top.
+Every flow backend reads one frozen ``Model`` (``hydromodpy/model/model.py``), built
+once by ``prepare_solver`` in SI units and handed to the adapter by the runner, with
+the validated options of ``[solver.<name>]`` and a ``RunSlot``. A backend does not read
+the ``Flow``, the configuration or the geographic object, it does not change the
+``Model``, and it never opens the Zarr store of a prior run. The contract is the README
+of ``solver/base``, and ``tests/unit/architecture/test_backends_read_the_model.py`` holds
+it. The auxiliary solves of the starting head are variants of the ``Model``
+(``steady_variant``, ``cycle_variant``). Each runs in a slot of its own, which has the
+folder and the binaries of the run, and each backend builds them from the top.
 
-Backend adapters stay thin. The shared lifecycle (preprocessing, processing,
-postprocessing) is in ``solver/modflow_common/flow_adapter_helpers.py``. The rest of
+The adapter of a flow backend has the same members in the three backends. ``build`` makes
+the solver model in memory under ``slot.directory`` and writes nothing. ``run`` writes the
+input files, lists them in ``SolverRun.input_files`` and solves. ``extract`` writes the
+fields and tables that ``writes`` declares into the run store, and ``cleanup`` removes
+the scratch files. MODFLOW 6 is the one backend with ``rerun``, so it is the one whose
+``mutable`` is not empty, ``{"K", "Sy"}``. Given a solved run and a ``Model`` that differs
+by K, by Sy or by both, it copies the input files of that run and writes again only NPF
+and DRN (K), STO (Sy) and the properties file. The result is bit-identical to a new build.
+A start from a steady or a cyclic solve, a change that turns XT3D on or off, and a change
+of the drain cells still build.
+
+Backend adapters stay thin. The shared lifecycle is in
+``solver/modflow_common/flow_adapter_helpers.py``: ``build_flow_model`` and
+``run_flow_model`` are the two halves of the build and the solve, and
+``resolve_solver_run_output`` finds the folder a solver wrote in. The rest of
 ``solver/modflow_common/`` centralizes temporal discretization units, routing helpers,
 runtime arrays, binaries and raster export for both backends, and
 ``solver/modflow_grid/`` describes the grid they read. The two backends do not import
@@ -315,9 +333,13 @@ Routing descent contract
 
 Source: ``hydromodpy/catchment/drainage/descent.py`` (the computation) and
 ``hydromodpy/solver/modflow_common/flow_directions.py`` (the adapter both
-backends call; neither backend imports the other). ``channel_tree.py`` projects
-the river network A onto the mesh, ``catchment_basin.py`` takes the basin of D
-at the outlet, and ``descent_store.py`` writes and reads the sidecar.
+backends call; neither backend imports the other).
+``hydromodpy/catchment/drainage/channel_tree.py`` reads the river network A.
+``prepare_solver`` reads A on the mesh cells once, in ``Model.geometry.channel_exits``
+(``channel_exits``). ``channel_exits_for_build`` says whether a build uses it, and the build
+pins D on it with its active columns and its lakes (``pin_channel``).
+``catchment_basin.py`` takes the basin of D at the outlet, and ``descent_store.py`` writes and
+reads the sidecar.
 
 Every MODFLOW 6 and MODFLOW-NWT run builds one descent D per model build and
 keeps it on the model (``model.descent``), without the neighbor sets the
@@ -356,7 +378,8 @@ reach tops keep reading the model top.
   pin, no constant-head seed and no lake.
 
 Consumers on D: the per-cell discharge and upstream area of the calibration
-observables (``modflow_common/discharge_routing.py``), the accumulation of
+observables (``catchment/drainage/routing.py``, on the graph that ``routing_graph_for_model`` of
+``modflow_common/observable_extraction.py`` reads), the accumulation of
 cell fluxes (``drain_accumulation_flux``, ``release_accumulation_flux``), and the
 flow direction map, which also marks the cells D raised on its copy.
 

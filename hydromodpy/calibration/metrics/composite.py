@@ -131,7 +131,7 @@ def _discharge_by_station(
         )
 
     try:
-        results = adapter.extract_observables(run_ctx, None, requests, time_index=time_index)
+        results = adapter.observables(run_ctx.solver_run, requests, time_index=time_index)
     except Exception as exc:
         if len(requests) == 1:
             raise
@@ -141,7 +141,7 @@ def _discharge_by_station(
             run_ctx.run.solver,
             exc,
         )
-        results = adapter.extract_observables(run_ctx, None, requests[:1], time_index=time_index)
+        results = adapter.observables(run_ctx.solver_run, requests[:1], time_index=time_index)
         station_cells = {}
 
     whole = _result_for(results, CATCHMENT, name="discharge")
@@ -197,9 +197,8 @@ def _head_by_station(
     if not station_cells:
         raise NotImplementedError("No station-to-cell mapping available for head calibration")
     placed = [obs_rec for obs_rec in observed if obs_rec.station_id in station_cells]
-    results = adapter.extract_observables(
-        run_ctx,
-        None,
+    results = adapter.observables(
+        run_ctx.solver_run,
         [
             ObservableRequest(
                 id=obs_rec.station_id,
@@ -227,9 +226,8 @@ def _lake_level_by_station(
 ) -> dict[str, ObservableResult]:
     """Return, per lake, the stage simulated for it, in one batch."""
     del trial_ctx
-    results = adapter.extract_observables(
-        run_ctx,
-        None,
+    results = adapter.observables(
+        run_ctx.solver_run,
         [
             ObservableRequest(
                 id=obs_rec.station_id,

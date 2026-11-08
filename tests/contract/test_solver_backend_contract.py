@@ -6,7 +6,10 @@ over a list this file keeps, so a backend installed beside the build through the
 naming it. ``register()`` already refuses an absent attribute and a wrong type.
 This file checks what only the rest of the build can say: that every name a
 backend declares means something to the registries, the field registry, the
-budget terms, the table schemas and the traits of ``model/supports.py``.
+budget terms, the table schemas and the traits of ``model/supports.py``, and that
+the members a runner calls take the arguments the Protocol names: ``rerun`` if
+and only if the backend is ``mutable``, ``observables`` with
+``declared_observables``, and the cell lookups of ``CellLocator`` on a flow.
 
 The supports of the three shipped flows are written here as the expected lists,
 because the configuration refuses from them every trait a document uses and its
@@ -17,6 +20,8 @@ its ``requires`` names the same way.
 
 from __future__ import annotations
 
+import inspect
+from collections.abc import Callable
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -31,11 +36,19 @@ from hydromodpy.core.budget.terms import PER_CELL_BUDGET_TERMS
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.mesh.registry import mesh_engines
+from hydromodpy.model.properties.property_table import OVERRIDE_PROPERTY_NAMES
 from hydromodpy.model.supports import SUPPORT_SOURCES, SUPPORTS
 from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.field_registry import BUDGET_GROUP, all_zarr_paths
 from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
-from hydromodpy.solver.base.adapter_protocol import CATEGORIES, GEOMETRIES, SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import (
+    CATEGORIES,
+    GEOMETRIES,
+    OPTIONAL_MEMBERS,
+    RERUN_MEMBERS,
+    CellLocator,
+    SolverAdapter,
+)
 from hydromodpy.solver.base.registry import extractors, solvers
 
 UNDESCRIBED_GROUPS = ("particles/", "boussinesq_state/", "lake_state_final/", "lake_abacus/")
@@ -183,6 +196,77 @@ def test_native_step_is_none_or_a_pandas_frequency(backend: type) -> None:
 def test_mutable_names_are_strings(backend: type) -> None:
     assert isinstance(backend.mutable, frozenset)
     assert all(isinstance(name, str) for name in backend.mutable)
+
+
+def _parameters(member: Callable[..., Any]) -> list[tuple[str, str]]:
+    """The ``(name, kind)`` of each parameter a member takes after ``self``."""
+    found = [
+        (parameter.name, parameter.kind.name)
+        for parameter in inspect.signature(member).parameters.values()
+    ]
+    return found[1:] if found and found[0][0] == "self" else found
+
+
+def _protocol_methods(protocol: type) -> list[str]:
+    return [
+        name
+        for name, value in vars(protocol).items()
+        if callable(value) and not name.startswith("_")
+    ]
+
+
+SIGNATURES: dict[str, list[tuple[str, str]]] = {
+    "rerun": [
+        ("previous", "POSITIONAL_OR_KEYWORD"),
+        ("model", "POSITIONAL_OR_KEYWORD"),
+        ("slot", "POSITIONAL_OR_KEYWORD"),
+    ],
+    "observables": [
+        ("solver_run", "POSITIONAL_OR_KEYWORD"),
+        ("requests", "POSITIONAL_OR_KEYWORD"),
+        ("time_index", "KEYWORD_ONLY"),
+    ],
+    "declared_observables": [("active", "POSITIONAL_OR_KEYWORD")],
+}
+"""The parameters of the optional members, which the Protocol describes in words."""
+
+
+def test_each_member_the_runner_calls_takes_the_arguments_the_protocol_names(
+    backend: type,
+) -> None:
+    """A runner calls ``build(model, options, slot, ctx)``: a backend that renamed one breaks."""
+    for name in _protocol_methods(SolverAdapter):
+        member = getattr(backend, name)
+        assert _parameters(member) == _parameters(getattr(SolverAdapter, name)), name
+
+
+def test_rerun_is_there_if_and_only_if_the_backend_is_mutable(backend: type) -> None:
+    for name in RERUN_MEMBERS:
+        member = getattr(backend, name, None)
+        assert callable(member) is bool(backend.mutable), name
+        if callable(member):
+            assert _parameters(member) == SIGNATURES[name], name
+
+
+def test_a_mutable_name_is_a_property_the_model_can_change(backend: type) -> None:
+    """``rerun`` receives a model made by ``with_properties``, which accepts these names."""
+    assert sorted(backend.mutable - OVERRIDE_PROPERTY_NAMES) == []
+
+
+def test_observables_and_their_declaration_come_together(backend: type) -> None:
+    present = {name: callable(getattr(backend, name, None)) for name in OPTIONAL_MEMBERS}
+    assert len(set(present.values())) == 1, present
+    for name, there in present.items():
+        if there:
+            assert _parameters(getattr(backend, name)) == SIGNATURES[name], name
+
+
+def test_a_flow_locates_a_cell_on_the_grid_of_its_run(backend: type) -> None:
+    if backend.process_type != "flow":
+        return
+    assert isinstance(backend, CellLocator)
+    for name in _protocol_methods(CellLocator):
+        assert _parameters(getattr(backend, name)) == _parameters(getattr(CellLocator, name)), name
 
 
 def test_an_extractor_reads_back_each_backend(key: str) -> None:

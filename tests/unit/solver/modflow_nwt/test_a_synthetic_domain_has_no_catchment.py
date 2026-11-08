@@ -119,8 +119,9 @@ def test_the_network_criterion_finds_no_delineated_catchment(tmp_path) -> None:
     geographic = _geographic(tmp_path)
     mesh = _mesh(geographic)
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    basin = run_basin(_catchment(geographic), mesh, descent)
     run_ctx = SimpleNamespace(
-        model=SimpleNamespace(descent_basin=run_basin(_catchment(geographic), mesh, descent)),
+        solver_run=SimpleNamespace(solver_model=SimpleNamespace(descent_basin=basin)),
         state=SimpleNamespace(setup=SimpleNamespace(geographic=geographic)),
     )
 

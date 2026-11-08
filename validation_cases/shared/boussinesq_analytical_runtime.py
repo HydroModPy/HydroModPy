@@ -2,22 +2,25 @@
 
 The settings of the Boussinesq solve live in ``[solver.boussinesq]``, beside the
 flow section and not in it. A case writes its flow section and, apart, the
-settings it sets. This module turns them into the ``FlowRuntimeConfig`` a variant
-runs with, and into the run state the adapter reads.
+settings it sets. This module turns them into the ``BoussinesqOptions`` a variant
+runs with, and solves a run on a mesh bundle through the adapter.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow import Flow
+from hydromodpy.model.flow_config import FLOW_RUNTIME_KEYS
 from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
-from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
+from hydromodpy.solver.base.runner import solve_one
 from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from validation_cases.shared.loaders import load_case_config
 
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
@@ -136,7 +139,7 @@ def boussinesq_variant_options(
     case_dir: Path | None = None,
     config_name: str | None = None,
     written: Mapping[str, Any] | None = None,
-) -> FlowRuntimeConfig:
+) -> BoussinesqOptions:
     """Return the ``[solver.boussinesq]`` settings one Boussinesq validation variant runs with.
 
     The table of ``config_name`` in ``case_dir`` gives the base. The default-engine
@@ -150,11 +153,11 @@ def boussinesq_variant_options(
             solver_table = load_case_config(Path(case_dir), config_name).get("solver") or {}
             table = dict(solver_table.get("boussinesq") or {})
     if is_default_engine_solver(solver):
-        return FlowRuntimeConfig.model_validate(table)
+        return BoussinesqOptions.model_validate(table)
     chosen = apply_analytical_boussinesq_runtime_defaults(
         dict(written or {}), flow_regime=flow_regime
     )
-    return FlowRuntimeConfig.model_validate({**table, **chosen})
+    return BoussinesqOptions.model_validate({**table, **chosen})
 
 
 def analytical_boussinesq_solver_label(
@@ -186,31 +189,44 @@ def boussinesq_bundle_model(flow: Flow, *, time_grid: object = None) -> Model:
     )
 
 
-def boussinesq_run_state(
+def solve_boussinesq_bundle(
     *,
     flow: Flow,
     bundle_dir: str | Path,
     simulations_folder: str | Path,
+    plan_name: str,
+    plan_description: str,
     time_grid: object = None,
-    options: FlowRuntimeConfig | None = None,
-) -> RunState:
-    """Return the run state the Boussinesq adapter reads for a run on a mesh bundle.
+    options: BoussinesqOptions | None = None,
+) -> SolverRun:
+    """Solve the Boussinesq run of ``flow`` on a mesh bundle, the way the runner does.
 
-    The state carries the ``Model`` of ``flow`` and a ``[solver]`` section whose
-    ``[solver.boussinesq]`` table is ``options``, the defaults when none is given.
-    The scratch folder is ``simulations_folder``.
+    The run reads its cells from the bundle of ``bundle_dir``, set as the
+    ``exchange_mesh`` of ``options``, the defaults when none is given. It solves
+    in ``simulations_folder / flow_validation__boussinesq``. The call goes through
+    ``solve_one``, so the adapter is validated, built and run as in a pipeline.
     """
-    solver = SolverConfig() if options is None else SolverConfig(boussinesq=options)
-    return RunState(
-        cfg=SimpleNamespace(flow=flow.config, solver=solver),
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            model=boussinesq_bundle_model(flow, time_grid=time_grid),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
-        ),
+    options = (options or BoussinesqOptions()).model_copy(
+        update={"exchange_mesh": Path(bundle_dir)}
+    )
+    run = ProcessRun(
+        id="flow_validation::boussinesq",
+        process_id="flow_validation",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name=plan_name, description=plan_description, runs=(run,)),
+        run=run,
+        state=RunState(),
+    )
+    slot = RunSlot(folder=Path(simulations_folder), name=run.id.replace("::", "__"))
+    return solve_one(
+        BoussinesqFlowAdapter(),
+        boussinesq_bundle_model(flow, time_grid=time_grid),
+        options,
+        slot,
+        ctx,
     )
 
 
@@ -223,10 +239,10 @@ __all__ = [
     "analytical_boussinesq_solver_label",
     "apply_analytical_boussinesq_runtime_defaults",
     "boussinesq_bundle_model",
-    "boussinesq_run_state",
     "boussinesq_variant_config_name",
     "boussinesq_variant_flow_section",
     "boussinesq_variant_options",
     "is_default_engine_solver",
     "set_analytical_boussinesq_runtime_defaults_in_place",
+    "solve_boussinesq_bundle",
 ]

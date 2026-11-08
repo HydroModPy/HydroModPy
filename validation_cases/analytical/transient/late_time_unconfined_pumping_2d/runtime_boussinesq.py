@@ -8,17 +8,14 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -336,7 +333,7 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     simulations_folder = out_path / simulations_folder_name
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             _build_flow_config(
                 boussinesq_variant_flow_section(
@@ -380,25 +377,10 @@ def run_boussinesq_late_time_unconfined_pumping_case(
             case_dir=CASE_DIR,
             config_name=boussinesq_variant_config_name(solver_name),
         ),
+        plan_name="Boussinesq late-time pumping validation",
+        plan_description="Transient square-domain pumping with side Dirichlet boundaries",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq late-time pumping validation",
-            description="Transient square-domain pumping with side Dirichlet boundaries",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = _project_head_history_to_reference_fields(
         model,
         xmin=xmin,

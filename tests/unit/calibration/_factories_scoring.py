@@ -90,12 +90,14 @@ def make_trial_ctx(
         state=SimpleNamespace(
             setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS, **(geographic or {})))
         ),
-        model=SimpleNamespace(
-            solver_mesh=solver_mesh,
-            inactive_mask=np.zeros(N_CELLS, dtype=bool),
-            recharge=1.0e-8,
-            lake_cell_ids_by_lake={"lac": list(lake_cells)} if lake_cells else {},
-            dam_foot_cells=dam_foot_cells or {},
+        solver_run=SimpleNamespace(
+            solver_model=SimpleNamespace(
+                solver_mesh=solver_mesh,
+                inactive_mask=np.zeros(N_CELLS, dtype=bool),
+                recharge=1.0e-8,
+                lake_cell_ids_by_lake={"lac": list(lake_cells)} if lake_cells else {},
+                dam_foot_cells=dam_foot_cells or {},
+            )
         ),
     )
     if networks is not None:
@@ -115,8 +117,8 @@ class StackAdapter:
         self.stack = stack
         self.requests: list = []
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx
         self.requests.extend(requests)
         served = {}
         for request in requests:
@@ -302,7 +304,7 @@ class FakeAdapter:
         self.fail_on_cell = fail_on_cell
         self.requested: list[list[str]] = []
 
-    def extract_observables(self, run_ctx, _unused, requests, *, time_index=None):
+    def observables(self, run_ctx, requests, *, time_index=None):
         del run_ctx, time_index
         self.requested.append([r.id for r in requests])
         if self.fail_on_cell and any(r.support == "cell" for r in requests):

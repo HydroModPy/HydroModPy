@@ -11,7 +11,9 @@
 # this table cannot allow a cycle. terrain reads delineation only inside
 # WhiteboxTerrainEngine.__init__ (test_terrain_port_stands_alone.py). The
 # algorithms read no configuration of the pipeline, so preprocess sits above
-# them and above the synthetic cases. drainage reads nothing of catchment yet.
+# them and above the synthetic cases. drainage reads the D8 table of terrain
+# and the pointer name of algorithms, for the river network A in
+# channel_tree.py, and no part of catchment reads drainage.
 allowed:
   raster_support:   []
   surface:          [raster_support]
@@ -23,7 +25,7 @@ allowed:
   algorithms:       [surface, delineation, terrain]
   synthetic:        [raster_support, surface, algorithms]
   preprocess:       [delineation, terrain, algorithms, synthetic]
-  drainage:         []
+  drainage:         [terrain, algorithms]
   "<init>":         []
 
 # The terrain and delineation registries name their built-in engines by a

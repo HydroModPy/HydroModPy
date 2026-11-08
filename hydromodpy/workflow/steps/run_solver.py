@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -12,9 +13,44 @@ from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.solver.base.plan import SolverRun
     from hydromodpy.solver.base.runner import SimulationRunner
 
 logger = get_logger(__name__)
+
+
+def _resumed_solver_runs(ctx: WorkflowContext, folders: Mapping[str, str]) -> dict[str, SolverRun]:
+    """Put back the ``SolverRun`` of each run the facts of an earlier attempt name a folder for.
+
+    The run was solved, so its input files are on disk and ``written`` and
+    ``solved`` are true. The slot is the folder the solver wrote in, cut into its
+    parent and its name. The ``Model`` is the one the resumed prepare-solver step
+    built again, and the options are read from the configuration as the runner
+    reads them. The solver model is not rebuilt.
+    """
+    from hydromodpy.solver.base.plan import RunSlot, SolverRun
+    from hydromodpy.solver.base.registry import solvers
+    from hydromodpy.solver.base.runner import options_for
+
+    plan = ctx.execution.simulation_plan
+    planned = {run.id: run for run in (() if plan is None else plan.runs)}
+    resumed: dict[str, SolverRun] = {}
+    for run_id, folder in folders.items():
+        run = planned.get(run_id)
+        options = None
+        if run is not None and run.is_solver_backed:
+            options = options_for(solvers.create(run.process_type, run.solver), run, ctx.cfg)
+        path = Path(folder)
+        resumed[run_id] = SolverRun(
+            slot=RunSlot(folder=path.parent, name=path.name),
+            model=getattr(ctx.setup, "model", None),
+            options=options,
+            output_dir=path,
+            written=True,
+            solved=True,
+        )
+    return resumed
 
 
 class RunSolverStep:
@@ -65,9 +101,11 @@ class RunSolverStep:
 
         ``wall_seconds`` and the folder each run of the plan solved in are read
         back from the facts of the run: the extract step that resumes reads the
-        solver outputs there. ``solver_result`` stays ``None``: downstream steps
-        (extract, derive, export) read directly from the Zarr / solver workdir and
-        do not need a live :class:`RunResult` object.
+        solver outputs there. Each run gets a ``SolverRun`` put back in
+        ``execution.solver_runs``, solved and written, with its ``Model`` and its
+        options and without a solver model: downstream steps (extract, derive,
+        export) read the Zarr store and the solver folder and need no live solver
+        object.
         """
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -79,11 +117,8 @@ class RunSolverStep:
                 for row in store.facts.metrics:
                     if row.variable == "runtime" and row.metric == "duration_s":
                         wall_seconds = row.value
-                ctx.execution.output_dirs_by_run_id.update(
-                    {
-                        run_id: Path(folder)
-                        for run_id, folder in store.facts.solver_output_dirs.items()
-                    }
+                ctx.execution.solver_runs.update(
+                    _resumed_solver_runs(ctx, store.facts.solver_output_dirs)
                 )
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
@@ -131,8 +166,8 @@ class RunSolverStep:
                         store=store,
                         result=result,
                     )
-                    if result.solver_output_dir is not None:
-                        store.facts.solver_output_dirs[str(run.id)] = str(result.solver_output_dir)
+                    if result.output_dir is not None:
+                        store.facts.solver_output_dirs[str(run.id)] = str(result.output_dir)
                 refresh_run_environment(ctx, store=store)
                 for run, _result in executed_results:
                     record_what_the_model_says(

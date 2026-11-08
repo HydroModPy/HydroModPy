@@ -34,8 +34,12 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     grid = RasterGridSpec.from_raster_support(setup.domain.surface_topo.support, crs_wkt=crs_wkt)
     synthetic = bool(cfg.geographic.uses_synthetic_geographic())
     active_bc = {str(bc).strip().lower() for bc in cfg.flow.active_bc}
-    graded = registry.mesh_engines.get(mesh_cfg.engine).capabilities.graded
-    reads_catchment = graded or mesh_cfg.families.watershed_boundary == "face"
+    capabilities = registry.mesh_engines.get(mesh_cfg.engine).capabilities
+    graded = capabilities.graded
+    # A lumped engine meshes the catchment itself as its one cell.
+    reads_catchment = (
+        graded or capabilities.lumped or mesh_cfg.families.watershed_boundary == "face"
+    )
     triangle = mesh_cfg.triangle
     sized = graded and (triangle is None or triangle.path is None)
     geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt, grid)
