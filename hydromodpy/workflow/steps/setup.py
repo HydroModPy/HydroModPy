@@ -29,8 +29,9 @@ from hydromodpy.model.domain.spatial_support import (
 )
 from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
-from hydromodpy.solver.base.runner import ensure_flow, ensure_transport
+from hydromodpy.solver.base.runner import ensure_transport
 from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.data import ensure_flow
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext

@@ -29,12 +29,15 @@ from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outli
 from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.mesh.planning.catchment_outline import smooth_polygon
+from hydromodpy.model.domain.geometry import CatchmentGeometry
+from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow_common.catchment_basin import (
     catchment_cell_mask,
     polygon_cell_fraction,
     polygon_cell_mask,
 )
 from tests._helpers.mesh_cases import LAMBERT93_WKT
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 PIXEL = 10.0
@@ -91,6 +94,17 @@ def _geographic(tmp_path):
     return SimpleNamespace(watershed_shp=str(shp), crs_project=LAMBERT93_WKT)
 
 
+def _catchment(tmp_path) -> CatchmentGeometry:
+    """Where the catchment closes, as the ``Model`` of the run carries it."""
+    return CatchmentGeometry.from_geographic(_geographic(tmp_path), crs=LAMBERT93_WKT)
+
+
+def _solver_on(tmp_path, mesh) -> SimpleNamespace:
+    """The members of a solver object that ``catchment_cell_mask`` reads."""
+    inputs = make_model(geometry=Geometry(cells=None, domain=None, catchment=_catchment(tmp_path)))
+    return SimpleNamespace(model_name="m", descent_basin=None, inputs=inputs, solver_mesh=mesh)
+
+
 def _inside(polygon, mesh) -> np.ndarray:
     return shapely.covers(polygon, shapely.points(mesh.cell_centers()))
 
@@ -135,9 +149,7 @@ def test_a_synthetic_geographic_has_no_outline_even_beside_a_mesh_that_carries_o
 
 def test_the_fallback_support_sums_the_cells_inside_the_smooth_outline(tmp_path) -> None:
     mesh = _mesh(followed=True)
-    model = SimpleNamespace(
-        model_name="m", descent_basin=None, geographic=_geographic(tmp_path), solver_mesh=mesh
-    )
+    model = _solver_on(tmp_path, mesh)
 
     mask = catchment_cell_mask(model)
 
@@ -149,9 +161,7 @@ def test_the_fallback_support_keeps_the_staircase_for_a_mesh_that_did_not_follow
     tmp_path,
 ) -> None:
     mesh = _mesh(followed=False)
-    model = SimpleNamespace(
-        model_name="m", descent_basin=None, geographic=_geographic(tmp_path), solver_mesh=mesh
-    )
+    model = _solver_on(tmp_path, mesh)
 
     np.testing.assert_array_equal(catchment_cell_mask(model), _inside(STAIR, mesh))
 
@@ -159,7 +169,7 @@ def test_the_fallback_support_keeps_the_staircase_for_a_mesh_that_did_not_follow
 def test_the_polygon_mask_of_the_build_reads_the_same_outline(tmp_path) -> None:
     mesh = _mesh(followed=True)
 
-    mask = polygon_cell_mask(_geographic(tmp_path), mesh)
+    mask = polygon_cell_mask(_catchment(tmp_path), mesh)
 
     np.testing.assert_array_equal(mask, _inside(SMOOTH, mesh))
 
@@ -167,7 +177,7 @@ def test_the_polygon_mask_of_the_build_reads_the_same_outline(tmp_path) -> None:
 def test_the_catchment_fraction_is_taken_on_the_smooth_outline(tmp_path) -> None:
     mesh = _mesh(followed=True)
 
-    fraction = polygon_cell_fraction(_geographic(tmp_path), mesh)
+    fraction = polygon_cell_fraction(_catchment(tmp_path), mesh)
 
     np.testing.assert_allclose(fraction, _share(SMOOTH, mesh), atol=1.0e-9)
     assert np.abs(fraction - _share(STAIR, mesh)).max() > 0.2
@@ -176,7 +186,7 @@ def test_the_catchment_fraction_is_taken_on_the_smooth_outline(tmp_path) -> None
 def test_the_catchment_fraction_of_an_unsmoothed_mesh_is_the_staircase_share(tmp_path) -> None:
     mesh = _mesh(followed=False)
 
-    fraction = polygon_cell_fraction(_geographic(tmp_path), mesh)
+    fraction = polygon_cell_fraction(_catchment(tmp_path), mesh)
 
     np.testing.assert_allclose(fraction, _share(STAIR, mesh), atol=1.0e-9)
 

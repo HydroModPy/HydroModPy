@@ -83,8 +83,8 @@ ONLY_CELL = (0, 0, 0)
 class LinearReservoirForwardModel:
     """Serve the outlet flow and the head of one reservoir for a sample.
 
-    Built by :func:`hydromodpy.calibration.evaluation.forward_registry.create`,
-    which binds nothing: the model has no configuration of its own, and every
+    Built by ``forward_models.create`` of
+    :mod:`hydromodpy.calibration.evaluation.forward_registry`, which binds nothing: the model has no configuration of its own, and every
     number it needs is either a sample value or a constant of this module.
     """
 

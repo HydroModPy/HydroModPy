@@ -95,7 +95,7 @@ def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
 @needs_gmsh
 @pytest.mark.parametrize("engine_id", ["triangle", "voronoi"])
 def test_a_generated_mesh_comes_back_whole(tmp_path, engine_id) -> None:
-    built = registry.create(engine_id).build(_request(size=60.0))
+    built = registry.mesh_engines.create(engine_id).build(_request(size=60.0))
 
     cache.save_cell_mesh(built, tmp_path / "entry")
     back = cache.load_cell_mesh(tmp_path / "entry")
@@ -171,7 +171,7 @@ def test_an_entry_stored_before_the_shape_entries_is_read_with_them_measured(
     tmp_path, engine_id
 ) -> None:
     request = _request() if engine_id == "regular" else _request(size=60.0)
-    built = registry.create(engine_id).build(request)
+    built = registry.mesh_engines.create(engine_id).build(request)
     cache.save_cell_mesh(built, tmp_path / "entry")
     path = tmp_path / "entry" / cache.DESCRIPTION_FILENAME
     description = json.loads(path.read_text())

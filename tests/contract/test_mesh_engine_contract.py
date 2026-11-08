@@ -43,6 +43,7 @@ import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.core.plugin_registry import PluginRegistry
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.geometry import cell_polygons
@@ -95,21 +96,21 @@ def _engine(engine_id: str) -> MeshEngine:
     """Build what the registry serves under *engine_id*, or skip it if it cannot run here.
 
     A built-in this environment cannot load or run is a skip. A plugin that fails
-    to build is not: :func:`~hydromodpy.mesh.registry.load_plugins`
+    to build is not: ``mesh_engines.load_plugins``
     already dropped the ones that cannot load, so an id that survived to here and
     then fails is a defect of the engine.
     """
     if engine_id in GMSH_ENGINE_IDS and find_spec("gmsh") is None:
         _cannot_run(f"{engine_id!r} needs gmsh, which is not installed here")
     try:
-        return registry.create(engine_id)
+        return registry.mesh_engines.create(engine_id)
     except MeshRequestError:
-        if engine_id in registry.builtin_engine_ids():
+        if engine_id in registry.mesh_engines.names(shipped_only=True):
             _cannot_run(f"{engine_id!r} is declared by this build and cannot be loaded here")
         raise
 
 
-@pytest.fixture(params=registry.list_engine_ids())
+@pytest.fixture(params=registry.mesh_engines.names())
 def engine_id(request) -> str:
     """The id of one mesh engine, once per implementation this installation serves."""
     return request.param
@@ -259,7 +260,7 @@ def _built(engine: MeshEngine, request: MeshRequest) -> PlanarCellMesh:
 def _mesh(engine_id: str, case: str) -> PlanarCellMesh | None:
     """The mesh of *case* by *engine_id*, built once; ``None`` when it refuses a given triangulation."""
     request = CASES[case]()
-    engine = registry.create(engine_id)
+    engine = registry.mesh_engines.create(engine_id)
     if request.input_triangulation is None:
         return _built(engine, request)
     try:
@@ -489,7 +490,7 @@ def assert_no_centre_lies_in_a_hole(cell_mesh: PlanarCellMesh, domain: Polygon) 
 
 def test_the_builtin_engines_are_all_declared() -> None:
     """The floor: dropping a built-in from the registry cannot pass silently."""
-    assert {"regular", "triangle", "voronoi"} <= set(registry.list_engine_ids())
+    assert {"regular", "triangle", "voronoi"} <= set(registry.mesh_engines.names())
 
 
 def test_an_engine_satisfies_the_port(engine_id: str, engine: MeshEngine) -> None:
@@ -498,7 +499,7 @@ def test_an_engine_satisfies_the_port(engine_id: str, engine: MeshEngine) -> Non
     assert isinstance(engine, MeshEngine)
     assert missing_engine_members(cls) == ()
     assert cls.engine_id == engine_id
-    assert registry.get(engine_id) is cls
+    assert registry.mesh_engines.get(engine_id) is cls
     assert cls.engine_version.strip()
     assert cls.capabilities.cell_types
 
@@ -711,3 +712,26 @@ def test_an_engine_refuses_a_request_it_cannot_honour_by_a_typed_error(engine) -
 
     with pytest.raises(MeshRequestError):
         engine.build(finer)
+
+
+def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> None:
+    """The registry is one object of the shared engine, read through ``mesh_engines``."""
+    held = registry.mesh_engines
+
+    assert isinstance(held, PluginRegistry)
+    assert held.id_attributes == ("engine_id",)
+    assert held.group == registry.ENTRY_POINT_GROUP
+    assert held.default_id == registry.DEFAULT_ENGINE_ID
+    assert held.names(shipped_only=True) == tuple(sorted(registry._BUILTIN_PATHS))
+    retired = (
+        "get",
+        "create",
+        "register",
+        "unregister",
+        "load_plugins",
+        "is_registered",
+        "resolve_id",
+        "list_engine_ids",
+        "builtin_engine_ids",
+    )
+    assert [name for name in retired if hasattr(registry, name)] == []

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _aggregate_triangle_history_to_structured_fields,
@@ -16,6 +16,7 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_bundle_model,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
 )
@@ -252,9 +253,8 @@ def run_boussinesq_hillslope_interception_case(
 
     model = Boussinesq(
         mesh_bundle=bundle,
-        flow=flow,
-        domain=None,
-        time_grid=None,
+        model=boussinesq_bundle_model(flow),
+        runtime=flow.config.runtime,
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )

@@ -223,9 +223,10 @@ def _derived_values(config: Any) -> Iterator[tuple[str, Any]]:
     """Yield the keys an unset value resolves to, by the rule the builders apply."""
     from hydromodpy.catchment.terrain import registry as terrain_registry
 
+    engine_id = config.geographic.terrain_engine
     yield (
         "geographic.terrain_engine",
-        terrain_registry.resolved_engine_id(config.geographic.terrain_engine),
+        terrain_registry.DEFAULT_ENGINE_ID if engine_id is None else engine_id,
     )
     lake = config.mesh.lake_refinement if config.mesh is not None else None
     if lake is not None:
@@ -237,10 +238,16 @@ def _derived_values(config: Any) -> Iterator[tuple[str, Any]]:
 
 
 def _resolved_etp(ctx: WorkflowContext) -> dict[str, Any]:
-    """Return what the flow of the run holds of its ETP, a table the file may not write."""
-    flow = ctx.setup.flow
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    etp = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+    """Return what the run holds of its ETP, a table the file may not write.
+
+    The ``Model`` answers once it is built, the ``Flow`` before.
+    """
+    model = getattr(ctx.setup, "model", None)
+    if model is not None:
+        etp = model.etp
+    else:
+        sinks_sources = getattr(ctx.setup.flow, "sinks_sources", None)
+        etp = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
     if etp is None:
         return {}
     declared = getattr(getattr(ctx.cfg.flow, "sinks_sources", None), "etp", None)

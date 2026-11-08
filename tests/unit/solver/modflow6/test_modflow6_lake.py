@@ -12,6 +12,7 @@ from shapely import affinity
 from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import SIMULATED_SERIES, export_kind
@@ -55,6 +56,7 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflo
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh, square_domain, voronoi_lake_mesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from validation_cases.numerical.steady.lak_merritt_konikow_p01.geometry import load_geometry
 from validation_cases.numerical.steady.lak_merritt_konikow_p01.runtime_lak import (
@@ -669,15 +671,12 @@ def test_exposed_band_runoff_requires_dynamic_area():
     assert cfg.exposed_band_runoff is True
 
 
-class _Flow:
-    def __init__(self, lakes):
-        self.active_bc = ["lake"]
-        self.sinks_sources = {"lakes": lakes}
-
-
 class _Model:
     def __init__(self, lakes, reconstruction, marnage):
-        self.flow = _Flow(lakes)
+        self.inputs = make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes=lakes,
+        )
         self._lake_bed_reconstruction = reconstruction
         self._marnage_lake_ids = marnage
         self._exposed_band_runoff_specs = None
@@ -744,17 +743,15 @@ def _one_lake_model() -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="drn_to_lake",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": polygon,
-                        "bedleak": 0.2,
-                        "abacus": [(50.0, 0.0, 4.0), (90.0, 160.0, 4.0)],
-                        "initial_stage": 60.0,
-                        "outlets": [],
-                    }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": polygon,
+                    "bedleak": 0.2,
+                    "abacus": [(50.0, 0.0, 4.0), (90.0, 160.0, 4.0)],
+                    "initial_stage": 60.0,
+                    "outlets": [],
                 }
             },
         ),

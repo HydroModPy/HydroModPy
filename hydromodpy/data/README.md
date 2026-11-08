@@ -62,7 +62,7 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
 6. One exception to the import rules: the source registry
    (`source/registry.py`) names the three built-in classes by a dotted path
    written as text and imports each on first use, so that a third-party plugin
-   joins the same table.
+   joins the same table. The registry is `data_sources`, an instance of the engine of `core/plugin_registry.py`.
 
 ## Template of a variable
 
@@ -130,10 +130,10 @@ section, and for any payload kind under the `installed` member of a data request
 `tests/contract/test_data_source_contract.py` compares each declaration with a
 real fetch.
 
-`source/registry.py` maps `source_id` to class. The in-tree sources are declared
+`source/registry.py` holds `data_sources`, which maps `source_id` to class. The in-tree sources are declared
 once, as dotted paths in `_BUILTIN_PATHS`, and imported on first lookup.
-`builtin_source_ids()` answers what this build ships, `list_source_ids()` what
-this installation resolves. `source/permanence.py` names the one canonical
+`data_sources.names(shipped_only=True)` answers what this build ships, `data_sources.names()` what
+this installation resolves. `get_serving` and `build_from_section` stay functions of the module. `source/permanence.py` names the one canonical
 `permanence` column a source writes when it knows whether water flows all year.
 
 ## How data flows
@@ -255,8 +255,7 @@ class LoadResult:
 - `hydromodpy.data.contracts.load_result.LoadResult` and the three records.
 - `hydromodpy.data.source.{DataSource, Extent, Period, FetchRequest, FetchResult,
   BdTopageSource, EuHydroSource, OsmSource}` and
-  `hydromodpy.data.source.registry.{get, get_serving, register, list_source_ids,
-  builtin_source_ids}`.
+  `hydromodpy.data.source.registry.{data_sources, get_serving}`.
 - `hydromodpy.data.request.job.{DATA_REQUEST, run}`.
 - `hydromodpy.data.sites.catalog.{read_catalog, write_catalog, nearest_site,
   add_sites, declare_sites, SITE_CATALOG_RELPATH}`, `hydromodpy.data.sites.importers`

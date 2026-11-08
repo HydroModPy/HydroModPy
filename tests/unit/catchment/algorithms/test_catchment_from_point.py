@@ -131,7 +131,9 @@ def test_the_snap_is_said_in_one_line_at_a_level_set_by_its_length(
         snap_distance_m=distance_m,
     )
     engine = SimpleNamespace(delineate=lambda accumulation, outlets, **_: (found,))
-    monkeypatch.setattr(f"{POINT}.terrain_registry.create", lambda engine_id, backend=None: engine)
+    monkeypatch.setattr(
+        f"{POINT}.terrain_registry.terrain_engines.create", lambda engine_id, backend=None: engine
+    )
     monkeypatch.setattr(f"{POINT}.ensure_crs", lambda *a, **k: None)
     caplog.set_level(logging.INFO, logger="hydromodpy")
     accumulation = fake_accumulation(acc=tmp_path / "acc.tif", direc=tmp_path / "d.tif")
@@ -237,7 +239,7 @@ def engine(request):
         monkeypatch = pytest.MonkeyPatch()
         configure_whitebox_single_thread(monkeypatch)
         monkeypatch.undo()
-    return registry.create(request.param)
+    return registry.terrain_engines.create(request.param)
 
 
 @pytest.fixture

@@ -9,6 +9,7 @@ from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunExecutionResult, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
@@ -38,6 +39,7 @@ def _build_state() -> SimpleNamespace:
             geographic=None,
             domain=None,
             flow=None,
+            model=object(),
             transport=None,
         ),
         execution=SimpleNamespace(
@@ -47,7 +49,12 @@ def _build_state() -> SimpleNamespace:
     )
 
 
-def test_runner_ensures_process_context_before_before_process_callback(monkeypatch) -> None:
+def _model_on(cells: object) -> SimpleNamespace:
+    """The members of a ``Model`` that the shared run lifecycle reads."""
+    return SimpleNamespace(geometry=SimpleNamespace(cells=cells))
+
+
+def test_runner_ensures_the_transport_and_never_the_flow_before_the_callback(monkeypatch) -> None:
     flow_model = object()
     transport_model = object()
     flow_adapter = _RecordingAdapter(flow_model)
@@ -56,13 +63,9 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         ("flow", "modflow_nwt"): flow_adapter,
         ("transport", "mt3dms"): transport_adapter,
     }
-    from hydromodpy.core.contracts import solver_registry
-
-    class _FakeProvider:
-        def get_solver_adapter(self, process_type, solver_name):
-            return adapters[(process_type, solver_name)]
-
-    monkeypatch.setattr(solver_registry, "_PROVIDER", _FakeProvider())
+    monkeypatch.setattr(
+        solvers, "create", lambda process_type, solver_name: adapters[(process_type, solver_name)]
+    )
 
     observations: dict[str, tuple[bool, bool]] = {}
     state = _build_state()
@@ -96,8 +99,8 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
 
     runner.execute(plan, state)
 
-    assert observations["flow"] == (True, False)
-    assert observations["transport"] == (True, True)
+    assert observations["flow"] == (False, False)
+    assert observations["transport"] == (False, True)
     assert flow_adapter.calls[0].dependency_models == ()
     assert transport_adapter.calls[0].dependency_models == (flow_model,)
     assert state.execution.models_by_run_id == {
@@ -212,13 +215,10 @@ def test_run_solver_step_hands_the_run_store_to_the_launcher(monkeypatch) -> Non
 
 
 def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:
-    from hydromodpy.core.contracts import solver_registry
+    def _no_adapter(process_type, solver_name):
+        raise AssertionError("mesh process should not request a solver adapter")
 
-    class _Provider:
-        def get_solver_adapter(self, process_type, solver_name):
-            raise AssertionError("mesh process should not request a solver adapter")
-
-    monkeypatch.setattr(solver_registry, "_PROVIDER", _Provider())
+    monkeypatch.setattr(solvers, "create", _no_adapter)
     state = _build_state()
     state.setup.mesh_summary = {"output_mesh": "mesh.msh", "n_cells": 12}
     plan = SimulationPlan(
@@ -279,10 +279,8 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             )
         ),
         setup=SimpleNamespace(
-            flow=SimpleNamespace(active_bc=[]),
-            domain=SimpleNamespace(),
+            model=_model_on(object()),
             workspace=SimpleNamespace(simulations_folder="unused"),
-            cell_mesh=object(),
         ),
     )
 
@@ -293,7 +291,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
         def __init__(self) -> None:
             self.calls: list[str] = []
 
-        def pre_processing(self, **kwargs) -> None:
+        def pre_processing(self, model, **kwargs) -> None:
             self.calls.append("pre")
 
         def processing(self, options) -> bool:
@@ -313,7 +311,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
 
 
 def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
-    cell_mesh = object()
+    the_model = _model_on(object())
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -340,11 +338,9 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             )
         ),
         setup=SimpleNamespace(
-            flow=SimpleNamespace(active_bc=[]),
-            domain=SimpleNamespace(),
+            model=the_model,
             workspace=SimpleNamespace(simulations_folder="unused"),
-            flow_runtime_overrides={"properties": {"K": [1.0, 2.0]}},
-            cell_mesh=cell_mesh,
+            flow_runtime_overrides={"trial_owns_its_recharge": True},
         ),
     )
 
@@ -353,10 +349,12 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
         full_path = "/tmp/demo_model"
 
         def __init__(self) -> None:
+            self.pre_model = None
             self.pre_kwargs = None
             self.processing_options = None
 
-        def pre_processing(self, **kwargs) -> None:
+        def pre_processing(self, model, **kwargs) -> None:
+            self.pre_model = model
             self.pre_kwargs = dict(kwargs)
 
         def processing(self, options) -> bool:
@@ -372,8 +370,9 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
     )
 
     assert model.pre_kwargs is not None
-    assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}
-    assert model.pre_kwargs["cell_mesh"] is cell_mesh
+    assert model.pre_kwargs["flow_runtime_overrides"] == {"trial_owns_its_recharge": True}
+    assert model.pre_model is the_model
+    assert set(model.pre_kwargs) == {"options", "flow_runtime_overrides"}
     assert model.processing_options.link_mt3dms is False
 
 
@@ -398,10 +397,8 @@ def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> N
     )
     state = RunState(
         setup=SimpleNamespace(
-            flow=SimpleNamespace(active_bc=[]),
-            domain=SimpleNamespace(),
+            model=_model_on(object()),
             flow_runtime_overrides=None,
-            cell_mesh=object(),
         ),
     )
 
@@ -412,7 +409,7 @@ def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> N
         def __init__(self) -> None:
             self.processing_options = None
 
-        def pre_processing(self, **kwargs) -> None:
+        def pre_processing(self, model, **kwargs) -> None:
             return None
 
         def processing(self, options) -> bool:

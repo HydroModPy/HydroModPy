@@ -50,6 +50,11 @@ period, and the solvers call it.
 | `recharge_rates.py` | The mean recharge the stream-network criterion divides by |
 | `sources.py` | Readers of a gridded or located source, shared by the forcing discretizers |
 | `stations.py` | Point-record discretization on cell centers |
+| `soil_budget.py` | The printed water-budget block of the soil reservoir |
+| `soil_columns.py` | The soil columns: one per SAFRAN cell, or one per capacity class inside each cell |
+| `soil_config.py` | What `[flow.sinks_sources.recharge.soil]` can say, with each bound and its refusal |
+| `soil_forcing.py` | Runs the soil reservoir on the loaded grids and returns recharge, residual ETP and runoff fields |
+| `soil_grids.py` | The precipitation and ETP grids the soil reads, and the guards they must pass |
 | `steady_periods.py` | The rate a steady stress period takes: one rule for every solver |
 | `synthetic.py` | Synthetic precipitation, inflow and recharge series for demonstrators and tests |
 | `time_alignment.py` | Gives a series one value per stress period of `[simulation.time]` |
@@ -90,6 +95,18 @@ period, and the solvers call it.
   only.
 - xarray, rasterio, pyproj and the scipy interpolators are imported inside the functions that use them, so
   a run without a grid forcing does not load them.
+
+## The soil reservoir
+
+The `soil_*.py` modules run the daily soil reservoir on loaded grids. `soil_grids.py` reads the grids on the
+days of the run and checks them: daily step, calendar, CRS, no gap, no negative value, a plausible scale. It
+never touches the cached dataset of a shared record. `soil_columns.py` places one column per SAFRAN cell, or
+one per capacity class inside each cell when `[data.soil_capacity]` gives a raster, each weighed by its share
+of the catchment. `soil_forcing.py` runs the kernel of `model/soil/kernel.py` day by day and hands back the
+recharge, the residual ETP and the runoff on the precipitation grid. `ru_ladder` gives the basin recharge
+for a few soil capacities. `soil_budget.py` writes the water-budget block of the run. They read the loaded
+records through `model/contracts.py`, so nothing here imports `data`. `soil_config.py` reads no other module
+of the package. The theory is in `docs/source/theory/soil-reservoir.md`.
 
 ## What lives outside the package
 

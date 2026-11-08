@@ -6,11 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
 )
@@ -94,34 +95,27 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
 
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    boussinesq_variant_flow_section(
-                        {
-                            "flow_regime": "steady",
-                            "ic": {"kind": "custom", "value": 7.5},
-                            "bc": {
-                                "west_side": {"value": WEST_HEAD_M},
-                                "east_side": {"value": EAST_HEAD_M},
-                            },
+    state = boussinesq_run_state(
+        flow=Flow(
+            _build_flow_config(
+                boussinesq_variant_flow_section(
+                    {
+                        "flow_regime": "steady",
+                        "ic": {"kind": "custom", "value": 7.5},
+                        "bc": {
+                            "west_side": {"value": WEST_HEAD_M},
+                            "east_side": {"value": EAST_HEAD_M},
                         },
-                        flow_regime="steady",
-                        solver=public_solver_label,
-                    ),
-                    case_dir=Path(__file__).resolve().parent,
-                    config_name=boussinesq_variant_config_name(public_solver_label),
-                )
-            ),
-            domain=None,
-            time_grid=None,
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+                    },
+                    flow_regime="steady",
+                    solver=public_solver_label,
+                ),
+                case_dir=Path(__file__).resolve().parent,
+                config_name=boussinesq_variant_config_name(public_solver_label),
+            )
         ),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

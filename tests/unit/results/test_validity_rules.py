@@ -239,8 +239,8 @@ def test_run_quantities_spell_the_vocabulary_of_the_register():
 
 
 def test_every_register_token_names_a_real_solver_or_mesh_engine():
-    solvers = {name for _, name in solver_registry.pairs_for_process("flow")}
-    engines = set(mesh_registry.builtin_engine_ids())
+    solvers = set(solver_registry.solvers.names("flow"))
+    engines = set(mesh_registry.mesh_engines.names(shipped_only=True))
     allowed = {"metrics"}
     allowed |= {f"{kind}@{solver}" for kind in ("heads", "fluxes") for solver in solvers}
     allowed |= {f"mesh@{engine}" for engine in engines}

@@ -38,6 +38,7 @@ import numpy as np
 from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.quantities import parse_to_per_s
+from hydromodpy.model.initial.state import PriorState
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,
@@ -58,10 +59,6 @@ from hydromodpy.solver.modflow6.builders._lake_outlets import (
     _emit_outlet_rate_rows,
     _emit_steady_stage_hold_rows,
     _forcing_si_per_period,
-)
-from hydromodpy.solver.modflow6.builders.initial_conditions import (
-    read_restart_lake_stages,
-    resolve_restart_from,
 )
 from hydromodpy.solver.modflow6.builders.lake_cells import resolve_lake_cells_for_active_lakes
 from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec, cutoff_wall_flow_faces
@@ -497,11 +494,11 @@ def build_lak_package_args(
     laktab_specs: list[dict[str, Any]] = []
     lake_conn_info: list[dict[str, Any]] = []
 
-    # Hotstart: a prior run's Zarr (via [flow] restart_from) seeds each lake's
-    # initial stage from its last value, overriding initial_stage. Absent lake / older
+    # Hotstart: the prior run ([flow] restart_from) seeds each lake's initial
+    # stage from its last value, overriding initial_stage. Absent lake / older
     # store -> empty map, so the initial_stage fallback below still applies.
-    restart_source = resolve_restart_from(model)
-    restart_stages = read_restart_lake_stages(restart_source) if restart_source else {}
+    initial = model.inputs.initial
+    restart_stages = initial.lake_stages if isinstance(initial, PriorState) else {}
 
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         cell_ids = list(lake_cell_ids_by_lake.get(lake_id, []))

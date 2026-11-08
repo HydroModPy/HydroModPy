@@ -49,7 +49,7 @@ Where a process lives
    |-- transport.py            Transport(ProcessSpatial[TransportInitialConditions])
    `-- transport_config.py     TransportConfig(ProcessSpatialConfig) and one block per solver
 
-``hydromodpy/model/`` holds the large one: ``model.py`` and ``flow_config.py``, with
+``hydromodpy/model/`` holds the large one: ``flow.py``, ``model.py`` and ``flow_config.py``, with
 ``boundaries/`` (boundary condition registry and binders) and ``sinks_sources/``.
 Read ``transport`` first.
 
@@ -81,23 +81,25 @@ make it a process and not just a package:
        holds at most one process of each type.
    * - ``core/state/run_state.py``
      - A member of ``SetupContext`` that holds the built object
-       (``setup.flow``, ``setup.transport``).
+       (``setup.flow``, ``setup.model``, ``setup.transport``). ``setup.model``
+       is the frozen ``Model`` that ``prepare_solver`` builds from ``setup.flow``
+       and that a flow adapter reads.
    * - ``solver/base/runner.py``
      - An ``ensure_<name>`` function that builds the object from the config, an
        entry in ``_COMPONENT_ENSURERS``, and the components the process needs in
-       ``_REQUIRED_COMPONENTS_BY_PROCESS`` (``transport`` needs ``flow`` and
-       ``transport``). A name is imported from the module that defines it, so
+       ``_REQUIRED_COMPONENTS_BY_PROCESS`` (``transport`` needs ``transport``,
+       and the runner checks ``setup.model`` before a flow adapter). A name is imported from the module that defines it, so
        nothing is exported from a package file.
    * - ``workflow/steps/setup.py``
      - The calls to ``ensure_flow`` and ``ensure_transport`` that build the
        objects once the configuration is resolved. Add yours next to them.
    * - ``solver/base/registry.py``
-     - One entry per solver in ``_BUILTIN_PATHS``, ``_BUILTIN_EXTRACTOR_PATHS``
-       and ``_BUILTIN_CAPABILITIES``, keyed ``("<name>", "<solver>")``. The
-       process type becomes known to the planner as soon as one adapter is
-       registered.
+     - One entry per solver in ``_BUILTIN_PATHS`` and ``_BUILTIN_EXTRACTOR_PATHS``,
+       keyed ``"<name>_<solver>"``. The adapter class carries the twelve
+       attributes of the port. The process type becomes known to the planner as
+       soon as one adapter is registered.
    * - ``calibration/runners/trial.py``
-     - The trial copy of the setup context resets ``flow`` and ``transport`` to
+     - The trial copy of the setup context resets ``flow``, ``model`` and ``transport`` to
        ``None`` so each trial builds its own. A new member needs the same line.
    * - ``_lazy.py``
      - The public exports of the runtime class and its config, if the
@@ -115,7 +117,7 @@ Order of work
 3. **Build the object** with an ``ensure_<name>`` function, register it in the
    runner tables, and call it from ``workflow/steps/setup.py``.
 4. **Bind a solver.** The adapter declares ``process_type = "<name>"``, a
-   ``solver_name`` and ``requires``, the earlier runs it depends on.
+   ``name`` and ``requires`` (and the other attributes of the port), the earlier runs it depends on.
    ``Modflow6GwtTransportAdapter`` requires ``("flow", "modflow6")``, so the
    planner refuses a transport run that comes before its flow run. The adapter
    is the subject of :doc:`add-a-solver`; the planner reads ``requires`` in
@@ -125,7 +127,7 @@ Order of work
    checked together.
 
 The workflow steps are process-agnostic. They hand the objects over through
-``setup.flow`` and ``setup.transport`` of the run context, so a new process
+``setup.model`` and ``setup.transport`` of the run context, so a new process
 needs no new pipeline step unless it needs its own data chain.
 
 Tests to add

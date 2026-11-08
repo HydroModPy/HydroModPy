@@ -54,7 +54,7 @@ def _triangles(*, with_shores: bool) -> PlanarCellMesh:
     if with_shores:
         rings = (*_rings(LAKE), *_rings(ATOLL))
         lines = (LineFamilySpec("lakes", "face", rings, closed=True),)
-    return registry.create("triangle").build(
+    return registry.mesh_engines.create("triangle").build(
         mesh_request(
             grid_spec(40, 40, 25.0, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT),
             nominal_size_m=60.0,

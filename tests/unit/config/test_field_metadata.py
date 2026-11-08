@@ -20,10 +20,10 @@ from hydromodpy.core.config_kit.field_metadata import (
     unknown_metadata_keys,
 )
 from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.simulation_config import TransportProcessConfig
 from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig

@@ -10,11 +10,12 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
 )
@@ -266,25 +267,19 @@ def run_boussinesq_transient_uniform_strip_case(
         solver=solver_name,
     )
 
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                build_flow_config(
-                    effective_flow_section,
-                    case_dir=case_dir,
-                    config_name=boussinesq_variant_config_name(solver_name),
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+    state = boussinesq_run_state(
+        flow=Flow(
+            build_flow_config(
+                effective_flow_section,
+                case_dir=case_dir,
+                config_name=boussinesq_variant_config_name(solver_name),
+            )
+        ),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
     )
     run = ProcessRun(

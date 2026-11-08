@@ -54,6 +54,7 @@ from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     managed_bin_dir,
 )
 from tests._helpers.mf6_ground import leave_ground_beside  # noqa: E402
+from tests._helpers.model_factory import make_model
 
 # Reuse the proven single-lake DISV builder + recording store double.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -82,16 +83,15 @@ class _ShimModel:
 
     Carries the attributes ``run_processing`` reads: a loaded flopy ``sim`` for
     the subprocess leg, ``nper`` for the solve progress bar, ``full_path`` for
-    the api leg, and the api callback / lib-path hooks. ``flow_regime`` is None
-    so the steady-init branch is skipped.
+    the api leg, and the api callback / lib-path hooks. ``inputs`` is a steady
+    ``Model``, so the steady-init and spin-up branches are skipped.
     """
 
     def __init__(self, sim: Any, full_path: Path) -> None:
         self.sim = sim
         self.nper = int(sim.tdis.nper.get_data())
         self.full_path = str(full_path)
-        self.flow = None
-        self.flow_regime: str | None = None
+        self.inputs = make_model()
         self.last_flow_solve_time_seconds: float | None = None
         self._runtime_dirty_packages: tuple[str, ...] = ()
         self._mf6_api_callback: Any = None

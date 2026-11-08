@@ -25,8 +25,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class PipelineTrialEvaluator:
     """Score one parameter sample by running the HydroModPy pipeline on it.
 
-    Built by :func:`hydromodpy.calibration.evaluation.registry.create`, which
-    binds only the options this constructor names. ``metric_fn`` overrides the
+    Built by ``evaluators.create`` of
+    :mod:`hydromodpy.calibration.evaluation.registry`, which binds only the options this constructor names. ``metric_fn`` overrides the
     extractor built from the configuration; it is the escape hatch the three
     programmatic entry points already published.
     """

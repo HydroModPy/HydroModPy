@@ -17,10 +17,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.initial.config import FlowInitialConditions
-from hydromodpy.model.initial.spinup_config import SpinupConfig
+from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
 from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
-from hydromodpy.solver.modflow6.builders.initial_conditions import read_final_head
+from hydromodpy.results.storage.prior_state import read_final_head
 
 
 def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = None) -> str:

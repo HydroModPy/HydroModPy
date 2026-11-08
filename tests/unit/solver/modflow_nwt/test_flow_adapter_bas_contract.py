@@ -5,17 +5,25 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.initial.state import (
+    HeadRule,
+    InitialState,
+    PriorState,
+    SolvedState,
+    SteadyStart,
+)
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
     FlowToModflowAdapter,
 )
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _build_adapter(
     *,
-    initial_type: str = "top",
-    initial_value: float = 0.0,
+    initial: InitialState = HeadRule("top"),
     boundary_conditions: dict[str, object] | None = None,
     active_bc: list[str] | None = None,
 ) -> FlowToModflowAdapter:
@@ -32,17 +40,10 @@ def _build_adapter(
     if active_bc is None:
         active_bc = list(bc.keys())
 
-    flow = SimpleNamespace(
-        initial_conditions=SimpleNamespace(
-            h=SimpleNamespace(kind=initial_type, value=initial_value)
-        ),
-        boundary_conditions=bc,
-        active_bc=active_bc,
-        sinks_sources={},
-        active_sinks_sources=[],
-        parameters={},
+    model = make_model(
+        initial=initial,
+        boundaries=BoundaryConditionBundle(conditions=bc, active_ids=tuple(active_bc)),
     )
-    domain = SimpleNamespace(zones={})
 
     solver_mesh = solver_mesh_from_structured_arrays(
         nrow=dem.shape[0],
@@ -54,8 +55,7 @@ def _build_adapter(
     )
 
     return FlowToModflowAdapter(
-        flow=flow,
-        domain=domain,
+        model=model,
         solver_mesh=solver_mesh,
         nper=1,
         sink_fill=False,
@@ -64,7 +64,7 @@ def _build_adapter(
 
 def test_initial_heads_and_side_boundaries_follow_bas_contract():
     adapter = _build_adapter(
-        initial_type="top",
+        initial=HeadRule("top"),
         boundary_conditions={"west_side": SimpleNamespace(value=9.5)},
     )
 
@@ -90,7 +90,7 @@ def test_initial_heads_and_side_boundaries_follow_bas_contract():
 
 
 def test_steady_state_initial_head_build_guess_uses_top_surface():
-    adapter = _build_adapter(initial_type="steady_state")
+    adapter = _build_adapter(initial=SteadyStart())
 
     _, strt, _ = adapter._build_initial_heads_and_sides()
 
@@ -98,9 +98,24 @@ def test_steady_state_initial_head_build_guess_uses_top_surface():
     np.testing.assert_allclose(strt[1], adapter.dem)
 
 
+@pytest.mark.parametrize(
+    "state",
+    [
+        PriorState(head=np.zeros((2, 6)), lake_stages={}, path="run.zarr"),
+        SolvedState(head=np.zeros((2, 6)), solver="modflow6"),
+    ],
+    ids=["prior_state", "solved_state"],
+)
+def test_a_start_state_that_holds_its_head_is_refused_by_name(state):
+    adapter = _build_adapter(initial=state)
+
+    with pytest.raises(TypeError, match=type(state).__name__):
+        adapter._build_initial_heads_and_sides()
+
+
 def test_single_period_side_boundary_sequence_uses_first_value():
     adapter = _build_adapter(
-        initial_type="top",
+        initial=HeadRule("top"),
         boundary_conditions={"west_side": SimpleNamespace(value=[9.5, 8.5])},
     )
 
@@ -110,7 +125,7 @@ def test_single_period_side_boundary_sequence_uses_first_value():
 
 
 def test_validate_ibound_strt_contract_rejects_shape_mismatch():
-    adapter = _build_adapter(initial_type="custom", initial_value=7.0)
+    adapter = _build_adapter(initial=HeadRule("custom", 7.0))
     ibound, strt, drain_array = adapter._build_initial_heads_and_sides()
 
     with pytest.raises(ValueError, match="ibound shape mismatch"):
@@ -122,7 +137,7 @@ def test_validate_ibound_strt_contract_rejects_shape_mismatch():
 
 
 def test_validate_ibound_strt_contract_rejects_non_finite_starting_heads():
-    adapter = _build_adapter(initial_type="bottom")
+    adapter = _build_adapter(initial=HeadRule("bottom"))
     ibound, strt, drain_array = adapter._build_initial_heads_and_sides()
     strt_bad = strt.copy()
     strt_bad[0, 0, 0] = np.nan
@@ -136,7 +151,7 @@ def test_validate_ibound_strt_contract_rejects_non_finite_starting_heads():
 
 
 def test_validate_ibound_strt_contract_rejects_non_binary_drain_mask():
-    adapter = _build_adapter(initial_type="top")
+    adapter = _build_adapter(initial=HeadRule("top"))
     ibound, strt, drain_array = adapter._build_initial_heads_and_sides()
     drain_bad = drain_array.copy()
     drain_bad[0, 0] = 0.5

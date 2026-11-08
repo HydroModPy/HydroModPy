@@ -73,7 +73,7 @@ def test_a_negative_value_read_from_a_file_stops_the_build() -> None:
     forcing = {"kind": "values", "values": [0.01, -0.02]}
     with pytest.raises(SolverInputError, match="period 2"):
         _emit_forcing_rows(
-            SimpleNamespace(nper=2, time_grid=None),
+            SimpleNamespace(nper=2, inputs=SimpleNamespace(time=SimpleNamespace(grid=None))),
             lake_index=0,
             lake_id="lac0",
             keyword="withdrawal",

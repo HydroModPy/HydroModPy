@@ -29,6 +29,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from validation_cases.shared.lake_inputs import lake_inputs
 from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import LakeP01Geometry, load_geometry
@@ -77,32 +78,29 @@ def build_hmp_solver_mesh(geometry: LakeP01Geometry) -> SolverMesh:
 def _hmp_model(geometry: LakeP01Geometry) -> SimpleNamespace:
     """Build the minimal HMP-model namespace the LAK builder reads.
 
-    The LAK builder only needs ``model_output_name``, ``time_units`` and the flow
-    ``active_bc`` / ``sinks_sources.lakes`` payload; the rest of the model is built
-    directly with flopy in :func:`run_hmp`.
+    The LAK builder only needs ``model_output_name``, ``time_units`` and the lake
+    tables of ``inputs``; the rest of the model is built directly with flopy in
+    :func:`run_hmp`.
     """
     abacus = geometry.abacus_si_rows()
     return SimpleNamespace(
         model_output_name=_MODEL_NAME,
         model_name=_MODEL_NAME,
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": None,
-                        "bedleak": geometry.bedleak_per_s,
-                        "abacus": abacus,
-                        "initial_stage": geometry.stage_init_m,
-                        "rainfall": {"value": geometry.rainfall_m_per_s, "units": "m/s"},
-                        "evaporation": {
-                            "value": geometry.evaporation_m_per_s,
-                            "units": "m/s",
-                        },
-                    }
+        inputs=lake_inputs(
+            {
+                "lac0": {
+                    "polygon": None,
+                    "bedleak": geometry.bedleak_per_s,
+                    "abacus": abacus,
+                    "initial_stage": geometry.stage_init_m,
+                    "rainfall": {"value": geometry.rainfall_m_per_s, "units": "m/s"},
+                    "evaporation": {
+                        "value": geometry.evaporation_m_per_s,
+                        "units": "m/s",
+                    },
                 }
-            },
+            }
         ),
     )
 

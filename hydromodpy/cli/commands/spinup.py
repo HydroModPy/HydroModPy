@@ -140,7 +140,7 @@ def run(args: argparse.Namespace) -> None:
 def _dry_run(args: argparse.Namespace, target: Path) -> None:
     """Check the TOML as the spin-up reads it, say what the loop would do, run nothing."""
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.model.initial.spinup_config import SpinupConfig
+    from hydromodpy.model.initial_config import SpinupConfig
 
     try:
         config = HydroModPyConfig.from_toml(target)

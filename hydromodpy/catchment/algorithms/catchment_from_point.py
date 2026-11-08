@@ -174,7 +174,7 @@ def extract_catchment_from_point(
             "stream_threshold_cells goes with snap_method='jenson', and only with it: "
             f"got snap_method={snap_method!r} and stream_threshold_cells={stream_threshold_cells!r}."
         )
-    engine = terrain_registry.create(engine_id, backend=backend)
+    engine = terrain_registry.terrain_engines.create(engine_id, backend=backend)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

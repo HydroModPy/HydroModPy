@@ -26,8 +26,8 @@ Extend the code
       :link: add-a-solver
       :link-type: doc
 
-      Bind a ``(process_type, solver_name)`` pair to an adapter and an output
-      extractor.
+      Bind a ``<process_type>_<name>`` key to an adapter class that declares its
+      twelve attributes, and to an output extractor.
 
    .. grid-item-card:: Add a process
       :link: add-a-process

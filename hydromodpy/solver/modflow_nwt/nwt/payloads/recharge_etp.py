@@ -23,7 +23,6 @@ from hydromodpy.model.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
 
 if TYPE_CHECKING:
@@ -92,19 +91,6 @@ def series_value(payload: object, kper: int):
         except Exception:
             return value
     return payload[kper]
-
-
-def resolve_flow_regime(flow: object) -> str:
-    """Resolve and validate the flow regime string from the flow object."""
-    flow_cfg = getattr(flow, "config", None)
-    regime = None
-    if flow_cfg is not None:
-        regime = getattr(flow_cfg, "flow_regime", None)
-    if regime is None:
-        regime = getattr(flow, "flow_regime", None)
-    if regime is None:
-        raise ValueError("flow.flow_regime is required to build recharge payloads.")
-    return normalize_flow_regime(regime)
 
 
 def clip_etp_to_non_negative(payload: object) -> object:
@@ -194,7 +180,7 @@ def steady_period_flags(adapter: FlowToModflowAdapter) -> np.ndarray:
     """Return which periods the NWT run solves steady.
 
     The flags the DIS package receives when the solver passed them; otherwise
-    the same rule rebuilt from the flow regime and ``first_period_steady``.
+    the same rule rebuilt from the regime and ``first_period_steady`` of the model.
     """
     steady = getattr(adapter, "steady", None)
     if steady is not None:
@@ -205,8 +191,8 @@ def steady_period_flags(adapter: FlowToModflowAdapter) -> np.ndarray:
 
     return steady_flags(
         nper=int(adapter.nper),
-        flow_regime=resolve_flow_regime(adapter.flow),
-        first_period_steady=resolve_first_period_steady(flow=adapter.flow),
+        flow_regime=adapter.model.time.regime,
+        first_period_steady=resolve_first_period_steady(model=adapter.model),
     )
 
 
@@ -390,13 +376,11 @@ def build_heterogeneous_etp_payload(
 
 
 def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
-    """Build the RCH payload from ``flow.sinks_sources["recharge"]``."""
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "recharge" not in active:
+    """Build the RCH payload from ``Model.recharge``."""
+    if "recharge" not in adapter.model.active_sinks_sources:
         return None
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+    recharge_cfg = adapter.model.recharge
     if recharge_cfg is None:
         return None
 
@@ -460,14 +444,12 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
 def build_etp_payload(
     adapter: FlowToModflowAdapter,
 ) -> tuple[dict[int, object] | None, float, float]:
-    """Build the EVT payload from ``flow.sinks_sources["etp"]``."""
+    """Build the EVT payload from ``Model.etp``."""
     negative_evt_spd = getattr(adapter, "_negative_recharge_evt_spd", None)
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "etp" not in active:
+    if "etp" not in adapter.model.active_sinks_sources:
         return negative_evt_spd, 2.0, 1.0
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+    etp_cfg = adapter.model.etp
     if etp_cfg is None:
         return negative_evt_spd, 2.0, 1.0
 
@@ -522,7 +504,6 @@ __all__ = [
     "extract_negative_recharge_evt_payload",
     "merge_evt_payloads",
     "payload_has_negative_values",
-    "resolve_flow_regime",
     "series_value",
     "steady_period_flags",
 ]

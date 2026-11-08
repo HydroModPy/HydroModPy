@@ -25,7 +25,7 @@ def test_a_cell_the_contact_crosses_takes_the_area_mean_of_the_two_values(tmp_pa
     k = FieldParam(identifier="K", kind="heterogeneous", values_by_key=values, field_spatial_id="geology")  # fmt: skip
 
     out = resolve_flow_property_arrays(
-        flow=SimpleNamespace(parameters={"K": k}),
+        profiles={"K": k},
         domain=SimpleNamespace(zones={"geology": field}),
         solver_mesh=solver_mesh,
         required_properties={"K"},

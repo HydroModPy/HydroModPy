@@ -12,50 +12,16 @@ import hydromodpy.solver.modflow6.extractors.lake as lake_extractor
 import hydromodpy.solver.modflow_common.calibration_extractors as calibration_extractors
 import hydromodpy.solver.modflow_common.observable_extraction as observable_extraction
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
-from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.adapter_protocol import RunResult, SolverAdapter
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.modflow_common import binaries
+from tests._helpers.fake_solvers import fake_adapter
 
+DummyAdapter = fake_adapter("dummy")
+"""A structural conformer with the twelve attributes and the four methods."""
 
-class DummyAdapter:
-    """Minimal structural conformer used to exercise the Protocol."""
-
-    process_type = "flow"
-    solver_name = "dummy"
-    requires: tuple[tuple[str, str], ...] = ()
-
-    def __init__(self) -> None:
-        self.calls: list[str] = []
-
-    def validate(self, ctx: object) -> None:
-        self.calls.append("validate")
-
-    def execute(self, ctx: object) -> object:
-        self.calls.append("execute")
-        return object()
-
-    def cleanup(self, ctx: object) -> None:
-        self.calls.append("cleanup")
-
-    def extract_observables(
-        self, ctx: object, store: object, requests: object, **kwargs: object
-    ) -> object:
-        self.calls.append("extract_observables")
-        return {}
-
-
-class PartialAdapter:
-    """Missing ``execute`` on purpose to check structural conformance."""
-
-    process_type = "flow"
-    solver_name = "partial"
-    requires: tuple[tuple[str, str], ...] = ()
-
-    def validate(self, ctx: object) -> None:  # pragma: no cover - not exercised
-        pass
-
-    def cleanup(self, ctx: object) -> None:  # pragma: no cover
-        pass
+PartialAdapter = fake_adapter("partial", execute=None)
+"""Missing ``execute`` on purpose to check structural conformance."""
 
 
 def test_dummy_adapter_is_recognised_as_solver_adapter() -> None:
@@ -170,25 +136,23 @@ def test_an_unresolvable_engine_never_raises(monkeypatch) -> None:
 
 # Every registered solver adapter must structurally conform to ``SolverAdapter``.
 #
-# The test is parametrized on :func:`registry.list_pairs` so it covers
-# both eagerly-registered adapters and lazily-loaded built-ins. A new
-# adapter that lands in ``_BUILTIN_PATHS`` without honoring the
-# ``validate / execute / cleanup / extract_observables`` quartet
-# would surface here immediately.
+# The test is parametrized on ``solvers.names()`` so it covers both eagerly
+# registered adapters and lazily loaded built-ins. A new adapter that lands in
+# ``_BUILTIN_PATHS`` without the twelve attributes and the
+# ``validate / execute / cleanup / extract_observables`` quartet would surface
+# here immediately.
 
 
-@pytest.mark.parametrize("pair", registry.list_pairs(), ids=lambda p: f"{p[0]}/{p[1]}")
-def test_registered_adapter_conforms_to_protocol(pair: tuple[str, str]) -> None:
-    adapter = registry.get_solver_adapter(*pair)
+@pytest.mark.parametrize("key", solvers.names())
+def test_registered_adapter_conforms_to_protocol(key: str) -> None:
+    adapter = solvers.create(key)
     assert isinstance(adapter, SolverAdapter)
 
 
-@pytest.mark.parametrize("pair", registry.list_pairs(), ids=lambda p: f"{p[0]}/{p[1]}")
-def test_registered_adapter_advertises_pair(pair: tuple[str, str]) -> None:
-    cls = registry.get(*pair)
-    process_type, solver_name = pair
-    assert cls.process_type == process_type
-    assert cls.solver_name == solver_name
+@pytest.mark.parametrize("key", solvers.names())
+def test_registered_adapter_advertises_its_key(key: str) -> None:
+    cls = solvers.get(key)
+    assert f"{cls.process_type}_{cls.name}" == key
     assert isinstance(cls.requires, tuple)
 
 
@@ -199,7 +163,7 @@ def test_registered_adapter_advertises_pair(pair: tuple[str, str]) -> None:
 )
 def test_flow_adapter_exposes_extract_observables(pair: tuple[str, str]) -> None:
     """The 3 flow backends must each expose ``extract_observables``."""
-    adapter = registry.get_solver_adapter(*pair)
+    adapter = solvers.create(*pair)
     method = getattr(adapter, "extract_observables", None)
     assert callable(method), f"{pair} must define extract_observables"
     sig = inspect.signature(method)

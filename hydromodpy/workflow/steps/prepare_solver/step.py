@@ -1,7 +1,8 @@
 """``PrepareSolverStep``: plans the simulation and opens the run it will execute.
 
-The work is spread over sibling modules. :mod:`prepare` and :mod:`forcings` persist the
-inputs, :mod:`freeze` the frozen configuration, :mod:`facts` the facts of the run and
+The work is spread over sibling modules. :mod:`model` freezes the ``Flow`` into the
+``Model`` the solver reads, :mod:`prepare` and :mod:`forcings` persist the inputs,
+:mod:`freeze` the frozen configuration, :mod:`facts` the facts of the run and
 :mod:`dispatch` binds the pipeline to its run directory.
 """
 
@@ -24,7 +25,11 @@ from hydromodpy.workflow.steps.prepare_solver.dispatch import (
 )
 from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
 from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forcings
-from hydromodpy.workflow.steps.prepare_solver.prepare import step_write_provenance
+from hydromodpy.workflow.steps.prepare_solver.model import step_build_model
+from hydromodpy.workflow.steps.prepare_solver.prepare import (
+    step_persist_params,
+    step_write_provenance,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -86,10 +91,11 @@ def _stored_budget_keep(ctx: WorkflowContext, store) -> BudgetKeep | None:
 
 
 class PrepareSolverStep:
-    """Build the simulation plan and open the run it will execute.
+    """Build the simulation plan, open the run it will execute and build its ``Model``.
 
-    Composed from three sibling modules: :mod:`prepare` (writes inputs),
-    :mod:`facts` (introspection) and :mod:`dispatch` (binding).
+    Composed from sibling modules: :mod:`model` (the frozen ``Model``),
+    :mod:`prepare` (writes inputs), :mod:`facts` (introspection) and
+    :mod:`dispatch` (binding).
 
     Every write goes through a store this step opens and closes itself, so
     the handle is gone by the time the next step starts.
@@ -123,6 +129,9 @@ class PrepareSolverStep:
             raise ConfigError("PrepareSolverStep requires 'ctx' in state.data")
 
         _resolve_plan_and_results(ctx)
+        # The data step may have bound new forcings to the flow since the last run
+        # of this context, so the model of that run is not this run's.
+        ctx.setup.model = None
 
         if run_is_persisted(ctx):
             bind_run_directory(
@@ -146,8 +155,15 @@ class PrepareSolverStep:
                 workspace=None if workspace is None else workspace.project_root,
             ) as store:
                 step_open_run(ctx, store=store)
+                model = step_build_model(ctx, store=store)
+                if model is not None:
+                    step_persist_params(
+                        store, ctx.sim_id, model.properties.profiles, domain=model.geometry.domain
+                    )
                 step_write_provenance(ctx, store=store)
                 step_persist_forcings(ctx, store=store)
+        else:
+            step_build_model(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -178,7 +194,8 @@ class PrepareSolverStep:
         The plan is a pure function of the config, so it is recomputed here.
         The run directory is the one the state carries; the outcome it holds
         names the run, and the per-cell budget policy is read back from the
-        store when the extraction already wrote it.
+        store when the extraction already wrote it. The ``Model`` is built again,
+        because a resume at ``run_solver`` has none in memory.
         """
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -192,6 +209,7 @@ class PrepareSolverStep:
 
         if not run_is_persisted(ctx):
             _resolve_plan_and_results(ctx)
+            step_build_model(ctx)
         else:
             run_dir = prior_state.get("run_dir") or getattr(ctx, "run_dir", None)
             if run_dir is None:
@@ -207,6 +225,7 @@ class PrepareSolverStep:
             ctx.attempt = outcome.attempt
             with run_store(ctx) as store:
                 _resolve_plan_and_results(ctx, store=store)
+                step_build_model(ctx, store=store)
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

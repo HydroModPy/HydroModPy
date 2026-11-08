@@ -87,7 +87,7 @@ def _engine_mesh(case: _Case, domain: Domain):
     grid = RasterGridSpec.from_raster_support(support, crs_wkt=TEST_CRS_WKT)
     options = {} if case.shape is None else {"shape": list(case.shape)}
     request = mesh_request(grid, nominal_size_m=case.dx, options=options)
-    return registry.create("regular").build(request)
+    return registry.mesh_engines.create("regular").build(request)
 
 
 def _legacy_solver_mesh(case: _Case, domain: Domain, vertical: VerticalGridConfig) -> SolverMesh:

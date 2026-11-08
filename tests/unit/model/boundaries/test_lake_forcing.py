@@ -19,14 +19,16 @@ from hydromodpy.model.boundaries.streams import (
     sfr_routes_catchment_runoff,
 )
 from hydromodpy.model.forcing.dated_forcing import SurfaceRateForcing, VolumeRateForcing
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig, spinup_refusal
 from hydromodpy.model.forcing.time_forcing import (
     compact_pre_resolved_forcings,
     resolve_period_values_from_forcing,
 )
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig, spinup_refusal
 from hydromodpy.solver.modflow6.builders._lake_outlets import _forcing_si_per_period
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
+from tests._helpers.model_factory import make_model
 
 # Lake and SFR rainfall and evaporation are rates in length per time.
 #
@@ -103,7 +105,7 @@ def test_a_well_value_with_its_unit_is_not_scaled_by_the_well_units_again() -> N
 
 def test_lake_runoff_inflow_and_withdrawal_stay_volumes_per_time() -> None:
     forcing = VOLUME.validate_python({"kind": "constant", "value": 0.01, "units": "m3/s"})
-    model = SimpleNamespace(nper=1, time_grid=None)
+    model = SimpleNamespace(nper=1, inputs=make_model())
     assert _forcing_si_per_period(
         model, forcing, volumetric=True, label="withdrawal", nper=1
     ) == pytest.approx((0.01,))
@@ -198,7 +200,11 @@ class _Cfg:
 
 class _Model:
     def __init__(self, window: ResolvedSimulationTimeWindow) -> None:
-        self.time_grid = SimpleNamespace(window=window)
+        self.inputs = make_model(
+            time=ModelTime(
+                grid=SimpleNamespace(window=window), regime="transient", first_period_steady=False
+            )
+        )
         self.nper = 3
         self.perlen = [86400.0, 86400.0, 86400.0]
         self.modflow_config = _Cfg(process_specific=_Proc())

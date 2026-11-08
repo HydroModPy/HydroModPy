@@ -153,7 +153,7 @@ claims and notes what the engine left out.
 Which solver reads which engine
 -------------------------------
 
-Each flow adapter declares ``accepted_meshes`` (``solver/base/adapter_protocol.py``). It lists
+Each flow adapter declares ``accepted_meshes`` as a class attribute, one of the twelve of ``solver/base/adapter_protocol.py``. It lists
 the engine ids the solver reads, or ``*planar`` for any engine whose cells are triangles,
 quadrilaterals or polygons. ``HydroModPyConfig`` checks the pair while it reads the file, before
 any step runs. Its message names the engines the solver reads and the solvers that read the engine

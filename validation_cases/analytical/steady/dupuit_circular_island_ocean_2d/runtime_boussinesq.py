@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d import (
@@ -17,6 +17,7 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
 )
@@ -75,41 +76,34 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)
     }
 
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(
-                _build_flow_config(
-                    boussinesq_variant_flow_section(
-                        {
-                            "flow_regime": "steady",
-                            "ic": {"kind": "custom", "value": 1.0},
-                            "sinks_sources": {
-                                "recharge": {
-                                    "values": recharge_rate_m_s,
-                                    "first_clim": "mean",
-                                    "units": "m/s",
-                                },
-                                "wells": wells_payload,
+    state = boussinesq_run_state(
+        flow=Flow(
+            _build_flow_config(
+                boussinesq_variant_flow_section(
+                    {
+                        "flow_regime": "steady",
+                        "ic": {"kind": "custom", "value": 1.0},
+                        "sinks_sources": {
+                            "recharge": {
+                                "values": recharge_rate_m_s,
+                                "first_clim": "mean",
+                                "units": "m/s",
                             },
-                            "bc": {
-                                "ocean": {"value": float(reference_cfg["sea_level_m"])},
-                            },
+                            "wells": wells_payload,
                         },
-                        flow_regime="steady",
-                        solver=solver_name,
-                    ),
-                    case_dir=CASE_DIR,
-                    config_name=boussinesq_variant_config_name(solver_name),
-                )
-            ),
-            domain=None,
-            time_grid=None,
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+                        "bc": {
+                            "ocean": {"value": float(reference_cfg["sea_level_m"])},
+                        },
+                    },
+                    flow_regime="steady",
+                    solver=solver_name,
+                ),
+                case_dir=CASE_DIR,
+                config_name=boussinesq_variant_config_name(solver_name),
+            )
         ),
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

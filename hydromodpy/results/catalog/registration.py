@@ -191,7 +191,7 @@ def mesh_engine_identity(config: dict) -> dict[str, str]:
     section = config.get("mesh")
     engine_id = section.get("engine") if isinstance(section, dict) else None
     try:
-        engine_cls = mesh_registry.get(engine_id)
+        engine_cls = mesh_registry.mesh_engines.get(engine_id)
     except (MeshRequestError, ImportError) as exc:
         logger.warning("Mesh engine not hashed into the run identity: %s", exc)
         return {"engine": str(engine_id), "version": uuid.uuid4().hex}

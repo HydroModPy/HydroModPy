@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -31,24 +30,11 @@ import numpy as np
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.steady_initialization import (
-    single_period_mean_forcing_time_grid,
-)
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    boundary_condition_bundle_from_flow,
-    boundary_conditions_mapping_from_flow,
-    boundary_definition,
-    is_boundary_condition_active,
-)
-from hydromodpy.model.initial.heads import (
-    apply_steady_state_initial_condition_strategy,
-    flow_uses_steady_state_initial_condition,
-    steady_state_initial_condition_strategy,
-    steady_state_initialization_surface_interaction_model,
-    summarize_head_initial_condition_bounds,
-)
-from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.model.initial.heads import summarize_head_initial_condition_bounds
+from hydromodpy.model.initial.state import SteadyStart
+from hydromodpy.model.model import Model, steady_variant
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
@@ -82,14 +68,14 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     AUTO_RUNTIME_BACKEND,
     DENSE_ENGINE_MAX_CELLS,
     BoussinesqSolverContract,
+    assert_supported_runtime_subset,
     build_runtime_options,
     resolve_runtime_backend_name,
     resolve_solver_contract,
     runtime_backend_name,
+    steady_initialization_runtime,
 )
 from hydromodpy.solver.boussinesq.state import BoussinesqState
-
-_SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
 logger = get_logger(__name__)
 
@@ -97,9 +83,11 @@ logger = get_logger(__name__)
 class Boussinesq:
     """Boussinesq solver driver compatible with the HydroModPy solver contract.
 
-    The class acts as a translator between high-level HydroModPy objects
-    (`flow`, `time_grid`, `domain`, gmsh bundle) and the low-level residual
-    assembly / nonlinear runtime APIs used inside this package.
+    The class acts as a translator between the frozen ``Model`` of the run,
+    the ``[flow.runtime]`` options and the low-level residual assembly and
+    nonlinear runtime APIs used inside this package. It reads the ``Model``
+    and never changes it: the auxiliary steady solve of a ``steady_state``
+    start runs on a ``steady_variant`` of it.
     """
 
     def __init__(
@@ -107,18 +95,19 @@ class Boussinesq:
         *,
         mesh_bundle: CatchmentMeshBundle | None,
         mesh: BoussinesqMesh | None = None,
-        flow: object,
-        domain: DomainLike,
-        time_grid: object,
+        model: Model,
+        runtime: FlowRuntimeConfig,
         model_folder: str | Path,
         model_name: str,
     ) -> None:
         if mesh_bundle is None and mesh is None:
             raise ValueError("Boussinesq requires either mesh_bundle or a prebuilt mesh")
         self.mesh_bundle = mesh_bundle
-        self.flow = flow
-        self.domain = domain
-        self.time_grid = time_grid
+        self.inputs = model
+        self.runtime = runtime
+        self.steady_start_strategy = (
+            model.initial.strategy if isinstance(model.initial, SteadyStart) else None
+        )
         self.model_folder = Path(model_folder)
         self.model_name = str(model_name).strip() or "boussinesq"
         self.full_path = self.model_folder / self.model_name
@@ -179,9 +168,9 @@ class Boussinesq:
 
         self._assert_supported_runtime_subset()
         self.last_flow_solve_time_seconds = None
-        if str(getattr(self.flow, "flow_regime", "transient")).strip().lower() == "steady":
+        if self.inputs.time.regime == "steady":
             success = self._time_flow_solve(self._run_steady_runtime)
-        elif self.time_grid is None:
+        elif self.inputs.time.grid is None:
             return True
         else:
             if self._uses_steady_state_initial_condition():
@@ -275,48 +264,7 @@ class Boussinesq:
 
     def _assert_supported_runtime_subset(self) -> None:
         """Fail fast when the requested problem exceeds the implemented slice."""
-        boundary_bundle = boundary_condition_bundle_from_flow(self.flow)
-        active_sinks_sources = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
-        unsupported_bc = sorted(
-            set(boundary_bundle.unknown_active_ids())
-            | set(boundary_bundle.unsupported_active_ids("boussinesq"))
-        )
-        unsupported_sinks_sources = sorted(
-            str(item)
-            for item in active_sinks_sources
-            if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
-        )
-
-        # An advanced package (LAK lake/reservoir) is a capability the boussinesq
-        # backend does not implement at all -> the typed capability error.
-        advanced_bc = sorted(
-            bc_id
-            for bc_id in unsupported_bc
-            if (definition := boundary_definition(bc_id)) is not None
-            and definition.family == "advanced_package"
-        )
-        if advanced_bc:
-            raise IncompatibleCapabilitiesError(
-                "The boussinesq backend does not support advanced-package "
-                "boundaries (LAK lake/reservoir); they require the modflow6 "
-                "backend. Offending boundaries: " + ",".join(advanced_bc) + "."
-            )
-
-        unsupported: list[str] = []
-        if unsupported_bc:
-            unsupported.append("boundaries " + ",".join(unsupported_bc))
-        if unsupported_sinks_sources:
-            unsupported.append("sinks and sources " + ",".join(unsupported_sinks_sources))
-
-        if unsupported:
-            raise NotImplementedError(
-                "The current boussinesq backend slice supports recharge, XY "
-                "wells, side Dirichlet boundaries, stream, ocean, "
-                "top drainage, and default no-flow on other outer edges. The "
-                "following runtime features are not implemented yet: "
-                + "; ".join(unsupported)
-                + "."
-            )
+        assert_supported_runtime_subset(self.inputs)
 
     def _mesh_cell_count(self) -> int | None:
         """Return the number of solver cells, or None before the mesh exists."""
@@ -325,7 +273,7 @@ class Boussinesq:
     def _runtime_backend_name(self) -> str:
         """Return the engine that runs, with ``"auto"`` resolved on the mesh size."""
         return resolve_runtime_backend_name(
-            runtime_backend_name(self.flow),
+            runtime_backend_name(self.runtime),
             n_cells=self._mesh_cell_count(),
         )
 
@@ -333,11 +281,7 @@ class Boussinesq:
         """Return the selected groundwater/surface interaction closure."""
         return resolve_surface_interaction_model_token(
             runtime_backend_name=self._runtime_backend_name(),
-            surface_interaction_model=getattr(
-                self.flow,
-                "surface_interaction_model",
-                "auto",
-            ),
+            surface_interaction_model=self.runtime.surface_interaction_model,
         )
 
     def _runtime_backend(self) -> ResolvedBoussinesqRuntimeBackend:
@@ -349,11 +293,13 @@ class Boussinesq:
 
     def _runtime_options(self) -> NonlinearRuntimeOptions:
         """Build backend-neutral nonlinear options for the selected runtime."""
-        return build_runtime_options(self.flow, n_cells=self._mesh_cell_count())
+        return build_runtime_options(self.runtime, n_cells=self._mesh_cell_count())
 
     def _resolve_solver_contract(self) -> BoussinesqSolverContract:
-        """Resolve the explicit solver contract from the current ``Flow``."""
-        contract = resolve_solver_contract(self.flow, n_cells=self._mesh_cell_count())
+        """Resolve the explicit solver contract from the model and the options."""
+        contract = resolve_solver_contract(
+            self.inputs, self.runtime, n_cells=self._mesh_cell_count()
+        )
         self._log_runtime_engine_once(contract)
         return contract
 
@@ -383,11 +329,7 @@ class Boussinesq:
         """Build one forcing resolver bound to the current solver state."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving forcings.")
-        return BoussinesqForcingResolver(
-            mesh=self.mesh,
-            flow=self.flow,
-            time_grid=self.time_grid,
-        )
+        return BoussinesqForcingResolver(mesh=self.mesh, inputs=self.inputs)
 
     def _run_transient_runtime(self) -> bool:
         """Advance the head state over all launcher stress periods."""
@@ -399,65 +341,38 @@ class Boussinesq:
 
     def _uses_steady_state_initial_condition(self) -> bool:
         """Return whether `[flow.ic]` requests same-solver steady initialization."""
-        return flow_uses_steady_state_initial_condition(self.flow)
+        return isinstance(self.inputs.initial, SteadyStart)
 
     def _run_steady_state_initialization(self) -> bool:
-        """Materialize a same-solver steady-state initial condition."""
-        # `self.flow` is the loose `object` contract; bind a typed alias so the
-        # temporary regime/surface-model mutations below type-check as plain
-        # attribute access while we swap the flow into steady mode.
-        flow: Any = self.flow
-        strategy = steady_state_initial_condition_strategy(flow)
-        original_regime = getattr(flow, "flow_regime", None)
-        original_time_grid = self.time_grid
-        original_surface_model = getattr(flow, "surface_interaction_model", None)
-        original_config = getattr(flow, "config", None)
-        steady_surface_model = steady_state_initialization_surface_interaction_model(flow)
-        sinks_sources = getattr(flow, "sinks_sources", None)
-        had_recharge = False
-        original_recharge = None
-        if isinstance(sinks_sources, dict) and "recharge" in sinks_sources:
-            had_recharge = True
-            original_recharge = sinks_sources.get("recharge")
-            apply_steady_state_initial_condition_strategy(
-                flow,
-                strategy=strategy,
-            )
-        if steady_surface_model is not None:
-            flow.runtime.surface_interaction_model = steady_surface_model
-            if original_config is not None and hasattr(original_config, "model_copy"):
-                flow.config = original_config.model_copy(
-                    update={
-                        "runtime": original_config.runtime.model_copy(
-                            update={"surface_interaction_model": steady_surface_model}
-                        )
-                    }
-                )
-        flow.flow_regime = "steady"
-        self.time_grid = single_period_mean_forcing_time_grid(original_time_grid)
-        try:
-            success = self._run_steady_runtime()
-        finally:
-            flow.flow_regime = original_regime
-            self.time_grid = original_time_grid
-            if steady_surface_model is not None:
-                if original_surface_model is None:
-                    try:
-                        delattr(flow, "surface_interaction_model")
-                    except AttributeError:
-                        pass
-                else:
-                    flow.runtime.surface_interaction_model = original_surface_model
-                if original_config is not None:
-                    flow.config = original_config
-            if isinstance(sinks_sources, dict) and had_recharge:
-                sinks_sources["recharge"] = original_recharge
+        """Materialize a same-solver steady-state initial condition.
+
+        The steady solve runs on a second solver built over ``steady_variant`` of
+        the model, which starts from the top. It shares the mesh, the start head
+        and the summary of this one, and hands the head state it reaches back. The
+        model of this solver is never touched.
+        """
+        auxiliary = Boussinesq(
+            mesh_bundle=self.mesh_bundle,
+            mesh=self.mesh,
+            model=steady_variant(self.inputs),
+            runtime=steady_initialization_runtime(self.runtime),
+            model_folder=self.model_folder,
+            model_name=self.model_name,
+        )
+        auxiliary.state = self.state
+        auxiliary.runtime_summary = dict(self.runtime_summary)
+        auxiliary.steady_start_strategy = self.steady_start_strategy
+        auxiliary._runtime_engine_logged = self._runtime_engine_logged
+        success = auxiliary._run_steady_runtime()
+        self.state = auxiliary.state
+        self.runtime_summary.update(auxiliary.runtime_summary)
+        self._runtime_engine_logged = auxiliary._runtime_engine_logged
         self.runtime_summary["steady_state_initialization"] = bool(success)
         self.runtime_summary["steady_state_initialization_solver"] = "boussinesq"
         return bool(success)
 
     def _build_initial_state(self) -> BoussinesqState:
-        """Create the initial state from the ``Flow`` initial-condition contract."""
+        """Create the initial state from the start state of the model."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before initializing the state.")
         head_m = self._resolve_initial_head_field()
@@ -496,19 +411,11 @@ class Boussinesq:
             )
 
     def _resolve_initial_head_field(self) -> np.ndarray:
-        """Resolve the canonical ``Flow`` initial condition into cell heads."""
+        """Resolve the start state of the model into cell heads."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving initial heads.")
 
         return self._forcing_resolver().resolve_initial_head_field()
-
-    def _boundary_conditions_mapping(self) -> Mapping[str, object]:
-        """Return the boundary-condition mapping from the flow contract."""
-        return boundary_conditions_mapping_from_flow(self.flow)
-
-    def _is_bc_active(self, bc_id: str) -> bool:
-        """Return whether one boundary id is active in the current flow setup."""
-        return is_boundary_condition_active(self.flow, bc_id)
 
 
 __all__ = ["Boussinesq", "BoussinesqState"]

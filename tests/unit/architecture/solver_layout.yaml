@@ -39,8 +39,8 @@ public:
   - hydromodpy.solver.boussinesq.solver_contract
   - hydromodpy.solver.modflow6.modflow6_config
   - hydromodpy.solver.modflow_nwt.nwt.nwt_config
-  # Read by project/spinup.py for the initial head.
-  - hydromodpy.solver.modflow6.builders.initial_conditions
   # Read by cli and workflow to find the binaries and run the flow adapter.
   - hydromodpy.solver.modflow_common.binaries
   - hydromodpy.solver.modflow_common.flow_adapter_helpers
+  # Read by the prepare_solver step to pick the channel rasters of a run.
+  - hydromodpy.solver.modflow_common.channel_tree

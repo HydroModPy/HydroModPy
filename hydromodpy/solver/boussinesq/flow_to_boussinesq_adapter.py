@@ -2,15 +2,15 @@
 
 The Boussinesq backend accepts either:
 
-- one runtime planar cell mesh, its properties mapped from ``Flow``/``Domain``
-  like the MODFLOW adapters do, or
+- one runtime planar cell mesh, its properties mapped from the profiles of the
+  ``Model`` and its domain like the MODFLOW adapters do, or
 - one ``CatchmentMeshBundle`` read from a bundle folder, which carries its own
   properties per cell (the validation runtimes).
 
-A bundle is never completed from ``Flow`` parameters: a flow ``K`` or ``Sy`` next
-to a bundle is refused, and so is a runtime property override, so
-one property never has two silent sources. On a cell mesh the override wins over
-the flow, for K and Sy, and the properties Boussinesq does not read are refused.
+A bundle is never completed from the profiles of the ``Model``: a ``K`` or ``Sy``
+profile next to a bundle is refused, and so is a property override, so one
+property never has two silent sources. On a cell mesh the override wins over the
+profile, for K and Sy, and the properties Boussinesq does not read are refused.
 Keeping these helpers out of the adapter file makes the adapter symmetrical with
 ``solver/modflow6/adapters/flow.py`` and ``solver/modflow_nwt``.
 """
@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, load_catchment_mesh_bundle
+from hydromodpy.model.model import Model
 from hydromodpy.model.properties.property_table import (
     FLOW_PROPERTY_SPECS,
     require_positive_conductivity,
@@ -31,7 +32,6 @@ from hydromodpy.model.properties.property_table import (
     resolve_flow_property_runtime_overrides,
     resolve_required_flow_properties,
 )
-from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import resolve_flow_property_arrays
 
@@ -58,62 +58,44 @@ def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
     )
 
 
-def _has_required_flow_parameters(*, flow: object, required_properties: frozenset[str]) -> bool:
-    """Tell whether the Flow runtime already exposes the direct-mapping properties."""
-    parameters = getattr(flow, "parameters", {})
-    if not isinstance(parameters, dict):
-        return False
-
-    alias_map = {
-        "K": ("K", "k"),
-        "Sy": ("Sy", "SY", "sy", "S", "s"),
-    }
-    for canonical_name in required_properties:
-        aliases = alias_map.get(canonical_name, ())
-        if not any(alias in parameters for alias in aliases):
-            return False
-    return True
+_PARAMETER_ALIASES = {
+    "K": ("K", "k"),
+    "Sy": ("Sy", "SY", "sy", "S", "s"),
+}
 
 
-def _has_any_flow_parameter(*, flow: object, canonical_name: str) -> bool:
-    """Tell whether one canonical flow parameter alias is available."""
-    alias_map = {
-        "K": ("K", "k"),
-        "Sy": ("Sy", "SY", "sy", "S", "s"),
-    }
-    parameters = getattr(flow, "parameters", {})
-    if not isinstance(parameters, dict):
-        return False
-    aliases = alias_map.get(str(canonical_name).strip(), ())
-    return any(alias in parameters for alias in aliases)
+def _has_profile(profiles: Mapping[str, object], canonical_name: str) -> bool:
+    """Tell whether one canonical property has a profile, under any of its aliases."""
+    return any(alias in profiles for alias in _PARAMETER_ALIASES.get(canonical_name, ()))
 
 
-def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
-    """Build one direct solver mesh from runtime mesh + Flow/Domain mapping."""
-    cell_mesh = getattr(setup_state, "cell_mesh", None)
-    if cell_mesh is None:
+def resolve_runtime_solver_mesh(
+    model: Model, *, mesh_summary: object = None
+) -> BoussinesqMesh | None:
+    """Build one direct solver mesh from the cell mesh, domain and profiles of ``model``.
+
+    ``None`` when the model has no cell mesh or domain, or lacks a profile the
+    regime reads: the run then reads a mesh bundle. ``mesh_summary`` is the
+    mesh summary of the setup, which names the file the mesh was written to.
+    """
+    cell_mesh = model.geometry.cells
+    domain = model.geometry.domain
+    if cell_mesh is None or domain is None:
         return None
 
-    flow = getattr(setup_state, "flow", None)
-    domain = getattr(setup_state, "domain", None)
-    if flow is None or domain is None:
-        return None
-
+    profiles = model.properties.profiles
     required_properties = resolve_required_flow_properties(
-        flow_regime=str(getattr(flow, "flow_regime", "transient")), storage=("Sy",)
+        flow_regime=model.time.regime, storage=("Sy",)
     )
-    if not _has_required_flow_parameters(
-        flow=flow,
-        required_properties=required_properties,
-    ):
+    if not all(_has_profile(profiles, name) for name in required_properties):
         return None
 
     property_arrays = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         cell_mesh=cell_mesh,
         required_properties=required_properties,
-        runtime_property_overrides=getattr(setup_state, "flow_runtime_overrides", None),
+        runtime_property_overrides=model.properties.overrides,
     )
     conductivity = np.asarray(
         property_arrays["hydraulic_conductivity_m_s"],
@@ -129,16 +111,15 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     # One convertible layer, every cell active. Every regime reads K, only a
     # transient run requires and reads Sy.
     active = np.ones(conductivity.size, dtype=bool)
-    require_positive_conductivity(conductivity, active_mask=active, flow=flow)
+    require_positive_conductivity(conductivity, active_mask=active, profiles=profiles)
     require_positive_storage(
         storage,
         None,
         active_mask=active,
         iconvert=1,
         steady=["Sy" not in required_properties],
-        flow=flow,
+        profiles=profiles,
     )
-    mesh_summary = getattr(setup_state, "mesh_summary", None)
     output_mesh = (
         str(mesh_summary.get("output_mesh", "")).strip() if isinstance(mesh_summary, dict) else ""
     )
@@ -152,7 +133,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
 
 
 def _refuse_flow_properties_on_bundle(
-    flow: object,
+    profiles: Mapping[str, object],
     *,
     bundle: CatchmentMeshBundle,
     bundle_carries: dict[str, bool],
@@ -165,7 +146,7 @@ def _refuse_flow_properties_on_bundle(
     """
     labels = {"K": "hydraulic_conductivity_m_s", "Sy": "storage_coefficient"}
     for canonical_name, column in labels.items():
-        if flow is None or not _has_any_flow_parameter(flow=flow, canonical_name=canonical_name):
+        if not _has_profile(profiles, canonical_name):
             continue
         source = f"the mesh bundle {bundle.bundle_dir}"
         if bundle_carries[canonical_name]:
@@ -204,21 +185,18 @@ def _refuse_property_overrides_on_bundle(overrides: object, *, bundle: Catchment
 
 
 def resolve_bundle_solver_mesh(
-    setup_state: object,
+    model: Model,
     *,
     bundle: CatchmentMeshBundle,
 ) -> BoussinesqMesh:
     """Build one solver mesh from a bundle and the properties it carries."""
-    flow = getattr(setup_state, "flow", None)
-    regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
-    _refuse_property_overrides_on_bundle(
-        getattr(setup_state, "flow_runtime_overrides", None), bundle=bundle
-    )
+    regime = model.time.regime
+    _refuse_property_overrides_on_bundle(model.properties.overrides, bundle=bundle)
     hydraulic_view = bundle.metadata_view.hydraulic_properties
     default_k = hydraulic_view.conductivity.default_value
     default_storage = hydraulic_view.storage_coefficient.default_value
     _refuse_flow_properties_on_bundle(
-        flow,
+        model.properties.profiles,
         bundle=bundle,
         bundle_carries={
             "K": default_k is not None

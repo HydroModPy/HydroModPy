@@ -12,11 +12,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.boussinesq.forcing.recharge_resolution import RechargeResolutionMixin
 from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     extract_negative_recharge_evt_payload,
 )
+from tests._helpers.model_factory import make_model
 
 pytestmark = pytest.mark.fast
 
@@ -49,17 +51,13 @@ def test_modflow_nwt_routes_nothing_without_a_steady_period() -> None:
 
 class _Boussinesq(RechargeResolutionMixin, ForcingCommonMixin):
     def __init__(self, first_clim: object, *, first_period_steady: bool) -> None:
-        self.flow = SimpleNamespace(
-            flow_regime="transient",
-            first_period_steady=first_period_steady,
-            active_sinks_sources=["recharge"],
-            sinks_sources={
-                "recharge": SimpleNamespace(
-                    first_clim=first_clim, values=[1.0, 2.0], heterogeneous_source=None
-                )
-            },
+        self.inputs = make_model(
+            time=ModelTime(grid=None, regime="transient", first_period_steady=first_period_steady),
+            recharge=SimpleNamespace(
+                first_clim=first_clim, values=[1.0, 2.0], heterogeneous_source=None
+            ),
+            active_sinks_sources=("recharge",),
         )
-        self.time_grid = None
 
 
 def test_boussinesq_refuses_it_on_a_steady_period() -> None:

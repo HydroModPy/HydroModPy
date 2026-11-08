@@ -1,9 +1,9 @@
-"""A ``Kv`` of the flow is the vertical conductivity MODFLOW-NWT reads.
+"""A ``Kv`` of the model is the vertical conductivity MODFLOW-NWT reads.
 
 The UPW package takes ``VKA`` as the vertical conductivity itself when ``LAYVKA`` is
-0 in a layer, and as a ratio of K to Kv otherwise. A flow with a ``Kv`` gives UPW
+0 in a layer, and as a ratio of K to Kv otherwise. A model with a ``Kv`` gives UPW
 ``LAYVKA = 0`` and ``VKA = Kv`` in every layer, converted to the solver time unit. A
-flow without one keeps the ``[solver.modflow_nwt]`` settings, a ratio of 1 by default.
+model without one keeps the ``[solver.modflow_nwt]`` settings, a ratio of 1 by default.
 """
 
 from __future__ import annotations
@@ -15,12 +15,14 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
+from hydromodpy.model.model import ModelTime, Properties
 from hydromodpy.solver.modflow_nwt.nwt._pre_processing import assemble_flopy_packages
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import (
     ModflowProcessSpecificConfig,
     ModflowSpecifParams,
 )
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NLAY, NROW, NCOL = 2, 3, 4
@@ -45,24 +47,20 @@ class _Homogeneous:
 
 
 def _adapter(
-    parameters: dict[str, object], steady: tuple[bool, ...] = (True,)
+    parameters: dict[str, object], steady: tuple[bool, ...] = (True,), **overrides: float
 ) -> FlowToModflowAdapter:
     dem = np.full((NROW, NCOL), 20.0)
-    flow = SimpleNamespace(
-        initial_conditions=SimpleNamespace(h=SimpleNamespace(kind="top", value=0.0)),
-        boundary_conditions={},
-        active_bc=[],
-        sinks_sources={},
-        active_sinks_sources=[],
-        parameters=parameters,
-        flow_regime="steady" if all(steady) else "transient",
-    )
+    model = make_model(
+        properties=Properties(profiles=parameters),
+        time=ModelTime(
+            grid=None, regime="steady" if all(steady) else "transient", first_period_steady=True
+        ),
+    ).with_properties(**overrides)
     mesh = solver_mesh_from_structured_arrays(
         nrow=NROW, ncol=NCOL, top=dem, botm=np.stack([dem - 10.0, dem - 20.0]), dx=5.0, dy=5.0
     )
     return FlowToModflowAdapter(
-        flow=flow,
-        domain=SimpleNamespace(zones={}),
+        model=model,
         solver_mesh=mesh,
         nper=len(steady),
         sink_fill=False,
@@ -131,6 +129,23 @@ def test_the_adapter_hands_the_flow_kv_to_the_solver() -> None:
 
 def test_a_flow_without_kv_hands_none() -> None:
     assert _adapter({"K": _Homogeneous(K_M_S)}).build().kv is None
+
+
+@pytest.mark.parametrize("name", ["K", "Kv"])
+def test_a_per_cell_override_of_the_model_wins_over_its_profile(name) -> None:
+    profiles = {"K": _Homogeneous(K_M_S), "Kv": _Homogeneous(KV_M_S)}
+
+    inputs = _adapter(profiles, **{name: 3e-5}).build()
+
+    np.testing.assert_array_equal(getattr(inputs, "hk" if name == "K" else "kv"), 3e-5)
+    other = inputs.kv if name == "K" else inputs.hk
+    np.testing.assert_array_equal(other, KV_M_S if name == "K" else K_M_S)
+
+
+def test_an_override_without_a_profile_gives_kv_to_a_model_that_had_none() -> None:
+    inputs = _adapter({"K": _Homogeneous(K_M_S)}, Kv=KV_M_S).build()
+
+    np.testing.assert_array_equal(inputs.kv, KV_M_S)
 
 
 @pytest.mark.parametrize(

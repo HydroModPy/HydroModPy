@@ -1,28 +1,37 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from hydromodpy.model.initial.config import (
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.initial.state import (
+    CyclicSpinupStrategy,
+    CyclicStart,
+    HeadRule,
+    PriorState,
+    SolvedState,
+    SteadyStart,
+)
+from hydromodpy.model.initial_config import (
     FlowICBottom,
     FlowICSteadyState,
     FlowICTop,
     FlowInitialConditions,
+    initial_state_of,
 )
+from hydromodpy.results.storage.prior_state import read_final_head
 from hydromodpy.solver.modflow6.builders.initial_conditions import build_start_heads
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowICTop(id="h")),
-        boundary_conditions={},
-        active_bc=[],
+    model.inputs = replace(
+        model.inputs, initial=initial_state_of(FlowInitialConditions(h=FlowICTop(id="h")))
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
@@ -42,11 +51,9 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 
 def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
-        boundary_conditions={},
-        active_bc=[],
-    )
+    initial = initial_state_of(FlowInitialConditions(h=FlowICSteadyState(id="h")))
+    assert isinstance(initial, SteadyStart)
+    model.inputs = replace(model.inputs, initial=initial)
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.ones_like(top)
     solver_mesh = solver_mesh_from_structured_arrays(
@@ -62,12 +69,21 @@ def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> No
     assert np.allclose(strt[0], top.ravel())
 
 
+def test_modflow6_cyclic_spinup_initial_condition_uses_top_as_build_guess() -> None:
+    model = toy_model()
+    model.inputs = replace(model.inputs, initial=CyclicStart(CyclicSpinupStrategy()))
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    solver_mesh = solver_mesh_from_structured_arrays(
+        nrow=2, ncol=3, top=top, botm=np.stack([np.ones_like(top)])
+    )
+
+    assert np.allclose(build_start_heads(model, solver_mesh)[0], top.ravel())
+
+
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowICBottom(id="h")),
-        boundary_conditions={},
-        active_bc=[],
+    model.inputs = replace(
+        model.inputs, initial=initial_state_of(FlowInitialConditions(h=FlowICBottom(id="h")))
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_layer1 = np.array([[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]], dtype=float)
@@ -85,43 +101,110 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     assert np.allclose(strt[0], botm_layer2.ravel())
 
 
-def test_read_restart_heads_reads_last_step_and_fills_inactive(tmp_path) -> None:
-    """Hotstart uses the prior run's last time step; inactive cells fall back to top."""
+def _two_layer_row(top: list[float]):
+    """A row of three cells over two layers, and the toy model that reads it."""
+    model = toy_model()
+    model.nlay = 2
+    model.ncpl = 3
+    mesh = solver_mesh_from_structured_arrays(
+        nrow=1,
+        ncol=3,
+        top=np.array([top]),
+        botm=np.stack([np.full((1, 3), 5.0), np.full((1, 3), 0.0)]),
+    )
+    return model, mesh
+
+
+def _prior_zarr(tmp_path, head: np.ndarray) -> str:
     import zarr
 
-    from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_heads
-
     prior = tmp_path / "prior.zarr"
-    root = zarr.open(str(prior), mode="w")
-    # two periods, two layers, three cells; the last step has one inactive (NaN) cell.
-    root["head"] = np.array(
-        [[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[1.0, 2.0, 3.0], [4.0, 5.0, np.nan]]]
-    )
+    zarr.open(str(prior), mode="w")["head"] = head
+    return str(prior)
 
-    strt = read_restart_heads(str(prior), nlay=2, ncpl=3, top_flat=np.array([10.0, 20.0, 30.0]))
+
+def test_a_prior_state_starts_from_the_last_step_and_fills_inactive_with_the_top(tmp_path) -> None:
+    """Hotstart uses the prior run's last time step; inactive cells fall back to top."""
+    # two periods, two layers, three cells; the last step has one inactive (NaN) cell.
+    path = _prior_zarr(
+        tmp_path,
+        np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[1.0, 2.0, 3.0], [4.0, 5.0, np.nan]]]),
+    )
+    model, mesh = _two_layer_row([10.0, 20.0, 30.0])
+    prior = PriorState(head=read_final_head(path), lake_stages={}, path=path)
+    model.inputs = replace(model.inputs, initial=prior)
+
+    strt = build_start_heads(model, mesh)
 
     assert np.array_equal(strt, [[1.0, 2.0, 3.0], [4.0, 5.0, 30.0]])
+    assert prior.head[1, 2] != prior.head[1, 2]  # the state itself keeps its NaN
 
 
-def test_read_restart_heads_rejects_a_mismatched_mesh(tmp_path) -> None:
+def test_a_prior_state_of_another_cell_count_is_refused(tmp_path) -> None:
     """A cell-count mismatch raises (rather than silently reindexing)."""
-    import zarr
-
-    from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_heads
-
-    prior = tmp_path / "prior.zarr"
-    zarr.open(str(prior), mode="w")["head"] = np.zeros((1, 2, 3))
+    path = _prior_zarr(tmp_path, np.zeros((1, 2, 3)))
+    model, _ = _two_layer_row([10.0, 20.0, 30.0])
+    model.ncpl = 5
+    mesh = solver_mesh_from_structured_arrays(
+        nrow=1,
+        ncol=5,
+        top=np.zeros((1, 5)),
+        botm=np.stack([np.full((1, 5), -5.0), np.full((1, 5), -10.0)]),
+    )
+    model.inputs = replace(
+        model.inputs, initial=PriorState(head=read_final_head(path), lake_stages={}, path=path)
+    )
 
     with pytest.raises(ValueError, match="does not match"):
-        read_restart_heads(str(prior), nlay=2, ncpl=5, top_flat=np.zeros(5))
+        build_start_heads(model, mesh)
 
 
-def test_resolve_restart_from_reads_flow_config() -> None:
-    from hydromodpy.solver.modflow6.builders.initial_conditions import resolve_restart_from
-
-    with_source = SimpleNamespace(
-        flow=SimpleNamespace(config=SimpleNamespace(restart_from=" a.zarr "))
+def _west_head() -> BoundaryConditionBundle:
+    return BoundaryConditionBundle(
+        conditions={"west_side": SimpleNamespace(value=[50.0, 51.0])}, active_ids=("west_side",)
     )
-    assert resolve_restart_from(with_source) == "a.zarr"
-    without = SimpleNamespace(flow=SimpleNamespace(config=SimpleNamespace(restart_from=None)))
-    assert resolve_restart_from(without) is None
+
+
+def test_a_prior_state_keeps_the_constant_heads_over_it() -> None:
+    model = toy_model()
+    model.inputs = replace(
+        model.inputs,
+        initial=PriorState(head=np.full((1, 6), 7.0), lake_stages={}, path="prior.zarr"),
+        boundaries=_west_head(),
+    )
+
+    strt = build_start_heads(model, model.solver_mesh)
+
+    # The west side of the 2 x 3 grid is cells 0 and 3.
+    assert np.array_equal(strt, [[50.0, 7.0, 7.0, 50.0, 7.0, 7.0]])
+
+
+def test_a_solved_state_is_set_as_it_is_under_no_constant_head() -> None:
+    model = toy_model()
+    solved = np.arange(6.0).reshape(1, 6)
+    model.inputs = replace(
+        model.inputs, initial=SolvedState(head=solved, solver="modflow6"), boundaries=_west_head()
+    )
+
+    strt = build_start_heads(model, model.solver_mesh)
+
+    assert np.array_equal(strt, solved)
+    strt[0, 0] = -1.0  # the array is the solver's own, the state keeps its head
+    assert model.inputs.initial.head[0, 0] == 0.0
+
+
+def test_a_solved_state_of_another_size_is_refused() -> None:
+    model, mesh = _two_layer_row([10.0, 20.0, 30.0])
+    model.inputs = replace(
+        model.inputs, initial=SolvedState(head=np.zeros((2, 4)), solver="modflow6")
+    )
+
+    with pytest.raises(ValueError, match="holds 8 value"):
+        build_start_heads(model, mesh)
+
+
+def test_a_head_rule_start_is_the_rule_on_the_grid() -> None:
+    model, mesh = _two_layer_row([10.0, 20.0, 30.0])
+    model.inputs = replace(model.inputs, initial=HeadRule("top_offset", 2.0))
+
+    assert np.array_equal(build_start_heads(model, mesh), [[8.0, 18.0, 28.0]] * 2)

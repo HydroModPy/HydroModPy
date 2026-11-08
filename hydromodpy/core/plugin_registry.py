@@ -1,9 +1,18 @@
 """One registry engine, shared by every ``id -> class`` plugin surface.
 
-The evaluator, forward-model, terrain-engine and mesh-engine registries resolve ``id -> class`` the same way: an in-tree declaration
-imported on first lookup, then one scan of an entry-point group for the
-out-of-tree surface. Only the noun, the id attribute, the group and the port
-members differ, so they are parameters of :class:`PluginRegistry`.
+Each plugin surface is an instance of :class:`PluginRegistry`, exposed by its own
+module: ``solvers`` and ``extractors`` in ``solver/base/registry.py``,
+``data_sources`` in ``data/source/registry.py``, ``evaluators`` in
+``calibration/evaluation/registry.py``, ``forward_models`` in
+``calibration/evaluation/forward_registry.py``, ``mesh_engines`` in
+``mesh/registry.py`` and ``terrain_engines`` in ``catchment/terrain/registry.py``.
+They resolve a name the same way: an in-tree declaration imported on first
+lookup, then one scan of an entry-point group for the out-of-tree surface. Only
+the noun, the id attributes, the group and the port members differ, so they are
+parameters here.
+
+The contract of a registry is :meth:`~PluginRegistry.register`,
+:meth:`~PluginRegistry.get` and :meth:`~PluginRegistry.names`.
 """
 
 from __future__ import annotations
@@ -17,31 +26,47 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+_MISSING = object()
+
 
 def _name_of(candidate: object) -> str:
     return str(getattr(candidate, "__qualname__", candidate))
 
 
+def _absent(cls: type, name: str) -> bool:
+    """Whether *cls* has no member *name* of its own, or binds it to ``None``."""
+    value = inspect.getattr_static(cls, name, _MISSING)
+    return value is _MISSING or value is None
+
+
 class PluginRegistry:
     """Resolve an id to a class, from an in-tree declaration or an entry point.
+
+    An id is the values of ``id_attributes`` read off the class and joined by
+    ``_``. A solver backend is keyed on ``("process_type", "name")``, so
+    ``flow`` and ``modflow6`` give ``flow_modflow6``, which is also the name
+    its entry point is published under. A name is compared with that join and
+    never split, so a part that carries a ``_`` stays whole.
 
     Parameters
     ----------
     kind
         The noun used in messages, for example ``"forward model"``.
-    id_attribute
-        The class attribute holding the id, read off the class and never passed in.
+    id_attributes
+        The class attributes whose values, joined by ``_``, make the id. They are
+        read off the class and never passed in.
     group
         The entry-point group of the out-of-tree plugins.
     builtin_paths
         ``id -> "module:Class"`` of the in-tree classes, imported on first lookup.
     members
-        Returns the port members a class must carry.
-    default_id
-        The id a ``None`` name resolves to.
+        Returns the port members a class must carry, neither absent nor ``None``.
     error
         The exception class raised for an unknown id, a class that cannot be loaded and
         a constructor that cannot be filled.
+    default_id
+        The id that a lookup without a name resolves to, or ``None`` when a name
+        is always required.
     validate
         Called by :meth:`register` after the member check. It raises ``TypeError`` to
         refuse a class for a reason the member list cannot express.
@@ -54,45 +79,57 @@ class PluginRegistry:
         self,
         *,
         kind: str,
-        id_attribute: str,
+        id_attributes: tuple[str, ...],
         group: str,
         builtin_paths: dict[str, str],
         members: Callable[[], tuple[str, ...]],
-        default_id: str,
         error: type[Exception],
+        default_id: str | None = None,
         validate: Callable[[type], None] | None = None,
         construction_options: tuple[str, ...] | None = None,
     ) -> None:
+        if not id_attributes:
+            raise ValueError(f"A {kind} registry needs at least one id attribute.")
         self.kind = kind
-        self.id_attribute = id_attribute
+        self.id_attributes = id_attributes
         self.group = group
         self.builtin_paths = builtin_paths
         self.members = members
-        self.default_id = default_id
         self.error = error
+        self.default_id = default_id
         self.validate = validate
         self.construction_options = construction_options
         self.classes: dict[str, type] = {}
         self.plugins_loaded = False
 
-    def builtin_ids(self) -> tuple[str, ...]:
-        """Return the ids this build ships, sorted, plugins excluded."""
-        return tuple(sorted(self.builtin_paths))
+    def names(self, *prefix: str, shipped_only: bool = False) -> tuple[str, ...]:
+        """Return the ids resolvable here, sorted, under *prefix* when one is given.
 
-    def list_ids(self) -> tuple[str, ...]:
-        """Return every id resolvable here, built-in and installed, sorted.
+        With a prefix, an id is kept when it equals the joined prefix or starts
+        with it followed by ``_``, and the prefix is stripped: ``names("flow")``
+        gives ``modflow6`` for ``flow_modflow6``. An id equal to the prefix gives
+        the empty string, so a full key answers whether it is registered.
 
-        Loads the plugin group, because the answer is wrong without it. Does not
-        import a built-in: the path is the declaration, and the class behind one
-        is only needed when somebody asks for it by name.
+        Loads the plugin group, because the answer is wrong without it, unless
+        *shipped_only* asks for the ids this build ships. Does not import a
+        built-in: the path is the declaration.
         """
-        if not self.plugins_loaded:
-            self.load_plugins()
-        return tuple(sorted(set(self.classes) | set(self.builtin_paths)))
-
-    def is_registered(self, name: str) -> bool:
-        """Whether :meth:`get` would resolve *name* without raising."""
-        return name in self.list_ids()
+        if shipped_only:
+            ids = set(self.builtin_paths)
+        else:
+            if not self.plugins_loaded:
+                self.load_plugins()
+            ids = set(self.classes) | set(self.builtin_paths)
+        if not prefix:
+            return tuple(sorted(ids))
+        joined = "_".join(prefix)
+        return tuple(
+            sorted(
+                class_id[len(joined) + 1 :]
+                for class_id in ids
+                if class_id == joined or class_id.startswith(f"{joined}_")
+            )
+        )
 
     def register(self, cls: type, *, replace: bool = False) -> type:
         """Register a class under the id it declares, and return it unchanged.
@@ -107,17 +144,18 @@ class PluginRegistry:
         ValueError
             When the id is already taken and *replace* is not set.
         """
-        class_id = getattr(cls, self.id_attribute, None)
-        if not isinstance(class_id, str) or not class_id.strip():
+        class_id = self._declared_id(cls)
+        if class_id is None:
             raise TypeError(
-                f"{_name_of(cls)!r} declares {self.id_attribute}={class_id!r} on the class, "
-                f"and a registry keyed on a name cannot hold a {self.kind} that has none. It "
-                "is a ClassVar[str] in the port; a value computed per instance is not "
-                "readable here."
+                f"{_name_of(cls)!r} declares {self._declaration(cls)} on the class, and a "
+                f"registry keyed on a name cannot hold a {self.kind} that has none. Each "
+                "is a non-empty ClassVar[str] in the port; a value computed per instance "
+                "is not readable here."
             )
-        # Wider than presence: a member bound to ``None`` passes ``hasattr`` and
-        # fails the first call, so the registry is where it has to be refused.
-        missing = tuple(name for name in self.members() if getattr(cls, name, None) is None)
+        # Wider than presence. A member bound to ``None`` passes ``hasattr`` and
+        # fails the first call. A member only a metaclass ``__getattr__`` answers
+        # is not on the class, and ``getattr_static`` does not ask the metaclass.
+        missing = tuple(name for name in self.members() if _absent(cls, name))
         if missing:
             raise TypeError(
                 f"{_name_of(cls)!r} cannot serve {class_id!r}: it does not satisfy the "
@@ -148,18 +186,21 @@ class PluginRegistry:
         self.classes[class_id] = cls
         return cls
 
-    def get(self, name: str | None = None) -> type:
-        """Return the class registered under *name*, or the default for ``None``.
+    def get(self, *parts: str | None) -> type:
+        """Return the class registered under the id the *parts* join to.
 
-        Resolution order is the cache, then the in-tree declaration, then one
-        scan of the plugin group.
+        ``get("flow", "modflow6")`` and ``get("flow_modflow6")`` are the same
+        lookup. No part, or a single ``None``, gives the default. Resolution
+        order is the cache, then the in-tree declaration, then one scan of the
+        plugin group.
 
         Raises
         ------
         self.error
-            When nothing answers to that name.
+            When nothing answers to that name, or no name is given and the
+            registry has no default.
         """
-        wanted = self.default_id if name is None else name
+        wanted = self._wanted(parts)
         cls = self.classes.get(wanted)
         if cls is not None:
             return cls
@@ -178,19 +219,12 @@ class PluginRegistry:
             "entry-point group, without a patch to HydroModPy."
         )
 
-    def resolve_id(self, name: str | None = None) -> str:
-        """Return the id the class behind *name* declares for itself.
+    def create(self, *parts: str | None, **options: object) -> object:
+        """Build the class registered under *parts*, binding the parameters it names.
 
-        ``None`` and the default's own spelling resolve to one answer, which is
-        what lets a record, a cache key or a report say what ran without
-        depending on whether the document named it.
-        """
-        return str(getattr(self.get(name), self.id_attribute))
-
-    def create(self, name: str | None = None, /, **options: object) -> object:
-        """Build the class registered under *name*, binding the parameters it names.
-
-        Only the constructor parameters the class declares are bound, keyword-only
+        Kept beside :meth:`get` because four ports build a plugin from named
+        options, and only the registry knows which of them the class takes. Only
+        the constructor parameters the class declares are bound, keyword-only
         and positional-or-keyword alike. An option no parameter names never
         arrives, so the caller does not have to know what each class wants.
 
@@ -201,9 +235,9 @@ class PluginRegistry:
             positionally only, which a keyword cannot fill; or, when
             ``construction_options`` is set, a required one nothing serves.
         """
-        cls = self.get(name)
+        cls = self.get(*parts)
         parameters = inspect.signature(cls).parameters
-        label = getattr(cls, self.id_attribute, cls)
+        label = self._declared_id(cls) or _name_of(cls)
         positional_only = [
             parameter_name
             for parameter_name, parameter in parameters.items()
@@ -245,7 +279,9 @@ class PluginRegistry:
     def load_plugins(self, *, force: bool = False) -> int:
         """Register every conforming class declared in the entry-point group.
 
-        Returns the number newly registered. A bad entry point is skipped with a
+        Kept public because :meth:`get` and :meth:`names` call it once, and a
+        test that installs an entry point calls it again with *force*. Returns
+        the number newly registered. A bad entry point is skipped with a
         warning naming what is wrong with it, never raised: one broken plugin
         must not take down a calibration that asked for a different one.
         """
@@ -291,18 +327,16 @@ class PluginRegistry:
             except Exception as exc:  # pragma: no cover - exercised with stub entry points
                 logger.warning("failed to load %s plugin %r: %s", self.kind, entry_point, exc)
                 continue
-            declared_id = getattr(cls, self.id_attribute, None)
-            if declared_id != name:
+            if self._declared_id(cls) != name:
                 logger.warning(
                     "%s plugin %r ignored: the entry-point name is %r while the class "
-                    "declares %s=%r. The name is what a document writes and the id is what a "
+                    "declares %s. The name is what a document writes and the id is what a "
                     "session is stamped with; two words for one %s is how the two start "
                     "describing different things.",
                     self.kind,
                     entry_point,
                     name,
-                    self.id_attribute,
-                    declared_id,
+                    self._declaration(cls),
                     self.kind,
                 )
                 continue
@@ -315,15 +349,42 @@ class PluginRegistry:
         self.plugins_loaded = True
         return count
 
-    def unregister(self, name: str) -> None:
-        """Drop one entry, built-in declaration included. Primarily for tests.
+    def unregister(self, *parts: str) -> None:
+        """Drop one entry, built-in declaration included.
 
-        The declaration goes too, otherwise the next :meth:`get` lazy-loads the
+        Kept for tests, which add a class for one case and take it back. The
+        declaration goes too, otherwise the next :meth:`get` lazy-loads the
         built-in straight back and the removal looks like it did nothing. A
         fixture that removes a built-in restores both mappings.
         """
+        name = "_".join(parts)
         self.classes.pop(name, None)
         self.builtin_paths.pop(name, None)
+
+    def _wanted(self, parts: tuple[str | None, ...]) -> str:
+        """The id *parts* join to, or the default for no part or a single ``None``."""
+        if not parts or parts == (None,):
+            if self.default_id is None:
+                raise self.error(
+                    f"A {self.kind} has no default here, so it is named. This installation "
+                    f"serves {', '.join(self.names()) or 'none'}."
+                )
+            return self.default_id
+        if not all(isinstance(part, str) for part in parts):
+            raise self.error(f"A {self.kind} is named by strings, not by {parts!r}.")
+        return "_".join(str(part) for part in parts)
+
+    def _declared_id(self, cls: object) -> str | None:
+        """The id *cls* declares, or ``None`` when one of its parts is not a non-empty string."""
+        values = [getattr(cls, attribute, None) for attribute in self.id_attributes]
+        if not all(isinstance(value, str) and value.strip() for value in values):
+            return None
+        return "_".join(str(value) for value in values)
+
+    def _declaration(self, cls: object) -> str:
+        """What *cls* declares for the id attributes, for a message."""
+        values = ", ".join(repr(getattr(cls, attribute, None)) for attribute in self.id_attributes)
+        return f"{', '.join(self.id_attributes)} = {values}"
 
     def _load_builtin(self, name: str) -> type | None:
         """Import and register the in-tree class for *name*, if there is one."""
@@ -342,4 +403,10 @@ class PluginRegistry:
                 "is not, so this is fixed by repairing the environment, not by editing the "
                 "document."
             ) from exc
+        if self._declared_id(cls) != name:
+            raise self.error(
+                f"{name!r} is declared by this build at {path!r}, and that class declares "
+                f"{self._declaration(cls)}. The declaration and the class have to name the "
+                f"same {self.kind}."
+            )
         return self.register(cls, replace=True)

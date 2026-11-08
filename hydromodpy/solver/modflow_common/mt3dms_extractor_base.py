@@ -29,8 +29,8 @@ class Mt3dmsExtractorBase:
     ``solver_name``.
     """
 
+    process_type = "transport"
     solver_name: str
-    category = "distributed"
 
     def extract(
         self,

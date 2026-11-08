@@ -22,20 +22,25 @@ that defines it.
   ``hydromodpy.model.forcing.dated_forcing``: process-agnostic building
   blocks (``ProcessSpatial``, ``InitialCondition``, ``BoundaryCondition``,
   ``SinkSource``, ``TimeSeriesForcing``).
-- ``hydromodpy.model.model``, ``hydromodpy.model.flow_config`` and the
-  folders ``boundaries``, ``sinks_sources`` and ``initial``: concrete flow
-  process plus typed config and payload models.
+- ``hydromodpy.model.flow``, ``hydromodpy.model.flow_config``,
+  ``hydromodpy.model.initial_config`` and the folders ``boundaries`` and
+  ``sinks_sources``: concrete flow process plus typed config and payload
+  models.
+- ``hydromodpy.model.model`` and the folder ``initial``: the frozen ``Model``
+  a flow solver reads, its factories, and the five initial states.
 - ``hydromodpy.model.transport``: concrete transport process plus
   typed config.
 - ``hydromodpy.model.forcing``: helpers that turn loaded data into
   process-ready forcing payloads aligned to simulation time, and put
   gridded forcings on the cells of a mesh.
-- ``hydromodpy.model.soil``: the daily soil reservoir that makes a
-  recharge from the weather.
+- ``hydromodpy.model.soil``: the arithmetic of the daily soil reservoir that
+  makes a recharge from the weather. Its run on the loaded grids is in
+  ``hydromodpy.model.forcing`` (``soil_*.py``).
 
 Runtime role:
 
-- ``model`` defines the hydrological problem payloads,
+- ``model`` defines the hydrological problem payloads, and freezes them into
+  a ``Model`` in ``prepare_solver``,
 - ``solver`` decides when those payloads are executed (``solver/base/runner.py``)
   and how they are numerically solved.
 
@@ -52,10 +57,12 @@ process objects?"):
 **Flow process** ("what does the project materialize before a flow
 solve?"):
 
-1. ``hydromodpy/model/model.py``
+1. ``hydromodpy/model/flow.py``
 2. ``hydromodpy/model/flow_config.py``
 3. initial / boundary / sinks-source payload files in
-   ``hydromodpy/model/initial/``, ``boundaries/`` and ``sinks_sources/``
+   ``hydromodpy/model/initial_config.py``, ``boundaries/`` and ``sinks_sources/``
+4. ``hydromodpy/model/model.py``, the frozen ``Model`` that
+   ``prepare_solver`` builds from the ``Flow`` and that a solver reads
 
 **Transport process** ("what transport runtime object is passed to
 the adapter?"):
@@ -87,6 +94,8 @@ Notes:
   code.
 - The forcing helpers and the binders fill the process objects from the loaded data.
 - Runtime process classes are solver-agnostic containers.
+- A flow adapter reads the frozen ``Model``, never the ``Flow``, the
+  configuration or the geographic object.
 - Adapter components are the only layer allowed to translate runtime
   data to solver input formats.
 
@@ -117,7 +126,8 @@ Runtime class diagram
 Runtime inheritance and composition for process objects:
 ``ProcessSpatial`` as the abstract runtime base, ``Flow`` and
 ``Transport`` as concrete implementations, runtime initial
-conditions, boundary conditions, and sink/source containers.
+conditions, boundary conditions, and sink/source containers. The
+frozen ``Model`` is drawn beside ``Flow``: ``model_from_flow`` builds it.
 
 .. uml:: diagrams/process_runtime_class.wsd
 

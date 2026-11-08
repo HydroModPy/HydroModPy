@@ -155,6 +155,9 @@ A source must **not** know the DuckDB catalog, the project workspace, a
 lock or a cache. It receives an ``Extent`` carrying its own CRS, an optional
 ``Period`` and an ``out_dir`` scratch it owns alone.
 
+The registry is ``data_sources`` in ``data/source/registry.py``, an instance of
+the engine every plugin surface shares (``core/plugin_registry.py``).
+
 Publish it from your own distribution:
 
 .. code-block:: toml

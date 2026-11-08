@@ -20,15 +20,22 @@ import pytest
 from rasterio.transform import from_origin
 
 from hydromodpy.catchment.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import ChannelTree, channel_tree_for_run
+from hydromodpy.solver.modflow_common.channel_tree import (
+    ChannelTree,
+    channel_rasters_for_run,
+    channel_tree_for_run,
+)
 from hydromodpy.solver.modflow_common.descent_store import read_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.mf6_toy_models import geometry_of
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _CODE_OF_STEP = {step: code for code, step in D8_WBT_OFFSETS.items()}
@@ -48,7 +55,10 @@ def _mesh(nrow: int, ncol: int, top: np.ndarray) -> SolverMesh:
 
 def _model(sfr: dict, **extra) -> SimpleNamespace:
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": sfr}), **extra
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)), sfr=sfr
+        ),
+        **extra,
     )
 
 
@@ -56,7 +66,6 @@ def _no_chd(n: int) -> dict:
     return {
         "_ocean_support_mask": np.zeros(n, dtype=bool),
         "_stream_support_mask": np.zeros(n, dtype=bool),
-        "geographic": None,
     }
 
 
@@ -65,7 +74,7 @@ def test_a_run_without_sfr_builds_d_and_leaves_it_beside_the_model(tmp_path) -> 
     rows, cols = np.divmod(np.arange(n * n), n)
     mesh = _mesh(n, n, 10.0 + rows + cols)
     model = SimpleNamespace(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        inputs=make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=())),
         full_path=str(tmp_path),
         model_output_name="model",
         **_no_chd(n * n),
@@ -95,7 +104,6 @@ def test_route_drainage_builds_d_seeded_on_the_chd_cells(tmp_path) -> None:
     side = {0: [[0, 6 * n + 6, 1.0]], 1: [[0, 6 * n + 5, 1.0]]}
     model = _model(
         {"net0": {"route_drainage": True}},
-        geographic=None,
         full_path=str(tmp_path),
         model_output_name="model",
     )
@@ -122,15 +130,13 @@ def test_an_auxiliary_model_builds_no_d_unless_an_sfr_network_walks_it(tmp_path)
     mesh = _mesh(n, n, 10.0 + rows + cols)
     none = np.zeros(n * n, dtype=bool)
     quiet = SimpleNamespace(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        inputs=make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=())),
         full_path=str(tmp_path / "quiet"),
         model_output_name="ssic",
         auxiliary=True,
-        geographic=None,
     )
     walking = _model(
         {"net0": {"route_drainage": True}},
-        geographic=None,
         full_path=str(tmp_path / "walking"),
         model_output_name="ssic",
         auxiliary=True,
@@ -310,10 +316,12 @@ def test_the_build_keeps_the_basin_and_leaves_it_in_the_sidecar(tmp_path, monkey
     monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
     declared = _xy(9, 7)
     model = SimpleNamespace(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=()),
+            geometry=geometry_of(SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1])),
+        ),
         full_path=str(tmp_path),
         model_output_name="model",
-        geographic=SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]),
     )
 
     descent, basin, seeds = build._build_descent_and_dam_feet(
@@ -370,7 +378,7 @@ def test_a_is_read_from_the_corrected_flow_folder_with_or_without_sfr(tmp_path) 
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
     for required in (False, True):
-        tree = channel_tree_for_run(geographic, mesh, required=required)
+        tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=required)
 
         assert tree is not None
         assert np.argwhere(tree.link).tolist() == [[2, 1], [2, 2], [2, 3]]
@@ -381,10 +389,10 @@ def test_a_run_without_the_river_network_rasters_pins_nothing(tmp_path, caplog) 
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
     with caplog.at_level("INFO"):
-        assert channel_tree_for_run(geographic, mesh) is None
+        assert channel_tree_for_run(channel_rasters_for_run(geographic), mesh) is None
     assert "No generated river network A" in caplog.text
     with pytest.raises(FileNotFoundError, match="rasters are missing"):
-        channel_tree_for_run(geographic, mesh, required=True)
+        channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=True)
 
 
 def test_rasters_left_by_an_earlier_configuration_pin_nothing(tmp_path, caplog) -> None:
@@ -393,7 +401,7 @@ def test_rasters_left_by_an_earlier_configuration_pin_nothing(tmp_path, caplog) 
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=False)
 
     with caplog.at_level("INFO"):
-        assert channel_tree_for_run(geographic, mesh) is None
+        assert channel_tree_for_run(channel_rasters_for_run(geographic), mesh) is None
     assert "river network is off" in caplog.text
 
 
@@ -403,7 +411,7 @@ def test_a_link_raster_older_than_the_stream_raster_is_never_read(tmp_path) -> N
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
     for required in (False, True):
-        tree = channel_tree_for_run(geographic, mesh, required=required)
+        tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=required)
 
         assert tree is not None
         assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]
@@ -465,7 +473,7 @@ def test_a_with_pruning_and_no_link_raster_is_the_pruned_network(tmp_path) -> No
     mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
-    tree = channel_tree_for_run(geographic, mesh)
+    tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh)
 
     assert tree is not None
     assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]  # the pruned row
@@ -486,8 +494,12 @@ def test_the_zonal_channel_mask_reads_the_same_raster_as_the_projection(tmp_path
                 )
             )
         ),
-        geographic=SimpleNamespace(correcflow_path=str(tmp_path)),
-        domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+        inputs=make_model(
+            geometry=geometry_of(
+                SimpleNamespace(correcflow_path=str(tmp_path)),
+                domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+            )
+        ),
     )
 
     mask = build._resolve_channel_mask_for_zonal(model)

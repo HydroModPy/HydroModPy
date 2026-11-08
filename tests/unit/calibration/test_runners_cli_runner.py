@@ -2296,11 +2296,11 @@ class _FirstTrialProbe:
 @pytest.fixture
 def first_trial_probe():
     _FirstTrialProbe.calls = 0
-    evaluation_registry.register(_FirstTrialProbe, replace=True)
+    evaluation_registry.evaluators.register(_FirstTrialProbe, replace=True)
     try:
         yield _FirstTrialProbe
     finally:
-        evaluation_registry.unregister(_FirstTrialProbe.evaluator_id)
+        evaluation_registry.evaluators.unregister(_FirstTrialProbe.evaluator_id)
 
 
 PROBE_TOML = toml_doc(

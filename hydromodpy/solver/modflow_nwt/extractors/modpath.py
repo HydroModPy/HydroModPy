@@ -32,8 +32,8 @@ class ModpathOutputAdapter:
     padding for particles that terminate early.
     """
 
+    process_type = "transport"
     solver_name = "modpath"
-    category = "distributed"
 
     def extract(
         self,

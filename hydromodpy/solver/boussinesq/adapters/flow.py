@@ -16,6 +16,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
+from pydantic import BaseModel
 
 from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
 from hydromodpy.core.contracts.observables import (
@@ -30,6 +31,7 @@ from hydromodpy.core.exceptions import (
     SolverError,
 )
 from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -65,8 +67,10 @@ def _published_support(ctx: RunContext) -> np.ndarray | None:
     covers. A trial scores the same cells. Like the run, a domain with no polygon,
     no declared CRS or no cell inside the polygon stays the whole domain.
     """
-    watershed = catchment_outline(getattr(ctx.state.setup, "geographic", None))
-    crs = getattr(getattr(ctx.state.cfg, "geographic", None), "crs_project", None)
+    geometry = getattr(getattr(ctx.state.setup, "model", None), "geometry", None)
+    catchment = getattr(geometry, "catchment", None)
+    watershed = catchment_outline(catchment)
+    crs = getattr(catchment, "crs", None)
     cell_mesh = getattr(getattr(ctx.model, "mesh", None), "cell_mesh", None)
     if watershed is None or crs is None or cell_mesh is None:
         return None
@@ -79,10 +83,72 @@ def _published_support(ctx: RunContext) -> np.ndarray | None:
 class BoussinesqFlowAdapter:
     """Bridge one planned ``flow/boussinesq`` run to the local solver API."""
 
-    process_type = "flow"
-    solver_name = "boussinesq"
-    requires: tuple[tuple[str, str], ...] = ()
+    name: ClassVar[str] = "boussinesq"
+    process_type: ClassVar[str] = "flow"
     accepted_meshes: ClassVar[frozenset[str]] = frozenset({"triangle"})
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = (
+        "head",
+        "budget/constant_head",
+        "budget/drain",
+        "budget/recharge",
+        "budget/storage",
+        "budget/surface_excess",
+        "budget/well",
+        "mesh/idomain",
+        "mesh/topography",
+        "budgets",
+        "boussinesq_state/boundary_edge_flux_history_m3_s",
+        "boussinesq_state/boundary_edge_flux_m3_s",
+        "boussinesq_state/cell_area_m2",
+        "boussinesq_state/drainage_flux_history_m3_s",
+        "boussinesq_state/drainage_flux_m3_s",
+        "boussinesq_state/dry_deficit_history_m_s",
+        "boussinesq_state/final_dry_deficit_rate_m_s",
+        "boussinesq_state/final_head_m",
+        "boussinesq_state/final_recharge_rate_m_s",
+        "boussinesq_state/final_saturated_thickness_m",
+        "boussinesq_state/final_saturation_excess_rate_m_s",
+        "boussinesq_state/final_well_flux_m3_s",
+        "boussinesq_state/head_history_m",
+        "boussinesq_state/internal_edge_flux_history_m3_s",
+        "boussinesq_state/internal_edge_flux_m3_s",
+        "boussinesq_state/period_lengths_seconds",
+        "boussinesq_state/prescribed_head_flux_history_m3_s",
+        "boussinesq_state/prescribed_head_flux_m3_s",
+        "boussinesq_state/prescribed_head_history_m_by_cell",
+        "boussinesq_state/prescribed_head_m_by_cell",
+        "boussinesq_state/recharge_rate_history_m_s",
+        "boussinesq_state/residual_history_m3_s",
+        "boussinesq_state/saturated_thickness_history_m",
+        "boussinesq_state/saturation_excess_history_m_s",
+        "boussinesq_state/snapshot_elapsed_seconds",
+        "boussinesq_state/step_end_elapsed_seconds",
+        "boussinesq_state/storage_coefficient",
+        "boussinesq_state/well_flux_history_m3_s",
+        "boussinesq_state/z_bottom_m",
+        "boussinesq_state/z_top_m",
+    )
+    reads: ClassVar[tuple[str, ...]] = ()
+    supports: ClassVar[frozenset[str]] = frozenset(
+        {
+            "west_side",
+            "east_side",
+            "north_side",
+            "south_side",
+            "stream",
+            "ocean",
+            "drainage",
+            "drain_bed_thickness_m",
+            "head_rule",
+            "steady_start",
+        }
+    )
+    options: ClassVar[type[BaseModel] | None] = FlowRuntimeConfig
+    category: ClassVar[str] = "integrated"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Boussinesq flow runs."""
@@ -216,13 +282,16 @@ class BoussinesqFlowAdapter:
         read, or a rerun of a sealed run, does not pass the load check.
         """
         state = ctx.state
-        layers = getattr(getattr(state.cfg, "domain", None), "layers", None)
+        inputs = state.setup.model
+        layers = getattr(getattr(inputs.geometry.domain, "config", None), "layers", None)
         refusal = None if layers is None else layering_refusal(layers)
         if refusal is not None:
             raise ConfigError(refusal)
         mesh_bundle = None
         try:
-            solver_mesh = resolve_runtime_solver_mesh(state.setup)
+            solver_mesh = resolve_runtime_solver_mesh(
+                inputs, mesh_summary=getattr(state.setup, "mesh_summary", None)
+            )
         except ValueError:
             mesh_summary = getattr(state.setup, "mesh_summary", None)
             bundle_dir = (
@@ -235,13 +304,10 @@ class BoussinesqFlowAdapter:
             solver_mesh = None
         if solver_mesh is None:
             mesh_bundle = resolve_mesh_bundle(state.setup)
-            solver_mesh = resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)
-        solver_cfg = getattr(state.cfg, "solver", None)
-        if solver_cfg is not None:
-            solver_mesh = replace(
-                solver_mesh,
-                drain_bed_thickness_m=float(solver_cfg.drain_bed_thickness_m),
-            )
+            solver_mesh = resolve_bundle_solver_mesh(inputs, bundle=mesh_bundle)
+        solver_mesh = replace(
+            solver_mesh, drain_bed_thickness_m=inputs.options.drain_bed_thickness_m
+        )
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
             Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()
@@ -250,9 +316,8 @@ class BoussinesqFlowAdapter:
         model = Boussinesq(
             mesh_bundle=mesh_bundle,
             mesh=solver_mesh,
-            flow=state.setup.flow,
-            domain=state.setup.domain,
-            time_grid=getattr(state.setup, "time_grid", None),
+            model=inputs,
+            runtime=state.cfg.flow.runtime,
             model_folder=model_folder,
             model_name=ctx.run.id.replace("::", "__"),
         )

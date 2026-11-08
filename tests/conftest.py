@@ -320,19 +320,44 @@ def minimal_config(tmp_path: Path):
     )
 
 
+def _isolate_plugin_registry(
+    monkeypatch: pytest.MonkeyPatch, registry: object, *, plugins_loaded: bool
+) -> None:
+    """Give one test a copy of the two tables of *registry* and its scan flag, restored afterwards."""
+    monkeypatch.setattr(registry, "classes", dict(registry.classes))
+    monkeypatch.setattr(registry, "builtin_paths", dict(registry.builtin_paths))
+    monkeypatch.setattr(registry, "plugins_loaded", plugins_loaded)
+
+
 @pytest.fixture
 def isolated_registry(monkeypatch: pytest.MonkeyPatch):
-    """Give one test its own data-source registry, restored afterwards.
+    """Give one test its own data-source registry, restored afterwards, and return it.
 
     The registry is process-global by design -- a name resolves to one class
     for everything running in that interpreter -- so a test that registers a
-    plugin works on a copy of the three module-level tables.
+    plugin works on a copy of its two tables. The plugin group is scanned again
+    on the first lookup.
     """
-    from hydromodpy.data.source import registry
+    from hydromodpy.data.source.registry import data_sources
 
-    monkeypatch.setattr(registry, "_REGISTRY", dict(registry._REGISTRY))
-    monkeypatch.setattr(registry, "_BUILTIN_PATHS", dict(registry._BUILTIN_PATHS))
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+    _isolate_plugin_registry(monkeypatch, data_sources, plugins_loaded=False)
+    return data_sources
+
+
+@pytest.fixture
+def isolated_solvers(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own ``solvers`` and ``extractors``, restored afterwards.
+
+    Returns ``hydromodpy.solver.base.registry``, whose two registries a test
+    reads as ``isolated_solvers.solvers`` and ``isolated_solvers.extractors``.
+    The plugin groups count as scanned, so a backend installed in the
+    environment does not answer; a test that installs an entry point sets
+    ``plugins_loaded`` back to ``False``.
+    """
+    from hydromodpy.solver.base import registry
+
+    _isolate_plugin_registry(monkeypatch, registry.solvers, plugins_loaded=True)
+    _isolate_plugin_registry(monkeypatch, registry.extractors, plugins_loaded=True)
     return registry
 
 

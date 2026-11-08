@@ -7,6 +7,7 @@ the factor is exactly 1.0 (no double scaling); under DAYS it is 86400.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,6 +21,8 @@ import zarr
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units import to_modflow_itmuni
+from hydromodpy.model.domain.geometry import CatchmentGeometry
+from hydromodpy.model.model import Geometry, ModelTime
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
 from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
@@ -45,6 +48,7 @@ from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
 from hydromodpy.solver.modflow_nwt.extractors.modpath import ModpathOutputAdapter
+from tests._helpers.model_factory import make_model, small_geometry
 
 
 class _FakeStore:
@@ -495,10 +499,11 @@ class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
 
         from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 
+        catchment = CatchmentGeometry.from_geographic(SimpleNamespace(watershed_shp=None), crs=None)
         model = SimpleNamespace(
             model_name="flow",
             descent_basin=None,
-            geographic=SimpleNamespace(watershed_shp=None),
+            inputs=make_model(geometry=Geometry(cells=None, domain=None, catchment=catchment)),
             solver_mesh=None,
         )
         with pytest.raises(ValueError, match="which water the gauge closes on"):
@@ -584,24 +589,19 @@ def test_write_time_coordinate_relative_without_any_anchor(tmp_path) -> None:
     np.testing.assert_array_equal(store.calls[0]["values"], np.asarray(totim, dtype="int64"))
 
 
-class _DummyGeographic:
-    def __init__(self, dem: np.ndarray):
-        self.dem_res = 1.0
-        self.xmin = 0.0
-        self.ymax = float(dem.shape[0])
-        self.dem_box_buff_data = np.asarray(dem, dtype=float)
-        self.dem_data = np.asarray(dem, dtype=float)
-        self.watershed_box_buff_dem = "dummy_box.tif"
-        self.watershed_buff_dem = "dummy_buff.tif"
+def _model_bound_to(regime: str) -> Modflow6:
+    """A ``Modflow6`` holding a model with a mesh and a domain, and no time grid."""
+    model = Modflow6(model_folder=".")
+    model.inputs = make_model(
+        geometry=replace(small_geometry(), domain=object()),
+        time=ModelTime(grid=None, regime=regime, first_period_steady=True),
+    )
+    model._apply_preprocess_options(model.preprocess_options)
+    return model
 
 
 def test_modflow6_requires_canonical_time_grid_for_launcher_flow_preprocessing():
-    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
-    model = Modflow6(geographic=geo, model_folder=".")
-    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="transient"))
-    model.domain = object()
-    model._apply_preprocess_options(model.preprocess_options)
+    model = _model_bound_to("transient")
 
     with pytest.raises(
         ValueError,
@@ -611,12 +611,7 @@ def test_modflow6_requires_canonical_time_grid_for_launcher_flow_preprocessing()
 
 
 def test_modflow6_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
-    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
-    model = Modflow6(geographic=geo, model_folder=".")
-    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
-    model.domain = object()
-    model._apply_preprocess_options(model.preprocess_options)
+    model = _model_bound_to("steady")
 
     # Steady flow should not require a time_grid; method must return None.
     assert model._validate_pre_processing_inputs() is None

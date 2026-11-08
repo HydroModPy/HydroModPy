@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.model.initial.heads import steady_state_initial_condition_strategy
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
     resolve_runtime_forcing_by_period,
@@ -114,7 +113,7 @@ def _write_stationary_failure_diagnostics(
     if solver.mesh is None:
         return
     try:
-        strategy = steady_state_initial_condition_strategy(solver.flow)
+        strategy = solver.steady_start_strategy
         strategy_payload = None if strategy is None else dict(strategy.__dict__)
         generated = write_stationary_failure_diagnostics(
             solver.full_path,

@@ -13,8 +13,9 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.solver.base import registry
+from hydromodpy.solver.base.registry import solvers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_PROJECTS = Path("examples/projects")
@@ -67,15 +68,15 @@ _CONFIGS_WITH_PROCESSES = [path for path in _tracked_toml_files() if _declared_p
 def test_the_prt_example_names_a_registered_pair() -> None:
     pairs = _declared_pairs(REPO_ROOT / PRT_EXAMPLE)
     assert ("transport", "modflow6_prt") in pairs
-    adapter_cls = registry.get("transport", "modflow6_prt")
-    assert adapter_cls.solver_name == "modflow6_prt"
+    adapter_cls = solvers.get("transport", "modflow6_prt")
+    assert adapter_cls.name == "modflow6_prt"
 
 
 def test_the_prt_parameter_table_name_is_not_a_solver_name() -> None:
     """``modflow6prt`` names the parameter table, never the pair."""
-    assert not registry.is_supported("transport", "modflow6prt")
-    with pytest.raises(ValueError, match="transport/modflow6prt"):
-        registry.required_bindings("transport", "modflow6prt")
+    assert "modflow6prt" not in solvers.names("transport")
+    with pytest.raises(SolverInputError, match="transport_modflow6prt"):
+        solvers.get("transport", "modflow6prt")
 
 
 @requires_git
@@ -84,6 +85,6 @@ def test_example_solvers_resolve(config_file: Path) -> None:
     unresolved = [
         f"{process_type}/{solver}"
         for process_type, solver in _declared_pairs(config_file)
-        if not registry.is_supported(process_type, solver)
+        if solver not in solvers.names(process_type)
     ]
     assert not unresolved, f"unregistered solver pairs: {unresolved}"

@@ -1,4 +1,4 @@
-"""The one mapping of the hydraulic properties of a flow onto a cell mesh.
+"""The one mapping of the hydraulic properties of a model onto a cell mesh.
 
 Every solver reads K, Kv, Sy and Ss from ``map_flow_properties``: one value per
 cell, evaluated at each layer-center depth. MODFLOW 6 also reads the rest of the
@@ -6,7 +6,8 @@ K tensor, K22 and the three angles, the same way. A homogeneous parameter is its
 times its vertical profile. A heterogeneous one is the zone-weighted mean of its
 zone values on the fractions ``zone_fractions`` gives for its spatial support.
 MODFLOW passes the layer-center depths of its solver mesh, Boussinesq one layer
-at depth zero.
+at depth zero. The profiles are ``Model.properties.profiles``, the parameters
+of ``[flow.param]`` keyed by id.
 """
 
 from __future__ import annotations
@@ -95,17 +96,13 @@ def _resolve_spatial_support_from_domain(*, domain: object, support_id: str) -> 
     return matches[0] if matches else None
 
 
-def _resolve_field_param(*, flow: object, aliases: tuple[str, ...], property_label: str):
-    """Return the first Flow parameter matching one alias set."""
-    if flow is None or not hasattr(flow, "parameters"):
-        raise ValueError("Missing flow object or flow.parameters for property mapping")
-    parameters = getattr(flow, "parameters", {})
-    if not isinstance(parameters, dict):
-        raise TypeError("flow.parameters must be a dictionary")
-
+def _resolve_field_param(
+    *, profiles: Mapping[str, object], aliases: tuple[str, ...], property_label: str
+):
+    """Return the first profile matching one alias set."""
     for alias in aliases:
-        if alias in parameters:
-            param_obj = parameters[alias]
+        if alias in profiles:
+            param_obj = profiles[alias]
             if not hasattr(param_obj, "to_mesh_field"):
                 raise TypeError(
                     f"Cannot map {property_label}: selected parameter '{alias}' "
@@ -121,7 +118,7 @@ def require_positive_conductivity(
     hk,
     *,
     active_mask,
-    flow: object | None = None,
+    profiles: Mapping[str, object] | None = None,
     property_label: str = "K",
 ) -> None:
     """Refuse a conductivity that is zero, negative or not finite on an active cell.
@@ -149,7 +146,7 @@ def require_positive_conductivity(
         f"{property_label} is zero, negative or not finite on {n_invalid} of {n_active} "
         f"active cell(s) ({n_zero} zero, {n_nonfinite} not finite)."
     )
-    hint = _value_hint(flow, property_label, (property_label, property_label.lower()))
+    hint = _value_hint(profiles, property_label, (property_label, property_label.lower()))
     raise DataContractViolation(detail + hint)
 
 
@@ -160,7 +157,7 @@ def require_positive_storage(
     active_mask,
     iconvert,
     steady,
-    flow: object | None = None,
+    profiles: Mapping[str, object] | None = None,
 ) -> None:
     """Refuse a storage that a transient period reads and that is zero, negative or not finite.
 
@@ -183,10 +180,12 @@ def require_positive_storage(
     sy_values = _by_layer(sy)
     active = _cells_like(active_mask, sy_values, dtype=bool)
     convertible = _cells_like(iconvert, sy_values, dtype=int) != 0
-    _require_positive_storage_cells(sy_values, active & convertible, "Sy", "convertible", flow)
+    _require_positive_storage_cells(sy_values, active & convertible, "Sy", "convertible", profiles)
     if ss is not None:
         ss_values = _by_layer(ss)
-        _require_positive_storage_cells(ss_values, active & ~convertible, "Ss", "confined", flow)
+        _require_positive_storage_cells(
+            ss_values, active & ~convertible, "Ss", "confined", profiles
+        )
 
 
 _STORAGE_ROLES = {
@@ -196,7 +195,11 @@ _STORAGE_ROLES = {
 
 
 def _require_positive_storage_cells(
-    values: np.ndarray, read: np.ndarray, label: str, kind: str, flow: object | None
+    values: np.ndarray,
+    read: np.ndarray,
+    label: str,
+    kind: str,
+    profiles: Mapping[str, object] | None,
 ) -> None:
     """Refuse ``label`` on the cells of ``read`` where it is not positive and finite."""
     invalid = read & ~(np.isfinite(values) & (values > 0.0))
@@ -214,7 +217,7 @@ def _require_positive_storage_cells(
         f"{label} is zero, negative or not finite on {n_invalid} of "
         f"{int(np.count_nonzero(read))} active {kind} cell(s) that a transient period "
         f"reads ({layers}; {n_zero} zero, {n_nonfinite} not finite). {_STORAGE_ROLES[label]}"
-        + _value_hint(flow, label, aliases)
+        + _value_hint(profiles, label, aliases)
     )
 
 
@@ -234,12 +237,11 @@ def _cells_like(flags, values: np.ndarray, *, dtype) -> np.ndarray:
     return np.broadcast_to(array, values.shape)
 
 
-def _value_hint(flow: object | None, label: str, aliases: tuple[str, ...]) -> str:
+def _value_hint(profiles: Mapping[str, object] | None, label: str, aliases: tuple[str, ...]) -> str:
     """Where to look for the value of ``label``: its zones when it is heterogeneous."""
-    parameters = getattr(flow, "parameters", None)
     param_obj = None
-    if isinstance(parameters, dict):
-        param_obj = next((parameters[name] for name in aliases if name in parameters), None)
+    if isinstance(profiles, Mapping):
+        param_obj = next((profiles[name] for name in aliases if name in profiles), None)
     if param_obj is not None and getattr(param_obj, "is_heterogeneous", False):
         support_id = getattr(param_obj, "field_spatial_id", None)
         return (
@@ -253,7 +255,7 @@ def _value_hint(flow: object | None, label: str, aliases: tuple[str, ...]) -> st
 
 def map_flow_properties(
     *,
-    flow: object,
+    profiles: Mapping[str, object],
     domain: object,
     cell_mesh: PlanarCellMesh,
     layer_depths: np.ndarray,
@@ -262,15 +264,16 @@ def map_flow_properties(
     optional_fill_values: Mapping[str, float] | None = None,
     runtime_overrides: Mapping[str, np.ndarray] | None = None,
 ) -> dict[str, np.ndarray]:
-    """Map the flow properties named in ``properties`` onto the cells of ``cell_mesh``.
+    """Map the properties named in ``properties`` onto the cells of ``cell_mesh``.
 
+    ``profiles`` is ``Model.properties.profiles``, a ``FieldParam`` by parameter id.
     ``layer_depths`` is ``(nlay, n_cells)``, the depth below the top of each
     layer center. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
     ``p_value`` ``(n_cells,)``, the values at depth zero (``hk``, ``hk_value``,
-    ...). A property with no flow parameter is mapped from
+    ...). A property with no profile is mapped from
     ``optional_fill_values`` when it is not required, and left out when no fill
     value is given. ``runtime_overrides`` are arrays already shaped as the output
-    (``resolve_flow_property_runtime_overrides``); they win over the flow. An
+    (``resolve_flow_property_runtime_overrides``); they win over the profiles. An
     override of a property outside ``properties`` is refused, since the solver
     would drop it.
     """
@@ -278,9 +281,8 @@ def map_flow_properties(
     n_cells = int(cell_mesh.n_cells)
     if depths.ndim != 2 or depths.shape[1] != n_cells:
         raise ValueError(f"layer_depths must have shape (nlay, {n_cells}), got {depths.shape}")
-    parameters = getattr(flow, "parameters", None)
-    if not isinstance(parameters, dict):
-        raise TypeError("flow.parameters must be a dictionary")
+    if not isinstance(profiles, Mapping):
+        raise TypeError("profiles must be a mapping of parameter id to FieldParam")
     overrides = dict(runtime_overrides or {})
     unread = [
         canonical
@@ -304,13 +306,15 @@ def map_flow_properties(
             out[name] = np.asarray(overrides[name], dtype=float).copy()
             out[f"{name}_value"] = np.asarray(overrides[f"{name}_value"], dtype=float).copy()
             continue
-        if not any(alias in parameters for alias in aliases) and canonical not in required:
+        if not any(alias in profiles for alias in aliases) and canonical not in required:
             fill = fill_values.get(canonical)
             if fill is not None:
                 out[name] = np.full(depths.shape, fill, dtype=float)
                 out[f"{name}_value"] = np.full(n_cells, fill, dtype=float)
             continue
-        selected, param = _resolve_field_param(flow=flow, aliases=aliases, property_label=label)
+        selected, param = _resolve_field_param(
+            profiles=profiles, aliases=aliases, property_label=label
+        )
         discretization = None
         if getattr(param, "is_heterogeneous", False):
             support = _heterogeneous_support(param, domain=domain, property_label=label)
@@ -378,6 +382,22 @@ _FLOW_PROPERTY_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = tuple(
 override reaches the same arrays as the flow parameter it replaces. The output
 name (``hk``, ``kv``, ...) is accepted as one more alias."""
 
+OVERRIDE_PROPERTY_NAMES: frozenset[str] = frozenset(
+    alias for *_, aliases in _FLOW_PROPERTY_SPECS for alias in aliases
+)
+"""Every name a per-cell property override may carry, its output name included."""
+
+
+def refuse_unknown_override_names(names: object) -> None:
+    """Raise ``ValueError`` naming each override name that sets no property."""
+    unknown = sorted(str(key) for key in names if key not in OVERRIDE_PROPERTY_NAMES)
+    if unknown:
+        raise ValueError(
+            f"Runtime property override(s) {', '.join(unknown)} name no flow property. "
+            "An override sets one of "
+            f"{', '.join(spec[0] for spec in _FLOW_PROPERTY_SPECS)}."
+        )
+
 
 def _coerce_flow_property_override(
     value: object,
@@ -439,14 +459,7 @@ def _extract_flow_property_mapping(
         return {}
     nested = parameters.get("properties")
     if isinstance(nested, Mapping):
-        known = {alias for *_, aliases in _FLOW_PROPERTY_SPECS for alias in aliases}
-        unknown = sorted(str(key) for key in nested if key not in known)
-        if unknown:
-            raise ValueError(
-                f"Runtime property override(s) {', '.join(unknown)} name no flow property. "
-                "An override sets one of "
-                f"{', '.join(spec[0] for spec in _FLOW_PROPERTY_SPECS)}."
-            )
+        refuse_unknown_override_names(nested)
         return nested
     return parameters
 
@@ -551,8 +564,10 @@ def resolve_required_flow_properties(
 __all__ = [
     "FLOW_PROPERTY_SPECS",
     "K_TENSOR_PROPERTIES",
+    "OVERRIDE_PROPERTY_NAMES",
     "k_tensor_parameter_ids",
     "map_flow_properties",
+    "refuse_unknown_override_names",
     "require_positive_conductivity",
     "require_positive_storage",
     "resolve_flow_property_runtime_overrides",

@@ -15,16 +15,12 @@ from hydromodpy.core.units import (
 )
 from hydromodpy.mesh.cells.boundary import label_cells, side_cells, stream_cells
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    active_side_dirichlet_boundary_ids,
-    boundary_conditions_mapping_from_flow,
-    is_boundary_condition_active,
-)
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
 from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
 
 logger = get_logger(__name__)
@@ -40,7 +36,7 @@ def is_scalar_number(value: object) -> bool:
 
 
 def boundary_conditions_mapping(model) -> Mapping[str, object]:
-    return boundary_conditions_mapping_from_flow(model.flow)
+    return model.inputs.boundaries.conditions
 
 
 def boundary_attr(boundary: object, name: str, default=None):
@@ -51,7 +47,7 @@ def boundary_attr(boundary: object, name: str, default=None):
 
 
 def is_bc_active(model, bc_id: str) -> bool:
-    return is_boundary_condition_active(model.flow, bc_id)
+    return model.inputs.boundaries.is_active(bc_id)
 
 
 def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
@@ -105,7 +101,7 @@ def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.n
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label=f"flow.bc.{bc_id}.forcing",
         )
@@ -178,7 +174,7 @@ def iter_side_boundary_cells(model, bc_id: str):
 def apply_side_boundary_start_heads(model, strt: np.ndarray) -> np.ndarray:
     """Apply side boundary start heads on flat (nlay, ncpl) strt array."""
     bc = boundary_conditions_mapping(model)
-    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
@@ -201,7 +197,7 @@ def resolve_ocean_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.ocean.forcing",
         )
@@ -231,7 +227,7 @@ def resolve_stream_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.stream.forcing",
         )
@@ -317,7 +313,7 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
     spd: dict[int, dict[tuple[int, int], list[float]]] = {
         kper: {} for kper in range(int(model.nper))
     }
-    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
@@ -358,7 +354,7 @@ def side_boundary_owner_by_cell(model) -> dict[int, str]:
     bc = boundary_conditions_mapping(model)
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     owner: dict[int, str] = {}
-    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+    for bc_id in model.inputs.boundaries.active_side_dirichlet_ids():
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
@@ -452,7 +448,7 @@ def resolve_drainage_conductance_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(None if model.time_grid is None else model.time_grid.window),
+            simulation_window=simulation_window(model),
             nper=int(model.nper),
             label="flow.bc.drainage.forcing",
         )

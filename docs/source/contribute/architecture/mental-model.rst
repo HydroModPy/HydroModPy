@@ -247,7 +247,7 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 2. ``hydromodpy/project/facade.py`` (``Project``);
 3. ``hydromodpy/solver/base/planner.py``;
 4. ``hydromodpy/solver/base/runner.py``;
-5. ``hydromodpy/solver/base/registry.py``;
+5. ``hydromodpy/solver/base/registry.py``, the ``solvers`` instance of ``hydromodpy/core/plugin_registry.py``;
 6. one adapter under ``hydromodpy/solver/<backend>/adapters/``;
 7. the backend package under ``hydromodpy/solver/``.
 

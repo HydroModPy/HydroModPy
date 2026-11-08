@@ -28,6 +28,7 @@ from hydromodpy.calibration.runners.state import (
     space_from_config,
 )
 from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.plugin_registry import PluginRegistry
 
 # From test_trial_evaluator_registry.py
 # What turns a parameter sample into a cost is named, not imported.
@@ -97,11 +98,11 @@ class _Quadratic:
 @pytest.fixture
 def registered_quadratic():
     """Register :class:`_Quadratic` for one test and take it out again."""
-    evaluation_registry.register(_Quadratic, replace=True)
+    evaluation_registry.evaluators.register(_Quadratic, replace=True)
     try:
         yield _Quadratic
     finally:
-        evaluation_registry.unregister(_Quadratic.evaluator_id)
+        evaluation_registry.evaluators.unregister(_Quadratic.evaluator_id)
 
 
 def _config(**overrides: object) -> CalibrationConfig:
@@ -140,12 +141,12 @@ def _document(path: Path, max_trials: int, tail: str = "", options: bool = True)
 # --------------------------------------------------------------------------
 class TestTheRegistryResolves:
     def test_a_document_that_names_none_gets_the_pipeline(self) -> None:
-        assert evaluation_registry.get(None).evaluator_id == "hydromodpy_pipeline"
+        assert evaluation_registry.evaluators.get(None).evaluator_id == "hydromodpy_pipeline"
         assert evaluation_registry.DEFAULT_EVALUATOR_ID == "hydromodpy_pipeline"
 
     def test_an_unknown_name_names_the_group_a_third_party_joins_on(self) -> None:
         with pytest.raises(CalibrationError) as excinfo:
-            evaluation_registry.get("no_such_evaluator")
+            evaluation_registry.evaluators.get("no_such_evaluator")
 
         message = str(excinfo.value)
         assert "no_such_evaluator" in message
@@ -157,9 +158,8 @@ class TestTheRegistryResolves:
         assert evaluation_registry.needs_prepared_model("test_quadratic") is False
 
     def test_an_installed_evaluator_joins_the_list(self, registered_quadratic) -> None:
-        assert "test_quadratic" in evaluation_registry.list_evaluator_ids()
-        assert "test_quadratic" not in evaluation_registry.builtin_evaluator_ids()
-        assert evaluation_registry.is_registered("test_quadratic")
+        assert "test_quadratic" in evaluation_registry.evaluators.names()
+        assert "test_quadratic" not in evaluation_registry.evaluators.names(shipped_only=True)
 
 
 class TestTheRegistryRefuses:
@@ -171,7 +171,7 @@ class TestTheRegistryRefuses:
                 raise AssertionError
 
         with pytest.raises(TypeError, match="evaluator_id"):
-            evaluation_registry.register(Nameless)
+            evaluation_registry.evaluators.register(Nameless)
 
     def test_a_class_that_does_not_satisfy_the_port_is_named_member_by_member(self) -> None:
         class Halfway:
@@ -179,7 +179,7 @@ class TestTheRegistryRefuses:
             needs_prepared_model = False
 
         with pytest.raises(TypeError) as excinfo:
-            evaluation_registry.register(Halfway)
+            evaluation_registry.evaluators.register(Halfway)
 
         assert "evaluate" in str(excinfo.value)
 
@@ -192,12 +192,12 @@ class TestTheRegistryRefuses:
             evaluate = None
 
         with pytest.raises(TypeError, match="evaluate"):
-            evaluation_registry.register(Hollow)
+            evaluation_registry.evaluators.register(Hollow)
 
     def test_a_class_cannot_claim_the_name_this_build_ships(self, monkeypatch) -> None:
         """Before the first lookup imports it, a built-in is a declaration only.
 
-        ``_BUILTIN_PATHS`` is the declaration and ``_REGISTRY`` is what has been
+        ``builtin_paths`` is the declaration and ``classes`` is what has been
         imported. A guard reading the second alone left ``hydromodpy_pipeline``
         free until something resolved it, so a class could claim it and every
         document naming no evaluator would run that class -- keyed, by the
@@ -210,12 +210,12 @@ class TestTheRegistryRefuses:
         """
 
         monkeypatch.delitem(
-            evaluation_registry._ENGINE.classes,
+            evaluation_registry.evaluators.classes,
             evaluation_registry.DEFAULT_EVALUATOR_ID,
             raising=False,
         )
         assert evaluation_registry.DEFAULT_EVALUATOR_ID in (
-            evaluation_registry.builtin_evaluator_ids()
+            evaluation_registry.evaluators.names(shipped_only=True)
         )
 
         class Hijack:
@@ -226,14 +226,14 @@ class TestTheRegistryRefuses:
                 raise AssertionError
 
         with pytest.raises(ValueError, match="already registered"):
-            evaluation_registry.register(Hijack)
+            evaluation_registry.evaluators.register(Hijack)
 
-        assert evaluation_registry.get(None) is PipelineTrialEvaluator
+        assert evaluation_registry.evaluators.get(None) is PipelineTrialEvaluator
 
     def test_an_id_held_by_a_falsy_class_is_still_held(self) -> None:
         """A class is truthy unless its metaclass says otherwise.
 
-        ``_REGISTRY.get(id) or _BUILTIN_PATHS.get(id)`` read such a class as
+        ``classes.get(id) or builtin_paths.get(id)`` read such a class as
         absent, so the next registration displaced it without ``replace=True``.
         The shape that introduced this was the fix for the reserved-id hole; the
         two lookups are now separate and compared against ``None``.
@@ -257,14 +257,14 @@ class TestTheRegistryRefuses:
             def evaluate(self, request):  # pragma: no cover - never reached
                 raise AssertionError
 
-        evaluation_registry.register(Held)
+        evaluation_registry.evaluators.register(Held)
         try:
             assert not bool(Held)
             with pytest.raises(ValueError, match="already registered"):
-                evaluation_registry.register(Usurper)
-            assert evaluation_registry.get("test_falsy_evaluator") is Held
+                evaluation_registry.evaluators.register(Usurper)
+            assert evaluation_registry.evaluators.get("test_falsy_evaluator") is Held
         finally:
-            evaluation_registry.unregister("test_falsy_evaluator")
+            evaluation_registry.evaluators.unregister("test_falsy_evaluator")
 
     def test_a_taken_id_is_not_silently_substituted(self, registered_quadratic) -> None:
         class Other:
@@ -275,12 +275,12 @@ class TestTheRegistryRefuses:
                 raise AssertionError
 
         with pytest.raises(ValueError, match="already registered"):
-            evaluation_registry.register(Other)
+            evaluation_registry.evaluators.register(Other)
 
 
 class TestTheRegistryBindsOnlyWhatIsNamed:
     def test_an_option_no_parameter_names_never_arrives(self, registered_quadratic) -> None:
-        built = evaluation_registry.create(
+        built = evaluation_registry.evaluators.create(
             "test_quadratic", target=1.0, trial_ctx=object(), cfg=object(), metric_fn=object()
         )
 
@@ -548,3 +548,26 @@ class TestNothingReHardwiresTheForwardModel:
         constructions = _functions_calling("PipelineTrialEvaluator")
 
         assert constructions == set()
+
+
+def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> None:
+    """The registry is one object of the shared engine, read through ``evaluators``."""
+    held = evaluation_registry.evaluators
+
+    assert isinstance(held, PluginRegistry)
+    assert held.id_attributes == ("evaluator_id",)
+    assert held.group == evaluation_registry.ENTRY_POINT_GROUP
+    assert held.default_id == evaluation_registry.DEFAULT_EVALUATOR_ID
+    assert held.names(shipped_only=True) == tuple(sorted(evaluation_registry._BUILTIN_PATHS))
+    retired = (
+        "get",
+        "create",
+        "register",
+        "unregister",
+        "load_plugins",
+        "is_registered",
+        "resolve_id",
+        "list_evaluator_ids",
+        "builtin_evaluator_ids",
+    )
+    assert [name for name in retired if hasattr(evaluation_registry, name)] == []

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
+from pydantic import BaseModel
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
+from hydromodpy.model.transport.transport_config import TransportMt3dmsConfig
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.transport_runs import required_flow_model, transport_output_suffix
@@ -19,9 +21,18 @@ from hydromodpy.solver.modflow_nwt.mt3dms.mt3dms import Mt3dms
 class Mt3dmsTransportAdapter:
     """Adapter for ``transport/mt3dms`` runs."""
 
-    process_type = "transport"
-    solver_name = "mt3dms"
-    requires: tuple[tuple[str, str], ...] = (("flow", "modflow_nwt"),)
+    name: ClassVar[str] = "mt3dms"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "raster"
+    writes: ClassVar[tuple[str, ...]] = ("concentration",)
+    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = TransportMt3dmsConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
     produces_concentration: bool = True
 
     def validate(self, ctx: RunContext) -> None:

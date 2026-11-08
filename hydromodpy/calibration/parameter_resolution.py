@@ -34,7 +34,7 @@ from hydromodpy.calibration.targets import (
     targets_by_path,
 )
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.model.soil.config import soil_reservoir_of
+from hydromodpy.model.forcing.soil_config import soil_reservoir_of
 
 __all__ = [
     "RECHARGE_FACTOR_PATH",

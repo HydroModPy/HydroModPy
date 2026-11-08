@@ -48,11 +48,11 @@ class _OneFailureProbe:
 @pytest.fixture
 def one_failure_probe():
     _OneFailureProbe.calls = 0
-    evaluation_registry.register(_OneFailureProbe, replace=True)
+    evaluation_registry.evaluators.register(_OneFailureProbe, replace=True)
     try:
         yield _OneFailureProbe
     finally:
-        evaluation_registry.unregister(_OneFailureProbe.evaluator_id)
+        evaluation_registry.evaluators.unregister(_OneFailureProbe.evaluator_id)
 
 
 PROBE_TOML = """
@@ -130,11 +130,11 @@ class _ScoredSetProbe:
 @pytest.fixture
 def scored_set_probe():
     _ScoredSetProbe.calls = 0
-    evaluation_registry.register(_ScoredSetProbe, replace=True)
+    evaluation_registry.evaluators.register(_ScoredSetProbe, replace=True)
     try:
         yield _ScoredSetProbe
     finally:
-        evaluation_registry.unregister(_ScoredSetProbe.evaluator_id)
+        evaluation_registry.evaluators.unregister(_ScoredSetProbe.evaluator_id)
 
 
 PROBE_TOML__recap_says = """
@@ -257,11 +257,11 @@ class _DailyProbe:
 
 @pytest.fixture
 def daily_probe():
-    evaluation_registry.register(_DailyProbe, replace=True)
+    evaluation_registry.evaluators.register(_DailyProbe, replace=True)
     try:
         yield _DailyProbe
     finally:
-        evaluation_registry.unregister(_DailyProbe.evaluator_id)
+        evaluation_registry.evaluators.unregister(_DailyProbe.evaluator_id)
 
 
 PROBE_TOML__session_records = """
@@ -550,6 +550,6 @@ class TestWhatItIsBuiltWith:
     def test_the_registry_resolves_it_without_the_workflow_stack_behind_it(self) -> None:
         """The reason it is a built-in and not a test double: a rehearsal has to be cheap."""
 
-        assert registry.get("analytic_bowl") is AnalyticBowlEvaluator
+        assert registry.evaluators.get("analytic_bowl") is AnalyticBowlEvaluator
         assert registry.needs_prepared_model("analytic_bowl") is False
-        assert "analytic_bowl" in registry.builtin_evaluator_ids()
+        assert "analytic_bowl" in registry.evaluators.names(shipped_only=True)

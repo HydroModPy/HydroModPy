@@ -61,18 +61,18 @@ def test_primary_solver_skips_mesh_runs_and_uses_first_solver_backed_run() -> No
         )
     )
 
-    assert facts_module.primary_solver_for_simulation(plan) == "modflow6"
+    assert facts_module.primary_run_for_simulation(plan) == ("flow", "modflow6")
 
 
 def test_primary_solver_uses_mesh_solver_for_mesh_only_plan() -> None:
     plan = SimpleNamespace(runs=(SimpleNamespace(process_type="mesh", solver="catchment"),))
 
-    assert facts_module.primary_solver_for_simulation(plan) == "catchment"
+    assert facts_module.primary_run_for_simulation(plan) == ("mesh", "catchment")
 
 
 def test_primary_solver_rejects_empty_plan() -> None:
     with pytest.raises(PipelineError, match="SimulationPlan has no runs"):
-        facts_module.primary_solver_for_simulation(SimpleNamespace(runs=()))
+        facts_module.primary_run_for_simulation(SimpleNamespace(runs=()))
 
 
 def test_collect_run_facts_collects_mesh_time_and_simulation_metadata(

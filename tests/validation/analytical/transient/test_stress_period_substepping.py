@@ -521,8 +521,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     """RMSE of the end-of-period heads against the head-step closed form."""
     from types import SimpleNamespace
 
-    from hydromodpy.core.state.run_state import RunState, SetupContext
-    from hydromodpy.model.model import Flow
+    from hydromodpy.model.flow import Flow
     from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
     from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
     from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.reference import (
@@ -537,6 +536,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     )
     from validation_cases.shared import load_case_metadata
     from validation_cases.shared.boussinesq_analytical_runtime import (
+        boussinesq_run_state,
         boussinesq_variant_config_name,
         boussinesq_variant_flow_section,
     )
@@ -586,29 +586,23 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
         )
     simulations = workspace / "results_simulations"
     simulations.mkdir(exist_ok=True)
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle)},
-            flow=Flow(
-                build_flow_config(
-                    boussinesq_variant_flow_section(
-                        flow_section, flow_regime="transient", solver=solver
-                    ),
-                    case_dir=CASE_DIR,
-                    config_name=boussinesq_variant_config_name(solver),
-                )
-            ),
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=(period_seconds,),
-                nstp_per_period=int(substeps),
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations, solver_scratch_folder=simulations
-            ),
-        )
+    state = boussinesq_run_state(
+        flow=Flow(
+            build_flow_config(
+                boussinesq_variant_flow_section(
+                    flow_section, flow_regime="transient", solver=solver
+                ),
+                case_dir=CASE_DIR,
+                config_name=boussinesq_variant_config_name(solver),
+            )
+        ),
+        bundle_dir=bundle,
+        simulations_folder=simulations,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=(period_seconds,),
+            nstp_per_period=int(substeps),
+            window=None,
+        ),
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

@@ -17,9 +17,9 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
     TimePeriodUnit,
 )
-from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.time.window import reject_invalid_step_value_spec
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.results_config import ResultsConfig
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
@@ -230,8 +230,9 @@ class _SolverProcess(_ProcessBase):
 
     def validate_registry(self) -> None:
         """Verify the process family is registered. Call explicitly from launcher."""
-        registered = get_solver_registry_provider().known_process_types()
-        if self.kind not in registered:
+        if not solvers.names(self.kind):
+            # Read off the loaded classes: a key is never split back into its parts.
+            registered = {solvers.get(key).process_type for key in solvers.names()}
             raise ValueError(
                 f"Unknown process type '{self.kind}'. Registered types: "
                 f"{', '.join(sorted((*registered, 'mesh')))}."

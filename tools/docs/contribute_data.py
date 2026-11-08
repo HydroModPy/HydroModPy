@@ -470,10 +470,10 @@ def package_map(repo: Path = ROOT) -> list[dict[str, Any]]:
 def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
     """What the registries of the code hold, counted when the page is built."""
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-    from hydromodpy.data.source.registry import list_source_ids
+    from hydromodpy.data.source.registry import data_sources
     from hydromodpy.display import list_figures
     from hydromodpy.schema.sources import SOURCES
-    from hydromodpy.solver.base import registry as solver_registry
+    from hydromodpy.solver.base.registry import solvers
     from hydromodpy.workflow.steps.sequence import standard_steps
 
     matrix = load_layer_matrix(repo)
@@ -500,13 +500,16 @@ def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
         },
         {
             "what": "Sources served through the data-source port",
-            "source": "hydromodpy.data.source.registry.list_source_ids",
-            "names": list(list_source_ids()),
+            "source": "hydromodpy.data.source.registry.data_sources",
+            "names": list(data_sources.names()),
         },
         {
             "what": "Process and solver pairs",
-            "source": "hydromodpy.solver.base.registry.list_pairs",
-            "names": [f"{p}/{s}" for p, s in sorted(solver_registry.list_pairs())],
+            "source": "hydromodpy.solver.base.registry.solvers",
+            "names": [
+                f"{backend.process_type}/{backend.name}"
+                for backend in (solvers.get(key) for key in solvers.names())
+            ],
         },
         {
             "what": "Figures",

@@ -56,7 +56,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     mesh_cfg = ctx.cfg.mesh or MeshConfig()
     inputs = planning_inputs(ctx, mesh_cfg)
     request = plan_mesh_request(mesh_cfg, inputs)
-    engine_cls = mesh_registry.get(mesh_cfg.engine)
+    engine_cls = mesh_registry.mesh_engines.get(mesh_cfg.engine)
     key = directory = cell_mesh = None
     if engine_cls.capabilities.needs_cache:
         key = cache_key(request, engine_cls)
@@ -70,7 +70,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
                 directory,
             )
     if cell_mesh is None:
-        cell_mesh = mesh_registry.create(mesh_cfg.engine).build(request)
+        cell_mesh = mesh_registry.mesh_engines.create(mesh_cfg.engine).build(request)
         if directory is not None:
             save_cell_mesh(cell_mesh, directory)
     for warning in quality_warnings(cell_mesh.qa):

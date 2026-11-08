@@ -31,6 +31,7 @@ from hydromodpy.model.forcing.validation import (
     has_temporal_index,
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
 
 logger = get_logger(__name__)
 
@@ -205,15 +206,13 @@ def bind_recharge_from_flow(model) -> None:
             model.first_clim = "mean"
         return
 
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "recharge" not in active:
+    if "recharge" not in model.inputs.active_sinks_sources:
         model.recharge = 0.0
         if model.first_clim is None:
             model.first_clim = "mean"
         return
 
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+    recharge_cfg = model.inputs.recharge
     if recharge_cfg is None:
         model.recharge = 0.0
         if model.first_clim is None:
@@ -234,7 +233,7 @@ def bind_recharge_from_flow(model) -> None:
     if has_temporal_index(payload):
         validate_recharge_coverage(
             payload,
-            model.time_grid.window if getattr(model, "time_grid", None) is not None else None,
+            simulation_window(model),
         )
     payload = convert_payload_to_m_per_s(
         payload,
@@ -291,7 +290,7 @@ def _discretize_heterogeneous_source(
     those of the solver mesh, whatever its engine, and its planar mesh gives
     the cell polygons the ``"area"`` method weighs pixels by.
     """
-    sim_window = model.time_grid.window if model.time_grid is not None else None
+    sim_window = simulation_window(model)
     centers = model.solver_mesh.cell_centers()
 
     # Prefer fields; fall back to located points.
@@ -361,12 +360,10 @@ def bind_soil_etp_from_flow(model) -> None:
     behavior, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
     """
     model._soil_etp_source = None
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "etp" not in active:
+    if "etp" not in model.inputs.active_sinks_sources:
         return
 
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+    etp_cfg = model.inputs.etp
     if etp_cfg is None or not etp_cfg.from_soil_reservoir:
         logger.warning(ETP_IGNORED_OUTSIDE_SOIL_MODE)
         return
@@ -537,9 +534,7 @@ def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
                 arr,
                 steady=steady,
                 first_clim=first_clim,
-                durations=getattr(
-                    getattr(model, "time_grid", None), "record_lengths_seconds", None
-                ),
+                durations=getattr(model.inputs.time.grid, "record_lengths_seconds", None),
             )
             return {0: np.asarray(rate)}
         raise ValueError(

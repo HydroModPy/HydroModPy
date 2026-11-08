@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -56,9 +55,9 @@ def build_drainage_spd(
 
     Returns ``None`` when drainage is not activated.
     """
-    if not adapter._is_bc_active("drainage"):
+    if not adapter.model.boundaries.is_active("drainage"):
         return None
-    drainage_boundary = adapter._boundary_conditions.get("drainage")
+    drainage_boundary = adapter.model.boundaries.get("drainage")
     if drainage_boundary is None:
         return None
 
@@ -115,16 +114,14 @@ def build_drainage_spd(
 def build_well_stress_period_data(
     adapter: FlowToModflowAdapter,
 ) -> dict[int, list[list[float]]]:
-    """Normalize flow wells into MODFLOW WEL stress-period format."""
+    """Normalize the wells of the model into MODFLOW WEL stress-period format."""
     if adapter.nper <= 0:
         return {}
 
-    active = getattr(adapter.flow, "active_sinks_sources", [])
-    if "wells" not in active:
+    if "wells" not in adapter.model.active_sinks_sources:
         return {}
 
-    sinks_sources = getattr(adapter.flow, "sinks_sources", {})
-    wells = sinks_sources.get("wells", {}) if isinstance(sinks_sources, Mapping) else {}
+    wells = adapter.model.wells
     if not wells:
         return {}
 

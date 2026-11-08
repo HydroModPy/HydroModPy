@@ -13,8 +13,8 @@ from hydromodpy.model.domain.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 
 

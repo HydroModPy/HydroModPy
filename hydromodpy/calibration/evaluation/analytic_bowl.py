@@ -63,8 +63,8 @@ second configuration surface for the sake of a rehearsal.
 class AnalyticBowlEvaluator:
     """Score a sample against a quadratic bowl over the space being searched.
 
-    Built by :func:`hydromodpy.calibration.evaluation.registry.create`, which
-    binds ``space`` -- the only option this evaluator names. The space is not
+    Built by ``evaluators.create`` of
+    :mod:`hydromodpy.calibration.evaluation.registry`, which binds ``space`` -- the only option this evaluator names. The space is not
     decoration: it carries the bounds and the search space each value has to be
     read against, and without it a cost would be a number about nothing.
     """

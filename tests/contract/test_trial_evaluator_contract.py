@@ -75,7 +75,7 @@ LEGAL_STATUSES = frozenset(TrialStatus.__args__)
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture(params=evaluation_registry.list_evaluator_ids())
+@pytest.fixture(params=evaluation_registry.evaluators.names())
 def evaluator_id(request) -> str:
     """One evaluator id, once per implementation this installation serves."""
     return request.param
@@ -92,9 +92,9 @@ def evaluator_class(evaluator_id: str) -> type:
     defect in the evaluator and the suite is what has to say so.
     """
     try:
-        return evaluation_registry.get(evaluator_id)
+        return evaluation_registry.evaluators.get(evaluator_id)
     except CalibrationError:
-        if evaluator_id in evaluation_registry.builtin_evaluator_ids():
+        if evaluator_id in evaluation_registry.evaluators.names(shipped_only=True):
             pytest.skip(f"{evaluator_id!r} is declared by this build and cannot be loaded here")
         raise
 
@@ -183,7 +183,7 @@ def _config(**overrides: object) -> CalibrationConfig:
 def model_free_evaluator(evaluator_id: str, evaluator_class: type, tmp_path):
     """One built evaluator, or a skip when it declares it needs the model.
 
-    Built through :func:`~hydromodpy.calibration.evaluation.registry.create` with
+    Built through ``evaluators.create`` of the evaluator registry with
     the options the production path offers, and not by calling the class: what is
     under test includes whether the registry can build it at all.
 
@@ -196,7 +196,7 @@ def model_free_evaluator(evaluator_id: str, evaluator_class: type, tmp_path):
             f"{evaluator_id!r} declares it needs a prepared model, so running it means a DEM, "
             "a mesh and a solver. That is the e2e tier; this layer runs what answers without one."
         )
-    return evaluation_registry.create(
+    return evaluation_registry.evaluators.create(
         evaluator_id,
         cfg=_config(evaluator=evaluator_id),
         trial_ctx=None,
@@ -245,7 +245,7 @@ class TestWhatTheClassDeclares:
 
         Not a tautology: an id resolves through a declaration in
         ``_BUILTIN_PATHS`` or an entry-point name, and either can point at a class
-        that calls itself something else. ``resolve_id`` is what stamps a session
+        that calls itself something else. The id of ``get(evaluator_id)`` is what stamps a session
         and keys a cache, so the two spellings would describe different things.
         """
         declared = getattr(evaluator_class, "evaluator_id", None)
@@ -254,7 +254,7 @@ class TestWhatTheClassDeclares:
             f"{evaluator_class!r} declares evaluator_id={declared!r}"
         )
         assert declared == evaluator_id
-        assert evaluation_registry.resolve_id(evaluator_id) == evaluator_id
+        assert evaluation_registry.evaluators.get(evaluator_id).evaluator_id == evaluator_id
 
     def test_whether_it_needs_the_model_is_a_boolean_and_not_something_truthy(
         self, evaluator_id: str, evaluator_class: type
@@ -287,7 +287,7 @@ class TestWhatTheClassDeclares:
     ) -> None:
         """An evaluator asking for what nothing binds is unbuildable, and nothing else says so.
 
-        :func:`~hydromodpy.calibration.evaluation.registry.create` binds only the
+        ``evaluators.create`` binds only the
         parameters a class names, and only from
         :data:`~hydromodpy.calibration.evaluation.registry.CONSTRUCTION_OPTIONS`.
         A parameter outside that vocabulary and without a default is never filled,
@@ -494,7 +494,7 @@ def test_this_installation_serves_an_evaluator_that_answers_without_a_model() ->
     """
     model_free = [
         candidate
-        for candidate in evaluation_registry.list_evaluator_ids()
+        for candidate in evaluation_registry.evaluators.names()
         if not evaluation_registry.needs_prepared_model(candidate)
     ]
 
@@ -519,8 +519,10 @@ def test_the_runner_binds_exactly_the_options_the_registry_publishes() -> None:
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "create"
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "evaluation_registry"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "evaluators"
+        and isinstance(node.func.value.value, ast.Name)
+        and node.func.value.value.id == "evaluation_registry"
     ]
 
     assert len(calls) == 1, f"{len(calls)} evaluator constructions in the runner, expected one"

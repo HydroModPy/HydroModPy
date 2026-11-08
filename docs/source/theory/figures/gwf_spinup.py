@@ -1,20 +1,13 @@
 """When a cyclic spin-up stops, decided by cycles_have_settled."""
 
-from types import SimpleNamespace
-
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.model.initial.config import FlowInitialConditions
-from hydromodpy.model.initial.heads import (
-    cycles_have_settled,
-    cyclic_spinup_strategy,
-)
+from hydromodpy.model.initial.heads import cycles_have_settled
+from hydromodpy.model.initial_config import FlowInitialConditions, initial_state_of
 
-flow = SimpleNamespace(
-    initial_conditions=FlowInitialConditions.model_validate({"h": {"kind": "spinup_cyclic"}})
-)
-strategy = cyclic_spinup_strategy(flow)
+start = initial_state_of(FlowInitialConditions.model_validate({"h": {"kind": "spinup_cyclic"}}))
+strategy = start.strategy
 
 # Heads at the end of each cycle, for 200 cells that drift towards their settled
 # state. Most cells settle fast; a compartment of 10 cells drifts slowly.

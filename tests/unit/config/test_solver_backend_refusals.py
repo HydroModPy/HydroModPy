@@ -11,12 +11,16 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
-from hydromodpy.solver.base import registry
-from hydromodpy.solver.base.registry import capabilities
+from hydromodpy.model.initial.state import PriorState
+from hydromodpy.model.model import ModelTime, model_from_flow
+from hydromodpy.model.supports import INITIAL_STATE_TRAITS
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.solver_contract import assert_supported_runtime_subset
+from tests._helpers.fake_solvers import fake_adapter
+from tests._helpers.model_factory import default_options, small_geometry
 
 # A flow solver name that is neither built in nor a plugin is refused by name.
 #
@@ -44,26 +48,9 @@ def test_an_unknown_flow_solver_is_refused_with_the_valid_names(tmp_path) -> Non
     assert "drainage" not in message
 
 
-def test_a_registered_plugin_flow_solver_is_accepted(tmp_path) -> None:
-    class _Adapter:
-        process_type = "flow"
-        solver_name = "pluginflow"
-        requires: tuple[tuple[str, str], ...] = ()
-
-        def validate(self, ctx): ...
-
-        def execute(self, ctx): ...
-
-        def cleanup(self, ctx): ...
-
-        def extract_observables(self, ctx, store, requests, **kwargs):
-            return {}
-
-    registry.register("flow", "pluginflow", _Adapter)
-    try:
-        cfg = _config(tmp_path, "pluginflow", {})
-    finally:
-        registry.unregister("flow", "pluginflow")
+def test_a_registered_plugin_flow_solver_is_accepted(tmp_path, isolated_solvers) -> None:
+    isolated_solvers.solvers.register(fake_adapter("pluginflow"))
+    cfg = _config(tmp_path, "pluginflow", {})
     assert cfg.solver.backend_name == "pluginflow"
 
 
@@ -110,11 +97,12 @@ def test_a_built_in_transport_solver_is_accepted(tmp_path) -> None:
 # the file declares, produced a perfectly plausible result, and nothing said the
 # antecedent had been dropped.
 #
-# The support is declared as a solver capability rather than listed by name, so a
-# backend added later says what it can do instead of waiting to be added here.
+# The support is a trait the backend lists in its supports rather than a list of
+# names here, so a backend added later says what it can do instead of waiting to
+# be added here.
 
 
-RESTART_CAPABILITY = "flow:restart"
+PRIOR_STATE = INITIAL_STATE_TRAITS[PriorState]
 
 
 def _base_kwargs(tmp_path) -> dict:
@@ -125,10 +113,10 @@ def _base_kwargs(tmp_path) -> dict:
     }
 
 
-def test_only_the_backend_that_reads_it_declares_the_capability() -> None:
-    assert RESTART_CAPABILITY in capabilities("flow", "modflow6")
-    assert RESTART_CAPABILITY not in capabilities("flow", "modflow_nwt")
-    assert RESTART_CAPABILITY not in capabilities("flow", "boussinesq")
+def test_only_the_backend_that_reads_it_lists_the_trait() -> None:
+    assert PRIOR_STATE in solvers.get("flow", "modflow6").supports
+    assert PRIOR_STATE not in solvers.get("flow", "modflow_nwt").supports
+    assert PRIOR_STATE not in solvers.get("flow", "boussinesq").supports
 
 
 @pytest.mark.parametrize("backend", ["modflow_nwt", "boussinesq"])
@@ -223,8 +211,14 @@ def test_lake_on_modflow6_is_accepted(tmp_path) -> None:
 
 def test_boussinesq_solver_contract_rejects_lake_with_typed_error() -> None:
     flow = Flow(FlowConfig(sinks_sources={"lakes": LAKES}))
+    model = model_from_flow(
+        flow,
+        geometry=small_geometry(),
+        time=ModelTime.from_flow(flow, None),
+        options=default_options(),
+    )
     with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        assert_supported_runtime_subset(flow)
+        assert_supported_runtime_subset(model)
     assert "lake" in str(excinfo.value)
     assert excinfo.value.code == "HMPY.E407"
 

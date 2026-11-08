@@ -37,13 +37,12 @@ from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.core.units.physical_bounds import validate_physical_value
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.run_facts import PromotionFacts
 from hydromodpy.solver.base.results_config import ResultsConfig
-from hydromodpy.solver.base.runner import ensure_flow
 from hydromodpy.solver.modflow6.builders.recharge import PRIVATE_TRIAL_RECHARGE_KEY
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
@@ -54,6 +53,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.step import Step  # noqa: F401
+from hydromodpy.workflow.steps.data import ensure_flow
 from hydromodpy.workflow.steps.dependencies import earliest_affected_step
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 from hydromodpy.workflow.steps.mesh import BuildMeshStep
@@ -650,7 +650,7 @@ def _built_model(trial: TrialContext, mesh: SolverMesh) -> SimpleNamespace:
     """The model attributes ``run_pre_processing`` sets before its XT3D decision."""
     ensure_flow(trial.ctx)
     mapped = resolve_flow_property_arrays(
-        flow=trial.ctx.setup.flow,
+        profiles=trial.ctx.setup.flow.parameters,
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
         required_properties=frozenset({"K"}),

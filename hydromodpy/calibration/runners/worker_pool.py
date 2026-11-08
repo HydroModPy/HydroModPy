@@ -63,9 +63,9 @@ def _serve(conn: Connection) -> None:
         if keeps_solves:
             options["trial_ctx"].kept_solves = retention
         # A class registered at run time in the parent is not known to a new process.
-        if not evaluation_registry.is_registered(evaluator_class.evaluator_id):
-            evaluation_registry.register(evaluator_class)
-        evaluator = evaluation_registry.create(evaluator_class.evaluator_id, **options)
+        if evaluator_class.evaluator_id not in evaluation_registry.evaluators.names():
+            evaluation_registry.evaluators.register(evaluator_class)
+        evaluator = evaluation_registry.evaluators.create(evaluator_class.evaluator_id, **options)
         sink = getattr(evaluator, "trial_series_sink", None)
         # The recharge of two builds is compared inside one worker, not across them.
         with recharge_session("worker"):

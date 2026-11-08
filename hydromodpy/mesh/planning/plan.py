@@ -101,7 +101,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
     a tenth of the DEM pixel. The sizes are read again on the cleaned
     geometry. A triangulation read is meshed as it is.
     """
-    graded = registry.get(mesh_cfg.engine).capabilities.graded
+    graded = registry.mesh_engines.get(mesh_cfg.engine).capabilities.graded
     triangulation = inputs.input_triangulation
     pixel = _pixel_size(inputs.dem_grid)
     cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
@@ -148,7 +148,7 @@ def smoothed_catchment(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> Polygon 
     """
     pixel = _pixel_size(inputs.dem_grid)
     cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
-    graded = registry.get(mesh_cfg.engine).capabilities.graded
+    graded = registry.mesh_engines.get(mesh_cfg.engine).capabilities.graded
     smooth = _smoothed_inputs(mesh_cfg, inputs, cleanup, pixel, graded=graded)
     return None if smooth.watershed is inputs.watershed else smooth.watershed
 

@@ -46,10 +46,10 @@ from hydromodpy.model.domain.depth_model_config import (
 )
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig
 from tests.unit.calibration._factories import _Project
 from tests.unit.calibration._factories_config import sinks_project, soil_project
 

@@ -9,12 +9,13 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
+    boussinesq_bundle_model,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
 )
@@ -146,9 +147,8 @@ def run_boussinesq_brutsaert_recession_case(
     )
     steady_model = Boussinesq(
         mesh_bundle=bundle,
-        flow=steady_flow,
-        domain=None,
-        time_grid=None,
+        model=boussinesq_bundle_model(steady_flow),
+        runtime=steady_flow.config.runtime,
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq_steady",
     )
@@ -189,14 +189,16 @@ def run_boussinesq_brutsaert_recession_case(
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
     transient_model = Boussinesq(
         mesh_bundle=bundle,
-        flow=transient_flow,
-        domain=None,
-        time_grid=SimpleNamespace(
-            period_lengths_seconds=period_lengths_seconds,
-            window=None,
-            # Same time steps as MODFLOW: the recession rate drops by a dt / 2.
-            nstp_per_period=_case_steps_per_period(case_dir),
+        model=boussinesq_bundle_model(
+            transient_flow,
+            time_grid=SimpleNamespace(
+                period_lengths_seconds=period_lengths_seconds,
+                window=None,
+                # Same time steps as MODFLOW: the recession rate drops by a dt / 2.
+                nstp_per_period=_case_steps_per_period(case_dir),
+            ),
         ),
+        runtime=transient_flow.config.runtime,
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )

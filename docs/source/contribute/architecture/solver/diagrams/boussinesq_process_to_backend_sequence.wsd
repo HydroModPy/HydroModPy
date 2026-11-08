@@ -2,7 +2,7 @@
 title Boussinesq Solver - Process To Backend Sequence
 
 actor Project
-participant Flow
+participant Model
 participant "Boussinesq" as Solver
 participant "BoussinesqSolverContract" as Contract
 participant "catalog" as Selection
@@ -12,7 +12,7 @@ participant "BoussinesqState" as State
 
 Project -> Solver : processing(run_model=True)
 Solver -> Solver : _build_initial_state()
-Solver -> Contract : _resolve_solver_contract(flow)
+Solver -> Contract : _resolve_solver_contract()
 Contract -> Selection : resolve_runtime_backend(...)
 Selection --> Contract : BoussinesqRuntimeBackend
 Contract --> Solver : resolved contract
@@ -31,8 +31,8 @@ end
 Solver -> State : from_runtime(...)
 Solver -> Solver : post_processing()
 
-note over Flow, Solver
-Flow stays solver-agnostic.
+note over Model, Solver
+The frozen Model stays solver-agnostic.
 The Boussinesq driver translates
 that process definition into
 cell-wise arrays and one explicit

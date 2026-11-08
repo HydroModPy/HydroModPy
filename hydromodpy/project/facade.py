@@ -99,7 +99,7 @@ if TYPE_CHECKING:
         ResolvedSteadySimulationTimeGrid,
     )
     from hydromodpy.model.domain.domain import Domain
-    from hydromodpy.model.initial.spinup_config import SpinupConfig
+    from hydromodpy.model.initial_config import SpinupConfig
     from hydromodpy.project.launch import LaunchReport, StatusReport
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths

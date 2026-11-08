@@ -1,23 +1,26 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import numpy as np
 import pytest
 
 from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.catchment.surface import Surface
+from hydromodpy.core.exceptions import MeshError
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.domain.geometry import RasterGeometry
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
+from hydromodpy.model.model import Geometry, ModelTime
+from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import cell_mesh_of
+from tests._helpers.model_factory import make_model, small_geometry
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 
@@ -30,6 +33,16 @@ class _DummyGeographic:
         self.dem_data = np.asarray(dem, dtype=float)
         self.watershed_box_buff_dem = "dummy_box.tif"
         self.watershed_buff_dem = "dummy_buff.tif"
+
+
+def _model(dem: np.ndarray, *, domain=None, cells=None, **members):
+    """A model on the raster grid of ``dem``, with the domain and the cells given."""
+    geometry = Geometry(
+        cells=cells,
+        domain=domain,
+        raster=RasterGeometry.from_geographic(_DummyGeographic(dem)),
+    )
+    return make_model(geometry=geometry, **members)
 
 
 def _build_surface(
@@ -67,24 +80,20 @@ def _build_domain_from_dem(dem: np.ndarray) -> Domain:
 
 def test_modflow_requires_domain_object_for_spatial_geometry():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
 
-    model = ModflowNwt(
-        geographic=geo,
-        model_folder=".",
-    )
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(dem)
     with pytest.raises(ValueError, match="domain-only: a Domain object is required"):
         model._get_domain_surfaces()
 
 
 def test_modflow_domain_surfaces_are_required():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
     domain = _build_domain_from_dem(dem)
 
     domain.substratum = None
-    model = ModflowNwt(geographic=geo, model_folder=".")
-    model.domain = domain
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(dem, domain=domain)
     with pytest.raises(
         ValueError,
         match="domain.surface_topo and domain.substratum are required",
@@ -94,7 +103,6 @@ def test_modflow_domain_surfaces_are_required():
 
 def test_modflow_validates_domain_support_match_on_surface_build():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
     domain = _build_domain_from_dem(dem)
     domain.substratum = _build_surface(
         np.array([[1.0, 2.0], [3.0, 4.0]], dtype=float),
@@ -102,11 +110,8 @@ def test_modflow_validates_domain_support_match_on_surface_build():
         name="substratum",
     )
 
-    model = ModflowNwt(
-        geographic=geo,
-        model_folder=".",
-    )
-    model.domain = domain
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(dem, domain=domain)
 
     with pytest.raises(ValueError, match="Domain extent mismatch"):
         model._get_domain_surfaces()
@@ -213,9 +218,7 @@ def test_a_triangle_mesh_keeps_its_cells():
 
 def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    model = ModflowNwt(geographic=_DummyGeographic(dem), model_folder=".")
-    model.domain = _build_domain_from_dem(dem)
-    model.cell_mesh = cell_mesh_of(
+    triangles = cell_mesh_of(
         HydroMesh(
             vertices=np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
             cell_blocks=(
@@ -223,6 +226,8 @@ def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
             ),
         )
     )
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(dem, domain=_build_domain_from_dem(dem), cells=triangles)
 
     with pytest.raises(ValueError, match="requires a structured grid"):
         model._build_spatial_discretization()
@@ -230,13 +235,14 @@ def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
 
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
-    model = ModflowNwt(geographic=geo, model_folder=".")
-    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="transient"))
-    model.domain = object()
-    model.sgrid_config = object()
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(
+        dem,
+        domain=object(),
+        cells=small_geometry().cells,
+        time=ModelTime(grid=None, regime="transient", first_period_steady=True),
+    )
     model._apply_preprocess_options(model.preprocess_options)
-    model.flow.config.flow_regime = "transient"
 
     with pytest.raises(
         ValueError,
@@ -247,12 +253,57 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
 
 def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    geo = _DummyGeographic(dem)
-    model = ModflowNwt(geographic=geo, model_folder=".")
-    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
-    model.domain = object()
-    model.sgrid_config = object()
+    model = ModflowNwt(model_folder=".")
+    model.inputs = _model(dem, domain=object(), cells=small_geometry().cells)
     model._apply_preprocess_options(model.preprocess_options)
 
     # Steady flow should not require a time_grid; method must return None.
     assert model._validate_pre_processing_inputs() is None
+    assert model.flow_regime == "steady"
+
+
+@pytest.mark.parametrize(
+    ("members", "error", "match"),
+    [
+        ({"inputs": None}, ValueError, "requires a Model"),
+        ({"domain": None}, ValueError, "requires a configured Domain object"),
+        ({"cells": None}, MeshError, r"Model\.geometry\.cells"),
+        ({"raster": None}, ValueError, r"Model\.geometry\.raster is missing"),
+    ],
+    ids=["no_model", "no_domain", "no_cell_mesh", "no_raster"],
+)
+def test_pre_processing_refuses_a_model_that_lacks_what_nwt_builds_on(members, error, match):
+    model = ModflowNwt(model_folder=".")
+    if "inputs" not in members:
+        geometry = {"cells": small_geometry().cells, "domain": object(), "raster": object()}
+        geometry.update(members)
+        model.inputs = make_model(geometry=Geometry(**geometry))
+    model._apply_preprocess_options(model.preprocess_options)
+
+    with pytest.raises(error, match=match):
+        model._validate_pre_processing_inputs()
+
+
+@pytest.mark.parametrize(
+    ("box", "shape", "path"),
+    [(True, (3, 4), "box.tif"), (False, (2, 2), "watershed.tif")],
+    ids=["box", "watershed"],
+)
+def test_the_dem_grid_is_read_off_the_raster_geometry(box, shape, path):
+    geographic = _DummyGeographic(np.zeros((2, 2)))
+    geographic.dem_box_buff_data = np.zeros((3, 4))
+    geographic.dem_res = 25.0
+    geographic.xmin, geographic.ymax = 100.0, 200.0
+    geographic.watershed_box_buff_dem, geographic.watershed_buff_dem = "box.tif", "watershed.tif"
+    model = ModflowNwt(model_folder=".", preprocess_options=ModflowPreprocessOptions(box=box))
+    model.inputs = make_model(
+        geometry=Geometry(
+            cells=None, domain=None, raster=RasterGeometry.from_geographic(geographic)
+        )
+    )
+
+    model._read_the_dem_grid()
+
+    assert (model.nrow, model.ncol) == shape
+    assert model.dem_watershed_path == path
+    assert (model.resolution, model.xul, model.yul) == (25.0, 100.0, 200.0)

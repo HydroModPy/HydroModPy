@@ -206,6 +206,7 @@ class TrialContext:
 
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
+        new_setup.model = None
         new_setup.transport = None
         new_setup.flow_runtime_overrides = (
             dict(flow_runtime_overrides) if flow_runtime_overrides else None

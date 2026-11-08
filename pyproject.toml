@@ -153,32 +153,35 @@ dev = [
 hmp = "hydromodpy.cli.main:main"
 hydromodpy = "hydromodpy.cli.main:main"
 
-# The "hydromodpy.solver" and "hydromodpy.solver.extractor" entry-point groups
-# are the out-of-tree plugin surface. In-tree backends are declared once, in
-# hydromodpy.solver.base.registry, so a backend never carries two names.
+# Seven entry-point groups are the out-of-tree plugin surface. Each is read by
+# one instance of hydromodpy.core.plugin_registry.PluginRegistry, and the
+# in-tree classes are declared once, in the same module, so a plugin never
+# carries two names. An entry-point name must equal the id its class declares,
+# and a name this build already ships is refused.
 #
-# "hydromodpy.data.source" is the same surface for data sources, read by
-# hydromodpy.data.source.registry, and in-tree sources are declared once there
-# for the same reason. An entry-point name must equal the source_id its class
-# declares, and a name this build already ships is refused.
+# "hydromodpy.solver" and "hydromodpy.solver.extractor" are read by
+# hydromodpy.solver.base.registry.solvers and .extractors. A backend is named
+# <process_type>_<name>, for example flow_modflow6, and its adapter class
+# declares the attributes the solver port lists.
 #
-# "hydromodpy.terrain.engine" is the third, read by
-# hydromodpy.catchment.terrain.registry, under the same three rules. It is what
-# [geographic] terrain_engine names, so a flow-routing
-# engine is substituted from outside without a patch to this package.
+# "hydromodpy.data.source" is read by hydromodpy.data.source.registry.data_sources.
 #
-# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.mesh.registry,
-# under the same three rules. It is what [mesh] engine names, so a mesh engine
-# (regular, triangle and voronoi ship in-tree) is substituted the same way.
+# "hydromodpy.terrain.engine" is read by
+# hydromodpy.catchment.terrain.registry.terrain_engines. It is what
+# [geographic] terrain_engine names, so a flow-routing engine is substituted
+# from outside without a patch to this package.
+#
+# "hydromodpy.mesh.engine" is read by hydromodpy.mesh.registry.mesh_engines. It
+# is what [mesh] engine names, so a mesh engine (regular, triangle and voronoi
+# ship in-tree) is substituted the same way.
 #
 # "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
-# are the two of the calibration, read by
-# hydromodpy.calibration.evaluation.registry and by
-# hydromodpy.calibration.evaluation.forward_registry. The first turns a
-# parameter sample into a cost and is named by [calibration] evaluator; the
-# second answers the observables [calibration.outputs] declares and is named by
-# [calibration] forward_model, so a foreign model is scored by the criteria of
-# the document and brings none of its own.
+# are read by hydromodpy.calibration.evaluation.registry.evaluators and by
+# hydromodpy.calibration.evaluation.forward_registry.forward_models. The first
+# turns a parameter sample into a cost and is named by [calibration] evaluator;
+# the second answers the observables [calibration.outputs] declares and is named
+# by [calibration] forward_model, so a foreign model is scored by the criteria
+# of the document and brings none of its own.
 
 [project.urls]
 Homepage = "https://docs.hydromodpy.fr/"

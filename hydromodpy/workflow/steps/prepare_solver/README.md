@@ -2,8 +2,9 @@
 
 The step that turns a built model into a run on disk: it plans the simulation, binds
 the pipeline to its run directory, records the facts of the run, persists the inputs
-and freezes the configuration into `config.toml` and `config.resolved.toml`.
-`PrepareSolverStep` lives in `step.py`.
+and freezes the configuration into `config.toml` and `config.resolved.toml`. It also
+freezes the `Flow` of the run into the `Model` that a solver adapter reads, once per
+run, on `setup.model`. `PrepareSolverStep` lives in `step.py`.
 
 ## Import rules
 
@@ -14,12 +15,13 @@ Same as `steps/`: `workflow` may import every layer below it
 
 ## Modules
 
-In the order a run reaches them: `step` plans, `dispatch` opens the run (it calls `facts`, `freeze`, `resolved` and `prepare`), then `step` persists the provenance and the forcings.
+In the order a run reaches them: `step` plans, `dispatch` opens the run (it calls `facts`, `freeze`, `resolved` and `prepare`), `model` builds the `Model`, then `step` persists the parameters, the provenance and the forcings. A run that writes nothing, such as a calibration trial, skips the run directory and still builds its `Model`.
 
 | module | what it answers |
 |---|---|
 | `step.py` | `PrepareSolverStep`: the order of the work below |
 | `dispatch.py` | binds the pipeline to its run directory and records what the run was built from (`bind_run_directory`, `initial_facts`, `step_open_run`) |
+| `model.py` | freezes the `Flow` into the `Model`, reads the earlier run a hotstart names and refuses a different mesh before the solve (`step_build_model`) |
 | `restart.py` | `[flow] restart_from` by reference: a run name, a `sim_id` or a path (`resolve_restart_source`) |
 | `facts.py` | the facts of the run, the config snapshot and the artifact paths (`collect_run_facts`, `store_sim_artifacts`) |
 | `freeze.py` | freezes the configuration the run was built from (`freeze_run_config`) |
@@ -33,6 +35,7 @@ In the order a run reaches them: `step` plans, `dispatch` opens the run (it call
 prepare_solver/
   step.py       PrepareSolverStep
   dispatch.py   open the run
+  model.py      build the Model
   restart.py    restart source
   facts.py      facts of the run
   freeze.py     freeze the config

@@ -14,7 +14,8 @@ the sum is restricted to the basin of D the build stored on the model. A model
 without one falls back on the old support ``polygon_covers``: the cells whose
 center the catchment polygon covers.
 
-The polygon is read by
+Where the catchment closes is ``Model.geometry.catchment``
+(``CatchmentGeometry``), which a solver keeps as ``inputs``. The polygon is read by
 :func:`hydromodpy.catchment.preprocess.delineated_catchment.catchment_outline`,
 against the mesh of the model: the outline the planner smoothed when the mesh
 follows it, so a cell and the polygon agree, else the delineated polygon.
@@ -51,7 +52,7 @@ __all__ = [
 logger = get_logger(__name__)
 
 
-def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
+def polygon_cell_mask(catchment: object | None, solver_mesh: Any) -> np.ndarray | None:
     """Cells whose center the catchment polygon covers, None without a polygon.
 
     The old support ``polygon_covers``. The build compares the basin of D with
@@ -60,7 +61,7 @@ def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray
     """
     import shapely
 
-    frame = catchment_outline(geographic, solver_mesh.cell_mesh)
+    frame = catchment_outline(catchment, solver_mesh.cell_mesh)
     if frame is None:
         return None
     polygon = frame.geometry.union_all()
@@ -69,7 +70,7 @@ def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray
     return np.asarray(shapely.covers(polygon, shapely.points(centroids)), dtype=bool)
 
 
-def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
+def polygon_cell_fraction(catchment: object | None, solver_mesh: Any) -> np.ndarray | None:
     """Share of each cell's area inside the catchment polygon, None without one.
 
     The weight of a catchment total of a spatial quantity (GSFLOW practice):
@@ -82,14 +83,14 @@ def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.nda
     from hydromodpy.mesh.cells.in_polygons import cell_area_fraction
     from hydromodpy.mesh.planar.geometry import cell_polygons
 
-    frame = catchment_outline(geographic, solver_mesh.cell_mesh)
+    frame = catchment_outline(catchment, solver_mesh.cell_mesh)
     if frame is None:
         return None
     if frame.crs is None:
         logger.warning(
             "The catchment polygon %s declares no CRS, so the run stores no catchment "
             "fraction and its catchment totals count a boundary cell whole.",
-            getattr(geographic, "watershed_shp", "?"),
+            getattr(catchment, "watershed_shp", "?"),
         )
         return None
     polygons = cell_polygons(
@@ -99,6 +100,12 @@ def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.nda
     return cell_area_fraction(
         polygons, list(frame.geometry), mesh_crs=frame.crs, geometry_crs=frame.crs
     )
+
+
+def _catchment_of(model: Any) -> object | None:
+    """Where the catchment closes, ``Model.geometry.catchment`` of the solver object, or None."""
+    geometry = getattr(getattr(model, "inputs", None), "geometry", None)
+    return getattr(geometry, "catchment", None)
 
 
 def catchment_cell_mask(model: Any) -> np.ndarray:
@@ -125,8 +132,8 @@ def catchment_cell_mask(model: Any) -> np.ndarray:
             int(basin.outlet),
         )
         return mask
-    geographic = getattr(model, "geographic", None)
-    if getattr(geographic, "catch_def", None) == SYNTHETIC_CATCH_DEF:
+    catchment = _catchment_of(model)
+    if getattr(catchment, "catch_def", None) == SYNTHETIC_CATCH_DEF:
         return _synthetic_domain_support(model)
     if basin is None:
         logger.warning(
@@ -157,12 +164,12 @@ def _synthetic_domain_support(model: Any) -> np.ndarray:
 
 def _polygon_support(model: Any) -> np.ndarray:
     """The old support ``polygon_covers``, refused without a polygon or a mesh."""
-    geographic = getattr(model, "geographic", None)
-    shp = getattr(geographic, "watershed_shp", None)
+    catchment = _catchment_of(model)
+    shp = getattr(catchment, "watershed_shp", None)
     if not shp or not os.path.exists(str(shp)):
         raise ValueError(
             "a discharge observable needs the delineated catchment to know which water "
-            f"the gauge closes on, and geographic.watershed_shp points to nothing ({shp!r}). "
+            f"the gauge closes on, and the catchment watershed_shp points to nothing ({shp!r}). "
             "The model domain is not the catchment on a buffered grid: summing the drain "
             "over the domain would score the neighbouring basins too."
         )
@@ -172,7 +179,7 @@ def _polygon_support(model: Any) -> np.ndarray:
             "a discharge observable needs the solver mesh to place the catchment on the "
             "cells, and this model carries none."
         )
-    mask = polygon_cell_mask(geographic, solver_mesh)
+    mask = polygon_cell_mask(catchment, solver_mesh)
     if mask is None:
         raise ValueError(f"the delineated catchment {shp!r} holds no geometry.")
     if not mask.any():
@@ -190,7 +197,7 @@ def _polygon_support(model: Any) -> np.ndarray:
     return mask
 
 
-def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> DescentBasin:
+def run_basin(catchment: object | None, solver_mesh: Any, descent: Descent) -> DescentBasin:
     """Return the basin of D at the catchment outlet, the one call of this build.
 
     The outlet is searched near the point the catchment was closed on (the
@@ -206,8 +213,8 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
     cells of the basin as they are.
     """
     areas = finite_cell_areas(solver_mesh)
-    near, within = outlet_search(geographic, solver_mesh, descent)
-    seeded = domain_is_the_catchment(geographic) and (near is not None or within is not None)
+    near, within = outlet_search(catchment, solver_mesh, descent)
+    seeded = domain_is_the_catchment(catchment) and (near is not None or within is not None)
     basin = descent_basin(
         descent, cell_area_m2=areas, near=near, within=within, seeded_at_outlet=seeded
     )
@@ -228,7 +235,7 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
     )
     _count_constant_head_sinks(descent, basin, within, areas)
     if basin.is_catchment:
-        fraction = polygon_cell_fraction(geographic, solver_mesh)
+        fraction = polygon_cell_fraction(catchment, solver_mesh)
         if fraction is not None:
             basin = replace(basin, catchment_fraction=fraction)
             _report_the_fraction(basin, fraction, areas)
@@ -250,10 +257,10 @@ def _report_the_fraction(basin: DescentBasin, fraction: np.ndarray, areas: np.nd
     )
 
 
-def domain_is_the_catchment(geographic: object | None) -> bool:
+def domain_is_the_catchment(catchment: object | None) -> bool:
     """Whether the active domain is the catchment itself, so D floods from its outlet."""
     # A synthetic geographic has no delineated extent: its domain is a box.
-    return getattr(geographic, "domain_extent", "box") == "watershed"
+    return getattr(catchment, "domain_extent", "box") == "watershed"
 
 
 def finite_cell_areas(solver_mesh: Any) -> np.ndarray:
@@ -263,22 +270,22 @@ def finite_cell_areas(solver_mesh: Any) -> np.ndarray:
 
 
 def outlet_search(
-    geographic: object | None, solver_mesh: Any, descent: Descent
+    catchment: object | None, solver_mesh: Any, descent: Descent
 ) -> tuple[tuple[float, float] | None, np.ndarray | None]:
     """Return ``(near, within)``: the closing point and the routable polygon cells."""
-    within = polygon_cell_mask(geographic, solver_mesh)
+    within = polygon_cell_mask(catchment, solver_mesh)
     if within is not None:
         within = within & descent.routable
         if not np.any(within):
             within = None
-    return _catchment_outlet_xy(geographic), within
+    return _catchment_outlet_xy(catchment), within
 
 
-def _catchment_outlet_xy(geographic: object | None) -> tuple[float, float] | None:
+def _catchment_outlet_xy(catchment: object | None) -> tuple[float, float] | None:
     """The point the catchment was closed on: the snapped outlet, else the declared one."""
     for x_name, y_name in (("x_outlet_snapped", "y_outlet_snapped"), ("x_outlet", "y_outlet")):
-        x = getattr(geographic, x_name, None)
-        y = getattr(geographic, y_name, None)
+        x = getattr(catchment, x_name, None)
+        y = getattr(catchment, y_name, None)
         if x is None or y is None:
             continue
         point = (float(x), float(y))

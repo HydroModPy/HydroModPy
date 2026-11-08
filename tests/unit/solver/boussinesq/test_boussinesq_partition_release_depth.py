@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual,
@@ -49,7 +48,7 @@ def test_default_depth_scale_is_a_flow_field_in_metres() -> None:
     assert FlowConfig().runtime.partition_release_depth_m == DEPTH_M == 0.05
     assert (
         build_runtime_options(
-            Flow(FlowConfig(runtime={"partition_release_depth_m": 0.02}))
+            FlowConfig(runtime={"partition_release_depth_m": 0.02}).runtime
         ).regularization_radius
         == 0.02
     )

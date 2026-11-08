@@ -4,7 +4,7 @@
 any member as an override. ``fake_engine`` makes a new engine class that builds
 the regular grid of the request under its own identity and counts its builds;
 ``registered`` keeps one in the mesh registry for a ``with`` block.
-``patch_builtin_engines`` makes ``registry.get`` answer the capabilities of the
+``patch_builtin_engines`` makes ``mesh_engines.get`` answer the capabilities of the
 three built-in engines without importing them, which is all the planner reads.
 Not public API.
 """
@@ -113,15 +113,15 @@ def fake_engine(
 @contextmanager
 def registered(engine: type) -> Iterator[type]:
     """Keep *engine* in the mesh registry for the ``with`` block, then unregister it."""
-    registry.register(engine)
+    registry.mesh_engines.register(engine)
     try:
         yield engine
     finally:
-        registry.unregister(engine.engine_id)
+        registry.mesh_engines.unregister(engine.engine_id)
 
 
 def patch_builtin_engines(monkeypatch: pytest.MonkeyPatch) -> dict[str, SimpleNamespace]:
-    """Make ``registry.get`` answer the capabilities of the built-in engines, without importing them.
+    """Make ``mesh_engines.get`` answer the capabilities of the built-in engines, without importing them.
 
     Only ``capabilities`` is set on each stand-in, so a test that builds a mesh
     does not use this patch.
@@ -131,5 +131,5 @@ def patch_builtin_engines(monkeypatch: pytest.MonkeyPatch) -> dict[str, SimpleNa
         "triangle": SimpleNamespace(capabilities=builtin_capabilities(graded=True)),
         "voronoi": SimpleNamespace(capabilities=builtin_capabilities(graded=True)),
     }
-    monkeypatch.setattr(registry, "get", lambda engine_id=None: engines[engine_id])
+    monkeypatch.setattr(registry.mesh_engines, "get", lambda engine_id=None: engines[engine_id])
     return engines

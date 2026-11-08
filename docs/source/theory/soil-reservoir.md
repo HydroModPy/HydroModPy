@@ -434,7 +434,12 @@ The tests that import the code of this page. The box is generated, so a new test
 the next build.
 
 ```{hmp-tested-by}
-hydromodpy.model.soil
+hydromodpy.model.soil.kernel
+hydromodpy.model.forcing.soil_budget
+hydromodpy.model.forcing.soil_columns
+hydromodpy.model.forcing.soil_config
+hydromodpy.model.forcing.soil_forcing
+hydromodpy.model.forcing.soil_grids
 ```
 
 ## In the code
@@ -443,8 +448,8 @@ hydromodpy.model.soil
 |---|---|
 | The daily step and the balance | `hydromodpy/model/soil/kernel.py` (`soil_step`, `run_soil_balance`, `balance_residual`) |
 | The starting state | the same file, `spinup_state` |
-| What a file may say, and its ranges | `hydromodpy/model/soil/config.py` |
-| Grids in, columns, grids out | `hydromodpy/model/soil/` (`grids.py`, `columns.py`, `recharge.py`, `budget.py`) |
+| What a file may say, and its ranges | `hydromodpy/model/forcing/soil_config.py` |
+| Grids in, columns, grids out | `hydromodpy/model/forcing/` (`soil_grids.py`, `soil_columns.py`, `soil_forcing.py`, `soil_budget.py`) |
 
 ## See also
 

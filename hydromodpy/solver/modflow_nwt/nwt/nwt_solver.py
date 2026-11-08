@@ -14,7 +14,6 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
 
 import flopy
 import numpy as np
@@ -24,8 +23,8 @@ from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_o
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.model.time.regime import normalize_flow_regime
-from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.model.initial.state import SteadyStart
+from hydromodpy.model.model import Model
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
     build_solver_routing_context,
@@ -35,6 +34,7 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
@@ -60,12 +60,8 @@ from .nwt_config import (
 )
 from .steady_initial_conditions import (
     apply_nwt_steady_state_initial_heads,
-    flow_uses_steady_state_initial_condition,
     run_nwt_steady_state_initialization,
 )
-
-if TYPE_CHECKING:
-    from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
@@ -77,6 +73,8 @@ class ModflowNwt:
     """MODFLOW-NWT solver lifecycle facade.
 
     Drives pre-processing and processing for the MODFLOW-NWT backend.
+    ``pre_processing`` receives the frozen ``Model`` of the run and keeps it in
+    ``inputs``. The solver reads it and never changes it.
     Heavy concern-specific work is delegated to:
 
     - ``_pre_processing.assemble_flopy_packages`` for FLOPY package wiring,
@@ -86,7 +84,6 @@ class ModflowNwt:
 
     def __init__(
         self,
-        geographic: object,
         modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
@@ -97,8 +94,6 @@ class ModflowNwt:
 
         Parameters
         ----------
-        geographic : object
-            Geographic context built by HydroModPy.
         model_folder : str, optional
             Path where the model will be stored. Default is ``HydroModPy_outputs``.
         model_name : str, optional
@@ -121,15 +116,15 @@ class ModflowNwt:
         self.exe = str(ensure_solver_binary("mfnwt", bin_path))
         self.full_path = os.path.join(model_folder, model_name)
 
-        self.geographic = geographic
-        self.flow = None
-        self.domain = None
+        # The Model of the run, set by pre_processing and never written to.
+        self.inputs: Model | None = None
         self.flow_regime: str | None = None
         self.last_flow_solve_time_seconds: float | None = None
 
-        self.resolution = geographic.dem_res
-        self.xul = geographic.xmin
-        self.yul = geographic.ymax
+        # The DEM grid, read off ``inputs.geometry.raster`` by pre_processing.
+        self.resolution: float | None = None
+        self.xul: float | None = None
+        self.yul: float | None = None
         self.sink: np.ndarray | None = None
 
         if preprocess_options is None:
@@ -148,8 +143,6 @@ class ModflowNwt:
         self._params: ModflowSpecifParams = specif_params
         self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
         self.grid_ctx: SolverGridContext | None = None
-        # The regular cell mesh the grid is extruded from, set by pre_processing.
-        self.cell_mesh: PlanarCellMesh | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         self.descent: Descent | None = None
         # The basin of D at the catchment outlet, set with D.
@@ -164,12 +157,13 @@ class ModflowNwt:
 
     def _select_active_dem(self, box: bool) -> None:
         """Select and normalize the active DEM support for the simulation."""
+        raster = self.inputs.geometry.raster
         if box:
-            dem_source = self.geographic.dem_box_buff_data
-            self.dem_watershed_path = self.geographic.watershed_box_buff_dem
+            dem_source = raster.dem_box_buff_data
+            self.dem_watershed_path = raster.watershed_box_buff_dem
         else:
-            dem_source = self.geographic.dem_data
-            self.dem_watershed_path = self.geographic.watershed_buff_dem
+            dem_source = raster.dem_data
+            self.dem_watershed_path = raster.watershed_buff_dem
 
         self.box = bool(box)
         dem = np.asarray(dem_source, dtype=float).copy()
@@ -191,44 +185,35 @@ class ModflowNwt:
         self.drain_conductance_floor_m2_s = float(options.drain_conductance_floor_m2_s)
         self.time_grid = getattr(options, "time_grid", None)
         self.check_grid = bool(options.check_grid)
-        self._select_active_dem(box=bool(options.box))
 
     def _get_domain_surfaces(self):
         """Return explicit domain surfaces used by the MODFLOW spatial grid."""
         return resolve_domain_surfaces(
-            domain=self.domain,
+            domain=self.inputs.geometry.domain,
         )
 
-    def _resolve_flow_regime(self) -> str | None:
-        """Return the flow regime from flow config when available."""
-        if self.flow is None:
-            return None
-
-        flow_regime = None
-        flow_cfg = getattr(self.flow, "config", None)
-        if flow_cfg is not None:
-            flow_regime = getattr(flow_cfg, "flow_regime", None)
-        if flow_regime is None:
-            flow_regime = getattr(self.flow, "flow_regime", None)
-        if flow_regime is None:
-            return None
-
-        return normalize_flow_regime(flow_regime)
+    def _read_the_dem_grid(self) -> None:
+        """Read the pixel size and the origin of the DEM grid, and pick the active DEM."""
+        raster = self.inputs.geometry.raster
+        self.resolution = raster.dem_res
+        self.xul = raster.xmin
+        self.yul = raster.ymax
+        self._select_active_dem(box=bool(self.preprocess_options.box))
 
     def _validate_pre_processing_inputs(self) -> None:
         """Validate mandatory inputs before MODFLOW package assembly."""
-        if self.flow is None:
-            raise ValueError("pre_processing requires a configured Flow object.")
-        if self.domain is None:
+        if self.inputs is None:
+            raise ValueError("pre_processing requires a Model.")
+        geometry = self.inputs.geometry
+        if geometry.domain is None:
             raise ValueError("pre_processing requires a configured Domain object.")
-
-        flow_regime = self._resolve_flow_regime()
-        if flow_regime is None:
+        require_cell_mesh(self.inputs)
+        if geometry.raster is None:
             raise ValueError(
-                "Missing flow.flow_regime configuration: ModflowNwt temporal setup "
-                "must be driven by [flow].flow_regime."
+                "MODFLOW-NWT builds its grid on the DEM of the run, and Model.geometry.raster "
+                "is missing."
             )
-        self.flow_regime = flow_regime
+        self.flow_regime = self.inputs.time.regime
 
         launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
         if launcher_time_grid is None and self.flow_regime != "steady":
@@ -270,9 +255,7 @@ class ModflowNwt:
         result = build_temporal_discretization_from_time_grid(
             time_grid=launcher_time_grid,
             flow_regime=self.flow_regime,
-            first_period_steady=resolve_first_period_steady(
-                flow=getattr(self, "flow", None),
-            ),
+            first_period_steady=resolve_first_period_steady(model=self.inputs),
         )
 
         self.dis_itmuni = result.itmuni
@@ -289,13 +272,14 @@ class ModflowNwt:
 
         A grid with a vertical pass-through cell is refused: NWT has none.
         """
-        if self.cell_mesh.structured_shape is None:
+        geometry = self.inputs.geometry
+        if geometry.cells.structured_shape is None:
             raise ValueError("MODFLOW NWT requires a structured grid")
         self.grid_ctx = build_spatial_discretization(
-            domain=self.domain,
-            vertical_config=self.domain.config.layers,
+            domain=geometry.domain,
+            vertical_config=geometry.domain.config.layers,
             sgrid_config=self.sgrid_config,
-            cell_mesh=self.cell_mesh,
+            cell_mesh=geometry.cells,
         )
         self.solver_mesh = self.grid_ctx.solver_mesh
         if (self.solver_mesh.idomain < 0).any():
@@ -346,17 +330,14 @@ class ModflowNwt:
         if self.grid_ctx is None:
             raise ValueError("grid_ctx must exist before building solver routing products")
 
-        from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-
-        # A geographic object without the key conditions the DEM as the config would.
-        default = GeographicConfig.model_fields["dem_correc_type"].default
+        raster = self.inputs.geometry.raster
         self.routing_ctx = build_solver_routing_context(
             dem_path=self.dem_watershed_path,
             output_dir=os.path.join(self.full_path, "_solver_routing"),
-            dem_correc_type=str(getattr(self.geographic, "dem_correc_type", default)),
-            crs_project=getattr(self.geographic, "crs_proj", None),
-            engine_id=getattr(self.geographic, "terrain_engine", None),
-            capped_breach=capped_breach_of(self.geographic),
+            dem_correc_type=raster.dem_correc_type,
+            crs_project=raster.crs_proj,
+            engine_id=raster.terrain_engine,
+            capped_breach=capped_breach_of(raster),
         )
         return self.routing_ctx
 
@@ -376,6 +357,7 @@ class ModflowNwt:
         D without its adjacency, and an auxiliary model (the steady
         initialization) builds none.
         """
+        geometry = self.inputs.geometry
         if self.auxiliary:
             self.descent = None
             self.descent_basin = None
@@ -392,11 +374,11 @@ class ModflowNwt:
             solver_mesh,
             lake_cells_by_lake={},
             base_level_mask=constant_head,
-            channel_tree=channel_tree_for_run(self.geographic, solver_mesh),
+            channel_tree=channel_tree_for_run(geometry.raster.channel, solver_mesh),
             active_column=(ibound_cells != 0).any(axis=0),
-            geographic=self.geographic,
+            geographic=geometry.catchment,
         )
-        self.descent_basin = run_basin(self.geographic, solver_mesh, descent)
+        self.descent_basin = run_basin(geometry.catchment, solver_mesh, descent)
         write_descent_sidecar(descent, self.full_path, self.model_name, basin=self.descent_basin)
         self.descent = descent.without_adjacency()
         return self.descent
@@ -422,10 +404,9 @@ class ModflowNwt:
         )
 
     def _build_flow_modflow_inputs(self, solver_mesh):
-        """Adapt Flow + Domain data into solver-ready payloads."""
+        """Adapt the Model into solver-ready payloads."""
         adapter = FlowToModflowAdapter(
-            flow=self.flow,
-            domain=self.domain,
+            model=self.inputs,
             solver_mesh=solver_mesh,
             nper=int(self.nper),
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
@@ -438,43 +419,38 @@ class ModflowNwt:
             drain_band_depth_m=float(self.drain_band_depth_m),
             drain_bed_thickness_m=float(self.drain_bed_thickness_m),
             drain_conductance_floor_m2_s=float(self.drain_conductance_floor_m2_s),
-            flow_runtime_overrides=getattr(self, "flow_runtime_overrides", None),
         )
         return adapter.build()
 
     def pre_processing(
         self,
-        flow: object,
-        domain: DomainLike,
+        model: Model,
         options: ModflowPreprocessOptions | None = None,
         *,
-        cell_mesh: PlanarCellMesh,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Pre-processing to build the hydrologic model.
 
         Parameters
         ----------
-        flow : object
-            Flow object for this preprocessing run.
-        domain : object
-            Domain object for this preprocessing run.
+        model : Model
+            The frozen model of the run. Its regular cell mesh is the one the
+            grid is extruded from, and MODFLOW-NWT refuses any other kind. Its
+            raster geometry is the DEM the grid and the routing are built on.
         options : ModflowPreprocessOptions, optional
             Optional typed pre-processing options.
-        cell_mesh : PlanarCellMesh
-            The regular cell mesh the grid is extruded from. MODFLOW-NWT refuses
-            any other kind.
+        flow_runtime_overrides : Mapping, optional
+            The trial keys of the run, which ``run_flow_model`` hands to both
+            MODFLOW backends. MODFLOW-NWT reads none of them. A per-cell
+            property override is ``Model.with_properties``.
         """
-        self.flow = flow
-        self.domain = domain
-        self.cell_mesh = cell_mesh
-        self.flow_runtime_overrides = (
-            None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
-        )
+        del flow_runtime_overrides
+        self.inputs = model
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
 
         self._validate_pre_processing_inputs()
+        self._read_the_dem_grid()
         self._initialize_solver_packages()
         temporal_dis = self._build_temporal_discretization()
         sgrid = self._build_spatial_discretization()
@@ -518,7 +494,7 @@ class ModflowNwt:
         if (
             options.run_model
             and self.flow_regime == "transient"
-            and flow_uses_steady_state_initial_condition(self.flow)
+            and isinstance(self.inputs.initial, SteadyStart)
         ):
             steady_heads = run_nwt_steady_state_initialization(self)
             apply_nwt_steady_state_initial_heads(self, steady_heads)

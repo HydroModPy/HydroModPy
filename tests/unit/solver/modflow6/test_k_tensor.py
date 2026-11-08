@@ -44,6 +44,7 @@ from hydromodpy.solver.modflow_common.property_mapping import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import regular_solver_mesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A trial's characteristic_depth reaches the built MODFLOW 6 NPF k array.
@@ -95,10 +96,10 @@ def _hk(characteristic_depth: float) -> np.ndarray:
         value=1e-4,
         vertical_profile={"kind": "exponential", "characteristic_depth": characteristic_depth},
     )
-    flow = SimpleNamespace(parameters={"K": field_param})
+    profiles = {"K": field_param}
     domain = SimpleNamespace(zones={})
     out = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         solver_mesh=solver_mesh,
         required_properties=frozenset({"K"}),
@@ -151,20 +152,18 @@ def _mesh() -> SolverMesh:
     )
 
 
-def _flow() -> SimpleNamespace:
+def _profiles() -> dict[str, FieldParam]:
     """K and an azimuth of 30 degrees, K22 left equal to K: XT3D stays off."""
-    return SimpleNamespace(
-        parameters={
-            "K": FieldParam(identifier="K", kind="homogeneous", value=1e-4),
-            "angle1": FieldParam(identifier="angle1", kind="homogeneous", value=30.0),
-        }
-    )
+    return {
+        "K": FieldParam(identifier="K", kind="homogeneous", value=1e-4),
+        "angle1": FieldParam(identifier="angle1", kind="homogeneous", value=30.0),
+    }
 
 
 def _modflow6(properties: dict[str, object]) -> dict[str, np.ndarray]:
     mesh = _mesh()
     mapped = resolve_modflow6_arrays(
-        flow=_flow(),
+        profiles=_profiles(),
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
         required_properties=frozenset({"K"}),
@@ -242,7 +241,7 @@ def test_an_unknown_property_name_is_refused() -> None:
 def test_a_solver_without_the_tensor_refuses_a_k22_override() -> None:
     with pytest.raises(ValueError, match="sets K22, which this solver does not read"):
         resolve_modflow_arrays(
-            flow=_flow(),
+            profiles=_profiles(),
             domain=SimpleNamespace(zones={}),
             solver_mesh=_mesh(),
             required_properties=frozenset({"K"}),
@@ -296,16 +295,16 @@ def test_a_steady_run_does_not_bound_the_storage_it_does_not_read(properties) ->
 # model with K, Sy and Ss.
 
 
-def _flow_2(**values: float) -> SimpleNamespace:
+def _profiles_2(**values: float) -> dict[str, FieldParam]:
     parameters = {"K": FieldParam(identifier="K", kind="homogeneous", value=1e-4)}
     for param_id, value in values.items():
         parameters[param_id] = FieldParam(identifier=param_id, kind="homogeneous", value=value)
-    return SimpleNamespace(parameters=parameters)
+    return parameters
 
 
 def _mapped(**values: float) -> dict[str, np.ndarray]:
     return resolve_flow_property_arrays(
-        flow=_flow_2(**values),
+        profiles=_profiles_2(**values),
         domain=SimpleNamespace(zones={}),
         solver_mesh=_mesh(),
         required_properties=frozenset({"K"}),
@@ -446,15 +445,17 @@ def _k_with_an_uncovered_cell() -> tuple[FieldParam, np.ndarray]:
 def test_an_uncovered_active_cell_is_refused_and_names_the_support():
     param, hk = _k_with_an_uncovered_cell()
     assert np.count_nonzero(hk == 0.0) == 1
-    flow = SimpleNamespace(parameters={"K": param})
+    profiles = {"K": param}
     with pytest.raises(DataContractViolation, match=r"1 of 9 active.*'field_geology'"):
-        require_positive_conductivity(hk, active_mask=np.ones_like(hk, dtype=bool), flow=flow)
+        require_positive_conductivity(
+            hk, active_mask=np.ones_like(hk, dtype=bool), profiles=profiles
+        )
 
 
 def test_an_uncovered_inactive_cell_is_accepted():
     param, hk = _k_with_an_uncovered_cell()
     active = hk > 0.0
-    require_positive_conductivity(hk, active_mask=active, flow=SimpleNamespace(parameters={}))
+    require_positive_conductivity(hk, active_mask=active, profiles={})
 
 
 def test_a_non_finite_conductivity_is_refused():
@@ -493,7 +494,9 @@ def test_modflow6_reads_the_storage_on_the_grid_the_lake_leaves(monkeypatch, dry
     mesh = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lake": [0]})
     sy = np.full((2, 6), 0.1)
     sy[0, dry_cell] = 0.0
-    model = SimpleNamespace(steady=[False], nper=1, nlay=2, sy=sy, ss=sy / 1e4, flow=None, gwf=None)
+    model = SimpleNamespace(
+        steady=[False], nper=1, nlay=2, sy=sy, ss=sy / 1e4, inputs=make_model(), gwf=None
+    )
     monkeypatch.setattr(mf6_build.flopy.mf6, "ModflowGwfsto", lambda gwf, **kwargs: kwargs)
     with pytest.raises(DataContractViolation, match=match) if match else nullcontext():
         mf6_build._build_storage_package(model, mesh)

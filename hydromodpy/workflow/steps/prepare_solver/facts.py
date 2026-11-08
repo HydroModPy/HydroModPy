@@ -1,6 +1,6 @@
 """Concern 2 of PrepareSolverStep: the facts of the run and its artifact paths.
 
-Hosts the helpers that resolve the identity of the run (primary solver, the
+Hosts the helpers that resolve the identity of the run (primary run, the
 facts the seal needs, the configuration snapshot) and that introspect on-disk
 artifacts (Zarr root, Parquet directory). These helpers are pure: they read
 the configuration and the store layout but never write.
@@ -34,19 +34,20 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def primary_solver_for_simulation(plan: SimulationPlan) -> str:
-    """Return the primary solver code of the run.
+def primary_run_for_simulation(plan: SimulationPlan) -> tuple[str, str]:
+    """Return the process type and the solver code of the primary run.
 
     Multi-solver plans (flow + transport, flow + particle tracking) record
     only their main flow run as the solver of the run. Mesh-only backends
-    (catchment, etc.) are skipped so the chosen code is a solver.
+    (catchment, etc.) are skipped so the chosen code is a solver. The process
+    type comes with it, because a solver name alone is not a backend key.
     """
     for run in plan.runs:
         if run.process_type == "mesh":
             continue
-        return run.solver
+        return run.process_type, run.solver
     if plan.runs:
-        return plan.runs[0].solver
+        return plan.runs[0].process_type, plan.runs[0].solver
     raise PipelineError("Cannot open the run: SimulationPlan has no runs")
 
 
@@ -218,7 +219,7 @@ def _relative_or_none(path: Path, root: Path) -> str | None:
 
 
 __all__ = (
-    "primary_solver_for_simulation",
+    "primary_run_for_simulation",
     "store_sim_artifacts",
     "collect_effective_config_snapshot",
     "collect_run_facts",

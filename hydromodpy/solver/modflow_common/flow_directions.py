@@ -67,7 +67,8 @@ def build_solver_mesh_descent(
     follows the steepest descent everywhere. The adjacency is fixed by the
     mesh: shared nodes (D8) on quads, shared faces elsewhere.
 
-    ``geographic`` says where the catchment closes. When its domain is the
+    ``geographic`` is the ``CatchmentGeometry`` of the model
+    (``Model.geometry.catchment``), which says where the catchment closes. When its domain is the
     catchment (``domain_extent = "watershed"``), D is built twice: seeded on
     the rim to find the outlet as :func:`run_basin` will, then seeded at that
     outlet and the constant-head cells only.

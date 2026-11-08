@@ -17,6 +17,7 @@ import pytest
 
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
 from hydromodpy.solver.modflow_common import observable_extraction as extraction
 from hydromodpy.solver.modflow_common.discharge_routing import (
@@ -27,6 +28,7 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
 )
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _NROW, _NCOL = 3, 3
@@ -314,8 +316,11 @@ _DRAIN = pd.Series([0.25, 0.25, 0.25], index=_INDEX)
 
 def _model_2(*, route_drainage: bool | None) -> SimpleNamespace:
     payload = {} if route_drainage is None else {"route_drainage": route_drainage}
-    flow = SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {"net": payload}})
-    return SimpleNamespace(flow=flow)
+    inputs = make_model(
+        boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)),
+        sfr={"net": payload},
+    )
+    return SimpleNamespace(inputs=inputs)
 
 
 def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[object, list[str]]:
@@ -368,15 +373,18 @@ def test_a_network_that_keeps_the_drainage_out_adds_the_drain_budget(monkeypatch
 
 
 @pytest.mark.parametrize(
-    "flow",
+    "inputs",
     [
-        SimpleNamespace(active_bc=["lake"], sinks_sources={"lake": {}}),
-        SimpleNamespace(active_bc=["lake"], sinks_sources={"sfr": {"net": {}}}),
+        make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",))),
+        make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            sfr={"net": {}},
+        ),
     ],
     ids=["no_network", "a_network_not_active"],
 )
-def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, flow) -> None:
-    result, calls = _serve(SimpleNamespace(flow=flow), monkeypatch)
+def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, inputs) -> None:
+    result, calls = _serve(SimpleNamespace(inputs=inputs), monkeypatch)
 
     assert calls == ["routed", "drain"]
     assert result.includes_runoff is True

@@ -350,9 +350,9 @@ class GeographicConfig(HydroModelBase):
             return value
         from hydromodpy.catchment.terrain import registry as terrain_registry
 
-        if terrain_registry.is_registered(value):
+        if value in terrain_registry.terrain_engines.names():
             return value
-        served = ", ".join(terrain_registry.list_engine_ids()) or "none"
+        served = ", ".join(terrain_registry.terrain_engines.names()) or "none"
         raise ValueError(
             f"geographic.terrain_engine names {value!r}, and this installation serves "
             f"{served}. A third-party engine joins that list through the "

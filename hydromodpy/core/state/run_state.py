@@ -42,7 +42,7 @@ class SetupContext:
 
     Most field types are ``Any`` because ``core`` cannot import from
     sibling layers (``catchment``, ``mesh``, ``model``). Concrete classes live in
-    ``model.model``, ``model.transport``, ``model.domain``,
+    ``model.flow``, ``model.model``, ``model.transport``, ``model.domain``,
     ``catchment.preprocess`` and ``mesh.io``.
     """
 
@@ -59,6 +59,9 @@ class SetupContext:
     # section a run does not override.
     domain_config_source: Any = None
     flow: Any = None
+    # The frozen Model of the run (model.model.Model), built from ``flow`` by the
+    # prepare_solver step and the only thing a flow adapter reads. None until then.
+    model: Any = None
     transport: Any = None
     mesh_summary: dict[str, Any] | None = None
     mesh_bundle: Any = None
@@ -70,7 +73,7 @@ class SetupContext:
     # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
     # Computed once by the data step and re-bound onto every per-run Flow.
     sfr_reach_traces: dict[str, Any] | None = None
-    # Soil reservoir outputs of this context (model.soil.recharge.SoilForcings),
+    # Soil reservoir outputs of this context (model.forcing.soil_forcing.SoilForcings),
     # None outside soil mode. Assigned on every binder call, never mutated.
     soil_forcings: Any = None
 

@@ -131,8 +131,9 @@ result of a run is not experimental, whichever port wrote it.
 them from a clone with your distribution installed. The suites of the terrain, mesh,
 evaluator and forward model ports run on every engine the registry serves. The suite
 of the data source port runs its declarations and its refusals on every source the
-registry serves, as :doc:`how-to/add-a-data-source` explains. The solver ports have
-no suite yet, which is one more reason why they are experimental.
+registry serves, as :doc:`how-to/add-a-data-source` explains. The suite of the solver port,
+``test_solver_backend_contract.py``, checks the twelve attributes of every backend the
+registry serves.
 
 Changing a contract
 -------------------
@@ -245,19 +246,21 @@ keep working.
 Design patterns
 ---------------
 
-SolverAdapter: a Protocol per ``(process_type, solver_name)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SolverAdapter: a Protocol and twelve attributes per backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``hydromodpy/solver/base/adapter_protocol.py`` defines the Protocol. An adapter
-declares ``process_type``, ``solver_name`` and ``requires`` (the earlier runs it
-depends on), and implements ``validate(ctx)``, ``execute(ctx)``, ``cleanup(ctx)``
+class carries twelve attributes (``name``, ``process_type``, ``accepted_meshes``,
+``geometry``, ``writes``, ``reads``, ``supports``, ``options``, ``category``,
+``native_step``, ``mutable`` and ``requires``) and implements ``validate(ctx)``, ``execute(ctx)``, ``cleanup(ctx)``
 and ``extract_observables(ctx, store, requests)``. Concrete adapters sit beside
 their backend (``solver/modflow6/adapters/flow.py``, ``solver/boussinesq/adapters/``,
-``solver/modflow_nwt/adapters/``), registered in ``solver/base/registry.py``. The
-planner resolves the pair and the runner only sees the Protocol.
+``solver/modflow_nwt/adapters/``), registered in ``solver/base/registry.py``, which keys a backend on
+``<process_type>_<name>``. The planner resolves the key and the runner only sees
+the Protocol.
 
 *Why:* the domain objects (``Flow``, ``Transport``) stay independent of solver
-details. A solver is one adapter class and a few registry lines
+details. A solver is one adapter class with its attributes and a line in each registry table
 (:doc:`how-to/add-a-solver`).
 
 Pipeline step

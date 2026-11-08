@@ -12,6 +12,7 @@ from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_p
 from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.boundary_conditions import forcing_units
+from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:
@@ -153,22 +154,13 @@ def build_well_stress_period_data(
     n_stress_periods: int,
 ) -> dict[int, list[list[float]]]:
     """Build MF6 WEL stress-period data from the configured wells."""
-    if n_stress_periods <= 0 or model.flow is None:
+    if n_stress_periods <= 0:
         return {}
 
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "wells" not in active:
+    if "wells" not in model.inputs.active_sinks_sources:
         return {}
 
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    if not isinstance(sinks_sources, Mapping):
-        return {}
-
-    wells = sinks_sources.get("wells", {})
-    if wells is None:
-        return {}
-    if not isinstance(wells, Mapping):
-        raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
+    wells = model.inputs.wells
     if len(wells) == 0:
         return {}
     normalized_wells: list[tuple[tuple[int, int], np.ndarray]] = []
@@ -190,7 +182,7 @@ def build_well_stress_period_data(
         if forcing_payload is not None:
             raw_values = resolve_period_values_from_forcing(
                 forcing=forcing_payload,
-                simulation_window=None if model.time_grid is None else model.time_grid.window,
+                simulation_window=simulation_window(model),
                 nper=int(n_stress_periods),
                 label=f"flow.sinks_sources.wells.{well_id}.forcing",
             )

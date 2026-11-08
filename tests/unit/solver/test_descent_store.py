@@ -15,6 +15,8 @@ from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.geometry import derive_geometry
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.model.domain.geometry import RasterGeometry
+from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.build import _resolve_spillway_receivers
 from hydromodpy.solver.modflow6.builders import lake_outflow as lake_builder
@@ -33,6 +35,7 @@ from hydromodpy.solver.modflow_common.flow_directions import (
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.descent_cases import grid_descent
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.results.stream._heads_dam import (
@@ -155,10 +158,9 @@ def _mesh() -> SolverMesh:
 
 def _model(tmp_path) -> SimpleNamespace:
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        inputs=make_model(),
         full_path=str(tmp_path),
         model_output_name="model",
-        geographic=None,
     )
 
 
@@ -329,11 +331,21 @@ def _inputs() -> SimpleNamespace:
     return SimpleNamespace(ibound=ibound, chd_spd=chd_spd)
 
 
+def _nwt_inputs():
+    """A model with the DEM grid NWT builds on, and no river network."""
+    raster = RasterGeometry.from_geographic(SimpleNamespace())
+    return make_model(geometry=Geometry(cells=None, domain=None, raster=raster))
+
+
 def test_the_nwt_build_seeds_d_on_every_constant_head_and_leaves_it_beside_the_model(
     tmp_path,
 ) -> None:
     model = SimpleNamespace(
-        geographic=None, full_path=str(tmp_path), model_name="nwt", descent=None, auxiliary=False
+        inputs=_nwt_inputs(),
+        full_path=str(tmp_path),
+        model_name="nwt",
+        descent=None,
+        auxiliary=False,
     )
 
     descent = ModflowNwt._build_descent(model, _mesh_3(), _inputs())
@@ -353,7 +365,11 @@ def test_the_nwt_build_seeds_d_on_every_constant_head_and_leaves_it_beside_the_m
 
 def test_the_steady_initialization_builds_no_descent(tmp_path) -> None:
     model = SimpleNamespace(
-        geographic=None, full_path=str(tmp_path), model_name="nwt", descent=None, auxiliary=True
+        inputs=_nwt_inputs(),
+        full_path=str(tmp_path),
+        model_name="nwt",
+        descent=None,
+        auxiliary=True,
     )
 
     assert ModflowNwt._build_descent(model, _mesh_3(), _inputs()) is None

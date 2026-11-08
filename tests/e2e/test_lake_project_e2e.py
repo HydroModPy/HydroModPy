@@ -41,7 +41,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_lake_stages
+from hydromodpy.results.storage.prior_state import read_restart_lake_stages
 from tests.regression.golden_utils import (
     _open_result_store,
     _resolve_sim_id,

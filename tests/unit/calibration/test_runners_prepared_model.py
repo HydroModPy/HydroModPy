@@ -28,6 +28,7 @@ from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
+from tests._helpers.model_factory import make_model
 
 # From test_bounds_preflight.py
 # Pre-flight refusals the calibration runner makes before the first solve.
@@ -85,7 +86,7 @@ def _floor_flow(monkeypatch):
     monkeypatch.setattr(
         "hydromodpy.calibration.optim.parameters.apply_parameter_to_config", fake_apply
     )
-    monkeypatch.setattr("hydromodpy.model.model.Flow", fake_flow)
+    monkeypatch.setattr("hydromodpy.model.flow.Flow", fake_flow)
 
 
 @pytest.mark.fast
@@ -483,13 +484,11 @@ class TestTheModelIsBuiltAndNotSolved:
     def test_the_run_stops_after_the_preprocessing(self) -> None:
         calls: list[str] = []
         model = SimpleNamespace(
-            pre_processing=lambda **kwargs: calls.append("pre"),
+            pre_processing=lambda *args, **kwargs: calls.append("pre"),
             processing=lambda **kwargs: calls.append("solve"),
         )
         setup = SimpleNamespace(
-            flow=None,
-            domain=None,
-            cell_mesh=object(),
+            model=make_model(),
             flow_runtime_overrides={STOP_BEFORE_THE_SOLVE: True},
         )
 

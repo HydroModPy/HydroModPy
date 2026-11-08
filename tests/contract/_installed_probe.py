@@ -1,4 +1,4 @@
-"""What the five ``test_*_conformance_reaches_an_installed_*`` files share.
+"""What the six ``test_*_conformance_reaches_an_installed_*`` files share.
 
 Each one unpacks a distribution beside the build (a module and its ``.dist-info``,
 what a wheel unpacks to, with no build and no network) and runs a conformance suite

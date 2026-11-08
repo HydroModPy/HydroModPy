@@ -30,8 +30,12 @@ from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.boundaries.streams import apply_sfr_network_to_flow
+from hydromodpy.model.forcing.soil_config import (
+    SoilReservoirConfig,
+    spinup_refusal,
+    steady_start_refusal,
+)
 from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig, spinup_refusal, steady_start_refusal
 from hydromodpy.workflow.steps import data as data_step
 from hydromodpy.workflow.steps.data import (
     apply_structural_updates_from_data,
@@ -695,3 +699,54 @@ def test_apply_structural_updates_from_data_attaches_reference_network(
     assert ctx.setup.geographic_features.reference_hydrographic_network.vector_path == str(
         streams_path
     )
+
+
+# --- test_the_flow_and_its_model_follow_the_configuration ---
+# ``ensure_flow`` builds the flow of the configuration once. A flow built from
+# another configuration is rebuilt, and the model frozen from it goes with it.
+
+
+def _flow_state(config, *, flow=None, model=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        cfg=SimpleNamespace(flow=config),
+        setup=SimpleNamespace(flow=flow, model=model),
+        loaded_data=SimpleNamespace(loaded_plan_types=None),
+    )
+
+
+def test_ensure_flow_builds_the_flow_of_the_configuration_once() -> None:
+    from hydromodpy.model.flow import Flow
+    from hydromodpy.model.flow_config import FlowConfig
+
+    state = _flow_state(FlowConfig())
+
+    data_step.ensure_flow(state)
+    first = state.setup.flow
+    data_step.ensure_flow(state)
+
+    assert isinstance(first, Flow)
+    assert first.config is state.cfg.flow
+    assert state.setup.flow is first
+
+
+@pytest.mark.parametrize(
+    ("same_configuration", "rebuilt"),
+    [
+        pytest.param(False, True, id="another configuration"),
+        pytest.param(True, False, id="the same configuration"),
+    ],
+)
+def test_a_stale_flow_is_rebuilt_and_takes_its_model_with_it(
+    same_configuration: bool, rebuilt: bool
+) -> None:
+    from hydromodpy.model.flow import Flow
+    from hydromodpy.model.flow_config import FlowConfig
+
+    config = FlowConfig()
+    flow = Flow(config=config if same_configuration else FlowConfig())
+    state = _flow_state(config, flow=flow, model="the model of the old flow")
+
+    assert data_step.rebind_flow_if_stale(state) is rebuilt
+
+    assert (state.setup.flow is not flow) is rebuilt
+    assert (state.setup.model is None) is rebuilt

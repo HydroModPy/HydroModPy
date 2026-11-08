@@ -459,11 +459,11 @@ class _GapInMetres:
 
 @pytest.fixture
 def gap_in_metres():
-    evaluation_registry.register(_GapInMetres, replace=True)
+    evaluation_registry.evaluators.register(_GapInMetres, replace=True)
     try:
         yield _GapInMetres
     finally:
-        evaluation_registry.unregister(_GapInMetres.evaluator_id)
+        evaluation_registry.evaluators.unregister(_GapInMetres.evaluator_id)
 
 
 SINGLE_SEARCH = """
@@ -584,11 +584,11 @@ path = "flow.param.Sy.field.value"
 
 
 def test_a_ridge_shows_under_the_margin_on_a_grid_that_hides_it(tmp_path) -> None:
-    evaluation_registry.register(_OnARidge, replace=True)
+    evaluation_registry.evaluators.register(_OnARidge, replace=True)
     try:
         report = run_calibration_cli(write_document(tmp_path, RIDGE), workspace=tmp_path)
     finally:
-        evaluation_registry.unregister(_OnARidge.evaluator_id)
+        evaluation_registry.evaluators.unregister(_OnARidge.evaluator_id)
 
     assert report.extra["correlated_parameters"] == [("a", "b", pytest.approx(1.0))]
     widths = read_session(report.session_dir).widths

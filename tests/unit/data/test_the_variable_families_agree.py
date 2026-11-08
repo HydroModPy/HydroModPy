@@ -119,8 +119,8 @@ def test_a_port_source_declares_the_hosts_of_its_entry() -> None:
     from hydromodpy.data.source import registry
 
     disagree = {
-        source_id: (registry.get(source_id).hosts, source_entry(source_id).hosts)
-        for source_id in registry.builtin_source_ids()
-        if registry.get(source_id).hosts != source_entry(source_id).hosts
+        source_id: (registry.data_sources.get(source_id).hosts, source_entry(source_id).hosts)
+        for source_id in registry.data_sources.names(shipped_only=True)
+        if registry.data_sources.get(source_id).hosts != source_entry(source_id).hosts
     }
     assert disagree == {}

@@ -25,6 +25,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     forcing_to_si,
     forcing_unit,
     resolve_use_ts6,
+    simulation_window,
     ts6_times_and_values,
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
@@ -59,7 +60,7 @@ def _forcing_si_per_period(
         return ()
     per_period = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        simulation_window=simulation_window(model),
         nper=nper,
         label=label,
     )
@@ -356,7 +357,7 @@ def _emit_forcing_rows(
 
     per_period = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        simulation_window=simulation_window(model),
         nper=nper,
         label=location,
     )

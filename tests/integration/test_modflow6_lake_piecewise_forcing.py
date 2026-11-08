@@ -22,9 +22,11 @@ from hydromodpy.core.time import (
 )
 from hydromodpy.model.forcing.dated_forcing import PiecewiseForcing
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from tests._helpers.model_factory import make_model
 
 # Four daily stress periods: 2000-01-01 .. 2000-01-04.
 _CSV_INFLOW = (5.0, 9.0)
@@ -59,7 +61,11 @@ class _FakeConfig:
 
 class _FakeModel:
     def __init__(self, window: ResolvedSimulationTimeWindow, perlen: np.ndarray) -> None:
-        self.time_grid = _FakeTimeGrid(window)
+        self.inputs = make_model(
+            time=ModelTime(
+                grid=_FakeTimeGrid(window), regime="transient", first_period_steady=False
+            )
+        )
         self.nper = int(len(perlen))
         self.perlen = perlen
         self.modflow_config = _FakeConfig(mode="ts6", min_periods=0)

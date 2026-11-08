@@ -11,6 +11,8 @@ import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.model import ModelTime
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.drivers.forcing import ResolvedRuntimeForcing
@@ -21,6 +23,7 @@ from hydromodpy.solver.boussinesq.solver_contract import (
 )
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
+from tests._helpers.model_factory import make_model
 
 DAY_S = 86400.0
 
@@ -120,20 +123,21 @@ def _run_relaxation(
     nstp_per_period: int | None,
 ) -> Boussinesq:
     """Relax a sloping water table on a closed strip and return the solver."""
-    flow = SimpleNamespace(
-        flow_regime="transient", surface_interaction_model="auto", first_period_steady=False
+    runtime = (
+        FlowRuntimeConfig()
+        if runtime_backend is None
+        else FlowRuntimeConfig(backend=runtime_backend)
     )
-    if runtime_backend is not None:
-        flow.runtime_backend = runtime_backend
     time_grid = SimpleNamespace(period_lengths_seconds=period_lengths_seconds)
     if nstp_per_period is not None:
         time_grid.nstp_per_period = nstp_per_period
     solver = Boussinesq(
         mesh_bundle=None,
         mesh=mesh,
-        flow=flow,
-        domain=SimpleNamespace(),
-        time_grid=time_grid,
+        model=make_model(
+            time=ModelTime(grid=time_grid, regime="transient", first_period_steady=False)
+        ),
+        runtime=runtime,
         model_folder=tmp_path,
         model_name=f"relax_{runtime_backend}_{len(period_lengths_seconds)}_{nstp_per_period}",
     )

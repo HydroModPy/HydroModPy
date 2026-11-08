@@ -15,7 +15,7 @@ from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.model.model import Flow
+    from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)
 

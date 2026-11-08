@@ -34,7 +34,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage

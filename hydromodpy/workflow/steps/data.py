@@ -39,10 +39,14 @@ from hydromodpy.model.boundaries.streams import (
     sfr_routes_catchment_runoff,
 )
 from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
-from hydromodpy.model.soil.budget import gauged_discharge_line, soil_budget_lines
-from hydromodpy.model.soil.config import soil_reservoir_of, spinup_refusal, steady_start_refusal
-from hydromodpy.model.soil.recharge import compute_soil_forcings, ru_ladder
-from hydromodpy.solver.base.runner import ensure_flow
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing.soil_budget import gauged_discharge_line, soil_budget_lines
+from hydromodpy.model.forcing.soil_config import (
+    soil_reservoir_of,
+    spinup_refusal,
+    steady_start_refusal,
+)
+from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings, ru_ladder
 from hydromodpy.workflow.record.run_store import run_dir_of_state
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.data_description import (
@@ -145,6 +149,12 @@ def step_data_loading(ctx: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 
 
+def ensure_flow(state: WorkflowContext) -> None:
+    """Create ``state.setup.flow`` from ``state.cfg.flow`` when missing."""
+    if state.setup.flow is None:
+        state.setup.flow = Flow(config=state.cfg.flow)
+
+
 def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
     """Rebuild ``setup.flow`` when another configuration built it, with its forcings.
 
@@ -155,6 +165,8 @@ def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
     runoff to SFR, ETP, oceanic) the data step gave the former one. Before the data
     are loaded there is nothing to bind: the data step does it.
 
+    The frozen ``setup.model`` was built from the former flow, so it is reset too.
+
     Returns True when a rebuild happened.
     """
     setup_state = run_state.setup
@@ -162,6 +174,7 @@ def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
     if flow is None or flow.config is run_state.cfg.flow:
         return False
     setup_state.flow = None
+    setup_state.model = None
     if run_state.loaded_data.loaded_plan_types is None:
         ensure_flow(run_state)
     else:

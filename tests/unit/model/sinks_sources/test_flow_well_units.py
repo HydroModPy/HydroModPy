@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 
 

@@ -2,11 +2,12 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 from hydromodpy.model.transport.transport import Transport
 from hydromodpy.model.transport.transport_config import TransportConfig
-from hydromodpy.solver.base.runner import ensure_flow, ensure_process_context, ensure_transport
+from hydromodpy.solver.base.runner import ensure_process_context, ensure_transport
 
 
 def _build_state(*, flow=None, transport=None) -> SimpleNamespace:
@@ -22,31 +23,35 @@ def _build_state(*, flow=None, transport=None) -> SimpleNamespace:
     )
 
 
-def test_ensure_flow_is_idempotent() -> None:
+def test_ensure_transport_is_idempotent() -> None:
     state = _build_state()
 
-    ensure_flow(state)
-    first_flow = state.setup.flow
-    ensure_flow(state)
+    ensure_transport(state)
+    first_transport = state.setup.transport
+    ensure_transport(state)
 
-    assert isinstance(state.setup.flow, Flow)
-    assert state.setup.flow is first_flow
+    assert isinstance(state.setup.transport, Transport)
+    assert state.setup.transport is first_transport
 
 
-def test_ensure_process_context_transport_creates_flow_and_transport() -> None:
+def test_ensure_process_context_transport_creates_the_transport_and_leaves_the_flow() -> None:
+    """The flow is made by the setup step, never by the runner."""
     state = _build_state()
 
     ensure_process_context(state, "transport")
 
-    assert isinstance(state.setup.flow, Flow)
+    assert state.setup.flow is None
     assert isinstance(state.setup.transport, Transport)
 
 
-def test_ensure_process_context_accepts_unknown_type_as_noop() -> None:
-    """Unknown process types are silently accepted (no components to create)."""
+@pytest.mark.parametrize("process_type", ["flow", "postprocess"])
+def test_ensure_process_context_creates_nothing_for_a_process_without_components(
+    process_type: str,
+) -> None:
+    """A flow run needs no component the runner could create, and an unknown type none at all."""
     state = _build_state()
 
-    ensure_process_context(state, "postprocess")
+    ensure_process_context(state, process_type)
 
     assert state.setup.flow is None
     assert state.setup.transport is None

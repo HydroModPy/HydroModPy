@@ -518,17 +518,6 @@ def missing_source_members(candidate: object) -> tuple[str, ...]:
     return tuple(name for name in SOURCE_MEMBERS if not hasattr(candidate, name))
 
 
-def missing_class_members(candidate: object) -> tuple[str, ...]:
-    """Return the members of :data:`CLASS_SOURCE_MEMBERS` ``candidate`` lacks.
-
-    For a class, which is what a registry holds. A class that passes this is
-    not yet a conforming source -- ``variables`` is still owed by every
-    instance it makes -- and that remaining promise is read on a real fetch by
-    ``tests/contract/test_data_source_contract.py``.
-    """
-    return tuple(name for name in CLASS_SOURCE_MEMBERS if not hasattr(candidate, name))
-
-
 # --------------------------------------------------------------------------- #
 # What an implementation calls on its first line
 # --------------------------------------------------------------------------- #
@@ -619,7 +608,6 @@ __all__ = [
     "PeriodNeed",
     "Selector",
     "extent_for",
-    "missing_class_members",
     "missing_source_members",
     "require_declared_variables",
     "require_period",

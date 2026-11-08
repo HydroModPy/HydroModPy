@@ -84,7 +84,7 @@ how to score from a document.
 """
 
 
-@pytest.fixture(params=forward_registry.list_model_ids())
+@pytest.fixture(params=forward_registry.forward_models.names())
 def model_id(request) -> str:
     """One model id, once per implementation this installation serves."""
     return request.param
@@ -101,9 +101,9 @@ def model_class(model_id: str) -> type:
     defect in the model and the suite is what has to say so.
     """
     try:
-        return forward_registry.get(model_id)
+        return forward_registry.forward_models.get(model_id)
     except CalibrationError:
-        if model_id in forward_registry.builtin_model_ids():
+        if model_id in forward_registry.forward_models.names(shipped_only=True):
             pytest.skip(f"{model_id!r} is declared by this build and cannot be loaded here")
         raise
 
@@ -118,7 +118,7 @@ def model(model_id: str, model_class: type, tmp_path):
 
     ``model_class`` is requested for its skip and not for its value.
     """
-    return forward_registry.create(
+    return forward_registry.forward_models.create(
         model_id,
         cfg=None,
         cfg_path=None,
@@ -180,7 +180,7 @@ class TestWhatTheClassDeclares:
 
         Not a tautology: an id resolves through a declaration in
         ``_BUILTIN_PATHS`` or an entry-point name, and either can point at a
-        class that calls itself something else. ``resolve_id`` is what the
+        class that calls itself something else. The id of ``get(model_id)`` is what the
         scoring evaluator reports as ``forward_model_id`` and what a session
         stores, so the two spellings would describe different runs.
         """
@@ -190,7 +190,7 @@ class TestWhatTheClassDeclares:
             f"{model_class!r} declares model_id={declared!r}"
         )
         assert declared == model_id
-        assert forward_registry.resolve_id(model_id) == model_id
+        assert forward_registry.forward_models.get(model_id).model_id == model_id
 
     def test_the_evaluator_can_call_simulate_with_one_request(self, model_class: type) -> None:
         """``register`` only checks the member is not ``None``; a string passes that."""
@@ -363,14 +363,16 @@ def test_this_installation_serves_a_forward_model() -> None:
     no plugin arrives -- it simply collects fewer nodes -- so there the absence of
     a non-built-in id is a failed proof and not a smaller run.
     """
-    served = forward_registry.list_model_ids()
+    served = forward_registry.forward_models.names()
 
     assert served, (
         "this installation resolves no forward model, so every layer of this suite "
         "collected nothing and proved nothing"
     )
     if os.environ.get("HMP_WHEEL_SITE"):
-        installed = sorted(set(served) - set(forward_registry.builtin_model_ids()))
+        installed = sorted(
+            set(served) - set(forward_registry.forward_models.names(shipped_only=True))
+        )
         assert installed, (
             f"this run is the installed-wheel proof and the registry serves only {served}: "
             "no model arrived through the entry-point group, so every node ran on what this "
@@ -395,8 +397,10 @@ def test_the_scoring_evaluator_binds_exactly_the_options_the_registry_publishes(
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "create"
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "forward_registry"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "forward_models"
+        and isinstance(node.func.value.value, ast.Name)
+        and node.func.value.value.id == "forward_registry"
     ]
 
     assert len(calls) == 1, f"{len(calls)} model constructions in the evaluator, expected one"

@@ -25,7 +25,7 @@ K_TENSOR_NPF_NAMES = ("k22", "angle1", "angle2", "angle3")
 
 def resolve_flow_property_arrays(
     *,
-    flow: object,
+    profiles: Mapping[str, object],
     domain: object,
     solver_mesh,
     required_properties: frozenset[str] | set[str] | None = None,
@@ -34,13 +34,15 @@ def resolve_flow_property_arrays(
 ) -> dict[str, np.ndarray]:
     """Map K, Kv, Sy, Ss, K22 and the three angles onto a MODFLOW 6 solver mesh.
 
+    ``profiles`` is ``Model.properties.profiles``.
+
     The flat arrays of the shared mapping, in the grid shape of the mesh: a
     regular grid gives ``(nlay, nrow, ncol)`` and ``(nrow, ncol)``, the shape
     ``build.py`` reads back through ``SolverMesh.flatten_from_grid``; any other
     mesh keeps ``(nlay, n_cells)`` and ``(n_cells,)``.
     """
     flat = resolve_flat_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         solver_mesh=solver_mesh,
         required_properties=required_properties,

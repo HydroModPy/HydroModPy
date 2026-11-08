@@ -1,84 +1,69 @@
-"""Unit tests for ``hydromodpy.solver.base.registry``."""
+"""Unit tests for ``hydromodpy.solver.base.registry``: ``solvers``, ``extractors`` and the backend hook."""
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
 import pytest
 
+import hydromodpy.core.plugin_registry as plugin_registry
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.model.transport.transport_config import (
+    TransportModflow6GwtConfig,
+    TransportModflow6PrtConfig,
+    TransportModpathConfig,
+    TransportMt3dmsConfig,
+)
 from hydromodpy.solver.base import registry
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from tests._helpers.fake_solvers import FakeAdapter, fake_adapter, fake_extractor
 
 ROOT = Path(__file__).resolve().parents[4]
 
-
-class FakeAdapter:
-    process_type = "flow"
-    solver_name = "fake"
-    requires: tuple[tuple[str, str], ...] = ()
-
-    def validate(self, ctx):
-        pass
-
-    def execute(self, ctx):
-        return None
-
-    def cleanup(self, ctx):
-        pass
-
-    def extract_observables(self, ctx, store, requests, **kwargs):
-        return {}
-
-
-class AnotherFakeAdapter(FakeAdapter):
-    pass
-
-
-def _adapter_named(process_type: str, solver_name: str) -> type:
-    """A fake adapter whose declared pair matches the name it is published under."""
-    return type(
-        f"Fake{solver_name.title()}Adapter",
-        (FakeAdapter,),
-        {"process_type": process_type, "solver_name": solver_name},
-    )
-
-
-class FakeExtractor:
-    def extract(self, *args: object, **kwargs: object) -> None:
-        del args, kwargs
-        return None
+solvers = registry.solvers
+extractors = registry.extractors
 
 
 @pytest.fixture(autouse=True)
-def _clean_registry():
-    """Snapshot the registry and restore it after each test.
+def _clean_registry(isolated_solvers):
+    """Each test works on a copy of both registries, with the plugin groups marked scanned."""
+    return isolated_solvers
 
-    Both the eager ``_REGISTRY`` cache and the lazy ``_BUILTIN_PATHS``
-    map are isolated so tests can mutate either without leaking state.
-    """
-    eager = dict(registry._REGISTRY)
-    lazy = dict(registry._BUILTIN_PATHS)
-    capabilities = dict(registry._BUILTIN_CAPABILITIES)
-    extractor_eager = dict(registry._EXTRACTOR_REGISTRY)
-    extractor_lazy = dict(registry._BUILTIN_EXTRACTOR_PATHS)
-    plugins_loaded = registry._PLUGINS_LOADED
-    extractor_plugins_loaded = registry._EXTRACTOR_PLUGINS_LOADED
-    try:
-        yield
-    finally:
-        registry._REGISTRY.clear()
-        registry._REGISTRY.update(eager)
-        registry._BUILTIN_PATHS.clear()
-        registry._BUILTIN_PATHS.update(lazy)
-        registry._BUILTIN_CAPABILITIES.clear()
-        registry._BUILTIN_CAPABILITIES.update(capabilities)
-        registry._EXTRACTOR_REGISTRY.clear()
-        registry._EXTRACTOR_REGISTRY.update(extractor_eager)
-        registry._BUILTIN_EXTRACTOR_PATHS.clear()
-        registry._BUILTIN_EXTRACTOR_PATHS.update(extractor_lazy)
-        registry._PLUGINS_LOADED = plugins_loaded
-        registry._EXTRACTOR_PLUGINS_LOADED = extractor_plugins_loaded
+
+class _StubEntryPoint:
+    def __init__(self, name: str, target: type) -> None:
+        self.name = name
+        self.target = target
+
+    def load(self) -> type:
+        return self.target
+
+
+def _install(monkeypatch: pytest.MonkeyPatch, group: str, *entry_points: _StubEntryPoint) -> list:
+    """Publish *entry_points* in *group*, mark both groups unscanned, and return the scan log."""
+    scans: list[str] = []
+
+    def _fake_entry_points(*, group: str):
+        scans.append(group)
+        return list(entry_points) if group == wanted else []
+
+    wanted = group
+    monkeypatch.setattr(plugin_registry, "entry_points", _fake_entry_points)
+    monkeypatch.setattr(solvers, "plugins_loaded", False)
+    monkeypatch.setattr(extractors, "plugins_loaded", False)
+    return scans
+
+
+# ---------------------------------------------------------------------------
+# What the build ships
+# ---------------------------------------------------------------------------
 
 
 def test_every_declared_backend_has_an_extractor() -> None:
@@ -86,97 +71,196 @@ def test_every_declared_backend_has_an_extractor() -> None:
 
     An adapter without an extractor solves, then loses the run at ingestion.
     """
-    orphans = sorted(
-        pair for pair in registry.list_pairs() if pair not in registry.list_extractor_pairs()
-    )
-    assert orphans == []
+    assert sorted(set(solvers.names()) - set(extractors.names())) == []
 
 
 def test_no_entry_point_gives_a_backend_a_second_name() -> None:
     """In-tree backends are declared once, in the registry, never as plugins.
 
-    ``flow_modflownwt`` split into ``flow/modflownwt`` (the loader cuts the
-    name at the first underscore), a pair with an adapter but no extractor.
+    ``flow_modflownwt`` used to mint ``flow/modflownwt`` beside
+    ``flow/modflow_nwt``, a key with an adapter but no extractor.
     """
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     declared = pyproject["project"].get("entry-points", {}).get(registry.ENTRY_POINT_GROUP, {})
     for name in declared:
-        process_type, _, solver_name = name.partition("_")
-        assert (process_type, solver_name) in registry.list_extractor_pairs(), (
-            f"entry-point {name!r} declares {process_type}/{solver_name}, "
-            "a pair no extractor can read back"
+        assert name in extractors.names(), (
+            f"entry-point {name!r} declares a key no extractor can read back"
         )
 
 
-def test_register_and_get_returns_cls() -> None:
-    registry.register("flow", "fake", FakeAdapter)
-    assert registry.get("flow", "fake") is FakeAdapter
-
-
-def test_register_duplicate_raises_without_replace() -> None:
-    registry.register("flow", "dup", FakeAdapter)
-    with pytest.raises(ValueError):
-        registry.register("flow", "dup", FakeAdapter)
-
-
-def test_register_duplicate_with_replace_overwrites() -> None:
-    registry.register("flow", "dup2", FakeAdapter)
-    registry.register("flow", "dup2", AnotherFakeAdapter, replace=True)
-    assert registry.get("flow", "dup2") is AnotherFakeAdapter
-
-
-def test_get_unknown_raises_keyerror() -> None:
-    with pytest.raises(KeyError):
-        registry.get("flow", "nope")
-
-
-def test_list_pairs_is_sorted() -> None:
-    registry._REGISTRY.clear()
-    registry._BUILTIN_PATHS.clear()
-    registry.register("flow", "b", FakeAdapter)
-    registry.register("flow", "a", FakeAdapter)
-    registry.register("transport", "c", FakeAdapter)
-    assert registry.list_pairs() == [("flow", "a"), ("flow", "b"), ("transport", "c")]
-
-
-def test_pairs_for_process_filters_by_type() -> None:
-    registry._REGISTRY.clear()
-    registry._BUILTIN_PATHS.clear()
-    registry.register("flow", "a", FakeAdapter)
-    registry.register("transport", "b", FakeAdapter)
-    assert list(registry.pairs_for_process("flow")) == [("flow", "a")]
-
-
 def test_builtin_process_types_exclude_workflow_stub_phases() -> None:
-    assert "postprocess" not in registry.known_process_types()
-    assert "display" not in registry.known_process_types()
+    assert solvers.names("postprocess") == ()
+    assert solvers.names("display") == ()
+
+
+DECLARED = {
+    "flow_modflow6": {
+        "accepted_meshes": frozenset({"regular", "triangle", "voronoi", ANY_PLANAR_ENGINE}),
+        "geometry": "cells",
+        "category": "distributed",
+        "options": Modflow6Config,
+        "requires": (),
+        "reads": (),
+        "surface_excess": False,
+    },
+    "flow_modflow_nwt": {
+        "accepted_meshes": frozenset({"regular"}),
+        "geometry": "raster",
+        "category": "distributed",
+        "options": ModflowConfig,
+        "requires": (),
+        "reads": (),
+        "surface_excess": False,
+    },
+    "flow_boussinesq": {
+        "accepted_meshes": frozenset({"triangle"}),
+        "geometry": "cells",
+        "category": "integrated",
+        "options": FlowRuntimeConfig,
+        "requires": (),
+        "reads": (),
+        "surface_excess": True,
+    },
+    "transport_modflow6": {
+        "accepted_meshes": frozenset(),
+        "geometry": "cells",
+        "category": "distributed",
+        "options": TransportModflow6GwtConfig,
+        "requires": (("flow", "modflow6"),),
+        "reads": ("face_flow",),
+        "surface_excess": False,
+    },
+    "transport_modflow6_prt": {
+        "accepted_meshes": frozenset(),
+        "geometry": "cells",
+        "category": "distributed",
+        "options": TransportModflow6PrtConfig,
+        "requires": (("flow", "modflow6"),),
+        "reads": ("face_flow",),
+        "surface_excess": False,
+    },
+    "transport_mt3dms": {
+        "accepted_meshes": frozenset(),
+        "geometry": "raster",
+        "category": "distributed",
+        "options": TransportMt3dmsConfig,
+        "requires": (("flow", "modflow_nwt"),),
+        "reads": ("face_flow",),
+        "surface_excess": False,
+    },
+    "transport_modpath": {
+        "accepted_meshes": frozenset(),
+        "geometry": "raster",
+        "category": "distributed",
+        "options": TransportModpathConfig,
+        "requires": (("flow", "modflow_nwt"),),
+        "reads": ("face_flow",),
+        "surface_excess": False,
+    },
+}
+"""What each backend of the build declares. The extractor categories and the index
+table held these values before the attributes moved to the adapter, and the
+mesh, requires and surface-excess rows are what the configuration and the
+planner read."""
+
+
+@pytest.mark.parametrize("key", sorted(DECLARED))
+def test_each_shipped_backend_declares_what_the_build_relies_on(key: str) -> None:
+    adapter = solvers.get(key)
+    expected = DECLARED[key]
+
+    assert adapter.accepted_meshes == expected["accepted_meshes"]
+    assert adapter.geometry == expected["geometry"]
+    assert adapter.category == expected["category"]
+    assert adapter.options is expected["options"]
+    assert adapter.requires == expected["requires"]
+    assert adapter.reads == expected["reads"]
+    assert adapter.native_step is None
+    assert adapter.mutable == frozenset()
+    assert ("budget/surface_excess" in adapter.writes) is expected["surface_excess"]
+
+
+def test_the_shipped_backends_are_the_declared_ones() -> None:
+    assert solvers.names(shipped_only=True) == tuple(sorted(DECLARED))
 
 
 def test_transport_capabilities_are_explicit() -> None:
-    assert registry.capabilities("transport", "modpath") == frozenset(
-        {"transport", "transport:particles"}
-    )
-    assert registry.capabilities("transport", "mt3dms") == frozenset(
-        {"transport", "transport:concentration"}
-    )
-    assert registry.capabilities("transport", "modflow6") == frozenset(
-        {"transport", "transport:concentration"}
-    )
-    assert registry.capabilities("transport", "modflow6_prt") == frozenset(
-        {"transport", "transport:particles"}
-    )
+    """Concentration for GWT and MT3DMS, particle tracks for PRT and MODPATH."""
+    for name in ("modflow6", "mt3dms"):
+        writes = solvers.get("transport", name).writes
+        assert "concentration" in writes
+        assert not any(item.startswith("particles/") for item in writes)
+    for name in ("modflow6_prt", "modpath"):
+        writes = solvers.get("transport", name).writes
+        assert {"particles/x", "particles/y", "particles/z", "particles/time"} <= set(writes)
+        assert "concentration" not in writes
 
 
 def test_modflow6_prt_adapter_and_extractor_are_registered() -> None:
-    adapter_cls = registry.get("transport", "modflow6_prt")
-    extractor_cls = registry.get_extractor("transport", "modflow6_prt")
+    adapter_cls = solvers.get("transport", "modflow6_prt")
+    extractor_cls = extractors.get("transport", "modflow6_prt")
 
     assert adapter_cls.__name__ == "Modflow6PrtTransportAdapter"
     assert extractor_cls.__name__ == "Modflow6PrtOutputAdapter"
 
 
+def test_every_registered_adapter_satisfies_the_contract() -> None:
+    """Every key the registry serves, built-in or lazy, is a real adapter under its own key."""
+    for key in solvers.names():
+        adapter_cls = solvers.get(key)
+        assert isinstance(adapter_cls, SolverAdapter), key
+        assert f"{adapter_cls.process_type}_{adapter_cls.name}" == key, (
+            f"{adapter_cls.__qualname__} is registered under a key it does not declare"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Registration
+# ---------------------------------------------------------------------------
+
+
+def test_register_and_get_returns_cls() -> None:
+    assert solvers.register(FakeAdapter) is FakeAdapter
+    assert solvers.get("flow", "fake") is FakeAdapter
+    assert solvers.get("flow_fake") is FakeAdapter
+
+
+def test_register_duplicate_raises_without_replace() -> None:
+    solvers.register(fake_adapter("dup"))
+    with pytest.raises(ValueError, match="already registered for 'flow_dup'"):
+        solvers.register(fake_adapter("dup"))
+
+
+def test_register_duplicate_with_replace_overwrites() -> None:
+    solvers.register(fake_adapter("dup2"))
+    replacement = fake_adapter("dup2")
+    solvers.register(replacement, replace=True)
+    assert solvers.get("flow", "dup2") is replacement
+
+
+def test_get_unknown_raises_a_solver_input_error() -> None:
+    with pytest.raises(SolverInputError, match="No solver backend is registered for 'flow_nope'"):
+        solvers.get("flow", "nope")
+
+
+def test_names_are_sorted() -> None:
+    solvers.builtin_paths.clear()
+    solvers.classes.clear()
+    for name, process_type in (("b", "flow"), ("a", "flow"), ("c", "transport")):
+        solvers.register(fake_adapter(name, process_type))
+    assert solvers.names() == ("flow_a", "flow_b", "transport_c")
+
+
+def test_names_filter_by_process_type() -> None:
+    solvers.builtin_paths.clear()
+    solvers.classes.clear()
+    solvers.register(fake_adapter("a", "flow"))
+    solvers.register(fake_adapter("b", "transport"))
+    assert solvers.names("flow") == ("a",)
+
+
 def test_solver_config_accepts_registered_plugin_flow_solver() -> None:
-    registry.register("flow", "pluginsolver", FakeAdapter)
+    solvers.register(fake_adapter("pluginsolver"))
 
     cfg = SolverConfig.model_validate({"backend": {"kind": "custom", "name": "pluginsolver"}})
 
@@ -190,60 +274,45 @@ def test_solver_config_rejects_unknown_flow_solver() -> None:
 
 
 def test_unregister_removes_entry() -> None:
-    registry.register("flow", "tmp", FakeAdapter)
-    registry.unregister("flow", "tmp")
-    assert ("flow", "tmp") not in registry.list_pairs()
+    solvers.register(fake_adapter("tmp"))
+    solvers.unregister("flow", "tmp")
+    assert "tmp" not in solvers.names("flow")
 
 
-def test_is_adapter_true_for_fake_adapter() -> None:
-    assert registry.is_adapter(FakeAdapter())
+def test_the_fake_adapter_satisfies_the_protocol() -> None:
+    assert isinstance(FakeAdapter(), SolverAdapter)
 
 
-def test_is_adapter_answers_for_a_class_as_well_as_an_instance() -> None:
+def test_the_protocol_answers_for_a_class_as_well_as_an_instance() -> None:
     """``register`` is given classes, so the check has to hold on a class."""
-    assert registry.is_adapter(FakeAdapter)
+    assert isinstance(FakeAdapter, SolverAdapter)
+    assert solvers.register(fake_adapter("as_class")) is solvers.get("flow", "as_class")
 
 
-def test_is_adapter_false_for_plain_object() -> None:
+def test_a_plain_object_is_not_an_adapter() -> None:
     class NotAnAdapter:
-        pass
+        process_type = "flow"
+        name = "plain"
 
-    assert not registry.is_adapter(NotAnAdapter())
-
-
-def test_every_registered_adapter_satisfies_the_contract() -> None:
-    """Every pair the registry serves, built-in or lazy, is a real adapter."""
-    for process_type, solver_name in registry.list_pairs():
-        adapter_cls = registry.get(process_type, solver_name)
-        assert registry.is_adapter(adapter_cls), f"{process_type}/{solver_name}"
-        assert (adapter_cls.process_type, adapter_cls.solver_name) == (
-            process_type,
-            solver_name,
-        ), f"{adapter_cls.__qualname__} is registered under a pair it does not declare"
+    assert not isinstance(NotAnAdapter(), SolverAdapter)
+    with pytest.raises(TypeError, match="does not satisfy the solver backend port"):
+        solvers.register(NotAnAdapter)
 
 
 def test_register_refuses_a_class_that_is_not_an_adapter() -> None:
-    class HalfAnAdapter:
-        process_type = "flow"
-        solver_name = "half"
-        requires: tuple[tuple[str, str], ...] = ()
+    half = fake_adapter("half", execute=None, cleanup=None, extract_observables=None)
 
-        def validate(self, ctx):
-            pass
-
-    with pytest.raises(TypeError, match="missing cleanup, execute, extract_observables"):
-        registry.register("flow", "half", HalfAnAdapter)
-    assert ("flow", "half") not in registry.list_pairs()
+    with pytest.raises(
+        TypeError, match="missing or unusable execute, cleanup, extract_observables"
+    ):
+        solvers.register(half)
+    assert "half" not in solvers.names("flow")
 
 
 def test_register_refuses_a_member_that_is_present_but_not_callable() -> None:
     """``hasattr`` alone would accept this and let it fail on the first solve."""
-
-    class ExecuteIsNone(FakeAdapter):
-        execute = None
-
-    with pytest.raises(TypeError, match="not usable"):
-        registry.register("flow", "nonexec", ExecuteIsNone)
+    with pytest.raises(TypeError, match="missing or unusable execute"):
+        solvers.register(fake_adapter("nonexec", execute=None))
 
 
 def test_register_refuses_a_class_whose_metaclass_answers_everything() -> None:
@@ -252,206 +321,216 @@ def test_register_refuses_a_class_whose_metaclass_answers_everything() -> None:
             return lambda *args, **kwargs: None
 
     class Hollow(metaclass=_AnswersAnything):
-        pass
+        process_type = "flow"
+        name = "hollow"
 
-    with pytest.raises(TypeError):
-        registry.register("flow", "hollow", Hollow)
+    with pytest.raises(TypeError, match="missing or unusable"):
+        solvers.register(Hollow)
 
 
-def test_register_names_the_pair_it_refused() -> None:
+def test_register_names_the_key_it_refused() -> None:
     class NotAnAdapter:
-        pass
+        process_type = "flow"
+        name = "nothing"
 
-    with pytest.raises(TypeError, match="flow/nothing"):
-        registry.register("flow", "nothing", NotAnAdapter)
+    with pytest.raises(TypeError, match="cannot serve 'flow_nothing'"):
+        solvers.register(NotAnAdapter)
+
+
+def test_an_adapter_that_declares_no_accepted_meshes_is_refused_by_name() -> None:
+    """There is no fallback to the regular grid: a plugin that says nothing is refused."""
+    with pytest.raises(TypeError, match="missing or unusable accepted_meshes"):
+        solvers.register(fake_adapter("meshless", accepted_meshes=None))
+
+
+class _NotPydantic:
+    pass
+
+
+@pytest.mark.parametrize(
+    ("members", "named"),
+    [
+        ({"geometry": "voxels"}, "geometry is 'voxels', one of cells, raster"),
+        ({"category": "global"}, "category is 'global', one of distributed, integrated, lumped"),
+        ({"supports": frozenset({"lakes"})}, "supports names lakes, outside the traits"),
+        ({"supports": {"lake"}}, "supports is {'lake'}, a frozenset of str"),
+        ({"accepted_meshes": ("regular",)}, "accepted_meshes is ('regular',), a frozenset"),
+        ({"writes": ["head"]}, "writes is ['head'], a tuple of str"),
+        ({"reads": ("face_flow", 1)}, "reads is ('face_flow', 1), a tuple of str"),
+        ({"mutable": frozenset({1})}, "mutable is frozenset({1}), a frozenset of str"),
+        ({"requires": (("flow",),)}, "requires is (('flow',),), a tuple of (process_type, name)"),
+        ({"options": _NotPydantic}, "_NotPydantic'>, a Pydantic model class or None"),
+        ({"native_step": "fortnightly"}, "native_step is 'fortnightly', a pandas frequency"),
+    ],
+    ids=[
+        "geometry",
+        "category",
+        "supports_vocabulary",
+        "supports_type",
+        "accepted_meshes",
+        "writes",
+        "reads",
+        "mutable",
+        "requires",
+        "options",
+        "native_step",
+    ],
+)
+def test_a_backend_declared_wrongly_is_refused_naming_the_attribute(
+    members: dict[str, object], named: str
+) -> None:
+    with pytest.raises(TypeError, match=re.escape(named)):
+        solvers.register(fake_adapter("wrong", **members))
+    assert "wrong" not in solvers.names("flow")
+
+
+@pytest.mark.parametrize("attribute", ["options", "native_step"])
+def test_a_nullable_attribute_may_be_none_but_not_absent(attribute: str) -> None:
+    solvers.register(fake_adapter("nullable", **{attribute: None}))
+
+    bare = type(
+        "Bare",
+        (),
+        {
+            name: value
+            for name, value in vars(FakeAdapter).items()
+            if name != attribute and not name.startswith("__")
+        },
+    )
+    with pytest.raises(TypeError, match=f"{attribute} is not declared"):
+        solvers.register(bare)
+
+
+def test_a_native_step_pandas_reads_is_accepted() -> None:
+    assert solvers.register(fake_adapter("daily", native_step="1D")).native_step == "1D"
 
 
 # ---------------------------------------------------------------------------
-# Instance retrieval (merged registry contract)
+# Instances
 # ---------------------------------------------------------------------------
 
 
-def test_get_solver_adapter_returns_fresh_instance() -> None:
-    registry.register("flow", "fresh", FakeAdapter)
-    a = registry.get_solver_adapter("flow", "fresh")
-    b = registry.get_solver_adapter("flow", "fresh")
-    assert isinstance(a, FakeAdapter)
-    assert isinstance(b, FakeAdapter)
+def test_create_returns_a_fresh_instance() -> None:
+    solvers.register(fake_adapter("fresh"))
+    a = solvers.create("flow", "fresh")
+    b = solvers.create("flow", "fresh")
+    assert isinstance(a, solvers.get("flow", "fresh"))
     assert a is not b  # one instance per call
 
 
-def test_get_solver_adapter_unknown_raises_keyerror() -> None:
-    with pytest.raises(KeyError):
-        registry.get_solver_adapter("flow", "missing")
+def test_create_unknown_raises_a_solver_input_error() -> None:
+    with pytest.raises(SolverInputError):
+        solvers.create("flow", "missing")
 
 
 # ---------------------------------------------------------------------------
-# Plugin discovery via importlib.metadata entry-points
+# Plugin discovery via importlib.metadata entry points
 # ---------------------------------------------------------------------------
 
 
-def test_load_plugins_is_idempotent() -> None:
-    # First call may register the in-repo entry-points (zero or more); the
-    # second call must always return 0 because _PLUGINS_LOADED is set.
-    registry.load_plugins()
-    assert registry.load_plugins() == 0
+def test_load_plugins_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(solvers, "plugins_loaded", False)
+    solvers.load_plugins()
+    assert solvers.load_plugins() == 0
 
 
-def test_load_plugins_registers_entry_point(monkeypatch) -> None:
-    # Reset the loaded marker so the function is allowed to run again.
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+def test_load_plugins_registers_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = _StubEntryPoint("flow_pluginsolver", fake_adapter("pluginsolver"))
+    _install(monkeypatch, registry.ENTRY_POINT_GROUP, stub)
 
-    class _StubEntryPoint:
-        def __init__(self, name: str, target: type) -> None:
-            self.name = name
-            self._target = target
-
-        def load(self) -> type:
-            return self._target
-
-    stub = _StubEntryPoint("flow_pluginsolver", _adapter_named("flow", "pluginsolver"))
-
-    def _fake_entry_points(*, group: str):
-        assert group == registry.ENTRY_POINT_GROUP
-        return [stub]
-
-    monkeypatch.setattr(registry, "entry_points", _fake_entry_points)
-    count = registry.load_plugins(force=True)
-    assert count >= 1
-    assert ("flow", "pluginsolver") in registry.list_pairs()
+    assert solvers.load_plugins(force=True) == 1
+    assert "pluginsolver" in solvers.names("flow")
 
 
-def test_load_plugins_skips_malformed_entry_point_name(monkeypatch) -> None:
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-
-    class _StubEntryPoint:
-        name = "no-underscore-here"
-
-        def load(self) -> type:
-            return FakeAdapter
-
-    monkeypatch.setattr(
-        registry,
-        "entry_points",
-        lambda *, group: [_StubEntryPoint()],
+def test_load_plugins_skips_malformed_entry_point_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    before = set(solvers.names())
+    _install(
+        monkeypatch, registry.ENTRY_POINT_GROUP, _StubEntryPoint("no-underscore-here", FakeAdapter)
     )
-    pairs_before = set(registry.list_pairs())
-    count = registry.load_plugins(force=True)
-    pairs_after = set(registry.list_pairs())
-    # Malformed entry-points must not pollute the registry.
-    assert count == 0
-    assert pairs_after == pairs_before
+
+    assert solvers.load_plugins(force=True) == 0
+    assert set(solvers.names()) == before
 
 
-def test_load_plugins_refuses_a_name_that_contradicts_the_class(monkeypatch) -> None:
-    """``flow_modflownwt`` used to mint a second name for ``flow/modflow_nwt``.
+def test_load_plugins_refuses_a_name_that_contradicts_the_class(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``flow_modflownwt`` used to mint a second key for ``flow/modflow_nwt``.
 
-    The entry-point name is split at its first underscore, so a solver whose
-    own name carries one was published under a pair the config accepted, with
-    an adapter but no extractor: the run was lost after the solve.
+    The name was split at its first underscore. It is now compared with the
+    join of what the class declares, so a name that drops an underscore names
+    nothing.
     """
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-    published = _adapter_named("flow", "modflow_nwt2")
+    published = fake_adapter("modflow_nwt2")
+    _install(
+        monkeypatch, registry.ENTRY_POINT_GROUP, _StubEntryPoint("flow_modflownwt2", published)
+    )
 
-    class _StubEntryPoint:
-        name = "flow_modflownwt2"
-
-        def load(self) -> type:
-            return published
-
-    monkeypatch.setattr(registry, "entry_points", lambda *, group: [_StubEntryPoint()])
-    assert registry.load_plugins(force=True) == 0
-    assert ("flow", "modflownwt2") not in registry.list_pairs()
-    assert ("flow", "modflow_nwt2") not in registry.list_pairs()
+    assert solvers.load_plugins(force=True) == 0
+    assert "modflownwt2" not in solvers.names("flow")
+    assert "modflow_nwt2" not in solvers.names("flow")
 
 
-def test_load_plugins_refuses_a_pair_it_cannot_read_on_the_class(monkeypatch) -> None:
-    """A pair computed per instance is not readable on the class.
+def test_load_plugins_refuses_a_key_it_cannot_read_on_the_class(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A key computed per instance is not readable on the class, and is refused."""
 
-    Waving that class through would skip the name-versus-class check, which is
-    the only thing standing between the config and two names for one backend.
-    """
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-
-    class _PerInstancePair(FakeAdapter):
+    class _PerInstanceKey(FakeAdapter):
         @property
         def process_type(self):
             return "flow"
 
         @property
-        def solver_name(self):
+        def name(self):
             return "perinstance"
 
-    class _StubEntryPoint:
-        name = "flow_somethingelse"
-
-        def load(self) -> type:
-            return _PerInstancePair
-
-    monkeypatch.setattr(registry, "entry_points", lambda *, group: [_StubEntryPoint()])
-    assert registry.load_plugins(force=True) == 0
-    assert ("flow", "somethingelse") not in registry.list_pairs()
-
-
-def test_load_plugins_refuses_a_class_that_is_not_an_adapter(monkeypatch) -> None:
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-
-    class _NotAnAdapter:
-        pass
-
-    class _StubEntryPoint:
-        name = "flow_broken"
-
-        def load(self) -> type:
-            return _NotAnAdapter
-
-    monkeypatch.setattr(registry, "entry_points", lambda *, group: [_StubEntryPoint()])
-    assert registry.load_plugins(force=True) == 0
-    assert ("flow", "broken") not in registry.list_pairs()
-
-
-def test_get_extractor_loads_plugin_lazily(monkeypatch) -> None:
-    monkeypatch.setattr(registry, "_EXTRACTOR_PLUGINS_LOADED", False)
-
-    class _StubEntryPoint:
-        name = "flow_pluginflow"
-
-        def load(self) -> type:
-            return FakeExtractor
-
-    monkeypatch.setattr(
-        registry,
-        "entry_points",
-        lambda *, group: (
-            [_StubEntryPoint()] if group == registry.EXTRACTOR_ENTRY_POINT_GROUP else []
-        ),
+    _install(
+        monkeypatch,
+        registry.ENTRY_POINT_GROUP,
+        _StubEntryPoint("flow_perinstance", _PerInstanceKey),
     )
 
-    assert registry.get_extractor("flow", "pluginflow") is FakeExtractor
+    assert solvers.load_plugins(force=True) == 0
+    assert "perinstance" not in solvers.names("flow")
 
 
-def test_get_loads_plugin_lazily(monkeypatch) -> None:
+def test_load_plugins_refuses_a_class_that_is_not_an_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _NotAnAdapter:
+        process_type = "flow"
+        name = "broken"
+
+    _install(monkeypatch, registry.ENTRY_POINT_GROUP, _StubEntryPoint("flow_broken", _NotAnAdapter))
+
+    assert solvers.load_plugins(force=True) == 0
+    assert "broken" not in solvers.names("flow")
+
+
+def test_get_extractor_loads_plugin_lazily(monkeypatch: pytest.MonkeyPatch) -> None:
+    extractor = fake_extractor("pluginflow")
+    _install(
+        monkeypatch,
+        registry.EXTRACTOR_ENTRY_POINT_GROUP,
+        _StubEntryPoint("flow_pluginflow", extractor),
+    )
+
+    assert extractors.get("flow", "pluginflow") is extractor
+
+
+def test_get_loads_plugin_lazily(monkeypatch: pytest.MonkeyPatch) -> None:
     """An out-of-tree adapter resolves on first lookup, with no eager scan."""
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
-    scans: list[str] = []
+    lazy_adapter = fake_adapter("lazyplugin")
+    scans = _install(
+        monkeypatch,
+        registry.ENTRY_POINT_GROUP,
+        _StubEntryPoint("flow_lazyplugin", lazy_adapter),
+    )
 
-    lazy_adapter = _adapter_named("flow", "lazyplugin")
-
-    class _StubEntryPoint:
-        name = "flow_lazyplugin"
-
-        def load(self) -> type:
-            return lazy_adapter
-
-    def _fake_entry_points(*, group: str):
-        scans.append(group)
-        return [_StubEntryPoint()] if group == registry.ENTRY_POINT_GROUP else []
-
-    monkeypatch.setattr(registry, "entry_points", _fake_entry_points)
-
-    # A built-in pair is served from the dotted-path table without any scan.
-    assert registry.get("flow", "modflow6") is not None
+    # A built-in key is served from the dotted-path table without any scan.
+    assert solvers.get("flow", "modflow6") is not None
     assert scans == []
 
-    assert registry.get("flow", "lazyplugin") is lazy_adapter
+    assert solvers.get("flow", "lazyplugin") is lazy_adapter
     assert scans == [registry.ENTRY_POINT_GROUP]

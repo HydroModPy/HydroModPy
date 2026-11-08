@@ -66,15 +66,12 @@ def _build_solver_steady_array(
 
 def resolve_first_period_steady(
     *,
-    flow: object | None = None,
+    model: object | None = None,
     default: bool = True,
 ) -> bool:
-    """Resolve the first-period steady policy from [flow]."""
-    flow_config = getattr(flow, "config", None) if flow is not None else None
-    if flow_config is not None and hasattr(flow_config, "first_period_steady"):
-        return bool(flow_config.first_period_steady)
-    if flow is not None and hasattr(flow, "first_period_steady"):
-        return bool(flow.first_period_steady)
+    """Resolve the first-period steady policy from ``model.time.first_period_steady``."""
+    if model is not None:
+        return bool(model.time.first_period_steady)
     return bool(default)
 
 

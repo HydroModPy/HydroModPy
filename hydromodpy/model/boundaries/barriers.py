@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.model.model import Flow
+    from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)
 

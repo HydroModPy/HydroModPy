@@ -51,18 +51,20 @@ def select_budget_zone(frame: Any) -> tuple[Any, str]:
     return frame, "the model domain"
 
 
-def networks_route_drainage(flow: Any) -> bool:
-    """Return whether a stream network takes the hillslope drainage of this flow.
+def networks_route_drainage(model: Any) -> bool:
+    """Return whether a stream network takes the hillslope drainage of this model.
 
-    Only an active SFR network can: ``route_drainage``, on by default, hands the
-    outflow of a drain to its reaches through the mover. A lake alone takes none,
-    so without a network, or with a network that keeps its drainage out, the
-    catchment drains hold water the routed series does not. A published discharge
-    and the discharge of a trial both read this answer.
+    ``model`` is a ``Model``, read by its ``boundaries`` and ``sfr`` members, or
+    ``None`` for a run that has none, which has no network. Only an active SFR
+    network can: ``route_drainage``, on by default, hands the outflow of a drain
+    to its reaches through the mover. A lake alone takes none, so without a
+    network, or with a network that keeps its drainage out, the catchment drains
+    hold water the routed series does not. A published discharge and the
+    discharge of a trial both read this answer.
     """
-    active = {str(name).lower() for name in getattr(flow, "active_bc", None) or ()}
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, Mapping) else None
+    boundaries = getattr(model, "boundaries", None)
+    active = {str(name).lower() for name in getattr(boundaries, "active_ids", None) or ()}
+    networks = getattr(model, "sfr", None)
     if "sfr" not in active or not networks:
         return False
     for payload in networks.values():

@@ -224,8 +224,8 @@ class Modflow6OutputAdapter:
     ``{model_name}.cbc`` in MODFLOW 6 format.
     """
 
+    process_type = "flow"
     solver_name = "modflow6"
-    category = "distributed"
 
     def extract(
         self,

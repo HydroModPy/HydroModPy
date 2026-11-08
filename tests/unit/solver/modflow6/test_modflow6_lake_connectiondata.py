@@ -22,6 +22,7 @@ import flopy
 import numpy as np
 from shapely.geometry import Point, Polygon
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders._lake_geometry import _drop_interior_rings
 from hydromodpy.solver.modflow6.builders.lake import (
     build_lak_package_args,
@@ -32,6 +33,7 @@ from hydromodpy.solver.modflow6.builders.lake_cells import (
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A 4x4, 2-layer unit grid with the central 2x2 block as the lake footprint.
@@ -176,11 +178,9 @@ def _model_with_lake() -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {"lac0": {"polygon": polygon, "bedleak": 0.3, "abacus": abacus}}
-            },
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={"lac0": {"polygon": polygon, "bedleak": 0.3, "abacus": abacus}},
         ),
     )
 
@@ -189,13 +189,11 @@ def test_resolve_lake_occupied_layers_reads_config_default_and_override() -> Non
     from hydromodpy.solver.modflow6.builders.lake_cells import resolve_lake_occupied_layers
 
     model = SimpleNamespace(
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "surface": {"polygon": None, "bedleak": 0.1},
-                    "deep": {"polygon": None, "bedleak": 0.1, "occupied_layers": 3},
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "surface": {"polygon": None, "bedleak": 0.1},
+                "deep": {"polygon": None, "bedleak": 0.1, "occupied_layers": 3},
             },
         ),
     )
@@ -229,7 +227,9 @@ def test_build_lak_package_args_produces_packagedata_and_table() -> None:
 
 
 def test_build_lak_package_args_is_none_without_lake() -> None:
-    model = SimpleNamespace(flow=SimpleNamespace(active_bc=[], sinks_sources={}))
+    model = SimpleNamespace(
+        inputs=make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=()))
+    )
     assert build_lak_package_args(model, solver_mesh=_grid_4x4()) is None
 
 
@@ -242,16 +242,14 @@ def test_build_lak_package_args_converts_bedleak_unit_into_connectiondata() -> N
     model = SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": polygon,
-                        "bedleak": 0.5,
-                        "bedleak_unit": "1/day",
-                        "abacus": abacus,
-                    }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": polygon,
+                    "bedleak": 0.5,
+                    "bedleak_unit": "1/day",
+                    "abacus": abacus,
                 }
             },
         ),

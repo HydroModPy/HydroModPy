@@ -1,129 +1,101 @@
-"""The head a run starts from, for every solver.
+"""The head a run starts from, as arrays on a backend's own grid.
 
-The array of a ``flow.ic`` (top, top offset, bottom, custom value), and the two
-strategies that replace it with the state of an auxiliary solve of the same
-solver: a steady solve (``steady_state``) or repeated cycles of the run's
-period (``spinup_cyclic``).
+A ``HeadRule`` gives the array of the top, the top minus an offset, the bottom
+or one value. A ``SteadyStart`` and a ``CyclicStart`` start from the top too,
+because the state their auxiliary solve returns replaces that array once it has
+run. The head of a ``PriorState`` is copied cell by cell and its inactive cells
+take the top of the grid. Two checks complete the module: whether a head lies
+between the bottom and the top, and whether two spin-up cycles ended on the
+same state.
 """
 
 from __future__ import annotations
 
-import copy
-from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from pydantic import TypeAdapter
 
-from hydromodpy.core.units import FluxDensityMPerS
-from hydromodpy.core.units.quantities import factor_to_m_per_s
-from hydromodpy.core.units.types import LengthMeters
-from hydromodpy.model.initial.config import (
-    FlowICTop,
-    FlowICTopOffset,
-    FlowInitialCondition,
-    FlowInitialConditions,
-    known_ic_types,
+from hydromodpy.model.initial.state import (
+    CyclicStart,
+    HeadRule,
+    PriorState,
+    SolvedState,
+    SteadyStart,
 )
 
-HEAD_INITIAL_CONDITION_TYPES = tuple(sorted(known_ic_types()))
-"""The accepted ``flow.ic.kind`` values, read off the union that defines them."""
-
-_TYPES_STARTING_FROM_THE_TOP = frozenset({"top", "steady_state", "spinup_cyclic"})
-"""Types whose resolved array is the water table at the topographic surface.
-
-For the last two it is only the guess their auxiliary solve begins at; what they
-produce replaces it once that solve has run."""
-_HEAD_INITIAL_CONDITION_TYPES_TEXT = ", ".join(HEAD_INITIAL_CONDITION_TYPES)
+_START_FROM_THE_TOP = HeadRule("top")
 
 
-def initial_condition_field(initial_condition: object, field_name: str, default=None):
-    """Read one field from either a mapping payload or a typed IC object."""
-    if isinstance(initial_condition, Mapping):
-        return initial_condition.get(field_name, default)
-    return getattr(initial_condition, field_name, default)
+def head_rule_of(initial: HeadRule | SteadyStart | CyclicStart) -> HeadRule:
+    """The rule the start array is built from before any auxiliary solve.
 
-
-def resolve_head_initial_condition(model_or_flow: object):
-    """Return the head initial-condition payload from a model or flow object."""
-    flow = getattr(model_or_flow, "flow", model_or_flow)
-    initial_conditions = getattr(flow, "initial_conditions", None)
-    if initial_conditions is None:
-        return None
-    if isinstance(initial_conditions, Mapping):
-        return initial_conditions.get("h")
-    return getattr(initial_conditions, "h", None)
-
-
-def head_initial_condition_type(initial_condition: object) -> str:
-    """Return the normalized head IC type token."""
-    return str(initial_condition_field(initial_condition, "kind", "")).strip().lower()
-
-
-def _head_initial_condition_value_m(
-    initial_condition: object,
-    *,
-    location_prefix: str,
-    ic_type: str,
-) -> float:
-    """Return the scalar head IC value in meters or raise a contract error."""
-    head_value = initial_condition_field(initial_condition, "value")
-    if head_value is None:
-        raise ValueError(
-            f"{location_prefix}.value is required when {location_prefix}.kind='{ic_type}'"
+    A steady or cyclic start begins at the top: the state its auxiliary solve
+    returns is set over this array afterwards. A state read from a run or a
+    solve is not a rule, and is refused by name.
+    """
+    if isinstance(initial, HeadRule):
+        return initial
+    if isinstance(initial, SteadyStart | CyclicStart):
+        return _START_FROM_THE_TOP
+    if isinstance(initial, PriorState | SolvedState):
+        raise TypeError(
+            f"A {type(initial).__name__} holds its head already; it is set as it is, "
+            "not resolved by a rule."
         )
-    return float(getattr(head_value, "magnitude", head_value))
+    raise TypeError(f"Not a start state: {initial!r}")
 
 
 def build_head_initial_condition_array(
-    initial_condition: object,
+    initial: HeadRule | SteadyStart | CyclicStart,
     *,
     top: Any,
     bottom: Any,
     target_shape: tuple[int, ...],
     location_prefix: str = "flow.ic",
 ) -> np.ndarray:
-    """
-    Resolve the canonical flow head IC into an array shaped for one backend.
+    """Resolve a start rule into a float array of ``target_shape``, in metres.
 
-    ``steady_state`` and ``spinup_cyclic`` both resolve to the top surface here,
-    because the array this returns is only the guess their auxiliary solves start
-    from: the state they actually produce is injected afterwards by the same-solver
-    initialization path, once it has run. A type added to the union without a branch
-    here lands in the final ``else`` and is refused by name, which is what a reader
-    wants over a silent fallback to the surface.
+    ``top`` and ``bottom`` broadcast to ``target_shape``. ``custom`` fills the
+    array with its value whatever the grid.
     """
-    ic_type = head_initial_condition_type(initial_condition)
-    if ic_type in _TYPES_STARTING_FROM_THE_TOP:
+    rule = head_rule_of(initial)
+    if rule.kind == "custom":
+        return np.full(target_shape, float(rule.value_m), dtype=float)
+    if rule.kind == "top":
         base = np.asarray(top, dtype=float)
-    elif ic_type == "top_offset":
-        offset_m = _head_initial_condition_value_m(
-            initial_condition,
-            location_prefix=location_prefix,
-            ic_type=ic_type,
-        )
-        base = np.asarray(top, dtype=float) - offset_m
-    elif ic_type == "bottom":
-        base = np.asarray(bottom, dtype=float)
-    elif ic_type == "custom":
-        head_m = _head_initial_condition_value_m(
-            initial_condition,
-            location_prefix=location_prefix,
-            ic_type=ic_type,
-        )
-        return np.full(target_shape, head_m, dtype=float)
+    elif rule.kind == "top_offset":
+        base = np.asarray(top, dtype=float) - float(rule.value_m)
     else:
-        raise ValueError(
-            f"{location_prefix}.kind must be one of: {_HEAD_INITIAL_CONDITION_TYPES_TEXT}"
-        )
-
+        base = np.asarray(bottom, dtype=float)
     try:
         return np.broadcast_to(base, target_shape).astype(float, copy=True)
     except ValueError as exc:
         raise ValueError(
             f"{location_prefix} resolved shape {base.shape} cannot broadcast to {target_shape}."
         ) from exc
+
+
+def restart_start_heads(head: Any, *, nlay: int, ncpl: int, top: Any) -> np.ndarray:
+    """Return the start heads ``(nlay, ncpl)`` of a restart, inactive cells at the top.
+
+    ``head`` is the last head of the earlier run with NaN on its inactive
+    cells (``PriorState.head``). It must have this run's shape, because the
+    heads are copied cell by cell. MODFLOW ignores the start head of an
+    inactive cell but needs a finite one, so each NaN takes the top of its
+    cell, as the default start does. ``head`` is not changed.
+    """
+    start = np.array(head, dtype=float, copy=True)
+    if start.shape != (nlay, ncpl):
+        raise ValueError(
+            f"restart_from: prior head shape {start.shape} does not match this run "
+            f"({nlay}, {ncpl}). Use the same [mesh] settings as the prior run so the "
+            f"cell count is identical between the two runs."
+        )
+    top_flat = np.asarray(top, dtype=float).reshape(-1)
+    for ilay in range(nlay):
+        missing = ~np.isfinite(start[ilay])
+        start[ilay][missing] = top_flat[missing]
+    return start
 
 
 def summarize_head_initial_condition_bounds(
@@ -167,59 +139,6 @@ def summarize_head_initial_condition_bounds(
     }
 
 
-_RATE_ADAPTER: TypeAdapter[float] = TypeAdapter(FluxDensityMPerS)
-_LENGTH_ADAPTER: TypeAdapter[float] = TypeAdapter(LengthMeters)
-
-
-@dataclass(frozen=True)
-class SteadyStateInitialConditionStrategy:
-    """Validated strategy payload for ``flow.ic.kind='steady_state'``."""
-
-    source: str = "mean_recharge"
-    recharge_statistic: str | None = "time_mean"
-    boundary_condition_policy: str = "first_period"
-    rate_m_s: float | None = None
-    """Rate the steady solve is held at, set only by ``source='prescribed'``."""
-
-
-@dataclass(frozen=True)
-class CyclicSpinupStrategy:
-    """Validated payload for ``flow.ic.kind='spinup_cyclic'``."""
-
-    max_cycles: int = 4
-    tol_head_m: float = 0.01
-    first_cycle_from: str = "top"
-
-
-def flow_uses_cyclic_spinup(flow: object) -> bool:
-    """Return whether the flow IC asks for the run's period to be repeated."""
-    head_ic = resolve_head_initial_condition(flow)
-    return head_initial_condition_type(head_ic) == "spinup_cyclic"
-
-
-def cyclic_spinup_strategy(flow: object) -> CyclicSpinupStrategy | None:
-    """Return the validated cyclic-spinup strategy, or ``None`` if unused."""
-    head_ic = resolve_head_initial_condition(flow)
-    if head_initial_condition_type(head_ic) != "spinup_cyclic":
-        return None
-    max_cycles = int(initial_condition_field(head_ic, "max_cycles", 4) or 4)
-    if max_cycles < 1:
-        raise ValueError("flow.ic.max_cycles has to be at least one cycle.")
-    raw_tol = initial_condition_field(head_ic, "tol_head", 0.01)
-    tol = _LENGTH_ADAPTER.validate_python(raw_tol if raw_tol is not None else 0.01)
-    if tol <= 0.0:
-        raise ValueError(
-            "flow.ic.tol_head has to be strictly positive: it is the head change below "
-            "which two cycles count as the same state."
-        )
-    first = str(initial_condition_field(head_ic, "first_cycle_from", "top") or "top").strip()
-    if first not in {"top", "steady_state"}:
-        raise ValueError("flow.ic.first_cycle_from must be 'top' or 'steady_state'")
-    return CyclicSpinupStrategy(
-        max_cycles=max_cycles, tol_head_m=float(tol), first_cycle_from=first
-    )
-
-
 def cycles_have_settled(previous: object, current: object, *, tol_head_m: float) -> bool:
     """Tell whether two consecutive cycles ended on the same state.
 
@@ -245,211 +164,10 @@ def cycles_have_settled(previous: object, current: object, *, tol_head_m: float)
     return bool(np.max(np.abs(after[both_finite] - before[both_finite])) <= float(tol_head_m))
 
 
-def cyclic_flow_copy_for_initialization(flow: object) -> object:
-    """Return a flow copy for one spin-up cycle, with the cycling REMOVED.
-
-    This is the whole reason the function exists. A cycle runs an auxiliary model
-    built from a copy of the real flow, and that copy still asked for a cyclic
-    spin-up, so the auxiliary model re-entered the same hook and spun up cycles of
-    its own. Measured before it was fixed: a three-cycle spin-up ran 143 solves and
-    was stopped by the machine, not by the loop. The copy therefore starts from the
-    top surface, exactly as the steady initialization's copy does, and the caller
-    overwrites that with the previous cycle's heads.
-    """
-    cycle_flow = copy.deepcopy(flow)
-    cycle_ic = FlowInitialConditions(
-        h=FlowICTop(id="h", units="m", description="Start of one cyclic spin-up cycle")
-    )
-    flow_config = getattr(cycle_flow, "config", None)
-    if flow_config is not None and hasattr(flow_config, "model_copy"):
-        cycle_flow.config = flow_config.model_copy(update={"ic": cycle_ic})
-    if hasattr(cycle_flow, "set_initial_conditions"):
-        cycle_flow.set_initial_conditions(cycle_ic)
-    else:
-        cycle_flow.initial_conditions = cycle_ic
-        cycle_flow.initial_condition_types = {"h": "top"}
-    if flow_uses_cyclic_spinup(cycle_flow):
-        raise AssertionError(
-            "a spin-up cycle's flow still asks for a cyclic spin-up; it would recurse."
-        )
-    return cycle_flow
-
-
-def flow_uses_steady_state_initial_condition(flow: object) -> bool:
-    """Return whether the flow IC requests same-solver steady initialization."""
-    head_ic = resolve_head_initial_condition(flow)
-    return head_initial_condition_type(head_ic) == "steady_state"
-
-
-def steady_state_initial_condition_strategy(
-    flow: object,
-) -> SteadyStateInitialConditionStrategy | None:
-    """Return the validated steady-state IC strategy, or ``None`` if unused."""
-    head_ic = resolve_head_initial_condition(flow)
-    if head_initial_condition_type(head_ic) != "steady_state":
-        return None
-
-    source = str(
-        initial_condition_field(head_ic, "source", "mean_recharge") or "mean_recharge"
-    ).strip()
-    boundary_policy = str(
-        initial_condition_field(head_ic, "boundary_condition_policy", "first_period")
-        or "first_period"
-    ).strip()
-    raw_rate = initial_condition_field(head_ic, "rate", None)
-
-    if source not in {"recharge", "mean_recharge", "prescribed"}:
-        raise ValueError("flow.ic.source must be 'recharge', 'mean_recharge', or 'prescribed'")
-    if boundary_policy != "first_period":
-        raise ValueError("flow.ic.boundary_condition_policy must be 'first_period'")
-
-    if source == "prescribed":
-        if raw_rate is None:
-            raise ValueError(
-                "flow.ic.rate is required when flow.ic.source='prescribed'; "
-                "write the equilibrium rate with its unit, for example rate = '500 mm/yr'"
-            )
-        return SteadyStateInitialConditionStrategy(
-            source=source,
-            recharge_statistic=None,
-            boundary_condition_policy=boundary_policy,
-            rate_m_s=_RATE_ADAPTER.validate_python(raw_rate),
-        )
-
-    if raw_rate is not None:
-        raise ValueError(
-            "flow.ic.rate is only read when flow.ic.source='prescribed'; "
-            f"got source={source!r}, which reads the recharge chronicle instead"
-        )
-    recharge_statistic = str(
-        initial_condition_field(head_ic, "recharge_statistic", "time_mean") or "time_mean"
-    ).strip()
-    if recharge_statistic != "time_mean":
-        raise ValueError("flow.ic.recharge_statistic must be 'time_mean'")
-
-    return SteadyStateInitialConditionStrategy(
-        source=source,
-        recharge_statistic=recharge_statistic,
-        boundary_condition_policy=boundary_policy,
-    )
-
-
-def apply_steady_state_initial_condition_strategy(
-    flow: object,
-    *,
-    strategy: SteadyStateInitialConditionStrategy | None = None,
-) -> None:
-    """Apply the supported steady-state IC forcing strategy to a flow object."""
-    strategy = strategy or steady_state_initial_condition_strategy(flow)
-    if strategy is None:
-        return
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    if not isinstance(sinks_sources, dict):
-        return
-    recharge = sinks_sources.get("recharge")
-    if recharge is None or not hasattr(recharge, "model_copy"):
-        return
-    if strategy.rate_m_s is None:
-        sinks_sources["recharge"] = recharge.model_copy(update={"first_clim": "mean"})
-        return
-
-    # A prescribed rate must reach every period of the auxiliary solve, not
-    # only its steady periods, so the whole payload is replaced by the stated
-    # rate; `first_clim` repeats it for the steady periods.
-    payload_units = str(getattr(recharge, "units", "m/s") or "m/s")
-    rate_in_payload_units = strategy.rate_m_s / factor_to_m_per_s(payload_units)
-    sinks_sources["recharge"] = recharge.model_copy(
-        update={
-            "values": rate_in_payload_units,
-            "first_clim": rate_in_payload_units,
-            "heterogeneous_source": None,
-        }
-    )
-
-
-_RUNTIME_KEY_OF = {"runtime_backend": "backend"}
-
-
-def _flow_config_value(flow: object, name: str) -> object:
-    """Return a setting of the flow, read from its ``[flow.runtime]`` when it has none."""
-    value = getattr(flow, name, None)
-    if value not in (None, ""):
-        return value
-    runtime = getattr(getattr(flow, "config", None), "runtime", None)
-    return getattr(runtime, _RUNTIME_KEY_OF.get(name, name), "")
-
-
-def steady_state_initialization_surface_interaction_model(flow: object) -> str | None:
-    """Return the surface model override needed for an auxiliary steady solve."""
-    runtime_backend = str(_flow_config_value(flow, "runtime_backend") or "").strip().lower()
-    surface_model = str(_flow_config_value(flow, "surface_interaction_model") or "").strip().lower()
-    if runtime_backend == "petsc" and surface_model == "ts_vi_obstacle":
-        return "regularized_partition"
-    return None
-
-
-def _steady_state_initialization_head_guess(flow: object) -> FlowInitialCondition:
-    """Return a robust initial head guess for the auxiliary steady solve."""
-    runtime_backend = str(_flow_config_value(flow, "runtime_backend") or "").strip().lower()
-    surface_model = str(_flow_config_value(flow, "surface_interaction_model") or "").strip().lower()
-    if runtime_backend == "petsc" and surface_model == "vi_obstacle":
-        return FlowICTopOffset(
-            id="h",
-            value=0.01,
-            units="m",
-            description=("Interior initial guess for steady-state initial-condition VI solve"),
-        )
-    return FlowICTop(
-        id="h",
-        units="m",
-        description="Initial guess for steady-state initial-condition solve",
-    )
-
-
-def steady_flow_copy_for_initialization(flow: object) -> object:
-    """Return a flow copy configured for the auxiliary steady solve."""
-    strategy = steady_state_initial_condition_strategy(flow)
-    steady_flow = copy.deepcopy(flow)
-    steady_ic = FlowInitialConditions(h=_steady_state_initialization_head_guess(steady_flow))
-    flow_config = getattr(steady_flow, "config", None)
-    config_update = {"flow_regime": "steady", "ic": steady_ic}
-    steady_surface_model = steady_state_initialization_surface_interaction_model(steady_flow)
-    if steady_surface_model is not None:
-        if flow_config is not None and hasattr(flow_config, "runtime"):
-            config_update["runtime"] = flow_config.runtime.model_copy(
-                update={"surface_interaction_model": steady_surface_model}
-            )
-        steady_flow.surface_interaction_model = steady_surface_model
-
-    if flow_config is not None and hasattr(flow_config, "model_copy"):
-        steady_flow.config = flow_config.model_copy(update=config_update)
-    steady_flow.flow_regime = "steady"
-    if hasattr(steady_flow, "set_initial_conditions"):
-        steady_flow.set_initial_conditions(steady_ic)
-    else:
-        steady_flow.initial_conditions = steady_ic
-        steady_flow.initial_condition_types = {"h": "top"}
-
-    apply_steady_state_initial_condition_strategy(steady_flow, strategy=strategy)
-    return steady_flow
-
-
 __all__ = [
-    "CyclicSpinupStrategy",
-    "HEAD_INITIAL_CONDITION_TYPES",
-    "SteadyStateInitialConditionStrategy",
-    "apply_steady_state_initial_condition_strategy",
     "build_head_initial_condition_array",
     "cycles_have_settled",
-    "cyclic_flow_copy_for_initialization",
-    "cyclic_spinup_strategy",
-    "flow_uses_cyclic_spinup",
-    "flow_uses_steady_state_initial_condition",
-    "head_initial_condition_type",
-    "initial_condition_field",
-    "resolve_head_initial_condition",
-    "steady_flow_copy_for_initialization",
-    "steady_state_initial_condition_strategy",
-    "steady_state_initialization_surface_interaction_model",
+    "head_rule_of",
+    "restart_start_heads",
     "summarize_head_initial_condition_bounds",
 ]

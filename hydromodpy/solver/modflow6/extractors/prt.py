@@ -30,8 +30,8 @@ class Modflow6PrtOutputAdapter:
     padding for shorter tracks.
     """
 
+    process_type = "transport"
     solver_name = "modflow6_prt"
-    category = "distributed"
 
     def extract(
         self,

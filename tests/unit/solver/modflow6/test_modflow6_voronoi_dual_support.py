@@ -31,6 +31,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     build_planar_cell_mesh,
 )
 from hydromodpy.mesh.planning.input_triangulation import domain_polygon_from_mesh
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
@@ -237,16 +238,15 @@ def test_a_well_is_written_in_the_dual_cell_that_holds_it() -> None:
     ctx, _triangles, _mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
     x_m, y_m = POINTS[1]
-    model.flow = SimpleNamespace(
-        sinks_sources={
-            "wells": {
-                "P1": FlowWellConfig(
-                    location={"kind": "absolute_xy", "x": x_m, "y": y_m},
-                    flux=-1.0,
-                )
-            }
+    model.inputs = replace(
+        model.inputs,
+        wells={
+            "P1": FlowWellConfig(
+                location={"kind": "absolute_xy", "x": x_m, "y": y_m},
+                flux=-1.0,
+            )
         },
-        active_sinks_sources=["wells"],
+        active_sinks_sources=("wells",),
     )
 
     wel_spd = build_well_stress_period_data(model, 2)
@@ -258,12 +258,18 @@ def test_a_well_is_written_in_the_dual_cell_that_holds_it() -> None:
 def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
     ctx, _triangles, mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=10.0),
-            "north_side": SimpleNamespace(value=12.0),
-        },
-        active_bc=["west_side", "north_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=10.0),
+                "north_side": SimpleNamespace(value=12.0),
+            },
+            active_ids=(
+                "west_side",
+                "north_side",
+            ),
+        ),
     )
 
     chd_spd = build_side_boundary_chd_spd(model)
@@ -278,9 +284,11 @@ def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
 def test_a_stream_boundary_on_the_dual_takes_the_cells_the_river_runs_through() -> None:
     ctx, _triangles, mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
-    model.flow = SimpleNamespace(
-        boundary_conditions={"stream": SimpleNamespace(value=7.0)},
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={"stream": SimpleNamespace(value=7.0)}, active_ids=("stream",)
+        ),
     )
 
     _chd_spd, mask = build_stream_boundary_chd_spd(model)

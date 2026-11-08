@@ -200,7 +200,7 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(TriangleMeshEngine, "build", _bomb)
-        assert registry.get("triangle") is TriangleMeshEngine
+        assert registry.mesh_engines.get("triangle") is TriangleMeshEngine
         project = Project(root / "project.toml", no_display=True)
         try:
             project.simulate(resume=RUN_NAME, until_step="setup_process")

@@ -27,6 +27,7 @@ from hydromodpy.calibration.metrics.scored_forward import (
 )
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.plugin_registry import PluginRegistry
 
 # From test_a_model_is_scored_by_the_document.py
 # What a forward model is asked, what it may answer, and what is refused early.
@@ -77,7 +78,7 @@ def isolated_registry(monkeypatch: pytest.MonkeyPatch):
     everything in that interpreter -- so a test that registers a plugin has to
     put both mappings and the scan flag back.
     """
-    engine = forward_registry._ENGINE
+    engine = forward_registry.forward_models
     monkeypatch.setattr(engine, "classes", dict(engine.classes))
     monkeypatch.setattr(engine, "builtin_paths", dict(engine.builtin_paths))
     monkeypatch.setattr(engine, "plugins_loaded", False)
@@ -154,12 +155,12 @@ def _evaluator(model: object, **overrides: object) -> ScoredForwardEvaluator:
 # --------------------------------------------------------------------------
 class TestTheRegistryResolves:
     def test_a_document_that_names_none_gets_the_reference_model(self) -> None:
-        assert forward_registry.resolve_id(None) == "linear_reservoir"
+        assert forward_registry.forward_models.get(None).model_id == "linear_reservoir"
         assert forward_registry.DEFAULT_FORWARD_MODEL_ID == "linear_reservoir"
 
     def test_a_name_nobody_serves_says_what_is_served_and_how_to_join(self) -> None:
         with pytest.raises(CalibrationError) as refusal:
-            forward_registry.get("a_model_nobody_installed")
+            forward_registry.forward_models.get("a_model_nobody_installed")
 
         assert "linear_reservoir" in str(refusal.value)
         assert forward_registry.ENTRY_POINT_GROUP in str(refusal.value)
@@ -169,7 +170,7 @@ class TestTheRegistryResolves:
             model_id = "test_incomplete"
 
         with pytest.raises(TypeError) as refusal:
-            forward_registry.register(_NoSimulate)
+            forward_registry.forward_models.register(_NoSimulate)
 
         assert "simulate" in str(refusal.value)
         assert "test_incomplete" in str(refusal.value)
@@ -180,24 +181,24 @@ class TestTheRegistryResolves:
                 return ForwardOutcome(observables={})
 
         with pytest.raises(TypeError):
-            forward_registry.register(_Nameless)
+            forward_registry.forward_models.register(_Nameless)
 
     def test_an_id_already_served_is_not_taken_by_accident(self) -> None:
-        forward_registry.register(_Answers)
+        forward_registry.forward_models.register(_Answers)
         try:
             with pytest.raises(ValueError, match="already registered"):
-                forward_registry.register(_Answers)
+                forward_registry.forward_models.register(_Answers)
         finally:
-            forward_registry.unregister(_Answers.model_id)
+            forward_registry.forward_models.unregister(_Answers.model_id)
 
     def test_only_the_options_a_constructor_names_are_bound(self) -> None:
-        forward_registry.register(_Answers, replace=True)
+        forward_registry.forward_models.register(_Answers, replace=True)
         try:
-            built = forward_registry.create(
+            built = forward_registry.forward_models.create(
                 _Answers.model_id, cfg=_config(), space=None, workspace=None, cfg_path=None
             )
         finally:
-            forward_registry.unregister(_Answers.model_id)
+            forward_registry.forward_models.unregister(_Answers.model_id)
 
         assert isinstance(built, _Answers)
         assert built.value == 1.0
@@ -214,13 +215,13 @@ class TestTheRegistryResolves:
                 self.workspace = workspace
 
         cfg = _config()
-        forward_registry.register(_Wants, replace=True)
+        forward_registry.forward_models.register(_Wants, replace=True)
         try:
-            built = forward_registry.create(
+            built = forward_registry.forward_models.create(
                 _Wants.model_id, cfg=cfg, space="a space", workspace="a workspace", cfg_path=None
             )
         finally:
-            forward_registry.unregister(_Wants.model_id)
+            forward_registry.forward_models.unregister(_Wants.model_id)
 
         assert built.cfg is cfg
         assert built.workspace == "a workspace"
@@ -236,14 +237,14 @@ class TestTheRegistryResolves:
                 super().__init__()
                 self.mesh = mesh
 
-        forward_registry.register(_WantsMesh, replace=True)
+        forward_registry.forward_models.register(_WantsMesh, replace=True)
         try:
             with pytest.raises(CalibrationError, match="mesh"):
-                forward_registry.create(
+                forward_registry.forward_models.create(
                     _WantsMesh.model_id, cfg=_config(), space=None, workspace=None, cfg_path=None
                 )
         finally:
-            forward_registry.unregister(_WantsMesh.model_id)
+            forward_registry.forward_models.unregister(_WantsMesh.model_id)
 
     def test_the_members_it_holds_a_class_to_come_from_the_port(self) -> None:
         assert forward_model_members() == ("model_id", "simulate")
@@ -265,11 +266,10 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("acme_reservoir", _Foreign)),
         )
 
-        assert forward_registry.load_plugins() == 1
-        assert forward_registry.get("acme_reservoir") is _Foreign
-        assert forward_registry.is_registered("acme_reservoir")
-        assert "acme_reservoir" in forward_registry.list_model_ids()
-        assert "acme_reservoir" not in forward_registry.builtin_model_ids()
+        assert forward_registry.forward_models.load_plugins() == 1
+        assert forward_registry.forward_models.get("acme_reservoir") is _Foreign
+        assert "acme_reservoir" in forward_registry.forward_models.names()
+        assert "acme_reservoir" not in forward_registry.forward_models.names(shipped_only=True)
 
     def test_a_plugin_claiming_a_name_this_build_ships_does_not_answer_in_its_place(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -283,8 +283,8 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("linear_reservoir", _Impostor)),
         )
 
-        assert forward_registry.load_plugins() == 0
-        assert forward_registry.get("linear_reservoir") is not _Impostor
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert forward_registry.forward_models.get("linear_reservoir") is not _Impostor
 
     def test_an_entry_point_name_and_a_declared_id_that_disagree_are_refused(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -300,9 +300,9 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("what_the_wheel_declares", _Renamed)),
         )
 
-        assert forward_registry.load_plugins() == 0
-        assert not forward_registry.is_registered("what_the_wheel_declares")
-        assert not forward_registry.is_registered("what_it_calls_itself")
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert "what_the_wheel_declares" not in forward_registry.forward_models.names()
+        assert "what_it_calls_itself" not in forward_registry.forward_models.names()
 
     def test_an_empty_entry_point_name_is_refused(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -316,7 +316,7 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("  ", _Nameless)),
         )
 
-        assert forward_registry.load_plugins() == 0
+        assert forward_registry.forward_models.load_plugins() == 0
 
     def test_a_wheel_that_will_not_import_does_not_take_its_neighbour_down(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -336,8 +336,8 @@ class TestThePluginGroup:
             _entry_points_returning(broken, _stub_entry_point("acme_good", _Good)),
         )
 
-        assert forward_registry.load_plugins() == 1
-        assert forward_registry.is_registered("acme_good")
+        assert forward_registry.forward_models.load_plugins() == 1
+        assert "acme_good" in forward_registry.forward_models.names()
 
     def test_unreadable_metadata_leaves_the_built_in_resolvable(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -349,8 +349,8 @@ class TestThePluginGroup:
 
         monkeypatch.setattr(plugin_registry, "entry_points", explode)
 
-        assert forward_registry.load_plugins() == 0
-        assert forward_registry.resolve_id(None) == "linear_reservoir"
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert forward_registry.forward_models.get(None).model_id == "linear_reservoir"
 
     def test_a_plugin_that_does_not_hold_the_port_is_refused(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -364,8 +364,8 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("acme_half", _Half)),
         )
 
-        assert forward_registry.load_plugins() == 0
-        assert not forward_registry.is_registered("acme_half")
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert "acme_half" not in forward_registry.forward_models.names()
 
     def test_a_plugin_is_found_by_the_first_lookup_without_a_prior_scan(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -379,7 +379,7 @@ class TestThePluginGroup:
             _entry_points_returning(_stub_entry_point("acme_lazy", _Lazy)),
         )
 
-        assert forward_registry.get("acme_lazy") is _Lazy
+        assert forward_registry.forward_models.get("acme_lazy") is _Lazy
 
     def test_a_second_scan_registers_nothing_unless_forced(
         self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
@@ -392,11 +392,11 @@ class TestThePluginGroup:
             "entry_points",
             _entry_points_returning(_stub_entry_point("acme_once", _Once)),
         )
-        forward_registry.register(_Once)
+        forward_registry.forward_models.register(_Once)
 
-        assert forward_registry.load_plugins() == 0
-        assert forward_registry.load_plugins() == 0
-        assert forward_registry.load_plugins(force=True) == 1
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert forward_registry.forward_models.load_plugins() == 0
+        assert forward_registry.forward_models.load_plugins(force=True) == 1
 
     def test_a_constructor_taking_a_positional_only_argument_is_refused(
         self, isolated_registry: object
@@ -407,15 +407,15 @@ class TestThePluginGroup:
             def __init__(self, value, /) -> None:
                 super().__init__(value=value)
 
-        forward_registry.register(_Positional)
+        forward_registry.forward_models.register(_Positional)
 
         with pytest.raises(CalibrationError, match="takes value positionally only"):
-            forward_registry._ENGINE.create("acme_positional")
+            forward_registry.forward_models.create("acme_positional")
 
     def test_a_declared_class_that_will_not_import_is_an_installation_fault(self) -> None:
         engine = plugin_registry.PluginRegistry(
             kind="widget",
-            id_attribute="widget_id",
+            id_attributes=("widget_id",),
             group="acme.widgets",
             builtin_paths={"ghost": "no_such_module_for_the_registry:Ghost"},
             members=lambda: (),
@@ -438,7 +438,7 @@ class TestTheDocumentNamesTheModel:
         assert forward_registry.ENTRY_POINT_GROUP in str(refusal.value)
 
     def test_the_document_reaches_the_registry_through_the_evaluator(self) -> None:
-        evaluator = evaluation_registry.create(
+        evaluator = evaluation_registry.evaluators.create(
             "scored_forward_model",
             cfg=_config(forward_model="linear_reservoir"),
             trial_ctx=None,
@@ -747,7 +747,7 @@ class TestHowAnAnswerIsHeldToTheDocument:
 
 class TestTheReferenceModel:
     def test_it_serves_the_two_variables_it_declares_and_refuses_the_others(self) -> None:
-        model = forward_registry.create("linear_reservoir")
+        model = forward_registry.forward_models.create("linear_reservoir")
         requests = requests_for_outputs(
             _config(
                 outputs={"outlet_flow": _output(), "level": _output(variable="stage")},
@@ -762,7 +762,7 @@ class TestTheReferenceModel:
             model.simulate(ForwardRequest(trial_id=1, values={}, observables=requests))
 
     def test_one_variable_asked_for_at_two_places_is_refused(self) -> None:
-        model = forward_registry.create("linear_reservoir")
+        model = forward_registry.forward_models.create("linear_reservoir")
         requests = requests_for_outputs(
             _config(
                 outputs={
@@ -800,12 +800,12 @@ class TestTheReferenceModel:
         request = ObservableRequest(id="out", name=name, support=support, key="outlet", cell=cell)
 
         with pytest.raises(ValueError, match=message):
-            forward_registry.create("linear_reservoir").simulate(
+            forward_registry.forward_models.create("linear_reservoir").simulate(
                 ForwardRequest(trial_id=1, values=values, observables=(request,))
             )
 
     def test_its_recession_is_the_closed_form_it_documents(self) -> None:
-        model = forward_registry.create("linear_reservoir")
+        model = forward_registry.forward_models.create("linear_reservoir")
         (request,) = requests_for_outputs(_config(outputs={"outlet_flow": _output()}).outputs)
 
         outcome = model.simulate(
@@ -815,3 +815,26 @@ class TestTheReferenceModel:
         expected = 1_000_000.0 * math.exp(-1e-4 * 29) * 1e-4
         assert outcome.observables["outlet_flow"].values[-1] == pytest.approx(expected)
         assert outcome.observables["outlet_flow"].units == "m3/d"
+
+
+def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> None:
+    """The registry is one object of the shared engine, read through ``forward_models``."""
+    held = forward_registry.forward_models
+
+    assert isinstance(held, PluginRegistry)
+    assert held.id_attributes == ("model_id",)
+    assert held.group == forward_registry.ENTRY_POINT_GROUP
+    assert held.default_id == forward_registry.DEFAULT_FORWARD_MODEL_ID
+    assert held.names(shipped_only=True) == tuple(sorted(forward_registry._BUILTIN_PATHS))
+    retired = (
+        "get",
+        "create",
+        "register",
+        "unregister",
+        "load_plugins",
+        "is_registered",
+        "resolve_id",
+        "list_model_ids",
+        "builtin_model_ids",
+    )
+    assert [name for name in retired if hasattr(forward_registry, name)] == []

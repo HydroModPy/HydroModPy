@@ -255,7 +255,7 @@ def build_cache_context(
 
     from hydromodpy.calibration.evaluation import registry as evaluation_registry
 
-    resolved_evaluator = evaluation_registry.resolve_id(cfg.evaluator)
+    resolved_evaluator = evaluation_registry.evaluators.get(cfg.evaluator).evaluator_id
     if resolved_evaluator != evaluation_registry.DEFAULT_EVALUATOR_ID:
         calibration_payload["evaluator"] = resolved_evaluator
 

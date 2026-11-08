@@ -54,22 +54,26 @@ def test_the_catchment_rows_win_over_the_domain_so_water_is_not_counted_twice(fr
 # -------------------------------------------------------- routed drainage
 
 
-def _flow(active, networks):
-    return SimpleNamespace(active_bc=active, sinks_sources=networks)
+def _model(active, networks):
+    """A model double read by its ``boundaries`` and ``sfr`` members."""
+    return SimpleNamespace(
+        boundaries=SimpleNamespace(active_ids=tuple(active or ())),
+        sfr=(networks or {}).get("sfr"),
+    )
 
 
 @pytest.mark.parametrize(
-    ("flow", "routes"),
+    ("model", "routes"),
     [
-        (_flow(["sfr"], {"sfr": {"a": {}}}), True),
-        (_flow(["SFR"], {"sfr": {"a": {"route_drainage": True}}}), True),
-        (_flow(["sfr"], {"sfr": {"a": {"route_drainage": False}}}), False),
-        (_flow(["sfr"], {"sfr": {"a": SimpleNamespace(route_drainage=False), "b": {}}}), False),
-        (_flow(["sfr"], {"sfr": {"a": SimpleNamespace(route_drainage=True)}}), True),
-        (_flow(["lak"], {"sfr": {"a": {}}}), False),
-        (_flow(["sfr"], {"sfr": {}}), False),
-        (_flow(["sfr"], None), False),
-        (_flow(None, None), False),
+        (_model(["sfr"], {"sfr": {"a": {}}}), True),
+        (_model(["SFR"], {"sfr": {"a": {"route_drainage": True}}}), True),
+        (_model(["sfr"], {"sfr": {"a": {"route_drainage": False}}}), False),
+        (_model(["sfr"], {"sfr": {"a": SimpleNamespace(route_drainage=False), "b": {}}}), False),
+        (_model(["sfr"], {"sfr": {"a": SimpleNamespace(route_drainage=True)}}), True),
+        (_model(["lak"], {"sfr": {"a": {}}}), False),
+        (_model(["sfr"], {"sfr": {}}), False),
+        (_model(["sfr"], None), False),
+        (_model(None, None), False),
         (SimpleNamespace(), False),
     ],
     ids=[
@@ -85,8 +89,8 @@ def _flow(active, networks):
         "bare",
     ],
 )
-def test_only_an_active_sfr_network_that_keeps_routing_takes_the_drainage(flow, routes):
-    assert networks_route_drainage(flow) is routes
+def test_only_an_active_sfr_network_that_keeps_routing_takes_the_drainage(model, routes):
+    assert networks_route_drainage(model) is routes
 
 
 def test_a_drain_key_is_found_in_a_mapping_and_not_in_what_cannot_be_searched():

@@ -70,20 +70,13 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active SFR network definitions keyed by network id.
 
     A network is active when its table is declared and not switched off, which
-    ``flow.active_bc`` says as ``sfr``. The payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
-    mappings carrying the binder-attached ``reach_trace``).
+    ``Model.boundaries`` says as ``sfr``. The payloads come from ``Model.sfr`` (config
+    objects or runtime mappings carrying the binder-attached ``reach_trace``).
     """
-    flow = getattr(model, "flow", None)
-    if flow is None:
+    inputs = model.inputs
+    if not inputs.boundaries.is_active("sfr") or not inputs.sfr:
         return {}
-    active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
-    if "sfr" not in active_bc:
-        return {}
-
-    sinks_sources = getattr(flow, "sinks_sources", {})
-    sfr = sinks_sources.get("sfr") if isinstance(sinks_sources, Mapping) else None
-    if not isinstance(sfr, Mapping) or not sfr:
-        return {}
+    sfr = inputs.sfr
 
     definitions: dict[str, dict[str, Any]] = {}
     for network_id, payload in sfr.items():

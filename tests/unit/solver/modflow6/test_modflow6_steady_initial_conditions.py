@@ -16,14 +16,19 @@ from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.model.forcing.cells import stress_period_bounds
-from hydromodpy.model.initial.config import FlowInitialConditions
 from hydromodpy.model.initial.heads import (
     cycles_have_settled,
-    cyclic_flow_copy_for_initialization,
-    cyclic_spinup_strategy,
-    flow_uses_cyclic_spinup,
     summarize_head_initial_condition_bounds,
 )
+from hydromodpy.model.initial.state import (
+    CyclicSpinupStrategy,
+    CyclicStart,
+    HeadRule,
+    SolvedState,
+    SteadyStart,
+)
+from hydromodpy.model.initial_config import FlowInitialConditions, initial_state_of
+from hydromodpy.model.model import ModelTime, cycle_variant, steady_variant
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     Modflow6RuntimeConfig,
@@ -35,6 +40,8 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _read_final_percent_discrepancy,
     _steady_initialization_balance_is_acceptable,
 )
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions
+from tests._helpers.model_factory import make_model
 
 
 def test_modflow6_steady_initialization_relaxes_auxiliary_solver_only() -> None:
@@ -164,6 +171,7 @@ class _StubMF6:
     nlay = 1
     ncpl = 2
     exe = "mf6"
+    built: list[object] = []
 
     def __init__(self, *, model_folder, model_name, **_kwargs) -> None:
         self.model_name = model_name
@@ -171,15 +179,12 @@ class _StubMF6:
         self.model_output_name = model_name
         self.full_path = str(Path(model_folder) / model_name)
         self.auxiliary = False
-        self.geographic = None
         self.modflow_config = None
-        self.flow = SimpleNamespace()
-        self.domain = None
-        self.runtime_cell_mesh = None
-        self.time_grid = None
-        self.preprocess_options = SimpleNamespace()
+        self.inputs = make_model()
+        self.preprocess_options = ModflowPreprocessOptions()
 
-    def pre_processing(self, **_kwargs) -> None:
+    def pre_processing(self, inputs, **_kwargs) -> None:
+        type(self).built.append(inputs)
         Path(self.full_path).mkdir(parents=True, exist_ok=True)
 
     def processing(self, _options) -> bool:
@@ -191,9 +196,6 @@ class _StubMF6:
 def test_a_run_named_with_capitals_still_finds_the_listing(monkeypatch, tmp_path) -> None:
     """The listing the solve wrote is the one the acceptance reads, so no RuntimeError."""
     monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
-    monkeypatch.setattr(ssic, "steady_flow_copy_for_initialization", lambda flow: flow)
-    monkeypatch.setattr(ssic, "_compact_flow_forcings_to_one_period", lambda *_a: 0)
-    monkeypatch.setattr(ssic, "single_period_mean_forcing_time_grid", lambda grid: grid)
     monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
     parent = _StubMF6(model_folder=tmp_path, model_name="Run With Capitals")
 
@@ -254,26 +256,24 @@ def test_single_period_mean_forcing_time_grid_spans_full_source_window() -> None
 # that a loop out of cycles hands back its last state while saying it did not settle.
 
 
-def _flow(**ic):
+def _ic(**ic) -> FlowInitialConditions:
     payload = {"kind": "spinup_cyclic", **ic}
-    return SimpleNamespace(initial_conditions=FlowInitialConditions.model_validate({"h": payload}))
+    return FlowInitialConditions.model_validate({"h": payload})
 
 
 class TestTheDeclaration:
     def test_the_type_is_recognised(self) -> None:
-        assert flow_uses_cyclic_spinup(_flow()) is True
+        assert isinstance(initial_state_of(_ic()), CyclicStart)
 
     def test_another_initial_condition_is_not(self) -> None:
-        other = SimpleNamespace(
-            initial_conditions=FlowInitialConditions.model_validate({"h": {"kind": "top"}})
-        )
-        assert flow_uses_cyclic_spinup(other) is False
+        other = FlowInitialConditions.model_validate({"h": {"kind": "top"}})
+        assert not isinstance(initial_state_of(other), CyclicStart)
 
     def test_the_tolerance_carries_its_unit(self) -> None:
-        assert cyclic_spinup_strategy(_flow(tol_head="2 cm")).tol_head_m == pytest.approx(0.02)
+        assert initial_state_of(_ic(tol_head="2 cm")).strategy.tol_head_m == pytest.approx(0.02)
 
     def test_the_defaults_are_a_real_strategy(self) -> None:
-        strategy = cyclic_spinup_strategy(_flow())
+        strategy = initial_state_of(_ic()).strategy
         assert strategy.max_cycles >= 1
         assert strategy.tol_head_m > 0.0
         assert strategy.first_cycle_from == "top"
@@ -316,26 +316,79 @@ class TestWhatCountsAsSettled:
         assert cycles_have_settled(nans, nans, tol_head_m=1.0) is False
 
 
+def _cyclic_model(**strategy):
+    return make_model(initial=initial_state_of(_ic(**strategy)))
+
+
 class TestTheCycleDoesNotSpawnItsOwn:
     """The defect that a real run found, and the only gate that catches it early."""
 
-    def test_a_cycle_s_flow_no_longer_asks_for_cycling(self) -> None:
+    def test_a_cycle_s_model_no_longer_asks_for_cycling(self) -> None:
         # Measured before this was fixed: each auxiliary model re-entered the same
         # hook, so a three-cycle spin-up ran 143 solves and was stopped by the
         # machine rather than by the loop.
-        cycle_flow = cyclic_flow_copy_for_initialization(_flow(max_cycles=3))
-        assert flow_uses_cyclic_spinup(cycle_flow) is False
+        cycle = cycle_variant(_cyclic_model(max_cycles=3), None)
+        assert not isinstance(cycle.initial, CyclicStart)
 
     def test_the_cycle_starts_from_the_top_surface(self) -> None:
         # The caller overwrites it with the previous cycle's heads; what matters is
-        # that the copy carries a type the hook does not fire on.
-        cycle_flow = cyclic_flow_copy_for_initialization(_flow())
-        assert cycle_flow.initial_conditions.h.kind == "top"
+        # that the variant carries a state the hook does not fire on.
+        assert cycle_variant(_cyclic_model(), None).initial == HeadRule("top")
 
-    def test_the_original_flow_is_left_alone(self) -> None:
-        flow = _flow(max_cycles=2)
-        cyclic_flow_copy_for_initialization(flow)
-        assert flow_uses_cyclic_spinup(flow) is True
+    def test_a_later_cycle_starts_from_the_heads_of_the_one_before(self) -> None:
+        seed = SolvedState(head=np.ones((1, 2)), solver="modflow6")
+        assert cycle_variant(_cyclic_model(), seed).initial is seed
+
+    def test_the_original_model_is_left_alone(self) -> None:
+        model = _cyclic_model(max_cycles=2)
+        cycle_variant(model, None)
+        assert model.initial == CyclicStart(CyclicSpinupStrategy(max_cycles=2, tol_head_m=0.01))
+
+
+class TestTheAuxiliaryModelsAreBuiltFromVariants:
+    """The run's own model is the one source, and the stub solver sees only the variant."""
+
+    def _parent(self, tmp_path, initial):
+        parent = _StubMF6(model_folder=tmp_path, model_name="parent")
+        parent.inputs = make_model(
+            initial=initial,
+            time=ModelTime(grid=None, regime="transient", first_period_steady=True),
+        )
+        return parent
+
+    def test_the_steady_solve_runs_on_a_steady_model_that_starts_from_the_top(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
+        monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
+        built: list[object] = []
+        monkeypatch.setattr(_StubMF6, "built", built)
+        parent = self._parent(tmp_path, SteadyStart())
+
+        with pytest.warns(RuntimeWarning):
+            ssic.run_modflow6_steady_state_initialization(parent, verbose=False)
+
+        (variant,) = built
+        assert variant.time.regime == "steady"
+        assert variant.initial == HeadRule("top")
+        assert parent.inputs.time.regime == "transient"
+        assert parent.inputs.initial == SteadyStart()
+
+    def test_a_cycle_that_follows_another_starts_from_a_solved_state(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
+        monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
+        built: list[object] = []
+        monkeypatch.setattr(_StubMF6, "built", built)
+        parent = self._parent(tmp_path, CyclicStart())
+
+        ssic._run_one_spinup_cycle(parent, cycle=1, seed=np.array([[1.0, 2.0]]), verbose=False)
+
+        (variant,) = built
+        assert isinstance(variant.initial, SolvedState)
+        assert variant.initial.head.tolist() == [[1.0, 2.0]]
+        assert variant.time.regime == "transient"
 
 
 def test_summarize_head_initial_condition_bounds_reports_valid_field() -> None:

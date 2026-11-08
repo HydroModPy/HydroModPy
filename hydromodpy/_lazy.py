@@ -50,7 +50,7 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
     "EtpConfig": "hydromodpy.data.variables.etp.config.EtpConfig",
     "EtpSourceConfig": "hydromodpy.data.variables.etp.config.EtpSourceConfig",
     "FlowConfig": "hydromodpy.model.flow_config.FlowConfig",
-    "FlowProcess": "hydromodpy.model.model.Flow",
+    "FlowProcess": "hydromodpy.model.flow.Flow",
     "FlowProcessConfig": "hydromodpy.solver.base.simulation_config.FlowProcessConfig",
     "GeographicConfig": "hydromodpy.catchment.preprocess.geographic_config.GeographicConfig",
     "GeologyConfig": "hydromodpy.data.variables.geology.config.GeologyConfig",

@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.model.model import ModelOptions
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter_module
@@ -33,6 +34,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
+from tests._helpers.model_factory import make_model
 
 BED_M = 0.25
 K_M_S = np.asarray([1.0e-5, 4.0e-5, 2.0e-4])
@@ -219,17 +221,16 @@ def test_the_flow_adapter_threads_the_solver_bed_into_the_mesh(
             return True
 
     monkeypatch.setattr(
-        flow_adapter_module, "resolve_runtime_solver_mesh", lambda _setup: _line_mesh()
+        flow_adapter_module, "resolve_runtime_solver_mesh", lambda _inputs, **_: _line_mesh()
     )
     monkeypatch.setattr(flow_adapter_module, "Boussinesq", _Recorder)
+    solver = SolverConfig.model_validate({"drain_bed_thickness_m": 0.4})
     state = RunState(
         setup=SimpleNamespace(
-            flow=None,
-            domain=None,
-            time_grid=None,
+            model=make_model(options=ModelOptions.from_settings(solver)),
             workspace=SimpleNamespace(solver_scratch_folder=tmp_path),
         ),
-        cfg=SimpleNamespace(solver=SolverConfig.model_validate({"drain_bed_thickness_m": 0.4})),
+        cfg=SimpleNamespace(flow=SimpleNamespace(runtime=None)),
     )
     run = ProcessRun(
         id="flow::boussinesq", process_id="flow", process_type="flow", solver="boussinesq"

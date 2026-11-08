@@ -146,13 +146,13 @@ class InstalledSource(HydroModelBase):
         """
         from hydromodpy.data.source import registry
 
-        if self.name in registry.builtin_source_ids():
+        if self.name in registry.data_sources.names(shipped_only=True):
             raise ValueError(
                 f"{self.name!r} is a source this build ships; ask for it through its "
                 "[data] section, which describes its options"
             )
         try:
-            source_cls = registry.get(self.name)
+            source_cls = registry.data_sources.get(self.name)
         except DataRequestError as exc:
             raise ValueError(str(exc)) from exc
         try:

@@ -25,8 +25,11 @@ from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import _geographic_choices, _methods_paragraph_for
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.model.domain.geometry import RasterGeometry
+from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_nwt.nwt import nwt_solver
+from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories_runners import make_report
 
 # From test_the_dem_conditioning_is_an_offered_departure.py
@@ -168,7 +171,13 @@ class TestTheSolverFallbackFollowsTheConfig:
             grid_ctx=object(),
             dem_watershed_path=str(tmp_path / "dem.tif"),
             full_path=str(tmp_path),
-            geographic=SimpleNamespace(),
+            inputs=make_model(
+                geometry=Geometry(
+                    cells=None,
+                    domain=None,
+                    raster=RasterGeometry.from_geographic(SimpleNamespace()),
+                )
+            ),
         )
 
     def test_modflow6_falls_back_to_the_config_default(self, monkeypatch, tmp_path) -> None:

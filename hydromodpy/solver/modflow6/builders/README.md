@@ -1,11 +1,11 @@
 # solver/modflow6/builders
 
-The arguments of each MODFLOW 6 package, built from the flow and the solver mesh. `build.py` calls them. A builder does not import another package's builder: SFR and LAK couple only through the mover records of `mvr.py`.
+The arguments of each MODFLOW 6 package, built from the `Model` and the solver mesh. `build.py` calls them. A builder does not import another package's builder: SFR and LAK couple only through the mover records of `mvr.py`.
 
 ## Modules
 
 1. `solver_options.py`: IMS, Newton, XT3D, ATS and output control.
-2. `initial_conditions.py`: the start heads and the REWET options of NPF.
+2. `initial_conditions.py`: the start heads of the five start states of `Model.initial` and the REWET options of NPF.
 3. `boundary_conditions.py`: the ocean, stream and side constant heads, and the drains.
 4. `recharge.py`: RCH, the routed negative recharge and the soil ETP on EVT.
 5. `wells.py`: WEL, with the flow reduction under Newton.

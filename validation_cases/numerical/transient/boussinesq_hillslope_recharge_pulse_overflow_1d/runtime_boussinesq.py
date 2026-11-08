@@ -9,10 +9,11 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
-from hydromodpy.model.model import Flow
+from hydromodpy.model.flow import Flow
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_analytical_runtime import boussinesq_run_state
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_fields,
     build_flow_config,
@@ -415,19 +416,13 @@ def run_boussinesq_hillslope_overflow_case(
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
 
-    state = RunState(
-        setup=SetupContext(
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=flow,
-            domain=None,
-            time_grid=SimpleNamespace(
-                period_lengths_seconds=period_lengths_seconds,
-                window=None,
-            ),
-            workspace=SimpleNamespace(
-                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
-            ),
+    state = boussinesq_run_state(
+        flow=flow,
+        bundle_dir=bundle_dir,
+        simulations_folder=simulations_folder,
+        time_grid=SimpleNamespace(
+            period_lengths_seconds=period_lengths_seconds,
+            window=None,
         ),
     )
     run = ProcessRun(

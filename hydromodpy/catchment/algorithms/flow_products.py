@@ -270,7 +270,7 @@ def build_regional_flow_products(
         this build ships, which is the one every committed number was produced
         with.
     """
-    engine = terrain_registry.create(engine_id, backend=backend)
+    engine = terrain_registry.terrain_engines.create(engine_id, backend=backend)
 
     out_dir = Path(dem_out_dir_path)
     out_dir.mkdir(parents=True, exist_ok=True)

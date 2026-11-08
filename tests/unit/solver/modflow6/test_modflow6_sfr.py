@@ -13,6 +13,7 @@ from shapely.geometry import LineString
 
 import hydromodpy.solver.modflow6.builders.sfr as sfr_module
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders._sfr_network import crossing_pieces
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_mover_records
 from hydromodpy.solver.modflow6.builders.mvr import (
@@ -27,6 +28,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # Without river chains, a reach is shared among the cells it crosses, as GridIntersect shared it.
@@ -270,7 +272,7 @@ _MIN_SLOPE = 1e-4  # min_slope default
 
 def _fake_model():
     return SimpleNamespace(
-        flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={}),
+        inputs=make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",))),
         nper=1,
         perlen=np.asarray([86400.0], dtype=float),
         steady=(False,),

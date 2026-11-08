@@ -1,8 +1,8 @@
 Add a solver
 ============
 
-A solver in HydroModPy is one ``(process_type, solver_name)`` pair
-bound to a concrete backend. Today three backends ship: ``modflow6``,
+A solver in HydroModPy is one ``<process_type>_<name>`` key
+bound to a concrete backend class. Today three backends ship: ``modflow6``,
 ``modflow_nwt``, and ``boussinesq``. This page documents how to add a
 fourth flow backend or, equivalently, a new ``transport`` /
 ``postprocess`` solver.
@@ -20,14 +20,24 @@ Contract
 --------
 
 A solver implements the ``SolverAdapter`` Protocol declared in
-``hydromodpy/solver/base/adapter_protocol.py``:
+``hydromodpy/solver/base/adapter_protocol.py``. It is a class that carries
+twelve attributes and four methods:
 
 .. code-block:: python
 
    class SolverAdapter(Protocol):
-       process_type: ClassVar[str]   # "flow", "transport", "postprocess"
-       solver_name: ClassVar[str]    # "modflow6", "modflow_nwt", "boussinesq", ...
-       requires: ClassVar[tuple[tuple[str, str], ...]] = ()  # upstream (process, solver) pairs
+       name: ClassVar[str]                  # "modflow6", "boussinesq", ...
+       process_type: ClassVar[str]          # "flow" or "transport"
+       accepted_meshes: ClassVar[frozenset[str]]
+       geometry: ClassVar[str]              # "cells" or "raster"
+       writes: ClassVar[tuple[str, ...]]
+       reads: ClassVar[tuple[str, ...]]
+       supports: ClassVar[frozenset[str]]
+       options: ClassVar[type[BaseModel] | None]
+       category: ClassVar[str]              # "distributed", "integrated", "lumped"
+       native_step: ClassVar[str | None]
+       mutable: ClassVar[frozenset[str]]
+       requires: ClassVar[tuple[tuple[str, str], ...]]
 
        def validate(self, ctx: RunContext) -> None: ...
        def execute(self, ctx: RunContext) -> RunExecutionResult: ...
@@ -40,6 +50,35 @@ A solver implements the ``SolverAdapter`` Protocol declared in
            *,
            time_index=None,
        ) -> "dict[str, ObservableResult]": ...
+
+The attributes have no default. ``solvers.register`` refuses a class that
+leaves one out and names it, and refuses a value outside its vocabulary. They
+mean this:
+
+- ``name`` and ``process_type`` make the key, ``<process_type>_<name>``.
+- ``accepted_meshes`` lists the mesh engine ids whose cells the backend reads.
+  A transport declares an empty set, because it reads the mesh of its flow.
+- ``geometry`` is ``cells`` or ``raster``, the member of ``Model.geometry`` the
+  grid is built on.
+- ``writes`` lists the fields, tables and series the extractor stores, by
+  their stored names (``head``, ``budget/drain``, ``budgets``). A ``*`` stands
+  only for a part the user names, such as a species or a lake.
+- ``reads`` lists the products of an earlier run it needs. A transport reads
+  ``face_flow``, a flow reads none.
+- ``supports`` lists the traits of the ``Model`` it honours. The names come from
+  the closed set of ``hydromodpy/model/supports.py``: the boundary kinds, the
+  fields of ``ModelOptions`` and the initial states. A trait left out is refused
+  before the run when the model asks for it.
+- ``options`` is the Pydantic class of the backend's own TOML table, or ``None``
+  when it reads none.
+- ``category`` says how the backend resolves space. The seal writes it to the
+  manifest.
+- ``native_step`` is a pandas frequency alias, or ``None`` when the solver
+  advances at the step of ``Model.time``.
+- ``mutable`` lists the calibration parameters it can change between two solves
+  of one model.
+- ``requires`` lists the ``(process_type, name)`` keys an earlier run of the
+  plan must have run.
 
 ``RunContext`` and ``RunExecutionResult`` are declared in
 ``hydromodpy/solver/base/plan.py``. ``RunExecutionResult`` is a frozen
@@ -64,14 +103,17 @@ catalog handle of the enclosing run is not in there either: it arrives as
 reference to it past ``execute``.
 
 A separate **output adapter** (the *extractor*) ingests the persisted
-outputs into the catalog. It is registered on the same
-``(process_type, solver_name)`` pair as the adapter and implements the
+outputs into the catalog. It is registered under the same
+``<process_type>_<name>`` key as the adapter, and implements the
 ``OutputAdapter`` Protocol of
 ``hydromodpy/workflow/steps/run_outputs.py``:
 
 .. code-block:: python
 
    class OutputAdapter(Protocol):
+       process_type: ClassVar[str]
+       solver_name: ClassVar[str]
+
        def extract(self, sim_id: str, solver_output_dir: Path, store: Any) -> None: ...
 
 Files to create
@@ -105,12 +147,23 @@ Minimal adapter skeleton
    # hydromodpy/solver/mysolver/adapters/flow.py
    from typing import ClassVar
 
+   from pydantic import BaseModel
+
    from hydromodpy.solver.base.plan import RunExecutionResult
 
 
    class MysolverFlowAdapter:
+       name: ClassVar[str] = "mysolver"
        process_type: ClassVar[str] = "flow"
-       solver_name: ClassVar[str] = "mysolver"
+       accepted_meshes: ClassVar[frozenset[str]] = frozenset({"regular", "triangle"})
+       geometry: ClassVar[str] = "cells"
+       writes: ClassVar[tuple[str, ...]] = ("head", "budget/drain", "budgets")
+       reads: ClassVar[tuple[str, ...]] = ()
+       supports: ClassVar[frozenset[str]] = frozenset({"drainage", "head_rule", "steady_start"})
+       options: ClassVar[type[BaseModel] | None] = MysolverConfig
+       category: ClassVar[str] = "distributed"
+       native_step: ClassVar[str | None] = None
+       mutable: ClassVar[frozenset[str]] = frozenset()
        requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
        def validate(self, ctx) -> None:
@@ -136,28 +189,28 @@ Registration
 ------------
 
 Two paths, depending on whether the backend ships inside the
-HydroModPy repository or as an external plugin.
+HydroModPy repository or as an external plugin. Both end in the same
+registry, ``solvers`` of ``hydromodpy/solver/base/registry.py``, an instance of
+the engine every plugin surface shares. Its contract is ``register``, ``get``
+and ``names``.
 
-**In-tree backend.** Register through the two built-in path tables in
-``hydromodpy/solver/base/registry.py``. Both tables are keyed on the
-**same** ``(process_type, solver_name)`` tuple. The extractor table is
-not keyed on the solver name alone, because one backend can carry a
-different extractor per process (flow vs transport for MODFLOW 6):
+**In-tree backend.** Add one line to each of the two built-in path tables in
+``hydromodpy/solver/base/registry.py``. Both tables use the same
+``<process_type>_<name>`` key. The extractor table is not keyed on the solver
+name alone, because one backend can carry a different extractor per process
+(flow vs transport for MODFLOW 6):
 
 .. code-block:: python
 
-   _BUILTIN_PATHS[("flow", "mysolver")] = (
+   _BUILTIN_PATHS["flow_mysolver"] = (
        "hydromodpy.solver.mysolver.adapters.flow:MysolverFlowAdapter"
    )
-   _BUILTIN_EXTRACTOR_PATHS[("flow", "mysolver")] = (
+   _BUILTIN_EXTRACTOR_PATHS["flow_mysolver"] = (
        "hydromodpy.solver.mysolver.extractors.flow:MysolverOutputAdapter"
    )
 
-A string key such as ``_BUILTIN_EXTRACTOR_PATHS["mysolver"]`` registers
-nothing that ``get_extractor("flow", "mysolver")`` can find:
-``get_extractor_instance`` then returns ``None`` and ``post_run_results``
-treats it as a configuration error. The backend solves and the run is
-lost on the way to the catalog.
+A backend with no extractor solves and the run is lost on the way to the
+catalog: ``run_outputs.py`` refuses it as a configuration error.
 
 **External plugin.** Declare the entry points in your distribution's
 ``pyproject.toml``. Ship both groups, for the same reason:
@@ -170,49 +223,26 @@ lost on the way to the catalog.
    [project.entry-points."hydromodpy.solver.extractor"]
    flow_mysolver = "mypkg.extractors:MysolverOutputAdapter"
 
-Entry-point names are split at the **first** underscore, so
-``flow_mysolver`` yields ``("flow", "mysolver")``. Never declare an
-in-tree backend through an entry point as well: ``flow_modflownwt``
-would mint a second pair ``flow/modflownwt`` next to the real
-``flow/modflow_nwt``, which the config accepts but which has an adapter
-and no extractor.
+The registry never splits an entry-point name. It joins the ``process_type``
+and ``name`` of the loaded class with ``_`` and compares that with the entry
+point name, so ``flow_mysolver`` must equal ``flow`` and ``mysolver`` joined,
+and a name that holds an underscore, such as ``modflow_nwt``, stays whole.
+Never declare an in-tree backend through an entry point as well.
 
-Nothing is loaded at import time. ``registry.get(process_type,
-solver_name)`` serves explicit registrations first, then lazy-imports
-the ``_BUILTIN_PATHS`` entry, and only calls ``load_plugins()`` once if
-the pair is still unknown. An unknown pair raises an error that lists the
-known ones. The runner instantiates the adapter through
-``registry.get_solver_adapter(process_type, solver_name)``.
+Nothing is loaded at import time. ``solvers.get("flow", "mysolver")`` serves
+explicit registrations first, then lazy-imports the ``_BUILTIN_PATHS`` entry,
+and only loads the entry-point group once if the key is still unknown. An
+unknown key raises ``SolverInputError`` that lists the known ones.
+``solvers.names("flow")`` lists the flow solvers by name, and
+``solvers.create("flow", "mysolver")`` gives the instance the runner calls.
 
 Mesh engines
 ------------
 
-A flow adapter names the mesh engines whose cells it can read, in the class
-attribute ``accepted_meshes`` (``MeshReadingAdapter`` in
-``adapter_protocol.py``). An adapter that declares none reads the ``regular``
-engine only. A configuration that pairs the solver with another engine is
-refused before any meshing. A built-in also lists its engines in
-``_BUILTIN_ACCEPTED_MESHES``, so the registry answers without importing the
-adapter, and a test keeps the two equal.
-
-.. code-block:: python
-
-   class MysolverFlowAdapter:
-       accepted_meshes: ClassVar[frozenset[str]] = frozenset({"regular", "triangle"})
-
-Capabilities (optional but recommended)
----------------------------------------
-
-Declare the capabilities your backend exposes so the planner can
-report them and tests can opt in.
-
-.. code-block:: python
-
-   _BUILTIN_CAPABILITIES[("flow", "mysolver")] = frozenset({
-       "flow",
-       "flow:heads",
-       "flow:budget",
-   })
+A flow adapter names the mesh engines whose cells it can read in the
+``accepted_meshes`` attribute. A configuration that pairs the solver with
+another engine is refused before any meshing. The registry reads the class
+attribute, so there is no second table to keep equal.
 
 Config block
 ------------

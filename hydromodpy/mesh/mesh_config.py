@@ -346,9 +346,9 @@ class MeshConfig(HydroModelBase):
         """Refuse an engine this installation cannot serve, while reading the document."""
         from hydromodpy.mesh import registry as mesh_registry
 
-        if mesh_registry.is_registered(value):
+        if value in mesh_registry.mesh_engines.names():
             return value
-        served = ", ".join(mesh_registry.list_engine_ids()) or "none"
+        served = ", ".join(mesh_registry.mesh_engines.names()) or "none"
         raise ValueError(
             f"mesh.engine names {value!r}, and this installation serves {served}. A "
             f"third-party engine joins that list through the {mesh_registry.ENTRY_POINT_GROUP!r} "

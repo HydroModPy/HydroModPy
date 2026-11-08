@@ -7,8 +7,9 @@ into a specific solver backend.
 
 from __future__ import annotations
 
-from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 
 
 def required_flow_model(ctx: RunContext):
@@ -31,8 +32,8 @@ def _produces_concentration(run: ProcessRun) -> bool:
     if run.process_type != "transport":
         return False
     try:
-        cls = get_solver_registry_provider().get_solver_adapter_class(run.process_type, run.solver)
-    except KeyError:
+        cls = solvers.get(run.process_type, run.solver)
+    except SolverInputError:
         return False
     return bool(getattr(cls, "produces_concentration", False))
 

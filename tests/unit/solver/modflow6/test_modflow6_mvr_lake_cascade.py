@@ -28,11 +28,13 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_mover_records
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
@@ -191,33 +193,31 @@ def _two_lake_mvr_sim(tmp_path, *, exe: str):
     model = SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": None,
-                        "bedleak": 0.01,
-                        "abacus": abacus,
-                        "initial_stage": 87.5,
-                        "inflow": 0.5,
-                        "outlets": [
-                            {
-                                "kind": "WEIR",
-                                "invert": 87.0,
-                                "width": 5.0,
-                                "lakeout": 0,
-                                "mover": {"lake": 2, "mvrtype": "FACTOR", "value": 1.0},
-                            }
-                        ],
-                    },
-                    "lac1": {
-                        "polygon": None,
-                        "bedleak": 0.01,
-                        "abacus": abacus,
-                        "initial_stage": 82.0,
-                    },
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": None,
+                    "bedleak": 0.01,
+                    "abacus": abacus,
+                    "initial_stage": 87.5,
+                    "inflow": 0.5,
+                    "outlets": [
+                        {
+                            "kind": "WEIR",
+                            "invert": 87.0,
+                            "width": 5.0,
+                            "lakeout": 0,
+                            "mover": {"lake": 2, "mvrtype": "FACTOR", "value": 1.0},
+                        }
+                    ],
+                },
+                "lac1": {
+                    "polygon": None,
+                    "bedleak": 0.01,
+                    "abacus": abacus,
+                    "initial_stage": 82.0,
+                },
             },
         ),
         nper=1,
@@ -318,32 +318,30 @@ def _two_lake_model_with_mover() -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="lac_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": poly0,
-                        "bedleak": 0.3,
-                        "abacus": abacus,
-                        "initial_stage": 80.0,
-                        "outlets": [
-                            {
-                                "kind": "WEIR",
-                                "invert": 87.0,
-                                "width": 30.0,
-                                "lakeout": 0,
-                                "mover": {"lake": 2, "mvrtype": "FACTOR", "value": 1.0},
-                            }
-                        ],
-                    },
-                    "lac1": {
-                        "polygon": poly1,
-                        "bedleak": 0.3,
-                        "abacus": abacus,
-                        "initial_stage": 80.0,
-                    },
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": poly0,
+                    "bedleak": 0.3,
+                    "abacus": abacus,
+                    "initial_stage": 80.0,
+                    "outlets": [
+                        {
+                            "kind": "WEIR",
+                            "invert": 87.0,
+                            "width": 30.0,
+                            "lakeout": 0,
+                            "mover": {"lake": 2, "mvrtype": "FACTOR", "value": 1.0},
+                        }
+                    ],
+                },
+                "lac1": {
+                    "polygon": poly1,
+                    "bedleak": 0.3,
+                    "abacus": abacus,
+                    "initial_stage": 80.0,
+                },
             },
         ),
     )
@@ -366,7 +364,7 @@ def test_lak_package_args_enable_mover_and_carry_records() -> None:
 def test_lak_package_args_omit_mover_without_transfer() -> None:
     # A direct lakeout weir keeps the LAK args free of any mover keys.
     model = _two_lake_model_with_mover()
-    outlet = model.flow.sinks_sources["lakes"]["lac0"]["outlets"][0]
+    outlet = model.inputs.lakes["lac0"]["outlets"][0]
     del outlet["mover"]
     outlet["lakeout"] = 2  # direct LAK -> lake 2 routing instead
     cells = {"lac0": [0, 1], "lac1": [10, 11]}

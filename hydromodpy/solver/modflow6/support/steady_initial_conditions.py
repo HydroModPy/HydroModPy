@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from dataclasses import replace
 from pathlib import Path
 
 import flopy
@@ -11,20 +12,11 @@ import numpy as np
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.steady_initialization import (
-    single_period_mean_forcing_time_grid,
-)
-from hydromodpy.model.forcing.time_forcing import compact_pre_resolved_forcings
-from hydromodpy.model.initial.heads import (
-    cycles_have_settled,
-    cyclic_flow_copy_for_initialization,
-    cyclic_spinup_strategy,
-    flow_uses_cyclic_spinup,
-    flow_uses_steady_state_initial_condition,
-    steady_flow_copy_for_initialization,
-)
+from hydromodpy.model.initial.heads import cycles_have_settled
+from hydromodpy.model.initial.state import CyclicStart, SolvedState
+from hydromodpy.model.model import cycle_variant, steady_variant
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.solver.modflow_common import ModflowRunOptions
 
 logger = get_logger(__name__)
 
@@ -136,42 +128,27 @@ def _steady_initialization_balance_is_acceptable(list_path: Path) -> bool:
     return discrepancy is not None and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
 
 
-def _compact_flow_forcings_to_one_period(flow: object, model: object) -> int:
-    """Average the run's per-period lake and SFR forcings for the steady solve.
-
-    The data step resolves lake and SFR forcings (SIM2 or soil runoff, file
-    inflows) to one value per run period. The auxiliary model has a single
-    period, so each such list becomes its duration-weighted mean.
-    """
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    lengths = getattr(getattr(model, "time_grid", None), "period_lengths_seconds", None)
-    if sinks_sources is None or lengths is None:
-        return 0
-    return compact_pre_resolved_forcings(sinks_sources, period_lengths=list(lengths))
-
-
 def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
-    """Run one auxiliary steady MF6 model and return heads for the transient IC."""
+    """Run one auxiliary steady MF6 model and return heads for the transient IC.
+
+    The auxiliary model builds from ``steady_variant`` of the model of the run:
+    one period, a steady regime, the run's forcings averaged, and a start from
+    the top. The run's own model is not changed.
+    """
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
     # nested paths when writing DISV binary grid files.
     init_root = Path(str(model.full_path)) / "_ssic"
     init_name = "ssic"
+    steady_inputs = steady_variant(model.inputs)
     steady_model = model.__class__(
-        geographic=model.geographic,
         modflow_config=_modflow_config_for_steady_initialization(model),
         model_folder=str(init_root),
         model_name=init_name,
-        preprocess_options=_preprocess_options_like(
-            model, time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None))
-        ),
+        preprocess_options=replace(model.preprocess_options, time_grid=steady_inputs.time.grid),
     )
     steady_model.auxiliary = True
-    steady_flow = steady_flow_copy_for_initialization(model.flow)
-    _compact_flow_forcings_to_one_period(steady_flow, model)
     steady_model.pre_processing(
-        flow=steady_flow,
-        domain=model.domain,
-        cell_mesh=model.runtime_cell_mesh,
+        steady_inputs,
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
     # Auxiliary single-period solve: keep it out of the live display.
@@ -205,25 +182,6 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     return head
 
 
-def _preprocess_options_like(model: object, *, time_grid: object) -> ModflowPreprocessOptions:
-    """Return the run's own preprocess options with one time grid substituted.
-
-    The steady path and the cyclic one build an auxiliary model that has to mesh and
-    burn exactly as the real one does; only the time grid differs, a single averaged
-    period for the first and the run's own periods for the second.
-    """
-    options = model.preprocess_options
-    return ModflowPreprocessOptions(
-        box=bool(getattr(options, "box", True)),
-        sink_fill=bool(getattr(options, "sink_fill", False)),
-        drain_band_depth_m=float(getattr(options, "drain_band_depth_m", 0.0)),
-        drain_bed_thickness_m=float(getattr(options, "drain_bed_thickness_m", 1.0)),
-        drain_conductance_floor_m2_s=float(getattr(options, "drain_conductance_floor_m2_s", 1e-12)),
-        check_grid=bool(getattr(options, "check_grid", True)),
-        time_grid=time_grid,
-    )
-
-
 def run_modflow6_cyclic_spinup(model: object, *, verbose: bool) -> tuple[np.ndarray, int, bool]:
     """Repeat the run's own period until its head field stops moving.
 
@@ -236,9 +194,10 @@ def run_modflow6_cyclic_spinup(model: object, *, verbose: bool) -> tuple[np.ndar
     initialization is, so this works inside a lightweight calibration trial: the
     cycles never touch the run's store.
     """
-    strategy = cyclic_spinup_strategy(getattr(model, "flow", None))
-    if strategy is None:
-        raise ValueError("run_modflow6_cyclic_spinup called on a flow that does not ask for it")
+    initial = model.inputs.initial
+    if not isinstance(initial, CyclicStart):
+        raise ValueError("run_modflow6_cyclic_spinup called on a model that does not ask for it")
+    strategy = initial.strategy
 
     seed: np.ndarray | None = None
     if strategy.first_cycle_from == "steady_state":
@@ -266,28 +225,19 @@ def _run_one_spinup_cycle(
     """Run one cycle over the run's own period and return the heads it ended on."""
     init_root = Path(str(model.full_path)) / f"_cyc{cycle}"
     init_name = f"cyc{cycle}"
+    # The cycle starts where the previous one ended, set as it is in the IC package.
+    start = None if seed is None else SolvedState(head=seed, solver="modflow6")
     cycle_model = model.__class__(
-        geographic=model.geographic,
         modflow_config=_modflow_config_for_steady_initialization(model),
         model_folder=str(init_root),
         model_name=init_name,
-        preprocess_options=_preprocess_options_like(
-            model, time_grid=getattr(model, "time_grid", None)
-        ),
+        preprocess_options=model.preprocess_options,
     )
     cycle_model.auxiliary = True
     cycle_model.pre_processing(
-        flow=cyclic_flow_copy_for_initialization(model.flow),
-        domain=model.domain,
-        cell_mesh=model.runtime_cell_mesh,
+        cycle_variant(model.inputs, start),
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
-    if seed is not None:
-        # The cycle starts where the previous one ended. Setting strt after the
-        # packages are built is the same injection the steady path already makes.
-        cycle_model.ic.strt.set_data(
-            np.asarray(seed, dtype=float).reshape(int(model.nlay), int(model.ncpl))
-        )
     with progress.suppressed():
         success = cycle_model.processing(
             ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
@@ -321,8 +271,6 @@ def apply_modflow6_steady_state_initial_heads(model: object, head_m: np.ndarray)
 __all__ = [
     "apply_modflow6_cyclic_spinup_heads",
     "apply_modflow6_steady_state_initial_heads",
-    "flow_uses_cyclic_spinup",
-    "flow_uses_steady_state_initial_condition",
     "run_modflow6_cyclic_spinup",
     "run_modflow6_steady_state_initialization",
 ]

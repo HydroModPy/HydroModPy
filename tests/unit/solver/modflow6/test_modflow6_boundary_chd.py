@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -7,8 +8,9 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
-from hydromodpy.model.initial.config import FlowICCustom, FlowInitialConditions
+from hydromodpy.model.initial.state import HeadRule
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     apply_side_boundary_start_heads,
     build_side_boundary_chd_spd,
@@ -26,12 +28,18 @@ from tests._helpers.mf6_toy_models import (
 
 def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=10.0),
-            "east_side": SimpleNamespace(value=[20.0, 21.0]),
-        },
-        active_bc=["west_side", "east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=10.0),
+                "east_side": SimpleNamespace(value=[20.0, 21.0]),
+            },
+            active_ids=(
+                "west_side",
+                "east_side",
+            ),
+        ),
     )
 
     chd_spd = build_side_boundary_chd_spd(model)
@@ -46,11 +54,14 @@ def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None
 
 def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "north_side": SimpleNamespace(value=[7.0, 8.0]),
-        },
-        active_bc=["north_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "north_side": SimpleNamespace(value=[7.0, 8.0]),
+            },
+            active_ids=("north_side",),
+        ),
     )
     # strt is now flat (nlay, ncpl)
     strt = np.zeros((1, 6), dtype=float)
@@ -64,17 +75,20 @@ def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
 
 def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "east_side": FlowBoundaryConditionConfig(
-                id="east_side",
-                kind="dirichlet",
-                units="cm",
-                application_domain="east side",
-                forcing={"kind": "constant", "value": 20.0},
-            )
-        },
-        active_bc=["east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "east_side": FlowBoundaryConditionConfig(
+                    id="east_side",
+                    kind="dirichlet",
+                    units="cm",
+                    application_domain="east side",
+                    forcing={"kind": "constant", "value": 20.0},
+                )
+            },
+            active_ids=("east_side",),
+        ),
     )
 
     chd_spd = build_side_boundary_chd_spd(model)
@@ -86,12 +100,18 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
 
 def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=10.0),
-            "east_side": SimpleNamespace(value=[20.0, 21.0]),
-        },
-        active_bc=["west_side", "east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=10.0),
+                "east_side": SimpleNamespace(value=[20.0, 21.0]),
+            },
+            active_ids=(
+                "west_side",
+                "east_side",
+            ),
+        ),
     )
 
     chd_spd = build_side_boundary_chd_spd(model)
@@ -104,11 +124,14 @@ def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> Non
 
 def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=[7.0, 8.0]),
-        },
-        active_bc=["west_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=[7.0, 8.0]),
+            },
+            active_ids=("west_side",),
+        ),
     )
     strt = np.zeros((1, 2), dtype=float)
 
@@ -120,11 +143,14 @@ def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh
 
 def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model(river_internal_edge=True)
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "stream": SimpleNamespace(value=7.0),
-        },
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "stream": SimpleNamespace(value=7.0),
+            },
+            active_ids=("stream",),
+        ),
     )
 
     chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
@@ -136,12 +162,12 @@ def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> N
 
 def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model(river_internal_edge=True)
-    model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=2.0)),
-        boundary_conditions={
-            "stream": SimpleNamespace(value=7.0),
-        },
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        initial=HeadRule("custom", 2.0),
+        boundaries=BoundaryConditionBundle(
+            conditions={"stream": SimpleNamespace(value=7.0)}, active_ids=("stream",)
+        ),
     )
 
     strt = build_start_heads(model, model.solver_mesh)
@@ -151,19 +177,22 @@ def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> N
 
 def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model(boundary_labels_by_edge_id={1: "east_custom"})
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=10.0),
-            "east_side": FlowBoundaryConditionConfig(
-                id="east_side",
-                value=6.0,
-                units="m",
-                kind="dirichlet",
-                application_domain="east side",
-                support_label="east_custom",
-            ),
-        },
-        active_bc=["east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=10.0),
+                "east_side": FlowBoundaryConditionConfig(
+                    id="east_side",
+                    value=6.0,
+                    units="m",
+                    kind="dirichlet",
+                    application_domain="east side",
+                    support_label="east_custom",
+                ),
+            },
+            active_ids=("east_side",),
+        ),
     )
 
     chd_spd = build_side_boundary_chd_spd(model)
@@ -174,18 +203,21 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
 
 def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> None:
     model = two_triangle_model(boundary_labels_by_edge_id={0: "ditch_custom"})
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "stream": FlowBoundaryConditionConfig(
-                id="stream",
-                value=5.0,
-                units="m",
-                kind="dirichlet",
-                application_domain="top",
-                support_label="ditch_custom",
-            ),
-        },
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "stream": FlowBoundaryConditionConfig(
+                    id="stream",
+                    value=5.0,
+                    units="m",
+                    kind="dirichlet",
+                    application_domain="top",
+                    support_label="ditch_custom",
+                ),
+            },
+            active_ids=("stream",),
+        ),
     )
 
     chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
@@ -197,12 +229,18 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 
 def _side_model_with_heads(west: float, east: float):
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=west),
-            "east_side": SimpleNamespace(value=east),
-        },
-        active_bc=["west_side", "east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=west),
+                "east_side": SimpleNamespace(value=east),
+            },
+            active_ids=(
+                "west_side",
+                "east_side",
+            ),
+        ),
     )
     return model
 
@@ -278,11 +316,14 @@ def test_modflow6_reads_a_boundary_group_by_its_family_name_or_its_bare_name() -
     labels = {1: "east_custom"}
     for support_label in ("east_custom", "boundary:east_custom"):
         model = two_triangle_model(boundary_labels_by_edge_id=labels)
-        model.flow = SimpleNamespace(
-            boundary_conditions={
-                "east_side": SimpleNamespace(value=6.0, units="m", support_label=support_label)
-            },
-            active_bc=["east_side"],
+        model.inputs = replace(
+            model.inputs,
+            boundaries=BoundaryConditionBundle(
+                conditions={
+                    "east_side": SimpleNamespace(value=6.0, units="m", support_label=support_label)
+                },
+                active_ids=("east_side",),
+            ),
         )
 
         assert build_side_boundary_chd_spd(model)[0] == [[0, 0, pytest.approx(6.0)]]
@@ -290,11 +331,14 @@ def test_modflow6_reads_a_boundary_group_by_its_family_name_or_its_bare_name() -
 
 def test_modflow6_refuses_a_support_label_that_matches_no_cell() -> None:
     model = two_triangle_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "east_side": SimpleNamespace(value=6.0, units="m", support_label="nowhere")
-        },
-        active_bc=["east_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "east_side": SimpleNamespace(value=6.0, units="m", support_label="nowhere")
+            },
+            active_ids=("east_side",),
+        ),
     )
 
     with pytest.raises(ValueError, match="support_label='nowhere' did not match"):
@@ -303,11 +347,14 @@ def test_modflow6_refuses_a_support_label_that_matches_no_cell() -> None:
 
 def test_modflow6_applies_a_support_label_on_a_regular_grid() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={
-            "west_side": SimpleNamespace(value=3.0, units="m", support_label="boundary:south")
-        },
-        active_bc=["west_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={
+                "west_side": SimpleNamespace(value=3.0, units="m", support_label="boundary:south")
+            },
+            active_ids=("west_side",),
+        ),
     )
 
     # The label wins over the side the boundary is named after: the south row of 2 x 3.
@@ -317,9 +364,11 @@ def test_modflow6_applies_a_support_label_on_a_regular_grid() -> None:
 def test_modflow6_builds_a_stream_chd_on_the_river_chain_of_a_regular_grid() -> None:
     model = toy_model()
     model.solver_mesh = regular_solver_mesh(2, 3, river=LineString([(0.5, 1.5), (1.5, 0.5)]))
-    model.flow = SimpleNamespace(
-        boundary_conditions={"stream": SimpleNamespace(value=7.0)},
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={"stream": SimpleNamespace(value=7.0)}, active_ids=("stream",)
+        ),
     )
 
     chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
@@ -334,9 +383,11 @@ def test_modflow6_builds_a_stream_chd_on_the_river_chain_of_a_regular_grid() -> 
 
 def test_modflow6_refuses_a_stream_chd_on_a_mesh_without_river_cells() -> None:
     model = toy_model()
-    model.flow = SimpleNamespace(
-        boundary_conditions={"stream": SimpleNamespace(value=7.0)},
-        active_bc=["stream"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={"stream": SimpleNamespace(value=7.0)}, active_ids=("stream",)
+        ),
     )
 
     with pytest.raises(ValueError, match="selected runtime mesh support is empty"):
@@ -346,9 +397,11 @@ def test_modflow6_refuses_a_stream_chd_on_a_mesh_without_river_cells() -> None:
 def test_modflow6_cannot_pick_boundary_cells_without_a_solver_mesh() -> None:
     model = toy_model()
     model.solver_mesh = None
-    model.flow = SimpleNamespace(
-        boundary_conditions={"west_side": SimpleNamespace(value=1.0)},
-        active_bc=["west_side"],
+    model.inputs = replace(
+        model.inputs,
+        boundaries=BoundaryConditionBundle(
+            conditions={"west_side": SimpleNamespace(value=1.0)}, active_ids=("west_side",)
+        ),
     )
 
     with pytest.raises(ValueError, match="reads the cells of the solver mesh"):

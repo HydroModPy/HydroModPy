@@ -28,6 +28,7 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import (
     apply_lake_idomain_mask,
@@ -35,6 +36,7 @@ from hydromodpy.solver.modflow6.builders.lake_cells import (
 )
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_outlets
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A concrete sill crest elevation shared by the preretenue spill and the crossed
@@ -57,25 +59,23 @@ def _two_lake_model(*, lac0_outlets: list[dict], lac1_outlets: list[dict]) -> Si
     return SimpleNamespace(
         model_output_name="preretenue_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": poly0,
-                        "bedleak": 0.2,
-                        "abacus": abacus0,
-                        "initial_stage": 60.0,
-                        "outlets": lac0_outlets,
-                    },
-                    "lac1": {
-                        "polygon": poly1,
-                        "bedleak": 0.2,
-                        "abacus": abacus1,
-                        "initial_stage": 70.0,
-                        "outlets": lac1_outlets,
-                    },
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": poly0,
+                    "bedleak": 0.2,
+                    "abacus": abacus0,
+                    "initial_stage": 60.0,
+                    "outlets": lac0_outlets,
+                },
+                "lac1": {
+                    "polygon": poly1,
+                    "bedleak": 0.2,
+                    "abacus": abacus1,
+                    "initial_stage": 70.0,
+                    "outlets": lac1_outlets,
+                },
             },
         ),
     )
@@ -114,7 +114,7 @@ def test_concrete_weir_routes_preretenue_to_retenue_at_crest() -> None:
         lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 30.0, "lakeout": 2}],
         lac1_outlets=[],
     )
-    rows = build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
+    rows = build_lake_outlets(model, lakes=model.inputs.lakes)
     assert len(rows) == 1
     outletno, lakein, lakeout, kind, invert, width, rough, slope = rows[0]
     assert lakein == 0  # spills from lac0 (preretenue)
@@ -135,7 +135,7 @@ def test_crossed_weirs_with_the_same_crest_are_refused() -> None:
         lac1_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 1}],
     )
     with pytest.raises(ValueError, match="Reciprocal WEIR") as err:
-        build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
+        build_lake_outlets(model, lakes=model.inputs.lakes)
     assert "outlet 0" in str(err.value) and "outlet 1" in str(err.value)
 
 
@@ -155,7 +155,7 @@ def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
             }
         ],
     )
-    rows = build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
+    rows = build_lake_outlets(model, lakes=model.inputs.lakes)
     assert len(rows) == 2  # bidirectional option emits two outlets
     # Both outlets sit at the same crest invert.
     assert all(row[4] == pytest.approx(_CREST) for row in rows)
@@ -214,13 +214,11 @@ def test_two_overlapping_lakes_are_resolved_cell_disjoint() -> None:
     model = SimpleNamespace(
         model_output_name="overlap_test",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {"polygon": poly_a, "bedleak": 0.2, "outlets": []},
-                    "lac1": {"polygon": poly_b, "bedleak": 0.2, "outlets": []},
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {"polygon": poly_a, "bedleak": 0.2, "outlets": []},
+                "lac1": {"polygon": poly_b, "bedleak": 0.2, "outlets": []},
             },
         ),
     )

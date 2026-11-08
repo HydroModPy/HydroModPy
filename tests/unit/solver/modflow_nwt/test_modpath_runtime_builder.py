@@ -5,15 +5,29 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
+from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow_nwt.modpath import resolvers
+from tests._helpers.model_factory import make_model
+
+
+def _flow_run(*, raster=None, catchment=None) -> SimpleNamespace:
+    """A MODFLOW-NWT solver object that keeps a ``Model`` with this raster and catchment."""
+    geometry = Geometry(
+        cells=None,
+        domain=None,
+        raster=None if raster is None else RasterGeometry.from_geographic(raster),
+        catchment=(
+            None if catchment is None else CatchmentGeometry.from_geographic(catchment, crs=None)
+        ),
+    )
+    return SimpleNamespace(inputs=make_model(geometry=geometry))
 
 
 def test_resolve_zone_partic_returns_domain_raster(
     tmp_path: Path,
 ) -> None:
-    model_modflow = SimpleNamespace(
-        geographic=SimpleNamespace(watershed_box_buff_dem="domain_raster.tif")
-    )
+    model_modflow = _flow_run(raster=SimpleNamespace(watershed_box_buff_dem="domain_raster.tif"))
 
     assert (
         resolvers.resolve_zone_partic(
@@ -36,7 +50,7 @@ def test_resolve_zone_partic_clips_seepage_raster(
 
     watershed_shp = tmp_path / "watershed.shp"
     watershed_shp.write_text("dummy")
-    model_modflow = SimpleNamespace(geographic=SimpleNamespace(watershed_shp=str(watershed_shp)))
+    model_modflow = _flow_run(catchment=SimpleNamespace(watershed_shp=str(watershed_shp)))
 
     calls: dict[str, object] = {}
 
@@ -81,8 +95,8 @@ def test_resolve_zone_partic_clips_seepage_raster(
 def test_resolve_zone_partic_fails_when_seepage_raster_missing(
     tmp_path: Path,
 ) -> None:
-    model_modflow = SimpleNamespace(
-        geographic=SimpleNamespace(watershed_shp=str(tmp_path / "watershed.shp"))
+    model_modflow = _flow_run(
+        catchment=SimpleNamespace(watershed_shp=str(tmp_path / "watershed.shp"))
     )
 
     with pytest.raises(FileNotFoundError, match="missing seepage raster"):
@@ -91,6 +105,26 @@ def test_resolve_zone_partic_fails_when_seepage_raster_missing(
             full_path=str(tmp_path),
             model_modflow=model_modflow,
         )
+
+
+def test_the_crs_is_the_raster_one_else_the_domain_support() -> None:
+    support = SimpleNamespace(crs="EPSG:2154")
+    domain = SimpleNamespace(surface_topo=SimpleNamespace(support=support))
+    run = _flow_run(raster=SimpleNamespace(crs_proj="EPSG:32631"))
+
+    assert resolvers.resolve_crs_proj(run, domain) == "EPSG:32631"
+    assert resolvers.resolve_crs_proj(SimpleNamespace(), domain) == "EPSG:2154"
+    assert resolvers.resolve_crs_proj(SimpleNamespace(), None) is None
+
+
+def test_a_solver_without_a_model_has_no_raster_and_no_catchment() -> None:
+    bare = SimpleNamespace()
+
+    assert resolvers.get_raster(bare) is None
+    assert resolvers.get_catchment(bare) is None
+    assert resolvers.resolve_watershed_shp(bare) is None
+    with pytest.raises(ValueError, match="Cannot resolve default zone_partic='domain'"):
+        resolvers.resolve_domain_raster(bare)
 
 
 def test_ensure_modflow_name_file_rebuilds_missing_namefile(

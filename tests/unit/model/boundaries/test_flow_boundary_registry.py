@@ -7,16 +7,12 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
     SIDE_DIRICHLET_BC_IDS_ORDERED,
     SUPPORTED_FLOW_BOUNDARY_IDS,
     BoundaryConditionBundle,
-    active_side_dirichlet_boundary_ids,
     boundary_condition_bundle_from_flow,
     boundary_definition,
     supported_boundary_ids_for_backend,
 )
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    FLOW_BOUNDARY_DEFINITIONS as FLOW_BOUNDARY_DEFINITIONS_2,
-)
+from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.model import Flow
 
 
 def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
@@ -62,11 +58,19 @@ def test_flow_builds_boundary_bundle_from_config() -> None:
 
     assert bundle is flow.boundary_condition_bundle
     assert bundle.active_side_dirichlet_ids() == ("west_side", "east_side")
-    assert active_side_dirichlet_boundary_ids(flow) == ("west_side", "east_side")
-    assert flow.boundary_condition_application_domains == {
-        "west_side": "west side",
-        "east_side": "east side",
-    }
+    assert {
+        bc_id: condition.application_domain for bc_id, condition in flow.boundary_conditions.items()
+    } == {"west_side": "west side", "east_side": "east side"}
+
+
+def test_the_bundle_is_rebuilt_when_the_flow_s_active_ids_change() -> None:
+    flow = Flow(FlowConfig(bc={"west_side": {"kind": "dirichlet", "value": "10 m"}}))
+    flow.active_bc = []
+
+    bundle = boundary_condition_bundle_from_flow(flow)
+
+    assert bundle is not flow.boundary_condition_bundle
+    assert bundle.active_ids == ()
 
 
 # The lake entry in the flow boundary-condition registry.

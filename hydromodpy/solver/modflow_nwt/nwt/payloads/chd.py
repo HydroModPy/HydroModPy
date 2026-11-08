@@ -15,9 +15,6 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
-from hydromodpy.model.boundaries.boundary_condition_registry import (
-    active_side_dirichlet_boundary_ids,
-)
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.model.initial.heads import build_head_initial_condition_array
 
@@ -128,27 +125,24 @@ def side_boundary_is_static(boundary: object) -> bool:
 def build_initial_heads_and_sides(
     adapter: FlowToModflowAdapter,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Build startup ``ibound`` and ``strt`` arrays from flow IC + side BCs."""
+    """Build startup ``ibound`` and ``strt`` arrays from the start state + side BCs.
+
+    A steady start begins at the top here, because the head of its auxiliary
+    solve replaces the array afterwards (``steady_initial_conditions``).
+    """
     ibound = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
 
-    initial_conditions = getattr(adapter.flow, "initial_conditions", None)
-    initial_condition = (
-        None if initial_conditions is None else getattr(initial_conditions, "h", None)
-    )
-    if initial_condition is None:
-        raise ValueError("flow.initial_conditions.h is required for MODFLOW startup")
-
     strt = build_head_initial_condition_array(
-        initial_condition,
+        adapter.model.initial,
         top=adapter.dem,
         bottom=adapter.bottom_layer,
         target_shape=(int(adapter.nlay), int(adapter.nrow), int(adapter.ncol)),
         location_prefix="flow.ic",
     )
 
-    boundary_conditions = adapter._boundary_conditions
-    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
-        boundary = boundary_conditions.get(bc_id)
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        boundary = boundaries.get(bc_id)
         if boundary is None:
             continue
         side_head = float(resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)[0])
@@ -191,9 +185,10 @@ def build_ocean_chd(
     Mutates ``ibound``, ``strt`` and ``drain_array`` in place when the ocean
     boundary is active.
     """
-    if not adapter._is_bc_active("ocean"):
+    boundaries = adapter.model.boundaries
+    if not boundaries.is_active("ocean"):
         return None
-    ocean_boundary = adapter._boundary_conditions.get("ocean")
+    ocean_boundary = boundaries.get("ocean")
     if ocean_boundary is None:
         return None
 
@@ -271,8 +266,9 @@ def build_side_chd(
     }
     has_entries = False
 
-    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
-        boundary = adapter._boundary_conditions.get(bc_id)
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        boundary = boundaries.get(bc_id)
         if boundary is None:
             continue
         if side_boundary_is_static(boundary):
@@ -352,8 +348,9 @@ def refuse_constant_heads_below_bottom(
         (int(adapter.nlay), int(adapter.nrow), int(adapter.ncol))
     )
     owner: dict[tuple[int, int, int], str] = {}
-    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
-        if adapter._boundary_conditions.get(bc_id) is None:
+    boundaries = adapter.model.boundaries
+    for bc_id in boundaries.active_side_dirichlet_ids():
+        if boundaries.get(bc_id) is None:
             continue
         for cell in iter_side_boundary_cells(adapter, bc_id):
             owner[cell] = bc_id

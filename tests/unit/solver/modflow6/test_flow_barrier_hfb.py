@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow6.builders.flow_barrier import (
     resolve_flow_barrier_hfb_rows,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 
 # A near-vertical trace across the 2x2 grid: it separates the left column from the
@@ -204,7 +205,7 @@ def test_open_end_inside_the_mesh_warns_with_the_gap(caplog) -> None:
 
 def _xt3d_model(sinks_sources: dict, xt3d: bool) -> SimpleNamespace:
     return SimpleNamespace(
-        flow=SimpleNamespace(sinks_sources=sinks_sources),
+        inputs=make_model(**sinks_sources),
         modflow_config=SimpleNamespace(runtime=SimpleNamespace(mf6_enable_xt3d=xt3d)),
     )
 
@@ -224,7 +225,7 @@ def test_zero_hydchr_is_refused_under_xt3d() -> None:
 #
 # It reads both the lake ``cutoff_wall`` (trace on ``cutoff_wall_line``) and the
 # general ``[flow.sinks_sources.flow_barriers]`` (``{'barrier', 'line'}`` payloads)
-# off ``model.flow.sinks_sources`` and builds the HFB rows for every barrier. A
+# off ``model.inputs.lakes`` and ``model.inputs.flow_barriers`` and builds the HFB rows. A
 # model without a barrier yields ``[]``; a barrier declared but never bound raises.
 
 # A near-vertical trace across the 2x2 grid bars the connected faces (0, 1) and (2, 3).
@@ -255,7 +256,7 @@ def _two_layer_grid_2() -> SolverMesh:
 
 
 def _model(sinks_sources: dict) -> SimpleNamespace:
-    return SimpleNamespace(flow=SimpleNamespace(sinks_sources=sinks_sources))
+    return SimpleNamespace(inputs=make_model(**sinks_sources))
 
 
 def test_resolver_builds_rows_for_a_bound_cutoff_wall() -> None:
@@ -308,6 +309,7 @@ def test_binder_to_resolver_chain_for_lake_and_general() -> None:
     )
     apply_cutoff_wall_to_flow(flow=flow)
     apply_flow_barriers_to_flow(flow=flow)
-    rows = resolve_flow_barrier_hfb_rows(SimpleNamespace(flow=flow), _two_layer_grid_2())
+    model = SimpleNamespace(inputs=make_model(**flow.sinks_sources))
+    rows = resolve_flow_barrier_hfb_rows(model, _two_layer_grid_2())
     # lake wall (depth 4 -> layer 0, 2 faces) + general barrier (depth 7 -> 2 layers, 4 rows)
     assert len(rows) == 2 + 4

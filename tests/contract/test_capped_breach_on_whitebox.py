@@ -36,7 +36,7 @@ def _single_thread_whitebox(monkeypatch: pytest.MonkeyPatch) -> None:
 def engine():
     from hydromodpy.catchment.terrain import registry
 
-    return registry.create("whitebox_workflows")
+    return registry.terrain_engines.create("whitebox_workflows")
 
 
 def _write(path: Path, surface: np.ndarray) -> Path:

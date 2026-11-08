@@ -1,7 +1,8 @@
-"""Daily soil reservoir that turns precipitation and ETP into recharge.
+"""The daily soil reservoir kernel that turns precipitation and ETP into recharge.
 
-MODFLOW 6 only. See ``kernel.py`` for the equations and ``config.py`` for the
-TOML surface. ``grids.py``, ``columns.py``, ``recharge.py`` and ``budget.py``
-run the reservoir on the SAFRAN grids a project loads. This file has no
-imports on purpose, so each module reads on its own.
+MODFLOW 6 only. ``kernel.py`` holds the equations in numpy. The TOML surface and
+the runs on the SAFRAN grids a project loads are forcings, in
+``model/forcing/soil_config.py``, ``soil_grids.py``, ``soil_columns.py``,
+``soil_forcing.py`` and ``soil_budget.py``. This file has no imports on purpose,
+so the kernel reads on its own.
 """

@@ -28,7 +28,7 @@ End-to-end chain
    ``RunSolverStep`` hands it to ``SimulationRunner``
    (``hydromodpy/solver/base/runner.py``).
 6. The runner asks ``hydromodpy/solver/base/registry.py`` for the adapter of each
-   ``(process_type, solver_name)`` pair. The adapter sits under
+   ``<process_type>_<name>`` key. The adapter sits under
    ``hydromodpy/solver/<backend>/adapters/``.
 7. The backend package under ``hydromodpy/solver/`` builds and runs the model.
 8. The extract, derive, display and export steps write the run to disk.

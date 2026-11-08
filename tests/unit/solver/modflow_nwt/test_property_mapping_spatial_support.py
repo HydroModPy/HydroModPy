@@ -50,20 +50,18 @@ class _HalfDomainSupport:
 
 
 def test_resolve_flow_property_arrays_homogeneous_without_spatial_support() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "K": FieldParam(
-                identifier="K",
-                kind="homogeneous",
-                value=1.25,
-            )
-        }
-    )
+    profiles = {
+        "K": FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            value=1.25,
+        )
+    }
     domain = SimpleNamespace(zones={})
     mesh = _build_solver_mesh(nlay=2)
 
     actual = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         solver_mesh=mesh,
         required_properties={"K"},
@@ -74,21 +72,19 @@ def test_resolve_flow_property_arrays_homogeneous_without_spatial_support() -> N
 
 
 def test_resolve_flow_property_arrays_heterogeneous_uses_non_geology_support() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "K": FieldParam(
-                identifier="K",
-                kind="heterogeneous",
-                values_by_key={"left": 10.0, "right": 2.0},
-                field_spatial_id="support_halves",
-            )
-        }
-    )
+    profiles = {
+        "K": FieldParam(
+            identifier="K",
+            kind="heterogeneous",
+            values_by_key={"left": 10.0, "right": 2.0},
+            field_spatial_id="support_halves",
+        )
+    }
     domain = SimpleNamespace(zones={"halves": _HalfDomainSupport()})
     mesh = _build_solver_mesh()
 
     actual = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         solver_mesh=mesh,
         required_properties={"K"},
@@ -101,22 +97,20 @@ def test_resolve_flow_property_arrays_heterogeneous_uses_non_geology_support() -
 
 
 def test_resolve_flow_property_arrays_reports_missing_requested_support() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "K": FieldParam(
-                identifier="K",
-                kind="heterogeneous",
-                values_by_key={"left": 10.0, "right": 2.0},
-                field_spatial_id="support_halves",
-            )
-        }
-    )
+    profiles = {
+        "K": FieldParam(
+            identifier="K",
+            kind="heterogeneous",
+            values_by_key={"left": 10.0, "right": 2.0},
+            field_spatial_id="support_halves",
+        )
+    }
     domain = SimpleNamespace(zones={})
     mesh = _build_solver_mesh()
 
     with pytest.raises(ValueError, match="Missing spatial support 'support_halves'"):
         resolve_flow_property_arrays(
-            flow=flow,
+            profiles=profiles,
             domain=domain,
             solver_mesh=mesh,
             required_properties={"K"},
@@ -124,33 +118,27 @@ def test_resolve_flow_property_arrays_reports_missing_requested_support() -> Non
 
 
 def test_resolve_flow_property_arrays_prefers_runtime_overrides() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "K": FieldParam(
-                identifier="K",
-                kind="homogeneous",
-                value=1.25,
-            ),
-            "Sy": FieldParam(
-                identifier="Sy",
-                kind="homogeneous",
-                value=0.05,
-            ),
-        }
-    )
+    profiles = {
+        "K": FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            value=1.25,
+        ),
+        "Sy": FieldParam(
+            identifier="Sy",
+            kind="homogeneous",
+            value=0.05,
+        ),
+    }
     domain = SimpleNamespace(zones={})
     mesh = _build_solver_mesh(nlay=2)
 
     actual = resolve_flow_property_arrays(
-        flow=flow,
+        profiles=profiles,
         domain=domain,
         solver_mesh=mesh,
         required_properties={"K", "Sy"},
-        runtime_property_overrides={
-            "properties": {
-                "K": np.full((2, 2, 4), 3.0, dtype=float),
-            }
-        },
+        runtime_property_overrides={"K": np.full((2, 2, 4), 3.0, dtype=float)},
     )
 
     np.testing.assert_allclose(actual["hk"], 3.0)

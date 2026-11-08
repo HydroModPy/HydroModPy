@@ -12,7 +12,7 @@ exchange or serialize a mesh.
 The package re-exports nothing: each name is imported from the module that
 defines it. The rule of thumb is:
 
-- build a mesh through ``registry.create(engine).build(request)``, with the
+- build a mesh through ``registry.mesh_engines.create(engine).build(request)``, with the
   request of ``hydromodpy.mesh.request`` ;
 - use ``HydroMesh`` (``planar/hydro_mesh.py``) to exchange or serialize meshes ;
 - use ``hydromodpy.mesh.io.vtu`` when a portable on-disk format is needed.
@@ -32,7 +32,7 @@ Engines::
     from hydromodpy.mesh import registry
     from hydromodpy.mesh.request import MeshRequest
 
-    cell_mesh = registry.create("regular").build(request)
+    cell_mesh = registry.mesh_engines.create("regular").build(request)
 
 I/O::
 

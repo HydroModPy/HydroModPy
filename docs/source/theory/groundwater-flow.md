@@ -367,8 +367,16 @@ In every case, a cell on an imposed head (an ocean, a stream or a side boundary)
 starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.kind`
 gives the default.
 
+The solver does not read this table. `prepare_solver` turns it into one initial
+state of the frozen `Model`, and the backend builds its start heads from that state.
+The auxiliary solves below are two variants of the `Model`: `steady_variant` for
+`steady_state`, and `cycle_variant` for each cycle of `spinup_cyclic`. A variant
+is a new object, so the `Model` of the run is never changed.
+
 **The equilibrium.** For `steady_state`, the code first solves an auxiliary
-steady problem with the same solver, the same grid and the same properties. Its
+steady problem with the same solver, the same grid and the same properties. It
+starts from the top, whatever the backend, and `steady_variant` gives it the constant
+recharge and a single steady period. Its
 recharge is a constant, set by {toml}`flow.ic.h.source`: the time mean of the
 record, each period by its length, or the rate that you state. The result is $h_0$:
 
@@ -383,7 +391,8 @@ the boundaries per unit area, held at the value of the first period
 
 **The settled cycle.** For `spinup_cyclic`, the run repeats its own period. Cycle
 $c + 1$ starts from the heads where cycle $c$ ended, $h_\mathrm{end}^{(c)}$, and
-the first cycle starts from {toml}`flow.ic.h.first_cycle_from`. The loop stops when
+the first cycle starts from {toml}`flow.ic.h.first_cycle_from`. `cycle_variant` hands
+the end heads of cycle $c$ to cycle $c + 1$ as its start. The loop stops when
 
 $$
 \max_n \bigl|\,h^{(c+1)}_{\mathrm{end},n} - h^{(c)}_{\mathrm{end},n}\,\bigr| \le \varepsilon_h ,
@@ -534,13 +543,16 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
+hydromodpy.model.flow
 hydromodpy.model.model
 hydromodpy.model.flow_config
 hydromodpy.model.domain
 hydromodpy.model.properties.field_param
 hydromodpy.model.properties.property_table
 hydromodpy.solver.modflow_grid
+hydromodpy.model.initial.state
 hydromodpy.model.initial.heads
+hydromodpy.model.initial_config
 hydromodpy.solver.modflow6.build
 hydromodpy.solver.modflow_nwt.nwt
 ```
@@ -557,7 +569,8 @@ hydromodpy.solver.modflow_nwt.nwt
 | The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`), `hydromodpy/solver/modflow6/builders/solver_options.py` (`newton_options`) |
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
 | Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |
-| The starting heads | `hydromodpy/model/initial/heads.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
+| The Model a solver reads, and its variants | `hydromodpy/model/model.py` (`Model`, `steady_variant`, `cycle_variant`, `model_from_flow`) |
+| The starting heads | `hydromodpy/model/initial_config.py` (`initial_state_of`), `hydromodpy/model/initial/state.py` (the five states), `hydromodpy/model/initial/heads.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
 
 ## See also
 

@@ -32,9 +32,10 @@ import xarray as xr
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
 from hydromodpy.model.boundaries.climate import apply_etp_load_result_to_flow
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
+from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.model.soil.config import SoilReservoirConfig
-from hydromodpy.model.soil.recharge import compute_soil_forcings
 from hydromodpy.solver.modflow6.builders.recharge import (
     bind_recharge_from_flow,
     bind_soil_etp_from_flow,
@@ -47,6 +48,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.tolerances import tol
 
@@ -178,14 +180,20 @@ def _build_and_run(ws: Path):
     )
 
     model = SimpleNamespace(
-        flow=fake_flow,
+        inputs=make_model(
+            recharge=fake_flow.sinks_sources["recharge"],
+            etp=fake_flow.sinks_sources.get("etp"),
+            active_sinks_sources=tuple(fake_flow.active_sinks_sources),
+            time=ModelTime(
+                grid=SimpleNamespace(window=window), regime="transient", first_period_steady=False
+            ),
+        ),
         recharge=None,
         first_clim=None,
         nper=_NPER,
         ncpl=_NROW * _NCOL,
         perlen=np.ones(_NPER),
         steady=np.zeros(_NPER, dtype=bool),
-        time_grid=SimpleNamespace(window=window),
         solver_mesh=mesh,
         model_name_mf6=_MODEL_NAME,
         drain_band_depth_m=0.0,

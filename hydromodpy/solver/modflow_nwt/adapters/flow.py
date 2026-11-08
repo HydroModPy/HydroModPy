@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Any, ClassVar
 
 import pandas as pd
+from pydantic import BaseModel
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
@@ -32,6 +33,7 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
     resolve_run_output,
 )
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
@@ -40,10 +42,46 @@ logger = get_logger(__name__)
 class ModflowNwtFlowAdapter:
     """Bridge one planned ``flow/modflow_nwt`` run to the ``ModflowNwt`` API."""
 
-    process_type = "flow"
-    solver_name = "modflow_nwt"
-    requires: tuple[tuple[str, str], ...] = ()
+    name: ClassVar[str] = "modflow_nwt"
+    process_type: ClassVar[str] = "flow"
     accepted_meshes: ClassVar[frozenset[str]] = frozenset({"regular"})
+    geometry: ClassVar[str] = "raster"
+    writes: ClassVar[tuple[str, ...]] = (
+        "head",
+        "budget/constant_head",
+        "budget/drain",
+        "budget/evapotranspiration",
+        "budget/recharge",
+        "budget/storage",
+        "budget/well",
+        "mesh/idomain",
+        "mesh/layer_thickness",
+        "mesh/topography",
+        "budgets",
+        "mass_balance",
+    )
+    reads: ClassVar[tuple[str, ...]] = ()
+    supports: ClassVar[frozenset[str]] = frozenset(
+        {
+            "west_side",
+            "east_side",
+            "north_side",
+            "south_side",
+            "ocean",
+            "drainage",
+            "sink_fill",
+            "drain_band_depth_m",
+            "drain_bed_thickness_m",
+            "drain_conductance_floor_m2_s",
+            "head_rule",
+            "steady_start",
+        }
+    )
+    options: ClassVar[type[BaseModel] | None] = ModflowConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW-NWT flow runs."""
@@ -173,21 +211,21 @@ class ModflowNwtFlowAdapter:
 
         The method is intentionally thin:
 
-        - resolve the shared preprocessing options,
+        - resolve the shared preprocessing options from the ``Model`` of the run,
         - derive the stable model folder name for this run,
         - build the concrete ``ModflowNwt`` object,
-        - delegate the rest of the lifecycle to ``run_flow_model``.
+        - delegate the rest of the lifecycle, which hands the ``Model`` to
+          ``ModflowNwt.pre_processing``, to ``run_flow_model``.
         """
 
         state = ctx.state
-        preprocess_options = build_preprocess_options(state)
+        preprocess_options = build_preprocess_options(state.setup.model)
         # MODFLOW-NWT truncates a NAME-file path at the first space, so collapse
         # whitespace before the name reaches the solver files (mirrors MF6).
         model_name = nwt_safe_name(resolve_run_model_name(ctx))
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = ModflowNwt(
-            state.setup.geographic,
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,

@@ -1,4 +1,4 @@
-"""Geographic and zone-partic resolvers for the MODPATH backend."""
+"""Resolvers of the delineation members and the zone-partic aliases for the MODPATH backend."""
 
 from __future__ import annotations
 
@@ -10,16 +10,31 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def get_geographic(model_modflow: Any) -> Any:
-    """Return geographic context from MODFLOW model when available."""
-    return getattr(model_modflow, "geographic", None)
+def get_raster(model_modflow: Any) -> Any:
+    """Return the DEM grid the MODFLOW model was built on, or None.
+
+    It is ``Model.geometry.raster`` of the ``Model`` the solver keeps in
+    ``inputs``. The DEM raster paths and the CRS of the delineation are its
+    attributes.
+    """
+    geometry = getattr(getattr(model_modflow, "inputs", None), "geometry", None)
+    return getattr(geometry, "raster", None)
+
+
+def get_catchment(model_modflow: Any) -> Any:
+    """Return where the catchment of the MODFLOW model closes, or None.
+
+    It is ``Model.geometry.catchment``, which holds the watershed polygon path.
+    """
+    geometry = getattr(getattr(model_modflow, "inputs", None), "geometry", None)
+    return getattr(geometry, "catchment", None)
 
 
 def resolve_crs_proj(model_modflow: Any, domain: Any) -> Any:
-    """Resolve CRS from geographic context, else from domain support."""
-    geo = get_geographic(model_modflow)
-    if geo is not None and hasattr(geo, "crs_proj"):
-        return geo.crs_proj
+    """Resolve CRS from the DEM grid of the model, else from domain support."""
+    raster = get_raster(model_modflow)
+    if raster is not None:
+        return raster.crs_proj
     support = getattr(getattr(domain, "surface_topo", None), "support", None)
     if support is not None:
         return getattr(support, "crs", None)
@@ -28,8 +43,8 @@ def resolve_crs_proj(model_modflow: Any, domain: Any) -> Any:
 
 def resolve_watershed_shp(model_modflow: Any) -> str | None:
     """Resolve watershed polygon path when available."""
-    geo = get_geographic(model_modflow)
-    return getattr(geo, "watershed_shp", None) if geo is not None else None
+    catchment = get_catchment(model_modflow)
+    return getattr(catchment, "watershed_shp", None) if catchment is not None else None
 
 
 def resolve_domain_raster(model_modflow: Any) -> str:
@@ -39,9 +54,9 @@ def resolve_domain_raster(model_modflow: Any) -> str:
     is read by MODFLOW row and column: a raster on the DEM grid fits a model only
     when ``cell_size`` is the DEM resolution.
     """
-    geo = get_geographic(model_modflow)
+    raster = get_raster(model_modflow)
     raster_path = getattr(model_modflow, "dem_watershed_path", None) or (
-        getattr(geo, "watershed_box_buff_dem", None) if geo is not None else None
+        getattr(raster, "watershed_box_buff_dem", None) if raster is not None else None
     )
     if raster_path is None:
         raise ValueError(

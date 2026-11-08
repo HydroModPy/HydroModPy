@@ -17,9 +17,21 @@ earlier run.
 
 from __future__ import annotations
 
-from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.simulation_config import SimulationConfig
+
+
+def _required_keys(process_type: str, solver_name: str) -> tuple[tuple[str, str], ...]:
+    """Return the keys the backend requires from earlier runs, or refuse an unknown pair."""
+    try:
+        backend = solvers.get(process_type, solver_name)
+    except SolverInputError as exc:
+        raise ValueError(
+            f"Unsupported simulation process/solver pair: {process_type}/{solver_name}."
+        ) from exc
+    return tuple(backend.requires)
 
 
 class SimulationPlanner:
@@ -53,7 +65,6 @@ class SimulationPlanner:
         and each transport run is bound to the earlier compatible flow run
         required by the solver compatibility rules.
         """
-        provider = get_solver_registry_provider()
         runs: list[ProcessRun] = []
         # Track the produced runs for each (process_type, solver) capability so
         # later runs can bind to the most recent compatible provider.
@@ -97,9 +108,7 @@ class SimulationPlanner:
                 # only depend on capabilities already planned earlier. If
                 # ``transport_main::mt3dms`` appears before any compatible
                 # ``flow::*`` provider, planning fails instead of reordering.
-                for required_type, required_solver in provider.required_bindings(
-                    process_cfg.kind, solver_name
-                ):
+                for required_type, required_solver in _required_keys(process_cfg.kind, solver_name):
                     providers = runs_by_capability.get((required_type, required_solver), [])
                     if not providers:
                         raise ValueError(

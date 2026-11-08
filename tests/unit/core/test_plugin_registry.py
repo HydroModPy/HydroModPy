@@ -1,9 +1,11 @@
-"""The terrain and mesh engine registries resolve an engine by name, a third-party one included.
+"""The registry engine resolves a class by name, a third-party one included.
 
-Both registries are declarations on ``core.plugin_registry.PluginRegistry``, so
-one parameterized suite runs on each. The third-party tests install an engine
-through the entry-point group, from a class defined here and named nowhere in
-``hydromodpy/``.
+The terrain and mesh engine registries are instances of
+``core.plugin_registry.PluginRegistry``, so one parameterized suite runs on each.
+The third-party tests install an engine through the entry-point group, from a
+class defined here and named nowhere in ``hydromodpy/``. The last section runs an
+instance built here, keyed on two attributes, for what only such a key shows:
+the join, the prefix of ``names`` and a name that is never split.
 """
 
 from __future__ import annotations
@@ -18,7 +20,8 @@ import pytest
 
 import hydromodpy.core.plugin_registry as plugin_registry
 from hydromodpy.catchment.terrain import registry as terrain_registry
-from hydromodpy.core.exceptions import MeshRequestError, TerrainRequestError
+from hydromodpy.core.exceptions import MeshRequestError, SolverInputError, TerrainRequestError
+from hydromodpy.core.plugin_registry import PluginRegistry
 from hydromodpy.mesh import registry as mesh_registry
 from hydromodpy.mesh.port import MeshEngineCapabilities
 from tests._helpers.fake_engines import fake_capabilities
@@ -56,7 +59,8 @@ class _TerrainEngine:
 class _Spec:
     """What differs between the two registries."""
 
-    registry: object
+    registry: PluginRegistry
+    module: object
     error: type[Exception]
     base: type
     member: str
@@ -67,6 +71,7 @@ class _Spec:
 
 _SPECS = {
     "mesh": _Spec(
+        mesh_registry.mesh_engines,
         mesh_registry,
         MeshRequestError,
         _MeshEngine,
@@ -76,6 +81,7 @@ _SPECS = {
         "No mesh engine is registered for",
     ),
     "terrain": _Spec(
+        terrain_registry.terrain_engines,
         terrain_registry,
         TerrainRequestError,
         _TerrainEngine,
@@ -99,10 +105,10 @@ def _variant(spec: _Spec, engine_id: str, **members: object) -> type:
 def _isolate(
     monkeypatch: pytest.MonkeyPatch, spec: _Spec, *, loaded: bool, entry_points: Callable | None
 ) -> None:
-    engine = spec.registry._ENGINE
-    monkeypatch.setattr(engine, "classes", dict(engine.classes))
-    monkeypatch.setattr(engine, "builtin_paths", dict(engine.builtin_paths))
-    monkeypatch.setattr(engine, "plugins_loaded", loaded)
+    registry = spec.registry
+    monkeypatch.setattr(registry, "classes", dict(registry.classes))
+    monkeypatch.setattr(registry, "builtin_paths", dict(registry.builtin_paths))
+    monkeypatch.setattr(registry, "plugins_loaded", loaded)
     if entry_points is not None:
         monkeypatch.setattr(plugin_registry, "entry_points", entry_points)
 
@@ -140,7 +146,7 @@ def _install_plugin(
     monkeypatch: pytest.MonkeyPatch, spec: _Spec, name: str, target: object
 ) -> None:
     """Declare one entry point *name* for *target*, with the group not scanned yet."""
-    wanted = spec.registry.ENTRY_POINT_GROUP
+    wanted = spec.module.ENTRY_POINT_GROUP
     _isolate(
         monkeypatch,
         spec,
@@ -156,26 +162,26 @@ def _install_plugin(
 
 def test_the_build_declares_the_engines_it_ships_under_their_own_ids(spec: _Spec) -> None:
     registry = spec.registry
-    assert registry.builtin_engine_ids() == spec.builtin_ids
-    assert registry.DEFAULT_ENGINE_ID == spec.default_id
+    assert registry.names(shipped_only=True) == spec.builtin_ids
+    assert spec.module.DEFAULT_ENGINE_ID == spec.default_id
     assert registry.get(None).engine_id == spec.default_id
+    assert registry.get().engine_id == spec.default_id
     for engine_id in spec.builtin_ids:
         assert registry.get(engine_id).engine_id == engine_id
 
 
 def test_listing_the_ids_imports_no_builtin(clean, spec: _Spec) -> None:
-    clean._ENGINE.classes.clear()
+    clean.classes.clear()
 
-    assert set(clean.list_engine_ids()) >= set(spec.builtin_ids)
-    assert clean._ENGINE.classes == {}
+    assert set(clean.names()) >= set(spec.builtin_ids)
+    assert clean.classes == {}
 
 
 def test_a_conforming_class_registers_and_resolves(clean, spec: _Spec) -> None:
     clean.register(spec.base)
 
     assert clean.get("test-conforming") is spec.base
-    assert clean.is_registered("test-conforming")
-    assert "test-conforming" in clean.list_engine_ids()
+    assert "test-conforming" in clean.names()
 
 
 def test_a_taken_id_is_refused_unless_replaced(clean, spec: _Spec) -> None:
@@ -212,8 +218,8 @@ def test_unregistering_an_engine_drops_its_builtin_declaration_too(clean, spec: 
     clean.get(builtin)
     clean.unregister(builtin)
 
-    assert not clean.is_registered("test-conforming")
-    assert builtin not in clean.builtin_engine_ids()
+    assert "test-conforming" not in clean.names()
+    assert builtin not in clean.names(shipped_only=True)
     with pytest.raises(spec.error, match=f"{spec.message_fragment} '{builtin}'"):
         clean.get(builtin)
 
@@ -227,9 +233,9 @@ def test_an_unknown_name_is_refused_and_the_message_names_what_is_served(spec: _
 
     message = str(raised.value)
     assert "quadtree" in message
-    for engine_id in registry.list_engine_ids():
+    for engine_id in registry.names():
         assert engine_id in message
-    assert registry.ENTRY_POINT_GROUP in message
+    assert spec.module.ENTRY_POINT_GROUP in message
 
 
 def test_an_unknown_name_is_refused_once_the_plugin_group_is_scanned(
@@ -243,8 +249,8 @@ def test_an_unknown_name_is_refused_once_the_plugin_group_is_scanned(
 
 def test_a_builtin_that_cannot_be_imported_says_so(clean, spec: _Spec) -> None:
     builtin = spec.builtin_ids[0]
-    clean._ENGINE.builtin_paths[builtin] = "hydromodpy.no_such_module:Engine"
-    clean._ENGINE.classes.pop(builtin, None)
+    clean.builtin_paths[builtin] = "hydromodpy.no_such_module:Engine"
+    clean.classes.pop(builtin, None)
 
     with pytest.raises(spec.error, match="cannot be loaded here: ModuleNotFoundError"):
         clean.get(builtin)
@@ -285,7 +291,7 @@ def test_a_plugin_resolves_by_name_before_any_listing(
     _install_plugin(monkeypatch, spec, "test-conforming", spec.base)
 
     assert spec.registry.get("test-conforming") is spec.base
-    assert "test-conforming" in spec.registry.list_engine_ids()
+    assert "test-conforming" in spec.registry.names()
 
 
 def test_the_plugin_group_is_scanned_once(monkeypatch: pytest.MonkeyPatch, spec: _Spec) -> None:
@@ -294,7 +300,7 @@ def test_the_plugin_group_is_scanned_once(monkeypatch: pytest.MonkeyPatch, spec:
 
     assert registry.get("test-conforming") is spec.base
     assert registry.load_plugins() == 0
-    monkeypatch.setattr(registry._ENGINE, "plugins_loaded", False)
+    monkeypatch.setattr(registry, "plugins_loaded", False)
     assert registry.load_plugins() == 0  # an engine it holds is not registered twice
     assert registry.load_plugins(force=True) == 1
 
@@ -342,7 +348,7 @@ def test_a_plugin_that_cannot_serve_its_name_is_ignored_with_a_warning(
     assert registry.load_plugins() == 0
     assert warning in warnings.text
     assert registry.get(spec.default_id) is not target
-    assert registry.list_engine_ids() == registry.builtin_engine_ids()
+    assert registry.names() == registry.names(shipped_only=True)
 
 
 def test_unreadable_distribution_metadata_registers_no_plugin_and_keeps_the_builtins(
@@ -356,8 +362,8 @@ def test_unreadable_distribution_metadata_registers_no_plugin_and_keeps_the_buil
 
     assert spec.registry.load_plugins() == 0
     assert "could not be scanned" in warnings.text
-    assert spec.registry.ENTRY_POINT_GROUP in warnings.text
-    assert set(spec.registry.list_engine_ids()) >= set(spec.builtin_ids)
+    assert spec.module.ENTRY_POINT_GROUP in warnings.text
+    assert set(spec.registry.names()) >= set(spec.builtin_ids)
     assert spec.registry.get(spec.builtin_ids[0]) is not None
 
 
@@ -395,4 +401,174 @@ def test_a_mesh_engine_without_a_version_or_capabilities_is_refused_by_name(
     _isolate(monkeypatch, _SPECS["mesh"], loaded=True, entry_points=None)
 
     with pytest.raises(TypeError, match=named):
-        mesh_registry.register(engine_cls)
+        mesh_registry.mesh_engines.register(engine_cls)
+
+
+# --------------------------------------------------------------------------- #
+# A key of two attributes
+# --------------------------------------------------------------------------- #
+
+PAIR_GROUP = "hydromodpy.test.pair"
+
+
+class _Backend:
+    process_type: ClassVar[str] = "flow"
+    name: ClassVar[str] = "probe"
+
+    def run(self) -> None:
+        raise NotImplementedError
+
+
+def _backend(process_type: str, name: str, **members: object) -> type:
+    return type(
+        f"_Backend[{process_type}_{name}]",
+        (_Backend,),
+        {"process_type": process_type, "name": name, **members},
+    )
+
+
+@pytest.fixture
+def pairs(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
+    """A registry keyed on ``process_type`` and ``name``, with no default and no plugin."""
+    monkeypatch.setattr(plugin_registry, "entry_points", lambda group: [])
+    return PluginRegistry(
+        kind="test backend",
+        id_attributes=("process_type", "name"),
+        group=PAIR_GROUP,
+        builtin_paths={},
+        members=lambda: ("run",),
+        error=SolverInputError,
+    )
+
+
+def test_a_key_of_two_attributes_is_their_join_and_get_takes_the_parts_or_the_join(
+    pairs: PluginRegistry,
+) -> None:
+    backend = pairs.register(_backend("flow", "modflow_nwt"))
+
+    assert pairs.get("flow", "modflow_nwt") is backend
+    assert pairs.get("flow_modflow_nwt") is backend
+    assert pairs.names() == ("flow_modflow_nwt",)
+    assert isinstance(pairs.create("flow", "modflow_nwt"), backend)
+
+
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [
+        ((), ("flow_a", "flow_b_c", "flowx_d", "transport_e")),
+        (("flow",), ("a", "b_c")),
+        (("flow", "b"), ("c",)),
+        (("flow", "a"), ("",)),
+        (("flowx",), ("d",)),
+        (("solute",), ()),
+    ],
+    ids=["no_prefix", "process", "part_of_a_name", "full_key", "longer_word", "unknown"],
+)
+def test_names_keeps_the_ids_under_the_joined_prefix_and_strips_it(
+    pairs: PluginRegistry, prefix: tuple[str, ...], expected: tuple[str, ...]
+) -> None:
+    for process_type, name in (("flow", "a"), ("flow", "b_c"), ("flowx", "d"), ("transport", "e")):
+        pairs.register(_backend(process_type, name))
+
+    assert pairs.names(*prefix) == expected
+
+
+def test_the_shipped_names_neither_scan_the_group_nor_list_a_registered_class(
+    monkeypatch: pytest.MonkeyPatch, pairs: PluginRegistry
+) -> None:
+    scans: list[str] = []
+    monkeypatch.setattr(plugin_registry, "entry_points", lambda group: scans.append(group) or [])
+    pairs.builtin_paths["flow_shipped"] = "hydromodpy.nowhere:Backend"
+    pairs.register(_backend("flow", "added"))
+
+    assert pairs.names("flow", shipped_only=True) == ("shipped",)
+    assert scans == []
+    assert pairs.names("flow") == ("added", "shipped")
+    assert scans == [PAIR_GROUP]
+
+
+def test_a_registry_without_a_default_refuses_a_lookup_without_a_name(
+    pairs: PluginRegistry,
+) -> None:
+    pairs.register(_backend("flow", "a"))
+
+    for lookup in (pairs.get, pairs.create):
+        with pytest.raises(SolverInputError, match="has no default here, so it is named"):
+            lookup()
+    with pytest.raises(SolverInputError, match="flow_a"):
+        pairs.get(None)
+
+
+@pytest.mark.parametrize(
+    ("candidate", "named"),
+    [
+        (_backend("flow", "a", run=None), "missing or unusable run"),
+        (type("_NoName", (), {"process_type": "flow", "run": _not_run}), "name = 'flow', None"),
+        (_backend("flow", " "), "process_type, name = 'flow', ' '"),
+    ],
+    ids=["member_is_none", "no_name", "blank_name"],
+)
+def test_a_class_without_a_usable_part_or_member_is_refused_by_name(
+    pairs: PluginRegistry, candidate: type, named: str
+) -> None:
+    with pytest.raises(TypeError, match=named):
+        pairs.register(candidate)
+
+
+def test_a_member_only_a_metaclass_answers_is_refused(pairs: PluginRegistry) -> None:
+    """``getattr`` would find it, and the first call would fail after the setup."""
+
+    class _AnswersAnything(type):
+        def __getattr__(cls, name: str) -> object:
+            return lambda *args, **kwargs: None
+
+    hollow = _AnswersAnything("_Hollow", (), {"process_type": "flow", "name": "hollow"})
+
+    with pytest.raises(TypeError, match="missing or unusable run"):
+        pairs.register(hollow)
+
+
+def test_unregistering_takes_the_parts_of_the_key(pairs: PluginRegistry) -> None:
+    pairs.register(_backend("flow", "a"))
+    pairs.unregister("flow", "a")
+
+    assert pairs.names() == ()
+    with pytest.raises(SolverInputError, match="No test backend is registered for 'flow_a'"):
+        pairs.get("flow", "a")
+
+
+def test_a_builtin_whose_class_declares_another_key_is_refused(pairs: PluginRegistry) -> None:
+    pairs.builtin_paths["flow_regular"] = "hydromodpy.mesh.engines.regular.engine:RegularMeshEngine"
+
+    with pytest.raises(SolverInputError, match="declares process_type, name = None, None"):
+        pairs.get("flow", "regular")
+
+
+@pytest.mark.parametrize(
+    ("entry_name", "registered", "warning"),
+    [
+        ("flow_modflow_nwt2", ("modflow_nwt2",), ""),
+        ("flow_modflownwt2", (), "declares process_type, name = 'flow', 'modflow_nwt2'"),
+        ("flow", (), "the entry-point name is 'flow'"),
+    ],
+    ids=["name_is_the_join", "name_drops_an_underscore", "name_is_one_part"],
+)
+def test_an_entry_point_name_is_compared_with_the_join_and_never_split(
+    monkeypatch: pytest.MonkeyPatch,
+    warnings: pytest.LogCaptureFixture,
+    pairs: PluginRegistry,
+    entry_name: str,
+    registered: tuple[str, ...],
+    warning: str,
+) -> None:
+    """``flow_modflownwt`` once minted a second key for ``flow/modflow_nwt``."""
+    published = _backend("flow", "modflow_nwt2")
+    monkeypatch.setattr(
+        plugin_registry,
+        "entry_points",
+        lambda group: [_FakeEntryPoint(entry_name, published)] if group == PAIR_GROUP else [],
+    )
+
+    assert pairs.load_plugins() == len(registered)
+    assert pairs.names("flow") == registered
+    assert warning in warnings.text

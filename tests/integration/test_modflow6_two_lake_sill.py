@@ -31,10 +31,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _CREST = 95.0  # sill crest = invert of the forebay weir
@@ -47,29 +49,25 @@ def _two_lake_model(*, strt0: float, strt1: float) -> SimpleNamespace:
     return SimpleNamespace(
         model_output_name="twolake",
         time_units="seconds",
-        flow=SimpleNamespace(
-            active_bc=["lake"],
-            sinks_sources={
-                "lakes": {
-                    "lac0": {
-                        "polygon": None,
-                        "bedleak": 0.0,  # sealed bed: isolate the weir coupling
-                        "abacus": abacus,
-                        "initial_stage": strt0,
-                        "outlets": [
-                            {"kind": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
-                        ],
-                    },
-                    "lac1": {
-                        "polygon": None,
-                        "bedleak": 0.0,
-                        "abacus": abacus,
-                        "initial_stage": strt1,
-                        "outlets": [
-                            {"kind": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
-                        ],
-                    },
-                }
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={
+                "lac0": {
+                    "polygon": None,
+                    "bedleak": 0.0,  # sealed bed: isolate the weir coupling
+                    "abacus": abacus,
+                    "initial_stage": strt0,
+                    "outlets": [{"kind": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}],
+                },
+                "lac1": {
+                    "polygon": None,
+                    "bedleak": 0.0,
+                    "abacus": abacus,
+                    "initial_stage": strt1,
+                    "outlets": [
+                        {"kind": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
+                    ],
+                },
             },
         ),
     )

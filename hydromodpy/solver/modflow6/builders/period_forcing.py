@@ -25,6 +25,12 @@ def _attr(payload: object, name: str) -> object:
     return getattr(payload, name, None)
 
 
+def simulation_window(model) -> object | None:
+    """The calendar window of the run, or None when its time grid has no dates."""
+    grid = model.inputs.time.grid
+    return None if grid is None else grid.window
+
+
 def forcing_kind(forcing: object) -> str | None:
     """Return the forcing discriminator (``constant`` / ``csv`` / ...) or None."""
     kind = _attr(forcing, "kind")
@@ -160,6 +166,7 @@ __all__ = [
     "forcing_unit",
     "resolve_forcing_mode",
     "resolve_use_ts6",
+    "simulation_window",
     "sto_period_settings",
     "ts6_times_and_values",
 ]

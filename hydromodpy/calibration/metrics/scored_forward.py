@@ -93,7 +93,7 @@ EVALUATOR_ID = "scored_forward_model"
 class ScoredForwardEvaluator:
     """Score a named forward model with the criteria the document declares.
 
-    Built by :func:`hydromodpy.calibration.evaluation.registry.create`. It names
+    Built by ``evaluators.create`` of :mod:`hydromodpy.calibration.evaluation.registry`. It names
     four of the construction options: the configuration it reads its criteria
     and its model name from, and the three it passes on to the model's own
     constructor without looking at them.
@@ -142,8 +142,10 @@ class ScoredForwardEvaluator:
         # instead of one of them falling through as a generic failure.
         except ValueError as exc:
             raise CalibrationError(str(exc)) from exc
-        self._model_id = forward_registry.resolve_id(getattr(cfg, "forward_model", None))
-        self._model = forward_registry.create(
+        self._model_id = forward_registry.forward_models.get(
+            getattr(cfg, "forward_model", None)
+        ).model_id
+        self._model = forward_registry.forward_models.create(
             getattr(cfg, "forward_model", None),
             cfg=cfg,
             space=space,
