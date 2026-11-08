@@ -18,6 +18,7 @@ from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.modflow_common.binaries import SolverEngine
 from hydromodpy.workflow.steps.prepare_solver import dispatch as dispatch_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
@@ -89,7 +90,13 @@ def _ctx(
         sim_id="sim-1",
         execution=SimpleNamespace(
             simulation_plan=SimpleNamespace(runs=(run,)),
-            models_by_run_id={} if built_model is None else {"flow_main": built_model},
+            solver_runs={}
+            if built_model is None
+            else {
+                "flow_main": SolverRun(
+                    slot=RunSlot(Path("/tmp/scratch"), "flow_main"), solver_model=built_model
+                )
+            },
         ),
     )
 

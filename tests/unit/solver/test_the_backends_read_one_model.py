@@ -5,7 +5,9 @@ for each backend. The solver object keeps the very ``Model`` the ``prepare_solve
 step built (``inputs``). A per-cell K set with ``Model.with_properties`` and a
 recharge set on the model reach the arrays the backend writes, and a name the
 backend does not read is refused. A build, and a solve, leave the model as it was,
-which a digest of every member before and after shows.
+which a digest of every member before and after shows. Each backend builds in
+the folder of the ``RunSlot`` the runner fills, stops there when the slot says so,
+and solves into that folder otherwise.
 """
 
 from __future__ import annotations
@@ -23,8 +25,8 @@ import pytest
 from hydromodpy.calibration.metrics import solver_extract
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.runners.trial import built_model, prepare_trials
-from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
-from hydromodpy.solver.base.plan import RunContext
+from hydromodpy.solver.base.plan import RunContext, SolverRun
+from hydromodpy.solver.base.runner import options_for, slot_for, solve_one
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd
 from tests._helpers.island_project import island_toml
@@ -137,18 +139,19 @@ def _island(tmp_path: Path, backend: str, monkeypatch: pytest.MonkeyPatch) -> It
         yield ctx
 
 
+def _solve(ctx: Any, model: Any, *, solve: bool = False) -> SolverRun:
+    """Run the flow adapter of ``ctx`` on ``model`` through the contract and return its run."""
+    adapter, run_ctx = solver_extract.resolve_flow_adapter(ctx)
+    ctx.setup.model = model
+    slot = replace(slot_for(run_ctx.plan, run_ctx.run, ctx.setup), stop_before_solve=not solve)
+    fresh = RunContext.of(ctx, plan=run_ctx.plan, run=run_ctx.run)
+    options = options_for(adapter, run_ctx.run, ctx.cfg)
+    return solve_one(adapter, model, options, slot, fresh)
+
+
 def _execute(ctx: Any, model: Any, *, solve: bool = False) -> Any:
     """Run the flow adapter of ``ctx`` on ``model`` and return the solver object it built."""
-    adapter, run_ctx = solver_extract.resolve_flow_adapter(ctx)
-    overrides = {**(ctx.setup.flow_runtime_overrides or {})}
-    if solve:
-        overrides.pop(STOP_BEFORE_THE_SOLVE, None)
-    else:
-        overrides[STOP_BEFORE_THE_SOLVE] = True
-    ctx.setup.model = model
-    ctx.setup.flow_runtime_overrides = overrides
-    fresh = RunContext.of(ctx, plan=run_ctx.plan, run=run_ctx.run)
-    return adapter.execute(fresh).primary_model
+    return _solve(ctx, model, solve=solve).solver_model
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -228,3 +231,29 @@ def test_a_solve_leaves_the_model_as_it_found_it(
         _execute(ctx, model, solve=True)
 
         assert _digest(model) == before
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_a_build_that_stops_before_the_solve_lies_in_its_slot_unsolved(
+    backend: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _island(tmp_path, backend, monkeypatch) as ctx:
+        built = _solve(ctx, ctx.setup.model)
+
+        assert (built.written, built.solved) == (False, False)
+        assert built.model is ctx.setup.model
+        assert Path(built.solver_model.full_path).resolve() == built.slot.directory.resolve()
+
+
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_a_solve_writes_into_the_folder_of_its_slot(
+    backend: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _island(tmp_path, backend, monkeypatch) as ctx:
+        solved = _solve(ctx, ctx.setup.model, solve=True)
+
+        assert (solved.written, solved.solved) == (True, True)
+        assert solved.output_dir is not None
+        assert solved.output_dir.resolve() == solved.slot.directory.resolve()

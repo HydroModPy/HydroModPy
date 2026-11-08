@@ -7,8 +7,11 @@ import pytest
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.model import ModelTime
-from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M, FlowRuntimeConfig
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.options import (
+    DEFAULT_PARTITION_RELEASE_DEPTH_M,
+    BoussinesqOptions,
+)
 from hydromodpy.solver.boussinesq.solver_contract import (
     DENSE_ENGINE_MAX_CELLS,
     assert_supported_runtime_subset,
@@ -34,11 +37,11 @@ BACKENDS = (
 
 @pytest.mark.parametrize(("backend", "expected"), BACKENDS, ids=[b for b, _ in BACKENDS])
 def test_the_requested_backend_is_the_one_of_the_options(backend: str, expected: str) -> None:
-    assert runtime_backend_name(FlowRuntimeConfig(backend=backend)) == expected
+    assert runtime_backend_name(BoussinesqOptions(backend=backend)) == expected
 
 
 def test_the_default_options_ask_for_the_automatic_engine() -> None:
-    assert runtime_backend_name(FlowRuntimeConfig()) == "auto"
+    assert runtime_backend_name(BoussinesqOptions()) == "auto"
 
 
 @pytest.mark.parametrize("regime", ["steady", "transient"])
@@ -105,14 +108,14 @@ def test_the_nonlinear_options_are_those_of_the_runtime_section(
     case: str, settings: dict, expected: dict
 ) -> None:
     del case
-    options = build_runtime_options(FlowRuntimeConfig(**settings), n_cells=10)
+    options = build_runtime_options(BoussinesqOptions(**settings), n_cells=10)
 
     for name, value in expected.items():
         assert getattr(options, name) == value, name
 
 
 def test_the_default_release_depth_and_vi_settings_are_those_of_the_runtime_section() -> None:
-    options = build_runtime_options(FlowRuntimeConfig())
+    options = build_runtime_options(BoussinesqOptions())
 
     assert options.regularization_radius == DEFAULT_PARTITION_RELEASE_DEPTH_M
     assert options.vi_substeps_per_period == 1
@@ -123,14 +126,14 @@ def test_the_default_release_depth_and_vi_settings_are_those_of_the_runtime_sect
 
 
 def test_the_automatic_engine_takes_the_sparse_iteration_limit_above_the_dense_size() -> None:
-    options = FlowRuntimeConfig()
+    options = BoussinesqOptions()
 
     assert build_runtime_options(options, n_cells=DENSE_ENGINE_MAX_CELLS).max_iterations == 20
     assert build_runtime_options(options, n_cells=DENSE_ENGINE_MAX_CELLS + 1).max_iterations == 60
 
 
 def test_the_surface_closure_resolves_on_the_engine_the_mesh_size_picks() -> None:
-    auto = FlowRuntimeConfig()
+    auto = BoussinesqOptions()
 
     assert resolve_surface_interaction_model(auto, n_cells=10) == "regularized_partition"
     assert resolve_surface_interaction_model(auto, n_cells=DENSE_ENGINE_MAX_CELLS + 1) == (
@@ -141,7 +144,7 @@ def test_the_surface_closure_resolves_on_the_engine_the_mesh_size_picks() -> Non
 def test_the_solver_contract_joins_the_model_regime_and_the_options() -> None:
     model = make_model(time=ModelTime(grid=None, regime="steady", first_period_steady=True))
 
-    contract = resolve_solver_contract(model, FlowRuntimeConfig(backend="scipy_sparse"), n_cells=5)
+    contract = resolve_solver_contract(model, BoussinesqOptions(backend="scipy_sparse"), n_cells=5)
 
     assert contract.flow_regime == "steady"
     assert contract.runtime_backend_requested == "scipy_sparse"
@@ -167,7 +170,7 @@ STEADY_START_CASES = (
 def test_only_the_ts_vi_obstacle_runs_another_closure_for_its_steady_start(
     backend: str, surface: str, expected: str | None
 ) -> None:
-    runtime = FlowRuntimeConfig(backend=backend, surface_interaction_model=surface)
+    runtime = BoussinesqOptions(backend=backend, surface_interaction_model=surface)
 
     steady = steady_initialization_runtime(runtime)
 

@@ -6,6 +6,7 @@ settings under ``[solver.modflow6.runtime]`` and ``[solver.modflow_nwt.runtime]`
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
@@ -90,31 +91,8 @@ def normalize_positive_float(
 
 DEFAULT_PARTITION_RELEASE_DEPTH_M = 0.05
 
-FLOW_RUNTIME_KEYS: dict[str, str] = {
-    "runtime_backend": "backend",
-    "surface_interaction_model": "surface_interaction_model",
-    "partition_release_depth_m": "partition_release_depth_m",
-    "runtime_max_iterations": "max_iterations",
-    "runtime_tol_residual_inf": "tol_residual_inf",
-    "runtime_tol_state_update_inf": "tol_state_update_inf",
-    "vi_substeps_per_period": "vi_substeps_per_period",
-    "vi_substep_on_failure": "vi_substep_on_failure",
-    "vi_max_adaptive_substeps": "vi_max_adaptive_substeps",
-    "ts_vi_steps_per_period": "ts_vi_steps_per_period",
-    "ts_vi_adapt": "ts_vi_adapt",
-    "ts_vi_dt_min_fraction": "ts_vi_dt_min_fraction",
-    "ts_vi_dt_max_fraction": "ts_vi_dt_max_fraction",
-    "ts_vi_type": "ts_vi_type",
-    "ts_vi_snes_type": "ts_vi_snes_type",
-}
-"""What a key of [flow] was once called, mapped to its name in [solver.boussinesq].
 
-These keys moved to ``[flow.runtime]`` first, and that table is ``[solver.boussinesq]``
-since 2.1.0.
-"""
-
-
-class FlowRuntimeConfig(HydroModelBase):
+class BoussinesqOptions(HydroModelBase):
     """How the Boussinesq solver runs its nonlinear solve."""
 
     backend: Annotated[Literal["auto", "local", "scipy", "scipy_sparse", "petsc"], Profile.USER] = (
@@ -292,6 +270,20 @@ class FlowRuntimeConfig(HydroModelBase):
         ),
     )
 
+    exchange_mesh: Annotated[Path | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Folder of a catchment mesh bundle the Boussinesq solver reads its cells "
+            "from. The bundle holds the geometry, the hydraulic conductivity and the "
+            "storage coefficient of each cell, so it stands in for the cell mesh and "
+            "the K and Sy profiles of the model, and a run that sets one of those next "
+            "to it is refused. A relative path is read from the folder of the TOML file. "
+            "It is a developer entry for the validation cases. A normal run leaves it "
+            "unset and reads the cell mesh of its model."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
+
     @field_validator("backend", mode="before")
     @classmethod
     def _validate_backend(cls, value):
@@ -344,4 +336,4 @@ class FlowRuntimeConfig(HydroModelBase):
         return normalize_positive_float(value, field=info.field_name)
 
 
-__all__ = ["DEFAULT_PARTITION_RELEASE_DEPTH_M", "FLOW_RUNTIME_KEYS", "FlowRuntimeConfig"]
+__all__ = ["DEFAULT_PARTITION_RELEASE_DEPTH_M", "BoussinesqOptions"]

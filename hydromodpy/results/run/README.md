@@ -42,8 +42,7 @@ run/
 ├── field_envelope.py   min and max per cell of an earlier run
 ├── lake_abacus_view.py persisted lake abacus
 ├── contracts.py        typed returns: Mesh, RasterField, Stack
-├── environment.py      host environment snapshot
-└── rerun_contract.py   the rerun provider contract
+└── environment.py      host environment snapshot
 ```
 
 ## Where to add what

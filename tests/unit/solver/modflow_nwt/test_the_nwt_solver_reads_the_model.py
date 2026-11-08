@@ -159,9 +159,7 @@ def test_the_steady_initialization_runs_for_a_transient_run_with_a_steady_start(
     )
     solver.flow_regime = regime
     solver.nper = 2
-    solver.mf = SimpleNamespace(
-        write_input=lambda: None, exe_name="mfnwt", namefile="n.nam", model_ws=str(tmp_path)
-    )
+    solver.mf = _written_by(tmp_path)
     solver.bas = SimpleNamespace(strt=None, write_file=lambda: None)
     solver._params = SimpleNamespace(runtime=SimpleNamespace(lmt=None))
     head = np.full((1, 2, 3), 7.0)
@@ -181,6 +179,64 @@ def test_the_steady_initialization_runs_for_a_transient_run_with_a_steady_start(
     solver.processing(ModflowRunOptions(write_model=True, run_model=True))
 
     assert calls == (["run", "apply"] if runs_the_auxiliary else [])
+
+
+def _written_by(tmp_path, *, files: tuple[str, ...] = ("n.nam", "n.dis", "n.bas")):
+    """A FloPy model whose ``write_input`` writes ``files``; its packages declare ``n.dis`` twice."""
+
+    def write_input() -> None:
+        for name in files:
+            (tmp_path / name).write_text(name)
+
+    packages = [
+        SimpleNamespace(file_name=["n.dis"]),
+        SimpleNamespace(file_name=["n.bas", "n.dis"]),
+        SimpleNamespace(file_name=["n.never_written"]),
+    ]
+    return SimpleNamespace(
+        write_input=write_input,
+        exe_name="mfnwt",
+        namefile="n.nam",
+        model_ws=str(tmp_path),
+        packagelist=packages,
+    )
+
+
+def _processing_solver(monkeypatch, tmp_path):
+    solver = _solver(
+        _model(time=ModelTime(grid=time_grid(1.0), regime="transient", first_period_steady=False)),
+        tmp_path,
+    )
+    solver.flow_regime = "transient"
+    solver.nper = 1
+    solver.mf = _written_by(tmp_path)
+    solver._params = SimpleNamespace(runtime=SimpleNamespace(lmt=None))
+    monkeypatch.setattr(nwt_solver, "run_model_with_progress", lambda *args, **kwargs: (True, None))
+    return solver
+
+
+def test_the_files_written_before_the_solve_are_listed_in_the_order_of_the_name_file(
+    monkeypatch, tmp_path
+) -> None:
+    solver = _processing_solver(monkeypatch, tmp_path)
+
+    assert solver.input_files == ()
+    solver.processing(ModflowRunOptions(write_model=True, run_model=True))
+
+    assert solver.input_files == ("n.nam", "n.dis", "n.bas")
+
+
+def test_a_model_whose_files_are_written_writes_none_and_keeps_its_list(
+    monkeypatch, tmp_path
+) -> None:
+    solver = _processing_solver(monkeypatch, tmp_path)
+    solver.processing(ModflowRunOptions(write_model=True, run_model=False))
+    (tmp_path / "n.dis").unlink()
+
+    solver.processing(ModflowRunOptions(write_model=False, run_model=True))
+
+    assert not (tmp_path / "n.dis").exists(), "nothing was written again"
+    assert solver.input_files == ("n.nam", "n.dis", "n.bas")
 
 
 class _Auxiliary:

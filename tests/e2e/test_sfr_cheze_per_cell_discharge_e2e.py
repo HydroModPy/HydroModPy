@@ -262,11 +262,10 @@ def test_the_routed_outlet_carries_the_whole_catchment_release(tmp_path: Path) -
         # memory, and the model is what carries the mesh this test routes on.
         project.simulate(until_step="extract")
         execution = project._ctx.execution
-        run_ids = list(execution.models_by_run_id)
-        assert run_ids, "the pipeline kept no model for the run"
-        run_id = run_ids[0]
-        model = execution.models_by_run_id[run_id]
-        output_dir = Path(execution.output_dirs_by_run_id[run_id])
+        built = [run for run in execution.solver_runs.values() if run.solver_model is not None]
+        assert built, "the pipeline kept no model for the run"
+        model = built[0].solver_model
+        output_dir = Path(built[0].output_dir)
         model_name = str(model.model_output_name)
 
         frame = extract_release_flux_by_cell_from_cbc(

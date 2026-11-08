@@ -61,12 +61,11 @@ from hydromodpy.core.config_kit.root_config_protocol import get_root_config_prov
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.run_state import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry, SlotRequest
 from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS, PhysicalBoundsError
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
-from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 
 if TYPE_CHECKING:
@@ -164,7 +163,7 @@ class TrialContext:
         self,
         values: Mapping[str, float],
         *,
-        flow_runtime_overrides: Mapping[str, Any] | None = None,
+        slot_request: SlotRequest | None = None,
     ) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
 
@@ -177,10 +176,10 @@ class TrialContext:
           ``workspace``, ``time_grid``, ...) stay shared by reference,
           but ``flow`` / ``transport`` are reset so the trial rebuilds them
           from the modified ``cfg.flow`` on demand.
-        - ``flow_runtime_overrides`` (optional) seeds the forked setup. A
-          :class:`TrialSandbox` passes a per-trial ``model_name_override`` here
-          so each concurrent solver run writes to its own model folder under
-          the shared scratch and never collides.
+        - ``slot_request`` (optional) goes on the forked setup. A
+          :class:`TrialSandbox` passes one with a per-trial run name here, so
+          each concurrent solver run writes to its own model folder under the
+          shared scratch and never collides.
         - ``loaded_data`` is shared by reference (forcings are
           read-only after loading).
         - ``execution`` is freshly instantiated with
@@ -208,9 +207,7 @@ class TrialContext:
         new_setup.flow = None
         new_setup.model = None
         new_setup.transport = None
-        new_setup.flow_runtime_overrides = (
-            dict(flow_runtime_overrides) if flow_runtime_overrides else None
-        )
+        new_setup.slot_request = slot_request
 
         new_ctx = WorkflowContext(
             cfg=new_cfg,
@@ -406,7 +403,7 @@ def prepare_trials(
 _RECHARGE_PREFIX = "flow.sinks_sources.recharge."
 
 
-def _trial_owns_its_recharge(trial_ctx: TrialContext) -> bool:
+def _phase_samples_the_recharge(trial_ctx: TrialContext) -> bool:
     """Whether the phase samples a value the recharge is computed from."""
     space = trial_ctx.parameter_space
     if space is not None:
@@ -437,11 +434,11 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
     """
     provider = get_trial_pipeline_provider()
     sandbox = sandbox_of(trial_ctx, 0)
-    overrides = {**sandbox.flow_overrides, STOP_BEFORE_THE_SOLVE: True}
-    if _trial_owns_its_recharge(trial_ctx):
-        overrides["trial_owns_its_recharge"] = True
+    request = sandbox.slot_request(
+        owns_recharge=_phase_samples_the_recharge(trial_ctx), stop_before_solve=True
+    )
     with progress.suppressed(), sandbox:
-        forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
+        forked = trial_ctx.fork(values, slot_request=request)
         sandbox.track(forked.ctx.execution)
         names = [step.name for step in forked.downstream_steps]
         through_the_launcher = names.index("run_solver") + 1
@@ -509,20 +506,18 @@ def run_trial_light(
         objective. The full extractor is wired in by the calibration CLI.
     trial_id
         Unique trial id. When set, the trial runs under a private
-        :class:`TrialSandbox` identity (its own ``model_name_override`` folder)
+        :class:`TrialSandbox` identity (its own run name and model folder)
         so concurrent trials never share solver input/output files, and the
         trial's solver output is cleaned up afterwards, unless the session
         retention (``trial_ctx.kept_solves``) keeps it for a promotion.
     """
     provider = get_trial_pipeline_provider()
     sandbox = sandbox_of(trial_ctx, trial_id) if trial_id is not None else None
-    flow_overrides = sandbox.flow_overrides if sandbox is not None else None
-    if flow_overrides is not None and _trial_owns_its_recharge(trial_ctx):
-        # Same string as solver.modflow6.builders.recharge.PRIVATE_TRIAL_RECHARGE_KEY,
-        # not imported: calibration_layout.yaml's solver_access only allows
-        # hydromodpy.solver.base, never a backend package (test_package_layouts.py,
-        # test_calibration_reaches_solver_only_through_generic_ports).
-        flow_overrides = {**flow_overrides, "trial_owns_its_recharge": True}
+    request = (
+        sandbox.slot_request(owns_recharge=_phase_samples_the_recharge(trial_ctx))
+        if sandbox is not None
+        else None
+    )
     retention = trial_ctx.kept_solves if sandbox is not None else None
     keeps_solves = retention is not None and retention.keeps_any
     # The water-balance gate reads the figure the solver reported for the run, and
@@ -534,7 +529,7 @@ def run_trial_light(
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
         try:
-            forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
+            forked = trial_ctx.fork(values, slot_request=request)
             if sandbox is not None:
                 sandbox.track(forked.ctx.execution)
         except Exception as exc:

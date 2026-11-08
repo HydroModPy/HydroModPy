@@ -31,8 +31,9 @@ from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_head_history_at_cells,
 )
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
-from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from tests._helpers.run_stores import claim_run, facts_of
+
+from ._solver_runs import extract_run
 
 DAY_S = 86400.0
 START = pd.Timestamp("2020-01-01")
@@ -100,7 +101,7 @@ def extracted(tmp_path: Path) -> Iterator[_Extracted]:
         workspace=project,
     )
     store.create_zarr(n_cells=2, n_layers=1)
-    BoussinesqOutputAdapter().extract(store.sim_id, output_dir, store, start_datetime=START)
+    extract_run(store, output_dir, start=START)
     state = _Extracted(project, store, store.sim_id, output_dir)
     try:
         yield state

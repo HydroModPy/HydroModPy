@@ -29,9 +29,9 @@ In the order `standard_steps()` calls them. Helpers follow the step that uses th
 | `mesh_inputs.py` | what the mesh planner reads besides `[mesh]` from the run context |
 | `planning.py` | the `SimulationPlan` and the per-cell budget it keeps |
 | `prepare_solver/` | step `prepare_solver`: opens the run (see its README) |
-| `run_solver.py` | step `run_solver`: executes the plan with `SimulationRunner` |
-| `extract.py` | step `extract`: solver files read into the store, observations ingested |
-| `run_outputs.py` | what happens after a solve: `extract_run_outputs`, `derive_run_outputs`, the export functions and `cleanup_solver_outputs`, which `extract.py`, `derive.py` and `export.py` call, and `OutputAdapter`, the port a solver extractor follows |
+| `run_solver.py` | step `run_solver`: executes the plan with `SimulationRunner`, and puts back the `SolverRun` of each run when a resume starts after it |
+| `extract.py` | step `extract`: solver files read into the store, observations ingested, and `retention_of`, what the run keeps |
+| `run_outputs.py` | what happens after a solve, each on the `RunContext` of one run: `extract_run_outputs` calls the `extract` of the adapter with the `SolverRun` and the `Retention`, `derive_run_outputs` and `cleanup_solver_outputs` follow, and `extract.py`, `derive.py` and `export.py` call them |
 | `derive.py` | step `derive`: catchment aggregates, observation points, fit metrics |
 | `display.py` | step `display`: the figures of `[display]` |
 | `export.py` | steps `export` and `seal`: the `[[export]]` requests, the scratch cleanup, then the seal |

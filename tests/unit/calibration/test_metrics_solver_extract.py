@@ -78,13 +78,13 @@ from hydromodpy.solver.base.cell_lookup import (
     locate_cell_on_solver_mesh,
     top_active_layer_on_solver_mesh,
 )
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow_common import observable_extraction as _extraction
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
@@ -118,6 +118,7 @@ from tests.unit.calibration._factories_scoring import (
     seasonal_thresholds,
     stream_file_fixture,  # noqa: F401
 )
+from tests.unit.solver.modflow_common.solver_runs import solved_run
 
 # From test_a_cell_target_without_layer_reads_the_top_active_cell.py
 # A cell target given without a layer reads the top active cell of its column.
@@ -150,7 +151,9 @@ def _pinched_mesh() -> SolverMesh:
 
 
 def _wire(monkeypatch, adapter: object, model: object) -> SimpleNamespace:
-    run_ctx = SimpleNamespace(run=SimpleNamespace(id="r1"), model=model)
+    run_ctx = SimpleNamespace(
+        run=SimpleNamespace(id="r1"), solver_run=SimpleNamespace(solver_model=model)
+    )
     monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, run_ctx))
     return SimpleNamespace()
 
@@ -241,7 +244,7 @@ class _Adapter:
         self.includes_runoff = includes_runoff
         self.asked: list[tuple[str, str]] = []
 
-    def extract_observables(self, _run_ctx, _unused, requests, time_index=None):
+    def observables(self, _run_ctx, requests, time_index=None):
         out = {}
         for request in requests:
             self.asked.append((request.name, request.support))
@@ -270,7 +273,7 @@ def wired(monkeypatch):
     ):
         adapter = _Adapter(includes_runoff=includes_runoff)
         model = SimpleNamespace(descent_basin=basin) if builds_descent else SimpleNamespace()
-        run_ctx = SimpleNamespace(model=model)
+        run_ctx = SimpleNamespace(solver_run=SimpleNamespace(solver_model=model))
         monkeypatch.setattr(
             _solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, run_ctx)
         )
@@ -462,7 +465,7 @@ class _Adapter__gauge_snaps:
         self.model = model
         self.asked: list = []
 
-    def extract_observables(self, _run_ctx, _store, requests, time_index=None):
+    def observables(self, _run_ctx, requests, time_index=None):
         self.asked.extend(requests)
         geometry = [r for r in requests if r.name in ("upstream_area", "cell_xy")]
         served, _ = _extraction.extract_common_modflow_observables(
@@ -486,7 +489,10 @@ class _Adapter__gauge_snaps:
 def adapter__gauge_snaps(monkeypatch) -> _Adapter:
     model = _valley_model()
     fake = _Adapter__gauge_snaps(model)
-    run_ctx = SimpleNamespace(model=model, run=SimpleNamespace(id="flow", solver="modflow6"))
+    run_ctx = SimpleNamespace(
+        solver_run=SimpleNamespace(solver_model=model),
+        run=SimpleNamespace(id="flow", solver="modflow6"),
+    )
     monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (fake, run_ctx))
     monkeypatch.setattr(_solver_extract, "resolve_time_index", lambda *_a, **_k: TIMES)
     monkeypatch.setattr(
@@ -748,8 +754,8 @@ def test_a_heads_output_scores_the_trace_of_its_heads() -> None:
 class _AxisRelease:
     """Releases on the mapped trace, so the trial matches the drawn map exactly."""
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store, time_index
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx, time_index
         return {
             request.id: adapter_result(request.id, np.where(_trace(), 1e-06, 0.0), "m3 s-1")
             for request in requests
@@ -1256,12 +1262,9 @@ class TestExtractor:
 # Adapter branch
 # ---------------------------------------------------------------------------
 class TestAdapterBranch:
-    def _ctx(self, tmp_path: Path):
-        return SimpleNamespace(
-            run=SimpleNamespace(id="r1"),
-            state=SimpleNamespace(),
-            model=SimpleNamespace(model_output_name="m", solver_mesh=None),
-            output_dir=tmp_path,
+    def _solver_run(self, tmp_path: Path):
+        return solved_run(
+            tmp_path, solver_model=SimpleNamespace(model_output_name="m", solver_mesh=None)
         )
 
     def test_lake_request_needs_a_lake_key(self):
@@ -1272,7 +1275,7 @@ class TestAdapterBranch:
 
     def _extract(self, tmp_path: Path, *requests: ObservableRequest):
         _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
-        return Modflow6FlowAdapter().extract_observables(self._ctx(tmp_path), None, list(requests))
+        return Modflow6FlowAdapter().observables(self._solver_run(tmp_path), list(requests))
 
     @pytest.mark.parametrize(
         ("name", "values", "units"),
@@ -1312,8 +1315,8 @@ class TestAdapterBranch:
 class _LakeAdapter:
     """Stub solver adapter that serves any lake request with a fixed series."""
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store, time_index
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx, time_index
         return {
             request.id: adapter_result(request.id, np.array([1.0, 2.0, 3.0]), "m")
             for request in requests
@@ -1323,8 +1326,8 @@ class _LakeAdapter:
 class _NoLakeAdapter:
     """Stub adapter that refuses lake observables, as MODFLOW-NWT does."""
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store, time_index
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx, time_index
         for request in requests:
             if request.support == "lake":
                 raise ObservableNotAvailableError(
@@ -1342,7 +1345,7 @@ class TestBridge:
             _extract_outputs(ctx, {"lake": out})
 
     def test_lake_output_slices_last(self, monkeypatch):
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"), solver_run=None)
         monkeypatch.setattr(
             _solver_extract_module,
             "resolve_flow_adapter",
@@ -1359,7 +1362,7 @@ class TestBridge:
     def test_a_backend_without_lakes_refuses_by_name(self, monkeypatch):
         # The refusal now comes from the backend itself rather than from the
         # caller reading its signature.
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow_nwt"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow_nwt"), solver_run=None)
         monkeypatch.setattr(
             _solver_extract_module,
             "resolve_flow_adapter",
@@ -1375,14 +1378,14 @@ class TestBridge:
         seen: dict[str, str] = {}
 
         class _Recorder:
-            def extract_observables(self, ctx, store, requests, *, time_index=None):
-                del ctx, store, time_index
+            def observables(self, ctx, requests, *, time_index=None):
+                del ctx, time_index
                 seen["name"] = requests[0].name
                 seen["key"] = requests[0].key
                 seen["support"] = requests[0].support
                 return {requests[0].id: adapter_result(requests[0].id, np.array([1.0]), "m")}
 
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"), solver_run=None)
         monkeypatch.setattr(
             _solver_extract_module,
             "resolve_flow_adapter",
@@ -1439,8 +1442,8 @@ class TestSingleMetricLakeLevelPath:
         observed_dates = pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"])
 
         class _AlignedAdapter:
-            def extract_observables(self, ctx, store, requests, *, time_index=None):
-                del ctx, store, time_index
+            def observables(self, ctx, requests, *, time_index=None):
+                del ctx, time_index
                 # Observed is [10, 11, 12]; offset by 0.5 -> rmse == 0.5. A lake
                 # stage is the state AT its stamp, so it pairs with the reading
                 # taken at that instant, not with the day its stamp closes.
@@ -1451,7 +1454,7 @@ class TestSingleMetricLakeLevelPath:
                     for request in requests
                 }
 
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"), solver_run=None)
         monkeypatch.setattr(
             _composite_module,
             "resolve_flow_adapter",
@@ -1671,8 +1674,8 @@ class TestHelpers:
                 del ctx, row, col
                 return 0
 
-            def extract_observables(self, ctx, store, requests, *, time_index=None):
-                del ctx, store, time_index
+            def observables(self, ctx, requests, *, time_index=None):
+                del ctx, time_index
                 seen["n_calls"] = seen.get("n_calls", 0) + 1
                 seen["ids"] = [request.id for request in requests]
                 return {
@@ -1680,7 +1683,7 @@ class TestHelpers:
                     for request in requests
                 }
 
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), solver_run=None)
         monkeypatch.setattr(
             _solver_extract_module,
             "resolve_flow_adapter",
@@ -1708,10 +1711,10 @@ class TestHelpers:
 
     def test_extract_outputs_names_the_output_whose_declaration_is_wrong(self, monkeypatch):
         class _Adapter:
-            def extract_observables(self, ctx, store, requests, *, time_index=None):
+            def observables(self, ctx, requests, *, time_index=None):
                 raise AssertionError("must not be reached")
 
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), solver_run=None)
         monkeypatch.setattr(
             _solver_extract_module,
             "resolve_flow_adapter",
@@ -1755,8 +1758,8 @@ class _Adapter__network_output:
         self.units = units
         self.seen: list = []
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store, time_index
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx, time_index
         self.seen = list(requests)
         bench = build_bench()
         pattern = simulated_network(bench, self.threshold)
@@ -2585,7 +2588,7 @@ def _run_ctx__network_reads(*, top, botm, closed=None):
     model = SimpleNamespace(solver_mesh=mesh)
     if closed is not None:
         model.inactive_mask = np.asarray(closed, dtype=bool)
-    return SimpleNamespace(model=model)
+    return SimpleNamespace(solver_run=SimpleNamespace(solver_model=model))
 
 
 def _geometry(catchment, areas):
@@ -2661,25 +2664,30 @@ def test_a_field_on_another_mesh_warns_and_leaves_the_trial_scored(caplog) -> No
 
 def test_a_backend_without_the_field_keeps_the_criterion() -> None:
     class _Adapter:
-        def extract_observables(self, _run_ctx, _store, _requests, *, time_index=None):
+        def observables(self, _solver_run, _requests, *, time_index=None):
             raise ObservableNotAvailableError("no saturated thickness here")
 
     output = SimpleNamespace(time="all")
+    run_ctx = SimpleNamespace(solver_run=object())
 
-    assert _saturated_thickness_or_none(_Adapter(), None, "network", output, None) is None
+    assert _saturated_thickness_or_none(_Adapter(), run_ctx, "network", output, None) is None
 
 
 def test_the_request_reads_the_same_times_as_the_network() -> None:
     seen = []
 
+    solver_run = object()
+
     class _Adapter:
-        def extract_observables(self, _run_ctx, _store, requests, *, time_index=None):
+        def observables(self, run, requests, *, time_index=None):
+            assert run is solver_run
             seen.extend(requests)
             return {requests[0].id: "field"}
 
     output = SimpleNamespace(time="last")
+    run_ctx = SimpleNamespace(solver_run=solver_run)
 
-    assert _saturated_thickness_or_none(_Adapter(), None, "network", output, None) == "field"
+    assert _saturated_thickness_or_none(_Adapter(), run_ctx, "network", output, None) == "field"
     assert seen[0].name == "saturated_thickness"
     assert seen[0].support == "cells"
     assert seen[0].times == "last"
@@ -2830,7 +2838,7 @@ class _Adapter__two_nested:
         self.areas = areas
         self.asked: list[tuple[str, str, tuple[int, int, int] | None]] = []
 
-    def extract_observables(self, _run_ctx, _unused, requests, time_index=None):
+    def observables(self, _run_ctx, requests, time_index=None):
         out = {}
         for request in requests:
             self.asked.append((request.id, request.name, request.cell))
@@ -2854,7 +2862,11 @@ def wired__two_nested(monkeypatch):
         baseflow={"gauge_down": BASEFLOW_DOWN, "gauge_up": BASEFLOW_UP},
         areas={"gauge_down": AREA_DOWN_M2, "gauge_up": AREA_UP_M2},
     )
-    monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, object()))
+    monkeypatch.setattr(
+        _solver_extract,
+        "resolve_flow_adapter",
+        lambda _ctx: (adapter, SimpleNamespace(solver_run=None)),
+    )
     monkeypatch.setattr(_solver_extract, "resolve_time_index", lambda *_a, **_k: TIMES)
 
     def _add_runoff(series, _ctx, *, area_m2=None):
@@ -2935,7 +2947,8 @@ def test_the_two_costs_stay_separate_in_the_components(wired__two_nested) -> Non
 
 # --- the lookups and the refusals a run leaves unreached --------------------
 def _execution(models, plan) -> SimpleNamespace:
-    return SimpleNamespace(execution=SimpleNamespace(models_by_run_id=models, simulation_plan=plan))
+    solver_runs = {run_id: SimpleNamespace(solver_model=model) for run_id, model in models.items()}
+    return SimpleNamespace(execution=SimpleNamespace(solver_runs=solver_runs, simulation_plan=plan))
 
 
 @pytest.mark.parametrize(
@@ -2952,8 +2965,12 @@ def _execution(models, plan) -> SimpleNamespace:
             {"f": object()},
             SimpleNamespace(runs=[SimpleNamespace(process_type="flow", id="f", solver="nowhere")]),
         ),
+        _execution(
+            {"f": None},
+            SimpleNamespace(runs=[SimpleNamespace(process_type="flow", id="f", solver="modflow6")]),
+        ),
     ],
-    ids=["no_execution", "no_model", "no_plan", "no_flow_run", "unknown_solver"],
+    ids=["no_execution", "no_model", "no_plan", "no_flow_run", "unknown_solver", "released_model"],
 )
 def test_a_trial_with_no_flow_solver_to_ask_resolves_to_nothing(ctx) -> None:
     assert solver_extract.resolve_flow_adapter(ctx) is None
@@ -3055,8 +3072,8 @@ def test_the_coordinate_of_a_station_is_read_wherever_its_loader_put_it(
 
 
 def test_a_cell_is_asked_of_the_solver_only_when_it_can_locate_one(monkeypatch) -> None:
-    run_ctx = object()
-    adapter = SimpleNamespace(locate_cell=lambda ctx, x, y: (ctx is run_ctx, x, y))
+    run_ctx = SimpleNamespace(solver_run=object())
+    adapter = SimpleNamespace(locate_cell=lambda run, x, y: (run is run_ctx.solver_run, x, y))
     monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: None)
     assert solver_extract.find_cell_at_point(SimpleNamespace(), 1.0, 2.0) is None
 
@@ -3128,7 +3145,7 @@ def test_a_gauge_the_solver_cannot_snap_is_refused_by_name(
     def no_field(*_args, **_kwargs):
         raise KeyError("upstream_area")
 
-    monkeypatch.setattr(adapter__gauge_snaps, "extract_observables", no_field)
+    monkeypatch.setattr(adapter__gauge_snaps, "observables", no_field)
 
     with pytest.raises(NotImplementedError, match="serves no drained area or cell centres"):
         observable_request_for_output("gauge", _point(snap_radius=120.0), SimpleNamespace())
@@ -3145,7 +3162,7 @@ def test_a_gauge_on_the_talweg_is_not_moved_and_one_the_solver_cannot_place_is_r
     assert "already sits on the most accumulated cell within 150 m" in caplog.text
 
     locate = adapter__gauge_snaps.locate_cell
-    located = iter([locate(SimpleNamespace(model=adapter__gauge_snaps.model), *GAUGE_XY)])
+    located = iter([locate(SimpleNamespace(solver_model=adapter__gauge_snaps.model), *GAUGE_XY)])
     monkeypatch.setattr(adapter__gauge_snaps, "locate_cell", lambda *_args: next(located, None))
     with pytest.raises(NotImplementedError, match="did not locate the snapped cell"):
         observable_request_for_output("gauge", _point(snap_radius=120.0), SimpleNamespace())
@@ -3192,7 +3209,9 @@ def test_a_snap_that_cannot_be_computed_is_refused(kwargs, message) -> None:
 
 def test_a_model_with_no_base_publishes_no_aquifer_thickness() -> None:
     mesh = SimpleNamespace(botm=None, top=np.array([100.0, 100.0]))
-    run_ctx = SimpleNamespace(model=SimpleNamespace(solver_mesh=mesh))
+    run_ctx = SimpleNamespace(
+        solver_run=SimpleNamespace(solver_model=SimpleNamespace(solver_mesh=mesh))
+    )
     thickness = SimpleNamespace(values=np.array([10.0, 20.0]))
 
     out = catchment_saturation(run_ctx, _geometry([True, True], [1.0, 1.0]), thickness)

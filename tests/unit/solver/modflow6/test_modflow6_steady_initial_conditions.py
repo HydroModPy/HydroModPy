@@ -431,6 +431,88 @@ class TestTheAuxiliaryModelsAreBuiltFromVariants:
         assert variant.time.regime == "transient"
 
 
+class _SlotStub(_StubMF6):
+    """Records how each auxiliary model is made and which slot its build reads."""
+
+    made: list[dict] = []
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        type(self).made.append({"init": kwargs})
+
+    def pre_processing(self, inputs, **kwargs) -> None:
+        super().pre_processing(inputs)
+        type(self).made[-1]["slot"] = kwargs.get("slot")
+
+
+def _solve_auxiliary(kind: str, parent: _SlotStub) -> None:
+    if kind == "steady":
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            ssic.run_modflow6_steady_state_initialization(parent, verbose=False)
+    else:
+        ssic._run_one_spinup_cycle(parent, cycle=3, seed=None, verbose=False)
+
+
+AUXILIARY_SLOT_CASES = (
+    ("steady", ssic.STEADY_FOLDER, "ssic"),
+    ("cycle", f"{ssic.CYCLE_FOLDER_PREFIX}3", "cyc3"),
+)
+
+
+@pytest.mark.parametrize(
+    ("kind", "folder", "name"), AUXILIARY_SLOT_CASES, ids=[c[0] for c in AUXILIARY_SLOT_CASES]
+)
+def test_an_auxiliary_model_solves_in_a_slot_derived_from_the_run(
+    monkeypatch, tmp_path, kind: str, folder: str, name: str
+) -> None:
+    """Same binaries and same shared forcing folder as the run, in a folder of its own."""
+    from hydromodpy.solver.base.plan import RunSlot
+
+    monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
+    monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
+    monkeypatch.setattr(_SlotStub, "made", [])
+    parent = _SlotStub(model_folder=tmp_path, model_name="run")
+    parent.slot = RunSlot(
+        tmp_path, "run", bin_dir=tmp_path / "bin", shared_forcing_dir=tmp_path / "_shared"
+    )
+    parent.inputs = make_model(
+        initial=CyclicStart(),
+        time=ModelTime(grid=None, regime="transient", first_period_steady=True),
+    )
+
+    _solve_auxiliary(kind, parent)
+
+    made = _SlotStub.made[-1]
+    slot = made["slot"]
+    assert slot.folder == tmp_path / "run" / folder and slot.name == name
+    assert (slot.bin_dir, slot.shared_forcing_dir) == (tmp_path / "bin", tmp_path / "_shared")
+    assert made["init"]["bin_path"] == tmp_path / "bin"
+    assert Path(made["init"]["model_folder"]) / made["init"]["model_name"] == slot.directory
+
+
+def test_an_auxiliary_model_of_a_run_without_a_slot_keeps_its_files_beside_it(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
+    monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
+    monkeypatch.setattr(_SlotStub, "made", [])
+    parent = _SlotStub(model_folder=tmp_path, model_name="run")
+
+    _solve_auxiliary("steady", parent)
+
+    slot = _SlotStub.made[-1]["slot"]
+    assert (slot.bin_dir, slot.shared_forcing_dir) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("name", "auxiliary"),
+    [("_ssic", True), ("_cyc0", True), ("_cyc12", True), ("_cycle", False), ("_recharge", False)],
+)
+def test_the_auxiliary_folders_are_told_by_name(name: str, auxiliary: bool) -> None:
+    assert ssic.is_auxiliary_folder(name) is auxiliary
+
+
 def test_summarize_head_initial_condition_bounds_reports_valid_field() -> None:
     summary = summarize_head_initial_condition_bounds(
         head=np.asarray([2.0, 3.0, 4.0]),

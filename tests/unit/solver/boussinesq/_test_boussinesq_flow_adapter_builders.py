@@ -1,33 +1,55 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow import Flow
-from hydromodpy.model.model import Geometry, ModelTime, model_from_flow
-from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
+from hydromodpy.solver.base.runner import solve_one
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from tests._helpers.model_factory import default_options
 
 
-def adapter_state(
+@dataclass(frozen=True)
+class AdapterCall:
+    """What the runner hands the Boussinesq adapter: the Model, its options, its slot, its context."""
+
+    model: Model
+    options: BoussinesqOptions
+    slot: RunSlot
+    ctx: RunContext
+
+    def build(self) -> SolverRun:
+        """Build the run in memory, as the runner does before ``run``."""
+        return BoussinesqFlowAdapter().build(self.model, self.options, self.slot, self.ctx)
+
+    def solve(self) -> SolverRun:
+        """Validate, build and run, through the same function the runner calls."""
+        return solve_one(BoussinesqFlowAdapter(), self.model, self.options, self.slot, self.ctx)
+
+
+def adapter_call(
     tmp_path: Path,
     *,
     flow: Flow,
     cell_mesh: object = None,
     domain: object = None,
     time_grid: object = None,
-    solver: SolverConfig | None = None,
-    **setup: object,
-) -> RunState:
-    """The run state the Boussinesq adapter reads: the Model of ``flow`` and the setup facts.
+    exchange_mesh: Path | None = None,
+    name: str = "flow_main__boussinesq",
+    **settings: object,
+) -> AdapterCall:
+    """The call of the Boussinesq adapter on the Model of ``flow``, solving under ``tmp_path``.
 
-    The setup keeps what is not in the Model: the scratch folder, the mesh bundle
-    and the mesh summary. ``[solver.boussinesq]`` comes from ``cfg.solver``, which
-    defaults to a solver section with every setting at its default.
+    ``exchange_mesh`` is the mesh bundle folder of ``[solver.boussinesq]``, and
+    ``settings`` are the other options of that table. The slot puts the run in
+    ``tmp_path / name``.
     """
     model = model_from_flow(
         flow,
@@ -35,14 +57,19 @@ def adapter_state(
         time=ModelTime.from_flow(flow, time_grid),
         options=default_options(),
     )
-    facts = {
-        "mesh_bundle": None,
-        "mesh_summary": None,
-        "workspace": SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-    }
-    return RunState(
-        cfg=SimpleNamespace(flow=flow.config, solver=solver or SolverConfig()),
-        setup=SimpleNamespace(model=model, **{**facts, **setup}),
+    run = ProcessRun(
+        id=f"flow_main::{name}", process_id="flow_main", process_type="flow", solver="boussinesq"
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=RunState(),
+    )
+    return AdapterCall(
+        model=model,
+        options=BoussinesqOptions(exchange_mesh=exchange_mesh, **settings),
+        slot=RunSlot(folder=tmp_path, name=name),
+        ctx=ctx,
     )
 
 

@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import tomllib
+from pathlib import Path
 
 import pytest
 
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.model.flow import Flow
+from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.solver.base.plan import RunSlot
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
+from validation_cases.shared import boussinesq_analytical_runtime as runtime
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.boussinesq_piecewise_strip import (
     write_piecewise_strip_launcher_config,
@@ -85,9 +91,9 @@ def test_a_variant_gets_the_settings_of_its_label(
 ) -> None:
     options = boussinesq_variant_options(flow_regime="steady", solver=solver, written=written)
 
-    assert isinstance(options, FlowRuntimeConfig)
+    assert isinstance(options, BoussinesqOptions)
     assert options.backend == backend
-    expected = model or FlowRuntimeConfig.model_fields["surface_interaction_model"].default
+    expected = model or BoussinesqOptions.model_fields["surface_interaction_model"].default
     assert options.surface_interaction_model == expected
 
 
@@ -132,3 +138,48 @@ def test_piecewise_launcher_config_can_preserve_explicit_runtime_defaults(tmp_pa
     assert payload["solver"]["boussinesq"]["backend"] == "petsc"
     assert payload["solver"]["boussinesq"]["surface_interaction_model"] == "vi_obstacle"
     assert "runtime" not in payload["flow"]
+
+
+def test_a_bundle_run_goes_through_the_runner_function_with_the_bundle_as_its_mesh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple] = []
+    monkeypatch.setattr(runtime, "solve_one", lambda *args: calls.append(args) or "solved")
+    bundle_dir = tmp_path / "mesh_bundle"
+
+    result = solve_boussinesq_bundle(
+        flow=Flow(FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})),
+        bundle_dir=bundle_dir,
+        simulations_folder=tmp_path / "sims",
+        plan_name="demo",
+        plan_description="demo run",
+        options=BoussinesqOptions(backend="petsc"),
+    )
+
+    assert result == "solved"
+    ((adapter, model, options, slot, ctx),) = calls
+    assert type(adapter).__name__ == "BoussinesqFlowAdapter"
+    assert model.geometry.cells is None
+    assert options.exchange_mesh == bundle_dir
+    assert options.backend == "petsc"
+    assert slot == RunSlot(folder=tmp_path / "sims", name="flow_validation__boussinesq")
+    assert ctx.plan.name == "demo"
+    assert ctx.run.id == "flow_validation::boussinesq"
+
+
+def test_a_bundle_run_without_options_takes_the_defaults_of_the_table(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple] = []
+    monkeypatch.setattr(runtime, "solve_one", lambda *args: calls.append(args))
+
+    solve_boussinesq_bundle(
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "bottom"}})),
+        bundle_dir=tmp_path / "bundle",
+        simulations_folder=tmp_path,
+        plan_name="demo",
+        plan_description="demo run",
+    )
+
+    options = calls[0][2]
+    assert options == BoussinesqOptions(exchange_mesh=tmp_path / "bundle")

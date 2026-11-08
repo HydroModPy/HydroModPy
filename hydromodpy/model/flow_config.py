@@ -41,7 +41,6 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
 from hydromodpy.model.boundaries.boundary_conditions import BCEntry, FlowBoundaryConditionConfig
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.properties.property_ids import default_unit_of, refusal_of_a_retired_id
-from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
 from hydromodpy.model.sinks_sources.container import (
     ETP,
     RECHARGE,
@@ -52,6 +51,30 @@ from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.model.time.regime import FlowRegime, normalize_flow_regime
+
+FLOW_RUNTIME_KEYS: dict[str, str] = {
+    "runtime_backend": "backend",
+    "surface_interaction_model": "surface_interaction_model",
+    "partition_release_depth_m": "partition_release_depth_m",
+    "runtime_max_iterations": "max_iterations",
+    "runtime_tol_residual_inf": "tol_residual_inf",
+    "runtime_tol_state_update_inf": "tol_state_update_inf",
+    "vi_substeps_per_period": "vi_substeps_per_period",
+    "vi_substep_on_failure": "vi_substep_on_failure",
+    "vi_max_adaptive_substeps": "vi_max_adaptive_substeps",
+    "ts_vi_steps_per_period": "ts_vi_steps_per_period",
+    "ts_vi_adapt": "ts_vi_adapt",
+    "ts_vi_dt_min_fraction": "ts_vi_dt_min_fraction",
+    "ts_vi_dt_max_fraction": "ts_vi_dt_max_fraction",
+    "ts_vi_type": "ts_vi_type",
+    "ts_vi_snes_type": "ts_vi_snes_type",
+}
+"""What a key of [flow] was once called, mapped to its name in [solver.boussinesq].
+
+These keys moved to ``[flow.runtime]`` first, and that table is ``[solver.boussinesq]``
+since 2.1.0.
+"""
+
 
 __all__ = [
     "FlowBarrierConfig",

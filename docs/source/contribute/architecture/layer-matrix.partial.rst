@@ -103,8 +103,7 @@ what holds today. The gate refuses an entry that the tree no longer needs.
        and project once they live in project.
    * - ``<root>``
      - ``results``
-     - ``hydromodpy/_api.py``, ``hydromodpy/_bootstrap.py``,
-       ``hydromodpy/_lazy.py``
+     - ``hydromodpy/_api.py``, ``hydromodpy/_lazy.py``
      - The verbs of _api.py, the providers of _bootstrap.py and the lazy
        names of _lazy.py still sit at the root. The root reads only core
        and project once they live in project.

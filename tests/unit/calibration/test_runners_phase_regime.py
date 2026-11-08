@@ -40,7 +40,8 @@ from hydromodpy.core.exceptions import ConfigValidationError, SolverDivergedErro
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
-    RunExecutionResult,
+    RunSlot,
+    SolverRun,
 )
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import model_percent_discrepancies
@@ -1025,8 +1026,8 @@ class _FakeProvider:
         return SimpleNamespace(run=run)
 
     def with_solver_launcher(self, steps, recorder):
-        recorder.results["run"] = RunExecutionResult(
-            primary_model=None, solver_output_dir=None, metrics=self._metrics
+        recorder.results["run"] = SolverRun(
+            slot=RunSlot(Path("unused"), "run"), metrics=self._metrics
         )
         return steps
 
@@ -1036,7 +1037,7 @@ class _FakeTrialContext:
     override_paths: dict = {}
     ctx = SimpleNamespace(setup=None)
 
-    def fork(self, _values, flow_runtime_overrides=None):
+    def fork(self, _values, slot_request=None):
         return SimpleNamespace(
             ctx=SimpleNamespace(cfg=None, execution=None),
             cfg_path=None,

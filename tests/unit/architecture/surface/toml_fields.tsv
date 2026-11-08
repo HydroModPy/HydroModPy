@@ -189,7 +189,7 @@ data.etp.sources.force_refresh	bool	False	stable
 data.etp.sources.mask_path	Path | None	None	stable
 data.etp.sources.nodata	float | int | str | None	None	stable
 data.etp.sources.path	Path | None	None	stable
-data.etp.sources.source	Literal['custom', 'sim2', 'explore2']	<required>	stable
+data.etp.sources.source	str	<required>	stable
 data.etp.sources.source_unit	str | None	None	stable
 data.etp.sources.station_ids	list[str] | None	None	stable
 data.geology	table | None	None	stable
@@ -224,7 +224,7 @@ data.humidity.sources.extent	Literal['watershed', 'study_area'] | None	None	stab
 data.humidity.sources.force_refresh	bool	False	stable
 data.humidity.sources.mask_path	Path | None	None	stable
 data.humidity.sources.path	Path | None	None	stable
-data.humidity.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.humidity.sources.source	str	<required>	stable
 data.humidity.sources.source_unit	str | None	None	stable
 data.humidity.sources.station_ids	list[str] | None	None	stable
 data.hydrography	table | None	None	stable
@@ -257,7 +257,7 @@ data.hydrometry.sources.max_stations	int | None	None	stable
 data.hydrometry.sources.path	Path | None	None	stable
 data.hydrometry.sources.product	str | None	'QmnJ'	stable
 data.hydrometry.sources.require_observations	bool	True	stable
-data.hydrometry.sources.source	Literal['custom', 'hubeau']	'hubeau'	stable
+data.hydrometry.sources.source	str	'hubeau'	stable
 data.hydrometry.sources.source_unit	str | None	None	stable
 data.hydrometry.sources.station_ids	list[str] | None	None	stable
 data.inference_mode	Literal['warn', 'strict']	'warn'	stable
@@ -279,7 +279,7 @@ data.intermittency.sources.force_refresh	bool	False	stable
 data.intermittency.sources.mask_path	Path | None	None	stable
 data.intermittency.sources.path	Path | None	None	stable
 data.intermittency.sources.require_observations	bool	True	stable
-data.intermittency.sources.source	Literal['custom', 'hubeau']	<required>	stable
+data.intermittency.sources.source	str	<required>	stable
 data.intermittency.sources.source_unit	str | None	None	stable
 data.intermittency.sources.station_ids	list[str] | None	None	stable
 data.lake_abacus	table | None	None	stable
@@ -392,7 +392,7 @@ data.oceanic.sources.force_refresh	bool	False	stable
 data.oceanic.sources.mask_path	Path | None	None	stable
 data.oceanic.sources.path	Path | None	None	stable
 data.oceanic.sources.require_observations	bool	True	stable
-data.oceanic.sources.source	Literal['custom', 'shom', 'constant']	<required>	stable
+data.oceanic.sources.source	str	<required>	stable
 data.oceanic.sources.source_unit	str | None	None	stable
 data.oceanic.sources.station_ids	list[str] | None	None	stable
 data.oceanic.sources.value	float | None	None	stable
@@ -415,7 +415,7 @@ data.piezometry.sources.nearest	bool	False	stable
 data.piezometry.sources.path	Path | None	None	stable
 data.piezometry.sources.product	Literal['level', 'depth'] | None	None	stable
 data.piezometry.sources.require_observations	bool	True	stable
-data.piezometry.sources.source	Literal['custom', 'hubeau']	<required>	stable
+data.piezometry.sources.source	str	<required>	stable
 data.piezometry.sources.source_unit	str | None	None	stable
 data.piezometry.sources.station_ids	list[str] | None	None	stable
 data.precipitation	table | None	None	stable
@@ -434,7 +434,7 @@ data.precipitation.sources.extent	Literal['watershed', 'study_area'] | None	None
 data.precipitation.sources.force_refresh	bool	False	stable
 data.precipitation.sources.mask_path	Path | None	None	stable
 data.precipitation.sources.path	Path | None	None	stable
-data.precipitation.sources.source	Literal['custom', 'sim2', 'explore2']	<required>	stable
+data.precipitation.sources.source	str	<required>	stable
 data.precipitation.sources.source_unit	str | None	None	stable
 data.precipitation.sources.station_ids	list[str] | None	None	stable
 data.radiation	table | None	None	stable
@@ -453,7 +453,7 @@ data.radiation.sources.extent	Literal['watershed', 'study_area'] | None	None	sta
 data.radiation.sources.force_refresh	bool	False	stable
 data.radiation.sources.mask_path	Path | None	None	stable
 data.radiation.sources.path	Path | None	None	stable
-data.radiation.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.radiation.sources.source	str	<required>	stable
 data.radiation.sources.source_unit	str | None	None	stable
 data.radiation.sources.station_ids	list[str] | None	None	stable
 data.recharge	table | None	None	stable
@@ -476,7 +476,7 @@ data.recharge.sources.offset	float | None	None	stable
 data.recharge.sources.path	Path | None	None	stable
 data.recharge.sources.period_days	int | None	None	stable
 data.recharge.sources.periods	int | None	None	stable
-data.recharge.sources.source	Literal['custom', 'sim2', 'synthetic']	<required>	stable
+data.recharge.sources.source	str	<required>	stable
 data.recharge.sources.source_unit	str | None	None	stable
 data.recharge.sources.start_date	str | None	None	stable
 data.recharge.sources.station_ids	list[str] | None	None	stable
@@ -496,7 +496,7 @@ data.runoff.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.runoff.sources.force_refresh	bool	False	stable
 data.runoff.sources.mask_path	Path | None	None	stable
 data.runoff.sources.path	Path | None	None	stable
-data.runoff.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.runoff.sources.source	str	<required>	stable
 data.runoff.sources.source_unit	str | None	None	stable
 data.runoff.sources.station_ids	list[str] | None	None	stable
 data.soil_capacity	table | None	None	stable
@@ -519,7 +519,7 @@ data.soil_moisture.sources.extent	Literal['watershed', 'study_area'] | None	None
 data.soil_moisture.sources.force_refresh	bool	False	stable
 data.soil_moisture.sources.mask_path	Path | None	None	stable
 data.soil_moisture.sources.path	Path | None	None	stable
-data.soil_moisture.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.soil_moisture.sources.source	str	<required>	stable
 data.soil_moisture.sources.source_unit	str | None	None	stable
 data.soil_moisture.sources.station_ids	list[str] | None	None	stable
 data.substratum	table | None	None	stable
@@ -542,7 +542,7 @@ data.temperature.sources.extent	Literal['watershed', 'study_area'] | None	None	s
 data.temperature.sources.force_refresh	bool	False	stable
 data.temperature.sources.mask_path	Path | None	None	stable
 data.temperature.sources.path	Path | None	None	stable
-data.temperature.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.temperature.sources.source	str	<required>	stable
 data.temperature.sources.source_unit	str | None	None	stable
 data.temperature.sources.station_ids	list[str] | None	None	stable
 data.types	list[str]	[]	stable
@@ -565,7 +565,7 @@ data.water_quality.sources.nearest	bool	False	stable
 data.water_quality.sources.parameters	list[str] | None	None	stable
 data.water_quality.sources.path	Path | None	None	stable
 data.water_quality.sources.site_type	Literal['river', 'piezometer']	'river'	stable
-data.water_quality.sources.source	Literal['custom', 'hubeau']	<required>	stable
+data.water_quality.sources.source	str	<required>	stable
 data.water_quality.sources.source_unit	str | None	None	stable
 data.water_quality.sources.station_ids	list[str] | None	None	stable
 data.wind	table | None	None	stable
@@ -583,7 +583,7 @@ data.wind.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.wind.sources.force_refresh	bool	False	stable
 data.wind.sources.mask_path	Path | None	None	stable
 data.wind.sources.path	Path | None	None	stable
-data.wind.sources.source	Literal['custom', 'sim2']	<required>	stable
+data.wind.sources.source	str	<required>	stable
 data.wind.sources.source_unit	str | None	None	stable
 data.wind.sources.station_ids	list[str] | None	None	stable
 display	table	<table>	stable
@@ -642,7 +642,7 @@ export	list[table]	[]	stable
 export.crs	str | None	None	stable
 export.file	Path | None	None	stable
 export.folder	Path | None	None	stable
-export.format	Literal['csv', 'geopackage', 'geotiff', 'netcdf', 'prov', 'rocrate', 'shapefile', 'stac', 'vtu'] | None	None	stable
+export.format	str | None	None	stable
 export.layer	int | None	None	stable
 export.nodata	float	-9999.0	stable
 export.period	tuple[str, str] | None	None	stable
@@ -1465,6 +1465,7 @@ solver	table	<table>	stable
 solver.backend	str	'modflow6'	stable
 solver.boussinesq	table	<table>	stable
 solver.boussinesq.backend	Literal['auto', 'local', 'scipy', 'scipy_sparse', 'petsc']	'auto'	experimental
+solver.boussinesq.exchange_mesh	Path | None	None	experimental
 solver.boussinesq.max_iterations	int | None	None	experimental
 solver.boussinesq.partition_release_depth_m	float	0.05	experimental
 solver.boussinesq.surface_interaction_model	Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']	'auto'	stable

@@ -228,7 +228,6 @@ def test_delineating_alone_loads_no_data_and_builds_no_mesh(
         setup = project._ctx.setup
         assert setup.geographic is not None, "the requested step did not run"
         assert setup.domain is not None
-        assert setup.mesh_bundle is None, "build_mesh ran although the window excluded it"
         assert setup.cell_mesh is None
         assert project._ctx.loaded_data.loaded_plan_types is None, "load_data ran unasked"
     finally:

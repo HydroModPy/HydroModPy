@@ -62,21 +62,19 @@ def _model(payload, *, active: tuple[str, ...] = ("sfr",)) -> SimpleNamespace:
     return SimpleNamespace(boundaries=SimpleNamespace(active_ids=active), sfr={"net": payload})
 
 
-def _ctx(payload, *, active: tuple[str, ...] = ("sfr",)) -> SimpleNamespace:
-    setup = SimpleNamespace(model=_model(payload, active=active))
-    return SimpleNamespace(state=SimpleNamespace(setup=setup))
+def _solver_run(payload, *, active: tuple[str, ...] = ("sfr",)) -> SimpleNamespace:
+    return SimpleNamespace(model=_model(payload, active=active))
 
 
-def test_the_run_context_says_whether_the_drainage_is_routed() -> None:
-    assert _drainage_outside_routed(_ctx({"route_drainage": False})) is True
-    assert _drainage_outside_routed(_ctx(SimpleNamespace(route_drainage=False))) is True
-    assert _drainage_outside_routed(_ctx({"route_drainage": True})) is False
-    assert _drainage_outside_routed(_ctx({})) is False
+def test_the_solver_run_says_whether_the_drainage_is_routed() -> None:
+    assert _drainage_outside_routed(_solver_run({"route_drainage": False})) is True
+    assert _drainage_outside_routed(_solver_run(SimpleNamespace(route_drainage=False))) is True
+    assert _drainage_outside_routed(_solver_run({"route_drainage": True})) is False
+    assert _drainage_outside_routed(_solver_run({})) is False
 
 
 def test_a_lake_without_a_network_keeps_the_drainage_outside_the_routed_series() -> None:
-    assert _drainage_outside_routed(_ctx({}, active=("lake",))) is True
+    assert _drainage_outside_routed(_solver_run({}, active=("lake",))) is True
     model = SimpleNamespace(boundaries=SimpleNamespace(active_ids=("lake",)), sfr={})
-    state = SimpleNamespace(setup=SimpleNamespace(model=model))
-    assert _drainage_outside_routed(SimpleNamespace(state=state)) is True
-    assert _drainage_outside_routed(SimpleNamespace(state=None)) is True
+    assert _drainage_outside_routed(SimpleNamespace(model=model)) is True
+    assert _drainage_outside_routed(SimpleNamespace(model=None)) is True

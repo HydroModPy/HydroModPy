@@ -9,21 +9,23 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.console import progress
-from hydromodpy.core.exceptions import MeshError, SolverInputError
+from hydromodpy.core.exceptions import MeshError, NothingThereError, SolverInputError
 from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     layer_interfaces,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow6.extractors.budget import extract_budget
 from hydromodpy.solver.modflow6.extractors.grid_check import (
@@ -62,6 +64,13 @@ from hydromodpy.solver.modflow_common.period_steps import (
 from hydromodpy.solver.modflow_common.time_units import resolve_solver_time_unit
 
 logger = get_logger(__name__)
+
+
+def _vertical_layout_of(model: Any) -> str:
+    """Return how the layers of the ``Model`` were built, the default for a run without one."""
+    if model is None:
+        return VERTICAL_LAYOUT_COLUMN_FRACTIONS
+    return model.geometry.domain.config.layers.vertical_layout
 
 
 def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
@@ -227,32 +236,32 @@ class Modflow6OutputAdapter:
     process_type = "flow"
     solver_name = "modflow6"
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-        budget_terms: BudgetKeep = BudgetKeep.everything(),
-        start_datetime: object | None = None,
-        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
-    ) -> None:
-        """Read MF6 .hds and .cbc files and write into the store.
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the ``.hds`` and ``.cbc`` files of a solved run and write its fields into the store.
 
-        ``budget_terms`` says which per-cell budget terms go under
+        ``retention.budget`` says which per-cell budget terms go under
         ``budget/``. The lumped budget table holds every term whatever it says.
-        ``vertical_layout`` says how the layers were built, as ``[domain.layers]``
-        gives it; the store keeps it on ``mesh/``.
+        The vertical layout, as ``[domain.layers]`` gives it, and the start date
+        come from the ``Model`` of the run; the store keeps the layout on
+        ``mesh/``. A run without a ``Model`` takes the default layout and no date.
+
+        The files are found by the ``.hds`` in the output folder, never by the
+        name of the slot: a rerun keeps the file names of the build it started
+        from.
         """
         import flopy.utils.binaryfile as bf
 
-        solver_output_dir = Path(solver_output_dir)
-        if model_name is None:
-            hds_files = list(solver_output_dir.glob("*.hds"))
-            if not hds_files:
-                raise FileNotFoundError(f"No .hds file in {solver_output_dir}")
-            model_name = hds_files[0].stem
+        sim_id = store.sim_id
+        budget_terms = retention.budget
+        start_datetime = time_grid_start(
+            None if solver_run.model is None else solver_run.model.time.grid
+        )
+        vertical_layout = _vertical_layout_of(solver_run.model)
+        solver_output_dir = Path(solver_run.output_dir)
+        hds_files = list(solver_output_dir.glob("*.hds"))
+        if not hds_files:
+            raise NothingThereError(f"No .hds file in {solver_output_dir}")
+        model_name = hds_files[0].stem
 
         hds_path = solver_output_dir / f"{model_name}.hds"
         cbc_path = solver_output_dir / f"{model_name}.cbc"

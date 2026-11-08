@@ -159,7 +159,7 @@ def test_a_figure_keeps_the_terms_its_required_fields_read() -> None:
 
 def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
     """The persistence mode reads release_flux, whatever its required field says."""
-    from hydromodpy.display import figure_registry
+    import hydromodpy.display.figure_registry as figure_registry
 
     spec = figure_registry.get("simulated_active_network").spec
     assert spec.required_fields == ("drain_accumulation_flux",)
@@ -173,7 +173,7 @@ def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
 
 def test_a_figure_keeps_the_terms_its_optional_fields_read() -> None:
     """A map over a family of packages requires none and reads all of them."""
-    from hydromodpy.display import figure_registry
+    import hydromodpy.display.figure_registry as figure_registry
 
     spec = figure_registry.get("boundary_package_map").spec
     assert spec.required_fields == ()

@@ -2,7 +2,7 @@
 
 Covers the lightweight v1 path where ``setup.cell_mesh`` is ``None``: the
 runtime helper must resolve the structured cell from the solver model
-registered in ``execution.models_by_run_id`` instead of relying on a
+registered in ``execution.solver_runs`` instead of relying on a
 pre-existing cell mesh.
 """
 
@@ -150,11 +150,7 @@ class TestExtractOutputsFromTrialCtx:
 
     def test_collapses_when_no_flow_run_in_plan(self):
         # Empty registry: no flow run mapped, NaN-padded fallback.
-        registry = SimpleNamespace(
-            output_dirs_by_run_id={},
-            models_by_run_id={},
-            simulation_plan=None,
-        )
+        registry = SimpleNamespace(solver_runs={}, simulation_plan=None)
         trial_ctx = SimpleNamespace(execution=registry, setup=SimpleNamespace())
         decl = SimpleNamespace(
             variable="head",

@@ -15,18 +15,18 @@ import pytest
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.model import ModelOptions
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan
 from hydromodpy.solver.base.registry import solvers
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
+from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
-from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
 _ADAPTERS = {
-    "modflow6": (Modflow6FlowAdapter, "hydromodpy.solver.modflow6.adapters.flow.Modflow6"),
+    "modflow6": (Modflow6FlowAdapter, "hydromodpy.solver.modflow6.adapter.Modflow6"),
     "modflow_nwt": (
         ModflowNwtFlowAdapter,
-        "hydromodpy.solver.modflow_nwt.adapters.flow.ModflowNwt",
+        "hydromodpy.solver.modflow_nwt.adapter.ModflowNwt",
     ),
 }
 
@@ -36,10 +36,8 @@ class _FakeSolver:
 
     instances: list[_FakeSolver] = []
 
-    def __init__(self, *, model_folder, model_name, **kwargs) -> None:
-        del kwargs
-        self.model_name = model_name
-        self.full_path = str(Path(model_folder) / model_name)
+    def __init__(self, **kwargs) -> None:
+        self.init = dict(kwargs)
         self.pre_model: object | None = None
         self.pre_kwargs: dict[str, object] = {}
         type(self).instances.append(self)
@@ -67,9 +65,7 @@ def _model_on(cell_mesh: object | None) -> SimpleNamespace:
     )
 
 
-def _context(
-    solver: str, *, tmp_path: Path, cell_mesh: object | None, model: object | None = None
-) -> RunContext:
+def _context(solver: str) -> RunContext:
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -82,22 +78,7 @@ def _context(
             ),
         ),
     )
-    flow_off = SimpleNamespace(
-        intermittency=SimpleNamespace(yearly=False, monthly=False, weekly=False, daily=False),
-    )
-    state = RunState(
-        cfg=SimpleNamespace(
-            solver=SimpleNamespace(options_of=lambda name: SimpleNamespace()),
-            postprocess=SimpleNamespace(flow=flow_off),
-        ),
-        setup=SimpleNamespace(
-            workspace=SimpleNamespace(
-                simulations_folder="unused", bin_path="bin", solver_scratch_folder=str(tmp_path)
-            ),
-            model=model if model is not None else _model_on(cell_mesh),
-        ),
-    )
-    return RunContext(plan=plan, run=plan.runs[0], state=state)
+    return RunContext(plan=plan, run=plan.runs[0], state=RunState(cfg=SimpleNamespace()))
 
 
 @pytest.mark.parametrize("solver", sorted(_ADAPTERS))
@@ -108,13 +89,17 @@ def test_the_adapter_hands_the_cell_mesh_to_pre_processing(
     _FakeSolver.instances = []
     monkeypatch.setattr(solver_path, _FakeSolver)
     the_model = _model_on(object())
+    slot = RunSlot(tmp_path, "island")
 
-    adapter_cls().execute(_context(solver, tmp_path=tmp_path, cell_mesh=None, model=the_model))
+    built = adapter_cls().build(the_model, SimpleNamespace(), slot, _context(solver))
 
-    (solver_run,) = _FakeSolver.instances
-    assert solver_run.pre_model is the_model
-    assert "cell_mesh" not in solver_run.pre_kwargs
-    assert "mesh_support" not in solver_run.pre_kwargs
+    (fake,) = _FakeSolver.instances
+    assert fake.pre_model is the_model
+    assert fake.pre_kwargs["slot"] is slot
+    assert "cell_mesh" not in fake.pre_kwargs
+    assert "mesh_support" not in fake.pre_kwargs
+    assert built.solver_model is fake and built.model is the_model
+    assert (built.written, built.solved) == (False, False), "a build writes and solves nothing"
 
 
 @pytest.mark.parametrize("solver", sorted(_ADAPTERS))
@@ -126,9 +111,11 @@ def test_a_run_without_a_cell_mesh_stops_before_the_solver_builds(
     monkeypatch.setattr(solver_path, _FakeSolver)
 
     with pytest.raises(MeshError, match="mesh step"):
-        adapter_cls().execute(_context(solver, tmp_path=tmp_path, cell_mesh=None))
+        adapter_cls().build(
+            _model_on(None), SimpleNamespace(), RunSlot(tmp_path, "island"), _context(solver)
+        )
 
-    assert all(solver_run.pre_model is None for solver_run in _FakeSolver.instances)
+    assert all(fake.pre_model is None for fake in _FakeSolver.instances)
 
 
 def test_require_cell_mesh_returns_the_mesh_of_the_model() -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +19,7 @@ from hydromodpy.model.properties.property_table import (
     require_positive_storage,
     resolve_required_flow_properties,
 )
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     assemble_constant_head_stress_period_data,
     build_drain_stress_period_data,
@@ -57,8 +57,6 @@ from hydromodpy.solver.modflow6.builders.lake_outflow import (
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
 from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
 from hydromodpy.solver.modflow6.builders.recharge import (
-    PRIVATE_TRIAL_RECHARGE_KEY,
-    TRIAL_RECHARGE_DIRNAME,
     areal_layer_index,
     bind_recharge_from_flow,
     bind_soil_etp_from_flow,
@@ -178,45 +176,25 @@ def _write_lake_abacus_meta(model) -> None:
         _write_sidecar(model, ".lake_abacus.json", {"entries": entries})
 
 
-def _shared_recharge_dir(model) -> str | None:
-    """Return the recharge directory for a calibration trial, else None.
+def _shared_forcing_dir(model) -> str | None:
+    """Return the folder a calibration trial keeps its forcing binaries in, else None.
 
-    The calibration ``TrialSandbox`` writes each trial into a
-    ``<scratch>/<base>_trialNNNNNN/`` folder shared by all trials. The recharge is
-    invariant across trials, so it lives once in a sibling ``_shared_recharge``
-    dir and every trial references it (see ``externalize_recharge_spd``) --
-    unless the phase samples a recharge parameter; then each trial writes into
-    its own ``<trial>/_recharge`` folder, removed with the trial
-    (``PRIVATE_TRIAL_RECHARGE_KEY``, set by ``run_trial_light``). A non-trial
-    single run returns None and keeps the per-model binary layout.
-
-    The trial marker is the ``_trialNNNNNN`` PATH COMPONENT (the sandbox folder),
-    found by walking ``full_path`` up: ``model_name_mf6`` (the ``full_path`` leaf)
-    is truncated to 16 chars by ``mf6_safe_name`` and drops the suffix, and the
-    trial folder can sit at either the leaf or its parent depending on the
-    workspace layout. The shared dir is a sibling of the trial folder; the
-    private one is inside it, so it disappears with the sandbox.
+    The folder is ``shared_forcing_dir`` of the slot the run builds in. The
+    calibration sandbox of a trial names it: one ``_shared_recharge`` folder for
+    every trial of a session, because the recharge is the same for all of them,
+    or a folder of the trial itself when the phase samples a recharge parameter.
+    The recharge and the residual ETP of the soil are then written there once
+    and every trial references them (see ``externalize_recharge_spd``). A run
+    without that folder keeps the binaries beside its model files.
 
     The returned path is OS-native: it is only ever handed to the local filesystem
     and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
     tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
     never read back on another platform, so it must not be posix-normalized.
     """
-    full_path = getattr(model, "full_path", None)
-    if not full_path:
-        return None
-    path = os.path.normpath(str(full_path))
-    while path and path not in (os.sep, "."):
-        head, tail = os.path.split(path)
-        if re.search(r"_trial\d{6}$", tail):
-            overrides = getattr(model, "_flow_runtime_overrides", None) or {}
-            if overrides.get(PRIVATE_TRIAL_RECHARGE_KEY):
-                return os.path.join(path, TRIAL_RECHARGE_DIRNAME)
-            return os.path.join(head, "_shared_recharge")
-        if head == path:
-            break
-        path = head
-    return None
+    slot = getattr(model, "slot", None)
+    folder = None if slot is None else slot.shared_forcing_dir
+    return None if folder is None else os.fspath(folder)
 
 
 def _run_descent(
@@ -682,14 +660,14 @@ def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
     )
 
 
-def _settle_inputs(model, inputs: Model, options, flow_runtime_overrides):
-    """Bind the inputs of the run and check them before any build."""
+def _settle_inputs(model, inputs: Model, options, slot: RunSlot | None):
+    """Bind the inputs and the slot of the run and check them before any build."""
     # Concurrent calibration trials build one MFSimulation each; the flopy DFN
     # singleton must be fully loaded before any of them constructs a package.
     warm_flopy_structure()
     install_flopy_header_cache()
     model.inputs = inputs
-    model._flow_runtime_overrides = flow_runtime_overrides
+    model.slot = slot
     active_options = model.preprocess_options if options is None else options
     apply_preprocess_options(model, active_options)
     validate_pre_processing_inputs(model)
@@ -754,9 +732,30 @@ def _discretize_space(model):
     return solver_mesh
 
 
-def _map_hydraulic_properties(model, solver_mesh: SolverMesh):
-    """K, K33, the rest of the K tensor, Sy and Ss on the cells, checked positive."""
-    inputs = model.inputs
+FLOW_PROPERTY_FIELDS: tuple[str, ...] = (
+    "hk",
+    "k33",
+    "k22",
+    "angle1",
+    "angle2",
+    "angle3",
+    "sy",
+    "ss",
+)
+"""The per-cell arrays the build maps from the properties of a ``Model``, as solver attributes."""
+
+
+def flow_property_fields(
+    model, inputs: Model, solver_mesh: SolverMesh
+) -> dict[str, np.ndarray | None]:
+    """Map the properties of ``inputs`` onto the cells of ``solver_mesh``, checked positive.
+
+    K, K33 and the rest of the K tensor, Sy and Ss, keyed as the solver keeps
+    them (``FLOW_PROPERTY_FIELDS``). K22 and the angles are ``None`` when the flow
+    does not set them. ``model`` gives the vertical anisotropy of the options.
+    The build and ``rerun`` map with this one function, so a rerun writes the
+    arrays a build of the same ``Model`` would write.
+    """
     flow_params = resolve_flow_property_arrays(
         profiles=inputs.properties.profiles,
         domain=inputs.geometry.domain,
@@ -765,33 +764,49 @@ def _map_hydraulic_properties(model, solver_mesh: SolverMesh):
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=inputs.properties.overrides,
     )
-    model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
+    hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     require_positive_conductivity(
-        model.hk,
+        hk,
         active_mask=solver_mesh.idomain > 0,
         profiles=inputs.properties.profiles,
     )
-    model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
-    model.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
     kv_field = solver_mesh.flatten_from_grid(flow_params["kv"]) if "kv" in flow_params else None
-    model.k33 = resolve_k33_field(
-        model.hk,
-        kv_field,
-        model.modflow_config.process_specific.vka,
-        label="flow vertical anisotropy",
-    )
+    fields: dict[str, np.ndarray | None] = {
+        "hk": hk,
+        "k33": resolve_k33_field(
+            hk,
+            kv_field,
+            model.modflow_config.process_specific.vka,
+            label="flow vertical anisotropy",
+        ),
+        "sy": solver_mesh.flatten_from_grid(flow_params["sy"]),
+        "ss": solver_mesh.flatten_from_grid(flow_params["ss"]),
+    }
     # K22 and the angles exist only when the flow sets them. They are read
     # before the first XT3D decision, which a tilted or off-axis tensor turns on.
     for name in K_TENSOR_NPF_NAMES:
         values = flow_params.get(name)
-        setattr(model, name, None if values is None else solver_mesh.flatten_from_grid(values))
-    if model.k22 is not None:
+        fields[name] = None if values is None else solver_mesh.flatten_from_grid(values)
+    if fields["k22"] is not None:
         require_positive_conductivity(
-            model.k22,
+            fields["k22"],
             active_mask=solver_mesh.idomain > 0,
             profiles=inputs.properties.profiles,
             property_label="K22",
         )
+    return fields
+
+
+def _map_hydraulic_properties(model, solver_mesh: SolverMesh):
+    """K, K33, the rest of the K tensor, Sy and Ss on the cells, checked positive.
+
+    The mesh they are mapped on is kept as ``_property_mesh``: the lake masking
+    and the bed carving that follow give the solver another mesh, and a rerun
+    maps a new K on this one, as the build did.
+    """
+    for name, values in flow_property_fields(model, model.inputs, solver_mesh).items():
+        setattr(model, name, values)
+    model._property_mesh = solver_mesh
     log_xt3d_resolution(model, solver_mesh)
     _save_flow_property_sidecar(model)
 
@@ -1075,7 +1090,7 @@ def _build_recharge_and_evt(
     recharge_payload = externalize_recharge_spd(
         rch_spd,
         basename=model.model_name_mf6,
-        shared_dir=_shared_recharge_dir(model),
+        shared_dir=_shared_forcing_dir(model),
     )
     del rch_spd
     # A stack with a pass-through cell names the top active layer of each column.
@@ -1095,7 +1110,7 @@ def _build_recharge_and_evt(
         stream_support_mask=stream_support_mask,
         lake_cell_ids=model._lake_cell_ids,
         drain_active=is_bc_active(model, "drainage"),
-        shared_dir=_shared_recharge_dir(model),
+        shared_dir=_shared_forcing_dir(model),
     )
     # Prefer the vectorized EVTA build: it is byte-for-byte equivalent to
     # build_evt_stress_period_data -> collapse_identical_periods ->
@@ -1209,6 +1224,8 @@ def _build_drains(
         and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
     )
     drainage_mover_rows: list[list[object]] = []
+    # The cells whose drain row is dropped, kept so that a rerun drops the same.
+    model._drain_dropped_cells = frozenset()
     if drainage_cond_series is not None:
         drn_spd = build_drain_stress_period_data(
             model,
@@ -1223,13 +1240,14 @@ def _build_drains(
         # lake), an artificial recirculation that inflates the lake-aquifer exchange.
         # Drop their DRN rows so the under-lake aquifer equilibrates with the stage.
         marnage_cells = getattr(model, "_marnage_lake_cells", None)
+        dropped: set[int] = set()
         if marnage_cells:
-            drn_spd = remove_drain_cells(
-                drn_spd,
-                cells={int(cid) for cells in marnage_cells.values() for cid in cells},
-            )
+            dropped |= {int(cid) for cells in marnage_cells.values() for cid in cells}
         if sfr_networks:
-            drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
+            dropped |= {int(cid) for cid in sfr_drain_cells_to_drop(sfr_networks)}
+        drn_spd = remove_drain_cells(drn_spd, cells=dropped)
+        model._drain_dropped_cells = frozenset(dropped)
+        if sfr_networks:
             # route_drainage: every DRN cell of the basin of D follows the receivers
             # of D to the FIRST reach or lake it reaches, so the hillslope drainage
             # joins the water body it physically drains to. Cells outside that basin
@@ -1484,7 +1502,6 @@ def _build_mover_and_output(model, all_mover_rows):
         budget_filerecord=f"{model.model_output_name}.cbc",
         **output_control_records(print_head=model.modflow_config.runtime.print_head),
     )
-    model._runtime_dirty_packages = ()
 
 
 def run_pre_processing(
@@ -1492,16 +1509,20 @@ def run_pre_processing(
     inputs: Model,
     options: ModflowPreprocessOptions | None = None,
     *,
-    flow_runtime_overrides: Mapping[str, object] | None = None,
+    slot: RunSlot | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations.
+
+    ``slot`` is where the run solves. The build reads its shared forcing
+    folder, and keeps it on the model for an auxiliary solve and for ``rerun``.
+    A build without a slot keeps every file beside the model.
 
     The steps run in the order MODFLOW 6 and FloPy need: the grid is final once
     the lakes are masked, SFR resolves before DRN so a drain under a reach is
     dropped, LAK comes before SFR so the SFR to LAK movers find a lake, and MVR
     comes last because it names packages that must exist.
     """
-    _settle_inputs(model, inputs, options, flow_runtime_overrides)
+    _settle_inputs(model, inputs, options, slot)
     temporal, time_units = _discretize_time(model)
     solver_mesh = _discretize_space(model)
     _map_hydraulic_properties(model, solver_mesh)

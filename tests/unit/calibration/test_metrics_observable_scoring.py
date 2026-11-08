@@ -862,10 +862,9 @@ def _wire_pipeline(
     observed: Mapping[str, pd.Series] | None = None,
 ) -> None:
     class Adapter:
-        def extract_observables(
+        def observables(
             self,
-            ctx: object,
-            store: object,
+            solver_run: object,
             requests: Sequence[ObservableRequest],
             *,
             time_index: pd.DatetimeIndex | None = None,
@@ -881,7 +880,11 @@ def _wire_pipeline(
                 )
             return served
 
-    monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda ctx: (Adapter(), None))
+    monkeypatch.setattr(
+        solver_extract,
+        "resolve_flow_adapter",
+        lambda ctx: (Adapter(), SimpleNamespace(solver_run=None)),
+    )
     monkeypatch.setattr(solver_extract, "resolve_time_index", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         composite, "observed_series_for_outputs", lambda outputs, ctx: observed or {}
@@ -1241,7 +1244,10 @@ class TestThePipelineTakesTheSameRoute:
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
                 FakeAdapter(served),
-                SimpleNamespace(run=SimpleNamespace(solver="modflow6"), model=None),
+                SimpleNamespace(
+                    run=SimpleNamespace(solver="modflow6"),
+                    solver_run=SimpleNamespace(solver_model=None),
+                ),
             ),
         )
         ctx = self._ctx()

@@ -1,7 +1,7 @@
 """Process-to-runtime contract helpers for the Boussinesq solver.
 
 The solver reads two objects. The ``Model`` says what is solved, and the options
-object, the ``FlowRuntimeConfig`` of ``[solver.boussinesq]``, says how the nonlinear
+object, the ``BoussinesqOptions`` of ``[solver.boussinesq]``, says how the nonlinear
 solve runs. The MODFLOW solvers read none of those options.
 """
 
@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
     resolve_surface_interaction_model_token,
 )
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
 )
@@ -42,7 +42,7 @@ class BoussinesqSolverContract:
     runtime_backend: ResolvedBoussinesqRuntimeBackend
 
 
-def runtime_backend_name(runtime: FlowRuntimeConfig) -> str:
+def runtime_backend_name(runtime: BoussinesqOptions) -> str:
     """Return the requested runtime backend token, ``"auto"`` when unset."""
     return str(runtime.backend or AUTO_RUNTIME_BACKEND).strip().lower() or AUTO_RUNTIME_BACKEND
 
@@ -68,7 +68,7 @@ def resolve_flow_regime(model: Model) -> str:
 
 
 def resolve_surface_interaction_model(
-    runtime: FlowRuntimeConfig, *, n_cells: int | None = None
+    runtime: BoussinesqOptions, *, n_cells: int | None = None
 ) -> str:
     """Return the selected groundwater/surface interaction closure."""
     return resolve_surface_interaction_model_token(
@@ -80,7 +80,7 @@ def resolve_surface_interaction_model(
     )
 
 
-def steady_initialization_runtime(runtime: FlowRuntimeConfig) -> FlowRuntimeConfig:
+def steady_initialization_runtime(runtime: BoussinesqOptions) -> BoussinesqOptions:
     """Return the options of the auxiliary steady solve of a ``steady_state`` start.
 
     PETSc integrates ``ts_vi_obstacle`` in time, so its steady form is not the
@@ -97,7 +97,7 @@ def steady_initialization_runtime(runtime: FlowRuntimeConfig) -> FlowRuntimeConf
 
 def resolve_solver_contract(
     model: Model,
-    runtime: FlowRuntimeConfig,
+    runtime: BoussinesqOptions,
     *,
     n_cells: int | None = None,
 ) -> BoussinesqSolverContract:
@@ -129,7 +129,7 @@ def resolve_solver_contract(
 
 
 def build_runtime_options(
-    runtime: FlowRuntimeConfig,
+    runtime: BoussinesqOptions,
     *,
     n_cells: int | None = None,
 ) -> NonlinearRuntimeOptions:

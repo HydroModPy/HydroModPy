@@ -22,7 +22,7 @@ from hydromodpy.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES
@@ -269,15 +269,15 @@ def test_the_comparisons_are_not_vacuous() -> None:
 
 def test_the_adapter_locates_a_cell_as_the_flat_selector_of_the_one_layer_mesh() -> None:
     mesh = _from_cell_mesh(BUNDLE_CASES[1])
-    ctx = SimpleNamespace(model=SimpleNamespace(mesh=mesh))
+    run = SimpleNamespace(solver_model=SimpleNamespace(mesh=mesh))
     cell = 7
     x, y = float(mesh.cell_centroid_x_m[cell]), float(mesh.cell_centroid_y_m[cell])
 
-    assert BoussinesqFlowAdapter().locate_cell(ctx, x, y) == (0, 0, cell)
+    assert BoussinesqFlowAdapter().locate_cell(run, x, y) == (0, 0, cell)
 
 
-def test_the_adapter_has_no_cell_to_give_without_a_model() -> None:
-    assert BoussinesqFlowAdapter().locate_cell(SimpleNamespace(model=None), 0.0, 0.0) is None
+def test_the_adapter_has_no_cell_to_give_without_a_solver_model() -> None:
+    assert BoussinesqFlowAdapter().locate_cell(SimpleNamespace(solver_model=None), 0.0, 0.0) is None
 
 
 @pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])

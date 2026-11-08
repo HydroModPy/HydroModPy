@@ -1,7 +1,8 @@
 """A fake solver backend and a fake extractor, for the registry, the runner and the post-run step.
 
-``FakeAdapter`` declares the twelve attributes of ``SolverAdapter`` and its four
-methods, as a flow backend named ``fake`` on the cell mesh. ``fake_adapter``
+``FakeAdapter`` declares the twelve attributes of ``SolverAdapter`` and its five
+members, as a flow backend named ``fake`` on the cell mesh. ``build`` and ``run``
+return a ``SolverRun`` that solves nothing. ``fake_adapter``
 makes a new class from it, under another key or with any attribute or method
 replaced. ``FakeExtractor`` and ``fake_extractor`` do the same for the extractor
 of a key. Register them through the ``isolated_solvers`` fixture of
@@ -10,9 +11,12 @@ of a key. Register them through the ``isolated_solvers`` fixture of
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, ClassVar
 
 from pydantic import BaseModel
+
+from hydromodpy.solver.base.plan import SolverRun
 
 __all__ = [
     "FakeAdapter",
@@ -41,21 +45,22 @@ class FakeAdapter:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def validate(self, ctx: Any) -> None:
+    def validate(self, model: Any, options: Any, slot: Any) -> None:
         self.calls.append("validate")
 
-    def execute(self, ctx: Any) -> Any:
-        self.calls.append("execute")
-        return None
+    def build(self, model: Any, options: Any, slot: Any, ctx: Any) -> SolverRun:
+        self.calls.append("build")
+        return SolverRun(slot=slot, model=model, options=options)
 
-    def cleanup(self, ctx: Any) -> None:
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        self.calls.append("run")
+        return replace(solver_run, output_dir=solver_run.slot.directory, written=True, solved=True)
+
+    def cleanup(self, solver_run: Any) -> None:
         self.calls.append("cleanup")
 
-    def extract_observables(
-        self, ctx: Any, store: Any, requests: Any, **kwargs: Any
-    ) -> dict[str, Any]:
-        self.calls.append("extract_observables")
-        return {}
+    def extract(self, solver_run: Any, store: Any, retention: Any) -> None:
+        self.calls.append("extract")
 
 
 def fake_adapter(name: str = "fake", process_type: str = "flow", **members: object) -> type:

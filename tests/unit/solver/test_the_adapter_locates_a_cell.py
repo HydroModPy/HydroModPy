@@ -33,9 +33,9 @@ def test_the_capability_has_its_own_protocol() -> None:
 @pytest.mark.parametrize(
     "module,cls",
     [
-        ("hydromodpy.solver.modflow6.adapters.flow", "Modflow6FlowAdapter"),
-        ("hydromodpy.solver.modflow_nwt.adapters.flow", "ModflowNwtFlowAdapter"),
-        ("hydromodpy.solver.boussinesq.adapters.flow", "BoussinesqFlowAdapter"),
+        ("hydromodpy.solver.modflow6.adapter", "Modflow6FlowAdapter"),
+        ("hydromodpy.solver.modflow_nwt.adapter", "ModflowNwtFlowAdapter"),
+        ("hydromodpy.solver.boussinesq.adapter", "BoussinesqFlowAdapter"),
     ],
 )
 def test_every_flow_backend_answers_it(module: str, cls: str) -> None:
@@ -48,16 +48,13 @@ def test_every_flow_backend_answers_it(module: str, cls: str) -> None:
 
 
 def _ctx(model: object) -> SimpleNamespace:
-    return SimpleNamespace(
-        run=SimpleNamespace(id="r1"),
-        state=SimpleNamespace(),
-        model=model,
-    )
+    """The ``SolverRun`` a cell lookup reads: the solver model its run built."""
+    return SimpleNamespace(solver_model=model)
 
 
 class TestOnASolverMesh:
     def test_a_point_in_a_grid_cell_returns_the_flat_selector_of_that_cell(self) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 
         # Cells of side 1 m, row 0 north: (2.5, 0.5) is in row 1, column 2 of 2 x 3.
         mesh = regular_solver_mesh(2, 3)
@@ -67,7 +64,7 @@ class TestOnASolverMesh:
         assert cell == (0, 0, 1 * 3 + 2)
 
     def test_a_point_in_a_triangle_returns_the_triangle_that_holds_it(self) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 
         # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
         mesh = two_triangle_solver_mesh()
@@ -77,7 +74,7 @@ class TestOnASolverMesh:
         assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.1, 0.8) == (0, 0, 1)
 
     def test_a_point_just_outside_takes_the_nearest_centre(self) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 
         mesh = regular_solver_mesh(2, 3)
 
@@ -87,7 +84,7 @@ class TestOnASolverMesh:
         assert cell == (0, 0, 1 * 3 + 2)
 
     def test_a_point_farther_than_a_cell_size_is_not_located(self, caplog) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 
         mesh = regular_solver_mesh(2, 3)
 
@@ -100,7 +97,7 @@ class TestOnASolverMesh:
         assert "(40.00, -3.00)" in caplog.text
 
     def test_the_located_selector_is_a_fixed_point_of_the_readers_of_a_cell(self) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import (
+        from hydromodpy.solver.modflow6.adapter import (
             Modflow6FlowAdapter,
             _collapse_to_disv_cells,
         )
@@ -116,7 +113,7 @@ class TestOnASolverMesh:
         assert flat_cell_index(model, cell) == 1 * 3 + 2
 
     def test_no_model_yields_nothing_rather_than_a_wrong_cell(self) -> None:
-        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 
         assert Modflow6FlowAdapter().locate_cell(_ctx(None), 0.0, 0.0) is None
 
@@ -133,14 +130,14 @@ def _nwt_grid() -> SimpleNamespace:
 
 class TestOnTheNwtGrid:
     def test_it_reads_its_own_flopy_grid(self) -> None:
-        from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+        from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
         model = SimpleNamespace(mf=SimpleNamespace(modelgrid=_nwt_grid()))
 
         assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 21.0, 11.0) == (0, 1, 2)
 
     def test_a_point_farther_than_a_cell_size_is_not_located(self, caplog) -> None:
-        from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+        from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
         model = SimpleNamespace(mf=SimpleNamespace(modelgrid=_nwt_grid()))
 
@@ -151,7 +148,7 @@ class TestOnTheNwtGrid:
         assert "(36.00, 10.00)" in caplog.text
 
     def test_a_model_without_a_grid_yields_nothing(self) -> None:
-        from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+        from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
         model = SimpleNamespace(mf=SimpleNamespace(modelgrid=None))
 

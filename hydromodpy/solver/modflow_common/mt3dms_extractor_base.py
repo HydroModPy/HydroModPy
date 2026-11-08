@@ -15,7 +15,10 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -32,24 +35,18 @@ class Mt3dmsExtractorBase:
     process_type = "transport"
     solver_name: str
 
-    def extract(
-        self,
-        sim_id: str,
-        solver_output_dir: Path,
-        store: Any,
-        *,
-        model_name: str | None = None,
-    ) -> None:
-        """Read .ucn file and write concentration fields into the store."""
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Read the ``.ucn`` file of a solved run and write its concentration fields into the store.
 
-        solver_output_dir = Path(solver_output_dir)
-        if model_name is None:
-            ucn_files = list(solver_output_dir.glob("*.ucn")) + list(
-                solver_output_dir.glob("*.UCN")
-            )
-            if not ucn_files:
-                raise FileNotFoundError(f"No .ucn file in {solver_output_dir}")
-            model_name = ucn_files[0].stem
+        A concentration run keeps no per-cell budget, so ``retention`` is not read.
+        """
+        del retention
+        sim_id = store.sim_id
+        solver_output_dir = Path(solver_run.output_dir)
+        ucn_files = list(solver_output_dir.glob("*.ucn")) + list(solver_output_dir.glob("*.UCN"))
+        if not ucn_files:
+            raise NothingThereError(f"No .ucn file in {solver_output_dir}")
+        model_name = ucn_files[0].stem
 
         ucn_path = solver_output_dir / f"{model_name}.ucn"
         if not ucn_path.exists():

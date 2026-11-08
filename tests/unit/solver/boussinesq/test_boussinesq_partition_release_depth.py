@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual,
@@ -18,6 +17,7 @@ from hydromodpy.solver.boussinesq.assembly.surface import (
 from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
     build_sparse_semianalytic_partition_saturation_triplets,
 )
+from hydromodpy.solver.boussinesq.options import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
 from hydromodpy.solver.boussinesq.solver_contract import build_runtime_options
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh

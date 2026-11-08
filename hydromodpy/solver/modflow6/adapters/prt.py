@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
 
-import pandas as pd
 from pydantic import BaseModel
 
-from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.model.transport.transport_config import TransportModflow6PrtConfig
+from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunExecutionResult
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.base.transport_runs import required_flow_model
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 
@@ -54,57 +54,56 @@ class Modflow6PrtTransportAdapter:
     requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
     produces_particles: bool = True
 
-    def validate(self, ctx: RunContext) -> None:
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
         """No precondition checks beyond the declared MODFLOW 6 flow dependency."""
 
-    def cleanup(self, ctx: RunContext) -> None:
-        """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.output_dir
-        if solver_output_dir is not None:
-            cleanup_solver_files(solver_output_dir)
+    def build(
+        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+    ) -> SolverRun:
+        """Build the PRT model of the flow run it follows, in memory, under ``slot``.
 
-    def extract_observables(
-        self,
-        ctx: RunContext,
-        store: Any,
-        requests: Sequence[ObservableRequest],
-        *,
-        time_index: pd.DatetimeIndex | None = None,
-    ) -> dict[str, ObservableResult]:
-        """Fail explicitly because transport calibration is not implemented."""
-        del ctx, store, time_index
-        if not requests:
-            return {}
-        names = sorted({request.name for request in requests})
-        raise ObservableNotAvailableError(
-            f"MODFLOW 6 PRT produces no calibration observable; asked for {names}."
-        )
-
-    def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one MODFLOW 6 PRT particle tracking run."""
-
+        The particles are tracked beside the flow model, in the folder of the
+        slot and under the name of the flow model. The adapter reads its setup
+        and its upstream run on the run context until the transport port takes
+        the ``Model``.
+        """
         state = ctx.state
         flow_model = required_flow_model(ctx)
-        model_prt = Modflow6Prt(
+        solver_model = Modflow6Prt(
             state.setup.domain,
             state.setup.transport,
             flow_model,
-            model_folder=state.setup.workspace.solver_scratch_folder,
+            model_folder=slot.folder,
             model_name=flow_model.model_name,
             suffix_name=_prt_output_suffix(ctx.plan.runs, ctx.run),
         )
-        model_prt.pre_processing()
-        success = model_prt.processing(write_model=True, run_model=True, verbose=True)
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the PRT input files unless they are written, track, and return the solved run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
         if not success:
             raise SolverDivergedError(
-                f"[HMPY.E401] Particle transport solver '{ctx.run.solver}' failed for "
-                f"run '{ctx.run.id}'. See {getattr(model_prt, 'full_path', '<unknown>')} "
-                "for diagnostics.",
-                run_id=ctx.run.id,
+                f"[HMPY.E401] Particle transport solver '{self.name}' failed for run "
+                f"'{solver_run.slot.name}'. "
+                f"See {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
             )
-        return RunExecutionResult(
-            primary_model=model_prt,
-            solver_output_dir=Path(model_prt.full_path)
-            if hasattr(model_prt, "full_path")
-            else None,
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path) if hasattr(solver_model, "full_path") else None,
+            written=True,
+            solved=True,
         )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the particle tracks through the registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)

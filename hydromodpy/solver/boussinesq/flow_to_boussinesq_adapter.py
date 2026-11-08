@@ -4,25 +4,25 @@ The Boussinesq backend accepts either:
 
 - one runtime planar cell mesh, its properties mapped from the profiles of the
   ``Model`` and its domain like the MODFLOW adapters do, or
-- one ``CatchmentMeshBundle`` read from a bundle folder, which carries its own
-  properties per cell (the validation runtimes).
+- one ``CatchmentMeshBundle`` read from the folder of the ``exchange_mesh`` option,
+  which carries its own properties per cell (the validation runtimes).
 
 A bundle is never completed from the profiles of the ``Model``: a ``K`` or ``Sy``
 profile next to a bundle is refused, and so is a property override, so one
 property never has two silent sources. On a cell mesh the override wins over the
 profile, for K and Sy, and the properties Boussinesq does not read are refused.
 Keeping these helpers out of the adapter file makes the adapter symmetrical with
-``solver/modflow6/adapters/flow.py`` and ``solver/modflow_nwt``.
+``solver/modflow6/adapter.py`` and ``solver/modflow_nwt``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.core.exceptions import MeshError
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, load_catchment_mesh_bundle
 from hydromodpy.model.model import Model
 from hydromodpy.model.properties.property_table import (
@@ -33,30 +33,8 @@ from hydromodpy.model.properties.property_table import (
     resolve_required_flow_properties,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.property_mapping import resolve_flow_property_arrays
-
-
-def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
-    """Return the catchment mesh bundle attached to the run setup."""
-    preloaded = getattr(setup_state, "mesh_bundle", None)
-    if preloaded is not None:
-        return preloaded
-
-    mesh_summary = getattr(setup_state, "mesh_summary", None)
-    if isinstance(mesh_summary, dict):
-        bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
-        if bundle_dir != "":
-            bundle = load_catchment_mesh_bundle(bundle_dir)
-            setup_state.mesh_bundle = bundle
-            return bundle
-
-    raise ValueError(
-        "flow/boussinesq requires either a runtime planar mesh with Flow/Domain "
-        "property mapping support, or one CatchmentMeshBundle read from a bundle "
-        "folder. Provide state.setup.cell_mesh or state.setup.mesh_bundle, "
-        "or set output_exchange_bundle_dir in state.setup.mesh_summary."
-    )
-
 
 _PARAMETER_ALIASES = {
     "K": ("K", "k"),
@@ -69,14 +47,11 @@ def _has_profile(profiles: Mapping[str, object], canonical_name: str) -> bool:
     return any(alias in profiles for alias in _PARAMETER_ALIASES.get(canonical_name, ()))
 
 
-def resolve_runtime_solver_mesh(
-    model: Model, *, mesh_summary: object = None
-) -> BoussinesqMesh | None:
+def resolve_runtime_solver_mesh(model: Model) -> BoussinesqMesh | None:
     """Build one direct solver mesh from the cell mesh, domain and profiles of ``model``.
 
     ``None`` when the model has no cell mesh or domain, or lacks a profile the
-    regime reads: the run then reads a mesh bundle. ``mesh_summary`` is the
-    mesh summary of the setup, which names the file the mesh was written to.
+    regime reads: the run then needs the mesh bundle of ``exchange_mesh``.
     """
     cell_mesh = model.geometry.cells
     domain = model.geometry.domain
@@ -120,15 +95,11 @@ def resolve_runtime_solver_mesh(
         steady=["Sy" not in required_properties],
         profiles=profiles,
     )
-    output_mesh = (
-        str(mesh_summary.get("output_mesh", "")).strip() if isinstance(mesh_summary, dict) else ""
-    )
     return BoussinesqMesh.from_cell_mesh(
         cell_mesh,
         domain=domain,
         hydraulic_conductivity_m_s=conductivity,
         storage_coefficient=storage,
-        source_path=Path(output_mesh).expanduser() if output_mesh != "" else None,
     )
 
 
@@ -242,8 +213,31 @@ def resolve_bundle_solver_mesh(
     return BoussinesqMesh.from_bundle(completed_bundle)
 
 
+def resolve_solver_mesh(
+    model: Model, options: BoussinesqOptions
+) -> tuple[BoussinesqMesh, CatchmentMeshBundle | None]:
+    """Return the solver mesh of a run, and the mesh bundle it was read from or ``None``.
+
+    The bundle of ``options.exchange_mesh`` stands in for the cell mesh and the
+    properties of the ``Model`` when it is set. Without it the run builds its mesh
+    from the cell mesh, the domain and the profiles of the ``Model``, and a model
+    that has none of them is refused.
+    """
+    if options.exchange_mesh is not None:
+        bundle = load_catchment_mesh_bundle(options.exchange_mesh)
+        return resolve_bundle_solver_mesh(model, bundle=bundle), bundle
+    mesh = resolve_runtime_solver_mesh(model)
+    if mesh is None:
+        raise MeshError(
+            "flow/boussinesq needs either the planar cell mesh of the model, with its "
+            "domain and the K and Sy profiles the regime reads, or the mesh bundle "
+            "folder of [solver.boussinesq] exchange_mesh."
+        )
+    return mesh, None
+
+
 __all__ = [
     "resolve_bundle_solver_mesh",
-    "resolve_mesh_bundle",
     "resolve_runtime_solver_mesh",
+    "resolve_solver_mesh",
 ]

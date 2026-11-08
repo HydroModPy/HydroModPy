@@ -25,9 +25,14 @@ from hydromodpy.calibration.runners.prepared_model import (
 from hydromodpy.calibration.runners.trial import TrialContext, built_model, prepare_trials
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
+from hydromodpy.solver.base.plan import RunSlot
+from hydromodpy.solver.base.runner import solve_one
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+    build_flow_model,
+    build_preprocess_options,
+    run_flow_model,
+)
 from tests._helpers.model_factory import make_model
 
 # From test_bounds_preflight.py
@@ -483,19 +488,25 @@ enabled = false
 class TestTheModelIsBuiltAndNotSolved:
     def test_the_run_stops_after_the_preprocessing(self) -> None:
         calls: list[str] = []
-        model = SimpleNamespace(
+        solver_model = SimpleNamespace(
             pre_processing=lambda *args, **kwargs: calls.append("pre"),
             processing=lambda **kwargs: calls.append("solve"),
         )
-        setup = SimpleNamespace(
-            model=make_model(),
-            flow_runtime_overrides={STOP_BEFORE_THE_SOLVE: True},
+        adapter = SimpleNamespace(
+            validate=lambda *args: None,
+            build=lambda model, options, slot, ctx: build_flow_model(
+                solver_model, model, options, slot, ctx, build_preprocess_options(model)
+            ),
+            run=lambda solver_run: run_flow_model(solver_run, solver_name="modflow6"),
         )
+        slot = RunSlot(Path("unused"), "island", stop_before_solve=True)
+        ctx = SimpleNamespace(plan=SimpleNamespace(runs=()), run=SimpleNamespace(id="flow"))
 
-        result = run_flow_model(SimpleNamespace(state=SimpleNamespace(setup=setup)), model, None)
+        result = solve_one(adapter, make_model(), None, slot, ctx)
 
         assert calls == ["pre"]
-        assert result.primary_model is model
+        assert result.solver_model is solver_model
+        assert not result.solved
 
     @pytest.mark.parametrize(
         "override_paths",
@@ -516,8 +527,10 @@ class TestTheModelIsBuiltAndNotSolved:
 
         with built_model(trial_ctx, {"K": 1e-5}) as ctx:
             _, run_ctx = solver_extract.resolve_flow_adapter(ctx)
-            assert int(run_ctx.model.solver_mesh.n_cells) == 400
-            assert np.isfinite(np.asarray(run_ctx.model.solver_mesh.top, dtype=float)).all()
-            folder = Path(run_ctx.model.full_path)
+            assert int(run_ctx.solver_run.solver_model.solver_mesh.n_cells) == 400
+            assert np.isfinite(
+                np.asarray(run_ctx.solver_run.solver_model.solver_mesh.top, dtype=float)
+            ).all()
+            folder = Path(run_ctx.solver_run.solver_model.full_path)
 
         assert not folder.exists()

@@ -416,7 +416,8 @@ def _criterion_centres(run_ctx: RunContext, cell_centres: np.ndarray | None) -> 
     """Return the points the criterion samples the top at, one per cell."""
     if cell_centres is not None:
         return np.asarray(cell_centres, dtype=float)
-    solver_mesh = getattr(getattr(run_ctx, "model", None), "solver_mesh", None)
+    solver_run = getattr(run_ctx, "solver_run", None)
+    solver_mesh = getattr(getattr(solver_run, "solver_model", None), "solver_mesh", None)
     centroids = getattr(solver_mesh, "cell_centers", None)
     if not callable(centroids):
         raise ValueError(
@@ -502,7 +503,7 @@ def delineated_catchment_mask(
     Returns ``None`` when the run declares no watershed, which is the case for a
     synthetic domain; the caller then closes on the largest basin of its graph.
     """
-    model = run_ctx.model
+    model = run_ctx.solver_run.solver_model
     basin = getattr(model, "descent_basin", None)
     if basin is not None and basin.is_catchment:
         return np.array(basin.mask, dtype=bool)

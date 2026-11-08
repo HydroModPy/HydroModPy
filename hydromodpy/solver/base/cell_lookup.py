@@ -12,7 +12,7 @@ import numpy as np
 
 from hydromodpy.mesh.cells.locate import locate_cells_near
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.solver.base.plan import RunContext
+from hydromodpy.solver.base.plan import SolverRun
 
 
 def locate_cell_on_cell_mesh(
@@ -28,16 +28,18 @@ def locate_cell_on_cell_mesh(
     return None if cell_id < 0 else (0, 0, cell_id)
 
 
-def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-    """Return the cell selector that holds ``(x, y)`` on ``ctx``'s solver mesh, or ``None``.
+def locate_cell_on_solver_mesh(
+    solver_run: SolverRun, x: float, y: float
+) -> tuple[int, int, int] | None:
+    """Return the cell selector that holds ``(x, y)`` on the solver mesh of a run, or ``None``.
 
     The selector is ``(layer, 0, cell_id)``, the flat selector a DISV head
     extractor reads. A point has no layer, so it reads the top active cell of
     its column (layer 0 for a column with no active cell). ``None`` without a
-    solver mesh, or for a point farther than one cell size from the mesh (see
-    :func:`locate_cell_on_cell_mesh`).
+    solver model or a solver mesh, or for a point farther than one cell size
+    from the mesh (see :func:`locate_cell_on_cell_mesh`).
     """
-    mesh = getattr(ctx.model, "solver_mesh", None)
+    mesh = getattr(solver_run.solver_model, "solver_mesh", None)
     if mesh is None:
         return None
     located = locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
@@ -47,19 +49,20 @@ def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int
     return (max(int(mesh.top_active_layer()[cell_id]), 0), 0, cell_id)
 
 
-def top_active_layer_on_solver_mesh(ctx: RunContext, row: int, col: int) -> int | None:
-    """Return the top active layer of the column at ``(row, col)`` on ``ctx``'s solver mesh.
+def top_active_layer_on_solver_mesh(solver_run: SolverRun, row: int, col: int) -> int | None:
+    """Return the top active layer of the column at ``(row, col)`` on the solver mesh of a run.
 
     A regular grid names the column by its row and column, any other mesh by
     row 0 and the cell id in ``col``. A column with no active cell answers 0,
-    like :func:`locate_cell_on_solver_mesh`. ``None`` without a solver mesh.
+    like :func:`locate_cell_on_solver_mesh`. ``None`` without a solver model or
+    a solver mesh.
 
     Raises
     ------
     ValueError
         When ``(row, col)`` names no column of the mesh.
     """
-    mesh = getattr(ctx.model, "solver_mesh", None)
+    mesh = getattr(solver_run.solver_model, "solver_mesh", None)
     if mesh is None:
         return None
     layers = mesh.top_active_layer()

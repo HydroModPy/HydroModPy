@@ -8,6 +8,7 @@ is refused before the solve.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,9 +16,10 @@ import numpy as np
 import pytest
 import zarr
 
+import hydromodpy.workflow.steps.prepare_solver.model as model_module
 import hydromodpy.workflow.steps.prepare_solver.step as step_module
 from hydromodpy.core.exceptions import ConfigError, IncompatibleMeshError
-from hydromodpy.core.state.run_state import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial.state import HeadRule, PriorState
@@ -38,7 +40,7 @@ def _mesh():
     return regular_cell_mesh(xmin=_XMIN, ymin=_YMIN, dx=100.0, dy=100.0, nrow=2, ncol=3)
 
 
-def _ctx(project: Path, *, restart_from=None, overrides=None, mesh=True, geographic=None):
+def _ctx(project: Path, *, restart_from=None, mesh=True, geographic=None):
     config = FlowConfig(restart_from=restart_from)
     cfg = SimpleNamespace(
         flow=config,
@@ -52,7 +54,6 @@ def _ctx(project: Path, *, restart_from=None, overrides=None, mesh=True, geograp
         domain=None,
         geographic=geographic,
         time_grid=None,
-        flow_runtime_overrides=overrides,
         workspace=SimpleNamespace(project_root=project),
         model=None,
     )
@@ -96,17 +97,15 @@ def test_the_model_is_put_on_the_setup_with_the_members_of_the_flow(tmp_path: Pa
 
 
 def test_the_river_rasters_are_chosen_once_for_the_run(tmp_path: Path, monkeypatch) -> None:
-    import hydromodpy.solver.modflow_common.channel_tree as channel_tree
-
     geographic = SimpleNamespace(river_network_enabled=False, correcflow_path=None)
     calls = []
-    chosen = object()
+    chosen = SimpleNamespace(link=None)
 
     def fake(geo):
         calls.append(geo)
         return chosen
 
-    monkeypatch.setattr(channel_tree, "channel_rasters_for_run", fake)
+    monkeypatch.setattr(model_module, "channel_rasters_for_run", fake)
     ctx = _ctx(tmp_path, geographic=geographic)
 
     model = step_build_model(ctx)
@@ -116,25 +115,12 @@ def test_the_river_rasters_are_chosen_once_for_the_run(tmp_path: Path, monkeypat
     assert model.geometry.catchment.crs == "EPSG:2154"
 
 
-@pytest.mark.parametrize(
-    ("overrides", "refused"),
-    [
-        pytest.param({"properties": {"K": 1e-5}}, True, id="the per-cell envelope"),
-        pytest.param(
-            {"model_name_override": "a", "stop_before_the_solve": True}, False, id="trial"
-        ),
-        pytest.param(None, False, id="no overrides"),
-    ],
-)
-def test_the_properties_key_is_refused_by_name(tmp_path: Path, overrides, refused: bool) -> None:
-    ctx = _ctx(tmp_path, overrides=overrides)
+def test_the_setup_carries_what_a_trial_asks_of_its_slot_and_no_property_envelope() -> None:
+    """A per-cell property is ``Model.with_properties``: the setup has no dictionary to hold one."""
+    members = {member.name for member in dataclasses.fields(SetupContext)}
 
-    if refused:
-        with pytest.raises(ConfigError, match=r"Model\.with_properties"):
-            step_build_model(ctx)
-        assert ctx.setup.model is None
-    else:
-        assert step_build_model(ctx) is not None
+    assert "slot_request" in members
+    assert "flow_runtime_overrides" not in members
 
 
 def test_a_hotstart_by_path_becomes_a_prior_state(tmp_path: Path) -> None:

@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 import numpy as np
 
 from hydromodpy.catchment.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.model.model import Model
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
@@ -48,9 +50,9 @@ class Modflow6:
     def __init__(
         self,
         modflow_config: Modflow6Config | Mapping[str, object] | None = None,
-        model_folder: str = "HydroModPy_outputs",
+        model_folder: str | Path = "HydroModPy_outputs",
         model_name: str = "Default",
-        bin_path: str | None = None,
+        bin_path: str | Path | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
         self.model_folder = model_folder
@@ -63,6 +65,14 @@ class Modflow6:
         # The frozen Model this solver builds from, bound by pre_processing. It is
         # read and never changed: a build leaves the Model as it found it.
         self.inputs: Model | None = None
+        # The slot of the run, bound by pre_processing: its shared forcing folder
+        # and its binaries, which an auxiliary solve and a rerun keep.
+        self.slot: RunSlot | None = None
+        # The input files the last write left, relative to full_path, set by
+        # processing. A rerun copies them.
+        self.input_files: tuple[str, ...] = ()
+        # Whether a downstream MT3DMS run reads the output, set by the adapter.
+        self.link_mt3dms = False
         self.last_flow_solve_time_seconds: float | None = None
 
         self.full_path = os.path.join(model_folder, model_name)
@@ -146,7 +156,7 @@ class Modflow6:
         model: Model,
         options: ModflowPreprocessOptions | None = None,
         *,
-        flow_runtime_overrides: Mapping[str, object] | None = None,
+        slot: RunSlot | None = None,
     ):
         """Build the MODFLOW 6 simulation in memory, before it is written and run.
 
@@ -161,16 +171,12 @@ class Modflow6:
             state, time and options. It is kept as ``self.inputs`` and never changed.
         options
             Pre-processing options. None keeps the ones the solver holds.
-        flow_runtime_overrides
-            Settings of one trial that apply to this build only, such as the
-            private recharge folder of a calibration trial.
+        slot
+            Where the run solves. The build reads its shared forcing folder, the
+            folder a calibration trial keeps its recharge binaries in. None keeps
+            every file beside the model.
         """
-        run_pre_processing(
-            self,
-            model,
-            options,
-            flow_runtime_overrides=flow_runtime_overrides,
-        )
+        run_pre_processing(self, model, options, slot=slot)
 
     # run --------------------------------------------------------------
 

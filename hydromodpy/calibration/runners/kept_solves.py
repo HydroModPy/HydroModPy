@@ -36,7 +36,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.solver.base.plan import ProcessRun, RunExecutionResult, SimulationPlan
+    from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan, SolverRun
 
 logger = get_logger(__name__)
 
@@ -66,12 +66,12 @@ class KeptSolve:
     trial_id: int
     cost: float
     folders: tuple[Path, ...]
-    results: Mapping[str, RunExecutionResult] = field(default_factory=dict)
+    results: Mapping[str, SolverRun] = field(default_factory=dict)
 
     def missing_output(self) -> Path | None:
         """Return a solver folder of this solve that is gone, or None."""
         for result in self.results.values():
-            folder = getattr(result, "solver_output_dir", None)
+            folder = getattr(result, "output_dir", None)
             if folder is not None and not Path(folder).is_dir():
                 return Path(folder)
         return None
@@ -86,7 +86,7 @@ class RecordingLauncher:
     """
 
     def __init__(self) -> None:
-        self.results: dict[str, RunExecutionResult] = {}
+        self.results: dict[str, SolverRun] = {}
 
     def execute(
         self,
@@ -95,7 +95,7 @@ class RecordingLauncher:
         *,
         callbacks: Any | None = None,
         store: Any | None = None,
-    ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
+    ) -> tuple[tuple[ProcessRun, SolverRun], ...]:
         """Execute ``plan`` like :class:`SimulationRunner` and keep its results."""
         from hydromodpy.solver.base.runner import SimulationRunner
 
@@ -109,8 +109,8 @@ class KeptSolveLauncher:
     """Hand a kept trial solve to the run-solver step instead of solving.
 
     It walks the plan the way :class:`SimulationRunner` does: it opens each
-    process family, fires the same callbacks, and records each run's model and
-    solver folder in the execution registry. The run-solver step then records
+    process family, fires the same callbacks, and records the ``SolverRun`` of
+    each run in the execution registry. The run-solver step then records
     the execution metrics and the engine identity of the promoted run as it
     does after a real solve, and extraction reads the kept folder.
     """
@@ -125,12 +125,12 @@ class KeptSolveLauncher:
         *,
         callbacks: Any | None = None,
         store: Any | None = None,
-    ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
+    ) -> tuple[tuple[ProcessRun, SolverRun], ...]:
         """Record the kept solve of every run of ``plan`` in ``state``."""
         from hydromodpy.solver.base.runner import ensure_process_context
 
         del store
-        executed: list[tuple[ProcessRun, RunExecutionResult]] = []
+        executed: list[tuple[ProcessRun, SolverRun]] = []
         current: str | None = None
         for run in plan.runs:
             if run.process_type != current:
@@ -145,10 +145,7 @@ class KeptSolveLauncher:
                     f"Trial {self.kept.trial_id} kept no solve for run {run.id!r}; the "
                     "promotion cannot read what was never solved."
                 )
-            if result.primary_model is not None:
-                state.execution.models_by_run_id[run.id] = result.primary_model
-            if result.solver_output_dir is not None:
-                state.execution.output_dirs_by_run_id[run.id] = Path(result.solver_output_dir)
+            state.execution.solver_runs[run.id] = result
             _fire(callbacks, "after_run", run, result, state)
             executed.append((run, result))
         if current is not None:
@@ -196,7 +193,7 @@ class TrialSolveRetention:
         trial_id: int,
         cost: float,
         folders: Iterable[Path],
-        results: Mapping[str, RunExecutionResult],
+        results: Mapping[str, SolverRun],
     ) -> bool:
         """Keep the solve of a completed trial if it may still be promoted.
 

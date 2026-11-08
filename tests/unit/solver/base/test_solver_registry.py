@@ -11,7 +11,6 @@ import pytest
 import hydromodpy.core.plugin_registry as plugin_registry
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.transport.transport_config import (
     TransportModflow6GwtConfig,
     TransportModflow6PrtConfig,
@@ -21,6 +20,7 @@ from hydromodpy.model.transport.transport_config import (
 from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.fake_solvers import FakeAdapter, fake_adapter, fake_extractor
@@ -102,6 +102,7 @@ DECLARED = {
         "requires": (),
         "reads": (),
         "surface_excess": False,
+        "mutable": frozenset({"K", "Sy"}),
     },
     "flow_modflow_nwt": {
         "accepted_meshes": frozenset({"regular"}),
@@ -111,15 +112,17 @@ DECLARED = {
         "requires": (),
         "reads": (),
         "surface_excess": False,
+        "mutable": frozenset(),
     },
     "flow_boussinesq": {
         "accepted_meshes": frozenset({"triangle"}),
         "geometry": "cells",
         "category": "integrated",
-        "options": FlowRuntimeConfig,
+        "options": BoussinesqOptions,
         "requires": (),
         "reads": (),
         "surface_excess": True,
+        "mutable": frozenset(),
     },
     "transport_modflow6": {
         "accepted_meshes": frozenset(),
@@ -129,6 +132,7 @@ DECLARED = {
         "requires": (("flow", "modflow6"),),
         "reads": ("face_flow",),
         "surface_excess": False,
+        "mutable": frozenset(),
     },
     "transport_modflow6_prt": {
         "accepted_meshes": frozenset(),
@@ -138,6 +142,7 @@ DECLARED = {
         "requires": (("flow", "modflow6"),),
         "reads": ("face_flow",),
         "surface_excess": False,
+        "mutable": frozenset(),
     },
     "transport_mt3dms": {
         "accepted_meshes": frozenset(),
@@ -147,6 +152,7 @@ DECLARED = {
         "requires": (("flow", "modflow_nwt"),),
         "reads": ("face_flow",),
         "surface_excess": False,
+        "mutable": frozenset(),
     },
     "transport_modpath": {
         "accepted_meshes": frozenset(),
@@ -156,12 +162,13 @@ DECLARED = {
         "requires": (("flow", "modflow_nwt"),),
         "reads": ("face_flow",),
         "surface_excess": False,
+        "mutable": frozenset(),
     },
 }
 """What each backend of the build declares. The extractor categories and the index
 table held these values before the attributes moved to the adapter, and the
 mesh, requires and surface-excess rows are what the configuration and the
-planner read."""
+planner read. Only MODFLOW 6 reruns a built model, for K and Sy."""
 
 
 @pytest.mark.parametrize("key", sorted(DECLARED))
@@ -176,7 +183,7 @@ def test_each_shipped_backend_declares_what_the_build_relies_on(key: str) -> Non
     assert adapter.requires == expected["requires"]
     assert adapter.reads == expected["reads"]
     assert adapter.native_step is None
-    assert adapter.mutable == frozenset()
+    assert adapter.mutable == expected["mutable"]
     assert ("budget/surface_excess" in adapter.writes) is expected["surface_excess"]
 
 
@@ -299,19 +306,17 @@ def test_a_plain_object_is_not_an_adapter() -> None:
 
 
 def test_register_refuses_a_class_that_is_not_an_adapter() -> None:
-    half = fake_adapter("half", execute=None, cleanup=None, extract_observables=None)
+    half = fake_adapter("half", build=None, cleanup=None, extract=None)
 
-    with pytest.raises(
-        TypeError, match="missing or unusable execute, cleanup, extract_observables"
-    ):
+    with pytest.raises(TypeError, match="missing or unusable build, cleanup, extract"):
         solvers.register(half)
     assert "half" not in solvers.names("flow")
 
 
 def test_register_refuses_a_member_that_is_present_but_not_callable() -> None:
     """``hasattr`` alone would accept this and let it fail on the first solve."""
-    with pytest.raises(TypeError, match="missing or unusable execute"):
-        solvers.register(fake_adapter("nonexec", execute=None))
+    with pytest.raises(TypeError, match="missing or unusable run\\b"):
+        solvers.register(fake_adapter("nonexec", run=None))
 
 
 def test_register_refuses_a_class_whose_metaclass_answers_everything() -> None:

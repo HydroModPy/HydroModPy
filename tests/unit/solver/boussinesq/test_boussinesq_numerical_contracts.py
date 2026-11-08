@@ -10,10 +10,12 @@ from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
-from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
+from hydromodpy.solver.boussinesq.extractors import flow as flow_extractor
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 from tests._helpers.run_stores import claim_run, facts_of
+
+from ._solver_runs import extract_run
 
 
 def _two_cell_mesh() -> BoussinesqMesh:
@@ -123,12 +125,12 @@ def _open_store(tmp_path: Path, n_timesteps: int) -> RunStore:
     return store
 
 
-def _extract_transient(tmp_path: Path, **kwargs: object) -> tuple[RunStore, str]:
+def _extract_transient(tmp_path: Path, *, budget: BudgetKeep | None = None) -> tuple[RunStore, str]:
     output_dir = tmp_path / "solver"
     _write_transient_payload(output_dir)
     store = _open_store(tmp_path, n_timesteps=2)
     try:
-        BoussinesqOutputAdapter().extract(store.sim_id, output_dir, store, **kwargs)
+        extract_run(store, output_dir, budget=budget)
     except BaseException:
         store.close()
         raise
@@ -205,7 +207,7 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
 def test_boussinesq_extractor_keeps_only_the_planned_terms(tmp_path: Path) -> None:
     """The consumers policy writes the planned terms and records them, produced or not."""
     keep = BudgetKeep.of_terms({"surface_excess", "drain", "stream"})
-    store, sim_id = _extract_transient(tmp_path, budget_terms=keep)
+    store, sim_id = _extract_transient(tmp_path, budget=keep)
     try:
         zarr_store = store.open_zarr(sim_id)
         try:
@@ -227,7 +229,7 @@ def test_boussinesq_extractor_keeps_only_the_planned_terms(tmp_path: Path) -> No
 
 def test_boussinesq_extractor_declares_an_empty_budget_group(tmp_path: Path) -> None:
     """A run that keeps no per-cell term still says so on the budget group."""
-    store, sim_id = _extract_transient(tmp_path, budget_terms=BudgetKeep.of_terms(()))
+    store, sim_id = _extract_transient(tmp_path, budget=BudgetKeep.of_terms(()))
     try:
         zarr_store = store.open_zarr(sim_id)
         try:
@@ -254,6 +256,22 @@ def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path)
 
     try:
         with pytest.raises(RuntimeError, match="Could not parse Boussinesq summary"):
-            BoussinesqOutputAdapter().extract(store.sim_id, output_dir, store)
+            extract_run(store, output_dir)
+    finally:
+        store.close()
+
+
+def test_extract_hands_the_diagnostics_of_the_run_to_the_diagnostics_folder_of_the_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    written: list[Path] = []
+    for writer in ("write_vi_obstacle_diagnostic_files", "write_ts_vi_obstacle_diagnostic_files"):
+        monkeypatch.setattr(
+            flow_extractor, writer, lambda directory, summary: written.append(directory)
+        )
+
+    store, _ = _extract_transient(tmp_path)
+    try:
+        assert written == [store.solver_diagnostics_dir] * 2
     finally:
         store.close()

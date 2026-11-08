@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.solver.modflow6.extractors.transport import Modflow6GwtOutputAdapter
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 def _write_mf6_concentration(path: Path, frames: list[np.ndarray]) -> None:
@@ -28,6 +29,8 @@ def _write_mf6_concentration(path: Path, frames: list[np.ndarray]) -> None:
 
 
 class _Store:
+    sim_id = "sim"
+
     def __init__(self) -> None:
         self.stacks: list[np.ndarray] = []
 
@@ -43,7 +46,7 @@ def test_the_gwt_extractor_reads_every_frame_without_a_grid_warning(tmp_path) ->
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        Modflow6GwtOutputAdapter().extract("sim", tmp_path, store, model_name="gwt")
+        Modflow6GwtOutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     assert not [w for w in caught if "Very large grid" in str(w.message)]
     stack = np.concatenate(store.stacks)

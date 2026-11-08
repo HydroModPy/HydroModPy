@@ -49,9 +49,11 @@ from hydromodpy.solver.modflow_grid.discretization_temporal import (
 )
 from hydromodpy.solver.modflow_nwt.extractors.modpath import ModpathOutputAdapter
 from tests._helpers.model_factory import make_model, small_geometry
+from tests.unit.solver.modflow_common.solver_runs import keep_all, retention, solved_run
 
 
 class _FakeStore:
+    sim_id = "sim"
     # No field store: the extractor records no budget policy.
     save_zarr = False
 
@@ -160,14 +162,14 @@ def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str
         _fake_cbc_factory(records),
         raising=True,
     )
+    # The extractor finds the run by its .hds; the fake HeadFile never reads it.
+    (tmp_path / "flow.hds").write_text("", encoding="utf-8")
     (tmp_path / "flow.cbc").write_text("", encoding="utf-8")
     (tmp_path / "flow.tdis").write_text(
         f"BEGIN OPTIONS\n  TIME_UNITS {time_units}\nEND OPTIONS\n", encoding="utf-8"
     )
     store = _FakeStore()
-    Modflow6OutputAdapter().extract(
-        "sim", tmp_path, store, model_name="flow", budget_terms=BudgetKeep.of_terms(())
-    )
+    Modflow6OutputAdapter().extract(solved_run(tmp_path), store, retention(BudgetKeep.of_terms(())))
     return store
 
 
@@ -445,7 +447,7 @@ def test_mf6_transient_recharge_reads_back_m3_per_s(tmp_path) -> None:
         grb.unlink()
 
     store = _FakeStore()
-    Modflow6OutputAdapter().extract("sim", tmp_path, store, model_name="flow")
+    Modflow6OutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     by_component_inflow: dict[str, float] = {}
     for rec in store.budgets:
@@ -762,6 +764,8 @@ class _ZarrHandle:
 
 
 class _Store:
+    sim_id = "sim_mp"
+
     def __init__(self, root: Path):
         self.root = root
 
@@ -846,7 +850,7 @@ def test_modpath_stores_the_tracking_unit_it_declares(tmp_path: Path, monkeypatc
     monkeypatch.setattr("flopy.utils.PathlineFile", _FakePathlineFile)
     store = _Store(tmp_path / "catalog")
 
-    ModpathOutputAdapter().extract("sim_mp", output_dir, store, model_name="flow")
+    ModpathOutputAdapter().extract(solved_run(output_dir), store, keep_all)
 
     handle = store.open_zarr("sim_mp")
     try:

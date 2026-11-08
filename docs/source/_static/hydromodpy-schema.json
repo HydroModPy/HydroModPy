@@ -185,6 +185,294 @@
         }
       }
     },
+    "BoussinesqOptions": {
+      "additionalProperties": false,
+      "description": "How the Boussinesq solver runs its nonlinear solve.",
+      "properties": {
+        "backend": {
+          "default": "auto",
+          "description": "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and 'scipy' build a dense matrix and run on at most 400 cells; 'scipy_sparse' and 'petsc' (it needs petsc4py) have no such limit. 'auto' runs 'local' up to 400 cells and 'scipy_sparse' above, and logs the choice. The MODFLOW solvers do not read it.",
+          "enum": [
+            "auto",
+            "local",
+            "scipy",
+            "scipy_sparse",
+            "petsc"
+          ],
+          "examples": [
+            "auto",
+            "scipy_sparse"
+          ],
+          "renamed_from": [
+            "flow.runtime_backend"
+          ],
+          "stability": "experimental",
+          "title": "Backend",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "surface_interaction_model": {
+          "default": "auto",
+          "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the PETSc head-only VI obstacle formulation, and 'ts_vi_obstacle' the same one integrated by PETSc TS; 'auto' keeps the historical backend-dependent default.",
+          "enum": [
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle"
+          ],
+          "examples": [
+            "auto",
+            "regularized_partition"
+          ],
+          "experimental_values": [
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle"
+          ],
+          "renamed_from": [
+            "flow.surface_interaction_model"
+          ],
+          "title": "Surface Interaction Model",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "partition_release_depth_m": {
+          "default": 0.05,
+          "description": "Depth scale, in metres, of the regularized partition, the surface closure the Boussinesq solver uses by default on every engine but petsc. A cell whose water table lies d metres below the land surface releases at the surface the share exp(-d / depth) of the water it receives, its lateral inflow plus its recharge and wells: all of it with the water table at the surface, 37 % at one depth scale, 2e-9 at 1 m with the default 0.05 m. It stands for the microtopography over which seepage starts, and smooths the onset of seepage for the Newton solve. A smaller value comes closer to the exact threshold of the complementarity closure and makes the solve stiffer. The other closures and the MODFLOW solvers do not read it.",
+          "examples": [
+            0.05,
+            0.02
+          ],
+          "exclusiveMinimum": 0.0,
+          "renamed_from": [
+            "flow.partition_release_depth_m"
+          ],
+          "stability": "experimental",
+          "title": "Partition Release Depth M",
+          "type": "number",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
+        "max_iterations": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.",
+          "display_max": 100000,
+          "display_min": 1,
+          "renamed_from": [
+            "flow.runtime_max_iterations"
+          ],
+          "stability": "experimental",
+          "title": "Max Iterations",
+          "unit": "-",
+          "widget_type": "input",
+          "x-hmp-profile": "dev"
+        },
+        "tol_residual_inf": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.",
+          "renamed_from": [
+            "flow.runtime_tol_residual_inf"
+          ],
+          "stability": "experimental",
+          "title": "Tol Residual Inf",
+          "x-hmp-profile": "dev"
+        },
+        "tol_state_update_inf": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.",
+          "renamed_from": [
+            "flow.runtime_tol_state_update_inf"
+          ],
+          "stability": "experimental",
+          "title": "Tol State Update Inf",
+          "x-hmp-profile": "dev"
+        },
+        "vi_substeps_per_period": {
+          "default": 1,
+          "description": "Fixed number of Backward-Euler substeps per time step for the PETSc VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps. Rate-based forcing values are kept unchanged on each substep.",
+          "examples": [
+            1
+          ],
+          "renamed_from": [
+            "flow.vi_substeps_per_period"
+          ],
+          "stability": "experimental",
+          "title": "Vi Substeps Per Period",
+          "type": "integer",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "vi_substep_on_failure": {
+          "default": false,
+          "description": "When true, retry a failed PETSc VI obstacle time step with increasing substep counts.",
+          "examples": [
+            false
+          ],
+          "renamed_from": [
+            "flow.vi_substep_on_failure"
+          ],
+          "stability": "experimental",
+          "title": "Vi Substep On Failure",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "vi_max_adaptive_substeps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.",
+          "renamed_from": [
+            "flow.vi_max_adaptive_substeps"
+          ],
+          "stability": "experimental",
+          "title": "Vi Max Adaptive Substeps",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_steps_per_period": {
+          "default": 4,
+          "description": "Fixed PETSc TS Backward-Euler steps per time step for the TS VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps.",
+          "examples": [
+            4
+          ],
+          "renamed_from": [
+            "flow.ts_vi_steps_per_period"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Steps Per Period",
+          "type": "integer",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_adapt": {
+          "default": false,
+          "description": "Enable PETSc TS adaptivity for the TS VI obstacle runtime.",
+          "examples": [
+            false
+          ],
+          "renamed_from": [
+            "flow.ts_vi_adapt"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Adapt",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_dt_min_fraction": {
+          "default": 0.015625,
+          "description": "Minimum TS VI step as a fraction of the time-step length.",
+          "examples": [
+            0.015625
+          ],
+          "renamed_from": [
+            "flow.ts_vi_dt_min_fraction"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Dt Min Fraction",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_dt_max_fraction": {
+          "default": 0.25,
+          "description": "Maximum TS VI step as a fraction of the time-step length.",
+          "examples": [
+            0.25
+          ],
+          "renamed_from": [
+            "flow.ts_vi_dt_max_fraction"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Dt Max Fraction",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_type": {
+          "default": "beuler",
+          "description": "PETSc TS type for the TS VI obstacle runtime.",
+          "examples": [
+            "beuler"
+          ],
+          "renamed_from": [
+            "flow.ts_vi_type"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Type",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "ts_vi_snes_type": {
+          "default": "vinewtonrsls",
+          "description": "PETSc SNES type for the TS VI obstacle runtime.",
+          "examples": [
+            "vinewtonrsls"
+          ],
+          "renamed_from": [
+            "flow.ts_vi_snes_type"
+          ],
+          "stability": "experimental",
+          "title": "Ts Vi Snes Type",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "exchange_mesh": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Folder of a catchment mesh bundle the Boussinesq solver reads its cells from. The bundle holds the geometry, the hydraulic conductivity and the storage coefficient of each cell, so it stands in for the cell mesh and the K and Sy profiles of the model, and a run that sets one of those next to it is refused. A relative path is read from the folder of the TOML file. It is a developer entry for the validation cases. A normal run leaves it unset and reads the cell mesh of its model.",
+          "stability": "experimental",
+          "title": "Exchange Mesh",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "BoussinesqOptions",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "BrgmGeology1mSource": {
       "additionalProperties": false,
       "description": "BRGM 1:1M national geological map (CODE_LEG legend).",
@@ -6177,14 +6465,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
-          "enum": [
-            "custom",
-            "sim2",
-            "explore2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the ETP section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -6309,22 +6592,6 @@
         }
       }
     },
-    "ExportFormat": {
-      "description": "What an export writes.",
-      "enum": [
-        "netcdf",
-        "geotiff",
-        "csv",
-        "geopackage",
-        "shapefile",
-        "vtu",
-        "stac",
-        "rocrate",
-        "prov"
-      ],
-      "title": "ExportFormat",
-      "type": "string"
-    },
     "ExportRequest": {
       "additionalProperties": false,
       "description": "One export: what to write, when, in which format, where.\n\nOnly ``variables`` is required. ``time`` names instants and ``period`` a\nwindow; without either the whole simulation is written. ``format`` is\noptional: each data goes to its natural format (a field at one date to\nGeoTIFF, over several dates to NetCDF, a series or a table to CSV, a vector\nlayer to GeoPackage, a raster layer to GeoTIFF), and a ``file`` extension\nnames the format too.",
@@ -6410,23 +6677,22 @@
         "format": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ExportFormat"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "The file format. Left out, each data takes its natural format, or the one the extension of 'file' names. 'stac', 'rocrate' and 'prov' write the metadata of the run; those three describe the whole run and take variables = \"all\" only. The portable archive of a run is written by 'hmp publish --container tar'.",
+          "description": "The file format, a name the export registry serves. Left out, each data takes its natural format, or the one the extension of 'file' names. A view format describes the whole run and takes variables = \"all\" only. The portable archive of a run is written by 'hmp publish --container tar'.",
+          "title": "Format",
           "value_docs": {
             "csv": "A CSV table (.csv): series and tables.",
             "geopackage": "A GeoPackage vector file (.gpkg), one file per date. The mesh layers of a run share one file.",
             "geotiff": "A GeoTIFF raster (.tif), one file per date.",
             "netcdf": "A NetCDF file (.nc): fields and series over time.",
-            "prov": "The PROV provenance record of the run.",
             "rocrate": "The RO-Crate metadata of the run.",
             "shapefile": "An ESRI Shapefile (.shp), one file per date.",
-            "stac": "The STAC metadata of the run.",
             "vtu": "A VTK unstructured grid (.vtu) of the mesh, one file per date."
           },
           "x-hmp-profile": "user"
@@ -11043,278 +11309,6 @@
         }
       }
     },
-    "FlowRuntimeConfig": {
-      "additionalProperties": false,
-      "description": "How the Boussinesq solver runs its nonlinear solve.",
-      "properties": {
-        "backend": {
-          "default": "auto",
-          "description": "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and 'scipy' build a dense matrix and run on at most 400 cells; 'scipy_sparse' and 'petsc' (it needs petsc4py) have no such limit. 'auto' runs 'local' up to 400 cells and 'scipy_sparse' above, and logs the choice. The MODFLOW solvers do not read it.",
-          "enum": [
-            "auto",
-            "local",
-            "scipy",
-            "scipy_sparse",
-            "petsc"
-          ],
-          "examples": [
-            "auto",
-            "scipy_sparse"
-          ],
-          "renamed_from": [
-            "flow.runtime_backend"
-          ],
-          "stability": "experimental",
-          "title": "Backend",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "surface_interaction_model": {
-          "default": "auto",
-          "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the PETSc head-only VI obstacle formulation, and 'ts_vi_obstacle' the same one integrated by PETSc TS; 'auto' keeps the historical backend-dependent default.",
-          "enum": [
-            "auto",
-            "regularized_partition",
-            "complementarity",
-            "vi_obstacle",
-            "ts_vi_obstacle"
-          ],
-          "examples": [
-            "auto",
-            "regularized_partition"
-          ],
-          "experimental_values": [
-            "complementarity",
-            "vi_obstacle",
-            "ts_vi_obstacle"
-          ],
-          "renamed_from": [
-            "flow.surface_interaction_model"
-          ],
-          "title": "Surface Interaction Model",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "partition_release_depth_m": {
-          "default": 0.05,
-          "description": "Depth scale, in metres, of the regularized partition, the surface closure the Boussinesq solver uses by default on every engine but petsc. A cell whose water table lies d metres below the land surface releases at the surface the share exp(-d / depth) of the water it receives, its lateral inflow plus its recharge and wells: all of it with the water table at the surface, 37 % at one depth scale, 2e-9 at 1 m with the default 0.05 m. It stands for the microtopography over which seepage starts, and smooths the onset of seepage for the Newton solve. A smaller value comes closer to the exact threshold of the complementarity closure and makes the solve stiffer. The other closures and the MODFLOW solvers do not read it.",
-          "examples": [
-            0.05,
-            0.02
-          ],
-          "exclusiveMinimum": 0.0,
-          "renamed_from": [
-            "flow.partition_release_depth_m"
-          ],
-          "stability": "experimental",
-          "title": "Partition Release Depth M",
-          "type": "number",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "max_iterations": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.",
-          "display_max": 100000,
-          "display_min": 1,
-          "renamed_from": [
-            "flow.runtime_max_iterations"
-          ],
-          "stability": "experimental",
-          "title": "Max Iterations",
-          "unit": "-",
-          "widget_type": "input",
-          "x-hmp-profile": "dev"
-        },
-        "tol_residual_inf": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.",
-          "renamed_from": [
-            "flow.runtime_tol_residual_inf"
-          ],
-          "stability": "experimental",
-          "title": "Tol Residual Inf",
-          "x-hmp-profile": "dev"
-        },
-        "tol_state_update_inf": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.",
-          "renamed_from": [
-            "flow.runtime_tol_state_update_inf"
-          ],
-          "stability": "experimental",
-          "title": "Tol State Update Inf",
-          "x-hmp-profile": "dev"
-        },
-        "vi_substeps_per_period": {
-          "default": 1,
-          "description": "Fixed number of Backward-Euler substeps per time step for the PETSc VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps. Rate-based forcing values are kept unchanged on each substep.",
-          "examples": [
-            1
-          ],
-          "renamed_from": [
-            "flow.vi_substeps_per_period"
-          ],
-          "stability": "experimental",
-          "title": "Vi Substeps Per Period",
-          "type": "integer",
-          "unit": "-",
-          "x-hmp-profile": "dev"
-        },
-        "vi_substep_on_failure": {
-          "default": false,
-          "description": "When true, retry a failed PETSc VI obstacle time step with increasing substep counts.",
-          "examples": [
-            false
-          ],
-          "renamed_from": [
-            "flow.vi_substep_on_failure"
-          ],
-          "stability": "experimental",
-          "title": "Vi Substep On Failure",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "vi_max_adaptive_substeps": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.",
-          "renamed_from": [
-            "flow.vi_max_adaptive_substeps"
-          ],
-          "stability": "experimental",
-          "title": "Vi Max Adaptive Substeps",
-          "unit": "-",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_steps_per_period": {
-          "default": 4,
-          "description": "Fixed PETSc TS Backward-Euler steps per time step for the TS VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps.",
-          "examples": [
-            4
-          ],
-          "renamed_from": [
-            "flow.ts_vi_steps_per_period"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Steps Per Period",
-          "type": "integer",
-          "unit": "-",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_adapt": {
-          "default": false,
-          "description": "Enable PETSc TS adaptivity for the TS VI obstacle runtime.",
-          "examples": [
-            false
-          ],
-          "renamed_from": [
-            "flow.ts_vi_adapt"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Adapt",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_dt_min_fraction": {
-          "default": 0.015625,
-          "description": "Minimum TS VI step as a fraction of the time-step length.",
-          "examples": [
-            0.015625
-          ],
-          "renamed_from": [
-            "flow.ts_vi_dt_min_fraction"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Dt Min Fraction",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_dt_max_fraction": {
-          "default": 0.25,
-          "description": "Maximum TS VI step as a fraction of the time-step length.",
-          "examples": [
-            0.25
-          ],
-          "renamed_from": [
-            "flow.ts_vi_dt_max_fraction"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Dt Max Fraction",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_type": {
-          "default": "beuler",
-          "description": "PETSc TS type for the TS VI obstacle runtime.",
-          "examples": [
-            "beuler"
-          ],
-          "renamed_from": [
-            "flow.ts_vi_type"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Type",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "ts_vi_snes_type": {
-          "default": "vinewtonrsls",
-          "description": "PETSc SNES type for the TS VI obstacle runtime.",
-          "examples": [
-            "vinewtonrsls"
-          ],
-          "renamed_from": [
-            "flow.ts_vi_snes_type"
-          ],
-          "stability": "experimental",
-          "title": "Ts Vi Snes Type",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "FlowRuntimeConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "FlowSinksSourcesConfig": {
       "additionalProperties": false,
       "description": "Top-level container for all sink/source elements of the flow process.\n\nMaps directly to the ``[flow.sinks_sources]`` TOML section. All fields\nare optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,\nno recharge, no etp) is always valid and represents a passive model.\n\nFields\n------\nwells : dict[str, FlowWellConfig]\n    Pumping/injection wells keyed by a user-defined string id.\nlakes : dict[str, FlowLakeConfig]\n    Lake / reservoir boundaries keyed by a user-defined string id.\nsfr : dict[str, FlowReachNetworkConfig]\n    Streamflow-routing networks keyed by a user-defined string id.\nrecharge : FlowRechargeConfig | None\n    Diffuse recharge configuration. ``None`` means no recharge.\netp : FlowEtpConfig | None\n    Diffuse evapotranspiration configuration. ``None`` means no\n    EVT package is built.",
@@ -12659,13 +12653,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -13115,13 +13105,9 @@
         },
         "source": {
           "default": "hubeau",
-          "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
-          "enum": [
-            "custom",
-            "hubeau"
-          ],
+          "description": "Data provider: 'custom' for user files, or the id of a source registered for the hydrometry section, such as 'hubeau' for the Hub'Eau API.",
           "examples": [
-            "custom"
+            "hubeau"
           ],
           "title": "Source",
           "type": "string",
@@ -13617,13 +13603,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.",
-          "enum": [
-            "custom",
-            "hubeau"
-          ],
+          "description": "Data provider: 'custom' for user files, or the id of a source registered for the intermittency section, such as 'hubeau' for the Hub'Eau stream-flow API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -15489,7 +15471,7 @@
       "properties": {
         "engine": {
           "default": "regular",
-          "description": "Mesh engine: 'regular' (one quadrilateral cell per DEM pixel, or per cell_size), 'triangle' (triangles that follow the lines) or 'voronoi' (polygons around generators). A string and not a closed choice, since an installed third-party engine is named the same way.",
+          "description": "Mesh engine: 'regular' (one quadrilateral cell per DEM pixel, or per cell_size), 'triangle' (triangles that follow the lines), 'voronoi' (polygons around generators) or 'catchment' (the catchment as one polygon cell, for a global model, read only by a solver that names it). A string and not a closed choice, since an installed third-party engine is named the same way.",
           "examples": [
             "regular",
             "triangle",
@@ -17858,14 +17840,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
-          "enum": [
-            "custom",
-            "shom",
-            "constant"
-          ],
+          "description": "Data provider: 'custom' for user CSV/NC/TIF files, or the id of a source registered for the oceanic section, such as 'shom' for the SHOM API and 'constant' for a fixed mean sea level.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -18644,13 +18621,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Where the groundwater-level records come from: your own files or the Hub'Eau API.",
-          "enum": [
-            "custom",
-            "hubeau"
-          ],
+          "description": "Where the groundwater-level records come from: your own files, or the id of a source registered for the piezometry section, such as the Hub'Eau API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -19047,14 +19020,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
-          "enum": [
-            "custom",
-            "sim2",
-            "explore2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the precipitation section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -19541,13 +19509,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the radiation section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -19996,14 +19960,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.",
-          "enum": [
-            "custom",
-            "sim2",
-            "synthetic"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the recharge section, such as 'sim2' for the SIM2 EDR API and 'synthetic' for generated series.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -20818,13 +20777,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -22240,13 +22195,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -22642,7 +22593,7 @@
           "x-hmp-profile": "user"
         },
         "boussinesq": {
-          "$ref": "#/$defs/FlowRuntimeConfig",
+          "$ref": "#/$defs/BoussinesqOptions",
           "x-hmp-profile": "user"
         },
         "modflow6": {
@@ -23328,13 +23279,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -24219,13 +24166,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
-          "enum": [
-            "custom",
-            "hubeau"
-          ],
+          "description": "Data provider: 'custom' for user files, or the id of a source registered for the water quality section, such as 'hubeau' for the Hub'Eau API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -24568,13 +24511,9 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-          "enum": [
-            "custom",
-            "sim2"
-          ],
+          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
-            "custom"
+            "example"
           ],
           "title": "Source",
           "type": "string",
@@ -25022,7 +24961,7 @@
         }
       ],
       "default": null,
-      "description": "Optional mesh settings loaded from the [mesh] section: which engine meshes the model ('regular', 'triangle' or 'voronoi') and how fine. Without the section the 'regular' engine meshes the model with the DEM pixels. The solver must read the cells of the engine, which is checked before any meshing.",
+      "description": "Optional mesh settings loaded from the [mesh] section: which engine meshes the model ('regular', 'triangle', 'voronoi' or 'catchment') and how fine. Without the section the 'regular' engine meshes the model with the DEM pixels. The solver must read the cells of the engine, which is checked before any meshing.",
       "renamed_from": [
         "mesh_catchment",
         "mesh_input",

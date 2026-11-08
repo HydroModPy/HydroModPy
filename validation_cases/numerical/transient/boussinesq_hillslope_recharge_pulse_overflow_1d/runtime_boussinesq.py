@@ -8,13 +8,10 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
-from validation_cases.shared.boussinesq_analytical_runtime import boussinesq_run_state
+from validation_cases.shared.boussinesq_analytical_runtime import solve_boussinesq_bundle
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_fields,
     build_flow_config,
@@ -413,7 +410,7 @@ def run_boussinesq_hillslope_overflow_case(
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=flow,
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
@@ -421,26 +418,11 @@ def run_boussinesq_hillslope_overflow_case(
             period_lengths_seconds=period_lengths_seconds,
             window=None,
         ),
-        options=FlowRuntimeConfig.model_validate(runtime_settings),
+        options=BoussinesqOptions.model_validate(runtime_settings),
+        plan_name=f"Hillslope overflow pulse ({variant.label})",
+        plan_description="Transient hillslope overflow stress case",
     )
-    run = ProcessRun(
-        id=f"flow_validation::{variant.solver_name}",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name=f"Hillslope overflow pulse ({variant.label})",
-            description="Transient hillslope overflow stress case",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=nx,

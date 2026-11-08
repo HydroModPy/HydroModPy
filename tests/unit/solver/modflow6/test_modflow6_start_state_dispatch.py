@@ -49,7 +49,6 @@ def _model(initial, regime: str) -> Modflow6:
     model.nper = 1
     model.nlay = 1
     model.ncpl = 2
-    model._runtime_dirty_packages = ("npf",)
     model.inputs = make_model(
         initial=initial, time=ModelTime(grid=None, regime=regime, first_period_steady=True)
     )

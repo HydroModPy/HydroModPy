@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -11,7 +12,7 @@ import hydromodpy.workflow.steps.derive as derive_module
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.fit_metrics import score_run_under_its_rule
-from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
+from hydromodpy.solver.base.plan import ProcessRun, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.derive import DeriveStep
@@ -19,7 +20,7 @@ from hydromodpy.workflow.steps.derive import DeriveStep
 # --- test_derive_step ---
 # The derive step writes no derived field: every one is rebuilt on read.
 #
-# It releases the solver models and runs ``derive_run_outputs`` once per
+# It releases the solver models (the solver runs stay, without their model) and runs ``derive_run_outputs`` once per
 # solver-backed run, which writes the drain band, the catchment aggregates and
 # the observation samples. Then it scores the run under its metric rule and puts
 # the rows and the headline NSE in the facts the seal reads.
@@ -28,7 +29,12 @@ from hydromodpy.workflow.steps.derive import DeriveStep
 def _ctx(*, catalogued: bool, plan: SimulationPlan | None) -> SimpleNamespace:
     results = ResultsConfig.model_validate({"persistence": {"save_catalog": catalogued}})
     execution = ExecutionRegistry(simulation_plan=plan, lightweight=False)
-    execution.models_by_run_id["flow_main::modflow6"] = object()
+    execution.solver_runs["flow_main::modflow6"] = SolverRun(
+        slot=RunSlot(Path("scratch"), "island"),
+        solver_model=object(),
+        output_dir=Path("scratch/island"),
+        solved=True,
+    )
     return SimpleNamespace(
         sim_id="sim-1",
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results), calibration=None),
@@ -73,7 +79,15 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
     monkeypatch.setattr(
         "hydromodpy.calibration.runners.promotion.write_station_series",
         lambda ctx, *, store, outputs: series.append(
-            (store, outputs, list(ctx.execution.models_by_run_id))
+            (
+                store,
+                outputs,
+                [
+                    run_id
+                    for run_id, run in ctx.execution.solver_runs.items()
+                    if run.solver_model is not None
+                ],
+            )
         ),
     )
 
@@ -81,14 +95,15 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
         PipelineState(run_id="r", data={"ctx": ctx, "station_outputs": {"up": "decl"}})
     )
 
-    # The models are still there when the series is written, and gone after.
+    # The solver models are still there when the series is written, and gone after.
     assert series == [("store", {"up": "decl"}, ["flow_main::modflow6"])]
 
     assert [call["ctx"].run.id for call in calls] == ["flow_main::modflow6"]
-    assert set(calls[0]) == {"ctx", "sim_id", "results_config", "store"}
-    assert calls[0]["results_config"] is ctx.cfg.simulation.results
+    assert set(calls[0]) == {"ctx", "store"}
     assert scored == [(ctx.cfg, "store")], "the run is scored once the aggregates are written"
-    assert ctx.execution.models_by_run_id == {}
+    released = ctx.execution.solver_runs["flow_main::modflow6"]
+    assert released.solver_model is None
+    assert released.output_dir == Path("scratch/island"), "only the solver model is released"
     assert out.step_name == "derive"
     assert "derived_names" not in out.data
 

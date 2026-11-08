@@ -421,6 +421,26 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     )
 
 
+def time_grid_start(grid: Any) -> str | None:
+    """Return the start of a resolved time grid as an ISO string, or ``None``.
+
+    It is the first boundary of the grid, else the start of its window, else its
+    first date. ``None`` is no grid, or a grid that dates nothing. An extractor
+    anchors the solver output times to this start when the solver writes no
+    calendar of its own.
+    """
+    if grid is None:
+        return None
+    boundaries = getattr(grid, "boundaries", None)
+    if boundaries:
+        return str(boundaries[0])
+    start = getattr(getattr(grid, "window", None), "start", None)
+    if start is not None:
+        return str(start)
+    datetimes = getattr(grid, "datetimes", None)
+    return str(datetimes[0]) if datetimes else None
+
+
 def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
     """Return declared simulation processes as a stable tuple."""
     simulation_cfg = getattr(cfg, "simulation", None)

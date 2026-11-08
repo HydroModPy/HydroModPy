@@ -31,8 +31,9 @@ from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.results.run import Run
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.base.registry import solvers
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from tests._helpers.fake_engines import fake_engine, registered
 from tests._helpers.fake_solvers import fake_adapter
 
@@ -1193,10 +1194,9 @@ def test_the_adapter_refuses_a_layering_assigned_after_the_load() -> None:
     layers = VerticalGridConfig(nlay=3)
     domain = SimpleNamespace(config=SimpleNamespace(layers=layers))
     model = SimpleNamespace(geometry=SimpleNamespace(domain=domain))
-    ctx = SimpleNamespace(state=SimpleNamespace(setup=SimpleNamespace(model=model)))
 
     with pytest.raises(ConfigError, match=r"builds 3 layer\(s\) .*which it would ignore"):
-        BoussinesqFlowAdapter().execute(ctx)
+        BoussinesqFlowAdapter().build(model, None, RunSlot(Path("unused"), "island"), None)
 
 
 # Cross-section coherence checks on :class:`HydroModPyConfig`.

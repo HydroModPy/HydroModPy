@@ -1,9 +1,9 @@
 """A calibrated soil capacity gets its own recharge folder, never a shared one.
 
-``run_trial_light`` marks a trial's sandbox with ``PRIVATE_TRIAL_RECHARGE_KEY``
-only when the phase samples a value the recharge is computed from
-(``_trial_owns_its_recharge``); MODFLOW 6 then writes RCHA into
-``<trial>/_recharge`` instead of the phase's ``_shared_recharge``. This is the
+The sandbox gives a trial its forcing folder in ``SlotRequest.shared_forcing_dir``:
+``<trial>/_recharge`` when the phase samples a value the recharge is computed
+from (``_phase_samples_the_recharge``), the phase's ``_shared_recharge`` otherwise.
+MODFLOW 6 writes RCHA into that folder. This is the
 full-pipeline proof, on a real MODFLOW 6 solve: two trials of a phase that
 samples ``ru`` write two different recharge stacks, each in its own folder,
 removed with the trial unless kept for debugging; a phase that samples only

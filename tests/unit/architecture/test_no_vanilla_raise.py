@@ -25,29 +25,27 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 
 SCOPE: tuple[str, ...] = (
-    "project.py",
+    "project/facade.py",
     "workflow",
+    "solver/base/runner.py",
+    "solver/base/rerun.py",
     "solver/modflow_common/flow_adapter_helpers.py",
-    "solver/boussinesq/adapters/flow.py",
+    "solver/modflow6/adapter.py",
+    "solver/modflow6/rerun.py",
+    "solver/modflow_nwt/adapter.py",
+    "solver/boussinesq/adapter.py",
     "solver/modflow6/adapters/transport.py",
     "solver/modflow_nwt/adapters/transport_modpath.py",
     "solver/modflow_nwt/adapters/transport_mt3dms.py",
 )
+"""Files and folders, relative to the package, that raise typed exceptions only. Each must exist."""
 
-EXEMPT: dict[str, dict[str, str]] = {
-    "workflow/steps/run_outputs.py": {
-        "why": (
-            "came from the old post_run module, which was out of scope; a test pins its"
-            " ValueError, so the type changes with the rewrite of the extract step"
-        ),
-        "lifted_by": "3.4",
-    },
-}
+EXEMPT: dict[str, dict[str, str]] = {}
 """Files inside a scoped folder that keep their vanilla raises for now.
 
 Each entry says why and names the lot that lifts it, like ``known_stale`` in
 ``dotted_paths.yaml``. An entry whose file no longer raises a vanilla exception
-fails the gate, so it leaves as soon as it is lifted.
+fails the gate, so it leaves as soon as it is lifted. The list is empty.
 """
 
 BANNED: frozenset[str] = frozenset({"ValueError", "RuntimeError"})
@@ -134,10 +132,19 @@ def test_scope_uses_typed_exceptions() -> None:
         )
 
 
-@pytest.mark.parametrize("entry", sorted(EXEMPT))
-def test_an_exemption_is_dated_and_still_needed(entry: str) -> None:
-    """An exempt file names its lifting lot and still holds a vanilla raise."""
-    assert EXEMPT[entry].get("why") and EXEMPT[entry].get("lifted_by"), entry
-    path = PKG_ROOT / entry
-    assert path.is_file(), f"{entry} is gone: drop its exemption"
-    assert _vanilla_raises(path), f"{entry} raises no vanilla exception: drop its exemption"
+def test_every_exemption_is_dated_and_still_needed() -> None:
+    """An exempt file names its lifting lot and still holds a vanilla raise.
+
+    One test over the whole table, so an empty table passes rather than skips.
+    """
+    for entry, exemption in EXEMPT.items():
+        assert exemption.get("why") and exemption.get("lifted_by"), entry
+        path = PKG_ROOT / entry
+        assert path.is_file(), f"{entry} is gone: drop its exemption"
+        assert _vanilla_raises(path), f"{entry} raises no vanilla exception: drop its exemption"
+
+
+@pytest.mark.parametrize("entry", SCOPE)
+def test_every_scoped_entry_exists(entry: str) -> None:
+    """A moved file would leave the scope in silence, as the old Boussinesq adapter path did."""
+    assert (PKG_ROOT / entry).exists(), f"{entry} is not in the package: update SCOPE"

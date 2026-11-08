@@ -1190,7 +1190,8 @@ def _check_the_backend_can_serve_the_outputs(
         declared = getattr(adapter, "declared_observables", None)
         if declared is None:
             continue
-        support_by_name = {item.name: item for item in declared(config)}
+        active = frozenset(config.flow.active_bc or ())
+        support_by_name = {item.name: item for item in declared(active)}
         outputs = (
             calibration.outputs or {}
             if phase is None

@@ -107,8 +107,13 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
     registry_state = getattr(trial_ctx, "execution", None)
     if registry_state is None:
         return None
-    models = registry_state.models_by_run_id or {}
-    if not models:
+    solver_runs = registry_state.solver_runs or {}
+    built = {
+        run_id
+        for run_id, solver_run in solver_runs.items()
+        if getattr(solver_run, "solver_model", None) is not None
+    }
+    if not built:
         return None
     plan = getattr(registry_state, "simulation_plan", None)
     if plan is None:
@@ -116,7 +121,7 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
 
     flow_run = None
     for run in plan.runs:
-        if run.process_type == "flow" and run.id in models:
+        if run.process_type == "flow" and run.id in built:
             flow_run = run
             break
     if flow_run is None:
@@ -312,7 +317,7 @@ def top_active_layer_of_cell(ctx: Any, row: int, col: int, *, name: str) -> int:
             "is the top active one of its column. Write the layer."
         )
     try:
-        layer = ask(resolved[1], row, col)
+        layer = ask(resolved[1].solver_run, row, col)
     except ValueError as exc:
         raise ValueError(f"Output {name!r}: {exc}") from exc
     if layer is None:
@@ -354,9 +359,8 @@ def snap_gauge_cell(
     xy_id = f"_snap_xy:{name}"
     here_id = f"_snap_here:{name}"
     try:
-        results = adapter.extract_observables(
-            run_ctx,
-            None,
+        results = adapter.observables(
+            run_ctx.solver_run,
             [
                 ObservableRequest(id=area_id, name="upstream_area", support="cells"),
                 ObservableRequest(id=xy_id, name="cell_xy", support="cells"),
@@ -391,14 +395,13 @@ def snap_gauge_cell(
         )
         return cell
     target = centroids[snap.index_after]
-    located = adapter.locate_cell(run_ctx, float(target[0]), float(target[1]))
+    located = adapter.locate_cell(run_ctx.solver_run, float(target[0]), float(target[1]))
     snapped = (int(cell[0]), int(located[1]), int(located[2])) if located else None
     check = None
     if snapped is not None:
         check_id = f"_snap_check:{name}"
-        check = adapter.extract_observables(
-            run_ctx,
-            None,
+        check = adapter.observables(
+            run_ctx.solver_run,
             [ObservableRequest(id=check_id, name="cell_xy", support="cell", cell=snapped)],
         )[check_id].values
     if check is None or not np.allclose(np.asarray(check, dtype=float).reshape(2), target):
@@ -1046,7 +1049,7 @@ def _saturated_thickness_or_none(
         times=time_selector_of(output.time),
     )
     try:
-        served = adapter.extract_observables(run_ctx, None, [request], time_index=time_index)
+        served = adapter.observables(run_ctx.solver_run, [request], time_index=time_index)
     except ObservableNotAvailableError as exc:
         logger.info("Output %s: no saturated thickness from this backend (%s).", name, exc)
         return None
@@ -1131,7 +1134,7 @@ def extract_outputs(
     # scored against a loaded record has to align on those timestamps, and the
     # ones scored positionally read the values and ignore the index.
     time_index = resolve_time_index(ctx, n_timesteps=0)
-    results = adapter.extract_observables(run_ctx, None, requests, time_index=time_index)
+    results = adapter.observables(run_ctx.solver_run, requests, time_index=time_index)
 
     observables: dict[str, ObservableResult] = {}
     simulated: dict[str, list[float]] = {}
@@ -1219,7 +1222,7 @@ def catchment_area_the_discharge_sums(run_ctx: RunContext, ctx: Any) -> float | 
     warning for a model that builds D and lost its basin, an info line for one
     that builds no D at all.
     """
-    model = run_ctx.model
+    model = run_ctx.solver_run.solver_model
     basin = getattr(model, "descent_basin", None)
     if basin is not None and basin.is_catchment:
         return float(basin.area_m2)
@@ -1455,7 +1458,7 @@ def find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | N
     locate = getattr(adapter, "locate_cell", None)
     if locate is None:
         return None
-    return locate(run_ctx, x, y)
+    return locate(run_ctx.solver_run, x, y)
 
 
 __all__ = [

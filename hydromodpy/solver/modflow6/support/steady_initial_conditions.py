@@ -15,6 +15,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.model.initial.heads import cycles_have_settled
 from hydromodpy.model.initial.state import CyclicStart, SolvedState
 from hydromodpy.model.model import cycle_variant, steady_variant
+from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow_common import ModflowRunOptions
 
@@ -24,6 +25,36 @@ _STEADY_INIT_DVCLOSE_MIN = 1e-3
 _STEADY_INIT_MAXIMUM_MIN = 1000
 _STEADY_INIT_PERCENT_DISCREPANCY_TOL = 0.1
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
+
+STEADY_FOLDER = "_ssic"
+"""The folder of the auxiliary steady solve, inside the folder of the run."""
+
+CYCLE_FOLDER_PREFIX = "_cyc"
+"""The folder of spin-up cycle ``n`` is ``_cyc<n>``, inside the folder of the run."""
+
+
+def is_auxiliary_folder(name: str) -> bool:
+    """Whether a folder of the run holds an auxiliary model, the steady solve or a cycle."""
+    if name == STEADY_FOLDER:
+        return True
+    suffix = name.removeprefix(CYCLE_FOLDER_PREFIX)
+    return suffix != name and suffix.isdigit()
+
+
+def auxiliary_slot(model: object, folder: Path, name: str) -> RunSlot:
+    """The slot of an auxiliary model, derived from the slot of the run.
+
+    The auxiliary model solves in ``folder / name``, with the binaries and the
+    shared forcing folder of the run, so it reads the same recharge files and
+    runs the same executable. A run built without a slot gives neither.
+    """
+    slot = getattr(model, "slot", None)
+    return RunSlot(
+        folder=folder,
+        name=name,
+        bin_dir=None if slot is None else slot.bin_dir,
+        shared_forcing_dir=None if slot is None else slot.shared_forcing_dir,
+    )
 
 
 def _modflow_config_for_steady_initialization(model: object) -> object:
@@ -140,20 +171,17 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     """
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
     # nested paths when writing DISV binary grid files.
-    init_root = Path(str(model.full_path)) / "_ssic"
-    init_name = "ssic"
+    slot = auxiliary_slot(model, Path(str(model.full_path)) / STEADY_FOLDER, "ssic")
     steady_inputs = steady_variant(model.inputs)
     steady_model = model.__class__(
         modflow_config=_modflow_config_for_steady_initialization(model),
-        model_folder=str(init_root),
-        model_name=init_name,
+        model_folder=str(slot.folder),
+        model_name=slot.name,
+        bin_path=slot.bin_dir,
         preprocess_options=replace(model.preprocess_options, time_grid=steady_inputs.time.grid),
     )
     steady_model.auxiliary = True
-    steady_model.pre_processing(
-        steady_inputs,
-        flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
-    )
+    steady_model.pre_processing(steady_inputs, slot=slot)
     # Auxiliary single-period solve: keep it out of the live display.
     with progress.suppressed():
         success = steady_model.processing(
@@ -229,21 +257,20 @@ def _run_one_spinup_cycle(
     model: object, *, cycle: int, seed: np.ndarray | None, verbose: bool
 ) -> np.ndarray:
     """Run one cycle over the run's own period and return the heads it ended on."""
-    init_root = Path(str(model.full_path)) / f"_cyc{cycle}"
-    init_name = f"cyc{cycle}"
+    slot = auxiliary_slot(
+        model, Path(str(model.full_path)) / f"{CYCLE_FOLDER_PREFIX}{cycle}", f"cyc{cycle}"
+    )
     # The cycle starts where the previous one ended, set as it is in the IC package.
     start = None if seed is None else SolvedState(head=seed, solver="modflow6")
     cycle_model = model.__class__(
         modflow_config=_modflow_config_for_steady_initialization(model),
-        model_folder=str(init_root),
-        model_name=init_name,
+        model_folder=str(slot.folder),
+        model_name=slot.name,
+        bin_path=slot.bin_dir,
         preprocess_options=model.preprocess_options,
     )
     cycle_model.auxiliary = True
-    cycle_model.pre_processing(
-        cycle_variant(model.inputs, start),
-        flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
-    )
+    cycle_model.pre_processing(cycle_variant(model.inputs, start), slot=slot)
     with progress.suppressed():
         success = cycle_model.processing(
             ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
@@ -275,7 +302,11 @@ def apply_modflow6_steady_state_initial_heads(model: object, head_m: np.ndarray)
 
 
 __all__ = [
+    "CYCLE_FOLDER_PREFIX",
+    "STEADY_FOLDER",
     "apply_modflow6_cyclic_spinup_heads",
+    "auxiliary_slot",
+    "is_auxiliary_folder",
     "apply_modflow6_steady_state_initial_heads",
     "run_modflow6_cyclic_spinup",
     "run_modflow6_steady_state_initialization",

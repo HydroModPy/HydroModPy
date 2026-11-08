@@ -131,28 +131,59 @@ def test_short_recharge_stays_internal(tmp_path: Path) -> None:
     assert not shared.exists()
 
 
-def test_shared_recharge_dir_detects_a_trial_anywhere_in_the_path() -> None:
+def _recharge_files_of(model: object, root: Path) -> set[Path]:
+    """The folders the RCHA file of ``model`` names, per-model names read under ``root``."""
+    from hydromodpy.solver.modflow6.build import _shared_forcing_dir
+
+    spec = externalize_recharge_spd(_spd(), basename="m", shared_dir=_shared_forcing_dir(model))
+    return {(root / record["filename"]).parent for record in spec.values()}
+
+
+def _slot_model(folder: Path, name: str, shared: object) -> object:
     from types import SimpleNamespace
 
-    from hydromodpy.solver.modflow6.build import _shared_recharge_dir
+    from hydromodpy.solver.base.plan import RunSlot
 
-    # ``full_path`` is an os.path.join of the local scratch tree, and the result only
-    # feeds a local mkdir plus the OPEN/CLOSE line of the same run's MF6 input: it is
-    # an OS-native path, never a persisted cross-platform record.
-    scratch = os.path.join(os.sep, "p", ".hmp", "scratch")
-    shared = os.path.join(scratch, "_shared_recharge")
+    return SimpleNamespace(slot=RunSlot(folder, name, shared_forcing_dir=shared))
 
-    # The trial folder can be the leaf, or a parent of a truncated mf6 model name;
-    # either way the shared dir sits beside the trial folder.
-    nested = SimpleNamespace(full_path=os.path.join(scratch, "run_trial000016", "cheze_cal_377f4b"))
-    leaf = SimpleNamespace(full_path=os.path.join(scratch, "run_trial000001"))
-    single = SimpleNamespace(full_path=os.path.join(scratch, "plain_run"))
-    assert _shared_recharge_dir(nested) == shared
-    assert _shared_recharge_dir(leaf) == shared
-    assert _shared_recharge_dir(single) is None
-    assert _shared_recharge_dir(SimpleNamespace(full_path=None)) is None
 
-    # A workspace root read from a TOML may be spelled with forward slashes, so
-    # ``full_path`` reaches the walk with mixed separators on Windows.
-    mixed = SimpleNamespace(full_path="/p/.hmp/scratch/run_trial000016/cheze_cal_377f4b")
-    assert _shared_recharge_dir(mixed) == shared
+SLOT_CASES = (
+    ("a trial of a session reads the shared folder", "run_trial000016", "_shared_recharge"),
+    (
+        "a trial that owns its recharge reads its own folder",
+        "run_trial000001",
+        "run_trial000001/_recharge",
+    ),
+    ("a single run keeps the binaries beside its model", "plain_run", None),
+    ("a model without a slot keeps them beside it too", None, None),
+    ("a folder written with forward slashes", "run_trial000016", "posix:_shared_recharge"),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "name", "shared"), SLOT_CASES, ids=[case for case, _, _ in SLOT_CASES]
+)
+def test_the_recharge_binaries_sit_in_the_folder_the_slot_names(
+    tmp_path: Path, case: str, name: str | None, shared: str | None
+) -> None:
+    """The ``OPEN/CLOSE`` paths of RCHA sit under ``shared_forcing_dir``, else beside the model.
+
+    The slot is the only source: the build never reads its own path to guess a
+    trial. A folder read from a TOML may be spelled with forward slashes, and
+    the path handed to the local filesystem stays OS-native.
+    """
+    from types import SimpleNamespace
+
+    del case
+    scratch = tmp_path / "scratch"
+    model_dir = scratch / (name or "plain_run")
+    if shared is None:
+        folder = None
+    elif shared.startswith("posix:"):
+        folder = (scratch / shared.removeprefix("posix:")).as_posix()
+    else:
+        folder = scratch / shared
+    model = SimpleNamespace() if name is None else _slot_model(scratch, name, folder)
+
+    expected = model_dir if folder is None else Path(os.path.normpath(folder))
+    assert _recharge_files_of(model, model_dir) == {expected}

@@ -18,8 +18,35 @@ from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.storage.kept import Retention
+    from hydromodpy.solver.base.plan import SimulationPlan
 
 logger = get_logger(__name__)
+
+
+def retention_of(ctx: WorkflowContext, plan: SimulationPlan) -> Retention:
+    """Return what the run keeps of its solver outputs, from its ``[simulation.results]``.
+
+    The per-cell budget the plan keeps is ``ctx.budget_terms``, set by the
+    prepare-solver step or read back from the store on a resume. A run that
+    reaches here without it has it computed from the plan, as the planning does.
+    """
+    from hydromodpy.results.storage.kept import Retention
+    from hydromodpy.workflow.steps.planning import step_configure_results
+
+    results_cfg = ctx.cfg.simulation.results
+    if ctx.budget_terms is None:
+        ctx.budget_terms = step_configure_results(
+            results_cfg,
+            plan,
+            ctx.cfg.display,
+            display_active=True,
+            export_requests=ctx.cfg.export,
+            calibration=ctx.cfg.calibration,
+            observation=ctx.cfg.observation,
+            lightweight=ctx.execution.lightweight,
+        )
+    return Retention.of(results_cfg, ctx.budget_terms)
 
 
 # ---------------------------------------------------------------------------
@@ -112,28 +139,13 @@ class ExtractStep:
             )
 
         from hydromodpy.solver.base.plan import RunContext
-        from hydromodpy.workflow.steps.planning import step_configure_results
         from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
 
         plan = ctx.execution.simulation_plan
         if plan is None:
             raise ConfigError("ExtractStep requires execution.simulation_plan to be set")
 
-        results_cfg = ctx.cfg.simulation.results
-        budget_terms = ctx.budget_terms
-        if budget_terms is None:
-            budget_terms = step_configure_results(
-                results_cfg,
-                plan,
-                ctx.cfg.display,
-                display_active=True,
-                export_requests=ctx.cfg.export,
-                calibration=ctx.cfg.calibration,
-                observation=ctx.cfg.observation,
-                lightweight=ctx.execution.lightweight,
-            )
-            ctx.budget_terms = budget_terms
-
+        retention = retention_of(ctx, plan)
         extracted = 0
         with run_store(ctx) as store:
             for run in plan.runs:
@@ -141,10 +153,8 @@ class ExtractStep:
                     continue
                 extract_run_outputs(
                     ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
-                    sim_id=ctx.sim_id,
-                    results_config=results_cfg,
                     store=store,
-                    budget_terms=budget_terms,
+                    retention=retention,
                 )
                 extracted += 1
             # Observation series (hydrometry, piezometry, ...) are part of the

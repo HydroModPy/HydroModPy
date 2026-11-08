@@ -20,11 +20,11 @@ Seven engines are declared: dense Newton (`local`), SciPy hybrid root (`scipy`),
 4. `assembly/` is the physics: fluxes, surface closure, residuals and the reconstruction of the boundary fluxes. `jacobian/` linearizes it, by finite differences or semi-analytically.
 5. `drivers/` run the steady solve and the transient time loop.
 6. `runtimes/` are the engines, see its README.
-7. `flow_to_boussinesq_adapter.py`, `property_mapping.py`, `smoothing.py`, `export_payload.py` and `calibration_extractors.py` connect the solver to the rest of HydroModPy. `adapters/` and `extractors/` are its registry entries.
+7. `flow_to_boussinesq_adapter.py`, `property_mapping.py`, `smoothing.py`, `export_payload.py` and `calibration_extractors.py` connect the solver to the rest of HydroModPy. `adapter.py` is its flow adapter, with `build`, `run`, `extract`, `cleanup` and `observables`, and `extractors/` holds the extractor it calls. `options.py` is `BoussinesqOptions`, the class of the table `[solver.boussinesq]`.
 
 ## What the solver reads
 
-The solver reads two objects. The frozen `Model` of the run gives the cell mesh and the domain (`geometry`), the K and Sy profiles and their per-cell overrides (`properties`), the boundaries, the recharge and the wells, the start state (`initial`), the regime and the time grid (`time`), and the drain bed thickness (`options`). The options of the nonlinear solve are the `FlowRuntimeConfig` of `[solver.boussinesq]`, which the adapter reads with `state.cfg.solver.options_of("boussinesq")`. The catchment outline and its CRS, which the discharge extraction reads, come from `Model.geometry.catchment`.
+The solver reads two objects. The frozen `Model` of the run gives the cell mesh and the domain (`geometry`), the K and Sy profiles and their per-cell overrides (`properties`), the boundaries, the recharge and the wells, the start state (`initial`), the regime and the time grid (`time`), and the drain bed thickness (`options`). The options of the nonlinear solve are the `BoussinesqOptions` of `[solver.boussinesq]`, which the runner reads with `options_of("boussinesq")` and hands to `build`. The option `exchange_mesh` names a mesh bundle that the adapter reads as the cell mesh. The bundle then carries the geometry, the conductivity and the storage of every cell and stands for `Model.geometry.cells` and for the properties of the `Model`, so a per-cell override of a property is refused. The validation cases use it. A relative path is read against the folder of the TOML. The catchment outline and its CRS, which the discharge extraction reads, come from `Model.geometry.catchment`.
 
 The solver never writes the `Model`. A `steady_state` start solves its steady problem on a second solver built over `steady_variant(model)`. That variant has one steady period, the mean recharge of the start strategy and a start at the top. The second solver shares the mesh and the head of the first one, and hands back the head state and the summary it reaches. With `backend = "petsc"` and `surface_interaction_model = "ts_vi_obstacle"`, PETSc integrates the closure in time, so the steady solve runs `regularized_partition` and the main solve keeps `ts_vi_obstacle`.
 
@@ -34,8 +34,8 @@ Its `supports` lists the side, stream, ocean and drainage boundaries, recharge, 
 
 ## What a transient run writes
 
-State histories (heads) are snapshots on `t0..tN`, flux histories are steps on `dt1..dtN`. The run writes `_boussinesq_state_history.npz` with the full snapshot history, `t0` included, and the extractor derives the water table fields from it. A comparison that needs `N` rows trims the first snapshot with the elapsed-time arrays of the payload.
+State histories (heads) are snapshots on `t0..tN`, flux histories are steps on `dt1..dtN`. The run writes `_boussinesq_state_history.npz` with the full snapshot history, `t0` included, and the extractor derives the water table fields from it. The extractor also writes the diagnostics of a variational inequality solve to `exports/solver_diagnostics/` of the run store. The run folder is `slot.directory`, named after the run like the folders of the MODFLOW backends. A comparison that needs `N` rows trims the first snapshot with the elapsed-time arrays of the payload.
 
 ## Import rules
 
-`boussinesq` imports `base` and the shared layers (`core`, `model`, `catchment`), never `modflow_common`, `modflow_grid`, `modflow6` or `modflow_nwt`.
+`boussinesq` imports `base` and the shared layers (`core`, `model`, `catchment`, `mesh` for the exchange mesh bundle, `results` for the `Retention` its extractor receives), never `modflow_common`, `modflow_grid`, `modflow6` or `modflow_nwt`.

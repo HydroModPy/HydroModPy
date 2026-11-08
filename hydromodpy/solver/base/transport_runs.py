@@ -1,26 +1,32 @@
 """Generic helpers shared by transport-family solver adapters.
 
 These functions only read plan types (``RunContext``, ``SimulationPlan``,
-``ProcessRun``) and therefore stay in ``solver/base/`` rather than leaking
-into a specific solver backend.
+``ProcessRun``, ``SolverRun``) and therefore stay in ``solver/base/`` rather
+than leaking into a specific solver backend.
 """
 
 from __future__ import annotations
 
+from hydromodpy.core.contracts.solver_model import SolverModel
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import solvers
 
 
-def required_flow_model(ctx: RunContext):
-    """Return the single flow dependency required by current transport adapters."""
+def required_flow_model(ctx: RunContext) -> SolverModel:
+    """Return the solver model of the single flow run a transport run follows.
 
-    if len(ctx.dependency_models) != 1:
-        raise ValueError(
+    It is the solver model of ``ctx.upstream[0]``, which the runner resolved
+    from ``depends_on``.
+    """
+
+    if len(ctx.upstream) != 1:
+        raise SolverInputError(
             f"Process run '{ctx.run.id}' expected exactly one flow dependency, "
-            f"got {len(ctx.dependency_models)}."
+            f"got {len(ctx.upstream)}.",
+            run_id=ctx.run.id,
         )
-    return ctx.dependency_models[0]
+    return ctx.upstream[0].solver_model
 
 
 def _produces_concentration(run: ProcessRun) -> bool:

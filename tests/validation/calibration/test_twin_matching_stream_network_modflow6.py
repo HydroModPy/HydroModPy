@@ -81,10 +81,10 @@ from validation_cases.shared.loaders import bundle_cell_centers
 
 NOT_APPLICABLE = {
     "boussinesq": (
-        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
     ),
     "boussinesq_local": (
-        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
     ),
 }
 

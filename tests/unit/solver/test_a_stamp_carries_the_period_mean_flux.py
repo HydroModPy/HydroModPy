@@ -19,7 +19,6 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.solver.modflow6.builders.solver_options import output_control_records
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
@@ -32,7 +31,9 @@ from hydromodpy.solver.modflow_common.period_steps import (
 )
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 from hydromodpy.solver.modflow_nwt.nwt._pre_processing import output_control_words
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.mf6_ground import leave_ground_beside
+from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 DAY_S = 86400.0
 NCOL = 6
@@ -43,6 +44,9 @@ TSMULT = (1.0, 1.0, 2.0)
 RECHARGE_M_D = (2.0e-3, 1.0e-2, 0.0)
 HDRY = -1.0e30
 HNOFLO = -999.99
+NWT_OPTIONS = ModflowConfig.model_validate(
+    {"runtime": {"upw": {"hdry": HDRY}, "bas": {"hnoflo": HNOFLO}}}
+)
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +103,8 @@ def test_observation_times_are_put_on_the_stamps_they_close() -> None:
 
 class _RecordingStore:
     """Keep every write an extractor asks for; refuse the geographic reads."""
+
+    sim_id = "sim"
 
     def __init__(self) -> None:
         self.time: np.ndarray | None = None
@@ -316,9 +322,7 @@ def test_mf6_stores_the_last_head_and_the_mean_flux_of_each_period(tmp_path: Pat
     stored = _run_mf6(tmp_path / "stored", oc=output_control_records(print_head=False))
     raw = _run_mf6(tmp_path / "raw", oc={"saverecord": [("HEAD", "ALL"), ("BUDGET", "ALL")]})
     store = _RecordingStore()
-    Modflow6OutputAdapter().extract(
-        "sim", stored, store, model_name="flow", budget_terms=BudgetKeep.everything()
-    )
+    Modflow6OutputAdapter().extract(solved_run(stored), store, keep_all)
 
     # One slice per stress period, stamped at its end.
     assert store.time is not None
@@ -380,9 +384,7 @@ def test_mf6_one_step_per_period_stores_what_it_always_stored(tmp_path: Path) ->
     stores = []
     for workspace in (before, after):
         store = _RecordingStore()
-        Modflow6OutputAdapter().extract(
-            "sim", workspace, store, model_name="flow", budget_terms=BudgetKeep.everything()
-        )
+        Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
         stores.append(store)
 
     assert stores[0].budgets == stores[1].budgets
@@ -406,15 +408,7 @@ def test_nwt_stores_one_slice_per_period_with_the_mean_flux(tmp_path: Path) -> N
 
     workspace = _run_nwt(tmp_path / "nwt")
     store = _RecordingStore()
-    ModflowNwtOutputAdapter().extract(
-        "sim",
-        workspace,
-        store,
-        hdry=HDRY,
-        hnoflo=HNOFLO,
-        model_name="flow",
-        budget_terms=BudgetKeep.everything(),
-    )
+    ModflowNwtOutputAdapter().extract(solved_run(workspace, options=NWT_OPTIONS), store, keep_all)
 
     # The OC saves every step (the particle tracking reads them); the store
     # keeps one slice per period.
@@ -486,10 +480,10 @@ def test_the_calibration_readers_and_both_backends_give_the_period_means(
     for name, workspace in (("mf6", mf6), ("nwt", nwt)):
         store = _RecordingStore()
         if name == "mf6":
-            Modflow6OutputAdapter().extract("sim", workspace, store, model_name="flow")
+            Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
         else:
             ModflowNwtOutputAdapter().extract(
-                "sim", workspace, store, hdry=HDRY, hnoflo=HNOFLO, model_name="flow"
+                solved_run(workspace, options=NWT_OPTIONS), store, keep_all
             )
         series = cal.extract_discharge_from_cbc(workspace, "flow", catchment_mask=mask)
         drain = _budget_rows(store, "drain")
@@ -671,7 +665,7 @@ def test_mf6_lake_series_take_the_period_mean_rate_and_the_end_stage(tmp_path: P
 
     workspace = _run_mf6_lake(tmp_path)
     store = _LakeStore()
-    Modflow6OutputAdapter().extract("sim", workspace, store, model_name="lake")
+    Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
     series = pd.DataFrame(store.timeseries)
 
     obs = pd.read_csv(workspace / "lake.lak.obs.csv")

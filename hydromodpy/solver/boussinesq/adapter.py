@@ -1,14 +1,14 @@
 """Adapter for the ``flow/boussinesq`` solver pair.
 
-This module contains only the Boussinesq-specific construction step. The
+This module holds the Boussinesq-specific steps of the adapter contract. The
 mesh-resolution helpers live in
 ``hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter`` so the adapter
-file stays symmetrical with the MODFLOW adapters.
+file stays symmetrical with the MODFLOW adapters. The files the solve writes are
+read back by ``extractors/flow.py``.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -28,11 +28,10 @@ from hydromodpy.core.exceptions import (
     ConfigError,
     ObservableNotAvailableError,
     SolverDivergedError,
-    SolverError,
 )
 from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
 from hydromodpy.model.domain.layers_config import LAYERS, asks_for_layers
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
     ObservableSupport,
@@ -40,26 +39,18 @@ from hydromodpy.solver.base.observables import (
     servable,
     unavailable,
 )
-from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,
     extract_head_history_at_cells,
 )
-from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import (
-    resolve_bundle_solver_mesh,
-    resolve_mesh_bundle,
-    resolve_runtime_solver_mesh,
-)
-from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
-    write_ts_vi_obstacle_diagnostic_files,
-)
-from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
-    write_vi_obstacle_diagnostic_files,
-)
+from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import resolve_solver_mesh
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 
 
-def _published_support(ctx: RunContext) -> np.ndarray | None:
+def _published_support(solver_run: SolverRun) -> np.ndarray | None:
     """Return the cells the run publishes its discharge on, ``None`` for the whole domain.
 
     A Boussinesq mesh takes in the buffer of the domain and builds no D, so the run
@@ -67,11 +58,11 @@ def _published_support(ctx: RunContext) -> np.ndarray | None:
     covers. A trial scores the same cells. Like the run, a domain with no polygon,
     no declared CRS or no cell inside the polygon stays the whole domain.
     """
-    geometry = getattr(getattr(ctx.state.setup, "model", None), "geometry", None)
+    geometry = getattr(solver_run.model, "geometry", None)
     catchment = getattr(geometry, "catchment", None)
     watershed = catchment_outline(catchment)
     crs = getattr(catchment, "crs", None)
-    cell_mesh = getattr(getattr(ctx.model, "mesh", None), "cell_mesh", None)
+    cell_mesh = getattr(getattr(solver_run.solver_model, "mesh", None), "cell_mesh", None)
     if watershed is None or crs is None or cell_mesh is None:
         return None
     mask = watershed_cell_mask(
@@ -146,16 +137,87 @@ class BoussinesqFlowAdapter:
             "wells",
         }
     )
-    options: ClassVar[type[BaseModel] | None] = FlowRuntimeConfig
+    options: ClassVar[type[BaseModel] | None] = BoussinesqOptions
     category: ClassVar[str] = "integrated"
     native_step: ClassVar[str | None] = None
     mutable: ClassVar[frozenset[str]] = frozenset()
     requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
-    def validate(self, ctx: RunContext) -> None:
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
         """No precondition checks for Boussinesq flow runs."""
 
-    def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
+    def build(
+        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+    ) -> SolverRun:
+        """Build the Boussinesq solver of ``model`` in memory, under ``slot``.
+
+        The layering is checked here: an assignment after the file was read, or a
+        rerun of a sealed run, does not pass the load check. The mesh is the one
+        of the ``exchange_mesh`` bundle when the options name one, else the one the
+        cell mesh, the domain and the profiles of the ``Model`` give. The solver
+        creates its folder, ``slot.directory``, and nothing is solved.
+        """
+        options = BoussinesqOptions() if options is None else options
+        layers = getattr(getattr(model.geometry.domain, "config", None), "layers", None)
+        if layers is not None and LAYERS not in self.supports and asks_for_layers(layers):
+            raise ConfigError(
+                f"solver.backend = {self.name!r} solves one layer over the whole aquifer, and "
+                f"[domain.layers] builds {layers.layer_count} layer(s) with genmtd_lay = "
+                f"{layers.genmtd_lay!r}, which it would ignore. Remove [domain.layers], or run "
+                "a flow solver that lists 'layers' in its supports."
+            )
+        solver_mesh, mesh_bundle = resolve_solver_mesh(model, options)
+        solver_mesh = replace(
+            solver_mesh, drain_bed_thickness_m=model.options.drain_bed_thickness_m
+        )
+        solver_model = Boussinesq(
+            mesh_bundle=mesh_bundle,
+            mesh=solver_mesh,
+            model=model,
+            runtime=options,
+            model_folder=slot.folder,
+            model_name=slot.name,
+        )
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Solve the built run in process and return the solved run.
+
+        The solver writes the state history and the summary that the extractor
+        reads into its folder. It has no input file to write, so ``input_files``
+        stays empty. A solve that fails raises ``SolverDivergedError`` naming the
+        run by its slot.
+        """
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(write_model=not solver_run.written, run_model=True)
+        if not success:
+            raise SolverDivergedError(
+                f"[HMPY.E401] Flow solver 'boussinesq' failed for run '{solver_run.slot.name}'. "
+                f"See {solver_model.full_path} for diagnostics."
+            )
+        metrics: dict[str, float] = {}
+        flow_solve_time = getattr(solver_model, "last_flow_solve_time_seconds", None)
+        if flow_solve_time is not None:
+            metrics["flow_solve_time_seconds"] = float(flow_solve_time)
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
+            metrics={**solver_run.metrics, **metrics},
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the fields, tables and diagnostics of a solved run through its extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
+
+    def declared_observables(self, active: frozenset[str]) -> tuple[ObservableSupport, ...]:
         """Say what this run can serve, and why two things are out of reach.
 
         Boussinesq computes a saturation excess per cell, but its extraction does
@@ -164,7 +226,7 @@ class BoussinesqFlowAdapter:
         reach for another reason: this solver has no advanced-package concept to
         build them from.
         """
-        del config
+        del active  # nothing here depends on it: the answer is the backend's
         return (
             servable("head", "read at any cell from the solver output"),
             servable(
@@ -189,7 +251,7 @@ class BoussinesqFlowAdapter:
             ),
         )
 
-    def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
+    def locate_cell(self, solver_run: SolverRun, x: float, y: float) -> tuple[int, int, int] | None:
         """Return the cell that holds ``(x, y)`` on the mesh this run actually wrote.
 
         The selector is ``(0, 0, cell_id)``, the flat form the head extractor of
@@ -200,25 +262,18 @@ class BoussinesqFlowAdapter:
         """
         from hydromodpy.solver.base.cell_lookup import locate_cell_on_cell_mesh
 
-        mesh = getattr(ctx.model, "mesh", None)
+        mesh = getattr(solver_run.solver_model, "mesh", None)
         if getattr(mesh, "cell_mesh", None) is None:
             return None
         return locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
 
-    def top_active_layer(self, ctx: RunContext, row: int, col: int) -> int | None:
+    def top_active_layer(self, solver_run: SolverRun, row: int, col: int) -> int | None:
         """Return 0: this solver has one layer, so every column starts at layer 0."""
         return 0
 
-    def cleanup(self, ctx: RunContext) -> None:
-        """Remove the scratch directory written by this run, if any."""
-        solver_output_dir = ctx.output_dir
-        if solver_output_dir is not None:
-            cleanup_solver_files(solver_output_dir)
-
-    def extract_observables(
+    def observables(
         self,
-        ctx: RunContext,
-        store: Any,
+        solver_run: SolverRun,
         requests: Sequence[ObservableRequest],
         *,
         time_index: pd.DatetimeIndex | None = None,
@@ -232,14 +287,14 @@ class BoussinesqFlowAdapter:
         unstructured layer, so a ``(k, i, j)`` cell is read as ``cell_id = j``.
         Every head request is served in one pass over the history.
         """
-        del store
         if not requests:
             return {}
         require_unique_request_ids(requests)
-        output_dir = ctx.output_dir
-        if output_dir is None:
-            raise SolverError(f"No solver output recorded for run {ctx.run.id!r}")
-        output_dir = Path(output_dir)
+        if solver_run.output_dir is None:
+            raise ObservableNotAvailableError(
+                f"No solver output recorded for run {solver_run.slot.name!r}"
+            )
+        output_dir = Path(solver_run.output_dir)
 
         served: dict[str, ObservableResult] = {}
         head_requests = [r for r in requests if r.name == "head" and r.support == "cell"]
@@ -256,7 +311,7 @@ class BoussinesqFlowAdapter:
 
         if discharge_requests:
             series = extract_discharge_history(
-                output_dir, catchment_mask=_published_support(ctx), time_index=time_index
+                output_dir, catchment_mask=_published_support(solver_run), time_index=time_index
             )
             for request in discharge_requests:
                 served[request.id] = series_observable(request, series, units="m3 s-1")
@@ -276,99 +331,6 @@ class BoussinesqFlowAdapter:
                 served[request.id] = series_observable(request, series, units="m")
 
         return served
-
-    def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one Boussinesq flow run.
-
-        The layering is checked again here: an assignment after the file was
-        read, or a rerun of a sealed run, does not pass the load check.
-        """
-        state = ctx.state
-        inputs = state.setup.model
-        layers = getattr(getattr(inputs.geometry.domain, "config", None), "layers", None)
-        if layers is not None and LAYERS not in self.supports and asks_for_layers(layers):
-            raise ConfigError(
-                f"solver.backend = {self.name!r} solves one layer over the whole aquifer, and "
-                f"[domain.layers] builds {layers.layer_count} layer(s) with genmtd_lay = "
-                f"{layers.genmtd_lay!r}, which it would ignore. Remove [domain.layers], or run "
-                "a flow solver that lists 'layers' in its supports."
-            )
-        mesh_bundle = None
-        try:
-            solver_mesh = resolve_runtime_solver_mesh(
-                inputs, mesh_summary=getattr(state.setup, "mesh_summary", None)
-            )
-        except ValueError:
-            mesh_summary = getattr(state.setup, "mesh_summary", None)
-            bundle_dir = (
-                str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
-                if isinstance(mesh_summary, dict)
-                else ""
-            )
-            if getattr(state.setup, "mesh_bundle", None) is None and bundle_dir == "":
-                raise
-            solver_mesh = None
-        if solver_mesh is None:
-            mesh_bundle = resolve_mesh_bundle(state.setup)
-            solver_mesh = resolve_bundle_solver_mesh(inputs, bundle=mesh_bundle)
-        solver_mesh = replace(
-            solver_mesh, drain_bed_thickness_m=inputs.options.drain_bed_thickness_m
-        )
-        workspace = getattr(state.setup, "workspace", None)
-        model_folder = (
-            Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()
-        )
-
-        model = Boussinesq(
-            mesh_bundle=mesh_bundle,
-            mesh=solver_mesh,
-            model=inputs,
-            runtime=state.cfg.solver.options_of(self.name),
-            model_folder=model_folder,
-            model_name=ctx.run.id.replace("::", "__"),
-        )
-        model.pre_processing()
-        success = model.processing(write_model=True, run_model=True)
-        if not success:
-            raise SolverDivergedError(
-                f"[HMPY.E401] Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics.",
-                run_id=ctx.run.id,
-            )
-        self._persist_obstacle_diagnostics(ctx, model)
-
-        metrics: dict[str, float] = {}
-        flow_solve_time = getattr(model, "last_flow_solve_time_seconds", None)
-        if flow_solve_time is not None:
-            metrics["flow_solve_time_seconds"] = float(flow_solve_time)
-        return RunExecutionResult(
-            primary_model=model,
-            solver_output_dir=Path(model.full_path) if hasattr(model, "full_path") else None,
-            metrics=metrics,
-        )
-
-    @staticmethod
-    def _persist_obstacle_diagnostics(ctx: RunContext, model: Boussinesq) -> None:
-        """Write the VI runtime diagnostics into the run directory.
-
-        They land in ``exports/solver_diagnostics/`` of the run (the
-        ``solver_diagnostics_dir`` of its store), not in the scratch, which
-        the seal of a completed run removes. A run without a store writes
-        none.
-        """
-        diagnostics_dir = getattr(ctx.store, "solver_diagnostics_dir", None)
-        if diagnostics_dir is None or not hasattr(model, "full_path"):
-            return
-        summary_path = Path(model.full_path) / "_boussinesq_summary.json"
-        if not summary_path.exists():
-            return
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return
-        diagnostics_dir = Path(diagnostics_dir)
-        write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
-        write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 
 
 __all__ = ["BoussinesqFlowAdapter"]

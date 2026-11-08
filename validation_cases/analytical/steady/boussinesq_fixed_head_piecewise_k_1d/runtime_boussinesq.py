@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
@@ -96,7 +92,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             _build_flow_config(
                 boussinesq_variant_flow_section(
@@ -122,25 +118,10 @@ def run_boussinesq_fixed_head_piecewise_k_case(
             case_dir=Path(__file__).resolve().parent,
             config_name=boussinesq_variant_config_name(public_solver_label),
         ),
+        plan_name="Boussinesq fixed-head validation",
+        plan_description="Steady piecewise-K fixed-head strip",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq fixed-head validation",
-            description="Steady piecewise-K fixed-head strip",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = _aggregate_triangle_history_to_structured_fields(model)
 
     model_ws = Path(model.full_path)

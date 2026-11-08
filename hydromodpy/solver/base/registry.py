@@ -29,6 +29,7 @@ from hydromodpy.solver.base.adapter_protocol import (
     CATEGORIES,
     GEOMETRIES,
     NULLABLE_ATTRIBUTES,
+    extractor_members,
     solver_members,
 )
 
@@ -39,9 +40,9 @@ EXTRACTOR_ENTRY_POINT_GROUP = "hydromodpy.solver.extractor"
 """The out-of-tree extractors. One entry point per backend, named like its adapter."""
 
 _BUILTIN_PATHS: dict[str, str] = {
-    "flow_modflow_nwt": "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
-    "flow_modflow6": "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter",
-    "flow_boussinesq": "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter",
+    "flow_modflow_nwt": "hydromodpy.solver.modflow_nwt.adapter:ModflowNwtFlowAdapter",
+    "flow_modflow6": "hydromodpy.solver.modflow6.adapter:Modflow6FlowAdapter",
+    "flow_boussinesq": "hydromodpy.solver.boussinesq.adapter:BoussinesqFlowAdapter",
     "transport_modpath": "hydromodpy.solver.modflow_nwt.adapters.transport_modpath:ModpathTransportAdapter",
     "transport_mt3dms": "hydromodpy.solver.modflow_nwt.adapters.transport_mt3dms:Mt3dmsTransportAdapter",
     "transport_modflow6": "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
@@ -138,7 +139,7 @@ extractors = PluginRegistry(
     id_attributes=("process_type", "solver_name"),
     group=EXTRACTOR_ENTRY_POINT_GROUP,
     builtin_paths=_BUILTIN_EXTRACTOR_PATHS,
-    members=lambda: ("extract",),
+    members=extractor_members,
     error=SolverInputError,
 )
 """The output extractors, keyed like the adapter whose run they read."""

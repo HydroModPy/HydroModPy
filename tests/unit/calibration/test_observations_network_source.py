@@ -513,8 +513,8 @@ class _ReleaseAdapter:
     def __init__(self, threshold: float) -> None:
         self.threshold = threshold
 
-    def extract_observables(self, ctx, store, requests, *, time_index=None):
-        del ctx, store, time_index
+    def observables(self, ctx, requests, *, time_index=None):
+        del ctx, time_index
         pattern = simulated_network(build_bench(), self.threshold)
         return {
             request.id: adapter_result(request.id, np.where(pattern, 1e-06, 0.0), "m3 s-1")
@@ -567,7 +567,9 @@ class TestTheRasterizationReachesTheTrial:
         assert seen["rasterization"] == "touch"
         assert projection.rasterization == "touch"
         centres = np.asarray(seen["cell_centres"])
-        np.testing.assert_array_equal(centres, run_ctx.model.solver_mesh.cell_centers())
+        np.testing.assert_array_equal(
+            centres, run_ctx.solver_run.solver_model.solver_mesh.cell_centers()
+        )
 
     def test_the_default_rule_is_heads(self) -> None:
         assert _network_output(map={"complete": "map.gpkg"}).map.drawn_by == "heads"

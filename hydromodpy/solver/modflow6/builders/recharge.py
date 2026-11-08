@@ -47,12 +47,6 @@ def _warn_fixed_extinction_depth(evt_depth: float) -> None:
     warnings.warn(message, RuntimeWarning, stacklevel=3)
 
 
-# Trial sandbox override: a phase that samples a recharge parameter writes its
-# recharge into its own folder instead of the calibration-wide shared one
-# (calibration.runners.trial._trial_owns_its_recharge).
-PRIVATE_TRIAL_RECHARGE_KEY: str = "trial_owns_its_recharge"
-TRIAL_RECHARGE_DIRNAME: str = "_recharge"
-
 ETP_IGNORED_OUTSIDE_SOIL_MODE = (
     "[flow.sinks_sources.etp] is declared, and MODFLOW 6 draws no ETP from the water "
     "table outside soil mode: the loaded ETP is ignored, as before. Declare "
@@ -986,8 +980,6 @@ def evt_list_spd_to_array_payload(
 
 __all__ = [
     "ETP_IGNORED_OUTSIDE_SOIL_MODE",
-    "PRIVATE_TRIAL_RECHARGE_KEY",
-    "TRIAL_RECHARGE_DIRNAME",
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",

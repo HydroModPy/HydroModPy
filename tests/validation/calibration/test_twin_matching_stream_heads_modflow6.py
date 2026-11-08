@@ -83,10 +83,10 @@ from tests.validation.helpers import assert_metric_below
 
 NOT_APPLICABLE = {
     "boussinesq": (
-        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
+        "The Boussinesq adapter declares release_flux unavailable: observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
     ),
     "boussinesq_local": (
-        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
+        "The Boussinesq adapter declares release_flux unavailable: observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
     ),
     "modflow6_irregular_tri": (
         "On triangles the network is not the one cell wide network this twin draws. With XT3D and Newton, MODFLOW 6 cycles by 3 cm on one border cell for 1000 outer iterations. With XT3D alone, K lands 167 per cent off on triangles. Without XT3D, K lands 5.5 per cent off."

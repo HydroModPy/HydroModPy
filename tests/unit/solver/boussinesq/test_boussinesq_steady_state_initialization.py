@@ -18,10 +18,10 @@ import pytest
 
 from hydromodpy.model.initial.state import HeadRule, SteadyStart, SteadyStateStrategy
 from hydromodpy.model.model import ModelTime
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import steady as steady_driver
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.model_factory import make_model
 
@@ -52,7 +52,7 @@ def _transient_model(**members: object):
     return make_model(**{**parts, **members})
 
 
-def _solver(tmp_path: Path, model, runtime: FlowRuntimeConfig, *, name: str = "init") -> Boussinesq:
+def _solver(tmp_path: Path, model, runtime: BoussinesqOptions, *, name: str = "init") -> Boussinesq:
     solver = Boussinesq(
         mesh_bundle=None,
         mesh=row_mesh(),
@@ -96,7 +96,7 @@ def spy(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     return calls
 
 
-PETSC_TS = FlowRuntimeConfig(backend="petsc", surface_interaction_model="ts_vi_obstacle")
+PETSC_TS = BoussinesqOptions(backend="petsc", surface_interaction_model="ts_vi_obstacle")
 
 
 def test_the_petsc_ts_vi_obstacle_start_solves_the_regularized_partition_steady_problem(
@@ -152,7 +152,7 @@ OTHER_CLOSURES = (
 def test_every_other_start_keeps_the_closure_it_asks_for(
     tmp_path: Path, spy: list[dict], backend: str, closure: str
 ) -> None:
-    runtime = FlowRuntimeConfig(backend=backend, surface_interaction_model=closure)
+    runtime = BoussinesqOptions(backend=backend, surface_interaction_model=closure)
 
     _solver(tmp_path, _transient_model(), runtime)._run_steady_state_initialization()
 
@@ -160,7 +160,7 @@ def test_every_other_start_keeps_the_closure_it_asks_for(
 
 
 def test_the_solve_hands_back_its_state_and_its_summary(tmp_path: Path, spy: list[dict]) -> None:
-    solver = _solver(tmp_path, _transient_model(), FlowRuntimeConfig())
+    solver = _solver(tmp_path, _transient_model(), BoussinesqOptions())
     solver.runtime_summary["n_cells"] = N_CELLS
 
     solver._run_steady_state_initialization()
@@ -182,7 +182,7 @@ def test_the_solve_starts_from_the_state_of_the_main_solver(
         return True
 
     monkeypatch.setattr(Boussinesq, "_run_steady_runtime", record)
-    solver = _solver(tmp_path, _transient_model(), FlowRuntimeConfig())
+    solver = _solver(tmp_path, _transient_model(), BoussinesqOptions())
 
     solver._run_steady_state_initialization()
 
@@ -197,7 +197,7 @@ def test_a_prescribed_rate_reaches_the_solve_on_every_period_and_not_the_model(
     rate = 3.0e-9
     strategy = SteadyStateStrategy("prescribed", None, "first_period", rate)
     model = _transient_model(initial=SteadyStart(strategy))
-    solver = _solver(tmp_path, model, FlowRuntimeConfig())
+    solver = _solver(tmp_path, model, BoussinesqOptions())
 
     solver._run_steady_state_initialization()
 
@@ -211,7 +211,7 @@ def test_a_failed_steady_solve_is_reported_and_leaves_the_model(
 ) -> None:
     monkeypatch.setattr(Boussinesq, "_run_steady_runtime", lambda self: False)
     model = _transient_model()
-    solver = _solver(tmp_path, model, FlowRuntimeConfig())
+    solver = _solver(tmp_path, model, BoussinesqOptions())
 
     assert solver._run_steady_state_initialization() is False
 
@@ -224,7 +224,7 @@ def test_the_steady_solve_equals_the_stationary_solve_of_the_same_forcing(
 ) -> None:
     """The auxiliary solve of a start is the steady solve of its forcing, from the top."""
     monkeypatch.setattr(steady_driver, "resolve_runtime_forcing_by_period", fixed_forcing((1e-8,)))
-    runtime = FlowRuntimeConfig(backend="local", tol_residual_inf=1.0e-12)
+    runtime = BoussinesqOptions(backend="local", tol_residual_inf=1.0e-12)
     model = _transient_model()
     solver = _solver(tmp_path, model, runtime)
     before = repr(model)

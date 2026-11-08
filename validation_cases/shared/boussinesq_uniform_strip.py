@@ -10,17 +10,14 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.time.regime import normalize_flow_regime
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -466,7 +463,7 @@ def run_boussinesq_uniform_strip_case(
         flow_regime=normalized_regime,
     )
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             build_flow_config(
                 effective_flow_section,
@@ -484,25 +481,10 @@ def run_boussinesq_uniform_strip_case(
             config_name=boussinesq_variant_config_name(public_solver_label),
             written=boussinesq_settings,
         ),
+        plan_name=plan_name,
+        plan_description=plan_description,
     )
-    run = ProcessRun(
-        id=f"{process_id}::boussinesq",
-        process_id=process_id,
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name=plan_name,
-            description=plan_description,
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=int(nx),

@@ -204,8 +204,10 @@ class ExportStep:
         if plan is not None and ctx.sim_id is not None:
             from hydromodpy.results.exporters.request import export_data_requests
             from hydromodpy.solver.base.plan import RunContext
+            from hydromodpy.workflow.steps.extract import retention_of
             from hydromodpy.workflow.steps.run_outputs import cleanup_solver_outputs
 
+            retention = retention_of(ctx, plan)
             with run_store(ctx) as store:
                 # The data requests read the fields of the run, not its seal.
                 exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
@@ -214,8 +216,7 @@ class ExportStep:
                         continue
                     cleanup_solver_outputs(
                         ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
-                        results_config=results_cfg,
-                        keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+                        retention=retention,
                     )
             _announce_exports(exported)
         step_cleanup_scratch(

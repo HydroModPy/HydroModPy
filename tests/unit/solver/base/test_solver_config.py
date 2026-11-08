@@ -14,8 +14,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import FrozenConfigError
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig, backend_following_the_process
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.fake_solvers import fake_adapter
@@ -89,7 +89,7 @@ def test_a_name_or_a_table_nothing_serves_is_refused_at_its_key(
 TABLES = (
     ("modflow6", Modflow6Config, {"process_specific": {"vka": 2.0}}),
     ("modflow_nwt", ModflowConfig, {"runtime": {}}),
-    ("boussinesq", FlowRuntimeConfig, {"backend": "local"}),
+    ("boussinesq", BoussinesqOptions, {"backend": "local"}),
 )
 
 
@@ -201,7 +201,7 @@ def test_a_new_backend_by_assignment_holds_its_table() -> None:
 
 def test_named_tables_lists_the_shipped_solvers_that_declare_settings() -> None:
     assert SolverConfig.named_tables(shipped_only=True) == {
-        "boussinesq": FlowRuntimeConfig,
+        "boussinesq": BoussinesqOptions,
         "modflow6": Modflow6Config,
         "modflow_nwt": ModflowConfig,
     }

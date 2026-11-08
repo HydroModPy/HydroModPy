@@ -9,19 +9,19 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.initial.state import HeadRule, SteadyStart
-from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.results.storage.run_store import SOLVER_DIAGNOSTICS_DIRNAME
-from hydromodpy.solver.boussinesq.adapters import flow as flow_adapter
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers.transient import (
     _resolve_period_lengths_seconds,
 )
 from hydromodpy.solver.boussinesq.export_payload import build_state_history_export_payload
+from hydromodpy.solver.boussinesq.extractors import flow as flow_extractor
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.jacobian.common import (
     drainage_diagonal_derivative,
 )
+from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.runtimes.vi_bounds import variable_bounds
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
@@ -114,18 +114,18 @@ def test_every_timestep_gets_one_row_per_component() -> None:
 
 # The VI diagnostics of a Boussinesq run land in ``<run>/exports/solver_diagnostics/``.
 #
-# They used to be written beside the solver files, in the scratch the seal of a
-# completed run removes. They now go to the run directory; a run without a store
-# writes none.
+# They are not written beside the solver files, in the scratch the seal of a
+# completed run removes. The extractor writes them to the run directory; a run
+# without a store writes none.
 
 
-def _model(tmp_path: Path) -> SimpleNamespace:
+def _solver_dir(tmp_path: Path) -> Path:
     solver_dir = tmp_path / "scratch" / "solver"
     solver_dir.mkdir(parents=True)
     (solver_dir / "_boussinesq_summary.json").write_text(
         json.dumps({"runtime_engine": "petsc"}), encoding="utf-8"
     )
-    return SimpleNamespace(full_path=str(solver_dir))
+    return solver_dir
 
 
 def test_the_diagnostics_are_written_into_the_exports_of_the_run(
@@ -133,17 +133,15 @@ def test_the_diagnostics_are_written_into_the_exports_of_the_run(
 ) -> None:
     written: list[Path] = []
     monkeypatch.setattr(
-        flow_adapter, "write_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
+        flow_extractor, "write_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
     )
     monkeypatch.setattr(
-        flow_adapter, "write_ts_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
+        flow_extractor, "write_ts_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
     )
     run_dir = tmp_path / "runs" / "nancon"
     store = SimpleNamespace(solver_diagnostics_dir=run_dir / "exports" / SOLVER_DIAGNOSTICS_DIRNAME)
 
-    flow_adapter.BoussinesqFlowAdapter._persist_obstacle_diagnostics(
-        SimpleNamespace(store=store), _model(tmp_path)
-    )
+    flow_extractor.write_obstacle_diagnostics(_solver_dir(tmp_path), store)
 
     assert written == [run_dir / "exports" / "solver_diagnostics"] * 2
 
@@ -153,15 +151,31 @@ def test_a_run_without_a_store_writes_no_diagnostics(
 ) -> None:
     written: list[Path] = []
     monkeypatch.setattr(
-        flow_adapter, "write_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
+        flow_extractor, "write_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
     )
 
-    flow_adapter.BoussinesqFlowAdapter._persist_obstacle_diagnostics(
-        SimpleNamespace(store=None), _model(tmp_path)
-    )
+    flow_extractor.write_obstacle_diagnostics(_solver_dir(tmp_path), None)
 
     assert written == []
     assert not (tmp_path / "scratch" / "solver" / "solver_diagnostics").exists()
+
+
+def test_a_scratch_without_a_readable_summary_writes_no_diagnostics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    written: list[Path] = []
+    monkeypatch.setattr(
+        flow_extractor, "write_vi_obstacle_diagnostic_files", lambda d, s: written.append(d)
+    )
+    store = SimpleNamespace(solver_diagnostics_dir=tmp_path / "exports" / "solver_diagnostics")
+    solver_dir = _solver_dir(tmp_path)
+
+    (solver_dir / "_boussinesq_summary.json").write_text("{invalid", encoding="utf-8")
+    flow_extractor.write_obstacle_diagnostics(solver_dir, store)
+    (solver_dir / "_boussinesq_summary.json").unlink()
+    flow_extractor.write_obstacle_diagnostics(solver_dir, store)
+
+    assert written == []
 
 
 def test_the_store_names_the_folder_under_the_exports_of_the_run(tmp_path: Path) -> None:
@@ -226,7 +240,7 @@ def test_boussinesq_initial_state_records_head_bounds_summary(tmp_path) -> None:
         mesh_bundle=None,
         mesh=mesh,
         model=make_model(initial=HeadRule("custom", 6.0)),
-        runtime=FlowRuntimeConfig(),
+        runtime=BoussinesqOptions(),
         model_folder=tmp_path,
         model_name="bounds_summary",
     )

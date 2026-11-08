@@ -5,10 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.runtime_boussinesq import (
     EAST_HEAD_M,
     NX,
@@ -21,9 +18,9 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    boussinesq_run_state,
     boussinesq_variant_flow_section,
     boussinesq_variant_options,
+    solve_boussinesq_bundle,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -55,7 +52,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(86400.0 * DT_DAYS for _ in range(NPER))
 
-    state = boussinesq_run_state(
+    solved = solve_boussinesq_bundle(
         flow=Flow(
             _build_flow_config(
                 boussinesq_variant_flow_section(
@@ -87,25 +84,10 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
             flow_regime="transient",
             solver=public_solver_label,
         ),
+        plan_name="Boussinesq hillslope recharge-step interception validation",
+        plan_description="Transient recharge-step hillslope with seepage onset",
     )
-    run = ProcessRun(
-        id="flow_validation::boussinesq",
-        process_id="flow_validation",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(
-            name="Boussinesq hillslope recharge-step interception validation",
-            description="Transient recharge-step hillslope with seepage onset",
-            runs=(run,),
-        ),
-        run=run,
-        state=state,
-    )
-
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    model = solved.solver_model
     field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=NX,

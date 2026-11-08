@@ -52,10 +52,29 @@ package "hydromodpy.solver.base" {
     +plan
     +run
     +state: RunState
-    +dependency_models
+    +upstream: tuple[SolverRun]
     +store
+    +solver_run: SolverRun
+  }
+
+  class RunSlot {
+    +folder
+    +name
+    +stop_before_solve
+    +bin_dir
+    +shared_forcing_dir
+  }
+
+  class SolverRun {
+    +slot: RunSlot
     +model
+    +options
+    +solver_model
     +output_dir
+    +input_files
+    +written
+    +solved
+    +metrics
   }
 }
 
@@ -70,10 +89,14 @@ package "hydromodpy.solver" {
     +process_type
     +solver_name
     +requires
-    +validate(ctx)
-    +execute(ctx)
-    +cleanup(ctx)
-    +extract_observables(ctx, store, requests)
+    +mutable
+    +validate(model, options, slot)
+    +build(model, options, slot, ctx)
+    +run(solver_run)
+    +rerun(previous, model, slot)
+    +extract(solver_run, store, retention)
+    +cleanup(solver_run)
+    +observables(solver_run, requests)
   }
   class ModflowNwtFlowAdapter
   class Modflow6FlowAdapter
@@ -93,6 +116,8 @@ SimulationPlan *-- "0..*" ProcessRun : runs
 
 SimulationRunner ..> SimulationPlan : consumes ordered runs
 SimulationRunner ..> RunContext : builds one per run
+SimulationRunner ..> RunSlot : fills one per run
+SolverRun *-- RunSlot
 SimulationRunner ..> Flow : ensure_flow
 SimulationRunner ..> Transport : ensure_transport
 SimulationRunner ..> SolverAdapter : resolves from run.solver

@@ -17,6 +17,7 @@ import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.calibration.runners.session_scope import release_session_scratch
 from hydromodpy.catchment.preprocess import preprocessing_cleanup
 from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
@@ -360,6 +361,7 @@ def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg), export=requests),
         execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=()), lightweight=False),
         setup=SimpleNamespace(run_id="run-1", workspace=None),
+        budget_terms=BudgetKeep.everything(),
     )
 
 
@@ -389,6 +391,48 @@ def test_the_export_step_writes_the_data_requests_only(monkeypatch, tmp_path: Pa
     )
 
     assert seen == [requests]
+
+
+@pytest.mark.parametrize("keep", [False, True])
+def test_the_export_step_cleans_each_solver_run_under_the_retention_of_the_run(
+    monkeypatch, tmp_path: Path, keep: bool
+) -> None:
+    from hydromodpy.solver.base.plan import ProcessRun, RunSlot, SimulationPlan, SolverRun
+
+    mesh = ProcessRun(id="mesh::c", process_id="mesh", process_type="mesh", solver="c")
+    flow = ProcessRun(id="flow::m", process_id="flow", process_type="flow", solver="m")
+    solved = SolverRun(slot=RunSlot(tmp_path, "island"), output_dir=tmp_path / "island")
+    cleaned: list[tuple] = []
+
+    @contextmanager
+    def fake_store(_ctx):
+        yield SimpleNamespace()
+
+    monkeypatch.setattr(export_module, "run_store", fake_store)
+    monkeypatch.setattr(export_module, "step_cleanup_scratch", lambda *_a, **_k: None)
+    monkeypatch.setattr(export_module, "step_cleanup_preprocessing", lambda *_a, **_k: 0)
+    monkeypatch.setattr(export_module, "step_drop_empty_scratch", lambda *_a, **_k: None)
+    monkeypatch.setattr(request_module, "export_data_requests", lambda *_a: [])
+    monkeypatch.setattr(
+        post_run_module,
+        "cleanup_solver_outputs",
+        lambda *, ctx, retention: cleaned.append((ctx.run.id, ctx.solver_run, retention)),
+    )
+    ctx = _requests_ctx(tmp_path, [])
+    ctx.cfg.simulation.results.keep_solver_files = keep
+    ctx.execution = SimpleNamespace(
+        simulation_plan=SimulationPlan(name="run", description="run", runs=(mesh, flow)),
+        solver_runs={flow.id: solved},
+        lightweight=False,
+    )
+    ctx.budget_terms = BudgetKeep.of_terms(("drain",))
+
+    export_module.ExportStep().run(PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx}))
+
+    assert [(run_id, run) for run_id, run, _ in cleaned] == [(flow.id, solved)]
+    retention = cleaned[0][2]
+    assert retention.solver_files is keep
+    assert retention.budget == BudgetKeep.of_terms(("drain",))
 
 
 def test_the_views_are_written_after_the_seal_from_the_directory(tmp_path: Path, caplog) -> None:

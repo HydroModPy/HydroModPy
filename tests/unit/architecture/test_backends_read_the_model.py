@@ -1,4 +1,4 @@
-"""A flow backend reads the frozen ``Model``, never the setup objects it is built from.
+"""A flow backend reads the frozen ``Model``, its options and its slot, never the setup.
 
 The ``prepare_solver`` step builds one ``Model`` per run from the setup flow,
 the domain, the cell mesh, the delineation, the time grid and ``[solver]``.
@@ -10,6 +10,14 @@ folders this gate refuses a read of ``setup.flow``, ``setup.domain``,
 ``hydromodpy.model.flow``, and any write of an attribute or an item below an
 expression that ends in ``inputs``, the attribute a solver object keeps its
 ``Model`` in.
+
+A flow backend also reads nothing of the run around it: the runner hands it the
+folder, the name and the binaries in its ``RunSlot``, and its options. So the
+gate refuses a read of ``setup.workspace``, ``setup.run_id``,
+``setup.mesh_bundle``, ``setup.mesh_summary`` and ``setup.slot_request``, and of
+``ctx.state``, ``ctx.store`` and ``ctx.plan`` on a run context, everywhere but
+in the transport adapters, which read their setup until the transport port takes
+the ``Model``.
 
 A read through a local alias counts, ``setup = ctx.state.setup`` then
 ``setup.flow``, and so does ``getattr``. An exemption names its file, the reads
@@ -27,11 +35,43 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 SOLVER_FOLDERS = ("modflow6", "modflow_nwt", "boussinesq", "modflow_common", "modflow_grid")
 
-SETUP_MEMBERS = frozenset({"flow", "domain", "cell_mesh", "geographic", "time_grid"})
+RUN_SETUP_MEMBERS = frozenset(
+    {"workspace", "run_id", "mesh_bundle", "mesh_summary", "slot_request"}
+)
+"""What the runner hands a backend in its ``RunSlot``: forbidden to a flow, not yet to a transport."""
+
+SETUP_MEMBERS = (
+    frozenset({"flow", "domain", "cell_mesh", "geographic", "time_grid"}) | RUN_SETUP_MEMBERS
+)
 CONFIG_MEMBERS = frozenset({"solver", "domain", "geographic", "flow"})
+CONTEXT_MEMBERS = frozenset({"state", "store", "plan"})
 SETUP_NAMES = frozenset({"setup", "setup_state"})
 CONFIG_NAMES = frozenset({"cfg"})
+CONTEXT_NAMES = frozenset({"ctx", "run_ctx", "context"})
 FORBIDDEN_MODULE = "hydromodpy.model.flow"
+
+RUN_LABELS = frozenset(
+    {f"setup.{member}" for member in RUN_SETUP_MEMBERS}
+    | {f"ctx.{member}" for member in CONTEXT_MEMBERS}
+)
+"""The reads of the run around a backend, refused everywhere but in ``TRANSPORT_ADAPTERS``."""
+
+TRANSPORT_ADAPTERS: dict[str, dict[str, str]] = {
+    path: {
+        "why": (
+            "A transport adapter reads its setup, its folder and the plan on the run "
+            "context until the transport port hands it the Model of its flow and a slot."
+        ),
+        "lifted_by": "3.5",
+    }
+    for path in (
+        "hydromodpy/solver/modflow6/adapters/transport.py",
+        "hydromodpy/solver/modflow6/adapters/prt.py",
+        "hydromodpy/solver/modflow_nwt/adapters/transport_modpath.py",
+        "hydromodpy/solver/modflow_nwt/adapters/transport_mt3dms.py",
+    )
+}
+"""The files allowed the reads of ``RUN_LABELS``. Each one must still exist."""
 
 _TRANSPORT_WHY = (
     "A transport adapter still reads the domain of the setup until the transport "
@@ -58,16 +98,13 @@ EXEMPTIONS: dict[str, dict[str, object]] = {
         "why": _TRANSPORT_WHY,
         "lifted_by": "3.5",
     },
-    **{
-        f"hydromodpy/solver/{folder}/adapters/flow.py": {
-            "reads": frozenset({"cfg.solver.options_of"}),
-            "why": (
-                "A flow adapter reads its own settings, [solver.<name>], by "
-                "cfg.solver.options_of(self.name) until the adapter contract hands them in."
-            ),
-            "lifted_by": "3.4",
-        }
-        for folder in ("modflow6", "modflow_nwt", "boussinesq")
+    "hydromodpy/solver/modflow_common/flow_adapter_helpers.py": {
+        "reads": frozenset({"ctx.plan"}),
+        "why": (
+            "build asks the plan whether an MT3DMS run follows the flow, to link "
+            "its output, until the transport port hands that over."
+        ),
+        "lifted_by": "3.5",
     },
 }
 
@@ -144,6 +181,12 @@ def forbidden_reads(source: str) -> list[tuple[int, str]]:
             if member == "solver" and outer_read is not None and outer_read[1] == "options_of":
                 label = "cfg.solver.options_of"
             found.append((node.lineno, label))
+        elif (
+            member in CONTEXT_MEMBERS
+            and isinstance(receiver, ast.Name)
+            and receiver.id in CONTEXT_NAMES
+        ):
+            found.append((node.lineno, f"ctx.{member}"))
     return found
 
 
@@ -240,12 +283,20 @@ def test_no_backend_reads_the_setup_objects_the_model_replaces(solver_findings) 
         for rel, found in solver_findings.items()
         for line, label in found
         if label not in EXEMPTIONS.get(rel, {}).get("reads", frozenset())
+        and not (label in RUN_LABELS and rel in TRANSPORT_ADAPTERS)
     ]
 
     assert not offenders, (
-        "A backend reads the Model, ctx.state.setup.model, and nothing it is built from:\n"
-        + "\n".join(sorted(offenders))
+        "A flow backend reads the Model, the options and the RunSlot it is handed, "
+        "and nothing it is built from:\n" + "\n".join(sorted(offenders))
     )
+
+
+@pytest.mark.parametrize("rel", sorted(TRANSPORT_ADAPTERS))
+def test_every_transport_adapter_allowed_the_run_reads_still_exists(rel: str) -> None:
+    allowance = TRANSPORT_ADAPTERS[rel]
+    assert allowance.get("why") and allowance.get("lifted_by"), rel
+    assert (REPO_ROOT / rel).is_file(), f"{rel} is gone: drop it from TRANSPORT_ADAPTERS."
 
 
 @pytest.mark.parametrize("rel", sorted(EXEMPTIONS))
@@ -262,7 +313,7 @@ def test_every_exemption_still_serves(rel: str, solver_findings) -> None:
 
 
 READ_CASES = (
-    ("direct", "def f(ctx):\n    return ctx.state.setup.flow\n", ["setup.flow"]),
+    ("direct", "def f(ctx):\n    return ctx.state.setup.flow\n", ["setup.flow", "ctx.state"]),
     (
         "getattr",
         'def f(state):\n    return getattr(state.setup, "domain", None)\n',
@@ -299,8 +350,29 @@ READ_CASES = (
     ),
     (
         "allowed members",
-        "def f(state):\n    return state.setup.workspace, state.cfg.simulation\n",
+        "def f(state, ctx):\n    return state.setup.transport, state.cfg.simulation, ctx.run.id\n",
         [],
+    ),
+    ("workspace", "def f(state):\n    return state.setup.workspace\n", ["setup.workspace"]),
+    ("run id", "def f(setup):\n    return setup.run_id\n", ["setup.run_id"]),
+    (
+        "mesh summary",
+        'def f(state):\n    return getattr(state.setup, "mesh_summary", None)\n',
+        ["setup.mesh_summary"],
+    ),
+    ("mesh bundle", "def f(setup):\n    return setup.mesh_bundle\n", ["setup.mesh_bundle"]),
+    ("slot request", "def f(setup):\n    return setup.slot_request\n", ["setup.slot_request"]),
+    ("context state", "def f(ctx):\n    return ctx.state.cfg\n", ["ctx.state"]),
+    (
+        "context store",
+        'def f(ctx):\n    return getattr(ctx, "store", None)\n',
+        ["ctx.store"],
+    ),
+    ("context plan", "def f(run_ctx):\n    return run_ctx.plan.runs\n", ["ctx.plan"]),
+    (
+        "setup through the context",
+        "def f(ctx):\n    return ctx.state.setup.workspace\n",
+        ["setup.workspace", "ctx.state"],
     ),
     ("the model", "def f(state):\n    return state.setup.model.geometry.domain\n", []),
 )
