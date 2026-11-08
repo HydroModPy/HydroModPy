@@ -9,7 +9,7 @@ import pytest
 
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy_annex.export.stac import STAC_VERSION, build_stac_item, write_stac_item
-from tests.integration.annex.exports.conftest import SIM_ID, wgs84_bbox
+from tests.integration.annex.export_formats.conftest import SIM_ID, wgs84_bbox
 
 
 def test_stac_item_has_required_keys(fair_context):

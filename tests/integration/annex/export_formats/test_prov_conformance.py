@@ -13,7 +13,7 @@ from hydromodpy_annex.export.prov import (
     serialise_prov,
     write_prov,
 )
-from tests.integration.annex.exports.conftest import SIM_ID
+from tests.integration.annex.export_formats.conftest import SIM_ID
 
 
 def test_prov_document_has_action_and_outputs(fair_context):
