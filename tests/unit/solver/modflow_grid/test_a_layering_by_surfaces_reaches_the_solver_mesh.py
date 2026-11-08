@@ -79,7 +79,7 @@ def _domain(base: np.ndarray | None = None) -> Domain:
 def _regular_cell_mesh(domain: Domain):
     support = domain.surface_topo.support
     request = mesh_request(RasterGridSpec.from_raster_support(support, crs_wkt=TEST_CRS_WKT))
-    return registry.create("regular").build(request)
+    return registry.mesh_engines.create("regular").build(request)
 
 
 def _triangle_cell_mesh():

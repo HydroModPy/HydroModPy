@@ -1206,15 +1206,16 @@ def _check_the_backend_can_serve_the_outputs(
 
 def _flow_adapter_for(config: Any) -> Any | None:
     """Return the flow adapter this configuration selects, or ``None``."""
-    from hydromodpy.solver.base.registry import get_solver_adapter
+    from hydromodpy.core.exceptions import SolverInputError
+    from hydromodpy.solver.base.registry import solvers
 
     backend = getattr(getattr(config, "solver", None), "backend_name", None)
     backend = getattr(backend, "value", backend)
     if not backend:
         return None
     try:
-        return get_solver_adapter("flow", str(backend))
-    except (KeyError, ValueError):
+        return solvers.create("flow", str(backend))
+    except (SolverInputError, ValueError):
         return None
 
 

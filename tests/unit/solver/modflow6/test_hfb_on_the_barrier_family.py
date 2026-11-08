@@ -57,7 +57,7 @@ def _mesh(engine: str) -> PlanarCellMesh:
         barriers=(FENCE,),
     )
     request = plan_mesh_request(MeshConfig.model_validate(MESHES[engine]), inputs)
-    return registry.create(engine).build(request)
+    return registry.mesh_engines.create(engine).build(request)
 
 
 def _hfb(cell_mesh: PlanarCellMesh) -> list[list]:

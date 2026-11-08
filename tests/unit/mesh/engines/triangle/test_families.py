@@ -324,7 +324,7 @@ def _walled(offset: float) -> tuple[SnappedWall, MeshRequest, PlanarCellMesh]:
     """The wall *offset* m downstream of the dam shore, laid on it, its request and its mesh."""
     wall = snap_wall_to_shore(dam.reservoir(), dam.trace(offset), 50.0)
     request = _planned((wall.line,), lakes=(wall.polygon,))
-    return wall, request, registry.create("triangle").build(request)
+    return wall, request, registry.mesh_engines.create("triangle").build(request)
 
 
 def _river_crossing(angle_deg: float) -> tuple[LineString, LineString]:
@@ -446,7 +446,7 @@ def test_nothing_reaches_the_lake_side_from_downstream_across_the_family(offset:
 def test_a_river_crosses_the_barrier_once_between_two_chain_cells(angle: float) -> None:
     barrier, river = _river_crossing(angle)
     request = _planned((barrier,), river=river)
-    cell_mesh = registry.create("triangle").build(request)
+    cell_mesh = registry.mesh_engines.create("triangle").build(request)
     (chain,) = cell_mesh.chains("rivers")
     links = {
         tuple(sorted(link))

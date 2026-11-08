@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.registration import (
     portable_config_source,
     solve_identity_hash,
@@ -25,9 +24,10 @@ from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.workflow.steps.prepare_solver.facts import (
     collect_run_facts,
-    primary_solver_for_simulation,
+    primary_run_for_simulation,
 )
 from hydromodpy.workflow.steps.prepare_solver.freeze import freeze_run_config
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
@@ -147,7 +147,8 @@ def refresh_run_environment(ctx: WorkflowContext, *, store: RunStore) -> None:
     if not sim_id or plan is None:
         return
     try:
-        _write_run_environment(ctx, str(sim_id), primary_solver_for_simulation(plan), store=store)
+        _, primary_solver = primary_run_for_simulation(plan)
+        _write_run_environment(ctx, str(sim_id), primary_solver, store=store)
     except Exception:
         # The run is solved: a missing provenance note must not fail it.
         logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
@@ -345,6 +346,13 @@ def planned_recipe(project_root: Path, case_id: str) -> str | None:
     return None if case is None else case.recipe
 
 
+def _solver_category(process_type: str, solver: str) -> str | None:
+    """Return the category the backend of the primary run declares, or None for a mesh-only plan."""
+    if process_type == "mesh":
+        return None
+    return solvers.get(process_type, solver).category
+
+
 def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> RunFacts:
     """Return the facts of the attempt as the context knows them at opening.
 
@@ -358,7 +366,7 @@ def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> Ru
     assert outcome is not None
     stored = read_facts(ctx.run_dir)
     plan = ctx.execution.simulation_plan
-    primary_solver = primary_solver_for_simulation(plan)
+    process_type, primary_solver = primary_run_for_simulation(plan)
     facts = collect_run_facts(ctx)
     facts["config_hash"] = config_hash or solve_identity_hash(ctx.cfg)
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
@@ -373,7 +381,7 @@ def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> Ru
         created_at=stored.created_at if stored is not None else outcome.started_at,
         started_at=outcome.started_at,
         solver=primary_solver,
-        solver_category=solver_category(primary_solver),
+        solver_category=_solver_category(process_type, primary_solver),
         lineage=ctx.lineage if ctx.lineage is not None else Lineage(),
         calibrated_by=ctx.calibrated_by,
         **facts,
@@ -388,7 +396,7 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     """
     assert ctx.sim_id is not None
     plan = ctx.execution.simulation_plan
-    primary_solver = primary_solver_for_simulation(plan)
+    _, primary_solver = primary_run_for_simulation(plan)
     facts = store.facts
     cell_mesh = ctx.setup.cell_mesh
     if cell_mesh is not None and facts.n_layers is not None and not store.fields_path.exists():

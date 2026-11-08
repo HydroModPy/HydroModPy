@@ -243,7 +243,7 @@ def test_a_child_without_a_job_or_with_a_river_network_cannot_copy_one(config, m
 @pytest.fixture
 def pinned_dem(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(
-        "hydromodpy.catchment.preprocess.regional_flow_job.terrain_registry.create",
+        "hydromodpy.catchment.preprocess.regional_flow_job.terrain_registry.terrain_engines.create",
         lambda engine_id, backend=None: SimpleNamespace(
             engine_id="stub", engine_version="1.0", engine_digest=lambda: "d" * 64
         ),

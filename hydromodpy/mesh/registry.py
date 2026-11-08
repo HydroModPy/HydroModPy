@@ -46,9 +46,9 @@ def _check_version_and_capabilities(engine_cls: type) -> None:
         )
 
 
-_ENGINE = PluginRegistry(
+mesh_engines = PluginRegistry(
     kind="mesh engine",
-    id_attribute="engine_id",
+    id_attributes=("engine_id",),
     group=ENTRY_POINT_GROUP,
     builtin_paths=_BUILTIN_PATHS,
     members=engine_members,
@@ -56,24 +56,10 @@ _ENGINE = PluginRegistry(
     error=MeshRequestError,
     validate=_check_version_and_capabilities,
 )
-builtin_engine_ids = _ENGINE.builtin_ids
-list_engine_ids = _ENGINE.list_ids
-is_registered = _ENGINE.is_registered
-register = _ENGINE.register
-get = _ENGINE.get
-create = _ENGINE.create
-load_plugins = _ENGINE.load_plugins
-unregister = _ENGINE.unregister
+"""The mesh-engine registry: ``mesh_engines.get``, ``names`` and ``register``."""
 
 __all__ = [
     "DEFAULT_ENGINE_ID",
     "ENTRY_POINT_GROUP",
-    "builtin_engine_ids",
-    "create",
-    "get",
-    "is_registered",
-    "list_engine_ids",
-    "load_plugins",
-    "register",
-    "unregister",
+    "mesh_engines",
 ]

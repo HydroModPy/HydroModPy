@@ -25,9 +25,9 @@ give it a second name and a second source of truth.
 
 Why a class, and why binding by parameter name
 ----------------------------------------------
-:func:`get` returns the class and :func:`create` builds it, binding only the
-constructor parameters the class names -- the rule the terrain and data-source
-registries already use. It is what lets the runner hand out every option of
+``evaluators.get`` returns the class and ``evaluators.create`` builds it, binding
+only the constructor parameters the class names -- the rule every registry of
+:class:`~hydromodpy.core.plugin_registry.PluginRegistry` follows. It is what lets the runner hand out every option of
 :data:`CONSTRUCTION_OPTIONS` without knowing which evaluator wants what: the
 pipeline evaluator names the trial context, the analytic one names the space, and
 a surrogate that needs neither is built with nothing.
@@ -57,7 +57,7 @@ CONSTRUCTION_OPTIONS: tuple[str, ...] = (
 )
 """Every option the production path offers an evaluator's constructor.
 
-:func:`create` binds only the parameters a class names, so this is the vocabulary
+``evaluators.create`` binds only the parameters a class names, so this is the vocabulary
 a third party writes its ``__init__`` in: a parameter named outside this tuple is
 never filled, and one that is also required makes the evaluator unbuildable at
 the first calibration that names it. The conformance suite holds an evaluator to
@@ -87,28 +87,19 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree evaluator classes, imported on first lookup.
 
-Format ``"<module>:<class>"``, the one the terrain, solver and data-source
-registries already use, so the plugin surfaces of this repository read alike.
+Format ``"<module>:<class>"``, the one the one every registry of this repository uses, so the plugin surfaces read alike.
 """
 
-_ENGINE = PluginRegistry(
+evaluators = PluginRegistry(
     kind="trial evaluator",
-    id_attribute="evaluator_id",
+    id_attributes=("evaluator_id",),
     group=ENTRY_POINT_GROUP,
     builtin_paths=_BUILTIN_PATHS,
     members=evaluator_members,
     default_id=DEFAULT_EVALUATOR_ID,
     error=CalibrationError,
 )
-builtin_evaluator_ids = _ENGINE.builtin_ids
-list_evaluator_ids = _ENGINE.list_ids
-is_registered = _ENGINE.is_registered
-register = _ENGINE.register
-get = _ENGINE.get
-resolve_id = _ENGINE.resolve_id
-create = _ENGINE.create
-load_plugins = _ENGINE.load_plugins
-unregister = _ENGINE.unregister
+"""The evaluator registry: ``evaluators.get``, ``names`` and ``register``."""
 
 
 def needs_prepared_model(evaluator_id: str | None = None) -> bool:
@@ -117,24 +108,16 @@ def needs_prepared_model(evaluator_id: str | None = None) -> bool:
     Answered from the class, so a caller knows before running ``prepare_trials``
     -- which is the whole geographic, mesh and data prefix of the pipeline.
 
-    No fallback, on purpose: :func:`register` refuses a class that does not carry
-    the member, so every class :func:`get` can return has one. A default here
+    No fallback, on purpose: :meth:`~hydromodpy.core.plugin_registry.PluginRegistry.register` refuses a class that
+    does not carry the member, so every class ``evaluators.get`` can return has one. A default here
     would be unreachable code claiming a behavior nothing can produce.
     """
-    return bool(get(evaluator_id).needs_prepared_model)
+    return bool(evaluators.get(evaluator_id).needs_prepared_model)
 
 
 __all__ = [
     "DEFAULT_EVALUATOR_ID",
     "ENTRY_POINT_GROUP",
-    "builtin_evaluator_ids",
-    "create",
-    "get",
-    "is_registered",
-    "list_evaluator_ids",
-    "load_plugins",
+    "evaluators",
     "needs_prepared_model",
-    "register",
-    "resolve_id",
-    "unregister",
 ]

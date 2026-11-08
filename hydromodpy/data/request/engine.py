@@ -518,7 +518,7 @@ def _serve_installed(
     from hydromodpy.data.source import registry
 
     try:
-        source = registry.get(name)(**options)
+        source = registry.data_sources.get(name)(**options)
     except Exception as exc:
         # An installed source is somebody else's code reading somebody else's
         # options; its refusal is a fault of the request, not of HydroModPy.

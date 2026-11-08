@@ -300,7 +300,10 @@ CASE_PARAMS = [pytest.param(case, id=case.name) for case in CASES]
 # Every source the registry serves, shipped or installed, and the doubles. A source
 # with a constructor that needs an argument has to give it a default for this suite.
 SOURCE_PARAMS = [
-    *(pytest.param(registry.get(name), id=name) for name in registry.list_source_ids()),
+    *(
+        pytest.param(registry.data_sources.get(name), id=name)
+        for name in registry.data_sources.names()
+    ),
     *(pytest.param(case.build, id=case.name) for case in DOUBLE_CASES),
 ]
 
@@ -360,7 +363,9 @@ def record_provider(monkeypatch: pytest.MonkeyPatch) -> Callable[[SourceCase], l
 
 def test_the_suite_covers_every_source_this_build_ships() -> None:
     """An adapter added to the registry and not here would be untested by omission."""
-    assert {case.name for case in BUILTIN_CASES} == set(registry.builtin_source_ids())
+    assert {case.name for case in BUILTIN_CASES} == set(
+        registry.data_sources.names(shipped_only=True)
+    )
 
 
 def test_the_suite_spans_the_vocabularies() -> None:

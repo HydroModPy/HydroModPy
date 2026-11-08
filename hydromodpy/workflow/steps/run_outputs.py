@@ -15,7 +15,7 @@ from typing import Any, Protocol
 
 from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
 from hydromodpy.model.sinks_sources.wells import (
@@ -24,6 +24,7 @@ from hydromodpy.model.sinks_sources.wells import (
     WELLS_PUMPED_METRIC,
 )
 from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.registry import extractors, solvers
 from hydromodpy.solver.base.results_config import ResultsConfig
 
 logger = get_logger(__name__)
@@ -187,13 +188,15 @@ def extract_run_outputs(
     if not results_config.persistence.save_catalog:
         return
 
-    provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
     solver_output_dir = ctx.output_dir
 
-    extractor = provider.get_extractor_instance(ctx.run.process_type, solver_name)
-    if extractor is None:
-        raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
+    try:
+        extractor = extractors.create(ctx.run.process_type, solver_name)
+    except SolverInputError as exc:
+        raise RuntimeError(
+            f"No output adapter registered for {ctx.run.process_type}/{solver_name}"
+        ) from exc
 
     # Phase 1: extract raw outputs
     if solver_output_dir is None or not solver_output_dir.exists():
@@ -379,11 +382,14 @@ def derive_run_outputs(
     if not results_config.persistence.save_catalog:
         return
 
-    provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
-    extractor = provider.get_extractor_instance(ctx.run.process_type, solver_name)
-    if extractor is None:
-        raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
+    try:
+        extractors.get(ctx.run.process_type, solver_name)
+        category = solvers.get(ctx.run.process_type, solver_name).category
+    except SolverInputError as exc:
+        raise RuntimeError(
+            f"No output adapter registered for {ctx.run.process_type}/{solver_name}"
+        ) from exc
 
     # The discharge band the drains were given changes what "this cell seeps"
     # means, so it has to stay in the store for every seepage mask read and
@@ -397,7 +403,7 @@ def derive_run_outputs(
         sim_zarr.close()
 
     # Aggregate catchment timeseries from spatial fields
-    if getattr(extractor, "category", None) != "lumped":
+    if category != "lumped":
         from hydromodpy.results.derive.catchment_aggregation import aggregate_catchment_timeseries
 
         aggregate_catchment_timeseries(
@@ -419,10 +425,9 @@ def cleanup_solver_outputs(
     )
     if do_keep:
         return
-    provider = get_solver_registry_provider()
     try:
-        adapter = provider.get_solver_adapter(ctx.run.process_type, ctx.run.solver)
-    except KeyError:
+        adapter = solvers.create(ctx.run.process_type, ctx.run.solver)
+    except SolverInputError:
         logger.debug(
             "No solver adapter registered for %s/%s, skipping cleanup",
             ctx.run.process_type,

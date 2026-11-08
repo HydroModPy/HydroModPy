@@ -88,7 +88,7 @@ catchment/
 │   └── whitebox_workflows_backend/   raster, flow and delineation sub-backends
 ├── terrain/                   the terrain port and its engines
 │   ├── port.py                TerrainEngine and its value types
-│   ├── registry.py            engine id to engine class, and the entry point group
+│   ├── registry.py            `terrain_engines`, engine id to engine class, and the entry point group
 │   └── ...                    artifacts, d8, numpy and Whitebox engines
 ├── algorithms/                one module per processing block
 │   ├── ground_corrections.py  the ground: the DEM plus the declared corrections
@@ -155,8 +155,8 @@ Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `resul
 
 | to add | where |
 |---|---|
-| a delineation backend | a loader registered with `register_backend` in `delineation/registry.py` |
-| a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain.registry.register` or on the `hydromodpy.terrain.engine` entry-point group |
+| a delineation backend | a loader registered with `register_backend` in `delineation/registry.py`. This is the one registry that does not use the engine of `core/plugin_registry.py`, and it stays so until the delineation port is written |
+| a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain_engines.register` in `terrain/registry.py` or on the `hydromodpy.terrain.engine` entry-point group |
 | a geographic product | a module in `algorithms/`, called from `preprocess/pipeline.py`, and a field on `GeographicConfig` for its options |
 | a `[geographic]` key | a field of the Pydantic model in `preprocess/geographic_config.py` or in the file of its sub-table, with its description |
 | a name or place of an output file | `algorithms/geographic_paths.py`, and the tree list of `preprocess/geographic_cache.py` when a resume must find it |

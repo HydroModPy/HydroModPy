@@ -40,7 +40,7 @@ does not repeat them. It says which options HydroModPy writes.
 | Transport | GWT and particle tracking | MODPATH and MT3DMS | refused |
 
 The names in the first row are the values read by {toml}`simulation.process.solvers`. The
-capabilities of each solver, generated from the code, are on {doc}`../reference/solvers`.
+traits of each solver, generated from the code, are on {doc}`../reference/solvers`.
 
 ::::{dropdown} Notation of this page
 Lengths are in meters and time is in seconds: the run is written in seconds whatever the
@@ -467,7 +467,7 @@ an MT3DMS process is planned after it. The file name is
 
 ## Limits
 
-The capability matrix is generated on {doc}`../reference/solvers`. The refusals, with their
+The matrix of what each solver declares is generated on {doc}`../reference/solvers`. The refusals, with their
 messages, are these.
 
 - **Mesh.** MODFLOW 6 reads every engine, MODFLOW-NWT the `regular` engine and Boussinesq the
@@ -493,7 +493,7 @@ messages, are these.
 - **ETP.** MODFLOW 6 draws no ETP outside soil mode, and only logs a warning.
   Boussinesq rejects it.
 - **Hotstart and cyclic spin-up.** {toml}`flow.restart_from` and a cyclic spin-up need
-  MODFLOW 6, the only solver that declares the two capabilities.
+  MODFLOW 6, the only solver that lists the two traits in `supports`.
 - **Newton.** Newton with rewet (`HMPY.E405`) and Newton with conjugate gradients
   (`HMPY.E406`) are refused ({ref}`solvers-newton-ims`).
 - **Not represented.** The code writes no unsaturated-zone package (UZF), no
@@ -564,7 +564,7 @@ hydromodpy.solver.boussinesq
 | Boussinesq: time loop and size limit | `hydromodpy/solver/boussinesq/drivers/transient.py`, `hydromodpy/solver/boussinesq/boussinesq.py` |
 | Transport solvers | `hydromodpy/solver/modflow6/transport.py`, `hydromodpy/solver/modflow6/prt.py`, `hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py`, `hydromodpy/solver/modflow_nwt/modpath/modpath.py` |
 | Which transport follows which flow | `requires` of each adapter in `hydromodpy/solver/*/adapters/`, `hydromodpy/solver/base/planner.py` |
-| Solver names, capabilities, refusals at read time | `hydromodpy/solver/base/registry.py`, `hydromodpy/config/hydromodpy_config.py`, `hydromodpy/model/boundaries/boundary_condition_registry.py` |
+| Solver names, what each backend declares, refusals at read time | `hydromodpy/solver/base/registry.py`, `hydromodpy/model/supports.py`, `hydromodpy/config/hydromodpy_config.py`, `hydromodpy/model/boundaries/boundary_condition_registry.py` |
 
 ## See also
 

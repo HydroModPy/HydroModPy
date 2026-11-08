@@ -6,10 +6,10 @@ neither geopandas, nor pandas, nor requests, nor pydantic. The adapters are
 resolved lazily for the same reason, and each of them reaches its provider's
 api module from inside ``fetch`` rather than at import time.
 
-``registry`` resolves a name to a source class, and is the surface a
-third-party source registers on. It is not re-exported here: the canonical path
-is ``hydromodpy.data.source.registry``, beside ``hydromodpy.solver.base.registry``,
-and importing it pulls in no adapter at all.
+``registry`` holds ``data_sources``, which resolves a name to a source class and
+is the surface a third-party source registers on. It is not re-exported here: the
+canonical path is ``hydromodpy.data.source.registry``, and importing it pulls in
+no adapter at all.
 """
 
 from __future__ import annotations

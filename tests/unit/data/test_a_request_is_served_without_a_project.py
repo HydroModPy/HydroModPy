@@ -293,7 +293,7 @@ import geopandas as gpd
 from shapely.geometry import LineString
 
 from hydromodpy.data import DataRequest, run_request
-from hydromodpy.data.source import registry
+from hydromodpy.data.source.registry import data_sources
 from hydromodpy.data.source.port import FetchResult, extent_for
 
 
@@ -319,7 +319,7 @@ class Rivers:
         )
 
 
-registry.register(Rivers)
+data_sources.register(Rivers)
 request = DataRequest.model_validate({
     "data": {"hydrography": {"sources": [{"source": "acme-rivers"}]}},
     "extent": {"bbox": [320000.0, 6780000.0, 330000.0, 6790000.0], "crs": "EPSG:2154"},

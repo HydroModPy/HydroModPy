@@ -96,7 +96,7 @@ def test_the_description_says_what_each_method_does_and_why_fill_leads() -> None
 
 
 def test_a_project_names_an_engine_this_installation_serves_or_none() -> None:
-    engine_id = registry.builtin_engine_ids()[0]
+    engine_id = registry.terrain_engines.names(shipped_only=True)[0]
     assert GeographicConfig.model_validate(_standard(terrain_engine=engine_id)).terrain_engine == (
         engine_id
     )
@@ -109,7 +109,7 @@ def test_a_project_naming_an_engine_nobody_installed_is_refused_while_reading() 
     message = str(raised.value)
     assert "geographic.terrain_engine" in message
     assert registry.ENTRY_POINT_GROUP in message
-    for engine_id in registry.builtin_engine_ids():
+    for engine_id in registry.terrain_engines.names(shipped_only=True):
         assert engine_id in message
 
 

@@ -41,7 +41,7 @@ question, and each sub-package has its own `README.md`.
 | `console/` | what does a run show while it works? Live progress and its NDJSON sink |
 | `budget/` | what sign has a budget flux, and which terms does a run keep? |
 | `scoring/` | how well does a simulation match observations? Efficiency metrics, the cost margin and the numeric defaults of the stream-network criterion |
-| `plugin_registry.py` | how does an id resolve to a class? One registry for the evaluator, forward-model, terrain-engine and mesh-engine plugins |
+| `plugin_registry.py` | how does an id resolve to a class? One engine carries every plugin surface, with `register`, `get` and `names`. Each surface is an instance in its own module: `solvers` and `extractors` (`solver/base/registry.py`), `data_sources` (`data/source/registry.py`), `evaluators` and `forward_models` (`calibration/evaluation/`), `mesh_engines` (`mesh/registry.py`) and `terrain_engines` (`catchment/terrain/registry.py`) |
 | `fields/` | how is a grid or a field array described? Nodata, grid reference, vertical column, storage precision |
 
 ## What left core
@@ -63,7 +63,7 @@ allowed target, itself, and the layer test counts every import: module level, in
 A kernel module that needs something from a higher layer takes it through a protocol defined in `core`
 and wired at bootstrap: the root config (`config_kit/root_config_protocol.py`), the dynamic flow
 examples (`toml_io/dynamic_examples_protocol.py`), the data cache backend
-(`contracts/data_cache_backend.py`), the solver registry (`contracts/solver_registry.py`) and the
+(`contracts/data_cache_backend.py`) and the
 bootstrap itself (`runtime/bootstrap_hook.py`). A new sibling edge is a regression unless the YAML is
 updated with its rationale.
 

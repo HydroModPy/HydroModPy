@@ -12,11 +12,9 @@ def test_bootstrap_runs_once() -> None:
 
     from hydromodpy.catchment import protocols as spatial_protocols
     from hydromodpy.core.config_kit import root_config_protocol
-    from hydromodpy.core.contracts import solver_registry
     from hydromodpy.core.toml_io import dynamic_examples_protocol
     from hydromodpy.model import contracts as model_contracts
 
-    assert solver_registry._PROVIDER is not None
     assert root_config_protocol._PROVIDER is not None
     assert dynamic_examples_protocol._PROVIDER is not None
     assert model_contracts._FIELD_PARAM_FACTORY is not None
@@ -28,13 +26,13 @@ def test_bootstrap_idempotent() -> None:
     bootstrap_module = importlib.import_module("hydromodpy._bootstrap")
     bootstrap_module.bootstrap()
 
-    from hydromodpy.core.contracts import solver_registry
+    from hydromodpy.core.config_kit import root_config_protocol
 
-    first = solver_registry._PROVIDER
+    first = root_config_protocol._PROVIDER
     bootstrap_module.bootstrap()
     bootstrap_module.bootstrap()
 
-    assert solver_registry._PROVIDER is first
+    assert root_config_protocol._PROVIDER is first
 
 
 def test_bootstrap_hooks_listed() -> None:
@@ -46,5 +44,5 @@ def test_bootstrap_hooks_listed() -> None:
     for hook in hooks:
         assert callable(hook)
     names = {hook.__name__ for hook in hooks}
-    assert "_register_solver_registry_provider" in names
+    assert "_register_root_config_contracts" in names
     assert "_rebuild_forward_refs" in names

@@ -49,12 +49,12 @@ def _bindable_parameters(source_id: str) -> tuple[str, ...]:
     import inspect
 
     bindable = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    parameters = inspect.signature(registry.get(source_id)).parameters
+    parameters = inspect.signature(registry.data_sources.get(source_id)).parameters
     return tuple(name for name, parameter in parameters.items() if parameter.kind in bindable)
 
 
 def test_the_table_covers_every_source_this_build_ships() -> None:
-    assert set(BOUND_FIELDS) == set(registry.builtin_source_ids())
+    assert set(BOUND_FIELDS) == set(registry.data_sources.names(shipped_only=True))
 
 
 @pytest.mark.parametrize("source_id", sorted(BOUND_FIELDS))
@@ -65,7 +65,7 @@ def test_the_bound_fields_are_exactly_the_shared_names(source_id: str) -> None:
 
 
 def test_no_source_takes_a_field_the_manager_owns() -> None:
-    for source_id in registry.builtin_source_ids():
+    for source_id in registry.data_sources.names(shipped_only=True):
         taken = set(_bindable_parameters(source_id)) & set(SECTION_ONLY_FIELDS)
         assert not taken, f"{source_id} would be handed {sorted(taken)}"
 
@@ -106,7 +106,7 @@ def test_a_source_the_section_says_nothing_about_gets_its_own_defaults() -> None
     )
 
     source = registry.build_from_section(
-        registry.get("euhydro"),
+        registry.data_sources.get("euhydro"),
         SimpleNamespace(source="euhydro"),
     )
 
@@ -195,13 +195,13 @@ def test_a_source_of_another_payload_kind_is_refused_before_it_is_built(
     answer meant a DEM source named in a hydrography section downloaded
     France-wide archives before anything refused it.
     """
-    registry.register(AcmeGaugeSource)
+    registry.data_sources.register(AcmeGaugeSource)
     with pytest.raises(DataCapabilityError, match="acme-gauge"):
         source_from_section(SimpleNamespace(source="acme-gauge"))
 
 
 def test_the_refusal_names_the_kind_the_variable_wants(isolated_registry: object) -> None:
-    registry.register(AcmeGaugeSource)
+    registry.data_sources.register(AcmeGaugeSource)
     with pytest.raises(DataCapabilityError, match=NETWORK_PAYLOAD_KIND):
         source_from_section(SimpleNamespace(source="acme-gauge"))
 
@@ -278,7 +278,7 @@ def test_a_toml_section_names_a_source_this_repository_does_not_name(
     binder, and ``grep -r acme-linework hydromodpy/`` finds nothing: the list
     of names lives in the registry and the section no longer copies it.
     """
-    registry.register(AcmeLineworkSource)
+    registry.data_sources.register(AcmeLineworkSource)
 
     section = HydrographySourceConfig.model_validate(tomllib.loads(SECTION_TOML))
 
@@ -292,7 +292,7 @@ def test_an_installed_source_of_another_kind_is_refused_by_the_document(
     isolated_registry: object,
 ) -> None:
     """Resolvable is not acceptable, and the document is where that is said."""
-    registry.register(AcmeGaugeSource)
+    registry.data_sources.register(AcmeGaugeSource)
 
     with pytest.raises(ValidationError, match=NETWORK_PAYLOAD_KIND):
         HydrographySourceConfig(source="acme-gauge")

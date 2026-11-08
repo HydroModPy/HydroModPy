@@ -216,7 +216,7 @@ def regular_pair(tmp_path: Path) -> MeshPair:
         grid=grid,
         nominal_size_m=pitch,
     )
-    cell_mesh = registry.create("regular").build(request)
+    cell_mesh = registry.mesh_engines.create("regular").build(request)
     assert cell_mesh.structured_shape == (nrow, ncol)
     bounds = _bounds(cell_mesh)
     domain, polygons = _domain(tmp_path, bounds)
@@ -254,7 +254,7 @@ def triangle_pair(tmp_path: Path) -> MeshPair:
         input_triangulation=triangulation,
         options={},
     )
-    cell_mesh = registry.create("triangle").build(request)
+    cell_mesh = registry.mesh_engines.create("triangle").build(request)
     bounds = _bounds(cell_mesh)
     domain, polygons = _domain(tmp_path, bounds)
     return MeshPair(

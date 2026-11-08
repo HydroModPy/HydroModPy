@@ -12,7 +12,7 @@ from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.properties.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.base.registry import get_solver_adapter
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from tests._helpers.cell_meshes import cell_mesh_of
 
@@ -59,7 +59,7 @@ class _HalfDomainSupport:
 
 
 def test_registry_exposes_boussinesq_flow_adapter() -> None:
-    adapter = get_solver_adapter("flow", "boussinesq")
+    adapter = solvers.create("flow", "boussinesq")
 
     assert isinstance(adapter, BoussinesqFlowAdapter)
 

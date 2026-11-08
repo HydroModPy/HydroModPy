@@ -28,4 +28,4 @@ def regular_cell_mesh_of(
         nominal_size_m=grid.dx,
         options=options,
     )
-    return registry.create("regular").build(request)
+    return registry.mesh_engines.create("regular").build(request)

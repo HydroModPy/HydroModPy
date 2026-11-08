@@ -34,7 +34,7 @@ def test_the_solver_routing_context_is_built_with_the_configured_engine(
     family, monkeypatch, tmp_path
 ) -> None:
     module, ensure = family()
-    engine_id = registry.builtin_engine_ids()[0]
+    engine_id = registry.terrain_engines.names(shipped_only=True)[0]
     captured: dict = {}
 
     def build(**kwargs):

@@ -20,13 +20,15 @@ from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from tests._helpers.fake_solvers import fake_adapter
 
 
 class _Extractor:
-    category = "lumped"
+    """The extractor of ``flow_fake``. Built anew per call, so it records on the class."""
 
-    def __init__(self) -> None:
-        self.kwargs: list[dict] = []
+    process_type = "flow"
+    solver_name = "fake"
+    kwargs: list[dict] = []
 
     def extract(self, sim_id, solver_output_dir, store, *, budget_terms=None, **kwargs) -> None:
         self.kwargs.append({"budget_terms": budget_terms, **kwargs})
@@ -53,16 +55,14 @@ class _Store:
 
 
 @pytest.fixture
-def extractor(monkeypatch) -> _Extractor:
-    extractor = _Extractor()
-    monkeypatch.setattr(
-        post_run_module,
-        "get_solver_registry_provider",
-        lambda: SimpleNamespace(get_extractor_instance=lambda *_: extractor),
-    )
+def extractor(monkeypatch, isolated_solvers) -> type[_Extractor]:
+    """Register ``flow_fake`` as a lumped backend, so no catchment aggregate is drawn."""
+    recording = type("_RecordingExtractor", (_Extractor,), {"kwargs": []})
+    isolated_solvers.solvers.register(fake_adapter("fake", category="lumped"))
+    isolated_solvers.extractors.register(recording)
     monkeypatch.setattr(post_run_module, "_finalize_run_provenance", lambda **_kwargs: None)
     monkeypatch.setattr(post_run_module, "cleanup_solver_outputs", lambda **_kwargs: None)
-    return extractor
+    return recording
 
 
 def _context(tmp_path: Path) -> RunContext:

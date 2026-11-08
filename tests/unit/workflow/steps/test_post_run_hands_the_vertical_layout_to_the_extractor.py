@@ -16,6 +16,7 @@ from hydromodpy.core.fields.vertical_column import (
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
@@ -42,10 +43,7 @@ class _RecordingExtractor:
 @pytest.fixture
 def recording(monkeypatch) -> _RecordingExtractor:
     extractor = _RecordingExtractor()
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.run_outputs.get_solver_registry_provider",
-        lambda: SimpleNamespace(get_extractor_instance=lambda *_: extractor),
-    )
+    monkeypatch.setattr(extractors, "create", lambda *_parts, **_options: extractor)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.run_outputs._finalize_run_provenance",
         lambda **_kwargs: None,

@@ -2,7 +2,7 @@
 
 Each one is read from a registry of the code, never typed in a page:
 
-- solvers: ``hydromodpy.solver.base.registry`` (pairs, capabilities, requirements);
+- solvers: ``hydromodpy.solver.base.registry`` (the attributes each backend declares);
 - figures: ``hydromodpy.display`` (``FigureSpec``, the figure classes, their options);
 - data sources: the ``source`` keys of the ``[data.<variable>]`` sections in the
   field registry, joined with ``hydromodpy.schema.sources`` (publisher, licence, hosts).
@@ -26,20 +26,6 @@ def _first_paragraph(doc: str | None) -> str:
     return " ".join(text.split())
 
 
-# What a capability name tells a reader. The names come from the solver registry;
-# the sentences say what a pair that declares one can do.
-CAPABILITY_MEANING = {
-    "flow": "Solves groundwater flow.",
-    "flow:heads": "Writes the hydraulic heads.",
-    "flow:budget": "Writes the water budget of the domain.",
-    "flow:restart": "Starts from the state of an earlier run, read from [flow] restart_from.",
-    "flow:spinup_cyclic": "Can repeat its own period to settle a state (spin-up).",
-    "flow:surface_excess": "Writes the water that leaves the aquifer at the surface.",
-    "transport": "Transports something through a flow solution.",
-    "transport:concentration": "Writes solute concentrations.",
-    "transport:particles": "Writes particle pathlines.",
-}
-
 # The executable each solver runs, by the name `hmp install-binaries --subset` takes.
 # `hydromodpy.solver.modflow_common.binaries` knows the names; the pairing is read
 # from the engine classes, which call ensure_solver_binary with one of them.
@@ -53,16 +39,18 @@ SOLVER_EXECUTABLE = {
 
 
 def solvers(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    """One row per (process, solver) pair the registry knows."""
-    from hydromodpy.solver.base import registry
+    """One row per backend the solver registry serves, with the attributes it declares."""
+    from hydromodpy.solver.base.registry import extractors, solvers
     from hydromodpy.solver.modflow_common.binaries import available_solvers
 
     backend_values = {str(v) for v in nodes.get("solver.backend.kind", {}).get("literal") or []}
     fetchable = set(available_solvers())
-    extractors = set(registry.list_extractor_pairs())
+    read_back = set(extractors.names())
     rows = []
-    for process, solver in sorted(registry.list_pairs()):
-        cls = registry.get(process, solver)
+    # A key is never split: the process and the solver are read off the class.
+    for key in solvers.names():
+        cls = solvers.get(key)
+        process, solver = cls.process_type, cls.name
         exe = SOLVER_EXECUTABLE.get(solver)
         if exe is not None and exe not in fetchable:
             raise ValueError(f"{solver}: executable {exe!r} is unknown to the binaries module")
@@ -70,11 +58,16 @@ def solvers(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "process": process,
                 "solver": solver,
-                "capabilities": sorted(registry.capabilities(process, solver)),
-                "requires": [list(pair) for pair in registry.required_bindings(process, solver)],
+                "category": cls.category,
+                "geometry": cls.geometry,
+                "accepted_meshes": sorted(cls.accepted_meshes),
+                "writes": list(cls.writes),
+                "reads": list(cls.reads),
+                "supports": sorted(cls.supports),
+                "requires": [list(pair) for pair in cls.requires],
                 "adapter": f"{cls.__module__}.{cls.__qualname__}",
                 "summary": _first_paragraph(inspect.getdoc(cls)),
-                "extractor": (process, solver) in extractors,
+                "extractor": key in read_back,
                 "executable": exe,
                 "backend_key": solver in backend_values and process == "flow",
             }
@@ -241,11 +234,11 @@ def data_sources(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         kinds: dict[str, str | None] = {}
         if not values:
             # A free-text source key names any source of the data-source port.
-            from hydromodpy.data.source import registry as port
+            from hydromodpy.data.source.registry import data_sources
 
             values = ["custom"]
-            for source_id in port.list_source_ids():
-                kinds[source_id] = getattr(port.get(source_id), "payload_kind", None)
+            for source_id in data_sources.names():
+                kinds[source_id] = getattr(data_sources.get(source_id), "payload_kind", None)
                 values.append(source_id)
         docs = node.get("value_docs") or {}
         entries = []
@@ -281,7 +274,6 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "figures": figures(),
         "data_sources": sources,
         "providers": providers(sources),
-        "capabilities": CAPABILITY_MEANING,
     }
 
 

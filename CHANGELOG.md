@@ -18,6 +18,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### Added
+
+- `hydromodpy.model.supports` holds the closed set of traits a solver backend lists in `supports`: the boundary kinds,
+  the fields of `ModelOptions` and the initial states `head_rule`, `steady_start`, `cyclic_start` and `prior_state`.
+
 ### Changed
 
 - `hydromodpy.analysis.compare` is now `hydromodpy.project.compare`, and `hydromodpy.examples` is now
@@ -140,6 +145,32 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The auxiliary steady solve of MODFLOW 6 and MODFLOW-NWT always starts from the top of the model. It started 0.01 m
   below the top when `[flow.runtime]` set `backend = "petsc"` and `surface_interaction_model = "vi_obstacle"`, two
   Boussinesq settings. See the recipe `modflow_steady_start_ignores_boussinesq_runtime` of `changes.toml`.
+- Every plugin surface (solver backends and extractors, data sources, mesh and terrain engines, trial evaluators,
+  forward models) resolves through one registry class, `hydromodpy.core.plugin_registry.PluginRegistry`, with the calls
+  `register`, `get` and `names`. A registry keys a class on one or more of its attributes joined by `_`, and an
+  entry-point name is compared with that join and never split. The seven entry-point groups keep their names.
+- Each registry module exposes its registry object and no module function: `solvers` and `extractors` in
+  `hydromodpy.solver.base.registry`, `data_sources` in `hydromodpy.data.source.registry`, `mesh_engines` in
+  `hydromodpy.mesh.registry`, `terrain_engines` in `hydromodpy.catchment.terrain.registry`, `evaluators` in
+  `hydromodpy.calibration.evaluation.registry` and `forward_models` in
+  `hydromodpy.calibration.evaluation.forward_registry`. Write `mesh_engines.get(name)`, `terrain_engines.create(name)` or
+  `evaluators.register(cls)` where the module functions `get`, `create`, `register`, `unregister` and `load_plugins`
+  were called, `mesh_engines.names()` for `list_*_ids()`,
+  `mesh_engines.names(shipped_only=True)` for `builtin_*_ids()`, `name in mesh_engines.names()` for
+  `is_registered(name)`, and `evaluators.get(name).evaluator_id` for `resolve_id(name)`.
+- A solver backend declares on its adapter class `name`, `process_type`, `accepted_meshes`, `geometry`, `writes`,
+  `reads`, `supports`, `options`, `category`, `native_step`, `mutable` and `requires`. `solver_name` becomes `name`,
+  `capabilities` is split into `writes` and `supports`, and the category moves from the extractor to the adapter. The
+  registry refuses a backend that lacks one of them or declares one with the wrong type, and names it.
+- An unknown solver key raises `SolverInputError` instead of `KeyError`.
+- The category a run records in its manifest is the one its solver backend declares. The shipped backends keep theirs,
+  and a third-party backend records its own where it recorded none.
+- The refusals of `flow.restart_from` and of a cyclic spin-up read the traits `prior_state` and `cyclic_start` in the
+  `supports` of the backend, and their message names the trait.
+- `primary_solver_for_simulation` of `hydromodpy.workflow.steps.prepare_solver.facts` is now
+  `primary_run_for_simulation` and returns the process type with the solver.
+- The solver catalog of the reference shows what each backend declares (category, grid, meshes, what it writes and the
+  traits it supports) in place of the capability names.
 
 ### Removed
 
@@ -151,6 +182,20 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp dev manage` is gone and has no replacement yet.
 - `is_boundary_condition_active` and `active_side_dirichlet_boundary_ids` of
   `hydromodpy.model.boundaries.boundary_condition_registry` are gone. A backend reads `Model.boundaries`.
+- The solver functions `get_solver_adapter`, `get_extractor`, `get_extractor_instance`, `capabilities`,
+  `accepted_meshes`, `list_pairs`, `list_extractor_pairs`, `pairs_for_process`, `required_bindings`, `is_supported`,
+  `is_adapter`, `known_process_types`, `register_extractor` and `load_extractor_plugins` of
+  `hydromodpy.solver.base.registry`, and `MeshReadingAdapter` and `missing_adapter_members` of
+  `hydromodpy.solver.base.adapter_protocol`, are gone. Use `hydromodpy.solver.base.registry.solvers` and `extractors`.
+- `hydromodpy.core.contracts.solver_registry` is gone. The callers read `hydromodpy.solver.base.registry` directly.
+- `missing_class_members` of `hydromodpy.data.source.port` is gone. `data_sources.register()` refuses a class
+  member that is absent or `None`.
+- `builtin_ids`, `list_ids`, `is_registered` and `resolve_id` of `PluginRegistry` are gone, with the module functions
+  `list_source_ids`, `builtin_source_ids`, `list_engine_ids`, `builtin_engine_ids`, `list_evaluator_ids`,
+  `builtin_evaluator_ids`, `list_model_ids`, `builtin_model_ids`, `is_registered`, `resolve_id` and
+  `resolved_engine_id`. Use `names()`, `names(shipped_only=True)`, `x in names()` and `get(x).<id attribute>`.
+- `RESTART_CAPABILITY` and `CYCLIC_SPINUP_CAPABILITY` of `hydromodpy.config.hydromodpy_config` and
+  `SURFACE_EXCESS_CAPABILITY` of `hydromodpy.workflow.steps.planning` are gone with the capability names they held.
 
 ### Fixed
 

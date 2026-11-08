@@ -29,7 +29,7 @@ def _served_slugs() -> set[str]:
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
 
     slugs = {key for name in VARIABLE_SPECS for key in get_manager_class(name).SOURCES}
-    return slugs | set(registry.builtin_source_ids())
+    return slugs | set(registry.data_sources.names(shipped_only=True))
 
 
 def test_the_declared_hosts_are_the_hosts_of_the_served_sources() -> None:
@@ -87,7 +87,7 @@ def _asking(name: str, **options: object) -> dict:
 
 
 def test_a_request_names_a_source_this_repository_does_not_name(isolated_registry) -> None:
-    registry.register(AcmeRadarSource)
+    registry.data_sources.register(AcmeRadarSource)
 
     request = DataRequest.model_validate(_asking("acme-radar", sweep="short"))
 
@@ -96,7 +96,7 @@ def test_a_request_names_a_source_this_repository_does_not_name(isolated_registr
 
 def test_installing_a_source_does_not_move_what_the_build_declares(isolated_registry) -> None:
     before = tuple(REACHED_HOSTS)
-    registry.register(AcmeRadarSource)
+    registry.data_sources.register(AcmeRadarSource)
 
     assert tuple(REACHED_HOSTS) == before
     assert "radar.acme.example" not in DATA_REQUEST.reaches_network
@@ -116,7 +116,7 @@ def test_a_shipped_source_is_refused_through_installed(name: str) -> None:
 def test_an_option_the_installed_source_cannot_take_is_refused_by_name(
     isolated_registry,
 ) -> None:
-    registry.register(AcmeRadarSource)
+    registry.data_sources.register(AcmeRadarSource)
 
     with pytest.raises(ValueError, match="resolution_m"):
         DataRequest.model_validate(_asking("acme-radar", resolution_m=25))
@@ -132,7 +132,7 @@ def test_an_argument_the_installed_source_demands_is_refused_when_missing(
             super().__init__()
             self.licence_key = licence_key
 
-    registry.register(DemandingSource)
+    registry.data_sources.register(DemandingSource)
 
     with pytest.raises(ValueError, match="licence_key"):
         DataRequest.model_validate(_asking("acme-demanding"))
@@ -150,7 +150,7 @@ def test_a_constructor_that_refuses_its_options_is_a_fault_of_the_request(
             self.buffer = [0] * sweeps
             self.variables: tuple[str, ...] = ("radar_rainfall",)
 
-    registry.register(TypedSource)
+    registry.data_sources.register(TypedSource)
     request = DataRequest.model_validate(_asking("acme-typed", sweeps="four"))
 
     report = run_request(request, tmp_path / "out")

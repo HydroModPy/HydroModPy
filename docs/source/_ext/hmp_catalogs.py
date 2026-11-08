@@ -80,24 +80,39 @@ def toml_link(builder, doc: str, path: str, label: str | None = None) -> str:
 
 
 class SolversDirective(SphinxDirective):
-    """Every (process, solver) pair the solver registry knows."""
+    """Every backend the solver registry serves, with the attributes it declares."""
 
     def run(self):
         rows = DATA.get("solvers")
         if not rows:
             return missing("solvers")
         builder, doc = H.current_builder(), self.env.docname
-        meaning = DATA.get("capabilities", {})
-        used: dict[str, str] = {}
         body = []
         for r in rows:
-            chips = []
-            for cap in r["capabilities"]:
-                text = meaning.get(cap, "")
-                used[cap] = text
-                title = f' title="{esc(text)}"' if text else ""
-                chips.append(f'<span class="hmp-chip"{title}>{esc(cap)}</span>')
-            caps = '<div class="hmp-chips">' + " ".join(chips) + "</div>"
+            meshes = (
+                code_list(r["accepted_meshes"])
+                if r["accepted_meshes"]
+                else '<span class="hmp-muted">the mesh of its flow</span>'
+            )
+            declares = (
+                f"<div>category <code>{esc(r['category'])}</code></div>"
+                f"<div>grid on <code>{esc(r['geometry'])}</code></div>"
+                f"<div>meshes {meshes}</div>"
+            )
+            if r["reads"]:
+                declares += f"<div>reads {code_list(r['reads'])}</div>"
+            writes = (
+                '<div class="hmp-chips">'
+                + " ".join(f'<span class="hmp-chip">{esc(name)}</span>' for name in r["writes"])
+                + "</div>"
+            )
+            supports = (
+                '<div class="hmp-chips">'
+                + " ".join(f'<span class="hmp-chip">{esc(name)}</span>' for name in r["supports"])
+                + "</div>"
+                if r["supports"]
+                else '<span class="hmp-muted">-</span>'
+            )
             sel = [f'type = "{r["process"]}"', f'solvers = ["{r["solver"]}"]']
             select = (
                 f"{toml_link(builder, doc, 'simulation.process', '[[simulation.process]]')}"
@@ -122,25 +137,17 @@ class SolversDirective(SphinxDirective):
             body.append(
                 f"<tr><td><code>{esc(r['process'])}</code></td>"
                 f"<td><code>{esc(r['solver'])}</code></td>"
-                f"<td>{caps}</td><td>{select}</td><td>{exe}</td><td>{req}</td>"
+                f"<td>{declares}</td><td>{writes}</td><td>{supports}</td>"
+                f"<td>{select}</td><td>{exe}</td><td>{req}</td>"
                 f"<td>{'yes' if r['extractor'] else 'no'}</td></tr>"
             )
-        legend = "".join(
-            f'<li><span class="hmp-chip">{esc(cap)}</span> {esc(text)}</li>'
-            for cap, text in sorted(used.items())
-            if text
-        )
         return [
             H.raw(
                 '<div class="hmp-matrix-wrap"><table class="hmp-cat hmp-solvers"><thead><tr><th>Process</th><th>Solver</th>'
-                "<th>Capabilities</th><th>Select it with</th><th>Executable</th><th>Needs a run of</th>"
+                "<th>Declares</th><th>Writes</th><th>Supports</th><th>Select it with</th>"
+                "<th>Executable</th><th>Needs a run of</th>"
                 "<th>Results read back</th></tr></thead>"
                 f"<tbody>{''.join(body)}</tbody></table></div>"
-                + (
-                    f'<h2 id="capabilities">What a capability name means</h2><ul class="hmp-capnames">{legend}</ul>'
-                    if legend
-                    else ""
-                )
             )
         ]
 

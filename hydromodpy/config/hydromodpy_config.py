@@ -205,13 +205,6 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
-RESTART_CAPABILITY = "flow:restart"
-"""What a backend declares when it reads ``[flow] restart_from``."""
-
-CYCLIC_SPINUP_CAPABILITY = "flow:spinup_cyclic"
-"""What a backend declares when it can repeat its own period to settle a state."""
-
-
 def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
     """Name of the flow solver this config would build, or None if undeclared.
 
@@ -306,13 +299,13 @@ def _refuse_unknown_transport_solvers(names: list[str]) -> None:
     """
     if not names:
         return
-    from hydromodpy.solver.base import registry
+    from hydromodpy.solver.base.registry import solvers
 
-    registry.load_plugins()
-    unknown = [name for name in names if not registry.is_supported("transport", name)]
+    transport_solvers = solvers.names("transport")
+    unknown = [name for name in names if name not in transport_solvers]
     if not unknown:
         return
-    known = ", ".join(name for _, name in registry.pairs_for_process("transport"))
+    known = ", ".join(transport_solvers)
     raise ValueError(
         f"Unknown transport solver '{unknown[0]}' in [[simulation.process]]: it is "
         f"neither built in nor a registered plugin. Write one of: {known}."
@@ -866,7 +859,7 @@ class HydroModPyConfig(HydroModelBase):
         """
         from hydromodpy.mesh import registry as mesh_registry
         from hydromodpy.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
-        from hydromodpy.solver.base import registry as solver_registry
+        from hydromodpy.solver.base.registry import solvers
 
         mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
@@ -877,10 +870,10 @@ class HydroModPyConfig(HydroModelBase):
             if engine_id in accepted:
                 return True
             return ANY_PLANAR_ENGINE in accepted and engine_accepted(
-                accepted, engine_id, mesh_registry.get(engine_id).capabilities
+                accepted, engine_id, mesh_registry.mesh_engines.get(engine_id).capabilities
             )
 
-        accepted = solver_registry.accepted_meshes("flow", solver_name)
+        accepted = solvers.get("flow", solver_name).accepted_meshes
         if reads(accepted):
             return
         names = ", ".join(sorted(accepted - {ANY_PLANAR_ENGINE}))
@@ -888,8 +881,8 @@ class HydroModPyConfig(HydroModelBase):
             names += " and any engine with planar cells"
         readers = sorted(
             name
-            for _, name in solver_registry.pairs_for_process("flow")
-            if reads(solver_registry.accepted_meshes("flow", name))
+            for name in solvers.names("flow")
+            if reads(solvers.get("flow", name).accepted_meshes)
         )
         origin = "" if mesh is not None and "engine" in mesh.model_fields_set else " (the default)"
         raise ValueError(
@@ -1220,14 +1213,17 @@ class HydroModPyConfig(HydroModelBase):
         # Elsewhere the key was accepted and never looked at, so the run
         # started from the declared initial condition and said nothing.
         if flow_cfg.restart_from:
-            from hydromodpy.solver.base.registry import capabilities
+            from hydromodpy.model.initial.state import PriorState
+            from hydromodpy.model.supports import INITIAL_STATE_TRAITS
+            from hydromodpy.solver.base.registry import solvers
 
-            if RESTART_CAPABILITY not in capabilities("flow", str(engine_value)):
+            prior_state = INITIAL_STATE_TRAITS[PriorState]
+            if prior_state not in solvers.get("flow", str(engine_value)).supports:
                 raise IncompatibleCapabilitiesError(
                     f"solver.backend={engine_value!r} does not read flow.restart_from; "
                     "it would be silently ignored and the run would start from "
-                    "flow.ic instead. Use a backend that declares "
-                    f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
+                    "flow.ic instead. Use a backend that lists "
+                    f"{prior_state!r} in its supports, or drop flow.restart_from."
                 )
 
         # A steady pre-solve or a cyclic spin-up writes its own heads after the
@@ -1250,14 +1246,17 @@ class HydroModPyConfig(HydroModelBase):
         # backend that cannot do that would start from flow.ic and report a
         # settled antecedent it never computed.
         if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
-            from hydromodpy.solver.base.registry import capabilities
+            from hydromodpy.model.initial.state import CyclicStart
+            from hydromodpy.model.supports import INITIAL_STATE_TRAITS
+            from hydromodpy.solver.base.registry import solvers
 
-            if CYCLIC_SPINUP_CAPABILITY not in capabilities("flow", str(engine_value)):
+            cyclic_start = INITIAL_STATE_TRAITS[CyclicStart]
+            if cyclic_start not in solvers.get("flow", str(engine_value)).supports:
                 raise IncompatibleCapabilitiesError(
                     f"flow.ic.kind='spinup_cyclic' repeats the simulated period until "
                     f"the state settles, and solver.backend={engine_value!r} cannot: it "
                     "would start from the declared initial condition and say nothing. "
-                    f"Use a backend that declares {CYCLIC_SPINUP_CAPABILITY!r}, or run "
+                    f"Use a backend that lists {cyclic_start!r} in its supports, or run "
                     "the cycling outside the run with `hmp spinup` and point "
                     "flow.restart_from at its result."
                 )

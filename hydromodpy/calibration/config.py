@@ -2690,9 +2690,9 @@ class CalibrationConfig(HydroModelBase):
             return value
         from hydromodpy.calibration.evaluation import registry as evaluator_registry
 
-        if evaluator_registry.is_registered(value):
+        if value in evaluator_registry.evaluators.names():
             return value
-        served = ", ".join(evaluator_registry.list_evaluator_ids()) or "none"
+        served = ", ".join(evaluator_registry.evaluators.names()) or "none"
         raise ValueError(
             f"calibration.evaluator names {value!r}, and this installation serves {served}. "
             f"A third-party evaluator joins that list through the "
@@ -2713,9 +2713,9 @@ class CalibrationConfig(HydroModelBase):
             return value
         import hydromodpy.calibration.evaluation.forward_registry as forward_registry
 
-        if forward_registry.is_registered(value):
+        if value in forward_registry.forward_models.names():
             return value
-        served = ", ".join(forward_registry.list_model_ids()) or "none"
+        served = ", ".join(forward_registry.forward_models.names()) or "none"
         raise ValueError(
             f"calibration.forward_model names {value!r}, and this installation serves "
             f"{served}. A third-party model joins that list through the "

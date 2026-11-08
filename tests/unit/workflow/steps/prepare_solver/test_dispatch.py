@@ -160,7 +160,9 @@ def test_refresh_rewrites_the_engine_once_the_model_exists(monkeypatch) -> None:
         version="6.6.3",
     )
     monkeypatch.setattr(dispatch_module, "_resolve_solver_engine", lambda *_a, **_k: library)
-    monkeypatch.setattr(dispatch_module, "primary_solver_for_simulation", lambda _plan: "modflow6")
+    monkeypatch.setattr(
+        dispatch_module, "primary_run_for_simulation", lambda _plan: ("flow", "modflow6")
+    )
 
     dispatch_module.refresh_run_environment(ctx, store=_store(captured))
 
@@ -331,6 +333,7 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) 
     assert facts.case_id == "requested_name"
     assert facts.project == "demo_project"
     assert facts.solver == "boussinesq"
+    assert facts.solver_category == "integrated"
     assert facts.config_hash
     assert facts.config_source == "requested_name.toml"
     assert facts.lineage.kind == "rerun"

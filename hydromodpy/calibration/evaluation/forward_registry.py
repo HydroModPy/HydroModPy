@@ -29,7 +29,7 @@ CONSTRUCTION_OPTIONS: tuple[str, ...] = (
 )
 """Every option the scoring evaluator offers a forward model's constructor.
 
-:func:`create` binds only the parameters a class names, so this is the
+``forward_models.create`` binds only the parameters a class names, so this is the
 vocabulary a third party writes its ``__init__`` in. It is a subset of the
 evaluator registry's: ``trial_ctx`` and ``metric_fn`` belong to the pipeline
 evaluator, and a model scored by the document's criteria is by construction one
@@ -51,9 +51,9 @@ _BUILTIN_PATHS: dict[str, str] = {
 }
 """Dotted paths to the in-tree model classes, imported on first lookup."""
 
-_ENGINE = PluginRegistry(
+forward_models = PluginRegistry(
     kind="forward model",
-    id_attribute="model_id",
+    id_attributes=("model_id",),
     group=ENTRY_POINT_GROUP,
     builtin_paths=_BUILTIN_PATHS,
     members=forward_model_members,
@@ -61,27 +61,11 @@ _ENGINE = PluginRegistry(
     error=CalibrationError,
     construction_options=CONSTRUCTION_OPTIONS,
 )
-builtin_model_ids = _ENGINE.builtin_ids
-list_model_ids = _ENGINE.list_ids
-is_registered = _ENGINE.is_registered
-register = _ENGINE.register
-get = _ENGINE.get
-resolve_id = _ENGINE.resolve_id
-create = _ENGINE.create
-load_plugins = _ENGINE.load_plugins
-unregister = _ENGINE.unregister
+"""The forward-model registry: ``forward_models.get``, ``names`` and ``register``."""
 
 __all__ = [
     "CONSTRUCTION_OPTIONS",
     "DEFAULT_FORWARD_MODEL_ID",
     "ENTRY_POINT_GROUP",
-    "builtin_model_ids",
-    "create",
-    "get",
-    "is_registered",
-    "list_model_ids",
-    "load_plugins",
-    "register",
-    "resolve_id",
-    "unregister",
+    "forward_models",
 ]

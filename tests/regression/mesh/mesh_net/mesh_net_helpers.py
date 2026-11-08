@@ -152,14 +152,16 @@ def triangle_mesh(bundle: str = ISLAND_BUNDLE):
     """Return the triangles of a committed bundle as built by the ``triangle`` engine."""
     from hydromodpy.mesh import registry
 
-    return registry.create("triangle").build(_read_request(bundle))
+    return registry.mesh_engines.create("triangle").build(_read_request(bundle))
 
 
 def voronoi_mesh(bundle: str = ISLAND_BUNDLE):
     """Return the Voronoi cells around the vertices of a committed bundle, from the engine."""
     from hydromodpy.mesh import registry
 
-    return registry.create("voronoi").build(_read_request(bundle, seeds="triangulation"))
+    return registry.mesh_engines.create("voronoi").build(
+        _read_request(bundle, seeds="triangulation")
+    )
 
 
 def polygons_of_mesh(cell_mesh) -> tuple[list[np.ndarray], np.ndarray]:

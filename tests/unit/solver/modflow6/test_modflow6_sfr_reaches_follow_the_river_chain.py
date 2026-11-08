@@ -61,7 +61,7 @@ REACHES = (
 
 def _cell_mesh(engine: str) -> PlanarCellMesh:
     river = LineString([*WEST.coords, *STUB.coords[1:], *MAIN.coords[1:]])
-    return registry.create(engine).build(
+    return registry.mesh_engines.create(engine).build(
         mesh_request(
             grid_spec(40, 40, 25.0, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT),
             nominal_size_m=50.0,

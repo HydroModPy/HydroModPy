@@ -102,52 +102,6 @@ def _register_rerun_provider() -> None:
     register_rerun_provider(ProjectRerunProvider())
 
 
-def _register_solver_registry_provider() -> None:
-    """Wire a single solver-registry provider for the layers below ``solver``.
-
-    The layer matrix forbids ``model -> solver``. Its consumers reach
-    the registry through the ``SolverRegistryProvider`` Protocol declared in
-    :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives in
-    ``core`` so every consumer shares one provider.
-    """
-    from hydromodpy.core.contracts import solver_registry
-    from hydromodpy.solver.base import registry as _registry
-
-    class _RegistryProvider:
-        def distributed_flow_solver_sections(self) -> tuple[str, ...]:
-            flow_solvers = {name for _, name in _registry.pairs_for_process("flow")}
-            sections: list[str] = []
-            for process_type, name in _registry.list_extractor_pairs():
-                if process_type != "flow" or name not in flow_solvers:
-                    continue
-                try:
-                    extractor = _registry.get_extractor(process_type, name)
-                except KeyError:
-                    continue
-                if getattr(extractor, "category", None) == "distributed":
-                    sections.append(name)
-            return tuple(sections)
-
-        def known_process_types(self) -> set[str]:
-            return _registry.known_process_types()
-
-        def required_bindings(
-            self, process_type: str, solver_name: str
-        ) -> tuple[tuple[str, str], ...]:
-            return _registry.required_bindings(process_type, solver_name)
-
-        def get_solver_adapter(self, process_type: str, solver_name: str):
-            return _registry.get_solver_adapter(process_type, solver_name)
-
-        def get_solver_adapter_class(self, process_type: str, solver_name: str) -> type:
-            return _registry.get(process_type, solver_name)
-
-        def get_extractor_instance(self, process_type: str, solver_name: str):
-            return _registry.get_extractor_instance(process_type, solver_name)
-
-    solver_registry.set_solver_registry_provider(_RegistryProvider())
-
-
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
@@ -216,7 +170,6 @@ _BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
     _register_spatial_contracts,
     _register_calibration_contracts,
     _register_rerun_provider,
-    _register_solver_registry_provider,
     _rebuild_forward_refs,
     _register_root_config_contracts,
     _register_dynamic_flow_examples_contract,

@@ -308,9 +308,9 @@ def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
     tmp_path: Path, keeps_solves: bool, registered: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """In this process, because a coverage run does not see a spawned worker."""
-    monkeypatch.setattr(registry._ENGINE, "classes", {})
+    monkeypatch.setattr(registry.evaluators, "classes", {})
     if registered:
-        registry.register(_Scripted)
+        registry.evaluators.register(_Scripted)
     trial_ctx = _trial_ctx(tmp_path)
     state = pickle.dumps((_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity()))
     request = TrialRequest(trial_id=5, values={"cost": 0.5})
@@ -340,7 +340,7 @@ class _Sinkless(_Scripted):
 def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
     tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setattr(registry._ENGINE, "classes", {})
+    monkeypatch.setattr(registry.evaluators, "classes", {})
     state = pickle.dumps(
         (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity())
     )

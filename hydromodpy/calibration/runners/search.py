@@ -118,9 +118,6 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
-
-logger = get_logger(__name__)
-
 from hydromodpy.calibration.runners.document import (
     declared_window_text,
     refuse_an_objective_that_is_not_an_entry_point,
@@ -138,6 +135,8 @@ from hydromodpy.calibration.runners.session_scope import (
     root_search_record,
     search_status,
 )
+
+logger = get_logger(__name__)
 
 
 def calibration_trace(
@@ -1099,7 +1098,8 @@ def run_calibration_core(
 
     if cfg.validation_window is not None and (
         metric_fn is not None
-        or evaluation_registry.resolve_id(cfg.evaluator) != evaluation_registry.DEFAULT_EVALUATOR_ID
+        or evaluation_registry.evaluators.get(cfg.evaluator).evaluator_id
+        != evaluation_registry.DEFAULT_EVALUATOR_ID
     ):
         raise CalibrationError(
             "validation_window is scored by the blocks of the HydroModPy pipeline, and a metric "
@@ -1116,7 +1116,7 @@ def run_calibration_core(
         cfg_path=cfg_path,
         metric_fn=metric_fn,
     )
-    evaluator = evaluation_registry.create(cfg.evaluator, **evaluator_options)
+    evaluator = evaluation_registry.evaluators.create(cfg.evaluator, **evaluator_options)
     if trial_ctx is None and cfg.save_runs != "none" and "save_runs" in cfg.model_fields_set:
         raise CalibrationError(
             f"calibration.evaluator names {getattr(evaluator, 'evaluator_id', cfg.evaluator)!r}, "

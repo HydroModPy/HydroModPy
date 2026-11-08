@@ -48,7 +48,11 @@ from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
 )
-from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
+from hydromodpy.core.exceptions import (
+    ObjectiveError,
+    ObservableNotAvailableError,
+    SolverInputError,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
@@ -68,7 +72,7 @@ from hydromodpy.results.derive.stream.extent import (
 )
 from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.solver.base.plan import RunContext
-from hydromodpy.solver.base.registry import get_solver_adapter
+from hydromodpy.solver.base.registry import solvers
 
 logger = get_logger(__name__)
 
@@ -118,8 +122,8 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
     if flow_run is None:
         return None
     try:
-        adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
-    except KeyError:
+        adapter = solvers.create(flow_run.process_type, flow_run.solver)
+    except SolverInputError:
         return None
     run_ctx = RunContext.of(trial_ctx, plan=plan, run=flow_run)
     return adapter, run_ctx

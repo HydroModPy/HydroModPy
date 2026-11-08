@@ -306,12 +306,12 @@ class SolverConfig(HydroModelBase):
 
     def validate_registry(self) -> None:
         """Verify the selected engine is registered. Call explicitly from launcher."""
-        from hydromodpy.solver.base import registry
+        from hydromodpy.solver.base.registry import solvers
 
-        registry.load_plugins()
         engine = self.backend_name
-        if not registry.is_supported("flow", engine):
-            known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
+        flow_solvers = solvers.names("flow")
+        if engine not in flow_solvers:
+            known = ", ".join(flow_solvers)
             raise ValueError(
                 f"Unknown flow solver '{engine}': it is neither built in nor a registered "
                 f"plugin. Write one of: {known}."

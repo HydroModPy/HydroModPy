@@ -20,8 +20,8 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import document as document_module
-from hydromodpy.calibration.runners import search, session_scope
 from hydromodpy.calibration.runners import promotion as promotion_module
+from hydromodpy.calibration.runners import search, session_scope
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
 from hydromodpy.calibration.runners.session import calibration_case_name, open_session_dir
 from hydromodpy.calibration.runners.trial import TrialContext
@@ -166,7 +166,7 @@ class TestALinearizedWidthWithoutPhases:
         assert report.parameter_uncertainty == width_of_k
 
     def test_an_evaluator_with_no_model_is_refused_the_width(self, fake_project):
-        evaluation_registry.register(_NoModel, replace=True)
+        evaluation_registry.evaluators.register(_NoModel, replace=True)
         try:
             with pytest.raises(CalibrationError, match="runs no HydroModPy model"):
                 run_calibration_programmatic(
@@ -174,7 +174,7 @@ class TestALinearizedWidthWithoutPhases:
                     project=fake_project,
                 )
         finally:
-            evaluation_registry.unregister(_NoModel.evaluator_id)
+            evaluation_registry.evaluators.unregister(_NoModel.evaluator_id)
 
 
 def test_a_call_with_phases_resumes_the_session_of_its_case(fake_project, tmp_path, monkeypatch):

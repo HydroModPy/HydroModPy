@@ -70,7 +70,7 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
         barriers=(line,),
     )
     request = plan_mesh_request(MeshConfig.model_validate(ENGINES[engine]), inputs)
-    cell_mesh = registry.create(engine).build(request)
+    cell_mesh = registry.mesh_engines.create(engine).build(request)
     n_cells = cell_mesh.n_cells
     solver_mesh = SolverMesh(
         cell_mesh=cell_mesh,

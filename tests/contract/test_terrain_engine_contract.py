@@ -37,6 +37,7 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
+from hydromodpy.core.plugin_registry import PluginRegistry
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.tolerances import tol
 
@@ -70,14 +71,14 @@ def _engine(engine_id: str):
         configure_whitebox_single_thread(monkeypatch)
         monkeypatch.undo()
     try:
-        return registry.create(engine_id)
+        return registry.terrain_engines.create(engine_id)
     except TerrainRequestError:
-        if engine_id in registry.builtin_engine_ids():
+        if engine_id in registry.terrain_engines.names(shipped_only=True):
             pytest.skip(f"{engine_id!r} is declared by this build and not installed here")
         raise
 
 
-@pytest.fixture(scope="module", params=registry.list_engine_ids())
+@pytest.fixture(scope="module", params=registry.terrain_engines.names())
 def engine(request):
     """One terrain engine, once per implementation this installation serves (stateless)."""
     return _engine(request.param)
@@ -172,11 +173,11 @@ def test_an_engine_satisfies_the_port_with_a_stable_digest(engine) -> None:
 def test_no_two_engines_share_a_digest() -> None:
     """The digest stamps a sealed job, so two engines must never answer the same one."""
     digests = {}
-    for engine_id in registry.list_engine_ids():
+    for engine_id in registry.terrain_engines.names():
         try:
-            digests[engine_id] = registry.create(engine_id).engine_digest()
+            digests[engine_id] = registry.terrain_engines.create(engine_id).engine_digest()
         except TerrainRequestError:
-            if engine_id not in registry.builtin_engine_ids():
+            if engine_id not in registry.terrain_engines.names(shipped_only=True):
                 raise
             # A built-in this environment cannot load; skipped below if alone.
             continue
@@ -723,3 +724,26 @@ def test_every_engine_serves_a_capped_breach_with_its_report_or_refuses_it(
     assert conditioned.breach_report is not None
     directions = engine.drainage_directions(conditioned, out=tmp_path / "out" / "pointer.tif")
     assert _drains_nowhere(directions) == 0
+
+
+def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> None:
+    """The registry is one object of the shared engine, read through ``terrain_engines``."""
+    held = registry.terrain_engines
+
+    assert isinstance(held, PluginRegistry)
+    assert held.id_attributes == ("engine_id",)
+    assert held.group == registry.ENTRY_POINT_GROUP
+    assert held.default_id == registry.DEFAULT_ENGINE_ID
+    assert held.names(shipped_only=True) == tuple(sorted(registry._BUILTIN_PATHS))
+    retired = (
+        "get",
+        "create",
+        "register",
+        "unregister",
+        "load_plugins",
+        "is_registered",
+        "resolve_id",
+        "list_engine_ids",
+        "builtin_engine_ids",
+    )
+    assert [name for name in retired if hasattr(registry, name)] == []

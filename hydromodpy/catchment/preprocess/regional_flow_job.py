@@ -138,7 +138,7 @@ def _resolved(
     request: RegionalFlowRequest, *, backend: object | None = None
 ) -> tuple[dict[str, Any], str, int]:
     digest, size = sha256_file(request.dem_init_path)
-    engine = terrain_registry.create(request.engine_id, backend=backend)
+    engine = terrain_registry.terrain_engines.create(request.engine_id, backend=backend)
     inputs = {
         "dem_sha256": digest,
         "dem_correc_type": request.dem_correc_type,

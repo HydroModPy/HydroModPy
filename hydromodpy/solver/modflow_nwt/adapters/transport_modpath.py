@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
 import rasterio
+from pydantic import BaseModel
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
 from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.model.transport.transport_config import TransportModpathConfig
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.transport_runs import required_flow_model
@@ -22,9 +24,27 @@ from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
 class ModpathTransportAdapter:
     """Adapter for ``transport/modpath`` runs."""
 
-    process_type = "transport"
-    solver_name = "modpath"
-    requires: tuple[tuple[str, str], ...] = (("flow", "modflow_nwt"),)
+    name: ClassVar[str] = "modpath"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "raster"
+    writes: ClassVar[tuple[str, ...]] = (
+        "particles/x",
+        "particles/y",
+        "particles/z",
+        "particles/time",
+        "particles/endpoint_x",
+        "particles/endpoint_y",
+        "particles/endpoint_z",
+        "particles/endpoint_time",
+    )
+    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = TransportModpathConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Modpath transport runs."""

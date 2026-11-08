@@ -1,24 +1,39 @@
-"""Single ``SolverAdapter`` Protocol.
+"""The ``SolverAdapter`` Protocol, and the attributes a backend registers with.
 
-Every concrete backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, third-party
-plugin) implements this same contract so the simulation runner stays
-solver-agnostic. Adapters conform *structurally*: there is no base class to
-inherit from, just four method signatures plus three ``ClassVar`` attributes
-that identify the supported pair and its dependencies.
+Every backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, a third-party plugin) meets
+this one contract, so the simulation runner stays solver-agnostic. Adapters
+conform structurally: there is no base class to inherit from. A backend writes
+the twelve attributes of the Protocol on its class and the four methods the
+runner calls. ``solvers`` in ``solver/base/registry.py`` refuses a class that
+lacks one, naming it.
 """
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import pandas as pd
+from pydantic import BaseModel
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
+
+GEOMETRIES: tuple[str, ...] = ("cells", "raster")
+"""The members of ``Model.geometry`` a backend can build its grid on.
+
+``cells`` is the planar cell mesh, ``raster`` the DEM grid. The word names where
+the grid comes from, not everything the backend reads: NWT builds on ``raster``
+and also reads ``cells``.
+"""
+
+CATEGORIES: tuple[str, ...] = ("distributed", "integrated", "lumped")
+"""How a backend resolves space: per cell, per cell with an integrated store, or one store."""
+
+NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step")
+"""The two attributes a backend may set to ``None``. Their presence is checked on the class."""
 
 
 @dataclass(frozen=True)
@@ -50,7 +65,7 @@ costs one solve and changes nothing else.
 
 @runtime_checkable
 class SolverAdapter(Protocol):
-    """One adapter binds one ``(process_type, solver_name)`` pair.
+    """One adapter serves one ``(process_type, name)`` key.
 
     ``ctx.state`` is a :class:`~hydromodpy.core.state.run_state.RunState`: the
     setup scope, the configuration and the run identity (``sim_id``), and
@@ -67,9 +82,62 @@ class SolverAdapter(Protocol):
     ``setup.flow_runtime_overrides`` stay on ``setup``.
     """
 
+    name: ClassVar[str]
+    """The solver name a TOML writes in ``solver.backend``, for example ``modflow6``."""
+
     process_type: ClassVar[str]
-    solver_name: ClassVar[str]
+    """What the backend computes, ``flow`` or ``transport``. With ``name`` it makes the key."""
+
+    accepted_meshes: ClassVar[frozenset[str]]
+    """The mesh engine ids whose cells the backend reads.
+
+    ``ANY_PLANAR_ENGINE`` of ``mesh/port.py`` stands for every engine whose cells
+    are planar. A transport declares none: it reads the mesh of the flow it follows.
+    """
+
+    geometry: ClassVar[str]
+    """The member of ``Model.geometry`` the backend builds its grid on, one of ``GEOMETRIES``.
+
+    A transport declares the value of the flow it follows.
+    """
+
+    writes: ClassVar[tuple[str, ...]]
+    """The fields, tables and series the extractor writes, by their stored names.
+
+    A field is its Zarr path (``head``, ``budget/drain``), a table its view name
+    (``budgets``). A ``*`` stands only for a part the user names, such as a
+    species, a lake or a station. The geometry the extractor adds to the mesh
+    group (``z_interfaces``, the descent arrays) belongs to the mesh layout and
+    is not listed.
+    """
+
+    reads: ClassVar[tuple[str, ...]]
+    """The products of an earlier run the backend reads: ``face_flow`` for a transport, none for a flow."""
+
+    supports: ClassVar[frozenset[str]]
+    """The traits of the ``Model`` the backend honours, from the closed set of ``model/supports.py``.
+
+    A boundary kind, an option of ``ModelOptions`` or an initial state. A trait
+    left out is refused before the run rather than ignored by the solve.
+    """
+
+    options: ClassVar[type[BaseModel] | None]
+    """The Pydantic class of the backend's own table, or ``None`` when it reads none."""
+
+    category: ClassVar[str]
+    """How the backend resolves space, one of ``CATEGORIES``. The seal writes it to the manifest."""
+
+    native_step: ClassVar[str | None]
+    """The step the solver advances at, as a pandas frequency alias.
+
+    ``None`` means it advances at the step of ``Model.time``.
+    """
+
+    mutable: ClassVar[frozenset[str]]
+    """The calibration parameters the backend can change between two solves of one model."""
+
     requires: ClassVar[tuple[tuple[str, str], ...]]
+    """The ``(process_type, name)`` keys an earlier run of the plan must have run."""
 
     def validate(self, ctx: RunContext) -> None:
         """Fail-fast precondition checks before ``execute``."""
@@ -144,47 +212,29 @@ class CellLocator(Protocol):
         ...
 
 
-@runtime_checkable
-class MeshReadingAdapter(Protocol):
-    """A flow adapter that names the mesh engines whose cells it can read.
+def solver_members() -> tuple[str, ...]:
+    """Return the members a backend class must carry, neither absent nor ``None``.
 
-    Separate from :class:`SolverAdapter` because a transport adapter reads the
-    mesh of the flow it follows and declares none. The names are mesh engine ids,
-    or :data:`~hydromodpy.mesh.port.ANY_PLANAR_ENGINE` for every engine
-    whose cells are planar ones. A configuration that pairs the solver with
-    another engine is refused before any meshing.
+    The attributes of :class:`SolverAdapter` except ``NULLABLE_ATTRIBUTES``, then
+    its four methods. The registry hook checks the two nullable ones.
     """
-
-    accepted_meshes: ClassVar[frozenset[str]]
-
-
-def missing_adapter_members(candidate: object) -> tuple[str, ...]:
-    """Return the members *candidate* has no attribute for.
-
-    Presence only. Members are looked up with ``inspect.getattr_static``, as
-    ``isinstance`` against a runtime Protocol does from Python 3.12, so a
-    metaclass ``__getattr__`` that answers every name does not supply them.
-    Python 3.11 still uses ``hasattr`` there. A member bound to ``None`` counts
-    as present, so an empty tuple does not mean the candidate conforms.
-    """
-    missing = object()
-    annotated = set(SolverAdapter.__annotations__)
-    defined = {
+    attributes = tuple(
+        name for name in SolverAdapter.__annotations__ if name not in NULLABLE_ATTRIBUTES
+    )
+    methods = tuple(
         name
         for name, value in vars(SolverAdapter).items()
         if callable(value) and not name.startswith("_")
-    }
-    return tuple(
-        name
-        for name in sorted(annotated | defined)
-        if inspect.getattr_static(candidate, name, missing) is missing
     )
+    return attributes + methods
 
 
 __all__ = [
+    "CATEGORIES",
+    "GEOMETRIES",
+    "NULLABLE_ATTRIBUTES",
     "CellLocator",
-    "MeshReadingAdapter",
     "RunResult",
     "SolverAdapter",
-    "missing_adapter_members",
+    "solver_members",
 ]

@@ -44,11 +44,6 @@ def step_build_plan(ctx: WorkflowContext, *, name: str) -> SimulationPlan:
 # ---------------------------------------------------------------------------
 
 
-# A solver whose seepage is an explicit surface-release flux stored in
-# ``budget/surface_excess`` declares it. Its seepage mask is rebuilt from that
-# term, so a run that keeps only what its consumers read still keeps it.
-SURFACE_EXCESS_CAPABILITY = "flow:surface_excess"
-
 # Overlays of ``[display.overrides.<figure>] overlays`` that read a field.
 _OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
     "seepage": ("seepage_mask",),
@@ -150,9 +145,19 @@ def _requested_overlays(display: DisplayConfig, figure_name: str) -> tuple[str, 
 
 
 def _plan_has_surface_excess(plan: SimulationPlan) -> bool:
-    """True when one run of the plan declares a surface-excess flux."""
-    from hydromodpy.solver.base.registry import capabilities
+    """True when one solver run of the plan writes the surface-excess flux.
 
+    A solver whose seepage is an explicit surface-release flux lists
+    ``budget/surface_excess`` in its ``writes``. Its seepage mask is rebuilt
+    from that term, so a run that keeps only what its consumers read still
+    keeps it.
+    """
+    from hydromodpy.results.field_registry import BUDGET_GROUP
+    from hydromodpy.solver.base.registry import solvers
+
+    written = f"{BUDGET_GROUP}{SURFACE_EXCESS_TERM}"
     return any(
-        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver) for run in plan.runs
+        written in solvers.get(run.process_type, run.solver).writes
+        for run in plan.runs
+        if run.is_solver_backed
     )

@@ -94,10 +94,10 @@ make it a process and not just a package:
      - The calls to ``ensure_flow`` and ``ensure_transport`` that build the
        objects once the configuration is resolved. Add yours next to them.
    * - ``solver/base/registry.py``
-     - One entry per solver in ``_BUILTIN_PATHS``, ``_BUILTIN_EXTRACTOR_PATHS``
-       and ``_BUILTIN_CAPABILITIES``, keyed ``("<name>", "<solver>")``. The
-       process type becomes known to the planner as soon as one adapter is
-       registered.
+     - One entry per solver in ``_BUILTIN_PATHS`` and ``_BUILTIN_EXTRACTOR_PATHS``,
+       keyed ``"<name>_<solver>"``. The adapter class carries the twelve
+       attributes of the port. The process type becomes known to the planner as
+       soon as one adapter is registered.
    * - ``calibration/runners/trial.py``
      - The trial copy of the setup context resets ``flow``, ``model`` and ``transport`` to
        ``None`` so each trial builds its own. A new member needs the same line.
@@ -117,7 +117,7 @@ Order of work
 3. **Build the object** with an ``ensure_<name>`` function, register it in the
    runner tables, and call it from ``workflow/steps/setup.py``.
 4. **Bind a solver.** The adapter declares ``process_type = "<name>"``, a
-   ``solver_name`` and ``requires``, the earlier runs it depends on.
+   ``name`` and ``requires`` (and the other attributes of the port), the earlier runs it depends on.
    ``Modflow6GwtTransportAdapter`` requires ``("flow", "modflow6")``, so the
    planner refuses a transport run that comes before its flow run. The adapter
    is the subject of :doc:`add-a-solver`; the planner reads ``requires`` in

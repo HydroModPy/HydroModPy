@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pandas as pd
+from pydantic import BaseModel
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
@@ -28,6 +29,7 @@ from hydromodpy.solver.base.observables import (
 from hydromodpy.solver.base.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
@@ -78,12 +80,79 @@ def _active_bc(config: object) -> set[str]:
 class Modflow6FlowAdapter:
     """Bridge one planned ``flow/modflow6`` run to the ``Modflow6`` API."""
 
-    process_type = "flow"
-    solver_name = "modflow6"
-    requires: tuple[tuple[str, str], ...] = ()
+    name: ClassVar[str] = "modflow6"
+    process_type: ClassVar[str] = "flow"
     accepted_meshes: ClassVar[frozenset[str]] = frozenset(
         {"regular", "triangle", "voronoi", ANY_PLANAR_ENGINE}
     )
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = (
+        "head",
+        "budget/constant_head",
+        "budget/constant_head_stream",
+        "budget/drain",
+        "budget/drain_to_mover",
+        "budget/evapotranspiration",
+        "budget/lake",
+        "budget/lake_to_mover",
+        "budget/mover",
+        "budget/recharge",
+        "budget/storage_ss",
+        "budget/storage_sy",
+        "budget/stream",
+        "budget/stream_to_mover",
+        "budget/well",
+        "derived/hydraulic_conductivity",
+        "derived/hydraulic_conductivity_k22",
+        "derived/hydraulic_conductivity_k33",
+        "derived/conductivity_tensor_angle1",
+        "derived/conductivity_tensor_angle2",
+        "derived/conductivity_tensor_angle3",
+        "derived/specific_storage",
+        "derived/specific_yield",
+        "mesh/idomain",
+        "mesh/layer_thickness",
+        "mesh/streambed_connection",
+        "mesh/streambed_top",
+        "mesh/topography",
+        "lake_state_final/stage",
+        "lake_abacus/*/stage",
+        "lake_abacus/*/real_volume",
+        "lake_abacus/*/real_sarea",
+        "lake_abacus/*/sim_volume",
+        "lake_abacus/*/sim_sarea",
+        "budgets",
+        "mass_balance",
+        "sfr_reaches",
+        "timeseries",
+    )
+    reads: ClassVar[tuple[str, ...]] = ()
+    supports: ClassVar[frozenset[str]] = frozenset(
+        {
+            "west_side",
+            "east_side",
+            "north_side",
+            "south_side",
+            "ocean",
+            "drainage",
+            "stream",
+            "lake",
+            "sfr",
+            "sink_fill",
+            "drain_band_depth_m",
+            "drain_bed_thickness_m",
+            "drain_conductance_floor_m2_s",
+            "head_rule",
+            "steady_start",
+            "cyclic_start",
+            "prior_state",
+        }
+    )
+    options: ClassVar[type[BaseModel] | None] = Modflow6Config
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""

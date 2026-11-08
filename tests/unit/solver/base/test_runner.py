@@ -6,6 +6,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.solver.base.plan import ProcessRun, RunExecutionResult, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import ProcessCallbacks, SimulationRunner
 
 
@@ -15,13 +16,7 @@ class _FailingAdapter:
 
 
 def test_after_process_runs_when_process_run_fails(monkeypatch) -> None:
-    from hydromodpy.core.contracts import solver_registry
-
-    class _FakeProvider:
-        def get_solver_adapter(self, _process_type: str, _solver_name: str):
-            return _FailingAdapter()
-
-    monkeypatch.setattr(solver_registry, "_PROVIDER", _FakeProvider())
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: _FailingAdapter())
 
     events: list[str] = []
     plan = SimulationPlan(
@@ -90,11 +85,8 @@ def _flow_state(**setup) -> SimpleNamespace:
 
 def test_a_flow_run_needs_the_model_that_prepare_solver_builds(monkeypatch) -> None:
     """The runner refuses a flow run without ``setup.model`` before the adapter is called."""
-    from hydromodpy.core.contracts import solver_registry
-
     adapter = _RecordingAdapter()
-    provider = SimpleNamespace(get_solver_adapter=lambda _process, _solver: adapter)
-    monkeypatch.setattr(solver_registry, "_PROVIDER", provider)
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
 
     for setup in ({}, {"model": None}):
         with pytest.raises(ConfigError, match="prepare_solver"):
@@ -104,11 +96,8 @@ def test_a_flow_run_needs_the_model_that_prepare_solver_builds(monkeypatch) -> N
 
 
 def test_a_flow_run_with_its_model_reaches_the_adapter_and_creates_no_flow(monkeypatch) -> None:
-    from hydromodpy.core.contracts import solver_registry
-
     adapter = _RecordingAdapter()
-    provider = SimpleNamespace(get_solver_adapter=lambda _process, _solver: adapter)
-    monkeypatch.setattr(solver_registry, "_PROVIDER", provider)
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
     model = object()
     state = _flow_state(model=model, flow=None)
 

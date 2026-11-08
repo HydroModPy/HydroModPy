@@ -43,11 +43,11 @@ class _Probe:
 def probe():
     _Probe.calls = 0
     _Probe.failing = frozenset()
-    evaluation_registry.register(_Probe, replace=True)
+    evaluation_registry.evaluators.register(_Probe, replace=True)
     try:
         yield _Probe
     finally:
-        evaluation_registry.unregister(_Probe.evaluator_id)
+        evaluation_registry.evaluators.unregister(_Probe.evaluator_id)
 
 
 PROBE_TOML = """

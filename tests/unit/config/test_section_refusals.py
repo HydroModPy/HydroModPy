@@ -27,9 +27,10 @@ from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.results.run import Run
-from hydromodpy.solver.base import registry as solver_registry
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from tests._helpers.fake_engines import fake_engine, registered
+from tests._helpers.fake_solvers import fake_adapter
 
 DOCUMENT = """\
 [site]
@@ -951,29 +952,18 @@ def test_a_solver_that_lists_engine_ids_refuses_a_third_party_engine(
     assert "modflow6" in str(excinfo.value)
 
 
-def test_the_table_of_the_registry_gives_the_builtin_answers() -> None:
-    assert solver_registry.accepted_meshes("flow", "modflow_nwt") == {"regular"}
-    assert solver_registry.accepted_meshes("flow", "boussinesq") == {"triangle"}
-    mf6 = solver_registry.accepted_meshes("flow", "modflow6")
+def test_the_shipped_backends_declare_the_meshes_they_read() -> None:
+    assert solvers.get("flow", "modflow_nwt").accepted_meshes == {"regular"}
+    assert solvers.get("flow", "boussinesq").accepted_meshes == {"triangle"}
+    mf6 = solvers.get("flow", "modflow6").accepted_meshes
     assert {"regular", "triangle", "voronoi", "*planar"} == set(mf6)
 
 
-def test_a_flow_adapter_that_declares_nothing_reads_the_regular_engine() -> None:
-    class _Silent:
-        process_type = "flow"
-        solver_name = "silent_for_meshes"
-        requires = ()
-
-        def validate(self, ctx): ...
-        def execute(self, ctx): ...
-        def cleanup(self, ctx): ...
-        def extract_observables(self, ctx, store, requests, *, time_index=None): ...
-
-    solver_registry.register("flow", "silent_for_meshes", _Silent)
-    try:
-        assert solver_registry.accepted_meshes("flow", "silent_for_meshes") == {"regular"}
-    finally:
-        solver_registry.unregister("flow", "silent_for_meshes")
+def test_a_flow_adapter_that_declares_no_meshes_is_refused_by_name(isolated_solvers) -> None:
+    silent = fake_adapter("silent_for_meshes", accepted_meshes=None)
+    with pytest.raises(TypeError, match="accepted_meshes"):
+        isolated_solvers.solvers.register(silent)
+    assert "silent_for_meshes" not in isolated_solvers.solvers.names("flow")
 
 
 # Boussinesq refuses a layering it would ignore.

@@ -11,7 +11,7 @@ is a request made of a live run, that one is a query over stored results.
 
 Why ``core``: ``solver``, ``calibration``, ``results`` and ``analysis`` share
 no layer but ``core`` and ``schema``, and all four have to agree on what an
-observable is. ``core/contracts/solver_registry.py`` is the same pattern.
+observable is.
 
 The contract is a batch: an adapter receives every request for a run at once,
 so it opens each binary file once instead of once per request, and a backend

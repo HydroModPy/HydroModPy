@@ -9,6 +9,7 @@ from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunExecutionResult, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
@@ -62,13 +63,9 @@ def test_runner_ensures_the_transport_and_never_the_flow_before_the_callback(mon
         ("flow", "modflow_nwt"): flow_adapter,
         ("transport", "mt3dms"): transport_adapter,
     }
-    from hydromodpy.core.contracts import solver_registry
-
-    class _FakeProvider:
-        def get_solver_adapter(self, process_type, solver_name):
-            return adapters[(process_type, solver_name)]
-
-    monkeypatch.setattr(solver_registry, "_PROVIDER", _FakeProvider())
+    monkeypatch.setattr(
+        solvers, "create", lambda process_type, solver_name: adapters[(process_type, solver_name)]
+    )
 
     observations: dict[str, tuple[bool, bool]] = {}
     state = _build_state()
@@ -218,13 +215,10 @@ def test_run_solver_step_hands_the_run_store_to_the_launcher(monkeypatch) -> Non
 
 
 def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:
-    from hydromodpy.core.contracts import solver_registry
+    def _no_adapter(process_type, solver_name):
+        raise AssertionError("mesh process should not request a solver adapter")
 
-    class _Provider:
-        def get_solver_adapter(self, process_type, solver_name):
-            raise AssertionError("mesh process should not request a solver adapter")
-
-    monkeypatch.setattr(solver_registry, "_PROVIDER", _Provider())
+    monkeypatch.setattr(solvers, "create", _no_adapter)
     state = _build_state()
     state.setup.mesh_summary = {"output_mesh": "mesh.msh", "n_cells": 12}
     plan = SimulationPlan(

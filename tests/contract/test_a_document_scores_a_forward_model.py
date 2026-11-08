@@ -140,7 +140,7 @@ def _model_digest() -> tuple[str, str]:
     """
     import inspect
 
-    model_cls = forward_registry.get("linear_reservoir")
+    model_cls = forward_registry.forward_models.get("linear_reservoir")
     source = Path(inspect.getfile(model_cls)).read_text(encoding="utf-8")
     return f"{model_cls.__module__}.{model_cls.__qualname__}", hashlib.sha256(
         source.encode("utf-8")

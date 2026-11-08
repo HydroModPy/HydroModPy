@@ -16,7 +16,7 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.model import ModelOptions
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.base.registry import _BUILTIN_ACCEPTED_MESHES
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
@@ -146,7 +146,9 @@ def test_require_cell_mesh_returns_the_mesh_of_the_model() -> None:
         (("flow", "boussinesq"), BoussinesqFlowAdapter),
     ],
 )
-def test_an_adapter_names_the_meshes_the_registry_table_says(key, adapter_cls) -> None:
-    # The registry answers from this table without importing the adapter; the
-    # class attribute is what a third-party adapter declares. They cannot differ.
-    assert adapter_cls.accepted_meshes == _BUILTIN_ACCEPTED_MESHES[key]
+def test_the_registry_serves_the_adapter_class_that_names_the_meshes(key, adapter_cls) -> None:
+    # The registry no longer keeps a copy of the meshes: the class is the only
+    # place a backend, in the tree or installed, says which meshes it reads.
+    assert solvers.get(*key) is adapter_cls
+    assert isinstance(adapter_cls.accepted_meshes, frozenset)
+    assert adapter_cls.accepted_meshes

@@ -64,8 +64,8 @@ class BoussinesqOutputAdapter:
     is the only writer of solver outputs.
     """
 
+    process_type = "flow"
     solver_name = "boussinesq"
-    category = "integrated"
 
     def extract(
         self,

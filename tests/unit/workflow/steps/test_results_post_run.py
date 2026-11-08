@@ -8,7 +8,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.domain.domain_config import DomainConfig
@@ -17,6 +16,7 @@ from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.workflow.steps.run_outputs import post_run_results
+from tests._helpers.fake_solvers import fake_adapter
 from tests._helpers.run_stores import open_run_store
 
 
@@ -58,10 +58,11 @@ def _build_run_context(
 
 
 class _FakeExtractor:
-    category = "distributed"
+    """The extractor of ``flow_fake_solver``. Built anew per call, so it records on the class."""
 
-    def __init__(self) -> None:
-        self.extract_calls: list[dict] = []
+    process_type = "flow"
+    solver_name = "fake_solver"
+    extract_calls: list[dict] = []
 
     def extract(self, sim_id, solver_output_dir, store, **kwargs) -> None:
         self.extract_calls.append(
@@ -73,46 +74,35 @@ class _FakeExtractor:
         )
 
 
-class _FakeLumpedExtractor(_FakeExtractor):
-    category = "lumped"
+class _Registered:
+    """What one test registered for ``flow_fake_solver``, and the cleanups its adapter saw."""
 
-
-class _FakeAdapter:
     def __init__(self) -> None:
         self.cleanup_calls: list[RunContext] = []
 
-    def cleanup(self, ctx: RunContext) -> None:
-        self.cleanup_calls.append(ctx)
+
+def _install_post_run_stubs(
+    monkeypatch, isolated_solvers, *, category: str = "distributed"
+) -> _Registered:
+    """Register an adapter and an extractor for ``flow_fake_solver``, and stub the aggregation."""
+    registered = _Registered()
+
+    def _cleanup(self, ctx: RunContext) -> None:
+        registered.cleanup_calls.append(ctx)
         if ctx.output_dir is not None:
             shutil.rmtree(ctx.output_dir)
 
-
-class _FakeProvider:
-    def __init__(self, *, extractor: _FakeExtractor | None = None) -> None:
-        self.extractor = extractor
-        self.adapter = _FakeAdapter()
-
-    def get_extractor_instance(self, process_type: str, solver_name: str):
-        if solver_name == "fake_solver":
-            return self.extractor
-        return None
-
-    def get_solver_adapter(self, process_type: str, solver_name: str):
-        if process_type == "flow" and solver_name == "fake_solver":
-            return self.adapter
-        raise KeyError((process_type, solver_name))
-
-
-def _install_post_run_stubs(
-    monkeypatch, *, extractor: _FakeExtractor | None = None
-) -> _FakeProvider:
-    provider = _FakeProvider(extractor=extractor)
-    monkeypatch.setattr(post_run_module, "get_solver_registry_provider", lambda: provider)
+    isolated_solvers.solvers.register(
+        fake_adapter("fake_solver", category=category, cleanup=_cleanup)
+    )
+    isolated_solvers.extractors.register(
+        type("_FakeExtractorOfTheTest", (_FakeExtractor,), {"extract_calls": []})
+    )
     monkeypatch.setattr(
         "hydromodpy.results.derive.catchment_aggregation.aggregate_catchment_timeseries",
         lambda sim_id, store, **kwargs: None,
     )
-    return provider
+    return registered
 
 
 class TestPostRunResults:
@@ -128,13 +118,13 @@ class TestPostRunResults:
             store=store,
         )
 
-    def test_unknown_solver_raises(self, store, tmp_path, monkeypatch):
+    def test_unknown_solver_raises(self, store, tmp_path, monkeypatch, isolated_solvers):
         sid = store.sim_id
         config = ResultsConfig()
-        # Trigger the "no extractor" path via a run-context solver name the
-        # _FakeProvider stub does not recognize.
+        # Trigger the "no extractor" path via a run-context solver name no
+        # registry holds.
         ctx = _build_run_context(solver_name="custom_solver", solver_output_dir=tmp_path)
-        _install_post_run_stubs(monkeypatch)
+        _install_post_run_stubs(monkeypatch, isolated_solvers)
         with pytest.raises(RuntimeError, match="No output adapter"):
             post_run_results(
                 ctx=ctx,
@@ -143,11 +133,11 @@ class TestPostRunResults:
                 store=store,
             )
 
-    def test_no_output_dir_raises(self, store, monkeypatch):
+    def test_no_output_dir_raises(self, store, monkeypatch, isolated_solvers):
         sid = store.sim_id
         config = ResultsConfig()
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=None)
-        _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
+        _install_post_run_stubs(monkeypatch, isolated_solvers)
         with pytest.raises(FileNotFoundError, match="Solver output directory is missing"):
             post_run_results(
                 ctx=ctx,
@@ -156,7 +146,7 @@ class TestPostRunResults:
                 store=store,
             )
 
-    def test_cleanup_when_keep_false(self, store, tmp_path, monkeypatch):
+    def test_cleanup_when_keep_false(self, store, tmp_path, monkeypatch, isolated_solvers):
         sid = store.sim_id
 
         solver_dir = tmp_path / "solver_out"
@@ -165,7 +155,7 @@ class TestPostRunResults:
 
         config = ResultsConfig(keep_solver_files=False)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
-        provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
+        registered = _install_post_run_stubs(monkeypatch, isolated_solvers)
         post_run_results(
             ctx=ctx,
             sim_id=sid,
@@ -173,9 +163,9 @@ class TestPostRunResults:
             store=store,
         )
         assert not solver_dir.exists()
-        assert provider.adapter.cleanup_calls == [ctx]
+        assert registered.cleanup_calls == [ctx]
 
-    def test_keep_solver_files(self, store, tmp_path, monkeypatch):
+    def test_keep_solver_files(self, store, tmp_path, monkeypatch, isolated_solvers):
         sid = store.sim_id
 
         solver_dir = tmp_path / "solver_out"
@@ -184,7 +174,7 @@ class TestPostRunResults:
 
         config = ResultsConfig(keep_solver_files=True)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
-        provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
+        registered = _install_post_run_stubs(monkeypatch, isolated_solvers)
         post_run_results(
             ctx=ctx,
             sim_id=sid,
@@ -192,16 +182,17 @@ class TestPostRunResults:
             store=store,
         )
         assert (solver_dir / "model.hds").exists()
-        assert provider.adapter.cleanup_calls == []
+        assert registered.cleanup_calls == []
 
-    def test_lumped_extractor_skips_catchment_aggregation(self, store, tmp_path, monkeypatch):
+    def test_lumped_backend_skips_catchment_aggregation(
+        self, store, tmp_path, monkeypatch, isolated_solvers
+    ):
         sid = store.sim_id
 
         solver_dir = tmp_path / "solver_out"
         solver_dir.mkdir()
 
-        provider = _FakeProvider(extractor=_FakeLumpedExtractor())
-        monkeypatch.setattr(post_run_module, "get_solver_registry_provider", lambda: provider)
+        _install_post_run_stubs(monkeypatch, isolated_solvers, category="lumped")
 
         def _fail_aggregation(sim_id, store, **kwargs):
             raise AssertionError("lumped extractors must not aggregate spatial fields")

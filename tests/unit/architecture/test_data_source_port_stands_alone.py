@@ -182,11 +182,11 @@ def test_every_provider_import_stays_deferred() -> None:
     script = (
         "import json, sys\n"
         "import hydromodpy\n"
-        "from hydromodpy.data.source import registry\n"
+        "from hydromodpy.data.source.registry import data_sources\n"
         "report = {}\n"
-        "for source_id in registry.builtin_source_ids():\n"
+        "for source_id in data_sources.names(shipped_only=True):\n"
         "    before = set(sys.modules)\n"
-        "    cls = registry.get(source_id)\n"
+        "    cls = data_sources.get(source_id)\n"
         "    report[source_id] = [cls.__module__, sorted(set(sys.modules) - before)]\n"
         "print(json.dumps(report))\n"
     )

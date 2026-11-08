@@ -179,8 +179,8 @@ class ModflowNwtOutputAdapter:
     ``{model_name}.cbc``, and optionally ``{model_name}.list``.
     """
 
+    process_type = "flow"
     solver_name = "modflow_nwt"
-    category = "distributed"
 
     def extract(
         self,

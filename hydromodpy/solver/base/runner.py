@@ -33,12 +33,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunExecutionResult, SimulationPlan
+from hydromodpy.solver.base.registry import solvers
 
 logger = get_logger(__name__)
 
@@ -237,7 +237,7 @@ class SimulationRunner:
                 "prepare_solver step has not built one."
             )
         dependency_models = self._resolve_dependency_models(state, run)
-        adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
+        adapter = solvers.create(run.process_type, run.solver)
         # No ``model`` and no ``output_dir``: this run has produced neither yet,
         # and it is the adapter's own ``execute`` that is about to produce them.
         # Every context built after this one goes through ``RunContext.of``.

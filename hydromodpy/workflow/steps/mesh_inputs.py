@@ -34,7 +34,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     grid = RasterGridSpec.from_raster_support(setup.domain.surface_topo.support, crs_wkt=crs_wkt)
     synthetic = bool(cfg.geographic.uses_synthetic_geographic())
     active_bc = {str(bc).strip().lower() for bc in cfg.flow.active_bc}
-    graded = registry.get(mesh_cfg.engine).capabilities.graded
+    graded = registry.mesh_engines.get(mesh_cfg.engine).capabilities.graded
     reads_catchment = graded or mesh_cfg.families.watershed_boundary == "face"
     triangle = mesh_cfg.triangle
     sized = graded and (triangle is None or triangle.path is None)
@@ -260,7 +260,10 @@ def _geology_contacts(
         return None, ()
     supports = resolve_support_configs(ctx.cfg.domain, collect_requested_support_ids(ctx.cfg.flow))
     reads_triangulation = mesh_cfg.triangle is not None and mesh_cfg.triangle.path is not None
-    if not reads_triangulation and registry.get(mesh_cfg.engine).capabilities.exact_faces:
+    if (
+        not reads_triangulation
+        and registry.mesh_engines.get(mesh_cfg.engine).capabilities.exact_faces
+    ):
         bounds = (grid.xmin, grid.ymin, grid.xmax, grid.ymax)
         for support in supports.values():
             contacts = support_contacts(support, bounds)
