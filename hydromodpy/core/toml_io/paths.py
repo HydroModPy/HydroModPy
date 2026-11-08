@@ -24,7 +24,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, get_args, get_origin
 
-from hydromodpy.core.config_kit.introspect import is_model, iter_basemodels, unwrap_members
+from hydromodpy.core.config_kit.introspect import (
+    fields_and_tables,
+    is_model,
+    iter_basemodels,
+    unwrap_members,
+)
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES
 
@@ -338,7 +343,7 @@ def _is_mapping(member: Any) -> bool:
 
 
 def _field_of(model: type[BaseModel], name: str) -> FieldInfo | None:
-    fields = model.model_fields
+    fields = fields_and_tables(model, shipped_only=False)
     if name in fields:
         return fields[name]
     for info in fields.values():
@@ -358,8 +363,9 @@ def resolve_field(model: type[BaseModel], path: DottedPath | str) -> FieldInfo:
     """Return the Pydantic field a dotted key path names in *model*.
 
     The walk goes through nested models, ``Optional`` and unions (the first
-    variant that declares the next key wins) and through ``dict[str, Model]``
-    tables, where a part is the table key. A list field ends the walk: a key
+    variant that declares the next key wins), through the named tables of a
+    model (``solver.modflow6``) and through ``dict[str, Model]`` tables, where a
+    part is the table key. A list field ends the walk: a key
     below it is refused, since a path takes no index. A free-form table
     (``dict[str, Any]``) ends it too, and its own field is returned. The last
     part may carry a merge directive (``sources__merge``). An unknown key
@@ -377,7 +383,9 @@ def resolve_field(model: type[BaseModel], path: DottedPath | str) -> FieldInfo:
             None,
         )
         if info is None:
-            names = {key for cls in candidates for key in cls.model_fields}
+            names = {
+                key for cls in candidates for key in fields_and_tables(cls, shipped_only=False)
+            }
             raise UnknownPathError(f"{parsed}: {_neighbour_hint(prefix, name, names)}")
         index += 1
         if index == len(parts):

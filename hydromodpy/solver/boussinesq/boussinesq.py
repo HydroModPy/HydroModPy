@@ -35,6 +35,7 @@ from hydromodpy.model.initial.heads import summarize_head_initial_condition_boun
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model, steady_variant
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
@@ -84,7 +85,7 @@ class Boussinesq:
     """Boussinesq solver driver compatible with the HydroModPy solver contract.
 
     The class acts as a translator between the frozen ``Model`` of the run,
-    the ``[flow.runtime]`` options and the low-level residual assembly and
+    the ``[solver.boussinesq]`` options and the low-level residual assembly and
     nonlinear runtime APIs used inside this package. It reads the ``Model``
     and never changes it: the auxiliary steady solve of a ``steady_state``
     start runs on a ``steady_variant`` of it.
@@ -263,8 +264,8 @@ class Boussinesq:
         return np.full((1, int(n_columns)), float(default_value), dtype=float)
 
     def _assert_supported_runtime_subset(self) -> None:
-        """Fail fast when the requested problem exceeds the implemented slice."""
-        assert_supported_runtime_subset(self.inputs)
+        """Fail fast when the model asks for what the adapter does not list in ``supports``."""
+        assert_supported_runtime_subset(self.inputs, solvers.get("flow", "boussinesq").supports)
 
     def _mesh_cell_count(self) -> int | None:
         """Return the number of solver cells, or None before the mesh exists."""
@@ -320,7 +321,7 @@ class Boussinesq:
             )
             return
         logger.info(
-            "Boussinesq engine '%s', set by flow.runtime.backend, for %s cells.",
+            "Boussinesq engine '%s', set by solver.boussinesq.backend, for %s cells.",
             engine,
             n_cells,
         )
@@ -403,7 +404,7 @@ class Boussinesq:
             return
         if self.mesh.n_cells > DENSE_ENGINE_MAX_CELLS:
             raise IncompatibleCapabilitiesError(
-                f"flow.runtime.backend = '{runtime_backend.name}' builds a dense "
+                f"solver.boussinesq.backend = '{runtime_backend.name}' builds a dense "
                 f"Jacobian by design and runs on at most {DENSE_ENGINE_MAX_CELLS} "
                 f"cells; this mesh has {self.mesh.n_cells}. Remove the key, or set "
                 "it to 'auto', to run 'scipy_sparse' on this mesh, or set "

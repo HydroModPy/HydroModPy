@@ -19,8 +19,10 @@ from pydantic import BaseModel
 from tomlkit.items import Item, Table
 
 from hydromodpy.core.config_kit.introspect import (
+    held_tables_of,
     is_implicit_relative_path_default,
     iter_fields_by_profile,
+    written_tables_of,
 )
 from hydromodpy.core.config_kit.introspect import (
     resolve_profile as _resolve_profile,
@@ -64,14 +66,20 @@ def _iter_serialisable_fields(
     skipped, and so are the fields *model* was not given when
     *written_only* is set. A relative path left at its default is skipped
     too, at every depth, unless *written_only* asks for what was given. The
-    yielded value is the live attribute on *model* (already validated).
+    yielded value is the live attribute on *model* (already validated). A named
+    table comes flat under its name, when the model holds it.
     """
-    written = set(written_fields(model)) if written_only else None
+    tables = written_tables_of(model) if written_only else held_tables_of(model)
+    written = {*written_fields(model), *tables} if written_only else None
     for field_name, info, _level in iter_fields_by_profile(type(model), profile_threshold):
         if written is not None and field_name not in written:
             continue
         extra = getattr(info, "json_schema_extra", None)
         if isinstance(extra, dict) and extra.get("toml_exclude") is True:
+            continue
+        if field_name not in type(model).model_fields:
+            if field_name in tables:
+                yield field_name, info, tables[field_name]
             continue
         value = getattr(model, field_name)
         if written is None and is_implicit_relative_path_default(value, info):

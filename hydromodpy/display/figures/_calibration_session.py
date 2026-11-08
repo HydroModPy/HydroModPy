@@ -33,12 +33,12 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.scoring.cost_margin import CostMargin, parse_cost_margin
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE, NETWORK_METRIC_NAMES
 from hydromodpy.results.calibration_trials import (
     calibration_sessions,
     calibration_trials,
     session_dir_of,
 )
-from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.phase import list_phases
 from hydromodpy.results.storage.json_io import readable
@@ -46,9 +46,6 @@ from hydromodpy.results.storage.json_io import readable
 if TYPE_CHECKING:
     from hydromodpy.display.figures._trial_diagnostics import TrialTable
     from hydromodpy.results.run import Run
-
-NETWORK_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""Metrics scored on a network, in meters unless normalized."""
 
 METRIC_LABELS: dict[str, str] = {
     "nse": "NSE",
@@ -334,7 +331,7 @@ def cost_label(blocks: Sequence[CostBlock]) -> str:
 def scored_on_distances(blocks: Sequence[CostBlock]) -> bool:
     """Whether every block is a network distance left in meters."""
     return bool(blocks) and all(
-        block.metric in NETWORK_METRICS and not block.normalized and not block.transformed
+        block.metric in NETWORK_METRIC_NAMES and not block.normalized and not block.transformed
         for block in blocks
     )
 
@@ -534,7 +531,6 @@ __all__ = [
     "DEFAULT_TOLERANCE",
     "NETWORK_COSTS",
     "METRIC_LABELS",
-    "NETWORK_METRICS",
     "RESIDUAL_COSTS",
     "CostBlock",
     "Interval",

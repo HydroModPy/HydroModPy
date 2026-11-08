@@ -59,6 +59,16 @@ def test_a_project_without_a_plan_gives_no_recipe(tmp_path: Path) -> None:
 # Registration must record the engine the run selected, not a default guess.
 
 
+def _solver_section(runner: str) -> SimpleNamespace:
+    """A ``[solver]`` section whose only settings table is the one of MODFLOW 6."""
+
+    def options_of(name: str) -> SimpleNamespace:
+        assert name == "modflow6"
+        return SimpleNamespace(runtime=SimpleNamespace(mf6_runner=runner))
+
+    return SimpleNamespace(options_of=options_of)
+
+
 def _ctx(
     *,
     runner: str = "subprocess",
@@ -70,7 +80,7 @@ def _ctx(
     run = SimpleNamespace(id="flow_main", process_type="flow", solver=solver)
     return SimpleNamespace(
         cfg=SimpleNamespace(
-            modflow6=SimpleNamespace(runtime=SimpleNamespace(mf6_runner=runner)),
+            solver=_solver_section(runner),
             simulation=SimpleNamespace(rng_seed=7),
         ),
         setup=SimpleNamespace(

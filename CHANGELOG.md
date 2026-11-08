@@ -22,6 +22,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 - `hydromodpy.model.supports` holds the closed set of traits a solver backend lists in `supports`: the boundary kinds,
   the fields of `ModelOptions` and the initial states `head_rule`, `steady_start`, `cyclic_start` and `prior_state`.
+- `solver.sink_fill = true`, `solver.drain_band_depth_m` and `solver.drain_conductance_floor_m2_s` away from their
+  defaults, and `[flow.sinks_sources.etp]` are refused under Boussinesq, which reads none of them.
+- A lake with `flow.ic.kind = "spinup_cyclic"` is refused: the cycle carries the heads and not the lake stage. Run
+  `hmp spinup`, which carries both, or start from `flow.restart_from`.
+- A transport run behind a steady start whose heads did not converge stops with `SolverDivergedError`, where it used
+  to start with a warning. The replay of a sealed run still warns.
 
 ### Changed
 
@@ -171,6 +177,32 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `primary_run_for_simulation` and returns the process type with the solver.
 - The solver catalog of the reference shows what each backend declares (category, grid, meshes, what it writes and the
   traits it supports) in place of the capability names.
+- `solver.backend` is a string, the name of a registered flow solver, for example `solver.backend = "modflow6"`. The
+  table form `[solver.backend] kind = "..."`, and `kind = "custom"` with `name`, still loads with a warning, and
+  `hmp doctor --fix-config` rewrites it. An unknown name is refused with the names this installation serves. A run under a
+  plugin solver no longer lists `solver.backend` among its experimental keys.
+- The settings of a flow solver are written under `[solver.<name>]`: `[modflow6]` is now `[solver.modflow6]`,
+  `[modflownwt]` is now `[solver.modflow_nwt]` and `[flow.runtime]` is now `[solver.boussinesq]`. The old tables load
+  with a warning, and `hmp doctor --fix-config` moves them. A plugin solver gets its own table, checked by its options
+  class. A run sealed with the old tables reads back in silence, and `hmp run --frozen` compares them where they are
+  now.
+- `config.resolved.toml` holds the settings table of the flow solver the run used and the tables the file wrote, not
+  the table of every shipped solver. A table of a solver that did not run counts for no drift on a replay.
+- A name in `[[simulation.process]] solvers` is refused when the file is read if no solver of that process serves it,
+  with the names this installation serves.
+- A key the chosen flow solver does not honor is refused when the file is read, from the supports the solver declares,
+  and the refusal names the solvers that honor it. A sealed run still reads and only warns. The K tensor, the
+  pass-through cells of `[domain.layers]` and a layering under Boussinesq are now refused with
+  `IncompatibleCapabilitiesError`, like a boundary, a restart or a soil reservoir the solver does not read.
+- A transport solver is refused when the file is read if its `requires` does not name the flow solver of the run, with
+  the flows it follows. A MODFLOW 6 flow with MODPATH or MT3DMS used to be refused only when the plan was built.
+- An unknown key of `[flow.bc]` is refused with the seven boundaries the table holds, `drainage` included.
+- The metric names a file may write come from one table, `hydromodpy.core.scoring.metric_table.METRIC_SPECS`. The
+  names accepted do not change. `METRIC_SENSE` and `MetricSense` moved there from
+  `hydromodpy.results.catalog.constants`, `METRIC_NAMES` of `hydromodpy.results.metric_rule` became `RUN_METRIC_NAMES`
+  there, and `LOG_METRICS`, `DIMENSIONLESS` and `CLIPPED_METRICS` became flags of the table rows.
+- `calibration.evaluator`, `calibration.forward_model`, `mesh.engine` and `geographic.terrain_engine` are refused with
+  one sentence that names the key, the value and the names this installation serves.
 
 ### Removed
 
@@ -196,6 +228,15 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `resolved_engine_id`. Use `names()`, `names(shipped_only=True)`, `x in names()` and `get(x).<id attribute>`.
 - `RESTART_CAPABILITY` and `CYCLIC_SPINUP_CAPABILITY` of `hydromodpy.config.hydromodpy_config` and
   `SURFACE_EXCESS_CAPABILITY` of `hydromodpy.workflow.steps.planning` are gone with the capability names they held.
+- `Modflow6Backend`, `ModflowNwtBackend`, `BoussinesqBackend`, `CustomBackend`, `SolverBackendConfig`,
+  `BUILTIN_BACKENDS`, `backend_for_solver`, `solver_name_of_backend` and `SolverConfig.validate_registry` of
+  `hydromodpy.solver.base.solver_config`; the `runtime` field of `FlowConfig`; `validate_registry` of the process
+  models of `hydromodpy.solver.base.simulation_config`.
+- The columns `supported_backends` and `backend_packages` of `FlowBoundaryDefinition`,
+  `supported_boundary_ids_for_backend` and `FlowBoundaryBackend` of
+  `hydromodpy.model.boundaries.boundary_condition_registry`, and `layering_refusal` of
+  `hydromodpy.solver.boussinesq.solver_contract`. A solver says what it builds through its `supports`.
+  `BoundaryConditionBundle.unsupported_active_ids(backend)` is now `active_ids_outside(supports)`.
 
 ### Fixed
 

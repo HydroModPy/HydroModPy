@@ -26,6 +26,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -115,7 +116,6 @@ def run_boussinesq_hantush_recharge_mound_case(
             },
         },
         flow_regime="transient",
-        solver=solver_name,
     )
     merged_flow = merge_case_flow_section(
         CASE_DIR, flow_section, config_name=boussinesq_variant_config_name(solver_name)
@@ -129,6 +129,12 @@ def run_boussinesq_hantush_recharge_mound_case(
         time_grid=SimpleNamespace(
             period_lengths_seconds=tuple(dt_seconds for _ in range(nper)),
             window=None,
+        ),
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=solver_name,
+            case_dir=CASE_DIR,
+            config_name=boussinesq_variant_config_name(solver_name),
         ),
     )
     run = ProcessRun(

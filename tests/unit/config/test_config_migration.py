@@ -201,9 +201,10 @@ def test_drops_both_solver_time_grids_at_the_root(tmp_path: Path) -> None:
     assert any("modflow6.tgrid dropped" in c for c in changes)
     assert any("modflownwt.tgrid dropped" in c for c in changes)
     parsed = tomllib.loads(path.read_text())
-    assert "tgrid" not in parsed["modflow6"]
-    assert "tgrid" not in parsed["modflownwt"]
-    assert parsed["modflow6"]["relax_steady"] is True
+    assert "tgrid" not in parsed["solver"]["modflow6"]
+    assert "modflownwt" not in parsed
+    assert "modflow_nwt" not in parsed["solver"]
+    assert parsed["solver"]["modflow6"]["relax_steady"] is True
 
 
 def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
@@ -1093,16 +1094,16 @@ def test_a_phase_that_overrides_a_list_says_it_table_by_table() -> None:
 @pytest.mark.parametrize(
     ("old", "new", "section", "key"),
     [
-        ("flow.runtime_backend", "flow.runtime.backend", "flow", "runtime_backend"),
+        ("flow.runtime_backend", "solver.boussinesq.backend", "flow", "runtime_backend"),
         (
             "flow.surface_interaction_model",
-            "flow.runtime.surface_interaction_model",
+            "solver.boussinesq.surface_interaction_model",
             "flow",
             "surface_interaction_model",
         ),
         (
             "flow.runtime_max_iterations",
-            "flow.runtime.max_iterations",
+            "solver.boussinesq.max_iterations",
             "flow",
             "runtime_max_iterations",
         ),
@@ -1113,7 +1114,21 @@ def test_a_phase_that_overrides_a_list_says_it_table_by_table() -> None:
             "geographic.catchment",
             "catch_def",
         ),
-        ("solver.backend.backend", "solver.backend.kind", "solver.backend", "backend"),
+        ("solver.backend.backend", "solver.backend", "solver.backend", "backend"),
+        ("solver.backend.kind", "solver.backend", "solver.backend", "kind"),
+        (
+            "modflow6.runtime.mf6_ims_complexity",
+            "solver.modflow6.runtime.mf6_ims_complexity",
+            "",
+            "",
+        ),
+        ("modflownwt.process_specific", "solver.modflow_nwt.process_specific", "", ""),
+        (
+            "flow.runtime.ts_vi_adapt",
+            "solver.boussinesq.ts_vi_adapt",
+            "flow.runtime",
+            "ts_vi_adapt",
+        ),
         ("flow.param.K33.field.value", "flow.param.Kv.field.value", "", ""),
         (
             "transport.modflow6prt.parameters.stop_time_days",
@@ -1253,6 +1268,15 @@ def _dig(doc: object, path: str) -> object:
     return doc
 
 
+def _holds(doc: object, path: str) -> bool:
+    """Whether *doc* still holds a value at *path*."""
+    try:
+        _dig(doc, path)
+    except (KeyError, IndexError, TypeError):
+        return False
+    return True
+
+
 _PLAIN_RENAMES = [rule for rule in RENAMED_KEYS if rule.convert is None and not rule.sealed_only]
 _FLOW_RENAMES = [rule for rule in _PLAIN_RENAMES if rule.scope.split(".")[0] in {"flow", "solver"}]
 
@@ -1269,8 +1293,9 @@ def test_a_renamed_key_is_rewritten_by_the_doctor_with_its_version(rule, tmp_pat
     path = _write(tmp_path, tomlkit.dumps(doc))
     fix_config_file(path)
     after = tomllib.loads(path.read_text(encoding="utf-8"))
-    assert _dig(after, f"{rule.scope}.{rule.new}") == "probe-value"
-    assert rule.old not in _dig(after, rule.scope)
+    # Where the key ends, after every row: solver.backend.backend ends on solver.backend.
+    assert _dig(after, rewrite_dotted_path(f"{rule.scope}.{rule.new}")) == "probe-value"
+    assert not _holds(after, f"{rule.scope}.{rule.old}")
     assert fix_config_file(path) == []
 
 
@@ -1285,7 +1310,10 @@ def test_a_moved_table_is_rewritten_by_the_doctor_with_its_version(move, tmp_pat
     path = _write(tmp_path, tomlkit.dumps(doc))
     fix_config_file(path)
     after = tomllib.loads(path.read_text(encoding="utf-8"))
-    assert _dig(after, move.new) == "probe-value"
+    # A key of a pre-release moves on with the rows after it: flow.ts_vi_adapt ends
+    # under [solver.boussinesq].
+    assert _dig(after, rewrite_dotted_path(move.new)) == "probe-value"
+    assert not _holds(after, move.old)
     assert fix_config_file(path) == []
 
 
@@ -2008,3 +2036,143 @@ def test_the_permanent_map_alone_is_moved_with_no_role(tmp_path: Path) -> None:
 
     output = tomllib.loads(path.read_text())["calibration"]["outputs"]["net"]
     assert output == {"support": "network", "map": {"permanent": "p.gpkg"}}
+
+
+# The settings of a flow solver under [solver], and solver.backend as a name.
+
+SOLVER_FORMS = (
+    (
+        "the MODFLOW 6 table",
+        "[modflow6.process_specific]\nvka = 2.0\n",
+        "solver.modflow6.process_specific.vka",
+        2.0,
+    ),
+    (
+        "the MODFLOW-NWT table",
+        "[modflownwt.runtime.upw]\nhdry = -999.0\n",
+        "solver.modflow_nwt.runtime.upw.hdry",
+        -999.0,
+    ),
+    (
+        "the Boussinesq table",
+        '[flow.runtime]\nbackend = "local"\n',
+        "solver.boussinesq.backend",
+        "local",
+    ),
+    (
+        "a shipped backend",
+        '[solver.backend]\nkind = "modflow_nwt"\n',
+        "solver.backend",
+        "modflow_nwt",
+    ),
+    (
+        "a plugin backend",
+        '[solver.backend]\nkind = "custom"\nname = "plugged"\n',
+        "solver.backend",
+        "plugged",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
+)
+def test_a_solver_form_of_2_0_loads_with_a_warning(
+    case: str, text: str, path: str, value: object, tmp_path: Path
+) -> None:
+    del case
+    forget_old_forms_told()
+    doc = tomllib.loads(text)
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="hmp doctor --fix-config"):
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+
+    assert _dig(doc, path) == value
+
+
+@pytest.mark.parametrize(
+    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
+)
+def test_a_sealed_document_reads_a_solver_form_in_silence(
+    case: str, text: str, path: str, value: object
+) -> None:
+    del case
+    doc = tomllib.loads(text)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        migrate_sealed_config_doc(doc)
+
+    assert _dig(doc, path) == value
+
+
+@pytest.mark.parametrize(
+    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
+)
+def test_the_doctor_rewrites_a_solver_form(
+    case: str, text: str, path: str, value: object, tmp_path: Path
+) -> None:
+    del case
+    file = _write(tmp_path, text)
+
+    assert fix_config_file(file)
+
+    assert _dig(tomllib.loads(file.read_text(encoding="utf-8")), path) == value
+    assert fix_config_file(file) == []
+
+
+SOLVER_PATHS = (
+    ("modflow6.process_specific.vka", "solver.modflow6.process_specific.vka"),
+    ("modflownwt.runtime.nwt.headtol", "solver.modflow_nwt.runtime.nwt.headtol"),
+    ("flow.runtime.max_iterations", "solver.boussinesq.max_iterations"),
+    ("solver.backend.kind", "solver.backend"),
+)
+
+
+@pytest.mark.parametrize(("old", "new"), SOLVER_PATHS)
+def test_a_dotted_path_of_a_solver_form_moves_with_it(old: str, new: str) -> None:
+    doc = {
+        "calibration": {
+            "phases": [{"name": "p", "overrides": {old: "probe"}}],
+            "parameters": {"vka": {"path": old}},
+        }
+    }
+
+    migrate_config_doc(doc)
+
+    assert rewrite_dotted_path(old) == new
+    assert doc["calibration"]["phases"][0]["overrides"] == {new: "probe"}
+    assert doc["calibration"]["parameters"]["vka"]["path"] == new
+
+
+def test_a_plugin_backend_written_as_dotted_keys_becomes_its_name() -> None:
+    doc = {
+        "sites": {
+            "recipes": {
+                "r": {"set": {"solver.backend.kind": "custom", "solver.backend.name": "plugged"}}
+            }
+        }
+    }
+
+    migrate_config_doc(doc)
+
+    assert doc["sites"]["recipes"]["r"]["set"] == {"solver.backend": "plugged"}
+
+
+def test_a_backend_table_with_another_key_is_left_for_the_loader_to_refuse() -> None:
+    doc = {"solver": {"backend": {"kind": "modflow6", "extra": 1}}}
+
+    migrate_config_doc(doc)
+
+    assert doc["solver"]["backend"] == {"kind": "modflow6", "extra": 1}
+
+
+def test_the_solver_rows_come_after_the_rows_of_a_pre_release() -> None:
+    since = [move.since for move in MOVED_TABLES]
+
+    assert since == sorted(since, key=Version)
+    assert [move.new for move in MOVED_TABLES if move.since == "2.1.0"] == [
+        "solver.modflow6",
+        "solver.modflow_nwt",
+        "solver.boussinesq",
+    ]

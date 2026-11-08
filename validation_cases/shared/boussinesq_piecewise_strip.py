@@ -404,29 +404,18 @@ def write_piecewise_strip_launcher_config(
 ) -> Path:
     """Write one minimal self-contained launcher config for the strip bundle.
 
-    With ``runtime_backend=None`` the ``[flow]`` table has no runtime key, so
+    With ``runtime_backend=None`` the file has no ``[solver.boussinesq]`` table, so
     the run gets the default engine of the library.
     """
     runtime_lines: list[str] = []
     if runtime_backend is not None:
-        runtime_flow = {
-            "flow_regime": "steady",
-            "runtime": {
-                "backend": runtime_backend,
-            },
-        }
+        runtime: dict[str, object] = {"backend": runtime_backend}
         if surface_interaction_model is not None:
-            runtime_flow.setdefault("runtime", {})["surface_interaction_model"] = (
-                surface_interaction_model
-            )
+            runtime["surface_interaction_model"] = surface_interaction_model
         if apply_runtime_defaults:
-            runtime_flow = apply_analytical_boussinesq_runtime_defaults(
-                runtime_flow,
-                flow_regime="steady",
-            )
-        runtime = runtime_flow["runtime"]
+            runtime = apply_analytical_boussinesq_runtime_defaults(runtime, flow_regime="steady")
         runtime_lines = [
-            "[flow.runtime]",
+            "[solver.boussinesq]",
             f"backend = {json.dumps(str(runtime['backend']))}",
             f"surface_interaction_model = {json.dumps(str(runtime['surface_interaction_model']))}",
             "",
@@ -572,7 +561,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
 ) -> ValidationRunResult:
     """Run one steady Boussinesq piecewise-strip case through ``hmp run``.
 
-    The default-engine label writes no runtime key, whatever ``runtime_backend`` says.
+    The default-engine label writes no ``[solver.boussinesq]`` table, whatever ``runtime_backend`` says.
     """
     solver_name = str(public_solver_label or "boussinesq")
     out_path = resolve_validation_results_dir(

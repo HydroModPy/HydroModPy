@@ -103,7 +103,11 @@ from typing import Any
 
 from pydantic.json_schema import GenerateJsonSchema
 
-from hydromodpy.core.config_kit.introspect import iter_basemodels, read_profile_from_schema
+from hydromodpy.core.config_kit.introspect import (
+    fields_and_tables,
+    iter_basemodels,
+    read_profile_from_schema,
+)
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.config_kit.registry import (
     repeated_root_sections,
@@ -257,7 +261,7 @@ def _resolve_section_model(section: str) -> type:
     model = sections[head]
     walked = head
     for name in rest:
-        info = model.model_fields.get(name)
+        info = fields_and_tables(model).get(name)
         if info is None:
             raise ValueError(f"unknown field {name!r} under {walked!r} in {model.__name__}")
         nested = iter_basemodels(info.annotation)
@@ -460,7 +464,9 @@ def _admit_directives(node: dict[str, Any]) -> None:
     patterns = node.get("patternProperties")
     extra = node.get("additionalProperties")
     if isinstance(properties, dict) and properties:
-        if extra is False:
+        # A model with named tables takes any other key as a table, so its own
+        # keys still name their directives.
+        if extra is False or isinstance(extra, dict):
             node["patternProperties"] = {
                 **(patterns or {}),
                 **_model_directive_patterns(properties),

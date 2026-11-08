@@ -4,7 +4,7 @@ MODFLOW 6 through FloPy: a GWF flow model, and GWT or PRT transport on the same 
 
 ## Parts
 
-1. `modflow6.py` is `Modflow6`, the object a run builds, writes and solves. It keeps the frozen `Model` it builds from as `inputs` and does not change it. `modflow6_config.py` is the `[modflow6]` table.
+1. `modflow6.py` is `Modflow6`, the object a run builds, writes and solves. It keeps the frozen `Model` it builds from as `inputs` and does not change it. `modflow6_config.py` is the `[solver.modflow6]` table.
 2. `build.py` assembles the flow model from `inputs`: geometry, properties, boundaries, sinks and sources, start state, time and options. `run_pre_processing` runs its steps in the order MODFLOW 6 needs: inputs, time, grid, properties, simulation, lakes, constant heads, streams, grid packages, recharge and EVT, drains, CHD and wells, LAK, HFB, SFR, MVR and OC.
 3. `builders/` holds one module per package or subject, see its README.
 4. `run.py` writes the files and solves, with the `mf6` executable or in process through `libmf6` (`api/`), after a steady initialization or a cyclic spin-up when `Model.initial` asks for one. Each auxiliary solve builds a new `Modflow6` on a variant of the model (`steady_variant`, `cycle_variant`) and hands its last heads to the main model.

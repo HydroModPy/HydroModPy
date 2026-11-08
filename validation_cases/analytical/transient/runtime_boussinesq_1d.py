@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +19,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_fields,
@@ -236,8 +238,13 @@ def run_boussinesq_transient_uniform_strip_case(
     plan_name: str,
     plan_description: str,
     public_solver_label: str = "boussinesq",
+    boussinesq_settings: Mapping[str, Any] | None = None,
 ) -> ValidationRunResult:
-    """Run one transient Boussinesq validation case on a small uniform strip mesh."""
+    """Run one transient Boussinesq validation case on a small uniform strip mesh.
+
+    ``boussinesq_settings`` holds the ``[solver.boussinesq]`` values the case
+    writes itself, over the table of its config.
+    """
     del timeout
 
     solver_name = str(public_solver_label or "boussinesq")
@@ -264,7 +271,6 @@ def run_boussinesq_transient_uniform_strip_case(
     effective_flow_section = boussinesq_variant_flow_section(
         flow_section,
         flow_regime="transient",
-        solver=solver_name,
     )
 
     state = boussinesq_run_state(
@@ -280,6 +286,13 @@ def run_boussinesq_transient_uniform_strip_case(
         time_grid=SimpleNamespace(
             period_lengths_seconds=period_lengths_seconds,
             window=None,
+        ),
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=solver_name,
+            case_dir=case_dir,
+            config_name=boussinesq_variant_config_name(solver_name),
+            written=boussinesq_settings,
         ),
     )
     run = ProcessRun(

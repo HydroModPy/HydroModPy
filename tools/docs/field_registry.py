@@ -535,8 +535,20 @@ def _tag_doc(info: dict[str, Any], tag: Any, model: type[BaseModel]) -> None:
     info.setdefault("value_docs_from_shapes", []).append(str(tag))
 
 
+def _keys_of(model: type[BaseModel]) -> dict[str, FieldInfo]:
+    """The fields of *model*, then the named tables it holds, as ``solver.modflow6``.
+
+    A model of an older release declares no ``named_tables`` and keeps its fields.
+    """
+    if getattr(model, "named_tables", None) is None:
+        return dict(model.model_fields)
+    from hydromodpy.core.config_kit.introspect import fields_and_tables
+
+    return fields_and_tables(model)
+
+
 def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: dict | None) -> None:
-    for name, field in model.model_fields.items():
+    for name, field in _keys_of(model).items():
         if getattr(field, "exclude", False):
             continue
         key = field.alias or name

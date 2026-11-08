@@ -107,7 +107,9 @@ def test_a_project_naming_an_engine_nobody_installed_is_refused_while_reading() 
     with pytest.raises(ValidationError) as raised:
         GeographicConfig.model_validate(_standard(terrain_engine="no-such-engine"))
     message = str(raised.value)
-    assert "geographic.terrain_engine" in message
+    assert (
+        "geographic.terrain_engine names 'no-such-engine', and this installation serves" in message
+    )
     assert registry.ENTRY_POINT_GROUP in message
     for engine_id in registry.terrain_engines.names(shipped_only=True):
         assert engine_id in message

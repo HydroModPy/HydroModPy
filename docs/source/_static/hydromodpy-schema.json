@@ -185,31 +185,6 @@
         }
       }
     },
-    "BoussinesqBackend": {
-      "additionalProperties": false,
-      "description": "Select the Boussinesq flow backend.",
-      "properties": {
-        "kind": {
-          "const": "boussinesq",
-          "default": "boussinesq",
-          "description": "Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-          "examples": [
-            "boussinesq"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "BoussinesqBackend",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "BrgmGeology1mSource": {
       "additionalProperties": false,
       "description": "BRGM 1:1M national geological map (CODE_LEG legend).",
@@ -3941,41 +3916,6 @@
         }
       }
     },
-    "CustomBackend": {
-      "additionalProperties": false,
-      "description": "Plugin-registered flow backend identified by a free-form name.\n\nThe discriminator value is the literal string ``\"custom\"``; the actual\nbackend name lives in ``name``. ``SolverConfig.validate_registry()``\nenforces that the name resolves to a registered flow adapter at\nlauncher time.",
-      "properties": {
-        "kind": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "name": {
-          "description": "Name under which a plugin registered its flow solver.",
-          "examples": [
-            "example"
-          ],
-          "stability": "experimental",
-          "title": "Name",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomBackend",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "CustomCrossingsSource": {
       "additionalProperties": false,
       "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in meters) are read when present.",
@@ -5945,7 +5885,7 @@
           "title": "Kind",
           "type": "string",
           "value_docs": {
-            "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its closure from flow.runtime.surface_interaction_model."
+            "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its closure from solver.boussinesq.surface_interaction_model."
           },
           "x-hmp-profile": "user"
         },
@@ -7502,7 +7442,18 @@
               }
             ]
           },
-          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- declaring a block is what activates the boundary, and ``enabled = false`` switches it off. An empty block is enough for a boundary the registry describes entirely, such as a drainage\n\n**Common keys**\n\n- ``kind``: optional, the registry supplies it: ``dirichlet`` for an imposed head, ``drain`` for the linear drain ``q = C (h - h_ref)``\n- ``value``: optional on a drainage, where leaving it out derives the conductance from K; a head boundary with no value and no forcing builds no constant head\n- ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n\n**The drain under each solver:** the MODFLOW solvers build a ``DRN`` package. The Boussinesq solver takes its surface closure from ``flow.runtime.surface_interaction_model``.",
+          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- declaring a block is what activates the boundary, and ``enabled = false`` switches it off. An empty block is enough for a boundary the registry describes entirely, such as a drainage\n\n**Common keys**\n\n- ``kind``: optional, the registry supplies it: ``dirichlet`` for an imposed head, ``drain`` for the linear drain ``q = C (h - h_ref)``\n- ``value``: optional on a drainage, where leaving it out derives the conductance from K; a head boundary with no value and no forcing builds no constant head\n- ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n\n**The drain under each solver:** the MODFLOW solvers build a ``DRN`` package. The Boussinesq solver takes its surface closure from ``solver.boussinesq.surface_interaction_model``.",
+          "propertyNames": {
+            "enum": [
+              "west_side",
+              "east_side",
+              "north_side",
+              "south_side",
+              "stream",
+              "ocean",
+              "drainage"
+            ]
+          },
           "title": "Bc",
           "type": "object",
           "x-hmp-profile": "user",
@@ -7549,11 +7500,6 @@
         "sinks_sources": {
           "$ref": "#/$defs/FlowSinksSourcesConfig",
           "description": "Typed sinks/sources payload (for example pumping wells).",
-          "x-hmp-profile": "user"
-        },
-        "runtime": {
-          "$ref": "#/$defs/FlowRuntimeConfig",
-          "description": "Settings of the Boussinesq solve: its engine, its surface closure, its iteration budget and tolerances. The MODFLOW solvers do not read them.",
           "x-hmp-profile": "user"
         }
       },
@@ -7989,7 +7935,7 @@
         "kind": {
           "const": "spinup_cyclic",
           "default": "spinup_cyclic",
-          "description": "Repeat the simulated period, each cycle starting from the state the previous one ended on, until the head field stops moving.",
+          "description": "Repeat the simulated period, each cycle starting from the state the previous one ended on, until the head field stops moving. The cycle carries the heads only, so a declared lake is refused: its stage would start again from initial_stage at each cycle. Beside a soil reservoir that settles on its first year (spinup = \"first_year\"), the soil and the heads start from states computed over two windows. That pair is allowed without a warning, because it is sometimes what the study wants.",
           "examples": [
             "spinup_cyclic"
           ],
@@ -16153,31 +16099,6 @@
         }
       }
     },
-    "Modflow6Backend": {
-      "additionalProperties": false,
-      "description": "Select the MODFLOW 6 flow backend.",
-      "properties": {
-        "kind": {
-          "const": "modflow6",
-          "default": "modflow6",
-          "description": "Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-          "examples": [
-            "modflow6"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "Modflow6Backend",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "Modflow6Config": {
       "additionalProperties": false,
       "description": "Expert-level MODFLOW 6 configuration organized by concern.",
@@ -17133,31 +17054,6 @@
         }
       },
       "title": "ModflowConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ModflowNwtBackend": {
-      "additionalProperties": false,
-      "description": "Select the MODFLOW-NWT flow backend.",
-      "properties": {
-        "kind": {
-          "const": "modflow_nwt",
-          "default": "modflow_nwt",
-          "description": "Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-          "examples": [
-            "modflow_nwt"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ModflowNwtBackend",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -18149,10 +18045,10 @@
         "buff_area": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "number"
             },
             {
-              "type": "number"
+              "type": "string"
             }
           ],
           "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (10) still reads as that rule and warns, so a sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit form with the same distance.",
@@ -18907,10 +18803,10 @@
         "buff_area": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "number"
             },
             {
-              "type": "number"
+              "type": "string"
             }
           ],
           "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (10) still reads as that rule and warns, so a sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit form with the same distance.",
@@ -22654,7 +22550,7 @@
         },
         "spinup": {
           "default": "first_year",
-          "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last 364 days (52 weeks) at least, and a 364-day run repeats those 364 days. \"none\" starts from a full soil, the state of a soil in a wet winter.",
+          "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last 364 days (52 weeks) at least, and a 364-day run repeats those 364 days. \"none\" starts from a full soil, the state of a soil in a wet winter. Beside a cyclic spin-up of the aquifer (flow.ic.kind = \"spinup_cyclic\"), the two starts are computed over two windows: the soil settles on the first year, the heads on the whole run. That pair is allowed without a warning, because it is sometimes what the study wants.",
           "enum": [
             "first_year",
             "none"
@@ -22682,36 +22578,22 @@
       }
     },
     "SolverConfig": {
-      "additionalProperties": false,
-      "description": "Configuration block defining the active groundwater solver engine.\n\nThe TOML form is ``backend = { kind = \"modflow6\" }`` for a built-in\nbackend, or ``backend = { kind = \"custom\", name = \"x\" }`` for a\nplugin-registered backend.\n\nIt also carries the backend-agnostic preprocessing switches both MODFLOW\nbackends read, so one TOML key drives both. ``sink_fill`` and\n``drain_band_depth_m`` both act on the drains of a depressed model top and\nare mutually exclusive.",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "The flow solver of a run, its settings, and the switches every backend may read.\n\nThe TOML form is ``backend = \"modflow6\"``. The settings of a flow solver sit\nunder its name, ``[solver.modflow6]``, and are checked by the class it declares\nas ``options``. A table of a solver that does not run is accepted and checked\ntoo, because a recipe of ``[sites]`` changes the solver on a shared base.\n\nIt also carries the backend-agnostic preprocessing switches both MODFLOW\nbackends read, so one TOML key drives both. ``sink_fill`` and\n``drain_band_depth_m`` both act on the drains of a depressed model top and\nare mutually exclusive.",
       "properties": {
         "backend": {
-          "description": "Active flow backend selector (discriminated union).",
-          "discriminator": {
-            "mapping": {
-              "boussinesq": "#/$defs/BoussinesqBackend",
-              "custom": "#/$defs/CustomBackend",
-              "modflow6": "#/$defs/Modflow6Backend",
-              "modflow_nwt": "#/$defs/ModflowNwtBackend"
-            },
-            "propertyName": "kind"
-          },
+          "default": "modflow6",
+          "description": "Flow solver of the run, by its registered name: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin. A name this installation does not serve is refused with the names it serves.",
+          "examples": [
+            "boussinesq",
+            "modflow6",
+            "modflow_nwt"
+          ],
           "title": "Backend",
-          "x-hmp-profile": "user",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Modflow6Backend"
-            },
-            {
-              "$ref": "#/$defs/ModflowNwtBackend"
-            },
-            {
-              "$ref": "#/$defs/BoussinesqBackend"
-            },
-            {
-              "$ref": "#/$defs/CustomBackend"
-            }
-          ]
+          "type": "string",
+          "x-hmp-profile": "user"
         },
         "sink_fill": {
           "default": false,
@@ -22757,6 +22639,18 @@
           ],
           "title": "Drain Band Depth M",
           "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "boussinesq": {
+          "$ref": "#/$defs/FlowRuntimeConfig",
+          "x-hmp-profile": "user"
+        },
+        "modflow6": {
+          "$ref": "#/$defs/Modflow6Config",
+          "x-hmp-profile": "user"
+        },
+        "modflow_nwt": {
+          "$ref": "#/$defs/ModflowConfig",
           "x-hmp-profile": "user"
         }
       },
@@ -24935,7 +24829,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Top-level configuration for HydroModPy.\n\nAggregates sub-components (workspace, geographic, domain, data, flow,\ntransport, solver, modflownwt, modflow6, display)\ninto a centralized,\nhierarchical model and validates optional flow parameters as\n`FieldParamConfig` dictionaries.",
+  "description": "Top-level configuration for HydroModPy.\n\nAggregates sub-components (workspace, geographic, domain, data, flow,\ntransport, solver, display)\ninto a centralized,\nhierarchical model and validates optional flow parameters as\n`FieldParamConfig` dictionaries.",
   "properties": {
     "workflow": {
       "$ref": "#/$defs/WorkflowConfig",
@@ -25072,17 +24966,7 @@
     },
     "solver": {
       "$ref": "#/$defs/SolverConfig",
-      "description": "Global solver block loaded from [solver]: the backend selector in [solver.backend], plus the backend-agnostic preprocessing switches both MODFLOW backends read (solver.sink_fill, solver.drain_band_depth_m).",
-      "x-hmp-profile": "user"
-    },
-    "modflownwt": {
-      "$ref": "#/$defs/ModflowConfig",
-      "description": "MODFLOW-NWT settings: the top sampling of the grid ([modflownwt.sgrid.top_sampling]), the package options ([modflownwt.process_specific]) and the solver settings ([modflownwt.runtime.<package>], expert keys).",
-      "x-hmp-profile": "user"
-    },
-    "modflow6": {
-      "$ref": "#/$defs/Modflow6Config",
-      "description": "MODFLOW 6 settings: the top sampling of the grid ([modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) and the solver settings ([modflow6.runtime], expert keys).",
+      "description": "Global solver block loaded from [solver]: the flow solver in solver.backend, the settings of each flow solver under its name ([solver.modflow6], [solver.modflow_nwt], [solver.boussinesq]), and the backend-agnostic preprocessing switches (solver.sink_fill, solver.drain_band_depth_m).",
       "x-hmp-profile": "user"
     },
     "display": {

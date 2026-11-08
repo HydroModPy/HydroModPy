@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -172,6 +173,7 @@ class _StubMF6:
     ncpl = 2
     exe = "mf6"
     built: list[object] = []
+    converges = False
 
     def __init__(self, *, model_folder, model_name, **_kwargs) -> None:
         self.model_name = model_name
@@ -190,7 +192,7 @@ class _StubMF6:
     def processing(self, _options) -> bool:
         # MF6 stopped short of convergence; its listing carries a closed budget.
         (Path(self.full_path) / f"{self.model_name_mf6}.lst").write_text(CLOSED_LISTING)
-        return False
+        return self.converges
 
 
 def test_a_run_named_with_capitals_still_finds_the_listing(monkeypatch, tmp_path) -> None:
@@ -203,6 +205,44 @@ def test_a_run_named_with_capitals_still_finds_the_listing(monkeypatch, tmp_path
         head = ssic.run_modflow6_steady_state_initialization(parent, verbose=False)
 
     assert head.shape == (1, 2)
+
+
+@pytest.mark.parametrize("converges", [True, False], ids=["converged", "closed budget only"])
+def test_the_steady_solve_tells_the_run_whether_it_converged(
+    monkeypatch, tmp_path, converges
+) -> None:
+    """The flag the runner reads before a transport run: the solve's own verdict."""
+    monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
+    monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
+    monkeypatch.setattr(_StubMF6, "converges", converges)
+    parent = _StubMF6(model_folder=tmp_path, model_name="Run")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        ssic.run_modflow6_steady_state_initialization(parent, verbose=False)
+
+    assert parent.initial_state_converged is converges
+
+
+def test_a_steady_seed_of_a_cyclic_spinup_is_not_the_start_of_the_run(
+    monkeypatch, tmp_path
+) -> None:
+    """The cycles settle the state, so the seed's verdict is not the run's."""
+
+    def seed_that_did_not_converge(model, *, verbose):
+        model.initial_state_converged = False
+        return np.zeros((1, 2))
+
+    parent = _StubMF6(model_folder=tmp_path, model_name="Run")
+    parent.inputs = _cyclic_model(first_cycle_from="steady_state", max_cycles=1)
+    monkeypatch.setattr(
+        ssic, "run_modflow6_steady_state_initialization", seed_that_did_not_converge
+    )
+    monkeypatch.setattr(ssic, "_run_one_spinup_cycle", lambda *_a, **_k: np.zeros((1, 2)))
+
+    ssic.run_modflow6_cyclic_spinup(parent, verbose=False)
+
+    assert parent.initial_state_converged is None
 
 
 def test_single_period_mean_forcing_time_grid_spans_full_source_window() -> None:

@@ -20,6 +20,7 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 
 from pydantic import BaseModel, TypeAdapter
 
+from hydromodpy.core.config_kit.introspect import written_tables_of
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
 
@@ -107,6 +108,8 @@ def _experimental_keys(value: Any, path: str) -> Iterator[str]:
                 if isinstance(item, str) and item in marked:
                     yield f'{key} = "{item}"'
             yield from _experimental_keys(held, key)
+        for name, table in written_tables_of(value).items():
+            yield from _experimental_keys(table, f"{path}.{name}" if path else name)
     elif isinstance(value, Mapping):
         for name, item in value.items():
             yield from _experimental_keys(item, f"{path}.{name}")
@@ -158,11 +161,15 @@ def _same(value: Any, other: Any) -> bool:
 def _prune(value: Any, dumped: Any) -> Any:
     """Return *dumped* restricted to what *value* was given, where both have the same shape."""
     if isinstance(value, BaseModel) and isinstance(dumped, Mapping):
-        return {
+        pruned = {
             name: _prune(getattr(value, name), dumped[name])
             for name in written_fields(value)
             if name in dumped
         }
+        for name, table in written_tables_of(value).items():
+            if name in dumped:
+                pruned[name] = _prune(table, dumped[name])
+        return pruned
     if isinstance(value, Mapping) and isinstance(dumped, Mapping) and len(value) == len(dumped):
         return {
             key: _prune(item, dumped_item)
@@ -188,6 +195,9 @@ def _as_a_file(value: Any, dumped: Any) -> Any:
             )
             if item is not None and not filled:
                 said[name] = item
+        for name, table in written_tables_of(value).items():
+            if name in dumped:
+                said[name] = _as_a_file(table, dumped[name])
         return said
     if isinstance(value, Mapping) and isinstance(dumped, Mapping) and len(value) == len(dumped):
         pairs = zip(value.values(), dumped.items(), strict=True)

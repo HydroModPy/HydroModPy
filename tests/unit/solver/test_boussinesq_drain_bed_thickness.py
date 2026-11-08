@@ -230,7 +230,7 @@ def test_the_flow_adapter_threads_the_solver_bed_into_the_mesh(
             model=make_model(options=ModelOptions.from_settings(solver)),
             workspace=SimpleNamespace(solver_scratch_folder=tmp_path),
         ),
-        cfg=SimpleNamespace(flow=SimpleNamespace(runtime=None)),
+        cfg=SimpleNamespace(solver=solver),
     )
     run = ProcessRun(
         id="flow::boussinesq", process_id="flow", process_type="flow", solver="boussinesq"

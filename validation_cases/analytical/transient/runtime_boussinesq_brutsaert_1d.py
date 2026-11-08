@@ -18,6 +18,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_bundle_model,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     build_flow_config,
@@ -139,7 +140,6 @@ def run_boussinesq_brutsaert_recession_case(
                     },
                 },
                 flow_regime="steady",
-                solver=solver_name,
             ),
             case_dir=case_dir,
             config_name=config_name,
@@ -148,7 +148,12 @@ def run_boussinesq_brutsaert_recession_case(
     steady_model = Boussinesq(
         mesh_bundle=bundle,
         model=boussinesq_bundle_model(steady_flow),
-        runtime=steady_flow.config.runtime,
+        runtime=boussinesq_variant_options(
+            flow_regime="steady",
+            solver=solver_name,
+            case_dir=case_dir,
+            config_name=config_name,
+        ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq_steady",
     )
@@ -170,17 +175,12 @@ def run_boussinesq_brutsaert_recession_case(
             boussinesq_variant_flow_section(
                 {
                     "flow_regime": "transient",
-                    # The time grid holds the steps; TS VI takes one per grid step.
-                    "runtime": {
-                        "ts_vi_steps_per_period": 1,
-                    },
                     "ic": {"kind": "custom", "value": float(east_head_m)},
                     "bc": {
                         "east_side": {"value": float(east_head_m)},
                     },
                 },
                 flow_regime="transient",
-                solver=solver_name,
             ),
             case_dir=case_dir,
             config_name=config_name,
@@ -198,7 +198,14 @@ def run_boussinesq_brutsaert_recession_case(
                 nstp_per_period=_case_steps_per_period(case_dir),
             ),
         ),
-        runtime=transient_flow.config.runtime,
+        runtime=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=solver_name,
+            case_dir=case_dir,
+            config_name=config_name,
+            # The time grid holds the steps; TS VI takes one per grid step.
+            written={"ts_vi_steps_per_period": 1},
+        ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )
@@ -259,15 +266,13 @@ def run_boussinesq_brutsaert_recession_case(
         "steady_residual_norm_inf": float(steady_residual),
         "acceptable_steady_residual_inf": float(acceptable_steady_residual_inf),
         "steady_runtime_backend": str(steady_model.runtime_summary.get("runtime_backend")),
-        "steady_surface_interaction_model": str(
-            steady_model.flow.config.runtime.surface_interaction_model
-        ),
+        "steady_surface_interaction_model": str(steady_model.runtime.surface_interaction_model),
         "transient_runtime_backend": str(transient_model.runtime_summary.get("runtime_backend")),
         "transient_time_steps_per_period": int(
             transient_model.runtime_summary.get("time_steps_per_period", 1)
         ),
         "transient_surface_interaction_model": str(
-            transient_model.flow.config.runtime.surface_interaction_model
+            transient_model.runtime.surface_interaction_model
         ),
         "nx": int(nx),
         "ny": int(ny),

@@ -14,6 +14,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
@@ -108,7 +109,6 @@ def run_boussinesq_fixed_head_piecewise_k_case(
                         },
                     },
                     flow_regime="steady",
-                    solver=public_solver_label,
                 ),
                 case_dir=Path(__file__).resolve().parent,
                 config_name=boussinesq_variant_config_name(public_solver_label),
@@ -116,6 +116,12 @@ def run_boussinesq_fixed_head_piecewise_k_case(
         ),
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
+        options=boussinesq_variant_options(
+            flow_regime="steady",
+            solver=public_solver_label,
+            case_dir=Path(__file__).resolve().parent,
+            config_name=boussinesq_variant_config_name(public_solver_label),
+        ),
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

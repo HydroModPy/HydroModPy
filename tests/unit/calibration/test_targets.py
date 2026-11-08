@@ -603,7 +603,7 @@ def test_vka_is_offered_where_it_is_read(tmp_path, param, backend, offered) -> N
     fields = {"kind": "homogeneous", "unit": "m/s", "value": 1e-5}
     declared = {name: {"field": {"id": name, **fields}} for name in param}
     cfg = _config(tmp_path, param=declared).model_copy(
-        update={"solver": SolverConfig(backend={"kind": backend})}
+        update={"solver": SolverConfig(backend=backend)}
     )
 
     target = targets_by_name(calibration_targets(cfg)).get("vka")

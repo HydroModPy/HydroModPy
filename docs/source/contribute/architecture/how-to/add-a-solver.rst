@@ -9,12 +9,9 @@ fourth flow backend or, equivalently, a new ``transport`` /
 
 The ``hydromodpy.solver`` and ``hydromodpy.solver.extractor`` ports are
 experimental (:doc:`../contracts`), so they can change in any minor version.
-They also have two limits today. The boundary conditions name the backends
-they support in a closed list, so a backend outside the tree that writes a
-boundary condition is refused when the file loads
-(``model/boundaries/boundary_condition_registry.py``). The run index knows a closed
-list of solver codes too, so the index leaves out a run of such a backend, and
-says so (``results/catalog/index_schema.py``).
+They also have one limit today. The run index knows a closed list of solver
+codes, so the index leaves out a run of a backend outside the tree, and says so
+(``results/catalog/index_schema.py``).
 
 Contract
 --------
@@ -66,11 +63,12 @@ mean this:
 - ``reads`` lists the products of an earlier run it needs. A transport reads
   ``face_flow``, a flow reads none.
 - ``supports`` lists the traits of the ``Model`` it honours. The names come from
-  the closed set of ``hydromodpy/model/supports.py``: the boundary kinds, the
-  fields of ``ModelOptions`` and the initial states. A trait left out is refused
-  before the run when the model asks for it.
-- ``options`` is the Pydantic class of the backend's own TOML table, or ``None``
-  when it reads none.
+  the closed set of ``hydromodpy/model/supports.py``: the boundaries, the
+  fields of ``ModelOptions``, the initial states, the sinks and sources, the
+  soil reservoir, the K tensor and the layering. A trait left out is refused
+  when the file is read, in the terms of :ref:`the refusal below <add-a-solver-refusal>`.
+- ``options`` is the Pydantic class of the backend's own settings table,
+  ``[solver.<name>]``, or ``None`` when it reads none.
 - ``category`` says how the backend resolves space. The seal writes it to the
   manifest.
 - ``native_step`` is a pandas frequency alias, or ``None`` when the solver
@@ -236,6 +234,37 @@ unknown key raises ``SolverInputError`` that lists the known ones.
 ``solvers.names("flow")`` lists the flow solvers by name, and
 ``solvers.create("flow", "mysolver")`` gives the instance the runner calls.
 
+What the TOML says
+------------------
+
+A file chooses the backend with ``solver.backend = "mysolver"``. The value is
+a plain string, checked against ``solvers.names("flow")`` while the file is
+read, and a name this installation does not serve is refused with the names it
+serves. The same holds for the names of ``[[simulation.process]]``
+``solvers``. A plugin needs no patch in ``HydroModPy``: its entry point joins the
+list.
+
+The settings of the backend are the table ``[solver.mysolver]``. ``SolverConfig``
+validates it with the class the adapter gives as ``options``, so a key the class
+does not know is refused at its own path, and a backend whose ``options`` is
+``None`` refuses the table. A table of a backend that does not run is read and
+checked too, because a recipe of ``[sites]`` can change the backend of a shared
+base file. The adapter reads its table with ``state.cfg.solver.options_of(self.name)``.
+
+.. _add-a-solver-refusal:
+
+``config/cross_checks.py`` crosses the file with ``supports``. It lists the
+traits the file uses, and each one the chosen backend leaves out raises
+``IncompatibleCapabilitiesError``. The message gives the key the file wrote,
+the backend chosen and the backends of the installation that honour the trait::
+
+   solver.backend = 'mysolver' does not honor solver.sink_fill: it would be ignored
+   without a word. Remove it, or run a flow solver that honors it (modflow6, modflow_nwt).
+
+A transport solver is checked against its ``requires`` in the same way. The
+check never names a backend, so a new backend needs no line in ``config/``.
+A sealed run, read back from disk, only warns.
+
 Mesh engines
 ------------
 
@@ -247,8 +276,8 @@ attribute, so there is no second table to keep equal.
 Config block
 ------------
 
-If the backend needs its own ``[mysolver]`` TOML section, add a
-Pydantic model:
+If the backend needs settings, add a Pydantic model for its table
+``[solver.mysolver]``:
 
 .. code-block:: python
 
@@ -266,7 +295,12 @@ Pydantic model:
            default=200, description="Newton-iteration ceiling."
        )
 
-Then wire it into ``HydroModPyConfig`` (see
+Then set it as the ``options`` attribute of the adapter. The model is not wired
+into ``HydroModPyConfig``: ``SolverConfig`` finds it through the registry. The
+generic readers of the configuration (the schema, the template, the parameter
+pages and ``--set solver.mysolver.max_iter=100``) read the tables of the
+shipped backends through ``SolverConfig.named_tables``. A field that every
+backend reads belongs to ``[solver]``, as ``sink_fill`` does (see
 :doc:`add-a-config-field`).
 
 Tests to add

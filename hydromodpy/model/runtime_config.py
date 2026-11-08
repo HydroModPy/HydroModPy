@@ -1,7 +1,7 @@
-"""The settings of the Boussinesq solve, ``[flow.runtime]``.
+"""The settings of the Boussinesq solve, ``[solver.boussinesq]``.
 
 The MODFLOW solvers read none of these. MODFLOW 6 and MODFLOW-NWT have their own
-settings under ``[modflow6.runtime]`` and ``[modflownwt.runtime]``.
+settings under ``[solver.modflow6.runtime]`` and ``[solver.modflow_nwt.runtime]``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def normalize_runtime_backend(value: object) -> str:
     text = str(value or "auto").strip().lower()
     if text not in _RUNTIME_BACKENDS:
         raise ValueError(
-            "flow.runtime.backend must be 'auto', 'local', 'scipy', 'scipy_sparse', or 'petsc'"
+            "solver.boussinesq.backend must be 'auto', 'local', 'scipy', 'scipy_sparse', or 'petsc'"
         )
     return text
 
@@ -41,7 +41,7 @@ def normalize_surface_interaction_model(value: object) -> str:
     text = str(value or "auto").strip().lower() or "auto"
     if text not in _SURFACE_MODELS:
         raise ValueError(
-            "flow.runtime.surface_interaction_model must be 'auto', "
+            "solver.boussinesq.surface_interaction_model must be 'auto', "
             "'regularized_partition', 'complementarity', 'vi_obstacle', "
             "or 'ts_vi_obstacle'"
         )
@@ -53,10 +53,10 @@ def normalize_positive_int(value: object, *, field: str, default: int | None = N
     if value is None or value == "":
         return default
     if isinstance(value, bool):
-        raise ValueError(f"flow.{field} must be a positive integer")
+        raise ValueError(f"solver.boussinesq.{field} must be a positive integer")
     numeric = float(str(value).strip())
     if not numeric.is_integer() or numeric <= 0:
-        raise ValueError(f"flow.{field} must be a positive integer")
+        raise ValueError(f"solver.boussinesq.{field} must be a positive integer")
     return int(numeric)
 
 
@@ -71,7 +71,7 @@ def normalize_bool(value: object, *, field: str) -> bool:
         return True
     if text in _BOOL_FALSE:
         return False
-    raise ValueError(f"flow.{field} must be a boolean")
+    raise ValueError(f"solver.boussinesq.{field} must be a boolean")
 
 
 def normalize_positive_float(
@@ -81,10 +81,10 @@ def normalize_positive_float(
     if value is None or value == "":
         return default
     if isinstance(value, bool):
-        raise ValueError(f"flow.{field} must be a positive number")
+        raise ValueError(f"solver.boussinesq.{field} must be a positive number")
     numeric = float(str(value).strip())
     if numeric <= 0.0:
-        raise ValueError(f"flow.{field} must be a positive number")
+        raise ValueError(f"solver.boussinesq.{field} must be a positive number")
     return numeric
 
 
@@ -107,7 +107,11 @@ FLOW_RUNTIME_KEYS: dict[str, str] = {
     "ts_vi_type": "ts_vi_type",
     "ts_vi_snes_type": "ts_vi_snes_type",
 }
-"""What a key of [flow] was once called, mapped to its name in [flow.runtime]."""
+"""What a key of [flow] was once called, mapped to its name in [solver.boussinesq].
+
+These keys moved to ``[flow.runtime]`` first, and that table is ``[solver.boussinesq]``
+since 2.1.0.
+"""
 
 
 class FlowRuntimeConfig(HydroModelBase):
@@ -301,7 +305,7 @@ class FlowRuntimeConfig(HydroModelBase):
     @field_validator("max_iterations", mode="before")
     @classmethod
     def _validate_max_iterations(cls, value):
-        return normalize_positive_int(value, field="flow.runtime.max_iterations")
+        return normalize_positive_int(value, field="max_iterations")
 
     @field_validator("vi_substeps_per_period", mode="before")
     @classmethod
@@ -337,7 +341,7 @@ class FlowRuntimeConfig(HydroModelBase):
     @field_validator("tol_residual_inf", "tol_state_update_inf", mode="before")
     @classmethod
     def _validate_tolerances(cls, value, info):
-        return normalize_positive_float(value, field=f"flow.runtime.{info.field_name}")
+        return normalize_positive_float(value, field=info.field_name)
 
 
 __all__ = ["DEFAULT_PARTITION_RELEASE_DEPTH_M", "FLOW_RUNTIME_KEYS", "FlowRuntimeConfig"]

@@ -8,6 +8,7 @@ import pytest
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import _PREPARSED_KEYS, FlowConfig, resolve_forcing_paths
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 
 def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
@@ -61,7 +62,7 @@ _SCALAR_PROBES: dict[str, Any] = {
 }
 
 
-#: The same, for each field of ``[flow.runtime]``.
+#: The same, for each field of ``[solver.boussinesq]``.
 _RUNTIME_PROBES: dict[str, Any] = {
     "backend": "petsc",
     "surface_interaction_model": "complementarity",
@@ -92,7 +93,7 @@ def test_restart_from_declared_in_toml_reaches_the_config() -> None:
 
 def test_every_scalar_field_has_a_probe() -> None:
     """The probe table must cover all non-preparsed model fields."""
-    expected = set(FlowConfig.model_fields) - set(_PREPARSED_KEYS) - {"runtime"}
+    expected = set(FlowConfig.model_fields) - set(_PREPARSED_KEYS)
     assert set(_SCALAR_PROBES) == expected
     assert set(_RUNTIME_PROBES) == set(FlowRuntimeConfig.model_fields)
 
@@ -105,8 +106,13 @@ def test_scalar_field_is_forwarded(key: str, value: Any) -> None:
 
 @pytest.mark.parametrize(("key", "value"), sorted(_RUNTIME_PROBES.items()))
 def test_runtime_field_is_forwarded(key: str, value: Any) -> None:
-    cfg = _build({"runtime": {key: value}})
-    assert getattr(cfg.runtime, key) == value
+    cfg = SolverConfig.model_validate({"boussinesq": {key: value}})
+    assert getattr(cfg.options_of("boussinesq"), key) == value
+
+
+def test_the_runtime_table_is_not_a_key_of_the_flow_section() -> None:
+    with pytest.raises(ValueError, match="Unknown TOML key.*runtime"):
+        _build({"runtime": {"backend": "petsc"}})
 
 
 def test_preparsed_keys_are_known_to_the_model() -> None:
@@ -118,8 +124,9 @@ def test_absent_keys_keep_the_model_defaults() -> None:
     cfg = _build({})
     for key in _SCALAR_PROBES:
         assert getattr(cfg, key) == FlowConfig.model_fields[key].default
+    options = SolverConfig().options_of("boussinesq")
     for key in _RUNTIME_PROBES:
-        assert getattr(cfg.runtime, key) == FlowRuntimeConfig.model_fields[key].default
+        assert getattr(options, key) == FlowRuntimeConfig.model_fields[key].default
 
 
 # A CSV forcing of a lake, an outlet or an SFR reach is found like a well forcing.

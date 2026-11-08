@@ -31,6 +31,7 @@ from hydromodpy.core.exceptions import (
     SolverError,
 )
 from hydromodpy.mesh.cells.in_polygons import watershed_cell_mask
+from hydromodpy.model.domain.layers_config import LAYERS, asks_for_layers
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
@@ -56,7 +57,6 @@ from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
 from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
-from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
 
 
 def _published_support(ctx: RunContext) -> np.ndarray | None:
@@ -142,6 +142,8 @@ class BoussinesqFlowAdapter:
             "drain_bed_thickness_m",
             "head_rule",
             "steady_start",
+            "recharge",
+            "wells",
         }
     )
     options: ClassVar[type[BaseModel] | None] = FlowRuntimeConfig
@@ -284,9 +286,13 @@ class BoussinesqFlowAdapter:
         state = ctx.state
         inputs = state.setup.model
         layers = getattr(getattr(inputs.geometry.domain, "config", None), "layers", None)
-        refusal = None if layers is None else layering_refusal(layers)
-        if refusal is not None:
-            raise ConfigError(refusal)
+        if layers is not None and LAYERS not in self.supports and asks_for_layers(layers):
+            raise ConfigError(
+                f"solver.backend = {self.name!r} solves one layer over the whole aquifer, and "
+                f"[domain.layers] builds {layers.layer_count} layer(s) with genmtd_lay = "
+                f"{layers.genmtd_lay!r}, which it would ignore. Remove [domain.layers], or run "
+                "a flow solver that lists 'layers' in its supports."
+            )
         mesh_bundle = None
         try:
             solver_mesh = resolve_runtime_solver_mesh(
@@ -317,7 +323,7 @@ class BoussinesqFlowAdapter:
             mesh_bundle=mesh_bundle,
             mesh=solver_mesh,
             model=inputs,
-            runtime=state.cfg.flow.runtime,
+            runtime=state.cfg.solver.options_of(self.name),
             model_folder=model_folder,
             model_name=ctx.run.id.replace("::", "__"),
         )

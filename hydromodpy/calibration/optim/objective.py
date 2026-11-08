@@ -16,11 +16,11 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 
 from hydromodpy.calibration.criteria.series import (
-    LOG_METRICS,
     METRICS,
     SAMPLED_BY_DATE,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 
 logger = get_logger(__name__)
 
@@ -640,7 +640,7 @@ class ConfigBlockObjective:
             f"{self.name}.reference_scale": float(reference_scale),
             f"{self.name}.n_values": float(observed.size),
         }
-        if self._metric in LOG_METRICS:
+        if METRIC_SPECS[self._metric].clips_negatives:
             components[f"{self.name}.n_clipped"] = float(n_clipped)
         return ObjectiveValue(total=float(transformed), components=components)
 

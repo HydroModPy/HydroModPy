@@ -25,6 +25,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import BaseModel
+
+from hydromodpy.core.config_kit.introspect import child_of
 from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
@@ -570,6 +573,13 @@ def _no_field_on_the_way(config: Any, path: str) -> str | None:
                 return None
             known = ", ".join(sorted(str(key) for key in target)[:12]) or "nothing"
             return f"no {part!r} under {reached}, which holds {known}"
+        if isinstance(target, BaseModel):
+            # A model also holds named tables, as solver.modflow6.
+            try:
+                target = child_of(target, part)
+            except AttributeError as exc:
+                return f"no {part!r} under {reached} ({exc})"
+            continue
         if not hasattr(target, part):
             return f"no {part!r} under {reached}"
         target = getattr(target, part)

@@ -33,8 +33,6 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.model.transport.transport_config import TransportConfig
     from hydromodpy.solver.base.simulation_config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-    from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 
     refs = {
         "CalibrationConfig": CalibrationConfig,
@@ -44,8 +42,6 @@ def _rebuild_forward_refs() -> None:
         "TransportConfig": TransportConfig,
         "SimulationConfig": SimulationConfig,
         "SolverConfig": SolverConfig,
-        "Modflow6Config": Modflow6Config,
-        "ModflowConfig": ModflowConfig,
         "DomainConfig": DomainConfig,
         "GeographicConfig": GeographicConfig,
         "OverviewConfig": OverviewConfig,

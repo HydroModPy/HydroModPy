@@ -193,11 +193,19 @@ class RunExecutionResult:
     that run has to say about what it made, and no consumer of a scalar sees
     it. It is intentionally optional so an adapter can keep returning only a
     model and an output directory.
+
+    ``initial_state_converged`` says whether the permanent solve that gave a flow
+    run its starting state converged. ``None`` is a run that did not start from
+    such a solve, which is every run but a flow run with a steady start. It is not
+    in ``metrics`` because the catalog stores what is there and a new row would
+    change the table of every run. The runner reads it before it starts a
+    transport run that follows the flow, and refuses when it is ``False``.
     """
 
     primary_model: SolverModel | None
     solver_output_dir: Path | None = None
     metrics: Mapping[str, Any] = field(default_factory=dict)
+    initial_state_converged: bool | None = None
 
 
 # Key a backend writes into ``RunExecutionResult.metrics`` for the final

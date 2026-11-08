@@ -34,6 +34,7 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         raise TypeError("processing options must be ModflowRunOptions")
 
     steady_initial_heads_applied = False
+    model.initial_state_converged = None
     inputs = model.inputs
     if (
         options.run_model

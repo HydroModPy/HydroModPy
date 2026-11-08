@@ -351,7 +351,8 @@ def test_each_file_is_migrated_before_the_merge(
             effective.unlink()
 
     assert payload["domain"]["layers"]["nlay"] == expected
-    assert "sgrid" not in payload.get("modflow6", {})
+    assert "modflow6" not in payload
+    assert "sgrid" not in payload.get("solver", {}).get("modflow6", {})
 
 
 def test_a_set_and_a_variable_written_under_an_old_name_win(

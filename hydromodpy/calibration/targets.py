@@ -50,9 +50,9 @@ it is a map, not one number. Transport joins this list the day its solutes are
 calibrated the same way.
 """
 
-VKA_PATH = "modflow6.process_specific.vka"
+VKA_PATH = "solver.modflow6.process_specific.vka"
 
-NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model", "modflow6.process_specific")
+NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model", "solver.modflow6.process_specific")
 """Sections whose targets are named by their field alone.
 
 A project has one depth model, and its fields already say the quantity:
@@ -155,10 +155,13 @@ def calibration_targets(config: Any) -> list[CalibrationTarget]:
     # The one row the walk does not reach: an expert key of the solver section, yet a
     # property of the aquifer. Only MODFLOW 6 reads it here, and a declared Kv sets the
     # same conductivity, which the build refuses beside a non-unit ratio.
-    process = _section(config, VKA_PATH.rpartition(".")[0])
-    engine = getattr(getattr(config, "solver", None), "backend_name", None)
+    solver = getattr(config, "solver", None)
+    engine = getattr(solver, "backend_name", None)
     params = getattr(getattr(config, "flow", None), "param", None) or {}
-    if process is not None and engine == "modflow6" and "Kv" not in params:
+    process = None
+    if engine == "modflow6" and "Kv" not in params:
+        process = getattr(solver.options_of(engine), "process_specific", None)
+    if process is not None:
         annotation = declared_calibrable(type(process).model_fields["vka"])
         found.append(_Found(VKA_PATH, (), float(process.vka), "-", annotation))
     found.sort(key=lambda item: item.path)

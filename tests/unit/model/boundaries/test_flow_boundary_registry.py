@@ -1,21 +1,30 @@
 from __future__ import annotations
 
+import typing
+
 import pytest
 
 from hydromodpy.model.boundaries.boundary_condition_registry import (
+    FLOW_BC_IDS,
+    FLOW_BC_KINDS,
     FLOW_BOUNDARY_DEFINITIONS,
     SIDE_DIRICHLET_BC_IDS_ORDERED,
     SUPPORTED_FLOW_BOUNDARY_IDS,
     BoundaryConditionBundle,
+    FlowBcId,
     boundary_condition_bundle_from_flow,
     boundary_definition,
-    supported_boundary_ids_for_backend,
 )
+from hydromodpy.model.boundaries.boundary_conditions import BoundaryKind, DirichletBC, DrainBC
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 
+# Which backend builds which boundary is said by its ``supports`` and held for
+# every backend by tests/contract/test_solver_backend_contract.py. The table here
+# names no backend.
 
-def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
+
+def test_boundary_registry_keeps_solver_side_order() -> None:
     assert SIDE_DIRICHLET_BC_IDS_ORDERED == (
         "west_side",
         "east_side",
@@ -27,11 +36,43 @@ def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
     assert stream is not None
     assert stream.default_type == "dirichlet"
     assert stream.support_kind == "stream"
-    assert stream.backend_packages["modflow6"] == "CHD"
-
-    assert "stream" in supported_boundary_ids_for_backend("boussinesq")
-    assert "stream" not in supported_boundary_ids_for_backend("modflow_nwt")
     assert SUPPORTED_FLOW_BOUNDARY_IDS == frozenset(FLOW_BOUNDARY_DEFINITIONS)
+
+
+def test_flow_bc_takes_the_seven_ids_that_are_not_an_advanced_package() -> None:
+    assert FLOW_BC_IDS == (
+        "west_side",
+        "east_side",
+        "north_side",
+        "south_side",
+        "stream",
+        "ocean",
+        "drainage",
+    )
+    assert typing.get_args(FlowBcId) == FLOW_BC_IDS
+
+
+def test_the_kinds_of_flow_bc_come_from_the_table_and_name_the_payload_classes() -> None:
+    """The tags of the two payload classes are their identity in the union, held equal here."""
+    assert FLOW_BC_KINDS == ("dirichlet", "drain")
+    assert typing.get_args(BoundaryKind) == FLOW_BC_KINDS
+    tags = {
+        typing.get_args(cls.model_fields["kind"].annotation)[0] for cls in (DirichletBC, DrainBC)
+    }
+    assert tags == set(FLOW_BC_KINDS)
+
+
+@pytest.mark.parametrize(
+    ("bc_id", "declared_at"),
+    [
+        ("west_side", "flow.bc.west_side"),
+        ("drainage", "flow.bc.drainage"),
+        ("lake", "flow.sinks_sources.lakes"),
+        ("sfr", "flow.sinks_sources.sfr"),
+    ],
+)
+def test_each_boundary_says_which_table_declares_it(bc_id: str, declared_at: str) -> None:
+    assert FLOW_BOUNDARY_DEFINITIONS[bc_id].declared_at == declared_at
 
 
 def test_boundary_bundle_orders_the_active_side_ids() -> None:
@@ -75,14 +116,10 @@ def test_the_bundle_is_rebuilt_when_the_flow_s_active_ids_change() -> None:
 
 # The lake entry in the flow boundary-condition registry.
 #
-# A lake is an advanced package (it carries internal stage/storage state), only
-# implemented by the modflow6 backend (LAK). This checks that:
-#
-# * ``lake`` is a canonical flow boundary id;
-# * ``supported_boundary_ids_for_backend('modflow6')`` includes it and maps it
-#   to the LAK package, while ``boussinesq`` / ``modflow_nwt`` do NOT (declaring a
-#   lake there must be detectable as unsupported);
-# * the canonical Dirichlet helpers are untouched by the advanced-package family.
+# A lake is an advanced package: it carries internal stage and storage state.
+# This checks that ``lake`` is a canonical flow boundary id, that a bundle tells
+# a backend whose ``supports`` leaves it out, and that the canonical Dirichlet
+# helpers are untouched by the advanced-package family.
 
 
 def test_lake_is_a_canonical_advanced_package() -> None:
@@ -94,17 +131,7 @@ def test_lake_is_a_canonical_advanced_package() -> None:
     assert definition.support_kind == "advanced_package"
     assert definition.application_domain == "top"
     assert definition.supports_forcing is True
-    assert definition.backend_packages["modflow6"] == "LAK"
-
-
-def test_only_modflow6_backend_supports_lakes() -> None:
-    modflow6_ids = supported_boundary_ids_for_backend("modflow6")
-    assert "lake" in modflow6_ids
-
-    # Negative invariant: the lake is NOT supported by the other backends.
-    for backend in ("boussinesq", "modflow_nwt"):
-        ids = supported_boundary_ids_for_backend(backend)
-        assert "lake" not in ids
+    assert "lake" not in FLOW_BC_IDS
 
 
 def test_advanced_package_does_not_leak_into_dirichlet_helpers() -> None:
@@ -125,15 +152,15 @@ def test_advanced_package_does_not_leak_into_dirichlet_helpers() -> None:
     }
 
 
-def test_bundle_flags_lake_as_unsupported_on_boussinesq() -> None:
+def test_bundle_flags_a_lake_the_supports_leave_out() -> None:
     bundle = BoundaryConditionBundle(
         conditions={"lake": object()},
         active_ids=("lake",),
     )
-    # The lake is a known canonical id, but boussinesq does not support it.
+    # The lake is a known canonical id; a backend without it in supports does not build it.
     assert bundle.unknown_active_ids() == ()
-    assert bundle.unsupported_active_ids("boussinesq") == ("lake",)
-    assert bundle.unsupported_active_ids("modflow6") == ()
+    assert bundle.active_ids_outside(frozenset({"drainage", "west_side"})) == ("lake",)
+    assert bundle.active_ids_outside(frozenset({"drainage", "lake"})) == ()
 
 
 def test_registry_ids_match_definition_keys() -> None:

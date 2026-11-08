@@ -572,3 +572,58 @@ def test_an_entry_point_name_is_compared_with_the_join_and_never_split(
     assert pairs.load_plugins() == len(registered)
     assert pairs.names("flow") == registered
     assert warning in warnings.text
+
+
+# The refusal of a name nothing serves -----------------------------------------
+
+_NAMES = ("modflow_nwt", "boussinesq", "modflow6")
+
+CHECK_CASES = (
+    ("a served name", "modflow6", _NAMES, None, None),
+    (
+        "an absent name, the names sorted",
+        "nope",
+        _NAMES,
+        None,
+        "solver.backend names 'nope', and this installation serves boussinesq, modflow6, "
+        "modflow_nwt.",
+    ),
+    (
+        "nothing served",
+        "nope",
+        (),
+        None,
+        "solver.backend names 'nope', and this installation serves none.",
+    ),
+    (
+        "the group sentence",
+        "nope",
+        _NAMES,
+        "hydromodpy.solver",
+        "this installation serves boussinesq, modflow6, modflow_nwt. A third-party one joins "
+        "that list through the 'hydromodpy.solver' entry-point group, without a patch to "
+        "HydroModPy.",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "value", "names", "group", "refusal"),
+    CHECK_CASES,
+    ids=[case[0] for case in CHECK_CASES],
+)
+def test_a_name_is_kept_when_served_and_refused_with_the_names_served(
+    case: str, value: str, names: tuple[str, ...], group: str | None, refusal: str | None
+) -> None:
+    del case
+    if refusal is None:
+        assert (
+            plugin_registry.check_registered_name(value, names, key="solver.backend", group=group)
+            == value
+        )
+        return
+    with pytest.raises(ValueError) as caught:
+        plugin_registry.check_registered_name(value, names, key="solver.backend", group=group)
+    assert refusal in str(caught.value)
+    if group is None:
+        assert "third-party" not in str(caught.value)

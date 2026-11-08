@@ -323,7 +323,7 @@ flow.sinks_sources.recharge.negative_to_evt
 flow.sinks_sources.recharge.spatial_mode
 flow.sinks_sources.recharge.interpolation_method
 flow.sinks_sources.etp.first_clim
-modflow6.process_specific.evt_extinction_depth
+solver.modflow6.process_specific.evt_extinction_depth
 ```
 
 The step of example 04, then the first period of its soil run:

@@ -1,146 +1,115 @@
-"""Top-level solver selection configuration."""
+"""The ``[solver]`` section: the flow solver of a run and the settings of each one.
+
+``solver.backend`` names a registered flow solver, as a string checked against the
+registry while the file is read. Every other key of ``[solver]`` that is not one of
+the switches below is the name of a flow solver, and holds its settings: the table
+``[solver.modflow6]`` is validated by the ``options`` class the MODFLOW 6 adapter
+declares. A plugin solver gets its own table the same way, without a patch here.
+"""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Annotated, Literal, TypeAlias
+from functools import cache
+from typing import Annotated, Any
 
-from pydantic import Field, PrivateAttr, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    Field,
+    PrivateAttr,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-
-BUILTIN_BACKENDS: tuple[str, ...] = ("modflow6", "modflow_nwt", "boussinesq")
-
-
-class _SolverBackendBase(HydroModelBase):
-    """Shared base for discriminated solver backend selectors."""
-
-    _follows_the_flow_process: bool = PrivateAttr(default=False)
+from hydromodpy.core.plugin_registry import check_registered_name
+from hydromodpy.solver.base.registry import ENTRY_POINT_GROUP, solvers
 
 
-class Modflow6Backend(_SolverBackendBase):
-    """Select the MODFLOW 6 flow backend."""
+class FlowSolverOfTheProcess(str):
+    """A ``solver.backend`` value taken from the flow process, not written by the file.
 
-    kind: Annotated[Literal["modflow6"], Profile.USER] = Field(
-        default="modflow6",
-        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-    )
-
-
-class ModflowNwtBackend(_SolverBackendBase):
-    """Select the MODFLOW-NWT flow backend."""
-
-    kind: Annotated[Literal["modflow_nwt"], Profile.USER] = Field(
-        default="modflow_nwt",
-        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-    )
-
-
-class BoussinesqBackend(_SolverBackendBase):
-    """Select the Boussinesq flow backend."""
-
-    kind: Annotated[Literal["boussinesq"], Profile.USER] = Field(
-        default="boussinesq",
-        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
-    )
-
-
-class CustomBackend(_SolverBackendBase):
-    """Plugin-registered flow backend identified by a free-form name.
-
-    The discriminator value is the literal string ``"custom"``; the actual
-    backend name lives in ``name``. ``SolverConfig.validate_registry()``
-    enforces that the name resolves to a registered flow adapter at
-    launcher time.
+    The mark keeps ``backend`` out of the fields the file set, so a later change of
+    the flow process moves the backend with it instead of being refused.
     """
 
-    kind: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
+
+def backend_following_the_process(name: str) -> FlowSolverOfTheProcess:
+    """Return flow solver *name* marked as derived from the flow process."""
+    return FlowSolverOfTheProcess(str(name).strip())
+
+
+def _registered_flow_solver(value: str) -> str:
+    """Return the flow solver *value* names, lower case, or refuse a name nothing serves."""
+    cleaned = str(value).strip().lower()
+    return check_registered_name(
+        cleaned, solvers.names("flow"), key="solver.backend", group=ENTRY_POINT_GROUP
     )
-    name: Annotated[str, Profile.USER] = Field(
-        ...,
-        description="Name under which a plugin registered its flow solver.",
-        json_schema_extra=field_metadata(stability="experimental"),
+
+
+def _options_class(name: str) -> type[BaseModel] | None:
+    """Return the settings class flow solver *name* declares, or ``None``."""
+    return solvers.get("flow", name).options
+
+
+@cache
+def _default_dump(options: type[BaseModel]) -> dict[str, Any]:
+    """Return the settings of *options* at their defaults, as a dict to compare with."""
+    return options().model_dump()
+
+
+def _taken_in_silence(table: BaseModel) -> bool:
+    """Whether *table* was given no key and holds its defaults: a table nobody wrote."""
+    return not table.model_fields_set and table.model_dump() == _default_dump(type(table))
+
+
+def _refused_at(name: str, value: Any, error: ValueError) -> ValidationError:
+    """Return *error* as a validation error at the key ``name`` of ``[solver]``."""
+    return ValidationError.from_exception_data(
+        "SolverConfig",
+        [InitErrorDetails(type="value_error", loc=(name,), input=value, ctx={"error": error})],
     )
 
-    @field_validator("name", mode="before")
-    @classmethod
-    def _normalize_name(cls, value: object) -> str:
-        cleaned = str(getattr(value, "value", value)).strip().lower()
-        if cleaned == "":
-            raise ValueError("solver.backend.name cannot be empty.")
-        return cleaned
 
-
-SolverBackendConfig: TypeAlias = Annotated[
-    Modflow6Backend | ModflowNwtBackend | BoussinesqBackend | CustomBackend,
-    Field(
-        discriminator="kind",
-        description=("Discriminated union of flow solver backends tagged by the 'kind' key."),
-    ),
-]
-
-
-_BUILTIN_BACKEND_MODELS: dict[str, type[_SolverBackendBase]] = {
-    "modflow6": Modflow6Backend,
-    "modflow_nwt": ModflowNwtBackend,
-    "boussinesq": BoussinesqBackend,
-}
-
-
-def backend_for_solver(name: str) -> _SolverBackendBase:
-    """Return the ``solver.backend`` selector that names flow solver *name*.
-
-    A built-in name gives its own variant. Any other name gives the
-    ``custom`` variant carrying that name.
-    """
-    cleaned = str(name).strip()
-    model = _BUILTIN_BACKEND_MODELS.get(cleaned.lower())
-    if model is not None:
-        return model()
-    return CustomBackend(name=cleaned)
-
-
-def backend_following_the_process(name: str) -> _SolverBackendBase:
-    """Return the selector of flow solver *name*, derived from the flow process.
-
-    The mark keeps ``backend`` out of the fields a user set, so a later change
-    of the flow process moves the backend with it instead of being refused.
-    """
-    selector = backend_for_solver(name)
-    selector._follows_the_flow_process = True
-    return selector
-
-
-def solver_name_of_backend(backend: object) -> str | None:
-    """Return the flow solver a ``solver.backend`` value names, or None.
-
-    *backend* is a selector model or its TOML table. Anything else gives
-    None, so the model validation reports it.
-    """
-    if isinstance(backend, CustomBackend):
-        return backend.name
-    if isinstance(backend, _SolverBackendBase):
-        return str(getattr(backend, "kind", "")) or None
-    if isinstance(backend, Mapping):
-        tag = str(backend.get("kind", "")).strip().lower()
-        if tag == "custom":
-            name = str(backend.get("name", "")).strip().lower()
-            return name or None
-        return tag or None
-    return None
+def _table_errors_under(name: str, exc: ValidationError) -> ValidationError:
+    """Return the errors of table *name* placed under its key, so a refusal names the table."""
+    details: list[InitErrorDetails] = []
+    for error in exc.errors():
+        loc = (name, *error["loc"])
+        if error["type"] == "value_error":
+            details.append(
+                InitErrorDetails(
+                    type="value_error", loc=loc, input=error["input"], ctx=error.get("ctx", {})
+                )
+            )
+        else:
+            details.append(
+                InitErrorDetails(
+                    type=PydanticCustomError(error["type"], error["msg"]),
+                    loc=loc,
+                    input=error["input"],
+                )
+            )
+    return ValidationError.from_exception_data("SolverConfig", details)
 
 
 class SolverConfig(HydroModelBase):
-    """Configuration block defining the active groundwater solver engine.
+    """The flow solver of a run, its settings, and the switches every backend may read.
 
-    The TOML form is ``backend = { kind = "modflow6" }`` for a built-in
-    backend, or ``backend = { kind = "custom", name = "x" }`` for a
-    plugin-registered backend.
+    The TOML form is ``backend = "modflow6"``. The settings of a flow solver sit
+    under its name, ``[solver.modflow6]``, and are checked by the class it declares
+    as ``options``. A table of a solver that does not run is accepted and checked
+    too, because a recipe of ``[sites]`` changes the solver on a shared base.
 
     It also carries the backend-agnostic preprocessing switches both MODFLOW
     backends read, so one TOML key drives both. ``sink_fill`` and
@@ -148,10 +117,16 @@ class SolverConfig(HydroModelBase):
     are mutually exclusive.
     """
 
-    backend: Annotated[SolverBackendConfig, Profile.USER] = Field(
-        default_factory=Modflow6Backend,
-        description="Active flow backend selector (discriminated union).",
+    backend: Annotated[str, Profile.USER, AfterValidator(_registered_flow_solver)] = Field(
+        default="modflow6",
+        description=(
+            "Flow solver of the run, by its registered name: MODFLOW 6, MODFLOW-NWT, "
+            "Boussinesq or a plugin. A name this installation does not serve is refused "
+            "with the names it serves."
+        ),
+        examples=list(solvers.names("flow", shipped_only=True)),
     )
+    _options: dict[str, BaseModel] = PrivateAttr(default_factory=dict)
     sink_fill: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
@@ -286,33 +261,138 @@ class SolverConfig(HydroModelBase):
             )
         return self
 
-    @model_validator(mode="after")
-    def _leave_a_derived_backend_unset(self) -> SolverConfig:
-        """Keep a backend derived from the flow process out of the fields set.
+    @model_validator(mode="wrap")
+    @classmethod
+    def _read_the_solver_tables(
+        cls, data: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
+    ) -> SolverConfig:
+        """Validate each ``[solver.<name>]`` table by the settings class of solver *name*.
 
-        The root model reads ``backend`` in the fields set as written by the
-        user, and refuses a flow process that names another solver.
+        A key that is not a field is the name of a flow solver. A name nothing
+        serves is refused with the names served, and a solver that declares no
+        settings refuses its table. The table of the running solver is held at its
+        defaults when the file writes none, so a dotted path reaches it.
         """
-        if self.backend._follows_the_flow_process:
-            self.__pydantic_fields_set__.discard("backend")
-        return self
+        follows = False
+        tables: dict[str, BaseModel] = {}
+        if isinstance(data, Mapping):
+            fields = {key: value for key, value in data.items() if key in cls.model_fields}
+            follows = isinstance(fields.get("backend"), FlowSolverOfTheProcess)
+            for key, value in data.items():
+                if key not in fields:
+                    tables[str(key)] = cls._validated_table(str(key), value, info)
+            data = fields
+        elif isinstance(data, SolverConfig):
+            follows = isinstance(data.backend, FlowSolverOfTheProcess)
+            if follows:
+                object.__setattr__(data, "backend", _registered_flow_solver(data.backend))
+        validated = handler(data)
+        validated._settle_tables(tables)
+        if follows:
+            validated.__pydantic_fields_set__.discard("backend")
+        return validated
+
+    @classmethod
+    def _validated_table(cls, name: str, value: Any, info: ValidationInfo) -> BaseModel:
+        """Return table *name* validated by its solver's settings class, refused at its own key."""
+        try:
+            check_registered_name(
+                name, solvers.names("flow"), key=f"solver.{name}", group=ENTRY_POINT_GROUP
+            )
+            options = _options_class(name)
+            if options is None:
+                raise ValueError(
+                    f"[solver.{name}] holds settings, and the flow solver {name!r} declares "
+                    "none to read them. Remove the table."
+                )
+        except ValueError as exc:
+            raise _refused_at(name, value, exc) from None
+        if isinstance(value, options):
+            return value
+        try:
+            return options.model_validate(value, context=info.context)
+        except ValidationError as exc:
+            raise _table_errors_under(name, exc) from None
+
+    def _settle_tables(self, written: Mapping[str, BaseModel]) -> None:
+        """Hold the running solver's table, and every table a key was given in."""
+        held = {**self._options, **written}
+        running = self.backend
+        if running not in held:
+            options = _options_class(running)
+            if options is not None:
+                held[running] = options()
+        # Through the private store, not setattr: a frozen copy validated again
+        # settles to the tables it already holds.
+        self.__pydantic_private__["_options"] = {
+            name: table
+            for name, table in sorted(held.items())
+            if name == running or not _taken_in_silence(table)
+        }
+
+    @model_serializer(mode="wrap")
+    def _write_the_solver_tables(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> dict[str, Any]:
+        """Write each held table flat under its name, as ``[solver.modflow6]``."""
+        dumped = handler(self)
+        only_written = info.exclude_unset or info.exclude_defaults
+        tables = self.written_tables() if only_written else self._options
+        for name, table in tables.items():
+            dumped[name] = table.model_dump(
+                mode=info.mode,
+                by_alias=bool(info.by_alias),
+                exclude_unset=info.exclude_unset,
+                exclude_defaults=info.exclude_defaults,
+                exclude_none=info.exclude_none,
+            )
+        return dumped
+
+    @classmethod
+    def named_tables(cls, *, shipped_only: bool) -> dict[str, type[BaseModel]]:
+        """Return the settings class of each flow solver that declares one, by name.
+
+        *shipped_only* keeps the solvers this build ships, so a schema or a page
+        does not depend on what is installed beside it. The generic readers of a
+        model (the schema, the template, the parameter pages) read the tables here.
+        """
+        found: dict[str, type[BaseModel]] = {}
+        for name in solvers.names("flow", shipped_only=shipped_only):
+            options = _options_class(name)
+            if options is not None:
+                found[name] = options
+        return found
+
+    def held_tables(self) -> dict[str, BaseModel]:
+        """Return the tables this section holds: the running solver's, and the others written."""
+        return dict(self._options)
+
+    def written_tables(self) -> dict[str, BaseModel]:
+        """Return the held tables a key was given in, or that left their defaults."""
+        return {
+            name: table for name, table in self._options.items() if not _taken_in_silence(table)
+        }
+
+    def options_of(self, name: str) -> BaseModel:
+        """Return the settings of flow solver *name*, as validated, or its defaults.
+
+        Raises
+        ------
+        ValueError
+            When nothing serves *name*, or the solver declares no settings.
+        """
+        held = self._options.get(name)
+        if held is not None:
+            return held
+        check_registered_name(
+            name, solvers.names("flow"), key=f"solver.{name}", group=ENTRY_POINT_GROUP
+        )
+        options = _options_class(name)
+        if options is None:
+            raise ValueError(f"The flow solver {name!r} declares no settings.")
+        return options()
 
     @property
     def backend_name(self) -> str:
-        """Canonical backend name compatible with the solver registry."""
-        if isinstance(self.backend, CustomBackend):
-            return self.backend.name
-        return self.backend.kind
-
-    def validate_registry(self) -> None:
-        """Verify the selected engine is registered. Call explicitly from launcher."""
-        from hydromodpy.solver.base.registry import solvers
-
-        engine = self.backend_name
-        flow_solvers = solvers.names("flow")
-        if engine not in flow_solvers:
-            known = ", ".join(flow_solvers)
-            raise ValueError(
-                f"Unknown flow solver '{engine}': it is neither built in nor a registered "
-                f"plugin. Write one of: {known}."
-            )
+        """The registered name of the flow solver, as ``solvers.get("flow", name)`` reads it."""
+        return self.backend

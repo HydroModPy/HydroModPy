@@ -26,7 +26,7 @@ from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.solver.base.simulation_config import TransportProcessConfig
-from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from tools.docs import field_registry
 
@@ -67,7 +67,6 @@ MARKED: dict[type[BaseModel], tuple[str, ...]] = {
         "kc",
     ),
     GeographicConfig: ("domain_extent",),
-    CustomBackend: ("name",),
 }
 MARKED_FIELDS = [(model, field) for model, fields in MARKED.items() for field in fields]
 
@@ -174,9 +173,8 @@ def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None
         "flow.sinks_sources.lakes.<name>.cutoff_wall",
         "flow.sinks_sources.lakes.<name>.cutoff_wall.depths",
         "flow.sinks_sources.recharge.soil.alpha",
-        "flow.runtime.vi_substeps_per_period",
+        "solver.boussinesq.vi_substeps_per_period",
         "geographic.domain_extent",
-        "solver.backend.name",
     ],
 )
 def test_the_docs_show_the_mark_on_a_key_and_below_a_marked_section(
@@ -201,7 +199,7 @@ def test_the_docs_show_no_mark_beside_a_marked_key(registry: dict, path: str) ->
 
 
 def test_the_docs_show_which_values_of_a_selector_are_marked(registry: dict, chips) -> None:
-    node = registry["flow.runtime.surface_interaction_model"]
+    node = registry["solver.boussinesq.surface_interaction_model"]
     assert not node["stability"]
     assert any(
         "experimental if" in chip and "vi_obstacle" in chip for chip in chips(node, in_variant=True)

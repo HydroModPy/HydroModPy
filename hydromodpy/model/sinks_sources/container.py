@@ -20,6 +20,27 @@ from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 _ID_NAMES = {"wells": "well ids", "lakes": "lake ids", "sfr": "network ids", "flow_barriers": "ids"}
 """How the refusal of an empty id names the ids of each table."""
 
+RECHARGE = "recharge"
+"""A diffuse recharge is built: the name in ``FlowConfig.active_sinks_sources`` and in ``supports``."""
+
+WELLS = "wells"
+"""At least one well is built."""
+
+ETP = "etp"
+"""A diffuse evapotranspiration is built."""
+
+FLOW_BARRIERS = "flow_barriers"
+"""At least one flow barrier is declared under ``[flow.sinks_sources.flow_barriers]``."""
+
+CUTOFF_WALL = "cutoff_wall"
+"""An active lake declares a cutoff wall."""
+
+SINK_SOURCE_TRAITS: frozenset[str] = frozenset({RECHARGE, WELLS, ETP, FLOW_BARRIERS, CUTOFF_WALL})
+"""The names a solver backend lists in ``supports`` for the sinks and sources it builds.
+
+A lake and a stream network are boundaries, named once by their boundary id.
+"""
+
 
 class FlowSinksSourcesConfig(HydroModelBase):
     """

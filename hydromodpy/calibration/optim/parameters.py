@@ -13,6 +13,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import BaseModel
+
+from hydromodpy.core.config_kit.introspect import child_of, held_tables_of
+
 # ---------------------------------------------------------------------------
 # Annotation
 # ---------------------------------------------------------------------------
@@ -422,6 +426,8 @@ def _unknown_segment(path: str, part: str, depth: int, target: Any) -> ValueErro
     reached = ".".join(path.split(".")[:depth]) or "the configuration root"
     if isinstance(target, Mapping):
         available = sorted(str(key) for key in target)
+    elif isinstance(target, BaseModel):
+        available = sorted([*type(target).model_fields, *held_tables_of(target)])
     else:
         available = sorted(k for k in vars(type(target)).get("model_fields", ()) or ())
         if not available:
@@ -441,6 +447,12 @@ def set_by_path(cfg: Any, path: str, value: Any) -> None:
             if part not in target:
                 raise _unknown_segment(path, part, depth, target)
             target = target[part]
+        elif isinstance(target, BaseModel):
+            # A model also holds named tables, as solver.modflow6.
+            try:
+                target = child_of(target, part)
+            except AttributeError:
+                raise _unknown_segment(path, part, depth, target) from None
         else:
             if not hasattr(target, part):
                 raise _unknown_segment(path, part, depth, target)
@@ -463,6 +475,13 @@ def _get_by_path(cfg: Any, path: str) -> Any:
             if part not in target:
                 raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
             target = target[part]
+        elif isinstance(target, BaseModel):
+            try:
+                target = child_of(target, part)
+            except AttributeError:
+                raise ValueError(
+                    f"Path segment {part!r} not found on {type(target).__name__}"
+                ) from None
         else:
             if not hasattr(target, part):
                 raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")

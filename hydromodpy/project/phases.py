@@ -312,7 +312,7 @@ def detect_solver(project: Project) -> str:
         return str(engine)
     raise ConfigMissingError(
         "No flow solver declared. Add a [[simulation.process]] entry with "
-        "type='flow' or set [solver.backend]."
+        "type='flow' or set solver.backend."
     )
 
 

@@ -15,7 +15,9 @@ order*. Its job is narrower:
 - open and close process-family blocks via optional callbacks,
 - resolve the exact upstream models referenced by ``depends_on``,
 - delegate solver-specific execution to the matching adapter,
-- store each produced model back into ``state.execution.models_by_run_id``.
+- store each produced model back into ``state.execution.models_by_run_id``,
+- refuse a transport run that follows a flow run whose steady start did not
+  converge.
 
 In one sentence:
 
@@ -29,11 +31,12 @@ mixing generic orchestration with solver-specific API calls.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, SolverDivergedError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.transport.transport import Transport
@@ -123,6 +126,7 @@ class SimulationRunner:
         callbacks: ProcessCallbacks | None = None,
     ) -> None:
         self.callbacks = callbacks or ProcessCallbacks()
+        self._unconverged_starts: set[str] = set()
 
     def execute(
         self,
@@ -158,6 +162,7 @@ class SimulationRunner:
         """
 
         previous_callbacks = self.callbacks
+        self._unconverged_starts = set()
         if callbacks is not None:
             self.callbacks = callbacks
         executed_results: list[tuple[ProcessRun, RunExecutionResult]] = []
@@ -237,6 +242,8 @@ class SimulationRunner:
                 "prepare_solver step has not built one."
             )
         dependency_models = self._resolve_dependency_models(state, run)
+        if run.process_type == "transport":
+            self._refuse_a_start_that_did_not_converge(state, run)
         adapter = solvers.create(run.process_type, run.solver)
         # No ``model`` and no ``output_dir``: this run has produced neither yet,
         # and it is the adapter's own ``execute`` that is about to produce them.
@@ -253,6 +260,30 @@ class SimulationRunner:
         self._record_run_output(state, run, result)
         self._call_after_run(run, result, state)
         return result
+
+    def _refuse_a_start_that_did_not_converge(self, state: Any, run: ProcessRun) -> None:
+        """Refuse a transport run whose flow started from a permanent solve that did not converge.
+
+        The heads of that solve are a field the flow was not solved to, and a
+        transport run follows them. The convergence is known only once the flow
+        has run, so the refusal cannot be made when the file is read. A run read
+        back from a sealed document is replayed as it ran: the refusal becomes a
+        warning there.
+        """
+        behind = [dep for dep in run.depends_on if dep in self._unconverged_starts]
+        if not behind:
+            return
+        message = (
+            f"Transport run '{run.id}' follows flow run '{behind[0]}', whose steady "
+            "start did not converge, so the flow field it would carry is not a "
+            "solved one. Tighten the closure of the auxiliary steady solve in the "
+            "options of the flow solver, or start the flow from another state."
+        )
+        if getattr(getattr(state, "cfg", None), "read_as_sealed", False):
+            logger.warning(message)
+            warnings.warn(message, RuntimeWarning, stacklevel=2)
+            return
+        raise SolverDivergedError(message, run_id=run.id)
 
     def _run_mesh_process(self, state: Any, run: ProcessRun) -> RunExecutionResult:
         """Record the mesh artifacts already materialized by the mesh phase.
@@ -319,3 +350,5 @@ class SimulationRunner:
             state.execution.models_by_run_id[run.id] = result.primary_model
         if result.solver_output_dir is not None:
             state.execution.output_dirs_by_run_id[run.id] = result.solver_output_dir
+        if result.initial_state_converged is False:
+            self._unconverged_starts.add(run.id)

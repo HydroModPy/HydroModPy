@@ -18,11 +18,11 @@ This file is the map of the package. Each folder has its own `README.md`, except
 | `flow_config.py` | `FlowConfig`, the `[flow]` schema, and the reader of the raw `[flow]` table |
 | `flow.py` | The runtime `Flow`, built from a `FlowConfig`, that the setup binds loaded data to |
 | `model.py` | The frozen `Model` a solver adapter reads, its factories (`with_properties`, `with_initial`, `steady_variant`, `cycle_variant`) and `model_from_flow` |
-| `supports.py` | The closed set of names a solver backend lists in `supports`: the boundary kinds, the fields of `ModelOptions` and the initial states a TOML can choose |
+| `supports.py` | The closed set of names a solver backend lists in `supports`: the boundaries, the fields of `ModelOptions`, the initial states a TOML can choose, the sinks and sources, the soil reservoir, the K tensor and the layering. Each name is read from the module that owns it |
 | `initial_config.py` | `[flow.ic]` and `[spinup]`: the payloads of the starting head and the readers of its strategies |
 | `payloads.py` | The generic initial-condition, boundary-condition and sink/source models, and their normalizers |
 | `process_spatial.py` | `ProcessSpatial`, the runtime parent of `Flow` and `Transport` |
-| `runtime_config.py` | `[flow.runtime]`, the settings of the Boussinesq solve |
+| `runtime_config.py` | `FlowRuntimeConfig`, the settings of the Boussinesq solve. A file writes them under `[solver.boussinesq]` |
 | `toml_examples.py` | The commented examples of the dynamic `[flow.*]` blocks of the TOML template |
 
 | folder | answers |

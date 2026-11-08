@@ -43,6 +43,7 @@ from hydromodpy.core.units import (
 from hydromodpy.model.boundaries.boundary_condition_registry import (
     ALLOWED_BC_APPLICATION_DOMAINS,
     DIRICHLET_BC_CANONICAL_DOMAINS,
+    FLOW_BC_KINDS,
     FORCING_CAPABLE_DIRICHLET_BC_IDS,
     boundary_definition,
 )
@@ -58,7 +59,8 @@ _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "1/s": ("1/s", "leakance"),
 }
 
-BoundaryKind: TypeAlias = Literal["dirichlet", "drain"]
+BoundaryKind: TypeAlias = Literal[*FLOW_BC_KINDS]
+"""The kind of a ``[flow.bc]`` payload, read from the boundary table."""
 
 
 def _coerce_boundary_value_and_units(
@@ -447,7 +449,7 @@ class DrainBC(FlowBoundaryConditionConfig):
         json_schema_extra=field_metadata(
             value_docs={
                 "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its "
-                "closure from flow.runtime.surface_interaction_model.",
+                "closure from solver.boussinesq.surface_interaction_model.",
             }
         ),
     )

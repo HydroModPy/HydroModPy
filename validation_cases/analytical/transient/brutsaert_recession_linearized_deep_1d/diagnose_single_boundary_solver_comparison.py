@@ -925,8 +925,8 @@ def main() -> None:
     mf6_steady_time_grid = _single_period_time_grid(mf6_setup.time_grid)
     mf6_transient_time_grid = _transient_time_grid(mf6_setup.time_grid)
 
-    nwt_cfg = nwt_launcher.cfg.modflownwt.model_copy(deep=True)
-    mf6_cfg = mf6_launcher.cfg.modflow6.model_copy(deep=True)
+    nwt_cfg = nwt_launcher.cfg.solver.options_of("modflow_nwt").model_copy(deep=True)
+    mf6_cfg = mf6_launcher.cfg.solver.options_of("modflow6").model_copy(deep=True)
 
     results: list[ProbeResult] = []
 

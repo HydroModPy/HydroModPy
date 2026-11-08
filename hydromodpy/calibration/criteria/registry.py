@@ -13,9 +13,10 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     HydrographicNetworkDistance,
 )
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
+from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 
-NETWORK_ESTIMATORS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""The two estimators :class:`HydrographicNetworkDistance` answers to.
+NETWORK_ESTIMATORS: frozenset[str] = frozenset(NETWORK_METRIC_NAMES)
+"""The two estimators :class:`HydrographicNetworkDistance` answers to, read off the metric table.
 
 A file writes an estimator, not the criterion: Eq. 1 and Eq. 2 are two ways of
 reading the same pair of distances and a calibration picks one. The names stay

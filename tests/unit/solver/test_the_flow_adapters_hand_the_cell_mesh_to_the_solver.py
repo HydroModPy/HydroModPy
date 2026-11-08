@@ -87,8 +87,7 @@ def _context(
     )
     state = RunState(
         cfg=SimpleNamespace(
-            modflow6=SimpleNamespace(),
-            modflownwt=SimpleNamespace(),
+            solver=SimpleNamespace(options_of=lambda name: SimpleNamespace()),
             postprocess=SimpleNamespace(flow=flow_off),
         ),
         setup=SimpleNamespace(

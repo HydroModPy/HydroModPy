@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import pytest
-from pydantic import Field
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer
 
 from hydromodpy.core.config_kit import registry
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -103,3 +103,54 @@ def test_exclude_defaults_leaves_out_what_nobody_gave() -> None:
     )
     flow = tomllib.loads(text)["flow"]
     assert flow == {"k": 2e-3}
+
+
+class _Engine(HydroModelBase):
+    """Settings of one engine."""
+
+    steps: int = 4
+
+
+class _Section(HydroModelBase):
+    backend: str = "a"
+
+    @classmethod
+    def named_tables(cls, *, shipped_only: bool) -> dict[str, type[HydroModelBase]]:
+        return {"a": _Engine, "b": _Engine}
+
+    def held_tables(self) -> dict[str, _Engine]:
+        return {"a": _Engine(steps=9)}
+
+    @model_serializer(mode="wrap")
+    def _write_the_tables(self, handler: SerializerFunctionWrapHandler) -> dict:
+        dumped = handler(self)
+        dumped.update({name: table.model_dump() for name, table in self.held_tables().items()})
+        return dumped
+
+
+class _RootWithTables(HydroModelBase):
+    solver: _Section = _Section()
+
+
+class _TablesProvider:
+    def root_model(self) -> type[HydroModelBase]:
+        return _RootWithTables
+
+
+def test_a_template_shows_each_named_table_and_an_instance_only_those_it_holds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(registry, "get_root_config_provider", lambda: _TablesProvider())
+    monkeypatch.setattr(registry, "_CACHE", None)
+
+    template = tomllib.loads(generate_toml(modules=["solver"], profile="user"))
+    destination = tmp_path / "filled.toml"
+    generate_toml_from_instances(
+        {"solver": _Section()}, output_path=destination, profile="user", exclude_none=True
+    )
+    filled = tomllib.loads(destination.read_text())
+
+    assert template["solver"]["a"] == {"steps": 4}
+    assert template["solver"]["b"] == {"steps": 4}
+    assert set(filled["solver"]) == {"backend", "a"}
+    assert filled["solver"]["a"] == {"steps": 9}

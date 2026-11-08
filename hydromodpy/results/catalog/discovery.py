@@ -296,7 +296,7 @@ class DiscoveryMixin:
            ``@running``. ``site`` narrows a selector to the runs of one site.
            Best follows the direction of the metric: highest ``nse``, lowest
            ``rmse``, ``pbias`` closest to zero (see
-           :data:`~hydromodpy.results.catalog.constants.METRIC_SENSE`).
+           :data:`~hydromodpy.core.scoring.metric_table.METRIC_SENSE`).
            ``@best`` and ``@worst`` rank scores, so the runs they rank must
            share one rule (station, variable, window, rule version; with
            ``@STATION``, all but the station): otherwise they raise

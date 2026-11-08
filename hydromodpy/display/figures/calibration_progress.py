@@ -36,11 +36,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import OutputName, SessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
-    NETWORK_METRICS,
     RESIDUAL_COSTS,
     CostBlock,
     as_mapping,
@@ -620,7 +620,7 @@ def _draw_slide(fig: MplFigure, search: _Search) -> None:
     series = [
         block
         for block in search.blocks
-        if block.raw is not None and block.metric not in NETWORK_METRICS
+        if block.raw is not None and block.metric not in NETWORK_METRIC_NAMES
     ]
     two = len(search.parameters) == 2
     improvement = int(search.network is not None) + int(bool(series))

@@ -95,7 +95,7 @@ _VALIDATION_GENERATED_PATH_HEADROOM = run_generated_path_length(_VALIDATION_SIM_
 #   instead of passing. The former 1e-4 m3/s was a whole case budget.
 # - headtol = 1e-9 m, three decades below the head change of one time step
 #   at the end of the deep Brutsaert recession (4e-6 m).
-_NWT_VALIDATION_PROFILE = """[modflownwt.runtime.nwt]
+_NWT_VALIDATION_PROFILE = """[solver.modflow_nwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
 verbose = false
@@ -111,34 +111,34 @@ continue_run = false
 backflag = 0
 stoptol = 1e-10
 
-[modflownwt.runtime.dis]
+[solver.modflow_nwt.runtime.dis]
 itmuni = 1
 
-[modflownwt.runtime.bas]
+[solver.modflow_nwt.runtime.bas]
 hnoflo = -9999.0
 
-[modflownwt.runtime.upw]
+[solver.modflow_nwt.runtime.upw]
 iphdry = 1
 hdry = -100.0
 layvka = 1
 
-[modflownwt.runtime.evt]
+[solver.modflow_nwt.runtime.evt]
 nevtop = 3
 ievt = 1
 ipakcb = 1
 
-[modflownwt.runtime.oc]
+[solver.modflow_nwt.runtime.oc]
 compact = true
 
-[modflownwt.runtime.wel]
+[solver.modflow_nwt.runtime.wel]
 ipakcb = 1
 
-[modflownwt.runtime.lmt]
+[solver.modflow_nwt.runtime.lmt]
 output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
 
-[modflownwt.process_specific]
+[solver.modflow_nwt.process_specific]
 vka = 1.0
 exdp = "1.0 m"
 """

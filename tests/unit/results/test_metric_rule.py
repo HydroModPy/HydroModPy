@@ -10,12 +10,12 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.scoring import metrics as kernels
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.metric_rule import (
     CALIBRATION_ROLE,
     EVALUATION_ROLE,
     HEADLINE_METRICS,
     HEADLINE_WINDOW,
-    METRIC_NAMES,
     METRIC_RULE_VERSION,
     DateWindow,
     MetricRule,
@@ -108,7 +108,7 @@ def test_a_timezone_aware_index_is_scored_on_its_own_days():
     assert score(series, series, rule, "rmse").n_samples == 3
 
 
-@pytest.mark.parametrize("metric", METRIC_NAMES)
+@pytest.mark.parametrize("metric", RUN_METRIC_NAMES)
 def test_every_known_metric_scores_under_the_rule(metric):
     observed = _series(3)
     result = score(observed * 1.05, observed, RULE, metric)

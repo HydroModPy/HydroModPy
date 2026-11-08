@@ -44,14 +44,9 @@ Sections live close to the package they configure:
      - ``SimulationConfig``
      - ``hydromodpy/solver/base/simulation_config.py``
    * - ``[solver]``
-     - ``SolverConfig``
+     - ``SolverConfig``, and the settings table of each flow solver under it
+       (``[solver.modflow6]``, ``[solver.modflow_nwt]``, ``[solver.boussinesq]``)
      - ``hydromodpy/solver/base/solver_config.py``
-   * - ``[modflownwt]``
-     - ``ModflowConfig``
-     - ``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``
-   * - ``[modflow6]``
-     - ``Modflow6Config``
-     - ``hydromodpy/solver/modflow6/modflow6_config.py``
    * - ``[display]``
      - ``DisplayConfig``
      - ``hydromodpy/display/config.py``
@@ -76,6 +71,19 @@ Sections live close to the package they configure:
    * - ``[calibration]``
      - ``CalibrationConfig``
      - ``hydromodpy/calibration/config.py``
+
+A named table
+-------------
+
+The settings of a flow solver are not a section of the root. A key of ``[solver]`` that is not one
+of its own fields is the name of a flow solver, and its table is validated by the ``options`` class
+that the adapter declares (``hydromodpy/solver/modflow6/modflow6_config.py``,
+``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``, ``hydromodpy/model/runtime_config.py``).
+To add a field to such a table, add it on that class with the same rules as any other field.
+``SolverConfig.named_tables(shipped_only=True)`` hands the classes of the shipped solvers to the
+schema, the template, the parameter pages and the dotted paths, so none of them needs a line for a
+new field. A field that every flow solver reads belongs to ``[solver]`` itself. If a solver ignores
+it, the solver leaves it out of ``supports`` and a file that sets it is refused when it is read.
 
 Pydantic invariants
 -------------------

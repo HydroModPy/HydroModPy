@@ -6,7 +6,15 @@ import logging
 from typing import Annotated, Literal
 
 import pytest
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.written import (
@@ -279,3 +287,39 @@ def test_the_tag_of_a_union_member_is_kept() -> None:
 
     assert payload == {"field": {"kind": "zonal", "zones": 3}}
     assert _Parameter.model_validate(payload) == parameter
+
+
+# Named tables: a table is said when it was written, flat under its name -----------
+
+
+class _Held(HydroModelBase):
+    """A section that holds two named tables, of which it wrote one."""
+
+    name: str = "x"
+
+    def held_tables(self) -> dict[str, BaseModel]:
+        return {"cg": _Solver(damping=0.7), "mesh": _Mesh()}
+
+    def written_tables(self) -> dict[str, BaseModel]:
+        return {"cg": self.held_tables()["cg"]}
+
+    @model_serializer(mode="wrap")
+    def _write_the_tables(self, handler: SerializerFunctionWrapHandler) -> dict:
+        dumped = handler(self)
+        dumped.update({key: table.model_dump() for key, table in self.held_tables().items()})
+        return dumped
+
+
+TABLE_READERS = (
+    (written_payload, {"cg": {"kind": "cg", "damping": 0.7}}),
+    (written_as_a_file, {"cg": {"kind": "cg", "damping": 0.7}}),
+)
+
+
+@pytest.mark.parametrize(("reader", "expected"), TABLE_READERS)
+def test_a_written_table_is_said_and_a_held_default_is_not(reader, expected) -> None:
+    assert reader(_Held()) == expected
+
+
+def test_an_experimental_key_of_a_written_table_is_named_under_the_table() -> None:
+    assert written_experimental_keys(_Held()) == ("cg.damping",)

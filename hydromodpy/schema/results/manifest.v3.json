@@ -1621,7 +1621,7 @@
       "description": "One score and the facts that make it comparable.",
       "properties": {
         "metric": {
-          "description": "Metric name, one of METRIC_NAMES",
+          "description": "Metric name, one of RUN_METRIC_NAMES",
           "examples": [
             "example"
           ],

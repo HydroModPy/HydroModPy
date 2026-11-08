@@ -315,7 +315,10 @@ def test_a_form_the_loader_only_refuses_is_no_migration(
         ("calibration.phases.max_iter", True),
         ("calibration.parameters.transform", True),
         ("modflow6.sgrid.vertical.nlay", True),
-        ("modflow6.sgrid", False),
+        # Covered by the move of the whole [modflow6] table to [solver.modflow6].
+        ("modflow6.sgrid", True),
+        # The parent of a moved table is not moved with it.
+        ("flow", False),
         ("calibration.max_trials", False),
     ],
 )

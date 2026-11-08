@@ -33,7 +33,14 @@ def test_dirichlet_side_key_infers_application_domain() -> None:
 
 
 def test_dirichlet_legacy_boundary_alias_is_rejected() -> None:
-    with pytest.raises(ValueError, match="unsupported Dirichlet key 'west_boundary'"):
+    """The refusal names the seven ids [flow.bc] holds, drainage included."""
+    with pytest.raises(
+        ValueError,
+        match=(
+            "flow.bc names the boundary 'west_boundary', which \\[flow.bc\\] does not hold. "
+            "It holds west_side, east_side, north_side, south_side, stream, ocean, drainage."
+        ),
+    ):
         _build_flow_config(
             {
                 "bc": {
@@ -295,3 +302,8 @@ def test_drainage_forcing_is_rejected() -> None:
                 }
             }
         )
+
+
+def test_a_lake_written_under_flow_bc_is_sent_to_the_sinks_and_sources() -> None:
+    with pytest.raises(ValueError, match=r"A lake and a stream network are declared under"):
+        _build_flow_config({"bc": {"lake": {"value": 1.0}}})

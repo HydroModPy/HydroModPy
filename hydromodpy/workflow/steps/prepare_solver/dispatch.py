@@ -61,7 +61,7 @@ def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
     executed = _built_model_runner(ctx, solver_name)
     if executed is not None:
         return executed
-    runtime = getattr(getattr(ctx.cfg, "modflow6", None), "runtime", None)
+    runtime = ctx.cfg.solver.options_of(solver_name).runtime
     return "api" if getattr(runtime, "mf6_runner", "subprocess") == "api" else "subprocess"
 
 

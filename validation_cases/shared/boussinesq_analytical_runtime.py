@@ -1,4 +1,10 @@
-"""Default Boussinesq runtime selection for analytical validation cases."""
+"""Default Boussinesq runtime selection for analytical validation cases.
+
+The settings of the Boussinesq solve live in ``[solver.boussinesq]``, beside the
+flow section and not in it. A case writes its flow section and, apart, the
+settings it sets. This module turns them into the ``FlowRuntimeConfig`` a variant
+runs with, and into the run state the adapter reads.
+"""
 
 from __future__ import annotations
 
@@ -10,8 +16,9 @@ from typing import Any
 from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
-from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
+from validation_cases.shared.loaders import load_case_config
 
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"
@@ -20,7 +27,8 @@ ANALYTICAL_RUNTIME_BACKEND = "petsc"
 # runtime_backend 'auto' (the dense 'local' engine up to 400 cells, 'scipy_sparse'
 # above) with the regularized partition surface closure.
 DEFAULT_ENGINE_SOLVER = "boussinesq_local"
-# The runtime keys a case may still carry flat in [flow], and the [flow.runtime] table.
+# The keys of a section that never belong to the flow: the flat runtime keys of
+# an old file, and the table they moved into.
 _RUNTIME_KEYS = frozenset(FLOW_RUNTIME_KEYS) | {"runtime"}
 
 
@@ -32,7 +40,7 @@ def _normalize_flow_regime(value: object) -> str:
 
 
 def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str, object]:
-    """Return the ``[flow.runtime]`` knobs used by default analytical Boussinesq runs."""
+    """Return the ``[solver.boussinesq]`` knobs used by default analytical Boussinesq runs."""
     regime = _normalize_flow_regime(flow_regime or "steady")
     if regime == "transient":
         return {
@@ -50,48 +58,40 @@ def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str
 
 
 def apply_analytical_boussinesq_runtime_defaults(
-    flow_section: Mapping[str, Any],
+    settings: Mapping[str, Any],
     *,
     flow_regime: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Return ``flow_section`` with the analytical PETSc runtime default applied.
+    """Return the ``[solver.boussinesq]`` ``settings`` with the analytical PETSc defaults applied.
 
-    The knobs are written in the ``runtime`` table of the section. Missing ones are
-    filled with the analytical PETSc VI/TS-VI defaults. Explicit caller-provided
-    values are kept unless ``force`` is true.
+    Missing ones are filled with the analytical PETSc VI/TS-VI defaults of the
+    flow regime. Explicit caller-provided values are kept unless ``force`` is true.
     """
-    normalized = dict(flow_section)
-    regime = str(flow_regime or normalized.get("flow_regime") or "steady")
-    defaults = analytical_boussinesq_runtime_overrides(regime)
-    runtime = dict(normalized.get("runtime") or {})
+    defaults = analytical_boussinesq_runtime_overrides(flow_regime)
+    filled = dict(settings)
     if force:
-        runtime.update(defaults)
+        filled.update(defaults)
     else:
         for key, value in defaults.items():
-            current = runtime.get(key)
+            current = filled.get(key)
             if current is None or (isinstance(current, str) and not current.strip()):
-                runtime[key] = value
-    normalized["runtime"] = runtime
-    return normalized
+                filled[key] = value
+    return filled
 
 
 def set_analytical_boussinesq_runtime_defaults_in_place(
-    flow_section: MutableMapping[str, Any],
+    settings: MutableMapping[str, Any],
     *,
     flow_regime: str | None = None,
     force: bool = False,
 ) -> None:
-    """Mutate ``flow_section`` with the analytical PETSc runtime default."""
-    current = dict(flow_section)
-    flow_section.clear()
-    flow_section.update(
-        apply_analytical_boussinesq_runtime_defaults(
-            current,
-            flow_regime=flow_regime,
-            force=force,
-        )
+    """Mutate the ``[solver.boussinesq]`` ``settings`` with the analytical PETSc defaults."""
+    filled = apply_analytical_boussinesq_runtime_defaults(
+        settings, flow_regime=flow_regime, force=force
     )
+    settings.clear()
+    settings.update(filled)
 
 
 def is_default_engine_solver(solver: str | None) -> bool:
@@ -110,26 +110,51 @@ def boussinesq_variant_flow_section(
     flow_section: Mapping[str, Any],
     *,
     flow_regime: str | None = None,
-    solver: str | None = "boussinesq",
 ) -> dict[str, Any]:
     """Return the flow section one Boussinesq validation variant runs with.
 
-    The default-engine variant drops every runtime key, so the FlowConfig
-    defaults apply as in a user run. Every other variant gets the analytical
-    PETSc defaults.
+    The runtime keys never stay in a flow section: a case that still carries
+    them, flat or as a ``runtime`` table, has them dropped here and writes them
+    to ``boussinesq_variant_options`` instead.
 
     A transient section that does not state ``first_period_steady`` gets
     false: a transient case starts from its initial condition, as the
     MODFLOW base config of each case states. A Brutsaert warm-up is a
     separate steady run.
     """
-    section = dict(flow_section)
+    section = {key: value for key, value in flow_section.items() if key not in _RUNTIME_KEYS}
     regime = str(flow_regime or section.get("flow_regime") or "steady").strip().lower()
     if regime == "transient":
         section.setdefault("first_period_steady", False)
+    return section
+
+
+def boussinesq_variant_options(
+    *,
+    flow_regime: str | None = None,
+    solver: str | None = "boussinesq",
+    case_dir: Path | None = None,
+    config_name: str | None = None,
+    written: Mapping[str, Any] | None = None,
+) -> FlowRuntimeConfig:
+    """Return the ``[solver.boussinesq]`` settings one Boussinesq validation variant runs with.
+
+    The table of ``config_name`` in ``case_dir`` gives the base. The default-engine
+    variant keeps it as it is, so the library defaults apply as in a user run.
+    Every other variant gets the analytical PETSc defaults over the base, and the
+    values the case ``written`` itself over both.
+    """
+    table: dict[str, Any] = {}
+    if case_dir is not None and config_name is not None:
+        if (Path(case_dir) / config_name).exists():
+            solver_table = load_case_config(Path(case_dir), config_name).get("solver") or {}
+            table = dict(solver_table.get("boussinesq") or {})
     if is_default_engine_solver(solver):
-        return {key: value for key, value in section.items() if key not in _RUNTIME_KEYS}
-    return apply_analytical_boussinesq_runtime_defaults(section, flow_regime=flow_regime)
+        return FlowRuntimeConfig.model_validate(table)
+    chosen = apply_analytical_boussinesq_runtime_defaults(
+        dict(written or {}), flow_regime=flow_regime
+    )
+    return FlowRuntimeConfig.model_validate({**table, **chosen})
 
 
 def analytical_boussinesq_solver_label(
@@ -167,14 +192,17 @@ def boussinesq_run_state(
     bundle_dir: str | Path,
     simulations_folder: str | Path,
     time_grid: object = None,
+    options: FlowRuntimeConfig | None = None,
 ) -> RunState:
     """Return the run state the Boussinesq adapter reads for a run on a mesh bundle.
 
-    The state carries the ``Model`` of ``flow`` and the ``[flow]`` section the
-    solver options come from. The scratch folder is ``simulations_folder``.
+    The state carries the ``Model`` of ``flow`` and a ``[solver]`` section whose
+    ``[solver.boussinesq]`` table is ``options``, the defaults when none is given.
+    The scratch folder is ``simulations_folder``.
     """
+    solver = SolverConfig() if options is None else SolverConfig(boussinesq=options)
     return RunState(
-        cfg=SimpleNamespace(flow=flow.config),
+        cfg=SimpleNamespace(flow=flow.config, solver=solver),
         setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
@@ -198,6 +226,7 @@ __all__ = [
     "boussinesq_run_state",
     "boussinesq_variant_config_name",
     "boussinesq_variant_flow_section",
+    "boussinesq_variant_options",
     "is_default_engine_solver",
     "set_analytical_boussinesq_runtime_defaults_in_place",
 ]

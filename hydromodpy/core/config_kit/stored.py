@@ -22,6 +22,8 @@ from typing import Any, Final, TypeVar
 from pydantic import BaseModel, ValidationInfo
 from pydantic_core import CoreSchema, core_schema
 
+from hydromodpy.core.config_kit.introspect import held_tables_of
+
 _READING_STORED: Final[dict[str, bool]] = {"reading_stored_document": True}
 """The validation context of a read: a :class:`Vocabulary` tolerates any word under it."""
 
@@ -53,6 +55,9 @@ def _put_back_unknown_keys(value: Any, rendered: Any) -> None:
             key = field.serialization_alias or name
             if key in rendered:
                 _put_back_unknown_keys(getattr(value, name), rendered[key])
+        for name, table in held_tables_of(value).items():
+            if name in rendered:
+                _put_back_unknown_keys(table, rendered[name])
     elif isinstance(value, Mapping) and isinstance(rendered, dict):
         for key, item in value.items():
             if str(key) in rendered:

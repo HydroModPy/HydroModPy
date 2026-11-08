@@ -16,6 +16,7 @@ section model, never to the root.
 | part | answers |
 |---|---|
 | `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the loading entry points `from_toml`, `from_dict`, `from_json`, `from_snapshot`, and the cross-section checks |
+| `cross_checks.py` | which keys of a file does the flow solver of the run leave unread, and which pairs of keys spoil each other? It reads the traits the file uses against the `supports` of the solver, a transport solver against the `requires` it names, and the rows of `CONTAMINATIONS`. It names no solver, so a plugin solver is checked like the shipped ones |
 | `section_loader.py` | how is one raw section turned into its model, with paths resolved against the project root? `load_standard_section`, `load_optional_section`, `load_geographic_section`. It serves a TOML file and a mapping alike |
 | `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/sites/` |
 | `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory; `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place. `RENAMED_KEYS` lists the keys a file wrote under an old name: a load warns, or refuses a key of `[calibration]`, the doctor renames them, and `migrate_sealed_config_doc` renames them on read in the frozen config of a run on disk. A network output moves across its tables `map`, `model` and `verdict`, which a rename row cannot do, so `_rewrite_the_network_outputs` writes it, for the doctor and for a sealed read, from the rows of `CALIBRATION_RENAMES` |
@@ -39,9 +40,7 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[flow]` | `FlowConfig` | `model/flow_config.py` |
 | `[transport]` | `TransportConfig` | `model/transport/` |
 | `[simulation]` | `SimulationConfig` | `solver/base/simulation_config.py` |
-| `[solver]` | `SolverConfig` | `solver/base/solver_config.py` |
-| `[modflownwt]` | `ModflowConfig` | `solver/modflow_nwt/nwt/nwt_config.py` |
-| `[modflow6]` | `Modflow6Config` | `solver/modflow6/modflow6_config.py` |
+| `[solver]` | `SolverConfig`, with one settings table per flow solver (`[solver.modflow6]`, `[solver.modflow_nwt]`, `[solver.boussinesq]`), each checked by the `options` class of that solver | `solver/base/solver_config.py` |
 | `[display]` | `DisplayConfig` | `display/config.py` |
 | `[[export]]` | `ExportRequest` (a list) | `results/exporters/export_spec.py` |
 | `[observation]` | `ObservationConfig` | `solver/base/observation_config.py` |
@@ -140,17 +139,18 @@ with a sentence:
 - `data.inference_mode = "strict"` needs a non-empty `data.types`;
 - a `domain.depth_model` of a raster kind reads `[data.substratum]`, which must
   be declared;
-- a zonal `[modflownwt.sgrid.top_sampling]` needs `channel_source = "none"`;
 - a declared `[data.soil_capacity]` needs `[flow.sinks_sources.recharge.soil]`,
   and that soil reservoir is checked against what it reads and where it runs: the
-  precipitation and ETP sections it needs, no loaded `recharge` or `runoff`, the
-  `modflow6` backend, a declared `[simulation.time]`, and its spin-up;
-- `[calibration]` needs a non-empty `flow.param_list`, and `[transport]` is
-  refused with the `boussinesq` backend;
-- every declared boundary must be supported by the backend, and
-  `flow.restart_from`, a `spinup_cyclic` initial condition, flow barriers and
-  cutoff walls need a backend that declares the capability (a mismatch raises
-  `IncompatibleCapabilitiesError`).
+  precipitation and ETP sections it needs, no loaded `recharge` or `runoff`, a
+  declared `[simulation.time]`, and its spin-up;
+- `[calibration]` needs a non-empty `flow.param_list`;
+- `cross_checks.check_against_the_solver` runs last. Every key the file uses
+  that the flow solver leaves out of `supports` (a boundary, a `[solver]`
+  option, an initial state, the soil reservoir, flow barriers, layers, a K tensor)
+  raises `IncompatibleCapabilitiesError`, with the key the file wrote and the
+  solvers that honour it. A transport solver whose `requires` does not name the
+  flow solver is refused, and so are the pairs of `CONTAMINATIONS`, a lake with
+  a `spinup_cyclic` start for instance. On a sealed run each refusal only warns.
 
 ## Import rules
 
@@ -181,7 +181,9 @@ wires.
 4. **A retired section.** One row of `RETIRED_SECTIONS` in `hydromodpy_config.py`,
    with the sentence that names the replacement.
 5. **A cross-section rule.** `_check_cross_section_coherence`, only when the rule
-   needs two sections; a rule on one section belongs in that section's model.
+   needs two sections; a rule on one section belongs in that section's model. A
+   rule that depends on the flow solver is not written here. The solver lists the
+   trait in `supports`, and `cross_checks.py` refuses it.
 
 ## Reading path
 

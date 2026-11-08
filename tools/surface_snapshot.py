@@ -275,7 +275,14 @@ def _default_text(field: Any) -> str:
 def _toml_rows(
     model: type[BaseModel], path: str, inherited: str, stack: frozenset[type]
 ) -> Iterator[str]:
-    for name, field in model.model_fields.items():
+    """Write one row per key under *model*, its named tables (``solver.modflow6``) included.
+
+    The named tables are those this build ships, so the rows do not depend on what is
+    installed beside it.
+    """
+    from hydromodpy.core.config_kit.introspect import fields_and_tables
+
+    for name, field in fields_and_tables(model).items():
         extra = field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
         if field.exclude or extra.get("toml_exclude") is True:
             continue

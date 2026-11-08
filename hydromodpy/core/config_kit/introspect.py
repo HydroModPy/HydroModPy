@@ -12,16 +12,15 @@ paths can share the same source of truth.
 from __future__ import annotations
 
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, TypeGuard, Union, get_args, get_origin
+from typing import Annotated, Any, TypeGuard, Union, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.profile import Profile
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
 
 #: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
 #: so they always appear in generated templates.
@@ -53,6 +52,76 @@ def resolve_profile(profile: Profile | str) -> Profile:
         raise ValueError(f"Unknown profile {profile!r}. Allowed values: {allowed}.") from exc
 
 
+def named_tables_of(
+    model_cls: type[BaseModel], *, shipped_only: bool = True
+) -> Mapping[str, type[BaseModel]]:
+    """Return the tables *model_cls* holds under free names, by name, with their model.
+
+    A model whose keys beyond its fields name a plugin, as ``[solver.modflow6]``
+    names a flow solver, declares the class method ``named_tables``. *shipped_only*
+    keeps the tables of the plugins this build ships, so a schema, a template or a
+    page does not depend on what is installed beside it. Any other model holds none.
+    """
+    hook = getattr(model_cls, "named_tables", None)
+    if hook is None:
+        return {}
+    return hook(shipped_only=shipped_only)
+
+
+def held_tables_of(model: BaseModel) -> Mapping[str, BaseModel]:
+    """Return the named tables an instance holds, by name; ``{}`` for a model without any."""
+    hook = getattr(model, "held_tables", None)
+    return {} if hook is None else hook()
+
+
+def written_tables_of(model: BaseModel) -> Mapping[str, BaseModel]:
+    """Return the named tables an instance holds that are not defaults taken in silence."""
+    hook = getattr(model, "written_tables", None)
+    return {} if hook is None else hook()
+
+
+@cache
+def _table_field(table: type[BaseModel]) -> FieldInfo:
+    """Return a field that stands for a named table of model *table*, described by its docstring."""
+    doc = (table.__doc__ or "").strip().split("\n\n", 1)[0]
+    description = " ".join(line.strip() for line in doc.splitlines())
+    return FieldInfo.from_annotated_attribute(
+        Annotated[table, Profile.USER], Field(default_factory=table, description=description)
+    )
+
+
+def fields_and_tables(
+    model_cls: type[BaseModel], *, shipped_only: bool = True
+) -> dict[str, FieldInfo]:
+    """Return the fields of *model_cls*, then one field per named table it holds.
+
+    This is the one reader of a model's keys for the generic walkers: the dotted
+    paths of ``--set``, the template, the schema, the parameter pages. A named
+    table reads as a field of its model, so ``solver.modflow6.runtime`` resolves
+    like any nested section.
+    """
+    found = dict(model_cls.model_fields)
+    for name, table in named_tables_of(model_cls, shipped_only=shipped_only).items():
+        found.setdefault(name, _table_field(table))
+    return found
+
+
+def child_of(model: BaseModel, name: str) -> Any:
+    """Return the field *name* of an instance, or the named table it holds under *name*.
+
+    Raises
+    ------
+    AttributeError
+        When *model* has neither.
+    """
+    if name in type(model).model_fields:
+        return getattr(model, name)
+    held = held_tables_of(model)
+    if name in held:
+        return held[name]
+    raise AttributeError(f"{type(model).__name__} has no field or table {name!r}")
+
+
 def iter_fields_by_profile(
     model_cls: type[BaseModel],
     threshold: Profile,
@@ -61,9 +130,10 @@ def iter_fields_by_profile(
 
     A field is visible when its declared :class:`Profile` is ``<= threshold``
     (USER < DEV < EXPERT). Single source of truth used by the TOML generator,
-    the TOML serializer, and the JSON Schema exporter.
+    the TOML serializer, and the JSON Schema exporter. The named tables the
+    model holds come after its fields (:func:`fields_and_tables`).
     """
-    for name, info in model_cls.model_fields.items():
+    for name, info in fields_and_tables(model_cls).items():
         level = extract_profile(info)
         if level > threshold:
             continue
@@ -143,7 +213,7 @@ def collect_profile_violations(
     if not isinstance(payload, dict):
         return []
     violations: list[tuple[tuple[str, ...], Profile]] = []
-    for name, info in model_cls.model_fields.items():
+    for name, info in fields_and_tables(model_cls, shipped_only=False).items():
         if name not in payload:
             continue
         level = extract_profile(info)
@@ -241,7 +311,7 @@ def site_scoped_paths(model: type[BaseModel]) -> tuple[str, ...]:
     def _walk(cls: type[BaseModel], prefix: tuple[str, ...], stack: tuple[type, ...]) -> None:
         if cls in stack:
             return
-        for name, info in cls.model_fields.items():
+        for name, info in fields_and_tables(cls).items():
             here = (*prefix, name)
             if is_site_scoped(info):
                 found.add(".".join(here))
@@ -270,12 +340,17 @@ __all__ = [
     "DEFAULT_FIELD_PROFILE",
     "LIST_ITEM_MARK",
     "TABLE_KEY_MARK",
+    "child_of",
     "collect_profile_violations",
     "extract_profile",
+    "fields_and_tables",
+    "held_tables_of",
     "iter_basemodels",
     "is_site_scoped",
     "iter_fields_by_profile",
+    "named_tables_of",
     "read_profile_from_schema",
     "resolve_profile",
     "site_scoped_paths",
+    "written_tables_of",
 ]

@@ -12,7 +12,6 @@ resolved configuration builds: MODFLOW 6 hands back a lake stage only if the
 file declares a lake, MODFLOW-NWT never can. So an observable is servable now,
 servable once the configuration declares what it needs (with the sentence that
 says what to declare), or unavailable on this backend whatever the file says.
-This is the shape ``boundary_condition_registry.supported_backends`` uses.
 """
 
 from __future__ import annotations

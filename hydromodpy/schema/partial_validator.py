@@ -4,8 +4,9 @@ Given a dotted ``field_path`` (e.g. ``flow.properties.specific_yield``) and
 a candidate ``value``, :func:`validate_field` returns a lightweight
 ``ValidationResult`` that a frontend can surface while the user types.
 
-The implementation navigates the Pydantic root model to find the leaf
-field, then re-validates the value via :class:`pydantic.TypeAdapter`. This
+The implementation navigates the Pydantic root model, its named tables
+included (``solver.modflow6``), to find the leaf field, then re-validates the
+value via :class:`pydantic.TypeAdapter`. This
 avoids building a full ``PartialHydroModPyConfig`` per request and keeps
 the per-call cost low enough to run on every keystroke.
 
@@ -17,12 +18,12 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
-from typing import Any, get_origin
+from typing import Annotated, Any, get_origin
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit.introspect import iter_basemodels
+from hydromodpy.core.config_kit.introspect import fields_and_tables, iter_basemodels
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
 
@@ -70,9 +71,10 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
         next_candidates: list[type[BaseModel]] = []
         seen: set[type[BaseModel]] = set()
         for cls in candidates:
-            if name not in cls.model_fields:
+            fields = fields_and_tables(cls, shipped_only=False)
+            if name not in fields:
                 continue
-            annotation = cls.model_fields[name].annotation
+            annotation = fields[name].annotation
             if _is_mapping_of_models(annotation):
                 skip_next = True
             for nested in iter_basemodels(annotation):
@@ -91,8 +93,9 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
         # than one of its values; there is no leaf type to validate against.
         raise KeyError(f"{path!r} names an entry, not one of its values")
     for cls in candidates:
-        if leaf in cls.model_fields:
-            return cls, leaf, cls.model_fields[leaf]
+        fields = fields_and_tables(cls, shipped_only=False)
+        if leaf in fields:
+            return cls, leaf, fields[leaf]
     raise KeyError(f"unknown leaf {leaf!r} in {candidates[0].__name__}")
 
 
@@ -118,8 +121,14 @@ def _is_mapping_of_models(annotation: Any) -> bool:
 
 @lru_cache(maxsize=512)
 def _adapter_for(path: str) -> TypeAdapter:
+    """Return the adapter of the field at *path*, with the checks its annotation carries.
+
+    The metadata goes with the type, so a field checked by an ``AfterValidator``
+    (``solver.backend`` against the registry) or bounded (``gt=0``) is checked
+    here as it is when the file is read.
+    """
     _, _, info = _resolve_field(path)
-    return TypeAdapter(info.annotation)
+    return TypeAdapter(Annotated[info.annotation, *info.metadata])
 
 
 def _format_error(exc: Exception) -> str:

@@ -1,7 +1,7 @@
 """``hmp catalog rank`` - rank the runs of a project by a metric.
 
 Best and worst follow the direction of the metric, read from
-:data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: the top of ``nse`` is
+:data:`hydromodpy.core.scoring.metric_table.METRIC_SENSE`: the top of ``nse`` is
 its highest value, the top of ``rmse`` its lowest, the top of ``bias`` the value
 closest to zero. Scores computed on different windows, at different stations or
 under different rule versions are not comparable: the command refuses them,

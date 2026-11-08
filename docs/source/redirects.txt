@@ -161,8 +161,8 @@ user_guide/config_reference/hydrometry.rst       reference/parameters/data/hydro
 user_guide/config_reference/index.rst            reference/parameters/index
 user_guide/config_reference/mesh_catchment.rst   reference/parameters/mesh
 user_guide/config_reference/mesh_input.rst       reference/parameters/mesh
-user_guide/config_reference/modflow6.rst         reference/parameters/modflow6
-user_guide/config_reference/modflownwt.rst       reference/parameters/modflownwt
+user_guide/config_reference/modflow6.rst         reference/parameters/solver
+user_guide/config_reference/modflownwt.rst       reference/parameters/solver
 user_guide/config_reference/observation.rst      reference/parameters/observation
 user_guide/config_reference/overview.rst         reference/parameters/overview
 user_guide/config_reference/persistence.rst      reference/parameters/simulation

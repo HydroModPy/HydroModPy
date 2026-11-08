@@ -207,7 +207,7 @@ The `triangle` engine builds a constrained Delaunay triangulation of $\Omega$ wi
 edges, so no triangle holds two zones, and the cells of a river are the triangles on one bank.
 The center of a triangle is the mean of its vertices, so a connection has an angle
 ({ref}`mesh-angle`), and MODFLOW 6 turns XT3D on by default. An explicit
-{toml}`modflow6.runtime.mf6_enable_xt3d` wins. Gmsh does not give the same triangulation twice
+{toml}`solver.modflow6.runtime.mf6_enable_xt3d` wins. Gmsh does not give the same triangulation twice
 for one input, so the engine keeps the first one in `.hmp/mesh_cache/`. It reuses it while the
 request, the engine version and the builds of Gmsh and of the geometry libraries stay the same.
 {toml}`mesh.triangle.path` reads an existing triangulation instead.
@@ -294,7 +294,7 @@ at the same distance from its two ends, so the offset can be large where the ang
 ## 6. The top of a cell
 
 The top of a cell is one number read from the DEM $Z$ by the rule that
-{toml}`modflow6.sgrid.top_sampling.mode` picks, `centroid` by default. The bottom always takes
+{toml}`solver.modflow6.sgrid.top_sampling.mode` picks, `centroid` by default. The bottom always takes
 the centroid rule.
 
 ### Centroid
@@ -317,11 +317,11 @@ at a river end near the boundary.
 
 The zonal rule reduces the pixels whose center falls in the cell. A pixel is a channel pixel
 when the stream raster of the delineation marks it, with the mask widened by
-{toml}`modflow6.sgrid.top_sampling.channel_buffer_px` pixels. The code reads that raster only
-when {toml}`modflow6.sgrid.top_sampling.channel_source` asks for it, and without it every
+{toml}`solver.modflow6.sgrid.top_sampling.channel_buffer_px` pixels. The code reads that raster only
+when {toml}`solver.modflow6.sgrid.top_sampling.channel_source` asks for it, and without it every
 pixel is a hillslope pixel. With the statistic of
-{toml}`modflow6.sgrid.top_sampling.channel_stat` on the channel pixels and of
-{toml}`modflow6.sgrid.top_sampling.hillslope_stat` on the others, the top reads
+{toml}`solver.modflow6.sgrid.top_sampling.channel_stat` on the channel pixels and of
+{toml}`solver.modflow6.sgrid.top_sampling.hillslope_stat` on the others, the top reads
 
 $$
 z_{\mathrm{top},c} =
@@ -553,7 +553,7 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
 ## Limits
 
 - Boussinesq cannot run on Voronoi cells, nor MODFLOW-NWT on a refined mesh. The zonal top of
-  MODFLOW-NWT needs {toml}`modflownwt.sgrid.top_sampling.channel_source` at `"none"`.
+  MODFLOW-NWT needs {toml}`solver.modflow_nwt.sgrid.top_sampling.channel_source` at `"none"`.
 - Deleting `.hmp/mesh_cache/` changes the mesh of a resumed triangle run, because Gmsh gives
   another cell count, and `restart_from` refuses a run solved on another mesh.
 - One request and one seed give one Voronoi mesh on one machine, GEOS and scipy build. Another
@@ -584,7 +584,7 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
 
 The keys that choose the engine, the size and the top. The keys of the layers are in
 {doc}`[domain] <../reference/parameters/domain>`, those of the top in
-{doc}`[modflow6] <../reference/parameters/modflow6>` and those of the mesh in
+{doc}`[solver] <../reference/parameters/solver>` and those of the mesh in
 {doc}`[mesh] <../reference/parameters/mesh>`. The cards show the defaults and the allowed
 values, and the developer keys are behind the developer button.
 
@@ -612,14 +612,14 @@ mesh.triangle.path
 mesh.triangle.algorithm
 mesh.voronoi.seeds
 mesh.voronoi.lloyd_tolerance
-modflow6.sgrid.top_sampling.mode
-modflow6.sgrid.top_sampling.hillslope_stat
-modflow6.sgrid.top_sampling.channel_stat
-modflow6.sgrid.top_sampling.channel_source
-modflow6.sgrid.top_sampling.channel_buffer_px
-modflow6.sgrid.top_sampling.spike_guard_tol_m
-modflow6.sgrid.top_sampling.min_pixels
-modflow6.sgrid.top_sampling.min_thickness_m
+solver.modflow6.sgrid.top_sampling.mode
+solver.modflow6.sgrid.top_sampling.hillslope_stat
+solver.modflow6.sgrid.top_sampling.channel_stat
+solver.modflow6.sgrid.top_sampling.channel_source
+solver.modflow6.sgrid.top_sampling.channel_buffer_px
+solver.modflow6.sgrid.top_sampling.spike_guard_tol_m
+solver.modflow6.sgrid.top_sampling.min_pixels
+solver.modflow6.sgrid.top_sampling.min_thickness_m
 domain.layers.genmtd_lay
 domain.layers.nlay
 domain.layers.lay_decay
@@ -627,7 +627,7 @@ domain.layers.lay_proportions
 domain.layers.pinch_out
 domain.layers.layer.thickness
 domain.layers.layer.min_thickness
-modflow6.runtime.mf6_enable_xt3d
+solver.modflow6.runtime.mf6_enable_xt3d
 ```
 
 ## Checked by

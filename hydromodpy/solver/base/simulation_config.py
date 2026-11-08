@@ -17,9 +17,10 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
     TimePeriodUnit,
 )
+from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.time.window import reject_invalid_step_value_spec
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
-from hydromodpy.solver.base.registry import solvers
+from hydromodpy.solver.base.registry import ENTRY_POINT_GROUP, solvers
 from hydromodpy.solver.base.results_config import ResultsConfig
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
@@ -220,23 +221,19 @@ class _SolverProcess(_ProcessBase):
     @field_validator("solvers", check_fields=False)
     @classmethod
     def _validate_solvers(cls, value: list[str]) -> list[str]:
+        """Keep the names written, stripped, each one a registered solver of the process kind."""
         kind = cls.model_fields["kind"].default
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
         if not cleaned:
             raise ValueError(
                 f"simulation.process entries with kind='{kind}' require at least one solver."
             )
-        return cleaned
-
-    def validate_registry(self) -> None:
-        """Verify the process family is registered. Call explicitly from launcher."""
-        if not solvers.names(self.kind):
-            # Read off the loaded classes: a key is never split back into its parts.
-            registered = {solvers.get(key).process_type for key in solvers.names()}
-            raise ValueError(
-                f"Unknown process type '{self.kind}'. Registered types: "
-                f"{', '.join(sorted((*registered, 'mesh')))}."
+        served = solvers.names(kind)
+        for name in cleaned:
+            check_registered_name(
+                name, served, key="simulation.process.solvers", group=ENTRY_POINT_GROUP
             )
+        return cleaned
 
 
 class FlowProcessConfig(_SolverProcess):
@@ -296,10 +293,6 @@ class MeshProcessConfig(_ProcessBase):
             "set 'backend' instead."
         ),
     )
-
-    def validate_registry(self) -> None:
-        """No-op: mesh is always supported when the launcher is wired."""
-        return
 
 
 SimulationProcessConfig: TypeAlias = Annotated[

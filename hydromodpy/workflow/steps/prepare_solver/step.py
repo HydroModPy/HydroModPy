@@ -116,8 +116,6 @@ class PrepareSolverStep:
         "flow",
         "transport",
         "solver",
-        "modflownwt",
-        "modflow6",
     )
 
     def depends_on(self) -> tuple[str, ...]:

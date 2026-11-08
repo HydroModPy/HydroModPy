@@ -40,7 +40,7 @@ chooses the rate, the surface and the depth from three sources.
 
 | Source | Rate $E^\mathrm{et}_n$ | Surface $z_\mathrm{et}$ | Depth $d_\mathrm{ext}$ |
 |---|---|---|---|
-| MODFLOW 6, deficit of a negative recharge | the deficit $N^-_k$ | $z_{\mathrm{top},n}$ | {toml}`evt_extinction_depth\|modflow6.process_specific.evt_extinction_depth` |
+| MODFLOW 6, deficit of a negative recharge | the deficit $N^-_k$ | $z_{\mathrm{top},n}$ | {toml}`evt_extinction_depth\|solver.modflow6.process_specific.evt_extinction_depth` |
 | MODFLOW 6, the ETP the soil reservoir left unmet | that residual ETP | $z^d_n - o_\mathrm{et}$ | {toml}`extinction_depth\|flow.sinks_sources.etp.extinction_depth` |
 | MODFLOW-NWT, the loaded ETP and the deficit | the ETP as loaded, plus the deficit | $z_{\mathrm{top},n} - o_\mathrm{et}$ | {toml}`extinction_depth\|flow.sinks_sources.etp.extinction_depth` |
 
@@ -222,7 +222,7 @@ solver.sink_fill
 flow.sinks_sources.recharge.negative_to_evt
 flow.sinks_sources.etp.extinction_depth
 flow.sinks_sources.etp.surface_offset
-modflow6.process_specific.evt_extinction_depth
+solver.modflow6.process_specific.evt_extinction_depth
 ```
 
 ## Checked by

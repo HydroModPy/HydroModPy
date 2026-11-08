@@ -184,7 +184,7 @@ bounds = [1e-5, 1e-2]
 path = "{path}"
 """
 
-_OUTSIDE = "modflow6.runtime.mf6_outer_dvclose"
+_OUTSIDE = "solver.modflow6.runtime.mf6_outer_dvclose"
 
 
 def _outside(tmp_path: Path, path: str) -> Path:
@@ -211,7 +211,7 @@ def test_the_launch_goes_on_and_says_it_once(tmp_path, prepared, caplog) -> None
 
 
 def test_a_path_that_names_no_field_is_still_refused(tmp_path) -> None:
-    (finding,) = run_preflight(_outside(tmp_path, "modflow6.runtime.no_such_option"))
+    (finding,) = run_preflight(_outside(tmp_path, "solver.modflow6.runtime.no_such_option"))
 
     assert finding.severity == "error"
     assert "no_such_option" in finding.detail

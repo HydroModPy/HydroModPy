@@ -88,7 +88,9 @@ def resolve_rewet_npf_options(
 
     wetdry_value = abs(float(runtime.mf6_rewet_wetdry))
     if wetdry_value <= 0.0:
-        raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
+        raise ValueError(
+            "solver.modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled."
+        )
 
     # FloPy injects the REWET keyword itself and expects only the labeled payload.
     # rewet_is_enabled() above guarantees runtime is set, so read the fields directly

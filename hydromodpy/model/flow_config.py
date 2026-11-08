@@ -33,14 +33,21 @@ from hydromodpy.core.config_kit.field_param.config import (
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.model.boundaries.boundary_condition_registry import (
-    DIRICHLET_BC_CANONICAL_DOMAINS,
-    boundary_definition,
+    FLOW_BC_IDS,
+    FLOW_BC_KINDS,
+    FLOW_BOUNDARY_DEFINITIONS,
+    FlowBcId,
 )
 from hydromodpy.model.boundaries.boundary_conditions import BCEntry, FlowBoundaryConditionConfig
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.properties.property_ids import default_unit_of, refusal_of_a_retired_id
-from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
-from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.model.sinks_sources.container import (
+    ETP,
+    RECHARGE,
+    WELLS,
+    FlowSinksSourcesConfig,
+)
 from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
@@ -52,7 +59,6 @@ __all__ = [
     "FlowConfig",
     "FlowLakeConfig",
     "FlowParam",
-    "FlowRuntimeConfig",
     "FlowSinksSourcesConfig",
     "FlowWellConfig",
     "RestartReference",
@@ -146,7 +152,6 @@ def from_toml_section(
     )
 
 
-_BC_KINDS = frozenset({"dirichlet", "drain"})
 _FAMILY_KEYS = frozenset({"dirichlet", "cauchy", "robin"})
 
 
@@ -189,16 +194,16 @@ def normalize_bc_payloads(
         if not isinstance(raw_payload, Mapping):
             raise TypeError(f"flow.bc.{key} must be a mapping payload")
 
+        if key not in FLOW_BC_IDS:
+            # A boundary is keyed by what it is, and only the ids of the table
+            # exist; anything else there is a typo, not a new boundary.
+            raise ValueError(
+                f"flow.bc names the boundary '{key}', which [flow.bc] does not hold. It "
+                f"holds {', '.join(FLOW_BC_IDS)}. A lake and a stream network are declared "
+                "under [flow.sinks_sources]."
+            )
         canonical_key = key
         default_kind = _default_kind_for(key)
-        if default_kind == "dirichlet":
-            # A prescribed head is keyed by the face it sits on, and only the
-            # canonical faces exist; anything else there is a typo, not a new
-            # boundary.
-            canonical_key = _canonicalize_dirichlet_bc_id(
-                raw_bc_id=key,
-                location_prefix=f"flow.bc.{key}",
-            )
         if canonical_key in parsed:
             raise ValueError(f"Duplicate boundary condition entry for '{canonical_key}' in flow.bc")
         parsed[canonical_key] = _prepare_bc_entry_payload(
@@ -280,12 +285,8 @@ def _mapping_section(flow_section: Mapping[str, object], name: str) -> Mapping[s
 
 
 def _default_kind_for(bc_id: str) -> str:
-    """Return the kind the registry declares for a boundary, or dirichlet."""
-    definition = boundary_definition(bc_id)
-    if definition is None:
-        return "dirichlet"
-    declared = str(definition.default_type).strip().lower()
-    return declared if declared in _BC_KINDS else "dirichlet"
+    """Return the kind the registry declares for a boundary of ``[flow.bc]``."""
+    return FLOW_BOUNDARY_DEFINITIONS[bc_id].default_type
 
 
 def _prepare_bc_entry_payload(
@@ -304,8 +305,8 @@ def _prepare_bc_entry_payload(
     """
     payload = dict(raw_payload)
     raw_kind = str(payload.get("kind", default_kind)).strip().lower() or default_kind
-    if raw_kind not in _BC_KINDS:
-        raise ValueError(f"{location_prefix}.kind must be one of: {', '.join(sorted(_BC_KINDS))}")
+    if raw_kind not in FLOW_BC_KINDS:
+        raise ValueError(f"{location_prefix}.kind must be one of: {', '.join(FLOW_BC_KINDS)}")
     if (raw_kind == "dirichlet") != (default_kind == "dirichlet"):
         raise ValueError(
             f"{location_prefix}.kind is {raw_kind!r} but {bc_id!r} is a {default_kind!r} "
@@ -316,23 +317,6 @@ def _prepare_bc_entry_payload(
     payload["kind"] = raw_kind
     payload["_location_prefix"] = location_prefix
     return payload
-
-
-def _canonicalize_dirichlet_bc_id(
-    *,
-    raw_bc_id: str,
-    location_prefix: str,
-) -> str:
-    bc_id = str(raw_bc_id).strip()
-    if bc_id == "":
-        raise ValueError(f"{location_prefix} cannot be empty")
-    if bc_id in DIRICHLET_BC_CANONICAL_DOMAINS:
-        return bc_id
-    supported_text = ", ".join(sorted(DIRICHLET_BC_CANONICAL_DOMAINS))
-    raise ValueError(
-        f"{location_prefix} contains unsupported Dirichlet key '{bc_id}'. "
-        f"Supported keys: {supported_text}"
-    )
 
 
 def _resolve_forcing_path(
@@ -448,7 +432,10 @@ class FlowConfig(HydroModelBase):
             "[flow.sinks_sources.<name>], or enabled = false in a table to keep it and "
             "switch it off."
         ),
-        **{old: f"it moved to [flow.runtime], as {new}." for old, new in FLOW_RUNTIME_KEYS.items()},
+        **{
+            old: f"it moved to [solver.boussinesq], as {new}."
+            for old, new in FLOW_RUNTIME_KEYS.items()
+        },
     }
 
     flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
@@ -516,7 +503,7 @@ class FlowConfig(HydroModelBase):
         default_factory=dict,
         description="Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
     )
-    bc: Annotated[dict[str, BCEntry], Profile.USER] = Field(
+    bc: Annotated[dict[FlowBcId, BCEntry], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n"
@@ -547,7 +534,7 @@ class FlowConfig(HydroModelBase):
             "\n"
             "**The drain under each solver:** the MODFLOW solvers build a ``DRN`` "
             "package. The Boussinesq solver takes its surface closure from "
-            "``flow.runtime.surface_interaction_model``."
+            "``solver.boussinesq.surface_interaction_model``."
         ),
     )
     ic: Annotated[FlowInitialConditions, Profile.USER] = Field(
@@ -561,20 +548,13 @@ class FlowConfig(HydroModelBase):
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    runtime: Annotated[FlowRuntimeConfig, Profile.USER] = Field(
-        default_factory=FlowRuntimeConfig,
-        description=(
-            "Settings of the Boussinesq solve: its engine, its surface closure, its "
-            "iteration budget and tolerances. The MODFLOW solvers do not read them."
-        ),
-    )
 
     @property
     def active_bc(self) -> list[str]:
         """Return the boundaries this run builds: those declared and not switched off.
 
-        'lake' and 'sfr' stand for the tables of ``sinks_sources`` that build a MODFLOW 6
-        LAK and SFR package, so only the modflow6 solver takes them.
+        'lake' and 'sfr' stand for the tables of ``sinks_sources`` that build a lake and a
+        stream network, so only a solver that lists them in its ``supports`` takes them.
         """
         active = [bc_id for bc_id, boundary in self.bc.items() if boundary.enabled]
         if self.sinks_sources.enabled_lakes():
@@ -590,16 +570,16 @@ class FlowConfig(HydroModelBase):
         'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT
         package. Under MODFLOW 6 it acts only in soil mode, where it sends the ETP the
         soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and
-        says so. Boussinesq rejects it at solver-contract validation.
+        says so. A solver that leaves it out of its ``supports`` refuses it when the file is read.
         """
         tables = self.sinks_sources
         active: list[str] = []
         if tables.recharge is not None and tables.recharge.enabled:
-            active.append("recharge")
+            active.append(RECHARGE)
         if tables.enabled_wells():
-            active.append("wells")
+            active.append(WELLS)
         if tables.etp is not None and tables.etp.enabled:
-            active.append("etp")
+            active.append(ETP)
         return active
 
     @model_validator(mode="before")

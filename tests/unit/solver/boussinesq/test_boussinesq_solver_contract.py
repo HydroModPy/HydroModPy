@@ -1,4 +1,4 @@
-"""The Boussinesq contract reads the ``Model`` and the ``[flow.runtime]`` options, and no flow object."""
+"""The Boussinesq contract reads the ``Model``, the ``[solver.boussinesq]`` options and the adapter's ``supports``."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M, FlowRuntimeConfig
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.solver_contract import (
     DENSE_ENGINE_MAX_CELLS,
     assert_supported_runtime_subset,
@@ -183,17 +184,21 @@ def _bundle(*active: str) -> BoundaryConditionBundle:
     return BoundaryConditionBundle(conditions={}, active_ids=tuple(active))
 
 
+SUPPORTS = BoussinesqFlowAdapter.supports
+
+
 def test_the_supported_slice_is_accepted() -> None:
     assert_supported_runtime_subset(
         make_model(
             boundaries=_bundle("west_side", "ocean"), active_sinks_sources=("recharge", "wells")
-        )
+        ),
+        SUPPORTS,
     )
 
 
 def test_a_lake_is_refused_with_the_typed_capability_error() -> None:
     with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        assert_supported_runtime_subset(make_model(boundaries=_bundle("lake")))
+        assert_supported_runtime_subset(make_model(boundaries=_bundle("lake")), SUPPORTS)
 
     assert "lake" in str(excinfo.value)
     assert excinfo.value.code == "HMPY.E407"
@@ -201,9 +206,19 @@ def test_a_lake_is_refused_with_the_typed_capability_error() -> None:
 
 def test_a_sink_or_source_outside_the_slice_is_named() -> None:
     with pytest.raises(NotImplementedError, match="sinks and sources etp"):
-        assert_supported_runtime_subset(make_model(active_sinks_sources=("recharge", "etp")))
+        assert_supported_runtime_subset(
+            make_model(active_sinks_sources=("recharge", "etp")), SUPPORTS
+        )
 
 
 def test_a_boundary_outside_the_slice_is_named() -> None:
     with pytest.raises(NotImplementedError, match="boundaries .*flow_barrier|boundaries "):
-        assert_supported_runtime_subset(make_model(boundaries=_bundle("not_a_boundary")))
+        assert_supported_runtime_subset(make_model(boundaries=_bundle("not_a_boundary")), SUPPORTS)
+
+
+def test_the_check_reads_the_supports_it_is_given() -> None:
+    """The adapter's list decides, so a trait added there is built without a second list."""
+    assert_supported_runtime_subset(
+        make_model(boundaries=_bundle("lake"), active_sinks_sources=("etp",)),
+        SUPPORTS | {"lake", "etp"},
+    )

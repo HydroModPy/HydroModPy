@@ -55,6 +55,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import OBSERVED, SIMULATED
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
 from hydromodpy.core.time.time_method import TimeMethod
 from hydromodpy.results.derive.time_alignment import (
@@ -64,7 +65,7 @@ from hydromodpy.results.derive.time_alignment import (
     time_method_for,
 )
 from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import METRIC_NAMES, MetricRule, MetricScore, score_run
+from hydromodpy.results.metric_rule import MetricRule, MetricScore, score_run
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import read_checked_table
 
@@ -239,13 +240,13 @@ def _score_pair(
     paired = align_observed_simulated(observed, simulated, method=method, start=period_start)
     dated = _dated_in_window(paired, simulated, rule, method, period_start)
     scores = score_run(
-        dated["sim"], dated["obs"], rule, METRIC_NAMES, station=station, variable=variable
+        dated["sim"], dated["obs"], rule, RUN_METRIC_NAMES, station=station, variable=variable
     )
     if min(item.n_samples for item in scores) >= MIN_PAIRED_PERIODS:
         return scores
     nothing = dated.iloc[0:0]
     return score_run(
-        nothing["sim"], nothing["obs"], rule, METRIC_NAMES, station=station, variable=variable
+        nothing["sim"], nothing["obs"], rule, RUN_METRIC_NAMES, station=station, variable=variable
     )
 
 

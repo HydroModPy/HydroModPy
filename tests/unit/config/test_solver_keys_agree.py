@@ -53,11 +53,11 @@ def test_backend_follows_the_process_and_keeps_the_other_solver_keys() -> None:
     assert cfg.solver.sink_fill is True
 
 
-def test_a_plugin_solver_name_gives_the_custom_backend(isolated_solvers) -> None:
+def test_a_plugin_solver_name_is_the_backend_string(isolated_solvers) -> None:
     isolated_solvers.solvers.register(fake_adapter("my_plugin"))
     cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("my_plugin")))
 
-    assert cfg.solver.backend.kind == "custom"
+    assert cfg.solver.backend == "my_plugin"
     assert cfg.solver.backend_name == "my_plugin"
 
 
@@ -65,7 +65,7 @@ def test_two_keys_with_the_same_name_load() -> None:
     cfg = HydroModPyConfig.model_validate(
         _payload(
             simulation=_flow("modflow_nwt"),
-            solver={"backend": {"kind": "modflow_nwt"}},
+            solver={"backend": "modflow_nwt"},
         )
     )
 
@@ -77,20 +77,23 @@ def test_two_keys_with_two_names_are_refused() -> None:
         HydroModPyConfig.model_validate(
             _payload(
                 simulation=_flow("modflow_nwt"),
-                solver={"backend": {"kind": "modflow6"}},
+                solver={"backend": "modflow6"},
             )
         )
 
 
 def test_backend_alone_still_selects_the_solver() -> None:
-    cfg = HydroModPyConfig.model_validate(_payload(solver={"backend": {"kind": "modflow_nwt"}}))
+    cfg = HydroModPyConfig.model_validate(_payload(solver={"backend": "modflow_nwt"}))
 
     assert cfg.solver.backend_name == "modflow_nwt"
 
 
 def test_checks_read_the_solver_the_process_names() -> None:
     # Before, the backend stayed at its default 'modflow6' and the check passed.
-    with pytest.raises(IncompatibleCapabilitiesError, match="'sfr' boundary"):
+    with pytest.raises(
+        IncompatibleCapabilitiesError,
+        match=r"solver.backend = 'modflow_nwt' does not honor flow\.sinks_sources\.sfr",
+    ):
         HydroModPyConfig.model_validate(
             _payload(
                 simulation=_flow("modflow_nwt"),
@@ -107,7 +110,10 @@ def test_a_transport_process_under_the_boussinesq_flow_is_refused() -> None:
         ]
     }
 
-    with pytest.raises(ValidationError, match=r"'boussinesq' runs no transport.*modpath"):
+    with pytest.raises(
+        ValidationError,
+        match=r"the transport solver 'modpath' follows modflow_nwt, and solver.backend is 'boussinesq'",
+    ):
         HydroModPyConfig.model_validate(_payload(simulation=simulation))
 
 
@@ -135,7 +141,7 @@ def test_a_written_backend_still_refuses_a_later_flow_solver() -> None:
     from hydromodpy.solver.base.simulation_config import SimulationConfig
 
     cfg = HydroModPyConfig.model_validate(
-        _payload(simulation=_flow("modflow6"), solver={"backend": {"kind": "modflow6"}})
+        _payload(simulation=_flow("modflow6"), solver={"backend": "modflow6"})
     )
 
     with pytest.raises(ValidationError, match="must name the same solver"):

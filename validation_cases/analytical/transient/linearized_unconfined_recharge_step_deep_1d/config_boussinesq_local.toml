@@ -6,7 +6,7 @@
 # and scipy_sparse above. In transient each stress period takes the
 # [simulation.time].substeps_per_period backward-Euler steps of the case.
 
-[flow.runtime]
+[solver.boussinesq]
 # One key is set, the Newton closure, for the reason the MODFLOW validation
 # profiles tighten theirs. The default 1e-9 m3/s per cell is absolute: here a
 # triangle receives 3.6e-7 m3/s of recharge and the 100 m aquifer lifts a

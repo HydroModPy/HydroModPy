@@ -18,7 +18,7 @@ from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.base.results_config import ResultsConfig
-from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
 
 
@@ -56,7 +56,7 @@ def _context(tmp_path: Path, domain: DomainConfig) -> RunContext:
         id="flow_main::modflow6", process_id="flow_main", process_type="flow", solver="modflow6"
     )
     state = RunState(
-        cfg=SimpleNamespace(modflownwt=ModflowConfig(), domain=domain),
+        cfg=SimpleNamespace(solver=SolverConfig(), domain=domain),
         setup=SimpleNamespace(time_grid=None),
     )
     plan = SimulationPlan(name="demo", description="demo", runs=(run,))

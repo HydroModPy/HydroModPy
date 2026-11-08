@@ -3,8 +3,10 @@ Flow boundary-condition registry and runtime bundle helpers.
 
 The normalized `[flow.bc]` payload stores user-facing boundary definitions.
 This module keeps the process-level inventory explicit: which identifiers are
-canonical, which family they belong to, and which backend slices currently know
-how to translate them.
+canonical and which family they belong to. ``[flow.bc]`` accepts the ids that are
+not an advanced package, and their kinds come from the same table. A solver
+backend says which ids it builds through its ``supports``, so no backend is named
+here.
 """
 
 from __future__ import annotations
@@ -49,7 +51,6 @@ FlowBoundaryFamily = Literal["dirichlet", "head_dependent_exchange", "advanced_p
 FlowBoundarySupportKind = Literal[
     "side", "ocean_stage", "stream", "stream_reach", "top", "advanced_package"
 ]
-FlowBoundaryBackend = Literal["modflow6", "modflow_nwt", "boussinesq"]
 
 SIDE_DIRICHLET_BC_IDS_ORDERED: tuple[str, ...] = (
     "west_side",
@@ -65,8 +66,8 @@ class FlowBoundaryDefinition:
     """One canonical flow boundary-condition definition.
 
     The definition is intentionally descriptive. It does not assemble solver
-    payloads; it tells adapters which process-level id they are handling, which
-    physical family it belongs to, and which backend slices claim support.
+    payloads; it tells adapters which process-level id they are handling and which
+    physical family it belongs to.
     """
 
     id: str
@@ -75,13 +76,16 @@ class FlowBoundaryDefinition:
     default_units: str
     application_domain: str
     support_kind: FlowBoundarySupportKind
-    supported_backends: tuple[FlowBoundaryBackend, ...]
-    backend_packages: Mapping[FlowBoundaryBackend, str]
     supports_forcing: bool = False
+    sinks_sources_table: str | None = None
+    """The table of ``[flow.sinks_sources]`` that declares an advanced package, else None."""
 
-    def supports_backend(self, backend: str) -> bool:
-        """Return whether one backend advertises support for this boundary."""
-        return str(backend) in self.supported_backends
+    @property
+    def declared_at(self) -> str:
+        """The table of a file that declares this boundary."""
+        if self.sinks_sources_table is not None:
+            return f"flow.sinks_sources.{self.sinks_sources_table}"
+        return f"flow.bc.{self.id}"
 
 
 FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
@@ -92,12 +96,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["west_side"],
         support_kind="side",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "modflow_nwt": "BAS/CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "east_side": FlowBoundaryDefinition(
@@ -107,12 +105,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["east_side"],
         support_kind="side",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "modflow_nwt": "BAS/CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "north_side": FlowBoundaryDefinition(
@@ -122,12 +114,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["north_side"],
         support_kind="side",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "modflow_nwt": "BAS/CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "south_side": FlowBoundaryDefinition(
@@ -137,12 +123,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["south_side"],
         support_kind="side",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "modflow_nwt": "BAS/CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "stream": FlowBoundaryDefinition(
@@ -152,11 +132,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["stream"],
         support_kind="stream",
-        supported_backends=("modflow6", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "ocean": FlowBoundaryDefinition(
@@ -166,12 +141,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain=DIRICHLET_BC_CANONICAL_DOMAINS["ocean"],
         support_kind="ocean_stage",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "CHD",
-            "modflow_nwt": "BAS/CHD",
-            "boussinesq": "prescribed_head",
-        },
         supports_forcing=True,
     ),
     "drainage": FlowBoundaryDefinition(
@@ -181,12 +150,6 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m2/s",
         application_domain="top",
         support_kind="top",
-        supported_backends=("modflow6", "modflow_nwt", "boussinesq"),
-        backend_packages={
-            "modflow6": "DRN",
-            "modflow_nwt": "DRN",
-            "boussinesq": "top_drainage",
-        },
     ),
     "lake": FlowBoundaryDefinition(
         id="lake",
@@ -195,13 +158,10 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m",
         application_domain="top",
         support_kind="advanced_package",
-        supported_backends=("modflow6",),
-        backend_packages={
-            "modflow6": "LAK",
-        },
         supports_forcing=True,
+        sinks_sources_table="lakes",
     ),
-    # SFR (streamflow routing) is a MODFLOW 6 advanced package. It reads the
+    # SFR (streamflow routing) is an advanced package. It reads the
     # flow.sinks_sources['sfr'] payload and is lake-independent: a declared network
     # routes streamflow on its own; its optional MVR coupling to a lake is data on
     # the SFR payload, not a separate boundary id.
@@ -212,11 +172,8 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         default_units="m3/s",
         application_domain="stream_reach",
         support_kind="stream_reach",
-        supported_backends=("modflow6",),
-        backend_packages={
-            "modflow6": "SFR",
-        },
         supports_forcing=True,
+        sinks_sources_table="sfr",
     ),
 }
 
@@ -236,20 +193,28 @@ already reads their head as one value per stress period.
 SUPPORTED_FLOW_BOUNDARY_IDS = frozenset(FLOW_BOUNDARY_DEFINITIONS)
 """All canonical flow boundary ids, the names ``FlowConfig.active_bc`` can hold."""
 
+FLOW_BC_IDS: tuple[str, ...] = tuple(
+    bc_id
+    for bc_id, definition in FLOW_BOUNDARY_DEFINITIONS.items()
+    if definition.family != "advanced_package"
+)
+"""The ids a ``[flow.bc.<id>]`` table may name, in the order of the table.
+
+A lake and a stream network are advanced packages, declared under ``[flow.sinks_sources]``.
+"""
+
+FlowBcId = Literal[*FLOW_BC_IDS]
+"""The type of a key of ``[flow.bc]``."""
+
+FLOW_BC_KINDS: tuple[str, ...] = tuple(
+    dict.fromkeys(FLOW_BOUNDARY_DEFINITIONS[bc_id].default_type for bc_id in FLOW_BC_IDS)
+)
+"""The kinds a ``[flow.bc]`` payload can have, read from the ``default_type`` of its ids."""
+
 
 def boundary_definition(bc_id: str) -> FlowBoundaryDefinition | None:
     """Return the canonical definition for one boundary id, when known."""
     return FLOW_BOUNDARY_DEFINITIONS.get(str(bc_id).strip())
-
-
-def supported_boundary_ids_for_backend(backend: str) -> frozenset[str]:
-    """Return canonical active boundary ids supported by one backend slice."""
-    backend_name = str(backend).strip()
-    return frozenset(
-        bc_id
-        for bc_id, definition in FLOW_BOUNDARY_DEFINITIONS.items()
-        if definition.supports_backend(backend_name)
-    )
 
 
 def _normalize_id_sequence(values: Iterable[object] | None) -> tuple[str, ...]:
@@ -307,13 +272,12 @@ class BoundaryConditionBundle:
         """Return active ids that are not canonical flow boundary definitions."""
         return tuple(bc_id for bc_id in self.active_ids if bc_id not in SUPPORTED_FLOW_BOUNDARY_IDS)
 
-    def unsupported_active_ids(self, backend: str) -> tuple[str, ...]:
-        """Return active canonical ids not supported by one backend slice."""
-        supported = supported_boundary_ids_for_backend(backend)
+    def active_ids_outside(self, supports: frozenset[str]) -> tuple[str, ...]:
+        """Return the active canonical ids a backend leaves out of its ``supports``."""
         return tuple(
             bc_id
             for bc_id in self.active_ids
-            if bc_id in SUPPORTED_FLOW_BOUNDARY_IDS and bc_id not in supported
+            if bc_id in SUPPORTED_FLOW_BOUNDARY_IDS and bc_id not in supports
         )
 
 
@@ -342,8 +306,10 @@ __all__ = [
     "BoundaryConditionBundle",
     "DIRICHLET_BC_CANONICAL_DOMAINS",
     "FORCING_CAPABLE_DIRICHLET_BC_IDS",
+    "FLOW_BC_IDS",
+    "FLOW_BC_KINDS",
     "FLOW_BOUNDARY_DEFINITIONS",
-    "FlowBoundaryBackend",
+    "FlowBcId",
     "FlowBoundaryDefinition",
     "FlowBoundaryFamily",
     "FlowBoundarySupportKind",
@@ -352,5 +318,4 @@ __all__ = [
     "boundary_condition_bundle_from_flow",
     "boundary_conditions_mapping_from_flow",
     "boundary_definition",
-    "supported_boundary_ids_for_backend",
 ]

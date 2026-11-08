@@ -56,7 +56,7 @@ The code decides once per run and takes the first row of this table that fits.
 
 | Case | XT3D | Why |
 |---|---|---|
-| {toml}`modflow6.runtime.mf6_enable_xt3d` is `true` or `false` | as written | your value wins. `false` against a tensor row below raises a `RuntimeWarning`, any other disagreement logs a warning |
+| {toml}`solver.modflow6.runtime.mf6_enable_xt3d` is `true` or `false` | as written | your value wins. `false` against a tensor row below raises a `RuntimeWarning`, any other disagreement logs a warning |
 | `angle2` or `angle3` not zero on a cell | on, with a `RuntimeWarning` | MODFLOW 6 reads these angles only under XT3D |
 | `K22` different from $K$ on a cell whose `angle1` is not a multiple of 90 degrees, or on any cell of an unstructured mesh | on, with a `RuntimeWarning` | the axes of the tensor leave the connections |
 | Structured grid | off | the connections are orthogonal and follow the axes |
@@ -112,9 +112,9 @@ so XT3D stays off there when `K22` equals $K$.
 ## Parameters of this page
 
 ```{hmp-params}
-modflow6.runtime.mf6_enable_xt3d
+solver.modflow6.runtime.mf6_enable_xt3d
 mesh.engine
-modflow6.runtime.mf6_ims_complexity
+solver.modflow6.runtime.mf6_ims_complexity
 flow.param.K22.field.value
 flow.param.angle1.field.value
 flow.param.angle2.field.value

@@ -43,7 +43,7 @@ def solvers(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     from hydromodpy.solver.base.registry import extractors, solvers
     from hydromodpy.solver.modflow_common.binaries import available_solvers
 
-    backend_values = {str(v) for v in nodes.get("solver.backend.kind", {}).get("literal") or []}
+    backend_values = set(solvers.names("flow", shipped_only=True))
     fetchable = set(available_solvers())
     read_back = set(extractors.names())
     rows = []

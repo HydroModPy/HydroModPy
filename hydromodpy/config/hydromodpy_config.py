@@ -18,7 +18,7 @@ Usage::
     cfg.domain.zone_ids
     cfg.data.geology.id
     cfg.flow.param["K"]
-    cfg.modflownwt.process_specific.vka
+    cfg.solver.options_of("modflow_nwt").process_specific.vka
 """
 
 from __future__ import annotations
@@ -32,7 +32,14 @@ from functools import partial
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, ValidationError, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    Field,
+    PrivateAttr,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
@@ -41,6 +48,7 @@ from hydromodpy.config.config_migration import (
     _raw_flow_process_solver,
     migrate_sealed_config_doc,
 )
+from hydromodpy.config.cross_checks import check_against_the_solver
 from hydromodpy.config.section_loader import (
     _load_optional_calibration_section,
     _load_optional_mesh_section,
@@ -84,7 +92,6 @@ from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.soil_config import (
     soil_reservoir_of,
@@ -100,14 +107,7 @@ from hydromodpy.results.metric_rule import MetricsConfig
 from hydromodpy.results.publication import PublicationConfig
 from hydromodpy.solver.base.observation_config import ObservationConfig
 from hydromodpy.solver.base.simulation_config import SimulationConfig
-from hydromodpy.solver.base.solver_config import (
-    CustomBackend,
-    SolverConfig,
-    backend_following_the_process,
-    solver_name_of_backend,
-)
-from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from hydromodpy.solver.base.solver_config import SolverConfig, backend_following_the_process
 
 logger = get_logger(__name__)
 
@@ -205,21 +205,6 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
-def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
-    """Name of the flow solver this config would build, or None if undeclared.
-
-    Same lookup order as ``project.phases.detect_solver``: a
-    ``[[simulation.process]]`` entry of type 'flow' names its solver before
-    ``solver.backend_name`` falls back to the global default.
-    """
-    for process in getattr(getattr(cfg, "simulation", None), "process", None) or ():
-        if getattr(process, "kind", None) == "flow" and getattr(process, "solvers", None):
-            return str(process.solvers[0])
-    solver_cfg = getattr(cfg, "solver", None)
-    engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
-    return str(engine) if engine else None
-
-
 _ROOT_PERSISTENCE_REFUSAL = (
     "Section [persistence] is not read by any run. Write its keys under "
     "[simulation.results.persistence], which a run reads, and so does the run "
@@ -258,7 +243,8 @@ RETIRED_SECTIONS: dict[str, str] = {
     "initializing": "Section [initializing] is no longer supported. Use [workspace] instead.",
     "modflow": (
         "Section [modflow] is no longer supported. "
-        "Use [solver], [modflownwt], and [modflow6] sections instead."
+        "Use [solver] and the table of each flow solver under it, [solver.modflow_nwt] "
+        "and [solver.modflow6], instead."
     ),
     "capability_gallery": (
         "Section [capability_gallery] is no longer supported: the figures of "
@@ -289,81 +275,6 @@ document writes, and a direct ``model_validate`` refuses it too.
 def _retired_section(data: Mapping[str, Any]) -> str | None:
     """Return the first retired root section a document declares, or None."""
     return next((name for name in RETIRED_SECTIONS if name in data), None)
-
-
-def _refuse_unknown_transport_solvers(names: list[str]) -> None:
-    """Refuse a transport solver name that is neither built in nor a plugin.
-
-    Without this check the name passed validation and the run failed later,
-    far from the line of the file that holds the typo.
-    """
-    if not names:
-        return
-    from hydromodpy.solver.base.registry import solvers
-
-    transport_solvers = solvers.names("transport")
-    unknown = [name for name in names if name not in transport_solvers]
-    if not unknown:
-        return
-    known = ", ".join(transport_solvers)
-    raise ValueError(
-        f"Unknown transport solver '{unknown[0]}' in [[simulation.process]]: it is "
-        f"neither built in nor a registered plugin. Write one of: {known}."
-    )
-
-
-_LAYERS_PATH = "domain.layers"
-
-_OLDER_LAYERING = (
-    "The [modflow6.sgrid.vertical] or [modflownwt.sgrid.vertical] of an older file, "
-    "as a table or as a phase override, is read as [domain.layers]."
-)
-
-
-def _boussinesq_layering_refusals(layers: VerticalGridConfig, calibration: Any) -> list[str]:
-    """Say why Boussinesq refuses the layering of the file and of each calibration phase."""
-    from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
-
-    written = [("[domain.layers]", layers)]
-    for phase in getattr(calibration, "phases", None) or ():
-        phase_layers = _layering_of_the_phase(layers, getattr(phase, "overrides", None) or {})
-        if phase_layers is not None:
-            where = f"the domain.layers override of calibration phase {phase.name!r}"
-            written.append((where, phase_layers))
-    refusals: list[str] = []
-    for where, read in written:
-        refusal = layering_refusal(read, written_in=where)
-        if refusal is not None:
-            # Layers by surfaces came after the solver tables moved: no older file holds them.
-            older = "" if read.genmtd_lay == "surfaces" else f" {_OLDER_LAYERING}"
-            refusals.append(refusal + older)
-    return refusals
-
-
-def _layering_of_the_phase(
-    layers: VerticalGridConfig, overrides: Mapping[str, Any]
-) -> VerticalGridConfig | None:
-    """Return the layering a calibration phase runs, with its ``domain.layers`` overrides.
-
-    None when the phase writes no such override, or one that does not validate:
-    the preflight names an override it cannot write.
-    """
-    written = {
-        str(key): value
-        for key, value in overrides.items()
-        if key == _LAYERS_PATH or str(key).startswith(f"{_LAYERS_PATH}.")
-    }
-    if not written:
-        return None
-    table = written.pop(_LAYERS_PATH, layers.model_dump(exclude_unset=True))
-    if not isinstance(table, Mapping):
-        return None
-    payload = dict(table)
-    payload.update({key.removeprefix(f"{_LAYERS_PATH}."): value for key, value in written.items()})
-    try:
-        return VerticalGridConfig.model_validate(payload)
-    except ValueError:
-        return None
 
 
 def _with_calibration_defaults(raw: dict[str, Any], *, source_path: Path | None) -> dict[str, Any]:
@@ -513,12 +424,18 @@ def require_site_for_real_catchment(config: Any) -> None:
     )
 
 
+def _project_root_of(document: Mapping[str, Any]) -> Any:
+    """Return ``[workspace] project_root`` of *document*, or ``None``."""
+    workspace = document.get("workspace")
+    return workspace.get("project_root") if isinstance(workspace, Mapping) else None
+
+
 class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
 
     Aggregates sub-components (workspace, geographic, domain, data, flow,
-    transport, solver, modflownwt, modflow6, display)
+    transport, solver, display)
     into a centralized,
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
@@ -626,27 +543,11 @@ class HydroModPyConfig(HydroModelBase):
     solver: Annotated[SolverConfig, Profile.USER] = Field(
         default_factory=SolverConfig,
         description=(
-            "Global solver block loaded from [solver]: the backend selector in "
-            "[solver.backend], plus the backend-agnostic preprocessing switches "
-            "both MODFLOW backends read (solver.sink_fill, "
+            "Global solver block loaded from [solver]: the flow solver in "
+            "solver.backend, the settings of each flow solver under its name "
+            "([solver.modflow6], [solver.modflow_nwt], [solver.boussinesq]), and the "
+            "backend-agnostic preprocessing switches (solver.sink_fill, "
             "solver.drain_band_depth_m)."
-        ),
-    )
-    modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
-        default_factory=ModflowConfig,
-        description=(
-            "MODFLOW-NWT settings: the top sampling of the grid "
-            "([modflownwt.sgrid.top_sampling]), the package options "
-            "([modflownwt.process_specific]) and the solver settings "
-            "([modflownwt.runtime.<package>], expert keys)."
-        ),
-    )
-    modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
-        default_factory=Modflow6Config,
-        description=(
-            "MODFLOW 6 settings: the top sampling of the grid "
-            "([modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) "
-            "and the solver settings ([modflow6.runtime], expert keys)."
         ),
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
@@ -733,11 +634,23 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
 
+    _read_as_sealed: bool = PrivateAttr(default=False)
+
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "testbed": _TESTBED_REFUSAL,
         "analysis": ANALYSIS_SECTION_REFUSAL,
         "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
+
+    @property
+    def read_as_sealed(self) -> bool:
+        """True when this config was read as the frozen config of a run already on disk.
+
+        Such a document is read as it ran: a refusal of the checks against the
+        solver only warns, and a rerun of the run keeps going where a new run
+        would stop.
+        """
+        return self._read_as_sealed
 
     @model_validator(mode="before")
     @classmethod
@@ -796,8 +709,8 @@ class HydroModPyConfig(HydroModelBase):
         else:
             return data
         if declared:
-            backend_solver = solver_name_of_backend(backend)
-            if backend_solver is not None and backend_solver.lower() != process_solver.lower():
+            backend_solver = backend.strip().lower() if isinstance(backend, str) else None
+            if backend_solver and backend_solver != process_solver.lower():
                 raise ValueError(
                     f"solver.backend names {backend_solver!r} and the flow process "
                     f"{process_id!r} of [[simulation.process]] names {process_solver!r} in "
@@ -807,16 +720,17 @@ class HydroModPyConfig(HydroModelBase):
                     "flow process."
                 )
             return data
-        # The derived backend is marked, so it stays out of the fields set and a
+        # The derived name is marked, so it stays out of the fields set and a
         # later assignment of another flow solver moves it again.
         payload = dict(data)
-        selector = backend_following_the_process(process_solver)
+        derived = backend_following_the_process(process_solver)
         if isinstance(solver, SolverConfig):
-            derived = solver.model_copy(update={"backend": selector})
-            derived.__pydantic_fields_set__.discard("backend")
-            payload["solver"] = derived
+            # A copy is not validated again, so its fields set is kept here.
+            following = solver.model_copy(update={"backend": derived})
+            following.__pydantic_fields_set__.discard("backend")
+            payload["solver"] = following
         else:
-            payload["solver"] = {**(solver or {}), "backend": selector}
+            payload["solver"] = {**(solver or {}), "backend": derived}
         return payload
 
     def _check_river_network_threshold_for_the_mesh(self) -> None:
@@ -892,29 +806,14 @@ class HydroModPyConfig(HydroModelBase):
             + (f" ({', '.join(readers)})." if readers else ".")
         )
 
-    def _check_the_layering(self, solver_cfg: SolverConfig | None, *, sealed: bool) -> None:
-        """Refuse a layering its data or its solver cannot serve; warn on a coarse K profile.
+    def _check_the_layer_bases(self) -> None:
+        """Refuse a layering by surfaces whose rasters ``[data.layer_base]`` does not match.
 
-        Boussinesq solves one layer and reads no ``[domain.layers]``, so more
-        layers or a layering by surfaces are refused for it, in the file and in
-        the overrides of a calibration phase. A sealed run only warns. A
-        layering by surfaces reads its rasters by name from ``[data.layer_base]``,
-        and the two lists must match. MODFLOW-NWT has no vertical pass-through
-        cell, so it reads such a layering only when a thin layer keeps its minimum
-        thickness. A vertical profile of K on one layer is summed up by K at the
-        middle of the column: with H/d = 2.5 the transmissivity is off by -22 % to
-        +75 % with the water table, and five equal layers bring it near -1 %.
+        A layering by surfaces reads its rasters by name from ``[data.layer_base]``,
+        and the two lists must match. What a solver reads of the layering is checked
+        against its ``supports`` in ``config/cross_checks.py``.
         """
-        domain = self.domain
-        layers = getattr(domain, "layers", None)
-        if layers is None:
-            return
-        engine_value = _declared_flow_engine(self)
-        if engine_value == "boussinesq":
-            for refusal in _boussinesq_layering_refusals(layers, self.calibration):
-                if not sealed:
-                    raise ValueError(refusal)
-                logger.warning("%s This sealed run was solved on one layer.", refusal)
+        layers = self.domain.layers
         layer_base = self.data.layer_base
         declared = set() if layer_base is None else {source.name for source in layer_base.sources}
         read = set(layers.base_surface_names)
@@ -930,47 +829,16 @@ class HydroModPyConfig(HydroModelBase):
                 "[domain.layers] reads them as its surface. Give a layer that surface, or "
                 "remove the entries."
             )
-        if engine_value == "modflow_nwt" and layers.has_pass_through_cells:
-            raise ValueError(
-                "[domain.layers] pinch_out = 'pass_through' makes a thin layer a vertical "
-                "pass-through cell (idomain -1), which MODFLOW-NWT does not have. Write "
-                "pinch_out = 'keep_min_thickness', or run MODFLOW 6."
-            )
-        params = self.flow.param or {}
-        for param_id, param in params.items():
-            profile = getattr(param, "field_vertical_profile", None)
-            if str(param_id).lower() != "k" or profile is None or profile.kind == "none":
-                continue
-            if engine_value == "boussinesq":
-                logger.warning(
-                    "flow.param.%s has a vertical profile, and boussinesq reads K at the "
-                    "top of the aquifer only, one value per column: the profile below the "
-                    "top is not read.",
-                    param_id,
-                )
-            elif layers.layer_count < 5:
-                logger.warning(
-                    "flow.param.%s has a vertical profile and [domain.layers] builds %d "
-                    "layer(s). One layer sums the profile up by K at mid-column, off by "
-                    "-22 %% to +75 %% of the transmissivity at H/d = 2.5 as the water table "
-                    "moves; five equal layers bring it near -1 %%. Use at least five layers.",
-                    param_id,
-                    layers.layer_count,
-                )
 
-    def _check_the_conductivity_tensor(self, solver_cfg: SolverConfig | None) -> None:
-        """Refuse a K tensor its solver cannot read, and an angle with a depth profile.
+    def _check_the_angles_of_the_tensor(self) -> None:
+        """Refuse an angle of the K tensor with a depth profile.
 
-        K22 and the three angles of the tensor reach the NPF package of MODFLOW 6
-        only. MODFLOW-NWT and Boussinesq would drop them in silence, so the load
-        refuses them there. An angle is a direction: a vertical profile would
-        scale it with depth, which has no meaning.
+        An angle is a direction: a vertical profile would scale it with depth,
+        which has no meaning. Whether the solver reads the tensor at all is checked
+        against its ``supports`` in ``config/cross_checks.py``.
         """
         params = self.flow.param or {}
-        tensor_ids = k_tensor_parameter_ids(params)
-        if not tensor_ids:
-            return
-        for param_id in tensor_ids:
+        for param_id in k_tensor_parameter_ids(params):
             profile = getattr(params[param_id], "field_vertical_profile", None)
             if param_id.startswith("angle") and profile is not None and profile.kind != "none":
                 raise ValueError(
@@ -978,13 +846,6 @@ class HydroModPyConfig(HydroModelBase):
                     "angle with depth. Remove [flow.param."
                     f"{param_id}.field_vertical_profile]; give the angle per zone instead."
                 )
-        engine_value = _declared_flow_engine(self)
-        if engine_value in {"modflow_nwt", "boussinesq"}:
-            raise ValueError(
-                f"flow.param sets {', '.join(tensor_ids)}, the K tensor past K and Kv, "
-                f"which only MODFLOW 6 reads; {engine_value} would drop it. Remove these "
-                "parameters, or run MODFLOW 6."
-            )
 
     def _check_cell_addressing_needs_a_regular_mesh(self) -> None:
         """Refuse a ``[lay, row, col]`` address when the mesh has no rows and columns.
@@ -1080,29 +941,23 @@ class HydroModPyConfig(HydroModelBase):
     def _check_cross_section_coherence(self, info: ValidationInfo) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.
 
-        Currently enforced invariants (architecture spec
-        ``02_config_pydantic.md`` §3.2):
+        Currently enforced invariants:
 
         * ``data.inference_mode == "strict"`` ⇒ at least one data type must
           be declared (``data.types`` non-empty).
-        * ``calibration`` actif ⇒ ``flow.param_list`` non vide (no point
+        * an active ``calibration`` ⇒ ``flow.param_list`` is not empty (no point
           calibrating with zero tunable parameters).
-        * ``transport`` actif ⇒ solver must not be ``boussinesq`` (the
-          Boussinesq solver does not support a transport process).
         * ``domain.depth_model.kind`` is ``raster_substratum`` or
           ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
           is the raster the domain reads.
-        * ``[modflownwt.sgrid.top_sampling]`` zonal ⇒ ``channel_source = "none"``,
-          since MODFLOW-NWT builds no channel mask.
+        * every trait of the ``Model`` the document uses is in the ``supports`` of
+          its flow solver, a transport solver follows that flow solver, and no
+          pair of ``CONTAMINATIONS`` is written (``config/cross_checks.py``). A
+          sealed document only warns.
         * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
           is declared, since only the soil reservoir reads that raster.
         * ``[domain.layers]`` by surfaces reads only bases ``[data.layer_base]``
-          declares, ``[data.layer_base]`` declares only bases a layer reads, and
-          MODFLOW-NWT reads it only with ``pinch_out = "keep_min_thickness"``.
-          A vertical K profile on fewer than five layers is warned about.
-        * ``solver.backend = "boussinesq"`` ⇒ ``[domain.layers]``, and the
-          ``domain.layers`` overrides of a calibration phase, build one layer and
-          not by surfaces, since Boussinesq solves one layer and reads no layering.
+          declares, and ``[data.layer_base]`` declares only bases a layer reads.
         * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
           without it the workflow delineates and loads, then writes no report.
         * ``[metrics] window`` shares at least one day with ``[simulation.time]``,
@@ -1116,7 +971,10 @@ class HydroModPyConfig(HydroModelBase):
             )
 
         context = info.context if isinstance(info.context, Mapping) else {}
-        sealed = context.get("validation_context") == "snapshot"
+        # An assignment on a sealed config validates again without the context.
+        sealed = self._read_as_sealed or context.get("validation_context") == "snapshot"
+        if sealed:
+            self._read_as_sealed = True
         self._check_the_metrics_window_meets_the_run(sealed=sealed)
 
         if self.workflow.mode == "overview" and (self.overview is None):
@@ -1140,20 +998,6 @@ class HydroModPyConfig(HydroModelBase):
                 "[data.substratum]; declare it with one custom source."
             )
 
-        nwt_top_sampling = self.modflownwt.sgrid.top_sampling
-        if (
-            nwt_top_sampling is not None
-            and nwt_top_sampling.mode == "zonal"
-            and nwt_top_sampling.channel_source != "none"
-        ):
-            raise ValueError(
-                "[modflownwt.sgrid.top_sampling] mode = 'zonal' with "
-                f"channel_source = {nwt_top_sampling.channel_source!r}: MODFLOW-NWT does "
-                "not read the channel tree for the zonal top, so the channel cells would "
-                "get the hillslope statistic like the others. Set channel_source = 'none' "
-                "(median only) or run MODFLOW 6."
-            )
-
         self._check_river_network_threshold_for_the_mesh()
 
         calibration_cfg = self.calibration
@@ -1165,113 +1009,8 @@ class HydroModPyConfig(HydroModelBase):
                     "one tunable parameter"
                 )
 
-        solver_cfg = self.solver
-        if isinstance(solver_cfg.backend, CustomBackend):
-            # A name that is not built in becomes a custom backend. Check it
-            # resolves now, or the checks below would refuse a typo with a
-            # message about a boundary or a capability.
-            solver_cfg.validate_registry()
-        # A transport runs when [[simulation.process]] declares one; the
-        # [transport] section is always there, filled with its defaults.
-        engine_value = _declared_flow_engine(self)
-        processes = self.simulation.process or []
-        transport_solvers = [
-            name
-            for process in processes
-            if getattr(process, "kind", None) == "transport"
-            for name in getattr(process, "solvers", None) or []
-        ]
-        _refuse_unknown_transport_solvers(transport_solvers)
-        if engine_value == "boussinesq" and transport_solvers:
-            raise ValueError(
-                "solver.backend = 'boussinesq' runs no transport: the transport "
-                f"solvers ({', '.join(transport_solvers)}) read the flow of a MODFLOW "
-                "model. Remove the transport entry of [[simulation.process]], or run "
-                "the flow with 'modflow6' or 'modflow_nwt'."
-            )
-
-        from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
-
-        active_bc = {str(name).lower() for name in flow_cfg.active_bc}
-        sinks_sources = flow_cfg.sinks_sources
-
-        # Every active boundary must be supported by the chosen backend, or it
-        # would be silently ignored at build time (lake/sfr on NWT or
-        # Boussinesq were accepted then dropped).
-        for bc_id in sorted(active_bc):
-            definition = boundary_definition(bc_id)
-            if definition is not None and not definition.supports_backend(str(engine_value)):
-                supported = ", ".join(definition.supported_backends)
-                raise IncompatibleCapabilitiesError(
-                    f"solver.backend={engine_value!r} does not support the '{bc_id}' "
-                    f"boundary (supported by: {supported}); it would be silently ignored. "
-                    f"Use a supported backend, or remove the '{bc_id}' table, or write "
-                    "enabled = false in it."
-                )
-
-        # A hotstart is read by the backends that declare they can read one.
-        # Elsewhere the key was accepted and never looked at, so the run
-        # started from the declared initial condition and said nothing.
-        if flow_cfg.restart_from:
-            from hydromodpy.model.initial.state import PriorState
-            from hydromodpy.model.supports import INITIAL_STATE_TRAITS
-            from hydromodpy.solver.base.registry import solvers
-
-            prior_state = INITIAL_STATE_TRAITS[PriorState]
-            if prior_state not in solvers.get("flow", str(engine_value)).supports:
-                raise IncompatibleCapabilitiesError(
-                    f"solver.backend={engine_value!r} does not read flow.restart_from; "
-                    "it would be silently ignored and the run would start from "
-                    "flow.ic instead. Use a backend that lists "
-                    f"{prior_state!r} in its supports, or drop flow.restart_from."
-                )
-
-        # A steady pre-solve or a cyclic spin-up writes its own heads after the
-        # hotstart is read, so the restart would be overwritten and unused.
-        head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
-        ic_kind = str(getattr(head_ic, "kind", ""))
-        if flow_cfg.restart_from and ic_kind in {
-            "steady_state",
-            "spinup_cyclic",
-        }:
-            raise ValueError(
-                f"flow.restart_from is set and flow.ic.kind = {ic_kind!r} computes "
-                "its own initial heads, which would overwrite the restart without "
-                "a message. Write a flow.ic of kind 'top' (or any kind that is not "
-                "'steady_state' or 'spinup_cyclic') to start from the restart, or "
-                "drop flow.restart_from to keep the computed start."
-            )
-
-        # A cyclic spin-up repeats the run's own period inside the run. A
-        # backend that cannot do that would start from flow.ic and report a
-        # settled antecedent it never computed.
-        if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
-            from hydromodpy.model.initial.state import CyclicStart
-            from hydromodpy.model.supports import INITIAL_STATE_TRAITS
-            from hydromodpy.solver.base.registry import solvers
-
-            cyclic_start = INITIAL_STATE_TRAITS[CyclicStart]
-            if cyclic_start not in solvers.get("flow", str(engine_value)).supports:
-                raise IncompatibleCapabilitiesError(
-                    f"flow.ic.kind='spinup_cyclic' repeats the simulated period until "
-                    f"the state settles, and solver.backend={engine_value!r} cannot: it "
-                    "would start from the declared initial condition and say nothing. "
-                    f"Use a backend that lists {cyclic_start!r} in its supports, or run "
-                    "the cycling outside the run with `hmp spinup` and point "
-                    "flow.restart_from at its result."
-                )
-
-        # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
-        barriers = getattr(sinks_sources, "flow_barriers", None) or {}
-        has_cutoff = any(
-            getattr(lake_cfg, "cutoff_wall", None) is not None
-            for lake_cfg in sinks_sources.enabled_lakes().values()
-        )
-        if (barriers or has_cutoff) and engine_value != "modflow6":
-            raise IncompatibleCapabilitiesError(
-                f"solver.backend={engine_value!r} does not support flow barriers / dam "
-                "cutoff walls (HFB); they require the 'modflow6' backend."
-            )
+        # What the flow solver ignores is named before the checks of one section.
+        check_against_the_solver(self, sealed=sealed)
 
         soil = soil_reservoir_of(self.flow)
         if soil is not None:
@@ -1313,16 +1052,6 @@ class HydroModPyConfig(HydroModelBase):
                     "daily ETP, and no [data.etp] section says where to read it: "
                     'add a [[data.etp.sources]] block, for example source = "sim2" '
                     'with extent = "watershed".'
-                )
-
-            engine = _declared_flow_engine(self)
-            if engine is not None and engine != "modflow6":
-                raise IncompatibleCapabilitiesError(
-                    "[flow.sinks_sources.recharge.soil] is wired to MODFLOW 6 "
-                    f"only, and this run's flow solver is {engine!r}: the recharge "
-                    "it computes would never reach that solver. Write "
-                    'solvers = ["modflow6"] in [[simulation.process]], or remove '
-                    "[flow.sinks_sources.recharge.soil] and declare [data.recharge]."
                 )
 
             active_sinks_sources = {
@@ -1420,11 +1149,11 @@ class HydroModPyConfig(HydroModelBase):
                 "soil section, or remove [data.soil_capacity]."
             )
 
-        self._check_the_layering(solver_cfg, sealed=sealed)
-        self._check_the_conductivity_tensor(solver_cfg)
+        self._check_the_layer_bases()
+        self._check_the_angles_of_the_tensor()
 
         # Last, so a fault of the solver itself is named before a mesh it would not read.
-        self._check_the_solver_reads_the_mesh(solver_cfg)
+        self._check_the_solver_reads_the_mesh(self.solver)
         self._check_cell_addressing_needs_a_regular_mesh()
         return self
 
@@ -1532,8 +1261,8 @@ class HydroModPyConfig(HydroModelBase):
         """Load and validate configuration from a Python mapping.
 
         ``sealed`` reads the frozen config of a run already on disk: a check that
-        refuses what a run cannot be scored on, or a layering Boussinesq would
-        ignore, only warns there.
+        refuses what a run cannot be scored on, or what its flow solver would
+        ignore, only warns there, and ``read_as_sealed`` is true on the result.
         """
         base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
         return cls._from_payload(payload, base=base, context="snapshot" if sealed else "api")
@@ -1715,8 +1444,6 @@ class HydroModPyConfig(HydroModelBase):
             "transport": ({}, _std(TransportConfig)),
             "simulation": ({}, _std(SimulationConfig)),
             "solver": ({}, _std(SolverConfig)),
-            "modflownwt": ({}, _std(ModflowConfig)),
-            "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
             "export": ([], lambda data, _b: load_export_requests(data)),
             "observation": ({}, _std(ObservationConfig)),
@@ -1779,11 +1506,13 @@ class HydroModPyConfig(HydroModelBase):
         snapshot: Mapping[str, Any],
         *,
         changes: Mapping[str, Any] | None = None,
+        sealed: bool = True,
     ) -> HydroModPyConfig:
         """Reconstruct a config from the frozen configuration of a run.
 
-        The snapshot is read as stored: a key removed from the schema since the
-        run was stored is refused, as in a file. A snapshot that names its
+        The snapshot is read as stored, under today's names
+        (:func:`~hydromodpy.config.config_migration.migrate_sealed_config_doc`): a key
+        removed from the schema since the run was stored is refused, as in a file. A snapshot that names its
         project (``[workspace] project_root``) is read as its ``config.toml``
         is: relative paths from the project root, bare names in ``data/`` of
         its workspace, so a run frozen in one workspace reruns in another.
@@ -1795,19 +1524,28 @@ class HydroModPyConfig(HydroModelBase):
         changes : Mapping, optional
             Values to set before validation, by dotted path: the grammar of
             ``--set`` (:func:`hydromodpy.core.toml_io.paths.parse`).
+        sealed : bool, default True
+            Read the result as the frozen config of a run already on disk, where
+            a refusal of the checks against the solver only warns. False reads it
+            as a live document, refused as a file is.
 
         Returns
         -------
         HydroModPyConfig
         """
         merged = copy.deepcopy(dict(snapshot))
+        # The migration drops workspace.project_root, so it is read first.
+        project_root = _project_root_of(merged)
+        # Under today's names before the changes, which are written in today's names.
+        migrate_sealed_config_doc(merged)
         for dotted, value in (changes or {}).items():
             assign(merged, dotted, value)
-        workspace = merged.get("workspace")
-        project_root = workspace.get("project_root") if isinstance(workspace, Mapping) else None
+        project_root = _project_root_of(merged) or project_root
         if project_root:
-            return cls.from_dict(merged, base_dir=project_root, sealed=True)
-        return cls.model_validate(merged, context={"validation_context": "snapshot"})
+            return cls.from_dict(merged, base_dir=project_root, sealed=sealed)
+        return cls.model_validate(
+            merged, context={"validation_context": "snapshot" if sealed else "api"}
+        )
 
     def with_changes(self, changes: Mapping[str, Any]) -> HydroModPyConfig:
         """Return this configuration with *changes* set, by dotted path, and validated.
@@ -1817,8 +1555,12 @@ class HydroModPyConfig(HydroModelBase):
         the cross-section checks see the change. The result shares every section
         no change touches with this configuration: a built domain or flow compares
         its section by identity to know whether it still describes the run.
+        A live configuration stays live, so a change that asks its solver for a
+        trait it ignores is refused. A sealed one stays sealed and only warns.
         """
-        validated = type(self).from_snapshot(written_payload(self), changes=changes)
+        validated = type(self).from_snapshot(
+            written_payload(self), changes=changes, sealed=self.read_as_sealed
+        )
         touched = {parse(dotted).parts[0] for dotted in changes}
         return self.model_copy(update={name: getattr(validated, name) for name in touched})
 

@@ -41,21 +41,17 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
 
     flow_section = {
         "flow_regime": "transient",
-        "runtime": {
-            "backend": str(runtime_backend),
-        },
         "ic": {"kind": "custom", "value": base_head_m},
         "bc": {
             "west_side": {"value": float(reference_cfg["west_head_m"])},
             "east_side": {"value": base_head_m},
         },
     }
+    boussinesq_settings: dict[str, object] = {"backend": str(runtime_backend)}
     if surface_interaction_model is not None:
-        flow_section.setdefault("runtime", {})["surface_interaction_model"] = str(
-            surface_interaction_model
-        )
+        boussinesq_settings["surface_interaction_model"] = str(surface_interaction_model)
     if str(surface_interaction_model or "").strip().lower() == "ts_vi_obstacle":
-        flow_section.setdefault("runtime", {}).update(
+        boussinesq_settings.update(
             {
                 "ts_vi_steps_per_period": 4,
                 "ts_vi_adapt": False,
@@ -64,7 +60,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
             }
         )
     if str(surface_interaction_model or "").strip().lower() == "vi_obstacle":
-        flow_section.setdefault("runtime", {}).update(
+        boussinesq_settings.update(
             {
                 "vi_substeps_per_period": 4,
                 "vi_substep_on_failure": False,
@@ -87,6 +83,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section=flow_section,
+        boussinesq_settings=boussinesq_settings,
         plan_name="Boussinesq boundary-step validation",
         plan_description="Transient west-boundary head step on a 1D strip",
         public_solver_label=public_solver_label,

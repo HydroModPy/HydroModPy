@@ -72,7 +72,7 @@ def _inputs(tmp_path: Path) -> SimpleNamespace:
 
 @pytest.mark.parametrize("n_cells", [4321, None])
 def test_the_cell_count_is_the_one_of_the_simulated_run(monkeypatch, tmp_path, n_cells) -> None:
-    """The TOML holds no ``[modflownwt]``, as for any MODFLOW 6 or Boussinesq run."""
+    """The TOML holds no ``[solver.modflow_nwt]``, as for any MODFLOW 6 or Boussinesq run."""
     import hydromodpy.display.catchment_report.context as context_module
 
     @contextmanager

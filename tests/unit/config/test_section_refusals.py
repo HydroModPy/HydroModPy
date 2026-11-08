@@ -17,7 +17,11 @@ from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
+from hydromodpy.core.exceptions import (
+    ConfigError,
+    ConfigValidationError,
+    IncompatibleCapabilitiesError,
+)
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES, DataManagersConfig
 from hydromodpy.data.variables.lake_abacus.config import CustomLakeAbacusSource, LakeAbacusConfig
@@ -290,12 +294,12 @@ def test_a_retired_section_in_python_is_refused(payload: dict, fragment: str) ->
     assert fragment in str(excinfo.value)
 
 
-@pytest.mark.parametrize("solver", ["modflow6", "modflownwt"])
+@pytest.mark.parametrize("solver", ["modflow6", "modflow_nwt"])
 @pytest.mark.parametrize("key", ["planar", "grid_dual"])
 def test_a_retired_sgrid_key_in_python_is_refused(solver: str, key: str) -> None:
     value = {} if key == "planar" else "voronoi"
     with pytest.raises(ValueError, match=rf"sgrid\.{key} is replaced by \[mesh\]"):
-        HydroModPyConfig.model_validate({solver: {"sgrid": {key: value}}})
+        HydroModPyConfig.model_validate({"solver": {solver: {"sgrid": {key: value}}}})
 
 
 def test_the_mesh_section_replaces_them_and_resolves_its_file(tmp_path: Path) -> None:
@@ -332,7 +336,7 @@ source_mode = "synthetic"
 crs_project = "EPSG:2154"
 
 [solver]
-backend = {{ backend = "{backend}" }}
+backend = "{backend}"
 
 [flow]
 param_list = ["K", {ids}]
@@ -392,12 +396,16 @@ def test_modflow6_reads_k22_and_the_three_angles(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("backend", ["modflow_nwt", "boussinesq"])
 def test_a_solver_without_the_tensor_refuses_an_angle(tmp_path: Path, backend: str) -> None:
-    with pytest.raises(ConfigValidationError, match="only MODFLOW 6 reads"):
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         _load_2(tmp_path, {"angle2": "10.0"}, backend=backend)
+
+    message = str(excinfo.value)
+    assert f"solver.backend = {backend!r} does not honor flow.param.angle2" in message
+    assert "run a flow solver that honors it (modflow6)" in message
 
 
 def test_modflow_nwt_refuses_k22(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match="K22"):
+    with pytest.raises(IncompatibleCapabilitiesError, match="flow.param.K22"):
         _load_2(tmp_path, {"K22": '"2e-6 m/s"'}, backend="modflow_nwt")
 
 
@@ -512,7 +520,7 @@ source_mode = "synthetic"
 crs_project = "EPSG:2154"
 
 [solver]
-backend = {{ backend = "{backend}" }}
+backend = "{backend}"
 
 [domain.layers]
 {layers}
@@ -595,8 +603,12 @@ def test_a_declared_base_no_layer_reads_is_refused(tmp_path: Path) -> None:
 
 
 def test_modflow_nwt_refuses_pass_through_cells_on_load(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match="MODFLOW-NWT does not have"):
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         _load_3(tmp_path, backend="modflow_nwt")
+
+    message = str(excinfo.value)
+    assert "solver.backend = 'modflow_nwt' does not honor domain.layers.pinch_out" in message
+    assert "(modflow6)" in message
 
 
 def test_modflow_nwt_reads_a_layering_that_keeps_the_minimum_thickness(tmp_path: Path) -> None:
@@ -877,7 +889,7 @@ def _payload_2(solver: str, mesh: dict[str, Any] | None) -> dict[str, Any]:
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
         "geographic": {"source_mode": "synthetic"},
-        "solver": {"backend": {"kind": solver}},
+        "solver": {"backend": solver},
     }
     if mesh is not None:
         payload["mesh"] = mesh
@@ -968,11 +980,11 @@ def test_a_flow_adapter_that_declares_no_meshes_is_refused_by_name(isolated_solv
 
 # Boussinesq refuses a layering it would ignore.
 #
-# Boussinesq solves one layer over the whole aquifer and never reads
-# ``[domain.layers]``. A file, a calibration phase or an older solver table that
-# asks it for more than one layer, or for layers by surfaces, is refused when it
-# is read. A sealed run is read as it was run, with a warning. The adapter refuses
-# it again at the solve, for a layering assigned after the load.
+# Boussinesq solves one layer over the whole aquifer: it leaves ``layers`` out of
+# its ``supports``. A file, a calibration phase or an older solver table that asks
+# it for more than one layer, or for layers by surfaces, is refused when it is
+# read. A sealed run is read as it was run, with a warning. The adapter refuses it
+# again at the solve, for a layering assigned after the load.
 
 
 PROJECT_TOML_4 = """
@@ -1040,7 +1052,8 @@ characteristic_depth = "15 m"
 """
 
 
-IGNORED = "boussinesq would ignore"
+IGNORED = "it would be ignored without a word"
+HONORED = "run a flow solver that honors it (modflow6, modflow_nwt)"
 
 
 def _write_4(tmp_path: Path, extra: str = "", *, solver: str = "boussinesq") -> Path:
@@ -1071,36 +1084,38 @@ def test_one_layer_loads(tmp_path: Path, layers: str) -> None:
 @pytest.mark.parametrize(
     ("layers", "asked"),
     [
-        ("[domain.layers]\nnlay = 3\n", "builds 3 layers (genmtd_lay = 'constant')"),
+        ("[domain.layers]\nnlay = 3\n", "(genmtd_lay = 'constant', 3 layer(s))"),
         (
             '[domain.layers]\ngenmtd_lay = "decay"\nnlay = 4\nlay_decay = 2.0\n',
-            "builds 4 layers (genmtd_lay = 'decay')",
+            "(genmtd_lay = 'decay', 4 layer(s))",
         ),
         (
             '[domain.layers]\ngenmtd_lay = "list"\nlay_proportions = [0.4, 0.6]\n',
-            "builds 2 layers (genmtd_lay = 'list')",
+            "(genmtd_lay = 'list', 2 layer(s))",
         ),
     ],
     ids=["constant", "decay", "list"],
 )
 def test_more_than_one_layer_is_refused(tmp_path: Path, layers: str, asked: str) -> None:
-    with pytest.raises(ConfigValidationError) as excinfo:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         _load_4(tmp_path, layers)
 
     message = str(excinfo.value)
-    assert f"[domain.layers] {asked}, which {IGNORED}" in message
-    assert "Remove [domain.layers], or run the flow with 'modflow6' or 'modflow_nwt'" in message
+    assert (
+        f"solver.backend = 'boussinesq' does not honor domain.layers {asked}: {IGNORED}" in message
+    )
+    assert HONORED in message
 
 
 @pytest.mark.unit
 def test_layers_by_surfaces_are_refused_even_for_one_layer(tmp_path: Path) -> None:
     one = '[domain.layers]\ngenmtd_lay = "surfaces"\n\n[[domain.layers.layer]]\nname = "all"\n'
     for layers in (SURFACES_2, one):
-        with pytest.raises(ConfigValidationError) as excinfo:
+        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
             _load_4(tmp_path, layers)
 
         message = str(excinfo.value)
-        assert "gives each layer its own base (genmtd_lay = 'surfaces')" in message
+        assert "does not honor domain.layers (genmtd_lay = 'surfaces'" in message
         assert "sgrid.vertical" not in message
 
 
@@ -1113,12 +1128,14 @@ def test_modflow6_still_reads_the_layers(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 def test_an_older_solver_table_is_refused_with_the_same_message(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError) as excinfo:
+    """The older table is read as [domain.layers], so the refusal names that key."""
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         _load_4(tmp_path, "[modflow6.sgrid.vertical]\nnlay = 5\n")
 
     message = str(excinfo.value)
-    assert f"[domain.layers] builds 5 layers (genmtd_lay = 'constant'), which {IGNORED}" in message
-    assert "[modflow6.sgrid.vertical] or [modflownwt.sgrid.vertical] of an older file" in message
+    assert (
+        f"does not honor domain.layers (genmtd_lay = 'constant', 5 layer(s)): {IGNORED}" in message
+    )
 
 
 @pytest.mark.parametrize(
@@ -1127,13 +1144,13 @@ def test_an_older_solver_table_is_refused_with_the_same_message(tmp_path: Path) 
     ids=["dotted_override", "older_dotted_override"],
 )
 def test_a_phase_that_asks_for_layers_is_refused(tmp_path: Path, override: str) -> None:
-    with pytest.raises(ConfigValidationError) as excinfo:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         _load_4(tmp_path, CALIBRATION.format(overrides=override))
 
     message = str(excinfo.value)
     assert (
-        "the domain.layers override of calibration phase 'deep' builds 3 layers "
-        f"(genmtd_lay = 'constant'), which {IGNORED}"
+        "does not honor the domain.layers override of calibration phase 'deep' "
+        f"(genmtd_lay = 'constant', 3 layer(s)): {IGNORED}"
     ) in message
 
 
@@ -1153,18 +1170,19 @@ def test_a_sealed_run_reads_with_a_warning(caplog: pytest.LogCaptureFixture) -> 
         cfg = HydroModPyConfig.from_snapshot(snapshot)
 
     assert cfg.domain.layers.layer_count == 3
+    assert cfg.read_as_sealed
     assert IGNORED in caplog.text
-    assert "This sealed run was solved on one layer." in caplog.text
+    assert "This sealed run is read as it ran." in caplog.text
 
 
 @pytest.mark.unit
-def test_a_k_profile_says_boussinesq_reads_the_top_only(
+def test_a_k_profile_says_boussinesq_reads_one_k_per_column(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level(logging.WARNING):
         _load_4(tmp_path, PROFILE_3)
 
-    assert "boussinesq reads K at the top of the aquifer only" in caplog.text
+    assert "boussinesq solves one layer and reads one K per column" in caplog.text
     assert "at least five layers" not in caplog.text
 
 
@@ -1177,7 +1195,7 @@ def test_the_adapter_refuses_a_layering_assigned_after_the_load() -> None:
     model = SimpleNamespace(geometry=SimpleNamespace(domain=domain))
     ctx = SimpleNamespace(state=SimpleNamespace(setup=SimpleNamespace(model=model)))
 
-    with pytest.raises(ConfigError, match=rf"builds 3 layers .*{IGNORED}"):
+    with pytest.raises(ConfigError, match=r"builds 3 layer\(s\) .*which it would ignore"):
         BoussinesqFlowAdapter().execute(ctx)
 
 

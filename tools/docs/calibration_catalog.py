@@ -133,12 +133,9 @@ def methods() -> list[dict[str, Any]]:
 def metrics() -> list[dict[str, Any]]:
     """One record per metric a TOML may name, with its formula and requirements."""
     from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
-    from hydromodpy.calibration.criteria.registry import (
-        NETWORK_ESTIMATORS,
-        available_criteria,
-        criterion_for,
-    )
-    from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, LOG_METRICS
+    from hydromodpy.calibration.criteria.registry import available_criteria, criterion_for
+    from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER
+    from hydromodpy.core.scoring.metric_table import METRIC_SPECS, NETWORK_METRIC_NAMES
 
     rows = []
     for name in available_criteria():
@@ -150,7 +147,7 @@ def metrics() -> list[dict[str, Any]]:
             unit = "m"
         else:
             unit = "unit of the observation"
-        if name in NETWORK_ESTIMATORS:
+        if name in NETWORK_METRIC_NAMES:
             family = "network distance"
         elif name in HIGHER_IS_BETTER:
             family = "efficiency"
@@ -167,7 +164,7 @@ def metrics() -> list[dict[str, Any]]:
                 "needs_observations": needs.needs_observations,
                 "has_time_axis": needs.has_time_axis,
                 "reads_supports": list(needs.reads_supports),
-                "takes_log": name in LOG_METRICS,
+                "takes_log": METRIC_SPECS[name].clips_negatives,
                 "normalize_cost": _normalisation(name),
                 "score": formula.score if formula else "",
                 "reads": formula.reads if formula else "",

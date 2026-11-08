@@ -3,7 +3,9 @@
 The moves are declared once, in ``config_migration.MOVED_TABLES``. The migration
 makes them and the docs list them, so the page cannot name a path the loader does
 not move. Today the moves are the solver layering tables, which now are
-``[domain.layers]``.
+``[domain.layers]``, the keys of the Boussinesq solve, and the settings table of
+each flow solver, now under ``[solver]``. A key of a pre-release that moved twice
+ends where the last row leads.
 """
 
 from __future__ import annotations
@@ -31,6 +33,9 @@ LAYERING_MOVES = {
 MOVES = {
     **LAYERING_MOVES,
     **{f"flow.{old}": f"flow.runtime.{new}" for old, new in FLOW_RUNTIME_KEYS.items()},
+    "modflow6": "solver.modflow6",
+    "modflownwt": "solver.modflow_nwt",
+    "flow.runtime": "solver.boussinesq",
 }
 
 
@@ -101,9 +106,11 @@ def test_the_migration_moves_the_table_and_the_dotted_override_it_declares(
 
     config_migration.migrate_config_doc(doc)
 
-    assert _descend(doc, move.new) == {"nlay": 4}
+    # The rows run in order, so flow.ts_vi_adapt ends under [solver.boussinesq].
+    destination = config_migration.rewrite_dotted_path(move.new)
+    assert _descend(doc, destination) == {"nlay": 4}
     assert _descend(doc, move.old) is None
-    assert doc["calibration"]["phases"][0]["overrides"] == {f"{move.new}.nlay": 6}
+    assert doc["calibration"]["phases"][0]["overrides"] == {f"{destination}.nlay": 6}
 
 
 def _descend(doc: dict, path: str) -> Any:

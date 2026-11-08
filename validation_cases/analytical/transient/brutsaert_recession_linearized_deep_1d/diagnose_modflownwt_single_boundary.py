@@ -350,7 +350,7 @@ def main() -> None:
 
     steady_time_grid = _single_period_time_grid(setup.time_grid)
     transient_time_grid = _transient_time_grid(setup.time_grid)
-    base_modflow_cfg = launcher.cfg.modflownwt.model_copy(deep=True)
+    base_modflow_cfg = launcher.cfg.solver.options_of("modflow_nwt").model_copy(deep=True)
 
     results: list[ProbeResult] = []
 

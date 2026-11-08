@@ -178,7 +178,7 @@ def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
         )
         if advice.required and not requested:
             _warn_xt3d(
-                "XT3D is off as modflow6.runtime.mf6_enable_xt3d says, but "
+                "XT3D is off as solver.modflow6.runtime.mf6_enable_xt3d says, but "
                 f"{advice.reason}. The heads are inconsistent: they are off by a share "
                 "of the drawdown that grid refinement does not reduce. Clear "
                 "mf6_enable_xt3d (null) or set it to true for a consistent result."
@@ -203,7 +203,7 @@ def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
                 "MODFLOW 6 run time on one layer to about 10 times on ten layers. Without "
                 "it the heads would be off by a share of "
                 "the drawdown that grid refinement does not reduce. Set "
-                "modflow6.runtime.mf6_enable_xt3d = true to keep it on without this warning."
+                "solver.modflow6.runtime.mf6_enable_xt3d = true to keep it on without this warning."
             )
         elif solver_mesh is not None:
             logger.info("XT3D auto-%s: %s", "on" if advice.enabled else "off", advice.reason)
@@ -213,7 +213,7 @@ def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
             "scales the XT3D face area by the upstream saturation, while the cross term "
             "of XT3D stays non-zero at equal heads, so the discrete system can have no "
             "root. If the run stops with E401, mesh with the voronoi engine, which needs "
-            "no XT3D, or set modflow6.runtime.mf6_enable_xt3d = false (heads about 0.1 m "
+            "no XT3D, or set solver.modflow6.runtime.mf6_enable_xt3d = false (heads about 0.1 m "
             "RMSE off XT3D on the Nancon)."
         )
     if solver_mesh is not None:
