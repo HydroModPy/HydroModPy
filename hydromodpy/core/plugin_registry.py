@@ -12,14 +12,16 @@ the noun, the id attributes, the group and the port members differ, so they are
 parameters here.
 
 The contract of a registry is :meth:`~PluginRegistry.register`,
-:meth:`~PluginRegistry.get` and :meth:`~PluginRegistry.names`.
+:meth:`~PluginRegistry.get` and :meth:`~PluginRegistry.names`. A key of a
+document that names a plugin is checked by :func:`check_registered_name`, the
+one sentence that refuses a name nothing serves.
 """
 
 from __future__ import annotations
 
 import importlib
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from importlib.metadata import entry_points
 
 from hydromodpy.core.logging import get_logger
@@ -27,6 +29,35 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 _MISSING = object()
+
+
+def check_registered_name(
+    value: str, names: Iterable[str], *, key: str, group: str | None = None
+) -> str:
+    """Return *value* when it is one of *names*, else refuse it with the names served.
+
+    *key* is the key of the document that wrote the value, ``solver.backend`` or
+    ``mesh.engine``. *group* is the entry-point group through which a plugin
+    joins the list; it adds the sentence that says so. It takes names and not a
+    registry, so a surface whose names are read another way is refused the same
+    way.
+
+    Raises
+    ------
+    ValueError
+        When *value* is not one of *names*. Pydantic places it on the field
+        being read.
+    """
+    served = sorted(names)
+    if value in served:
+        return value
+    message = f"{key} names {value!r}, and this installation serves {', '.join(served) or 'none'}."
+    if group is not None:
+        message += (
+            f" A third-party one joins that list through the {group!r} entry-point group, "
+            "without a patch to HydroModPy."
+        )
+    raise ValueError(message)
 
 
 def _name_of(candidate: object) -> str:

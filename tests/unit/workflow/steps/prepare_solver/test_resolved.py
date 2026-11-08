@@ -234,3 +234,49 @@ def test_what_the_build_decided_is_kept_apart_and_compared_after_the_build(tmp_p
     assert [item.line() for item in build_drift(source, replay)] == [
         "mesh.pixel: sealed 25.0, now 50.0",
     ]
+
+
+def test_the_resolved_config_holds_the_table_of_the_solver_that_runs(tmp_path: Path) -> None:
+    resolved = _resolved(_config(tmp_path, solver={"backend": "modflow_nwt"}), tmp_path)
+
+    assert resolved["solver"]["backend"] == "modflow_nwt"
+    assert "modflow_nwt" in resolved["solver"]
+    assert not {"modflow6", "boussinesq"} & set(resolved["solver"])
+    assert "modflow6" not in resolved and "modflownwt" not in resolved
+
+
+SOLVER_TABLE_DRIFTS = (
+    ("the table of another solver", "boussinesq", {"max_iterations": 7}, []),
+    (
+        "the table of the solver that ran",
+        "modflow6",
+        {"process_specific": {"vka": 3.0}},
+        ["solver.modflow6.process_specific.vka: sealed 3.0, now 1.0"],
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "table", "values", "lines"),
+    SOLVER_TABLE_DRIFTS,
+    ids=[row[0] for row in SOLVER_TABLE_DRIFTS],
+)
+def test_only_the_table_of_the_solver_that_ran_can_drift(
+    tmp_path: Path, case: str, table: str, values: dict, lines: list[str]
+) -> None:
+    del case
+    run_dir = _sealed(tmp_path / "runs" / "x", _config(tmp_path, solver={table: values}), tmp_path)
+
+    drift = config_drift(_config(tmp_path), run_dir, project_root=tmp_path)
+
+    assert [item.line() for item in drift] == lines
+
+
+def test_a_sealed_table_of_2_0_is_compared_where_it_is_now(tmp_path: Path) -> None:
+    run_dir = _sealed(tmp_path / "runs" / "x", _config(tmp_path), tmp_path)
+    document = tomllib.loads((run_dir / RUN_RESOLVED_CONFIG_FILENAME).read_text())
+    document["modflow6"] = document["solver"].pop("modflow6")
+    document["solver"]["backend"] = {"kind": "modflow6"}
+    (run_dir / RUN_RESOLVED_CONFIG_FILENAME).write_text(dumps(document), encoding="utf-8")
+
+    assert config_drift(_config(tmp_path), run_dir, project_root=tmp_path) == ()

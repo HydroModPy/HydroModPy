@@ -19,6 +19,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_bundle_model,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -244,7 +245,6 @@ def run_boussinesq_hillslope_interception_case(
                     },
                 },
                 flow_regime="steady",
-                solver=public_solver_label,
             ),
             case_dir=Path(__file__).resolve().parent,
             config_name=boussinesq_variant_config_name(public_solver_label),
@@ -254,7 +254,12 @@ def run_boussinesq_hillslope_interception_case(
     model = Boussinesq(
         mesh_bundle=bundle,
         model=boussinesq_bundle_model(flow),
-        runtime=flow.config.runtime,
+        runtime=boussinesq_variant_options(
+            flow_regime="steady",
+            solver=public_solver_label,
+            case_dir=Path(__file__).resolve().parent,
+            config_name=boussinesq_variant_config_name(public_solver_label),
+        ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )

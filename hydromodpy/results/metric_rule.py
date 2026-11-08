@@ -55,6 +55,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
 from hydromodpy.core.config_kit.types import StationName
 from hydromodpy.core.scoring import metrics as kernels
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS, RUN_METRIC_NAMES
 from hydromodpy.core.site import SiteConfig
 
 METRIC_RULE_VERSION: Final[str] = "2"
@@ -214,7 +215,7 @@ class MetricRule(HydroModelBase):
 class MetricScore(HydroModelBase):
     """One score and the facts that make it comparable."""
 
-    metric: str = Field(description="Metric name, one of METRIC_NAMES")
+    metric: str = Field(description="Metric name, one of RUN_METRIC_NAMES")
     value: float | None = Field(description="The score, or null when it could not be computed")
     station: str | None = Field(default=None, description="Station the score was read at")
     variable: str | None = Field(default=None, description="Variable the score was read on")
@@ -246,17 +247,6 @@ _KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "kge_beta": lambda sim, obs: kernels.kge(sim, obs)["beta"],
 }
 
-METRIC_NAMES: Final[tuple[str, ...]] = tuple(_KERNELS)
-"""The metrics :func:`score` knows: the four headline scores, then the panel of a run.
-
-The ``kge_*`` entries are the decomposition of the KGE, 2009 form (``beta`` is the
-ratio of the sums, ``alpha`` the ratio of the standard deviations): ``r`` tells timing,
-``alpha`` amplitude and ``beta`` volume, which a bare score cannot separate.
-"""
-
-CLIPPED_METRICS: Final[frozenset[str]] = frozenset({"nse_log"})
-"""The metrics that clip a negative value to zero, and so report ``n_clipped``."""
-
 HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
 """The metrics :func:`score_run` computes unless told otherwise."""
 
@@ -280,7 +270,8 @@ def score(
     """
     kernel = _KERNELS.get(metric)
     if kernel is None:
-        raise ValueError(f"unknown metric {metric!r}; known: {', '.join(METRIC_NAMES)}")
+        raise ValueError(f"unknown metric {metric!r}; known: {', '.join(RUN_METRIC_NAMES)}")
+    clips = METRIC_SPECS[metric].clips_negatives
     if rule.window is None:
         return MetricScore(
             metric=metric,
@@ -292,7 +283,7 @@ def score(
             window_start=None,
             window_end=None,
             n_samples=0,
-            n_clipped=0 if metric in CLIPPED_METRICS else None,
+            n_clipped=0 if clips else None,
             metric_rule_version=rule.version,
         )
     sim = _within(simulated, rule.window)
@@ -300,10 +291,10 @@ def score(
     paired = pd.concat([sim.rename("sim"), obs.rename("obs")], axis=1, join="inner").dropna()
     n = int(len(paired))
     value: float | None = None
-    n_clipped = 0 if metric in CLIPPED_METRICS else None
+    n_clipped = 0 if clips else None
     if n > 0:
         sim_values, obs_values = paired["sim"].to_numpy(), paired["obs"].to_numpy()
-        if metric in CLIPPED_METRICS:
+        if clips:
             n_clipped = kernels.clip_negatives(sim_values, obs_values)[2]
         raw = float(kernel(sim_values, obs_values))
         value = None if math.isnan(raw) else raw
@@ -361,7 +352,6 @@ __all__ = [
     "EVALUATION_ROLE",
     "HEADLINE_METRICS",
     "HEADLINE_WINDOW",
-    "METRIC_NAMES",
     "METRIC_RULE_VERSION",
     "DateWindow",
     "MetricRule",

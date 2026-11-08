@@ -13,7 +13,7 @@ from hydromodpy.core.state.run_state import RunState
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.base.results_config import ResultsConfig
-from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps.run_outputs import extract_run_outputs
 
 
@@ -39,7 +39,7 @@ class _RecordingExtractor:
         self.seen = {"hdry": hdry, "hnoflo": hnoflo}
 
 
-def _context(tmp_path: Path, modflownwt: ModflowConfig) -> RunContext:
+def _context(tmp_path: Path, solver: SolverConfig) -> RunContext:
     run = ProcessRun(
         id="flow_main::modflow_nwt",
         process_id="flow_main",
@@ -48,7 +48,7 @@ def _context(tmp_path: Path, modflownwt: ModflowConfig) -> RunContext:
     )
     plan = SimulationPlan(name="demo", description="demo", runs=(run,))
     state = RunState(
-        cfg=SimpleNamespace(modflownwt=modflownwt),
+        cfg=SimpleNamespace(solver=solver),
         setup=SimpleNamespace(time_grid=None),
     )
     return RunContext(plan=plan, run=run, state=state, output_dir=tmp_path)
@@ -66,8 +66,8 @@ def recording(monkeypatch) -> _RecordingExtractor:
 
 
 def test_configured_sentinels_reach_the_extractor(tmp_path, recording) -> None:
-    config = ModflowConfig.model_validate(
-        {"runtime": {"upw": {"hdry": -1234.0}, "bas": {"hnoflo": -4321.0}}}
+    config = SolverConfig.model_validate(
+        {"modflow_nwt": {"runtime": {"upw": {"hdry": -1234.0}, "bas": {"hnoflo": -4321.0}}}}
     )
 
     extract_run_outputs(
@@ -83,7 +83,7 @@ def test_configured_sentinels_reach_the_extractor(tmp_path, recording) -> None:
 
 def test_default_sentinels_are_the_modflow_nwt_defaults(tmp_path, recording) -> None:
     extract_run_outputs(
-        ctx=_context(tmp_path, ModflowConfig()),
+        ctx=_context(tmp_path, SolverConfig()),
         sim_id="sim",
         results_config=ResultsConfig(),
         store=object(),

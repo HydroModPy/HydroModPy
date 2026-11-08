@@ -15,6 +15,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
+from hydromodpy.core.config_kit.introspect import named_tables_of
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.mesh.mesh_config import MeshConfig
 
@@ -76,8 +77,16 @@ def _resolve_section_paths(
     Bare filenames (no separator, no ``..``) get the convention-driven
     lookup under ``<workspace>/data/<role>/`` when the field carries an
     ``InputFile`` annotation, so users can write
-    ``path = "etp_sim2.nc"`` instead of ``../../data/etp/etp_sim2.nc``.
+    ``path = "etp_sim2.nc"`` instead of ``../../data/etp/etp_sim2.nc``. The
+    paths of a named table, ``[solver.<name>]``, are read the same way.
     """
+    for name, table_cls in named_tables_of(model_cls, shipped_only=False).items():
+        table = data.get(name)
+        if isinstance(table, Mapping):
+            data[name] = dict(table)
+            _resolve_section_paths(
+                data[name], table_cls, base, workspace_data_dir=workspace_data_dir
+            )
     for field_name, field_info in model_cls.model_fields.items():
         if not _is_path_field(field_info):
             continue

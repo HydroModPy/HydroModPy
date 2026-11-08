@@ -10,17 +10,22 @@ from pydantic import BaseModel, Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.introspect import (
     DEFAULT_FIELD_PROFILE,
+    child_of,
     collect_profile_violations,
     extract_profile,
+    fields_and_tables,
+    held_tables_of,
     is_model,
     is_site_scoped,
     is_union_origin,
     iter_basemodels,
     iter_fields_by_profile,
+    named_tables_of,
     read_profile_from_schema,
     resolve_profile,
     site_scoped_paths,
     unwrap_members,
+    written_tables_of,
 )
 from hydromodpy.core.config_kit.profile import Profile
 
@@ -208,3 +213,88 @@ def test_a_payload_that_is_not_a_mapping_has_no_violation() -> None:
 
 def test_a_literal_annotation_is_one_member() -> None:
     assert unwrap_members(Literal["a", "b"]) == [Literal["a", "b"]]
+
+
+# Named tables: keys beyond the fields that name a plugin -------------------------
+
+
+class _Engine(HydroModelBase):
+    """Settings of the engine.
+
+    A second paragraph the field does not carry.
+    """
+
+    steps: int = 4
+
+
+class _WithTables(HydroModelBase):
+    kind: str = "engine"
+
+    @classmethod
+    def named_tables(cls, *, shipped_only: bool) -> dict[str, type[BaseModel]]:
+        return {"engine": _Engine} if shipped_only else {"engine": _Engine, "plugin": _Station}
+
+    def held_tables(self) -> dict[str, BaseModel]:
+        return {"engine": _Engine(steps=8)}
+
+    def written_tables(self) -> dict[str, BaseModel]:
+        return {}
+
+
+NAMED_CASES = (
+    (_WithTables, True, ["kind", "engine"]),
+    (_WithTables, False, ["kind", "engine", "plugin"]),
+    (_Station, True, ["code", "gain"]),
+)
+
+
+@pytest.mark.parametrize(("model", "shipped_only", "keys"), NAMED_CASES)
+def test_the_keys_of_a_model_are_its_fields_then_its_named_tables(
+    model: type[BaseModel], shipped_only: bool, keys: list[str]
+) -> None:
+    assert list(fields_and_tables(model, shipped_only=shipped_only)) == keys
+
+
+def test_a_named_table_reads_as_a_user_field_of_its_model() -> None:
+    field = fields_and_tables(_WithTables)["engine"]
+
+    assert field.annotation is _Engine
+    assert extract_profile(field) is Profile.USER
+    assert field.description == "Settings of the engine."
+    assert field.default_factory is _Engine
+    assert [name for name, *_ in iter_fields_by_profile(_WithTables, Profile.USER)] == [
+        "kind",
+        "engine",
+    ]
+
+
+INSTANCE_CASES = (
+    (named_tables_of, _WithTables, {"engine": _Engine}),
+    (named_tables_of, _Station, {}),
+    (held_tables_of, _WithTables(), {"engine": _Engine(steps=8)}),
+    (held_tables_of, _Station(), {}),
+    (written_tables_of, _WithTables(), {}),
+    (written_tables_of, _Station(), {}),
+)
+
+
+@pytest.mark.parametrize(("reader", "subject", "expected"), INSTANCE_CASES)
+def test_a_model_without_the_hook_holds_no_named_table(reader, subject, expected) -> None:
+    assert dict(reader(subject)) == expected
+
+
+def test_a_child_is_a_field_or_a_held_table() -> None:
+    model = _WithTables()
+
+    assert child_of(model, "kind") == "engine"
+    assert child_of(model, "engine") == _Engine(steps=8)
+    with pytest.raises(AttributeError, match="no field or table 'other'"):
+        child_of(model, "other")
+
+
+def test_a_raw_payload_is_checked_against_the_profile_of_its_named_tables() -> None:
+    payload = {"plugin": {"gain": 2.0}}
+
+    assert collect_profile_violations(_WithTables, payload, Profile.USER) == [
+        (("plugin", "gain"), Profile.EXPERT)
+    ]

@@ -36,7 +36,10 @@ FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = tuple(
 """Canonical name, flow parameter ids, output name and label of each property."""
 
 K_TENSOR_PROPERTIES: tuple[str, ...] = ("K22", "angle1", "angle2", "angle3")
-"""The part of the K tensor past K and Kv, which only MODFLOW 6 reads."""
+"""The part of the K tensor past K and Kv."""
+
+K_TENSOR = "k_tensor"
+"""The trait a solver backend lists in ``supports`` when it reads K22 and the three angles."""
 
 
 def k_tensor_parameter_ids(parameters: Mapping[str, object]) -> list[str]:
@@ -563,6 +566,7 @@ def resolve_required_flow_properties(
 
 __all__ = [
     "FLOW_PROPERTY_SPECS",
+    "K_TENSOR",
     "K_TENSOR_PROPERTIES",
     "OVERRIDE_PROPERTY_NAMES",
     "k_tensor_parameter_ids",

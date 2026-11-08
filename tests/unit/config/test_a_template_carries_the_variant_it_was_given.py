@@ -41,7 +41,7 @@ from hydromodpy.model.flow_config import FlowParam
 from hydromodpy.model.initial_config import FlowICSpinupCyclic, FlowInitialConditions
 from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig, FlowReachWidthByOrder
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
-from hydromodpy.solver.base.solver_config import ModflowNwtBackend, SolverConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 pytestmark = pytest.mark.fast
 
@@ -80,7 +80,6 @@ CASES: tuple[tuple[str, str, BaseModel], ...] = (
         "width",
         FlowReachNetworkConfig(width=FlowReachWidthByOrder(widths={1: 1.5, 3: 4.0})),
     ),
-    _case("backend", SolverConfig(backend=ModflowNwtBackend())),
 )
 
 
@@ -203,3 +202,25 @@ def test_every_discriminated_union_of_the_config_tree_has_a_case() -> None:
     covered = {(model_name, field) for model_name, field, _ in CASES}
 
     assert _discriminated_union_sites() == covered
+
+
+@pytest.mark.parametrize("exclude_defaults", [False, True])
+def test_the_generated_solver_names_its_backend_and_holds_its_table(
+    exclude_defaults: bool, tmp_path: Path
+) -> None:
+    """``solver.backend`` is a name, no union: the template writes the name and the table."""
+    instance = SolverConfig(backend="modflow_nwt", modflow_nwt={"runtime": {"upw": {"hdry": -1.0}}})
+    destination = tmp_path / f"solver_{exclude_defaults}.toml"
+
+    generate_toml_from_instances(
+        {"section": instance},
+        output_path=destination,
+        profile="expert",
+        exclude_defaults=exclude_defaults,
+        exclude_none=True,
+    )
+    section = tomllib.loads(destination.read_text())["section"]
+
+    assert section["backend"] == "modflow_nwt"
+    assert section["modflow_nwt"]["runtime"]["upw"]["hdry"] == -1.0
+    assert SolverConfig.model_validate(section) == instance

@@ -4,7 +4,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, PrivateAttr, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    PrivateAttr,
+    ValidationInfo,
+    model_validator,
+)
 
 from hydromodpy.catchment.algorithms.river_network_config import RiverNetworkConfig
 from hydromodpy.catchment.preprocess.bed_regularization_config import BedRegularizationConfig
@@ -21,8 +27,32 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.plugin_registry import check_registered_name
 
 """Discriminated union of catchment definition variants."""
+
+
+def _registered_terrain_engine(value: str | None) -> str | None:
+    """Refuse a terrain engine this installation cannot serve, while reading the document.
+
+    It happens here rather than at the first delineation because a project that
+    names an engine nobody installed is a broken document, and learning that after
+    a DEM has been conditioned costs the conditioning.
+
+    ``None`` is not checked: it means "whatever this build defaults to", and a
+    default that does not resolve is an environment fault the registry reports
+    with its own message.
+    """
+    if value is None:
+        return value
+    from hydromodpy.catchment.terrain import registry as terrain_registry
+
+    return check_registered_name(
+        value,
+        terrain_registry.terrain_engines.names(),
+        key="geographic.terrain_engine",
+        group=terrain_registry.ENTRY_POINT_GROUP,
+    )
 
 
 class GeographicConfig(HydroModelBase):
@@ -120,7 +150,9 @@ class GeographicConfig(HydroModelBase):
             "ignored reads as a limit that was applied."
         ),
     )
-    terrain_engine: Annotated[str | None, Profile.USER] = Field(
+    terrain_engine: Annotated[
+        str | None, Profile.USER, AfterValidator(_registered_terrain_engine)
+    ] = Field(
         default=None,
         description=(
             "Flow-routing engine that conditions the DEM and delineates the catchment. "
@@ -331,34 +363,6 @@ class GeographicConfig(HydroModelBase):
     def synthetic_case(cls, **overrides) -> GeographicConfig:
         """Analytical synthetic geographic support (bypasses DEM delineation)."""
         return cls(source_mode="synthetic", **overrides)
-
-    @field_validator("terrain_engine")
-    @classmethod
-    def _check_terrain_engine_resolves(cls, value: str | None) -> str | None:
-        """Refuse an engine this installation cannot serve, while reading the document.
-
-        It happens here rather than at the
-        first delineation because a project that names an engine nobody installed
-        is a broken document, and learning that after a DEM has been conditioned
-        costs the conditioning.
-
-        ``None`` is not checked: it means "whatever this build defaults to", and
-        a default that does not resolve is an environment fault the registry
-        reports with its own message.
-        """
-        if value is None:
-            return value
-        from hydromodpy.catchment.terrain import registry as terrain_registry
-
-        if value in terrain_registry.terrain_engines.names():
-            return value
-        served = ", ".join(terrain_registry.terrain_engines.names()) or "none"
-        raise ValueError(
-            f"geographic.terrain_engine names {value!r}, and this installation serves "
-            f"{served}. A third-party engine joins that list through the "
-            f"{terrain_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
-            "HydroModPy."
-        )
 
     @model_validator(mode="after")
     def _check_catchment_is_implemented(self) -> GeographicConfig:

@@ -112,7 +112,7 @@ def test_the_dump_of_a_section_validates_again() -> None:
 def test_an_unknown_engine_is_refused_naming_what_is_served() -> None:
     _refused(
         {"engine": "quadtree"},
-        "quadtree",
+        "mesh.engine names 'quadtree', and this installation serves",
         "regular",
         "triangle",
         "voronoi",

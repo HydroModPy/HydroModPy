@@ -24,6 +24,7 @@ from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_bundle_model,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     build_flow_config,
@@ -101,12 +102,14 @@ def _solve_steady(
     bundle_parent: Path,
     flow_section: dict,
     config_name: str,
+    solver: str,
     conductivity: float,
     substratum: float,
     start_head: np.ndarray | None = None,
 ):
     """Build the strip for one conductivity, solve it at steady state, return the model.
 
+    ``solver`` is the label of the variant, which picks the Boussinesq settings.
     ``start_head`` replaces the flat start of the config when given.
     """
     bundle_dir = write_uniform_strip_bundle(
@@ -126,7 +129,9 @@ def _solve_steady(
     model = Boussinesq(
         mesh_bundle=load_catchment_mesh_bundle(bundle_dir),
         model=boussinesq_bundle_model(flow),
-        runtime=flow.config.runtime,
+        runtime=boussinesq_variant_options(
+            flow_regime="steady", solver=solver, case_dir=CASE_DIR, config_name=config_name
+        ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )
@@ -191,7 +196,6 @@ def run_boussinesq_seepage_limit_case(
             },
         },
         flow_regime="steady",
-        solver=backend,
     )
 
     start_head = None
@@ -200,6 +204,7 @@ def run_boussinesq_seepage_limit_case(
             bundle_parent=out_path / "reference_start",
             flow_section=flow_section,
             config_name=str(config_files[backend]),
+            solver=backend,
             conductivity=boussinesq_scenario_forcing(backend)[0],
             substratum=substratum,
         )
@@ -208,6 +213,7 @@ def run_boussinesq_seepage_limit_case(
         bundle_parent=out_path,
         flow_section=flow_section,
         config_name=str(config_files[scenario]),
+        solver=backend,
         conductivity=conductivity,
         substratum=substratum,
         start_head=start_head,

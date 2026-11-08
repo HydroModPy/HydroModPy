@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
+from hydromodpy.config.config_migration import migrate_sealed_config_doc
 from hydromodpy.core.toml_io.paths import assign, portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.tracking import rewrite_input_paths
@@ -135,18 +136,49 @@ def config_drift(
     machine keys are already gone from both sides. An input file is compared by
     nothing here: where a replay finds it is its own affair, and the digests of the
     record say whether it holds the same bytes.
+
+    The sealed document is read under today's names first, as a sealed
+    ``config.toml`` is, so a table that moved since the seal is compared where it
+    is now. The settings table of a flow solver that did not run counts for no
+    drift either, ``[solver.<name>]`` beside the solver of the run: the run never
+    read it.
     """
     sealed = _read_sealed(run_dir)
     if sealed is None:
         return None
     sealed.pop(BUILD_TABLE, None)
     sealed.pop(RUN_SEARCH_TABLE, None)
+    migrate_sealed_config_doc(sealed)
     current = tomllib.loads(dumps(_resolved_payload(config, project_root)))
     for payload in (sealed, current):
         rewrite_input_paths(payload, type(config), lambda marker, _path: marker.role)
-    exempt = (*_NOT_THE_COMPUTATION, *intended)
+    exempt = (
+        *_NOT_THE_COMPUTATION,
+        *_tables_of_other_solvers(config, sealed, current),
+        *intended,
+    )
     return tuple(
         drift for drift in _differences(sealed, current) if not _under_any(drift.key, exempt)
+    )
+
+
+def _tables_of_other_solvers(config: Any, *payloads: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return ``solver.<name>`` for each settings table of a flow solver the run did not use.
+
+    A table of ``[solver]`` under a key that is not a field of the section is the
+    table of a solver. A plain value under such a key is not, and still drifts.
+    """
+    solver = config.solver
+    fields = type(solver).model_fields
+    names = {
+        str(key)
+        for payload in payloads
+        if isinstance(section := payload.get("solver"), Mapping)
+        for key, value in section.items()
+        if isinstance(value, Mapping)
+    }
+    return tuple(
+        f"solver.{name}" for name in sorted(names - set(fields)) if name != solver.backend_name
     )
 
 

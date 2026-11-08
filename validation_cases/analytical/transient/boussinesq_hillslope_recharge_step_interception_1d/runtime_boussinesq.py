@@ -23,6 +23,7 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
 from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -73,7 +74,6 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                         },
                     },
                     flow_regime="transient",
-                    solver=public_solver_label,
                 )
             )
         ),
@@ -82,6 +82,10 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
         time_grid=SimpleNamespace(
             period_lengths_seconds=period_lengths_seconds,
             window=None,
+        ),
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=public_solver_label,
         ),
     )
     run = ProcessRun(

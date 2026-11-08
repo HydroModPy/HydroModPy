@@ -26,8 +26,9 @@ import re
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
-from hydromodpy.results.metric_rule import HEADLINE_WINDOW, METRIC_NAMES
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 
 if TYPE_CHECKING:
     import duckdb
@@ -38,7 +39,7 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 def _wide_metric_columns() -> str:
     """One column per metric the run kernels compute: ``MAX(CASE WHEN ...)`` needs the list."""
     lines = []
-    for name in METRIC_NAMES:
+    for name in RUN_METRIC_NAMES:
         safe = name.replace("'", "''")
         lines.append(f"    MAX(CASE WHEN metric_name = '{safe}' THEN value END) AS {name}")
     return ",\n".join(lines)

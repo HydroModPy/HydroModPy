@@ -2551,18 +2551,18 @@ def test_a_reused_single_metric_phase_gets_the_structural_note_not_the_reuse_one
         pytest.param(
             {
                 "simulation": {"process": [{"kind": "flow", "solvers": ["boussinesq"]}]},
-                "solver": {"backend": {"kind": "modflow6"}},
+                "solver": {"backend": "modflow6"},
             },
             "boussinesq",
             id="the_flow_process_wins_over_a_solver_table",
         ),
         pytest.param(
-            {"solver": {"backend": {"kind": "modflow_nwt"}}},
+            {"solver": {"backend": "modflow_nwt"}},
             "modflow_nwt",
-            id="the_solver_table_is_read_without_a_flow_process",
+            id="the_solver_backend_is_read_without_a_flow_process",
         ),
         pytest.param(
-            {"solver": {"backend": {"kind": "custom", "name": "myflow"}}},
+            {"solver": {"backend": "myflow"}},
             "myflow",
             id="a_plugin_backend_gives_its_name",
         ),

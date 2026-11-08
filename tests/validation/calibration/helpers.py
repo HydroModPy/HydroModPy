@@ -310,7 +310,7 @@ enabled = false
 """The project of a stream-network twin, whatever its surface."""
 
 MODFLOW6_RUNTIME_TOML = """\
-[modflow6.runtime]
+[solver.modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 """

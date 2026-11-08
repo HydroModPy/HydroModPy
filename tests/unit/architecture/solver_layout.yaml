@@ -34,11 +34,6 @@ text_paths:
 public:
   - hydromodpy.solver
   - hydromodpy.solver.base.*
-  # Read by config and the root for the [solver] sections, until a backend
-  # gives its own options.
-  - hydromodpy.solver.boussinesq.solver_contract
-  - hydromodpy.solver.modflow6.modflow6_config
-  - hydromodpy.solver.modflow_nwt.nwt.nwt_config
   # Read by cli and workflow to find the binaries and run the flow adapter.
   - hydromodpy.solver.modflow_common.binaries
   - hydromodpy.solver.modflow_common.flow_adapter_helpers

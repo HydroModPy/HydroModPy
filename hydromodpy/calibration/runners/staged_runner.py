@@ -135,7 +135,7 @@ from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus, latest_session_dir
 from hydromodpy.results.session.phase import FrozenValue
-from hydromodpy.solver.base.solver_config import SolverConfig, solver_name_of_backend
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 if TYPE_CHECKING:
     import numpy as np
@@ -1549,10 +1549,10 @@ def _backend_name(document: Mapping[str, Any]) -> str:
         if names:
             return names[0]
     solver = document.get("solver")
-    declared = (
-        solver_name_of_backend(solver.get("backend")) if isinstance(solver, Mapping) else None
-    )
-    return declared or SolverConfig().backend_name
+    declared = solver.get("backend") if isinstance(solver, Mapping) else None
+    if isinstance(declared, str) and declared.strip():
+        return declared.strip().lower()
+    return SolverConfig().backend_name
 
 
 _GEOGRAPHIC_DEVIATIONS = ("dem_correc_type",)

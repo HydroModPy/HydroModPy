@@ -28,8 +28,9 @@ from typing import Any, Literal
 import numpy as np
 
 from hydromodpy.calibration.criteria.base import CriterionRequirements, CriterionResult
+from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 
-Estimator = Literal["distance_gap", "distance_mean"]
+Estimator = Literal[*NETWORK_METRIC_NAMES]
 
 
 def distance_pair(simulated: Sequence[float] | Any) -> tuple[float, float]:
@@ -99,10 +100,10 @@ class HydrographicNetworkDistance:
     """The two published estimators of the stream-network method."""
 
     def __init__(self, estimator: Estimator) -> None:
-        if estimator not in ("distance_gap", "distance_mean"):
+        if estimator not in NETWORK_METRIC_NAMES:
             raise ValueError(
-                f"unknown network estimator {estimator!r}; "
-                "choose 'distance_gap' (Eq. 1) or 'distance_mean' (Eq. 2)."
+                f"unknown network estimator {estimator!r}; choose "
+                f"{' or '.join(repr(name) for name in NETWORK_METRIC_NAMES)}."
             )
         self.name = str(estimator)
         self._estimator: Estimator = estimator

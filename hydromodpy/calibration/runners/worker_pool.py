@@ -43,7 +43,7 @@ from hydromodpy.results.derive.stream.geometry import recharge_session
 
 # A non-converging solve can spin forever, which would wedge a whole search on one
 # trial. It only has to stop that: a daily solve takes ~15 min alone and several
-# times that at width 8. Override with ``[modflow6.runtime] mf6_api_timeout_s``.
+# times that at width 8. Override with ``[solver.modflow6.runtime] mf6_api_timeout_s``.
 DEFAULT_TRIAL_LIMIT_S = 14400.0
 
 
@@ -118,7 +118,9 @@ class TrialWorkerPool:
             )
         self._trial_ctx = options["trial_ctx"]
         self._retention: TrialSolveRetention | None = self._trial_ctx.kept_solves
-        runtime = getattr(getattr(self._trial_ctx.base_cfg, "modflow6", None), "runtime", None)
+        solver = getattr(self._trial_ctx.base_cfg, "solver", None)
+        mf6 = solver.options_of("modflow6") if solver is not None else None
+        runtime = getattr(mf6, "runtime", None)
         override = getattr(runtime, "mf6_api_timeout_s", None)
         self._limit_s = float(override) if override is not None else DEFAULT_TRIAL_LIMIT_S
         readable = {**options, "trial_ctx": replace(self._trial_ctx, kept_solves=None)}
@@ -158,7 +160,7 @@ class TrialWorkerPool:
                     error = (
                         f"it passed its wall-clock limit of {self._limit_s:.0f} s and was killed. "
                         "A long chronicle can simply need more: raise it with "
-                        "[modflow6.runtime] mf6_api_timeout_s."
+                        "[solver.modflow6.runtime] mf6_api_timeout_s."
                     )
             except (EOFError, OSError):
                 process.join(1.0)

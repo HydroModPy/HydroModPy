@@ -133,7 +133,10 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
 
     The auxiliary model builds from ``steady_variant`` of the model of the run:
     one period, a steady regime, the run's forcings averaged, and a start from
-    the top. The run's own model is not changed.
+    the top. The run's own model changes by one attribute only,
+    ``initial_state_converged``: ``True`` when the solve converged, ``False`` when
+    it did not and its closed budget was accepted. The run hands it to the runner,
+    which will not start a transport run behind a ``False``.
     """
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
     # nested paths when writing DISV binary grid files.
@@ -160,6 +163,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     output_name = str(getattr(steady_model, "model_output_name", steady_model.model_name))
     head_path = Path(str(steady_model.full_path)) / f"{output_name}.hds"
     list_path = _model_listing_path(steady_model)
+    model.initial_state_converged = bool(success)
     if not success:
         if not _steady_initialization_balance_is_acceptable(list_path):
             raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
@@ -202,6 +206,8 @@ def run_modflow6_cyclic_spinup(model: object, *, verbose: bool) -> tuple[np.ndar
     seed: np.ndarray | None = None
     if strategy.first_cycle_from == "steady_state":
         seed = run_modflow6_steady_state_initialization(model, verbose=verbose)
+        # A seed is not the start of the run: the cycles that follow settle the state.
+        model.initial_state_converged = None
 
     previous: np.ndarray | None = None
     head: np.ndarray | None = None

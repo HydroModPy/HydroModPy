@@ -32,7 +32,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_mean,
 )
 from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
-from hydromodpy.calibration.criteria.series import DIMENSIONLESS, HIGHER_IS_BETTER, METRICS
+from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
 from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.metrics.composite import (
     build_metric_extractor as build_metric_extractor__log_nse,
@@ -62,6 +62,7 @@ from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_c
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 from hydromodpy.core.scoring.metrics import clip_negatives, log_nse
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import _score
@@ -1009,13 +1010,12 @@ class TestWhichMetricsHaveNoUnit:
     """The list lives with the kernels it describes, not beside them."""
 
     def test_the_efficiency_scores_are_listed(self) -> None:
-        assert {"nse", "kge", "nse_log", "nse_delta", "nse_seasonal", "reservoir"} <= (
-            DIMENSIONLESS
-        )
+        flagged = {name for name, spec in METRIC_SPECS.items() if spec.dimensionless}
+        assert {"nse", "kge", "nse_log", "nse_delta", "nse_seasonal", "reservoir"} <= flagged
 
     def test_a_residual_metric_is_not(self) -> None:
-        assert "rmse" not in DIMENSIONLESS
-        assert "mae" not in DIMENSIONLESS
+        assert not METRIC_SPECS["rmse"].dimensionless
+        assert not METRIC_SPECS["mae"].dimensionless
 
 
 class TestWhatIsRefused:

@@ -18,9 +18,10 @@ Boussinesq equation under the Dupuit assumptions
    on a triangular mesh. It reads the conductivity and the specific yield, and
    nothing else about the ground. It builds recharge, wells, imposed heads on the
    sides, on the streams and on the ocean, and a top drain. A file that asks for
-   another term is refused (see `Limits`_). Set :toml:`solver.backend` to
-   ``boussinesq`` as well as the process: only then is the file checked against this
-   solver when it is read.
+   another term is refused (see `Limits`_). :toml:`solver.backend` is a plain
+   string, ``boussinesq`` here. Set it as well as the process: only then is the file
+   checked against what this solver lists in ``supports`` when it is read. The
+   settings of the solve are the table ``[solver.boussinesq]``.
 
 Notation
 --------
@@ -314,7 +315,7 @@ and the release is
 
    s_i(h) = \exp\!\left(-\frac{d_i(h)}{\delta}\right)\gamma_i
 
-The depth scale :math:`\delta` is :toml:`flow.runtime.partition_release_depth_m`, 0.05 m by
+The depth scale :math:`\delta` is :toml:`solver.boussinesq.partition_release_depth_m`, 0.05 m by
 default. A cell with an imposed head releases nothing: its constant-head flux
 carries the water it receives. The law follows the regularized partition of seepage
 and subsurface flow of :cite:t:`marcais2017`, smoothed over the depth of the water
@@ -463,8 +464,8 @@ unmet demand.
 Methods and engines
 -------------------
 
-:toml:`flow.runtime.surface_interaction_model` picks the closure and
-:toml:`flow.runtime.backend` the engine; the pair resolves to one method. A closure
+:toml:`solver.boussinesq.surface_interaction_model` picks the closure and
+:toml:`solver.boussinesq.backend` the engine; the pair resolves to one method. A closure
 that the backend does not implement is refused when the solve starts. The default
 ``auto`` runs the dense engine ``local`` up to 400 cells and the sparse engine
 ``scipy_sparse`` above, and logs which one runs. Asked by name, the dense engines
@@ -522,9 +523,12 @@ Limits
 - **Supported terms.** Recharge, wells, side, stream and ocean imposed heads, and
   the top drain. A file that declares anything else under
   ``[flow.sinks_sources]`` or ``[flow.bc]`` is refused: ETP, lakes
-  and reservoirs, stream routing, flow barriers. The soil reservoir is wired to
-  MODFLOW 6 only. A file with a ``[transport]`` section and this solver is refused
-  when it is read.
+  and reservoirs, stream routing, flow barriers. The soil reservoir is read by
+  MODFLOW 6 only. The solver reads none of :toml:`solver.sink_fill`,
+  :toml:`solver.drain_band_depth_m` and :toml:`solver.drain_conductance_floor_m2_s`, so a file
+  that moves one off its default is refused. A transport solver in
+  ``[[simulation.process]]`` is refused when the file is read, because none follows this
+  solver. Each refusal names the key the file wrote and the solvers that honor it.
 - **Boundary bias.** Near a boundary with a strong gradient, the head of a pinned
   cell differs from the edge value (step 3). Refine the mesh there to reduce it.
 - **Fixed steps.** A time step that does not converge ends the run. The step length
@@ -533,8 +537,8 @@ Limits
 - **What can be read back.** The solver serves the head at a cell, the discharge
   over the domain, and the release per cell. It has no lake stage and no routed
   discharge, because it has no lake package and no stream reaches.
-- **Experimental.** The cards of :toml:`flow.runtime.backend` and
-  :toml:`flow.runtime.surface_interaction_model` are marked experimental, and the
+- **Experimental.** The cards of :toml:`solver.boussinesq.backend` and
+  :toml:`solver.boussinesq.surface_interaction_model` are marked experimental, and the
   description of the obstacle closures says so too.
 - **Not a model of overland flow.** The water released at the surface leaves the
   model. It is not routed downhill. Neither surface closure routes the water over the
@@ -555,12 +559,12 @@ the engine. Open a row for its card.
    flow.flow_regime
    flow.first_period_steady
    simulation.time.substeps_per_period
-   flow.runtime.backend
-   flow.runtime.surface_interaction_model
-   flow.runtime.partition_release_depth_m
-   flow.runtime.max_iterations
-   flow.runtime.tol_residual_inf
-   flow.runtime.tol_state_update_inf
+   solver.boussinesq.backend
+   solver.boussinesq.surface_interaction_model
+   solver.boussinesq.partition_release_depth_m
+   solver.boussinesq.max_iterations
+   solver.boussinesq.tol_residual_inf
+   solver.boussinesq.tol_state_update_inf
    flow.param.K.field.value
    flow.param.Sy.field.value
    flow.sinks_sources.recharge.values

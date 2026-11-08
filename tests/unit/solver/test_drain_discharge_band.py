@@ -343,7 +343,7 @@ class TestTheDepthReachesTheDrainRows:
     # The bed thickness is declared too: it scales the conductance just as
     # much as the band does, so a run that carried the depth but dropped the
     # bed would still be silently wrong.
-    TOML = '[solver]\ndrain_band_depth_m = 0.5\ndrain_bed_thickness_m = 2.0\n\n[solver.backend]\nkind = "modflow6"\n'
+    TOML = '[solver]\nbackend = "modflow6"\ndrain_band_depth_m = 0.5\ndrain_bed_thickness_m = 2.0\n'
 
     def _options(self) -> ModflowPreprocessOptions:
         cfg = SolverConfig.model_validate(tomllib.loads(self.TOML)["solver"])

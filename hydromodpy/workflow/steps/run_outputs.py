@@ -324,12 +324,12 @@ def _resolve_run_grid_metadata(model: Any) -> dict | None:
 def _dry_cell_sentinels(ctx: RunContext) -> dict[str, float]:
     """Return the head sentinels the solver was configured to write.
 
-    MODFLOW-NWT stamps dry cells with ``[modflownwt.runtime.upw] hdry`` and
-    inactive cells with ``[modflownwt.runtime.bas] hnoflo``; the extractor
+    MODFLOW-NWT stamps dry cells with ``[solver.modflow_nwt.runtime.upw] hdry`` and
+    inactive cells with ``[solver.modflow_nwt.runtime.bas] hnoflo``; the extractor
     masks exactly those values to NaN. Reading them back from defaults would
     keep -100 and -9999 in the heads of anyone who changed them.
     """
-    runtime = ctx.state.cfg.modflownwt.runtime
+    runtime = ctx.state.cfg.solver.options_of("modflow_nwt").runtime
     return {"hdry": float(runtime.upw.hdry), "hnoflo": float(runtime.bas.hnoflo)}
 
 

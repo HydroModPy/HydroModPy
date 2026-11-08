@@ -427,7 +427,7 @@ def xt3d_failure_hint(model_dir: Path) -> str:
             elif in_options and line.split()[:1] == ["XT3D"]:
                 return (
                     " The NPF package uses XT3D. If the outer iterations cycle,"
-                    " set mf6_enable_xt3d = false under [modflow6.runtime]"
+                    " set mf6_enable_xt3d = false under [solver.modflow6.runtime]"
                     " and run again."
                 )
     return ""

@@ -34,7 +34,7 @@ Two surfaces bound the aquifer.
 **The top** $z_\mathrm{top}$ is the digital elevation model of the catchment,
 read from {toml}`data.dem`. By default the grid takes the value of the DEM at the
 center of each cell, and nothing else moves the top.
-{toml}`modflow6.sgrid.top_sampling.mode` can ask for a statistic over the pixels
+{toml}`solver.modflow6.sgrid.top_sampling.mode` can ask for a statistic over the pixels
 of the cell instead, with a lower value for the cells that hold a channel
 ({ref}`mesh-top`).
 
@@ -201,7 +201,7 @@ mid-column, three layers by $-2.8\,\%$ at the top, and five layers by $-1.0\,\%$
 ```
 
 **Vertical conductivity.** MODFLOW 6 reads $K_z = K / \beta$, with $\beta$ the
-{toml}`modflow6.process_specific.vka`, layer by layer, so a depth factor on $K$
+{toml}`solver.modflow6.process_specific.vka`, layer by layer, so a depth factor on $K$
 reaches $K_z$. A parameter with the id `Kv` replaces it with a conductivity per
 cell, and a file that gives `Kv` and a `vka` other than 1 is refused. MODFLOW-NWT reads the
 same `Kv` as the vertical conductivity of `UPW`: the code writes `layvka = 0` and `vka = Kv`,
@@ -321,7 +321,7 @@ $n_\mathrm{sub}$ equal time steps $\delta t = \Delta t / n_\mathrm{sub}$, and th
 time integration is the backward Euler scheme of {cite:p}`langevin2017`:
 {eq}`eq-cell-balance` is written with the stress and the conductances at the end
 of the step. The time step multiplier is 1, so the steps of a period are equal.
-The one exception is {toml}`modflow6.runtime.mf6_ats`: with it, MODFLOW 6 may cut a
+The one exception is {toml}`solver.modflow6.runtime.mf6_ats`: with it, MODFLOW 6 may cut a
 transient step further where the solver does not converge, never above the step
 asked for. The Boussinesq solver takes one step per period.
 
@@ -421,6 +421,16 @@ A run can also restart from the last time step of an earlier run
 ({toml}`flow.restart_from`). That state replaces $h_0$. In the code:
 `build_head_initial_condition_array`.
 
+**Starts the file refuses.** The cycle carries the heads. It does not carry the stage of a lake, which
+starts again from its `initial_stage` at each cycle, so a file with a lake and a `spinup_cyclic` start
+is refused when it is read. `hmp spinup` carries both from one cycle to the next. Start from its
+result with {toml}`flow.restart_from`. That key beside a `steady_state` or a `spinup_cyclic` start is
+refused too, because the computed start would replace the restart without a message. The auxiliary
+steady solve of `steady_state` can leave heads that did not converge. A transport run that follows
+such a start stops with `SolverDivergedError`, since particles and solutes would follow a head field
+that is not a solution. The soil reservoir has a start of its own, and the two starts can come from
+two windows. {ref}`soil-start` says when that is wanted.
+
 (gwf-stress)=
 ## What enters and leaves
 
@@ -495,7 +505,7 @@ HydroModPy has no seepage face below the top of a cell. The drains of the top
 layer and the surface closures of the Boussinesq solver take the water at the cell
 top, and a stream imposed as a head fixes the head of the whole cell. With
 {toml}`domain.layers.nlay` above 1 and a ratio
-{toml}`modflow6.process_specific.vka`, MODFLOW 6 and MODFLOW-NWT carry one head per
+{toml}`solver.modflow6.process_specific.vka`, MODFLOW 6 and MODFLOW-NWT carry one head per
 layer, so the vertical resistance enters the solution. The code computes none of
 these ratios and refuses no model for its aspect ratio. A depth factor
 ({eq}`eq-depth-factor`) shortens the effective thickness.
@@ -524,7 +534,7 @@ flow.param.Ss.field.value
 flow.param.K.field_vertical_profile.kind
 flow.param.K.field_vertical_profile.characteristic_depth
 flow.param.K.field_vertical_profile.min_factor
-modflow6.process_specific.vka
+solver.modflow6.process_specific.vka
 flow.flow_regime
 flow.first_period_steady
 flow.ic.h.kind

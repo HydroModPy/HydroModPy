@@ -1,12 +1,13 @@
 """Process-to-runtime contract helpers for the Boussinesq solver.
 
 The solver reads two objects. The ``Model`` says what is solved, and the options
-object, the ``FlowRuntimeConfig`` of ``[flow.runtime]``, says how the nonlinear
+object, the ``FlowRuntimeConfig`` of ``[solver.boussinesq]``, says how the nonlinear
 solve runs. The MODFLOW solvers read none of those options.
 """
 
 from __future__ import annotations
 
+from collections.abc import Set
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -23,10 +24,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.model.domain.layers_config import VerticalGridConfig
     from hydromodpy.model.model import Model
-
-_SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
 AUTO_RUNTIME_BACKEND = "auto"
 # The dense engines build an n x n Jacobian: memory and time grow as n^2 and n^3.
@@ -177,16 +175,21 @@ def build_runtime_options(
     )
 
 
-def assert_supported_runtime_subset(model: Model) -> None:
-    """Fail fast when the requested problem exceeds the implemented slice."""
+def assert_supported_runtime_subset(model: Model, supports: Set[str]) -> None:
+    """Fail fast when the model asks for a boundary or a sink the solver does not build.
+
+    ``supports`` is what the Boussinesq adapter lists. The configuration refuses
+    the same traits while the file is read. This check stays for what the build
+    adds after the read, such as an ETP injected from loaded data, and for a
+    ``Model`` built in Python.
+    """
     boundary_bundle = model.boundaries
-    active_sinks_sources = model.active_sinks_sources
     unsupported_bc = sorted(
         set(boundary_bundle.unknown_active_ids())
-        | set(boundary_bundle.unsupported_active_ids("boussinesq"))
+        | set(boundary_bundle.active_ids_outside(frozenset(supports)))
     )
     unsupported_sinks_sources = sorted(
-        str(item) for item in active_sinks_sources if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
+        str(item) for item in model.active_sinks_sources if str(item) not in supports
     )
 
     # An advanced package (LAK lake/reservoir) is a capability the boussinesq
@@ -219,35 +222,12 @@ def assert_supported_runtime_subset(model: Model) -> None:
         )
 
 
-def layering_refusal(
-    layers: VerticalGridConfig, *, written_in: str = "[domain.layers]"
-) -> str | None:
-    """Return why Boussinesq refuses ``layers``, or None when they build one layer.
-
-    Boussinesq solves one layer over the whole aquifer column and never reads
-    ``[domain.layers]``. More layers, or one base per layer, would be ignored.
-    ``written_in`` names where the layering is written.
-    """
-    if layers.genmtd_lay == "surfaces":
-        asked = "gives each layer its own base (genmtd_lay = 'surfaces')"
-    elif layers.layer_count > 1:
-        asked = f"builds {layers.layer_count} layers (genmtd_lay = {layers.genmtd_lay!r})"
-    else:
-        return None
-    return (
-        "solver.backend = 'boussinesq' solves one layer over the whole aquifer, and "
-        f"{written_in} {asked}, which boussinesq would ignore. Remove {written_in}, "
-        "or run the flow with 'modflow6' or 'modflow_nwt'."
-    )
-
-
 __all__ = [
     "AUTO_RUNTIME_BACKEND",
     "DENSE_ENGINE_MAX_CELLS",
     "BoussinesqSolverContract",
     "assert_supported_runtime_subset",
     "build_runtime_options",
-    "layering_refusal",
     "resolve_flow_regime",
     "resolve_runtime_backend_name",
     "resolve_solver_contract",

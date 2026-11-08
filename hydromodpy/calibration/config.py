@@ -74,7 +74,14 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.exceptions import ConfigValidationError
+from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.scoring.cost_margin import parse_cost_margin
+from hydromodpy.core.scoring.metric_table import (
+    METRIC_SENSE,
+    METRIC_SPECS,
+    NETWORK_METRIC_NAMES,
+    TRIAL_METRIC_NAMES,
+)
 from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
@@ -189,49 +196,10 @@ _OUTPUT_REDUCER_VALUE_DOCS: dict[str, str] = {
 """What each reducer of a calibration output does to the kept time steps."""
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
-MetricKind = Literal[
-    "rmse",
-    "nse",
-    "kge",
-    "mae",
-    "nse_log",
-    "nse_delta",
-    "nse_seasonal",
-    "reservoir",
-    "distance_gap",
-    "distance_mean",
-]
-"""Metric names a TOML may select.
+MetricKind = Literal[*TRIAL_METRIC_NAMES]
+"""Metric names a TOML may select: the trial metrics of ``core.scoring.metric_table``."""
 
-Kept equal to the keys of ``calibration.criteria.series.METRICS`` by
-``tests/unit/calibration/test_criteria_series.py``: the engine
-computed metrics this list did not offer, so they ran in Python and were refused
-by validation.
-"""
-
-_METRIC_VALUE_DOCS: dict[str, str] = {
-    "rmse": "Root-mean-square error, in the observed unit; penalizes large misfits most.",
-    "nse": "Nash-Sutcliffe efficiency against the observed mean; the "
-    "standard choice for a level or discharge series.",
-    "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, "
-    "variability as the ratio of standard deviations); separates correlation, "
-    "variability and bias when NSE alone is ambiguous.",
-    "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
-    "nse_log": "NSE on log-transformed series; weights low flows as "
-    "heavily as peaks, good for recessions.",
-    "nse_delta": "NSE on the increments of the series rather than its "
-    "level; a level is an integral and can hide flux errors that "
-    "compensate, which only its increments show.",
-    "nse_seasonal": "NSE against the seasonal cycle rather than the "
-    "overall mean; asks whether the model beats climatology.",
-    "reservoir": "Half nse_seasonal plus half nse_delta, built for an "
-    "impounded level: a plain NSE there is beaten by the seasonal cycle, "
-    "and the increments are what carry the flux errors.",
-    "distance_gap": "Balances the simulated stream network against the "
-    "mapped one; zero marks the crossing.",
-    "distance_mean": "Mean spatial offset between simulated and mapped "
-    "streams; a diagnostic, not a substitute for distance_gap.",
-}
+_METRIC_VALUE_DOCS: dict[str, str] = {name: METRIC_SPECS[name].doc for name in TRIAL_METRIC_NAMES}
 """What each metric a TOML may select measures, shown beside every key that picks one."""
 
 CalibrationMethod = NonEmptyStr
@@ -363,7 +331,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="Name of the network output stage one is scored on. Unset picks "
         "the single output declared with support='network'.",
     )
-    steady_metric: Annotated[Literal["distance_gap", "distance_mean"], Profile.USER] = Field(
+    steady_metric: Annotated[Literal[*NETWORK_METRIC_NAMES], Profile.USER] = Field(
         default="distance_gap",
         description="Criterion of stage one. 'distance_gap' is the signed difference "
         "of Eq. 1, whose zero is the balance the paper solves for. 'distance_mean' is "
@@ -1665,8 +1633,6 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         one badly simulated station hides behind it. One block per output
         averages the costs per station instead.
         """
-        from hydromodpy.results.catalog.constants import METRIC_SENSE
-
         metric = str(self.metric).lower()
         if METRIC_SENSE.get(metric) == "max" and len(self.uses_outputs) > 1:
             listed = ", ".join(repr(name) for name in self.uses_outputs)
@@ -2352,6 +2318,48 @@ class CalibUncertaintyDecl(HydroModelBase):
         return _checked_cost_margin(value)
 
 
+def _registered_evaluator(value: str | None) -> str | None:
+    """Refuse an evaluator this installation cannot serve, while reading the document.
+
+    Here rather than at the first trial because a file naming an evaluator nobody
+    installed is a broken document, and learning that after ``prepare_trials`` has
+    run the whole geographic, mesh and data prefix costs that prefix.
+
+    ``None`` is not checked: it means "whatever this build defaults to", and a
+    default that does not resolve is an environment fault the registry reports
+    with its own message.
+    """
+    if value is None:
+        return value
+    from hydromodpy.calibration.evaluation import registry as evaluator_registry
+
+    return check_registered_name(
+        value,
+        evaluator_registry.evaluators.names(),
+        key="calibration.evaluator",
+        group=evaluator_registry.ENTRY_POINT_GROUP,
+    )
+
+
+def _registered_forward_model(value: str | None) -> str | None:
+    """Refuse a model this installation cannot serve, while reading the document.
+
+    Same place and same reason as the evaluator: a file naming a model nobody
+    installed is a broken document, and finding out at the first trial costs
+    everything the search set up before it.
+    """
+    if value is None:
+        return value
+    import hydromodpy.calibration.evaluation.forward_registry as forward_registry
+
+    return check_registered_name(
+        value,
+        forward_registry.forward_models.names(),
+        key="calibration.forward_model",
+        group=forward_registry.ENTRY_POINT_GROUP,
+    )
+
+
 class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` section.
 
@@ -2425,7 +2433,7 @@ class CalibrationConfig(HydroModelBase):
             "cma_es and Optuna's cmaes sampler."
         ),
     )
-    evaluator: Annotated[str | None, Profile.USER] = Field(
+    evaluator: Annotated[str | None, Profile.USER, AfterValidator(_registered_evaluator)] = Field(
         default=None,
         description=(
             "What turns one parameter sample into a cost. Unset runs the HydroModPy "
@@ -2439,7 +2447,9 @@ class CalibrationConfig(HydroModelBase):
             "milliseconds, against an answer known in advance."
         ),
     )
-    forward_model: Annotated[str | None, Profile.USER] = Field(
+    forward_model: Annotated[
+        str | None, Profile.USER, AfterValidator(_registered_forward_model)
+    ] = Field(
         default=None,
         description=(
             "What produces the simulated observables when the evaluator is the one "
@@ -2671,57 +2681,6 @@ class CalibrationConfig(HydroModelBase):
         "value is unaffected; this only decides the interval printed beside it. It is "
         "the default of every phase, and a phase may write its own keys.",
     )
-
-    @field_validator("evaluator")
-    @classmethod
-    def _check_evaluator_resolves(cls, value: str | None) -> str | None:
-        """Refuse an evaluator this installation cannot serve, while reading the document.
-
-        Here rather than at the first trial because a file naming an evaluator
-        nobody installed is a broken document, and learning that after
-        ``prepare_trials`` has run the whole geographic, mesh and data prefix
-        costs that prefix.
-
-        ``None`` is not checked: it means "whatever this build defaults to", and a
-        default that does not resolve is an environment fault the registry reports
-        with its own message.
-        """
-        if value is None:
-            return value
-        from hydromodpy.calibration.evaluation import registry as evaluator_registry
-
-        if value in evaluator_registry.evaluators.names():
-            return value
-        served = ", ".join(evaluator_registry.evaluators.names()) or "none"
-        raise ValueError(
-            f"calibration.evaluator names {value!r}, and this installation serves {served}. "
-            f"A third-party evaluator joins that list through the "
-            f"{evaluator_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
-            "HydroModPy."
-        )
-
-    @field_validator("forward_model")
-    @classmethod
-    def _check_forward_model_resolves(cls, value: str | None) -> str | None:
-        """Refuse a model this installation cannot serve, while reading the document.
-
-        Same place and same reason as the evaluator above: a file naming a model
-        nobody installed is a broken document, and finding out at the first trial
-        costs everything the search set up before it.
-        """
-        if value is None:
-            return value
-        import hydromodpy.calibration.evaluation.forward_registry as forward_registry
-
-        if value in forward_registry.forward_models.names():
-            return value
-        served = ", ".join(forward_registry.forward_models.names()) or "none"
-        raise ValueError(
-            f"calibration.forward_model names {value!r}, and this installation serves "
-            f"{served}. A third-party model joins that list through the "
-            f"{forward_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
-            "HydroModPy."
-        )
 
     @model_validator(mode="after")
     def _check_the_costs_can_be_added(self) -> CalibrationConfig:

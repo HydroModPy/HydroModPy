@@ -116,3 +116,62 @@ def test_validate_field_nested_path() -> None:
                 validate_field(path, None)
                 return
     pytest.fail("HydroModPyConfig exposes no nested BaseModel field to validate")
+
+
+FIELD_CASES = (
+    ("solver.backend", "modflow_nwt", True, None),
+    ("solver.backend", " Boussinesq ", True, None),
+    (
+        "solver.backend",
+        "nope",
+        False,
+        "solver.backend names 'nope', and this installation serves boussinesq, modflow6, "
+        "modflow_nwt",
+    ),
+    ("mesh.engine", " triangle ", True, None),
+    (
+        "mesh.engine",
+        "nope",
+        False,
+        "mesh.engine names 'nope', and this installation serves regular, triangle, voronoi",
+    ),
+    ("geographic.terrain_engine", None, True, None),
+    (
+        "geographic.terrain_engine",
+        "nope",
+        False,
+        "geographic.terrain_engine names 'nope', and this installation serves numpy_d8",
+    ),
+    ("calibration.evaluator", None, True, None),
+    (
+        "calibration.evaluator",
+        "nope",
+        False,
+        "calibration.evaluator names 'nope', and this installation serves analytic_bowl",
+    ),
+    ("calibration.forward_model", "linear_reservoir", True, None),
+    (
+        "calibration.forward_model",
+        "nope",
+        False,
+        "calibration.forward_model names 'nope', and this installation serves linear_reservoir",
+    ),
+    ("solver.modflow6.runtime.mf6_ims_complexity", "SIMPLE", True, None),
+    ("solver.modflow6.runtime.mf6_ims_complexity", "x", False, "Input should be"),
+    ("solver.boussinesq.max_iterations", 40, True, None),
+    ("solver.drain_bed_thickness_m", -1.0, False, "greater than 0"),
+)
+
+
+@pytest.mark.parametrize(("path", "value", "valid", "error"), FIELD_CASES)
+def test_a_field_is_checked_as_the_file_is_read(
+    path: str, value: object, valid: bool, error: str | None
+) -> None:
+    """The checks of the annotation run here too: the registry, a bound, a named table."""
+    from hydromodpy.schema import validate_field
+
+    result = validate_field(path, value)
+
+    assert result.valid is valid
+    if error is not None:
+        assert error in (result.error or "")

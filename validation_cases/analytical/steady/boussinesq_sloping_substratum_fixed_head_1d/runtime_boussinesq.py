@@ -60,12 +60,9 @@ def run_boussinesq_sloping_substratum_fixed_head_case(
         ),
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=0.1,
+        boussinesq_settings={"backend": "petsc", "surface_interaction_model": "vi_obstacle"},
         flow_section={
             "flow_regime": "steady",
-            "runtime": {
-                "backend": "petsc",
-                "surface_interaction_model": "vi_obstacle",
-            },
             "ic": {
                 "kind": "custom",
                 "value": 0.5

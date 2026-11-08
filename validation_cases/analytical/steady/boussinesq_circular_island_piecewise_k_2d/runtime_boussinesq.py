@@ -26,6 +26,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
 from validation_cases.shared.runtime import (
@@ -474,7 +475,6 @@ def run_boussinesq_circular_island_piecewise_k_case(
                         },
                     },
                     flow_regime="steady",
-                    solver=solver_name,
                 ),
                 case_dir=CASE_DIR,
                 config_name=boussinesq_variant_config_name(solver_name),
@@ -482,6 +482,12 @@ def run_boussinesq_circular_island_piecewise_k_case(
         ),
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
+        options=boussinesq_variant_options(
+            flow_regime="steady",
+            solver=solver_name,
+            case_dir=CASE_DIR,
+            config_name=boussinesq_variant_config_name(solver_name),
+        ),
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

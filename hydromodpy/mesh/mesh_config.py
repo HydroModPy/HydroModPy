@@ -16,14 +16,15 @@ cells, whether its cells are squares, triangles or Voronoi polygons.
 from __future__ import annotations
 
 from collections.abc import Collection
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, PositiveInt, StripLower
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
 
 __all__ = [
@@ -36,6 +37,18 @@ __all__ = [
 
 _TRIANGULATED_ENGINES = ("triangle", "voronoi")
 """The engines that start from a triangulation and read ``[mesh.triangle]``."""
+
+
+def _registered_mesh_engine(value: str) -> str:
+    """Return the mesh engine *value* names, stripped, or refuse a name nothing serves."""
+    from hydromodpy.mesh import registry as mesh_registry
+
+    return check_registered_name(
+        value.strip(),
+        mesh_registry.mesh_engines.names(),
+        key="mesh.engine",
+        group=mesh_registry.ENTRY_POINT_GROUP,
+    )
 
 
 class MeshFamiliesConfig(HydroModelBase):
@@ -195,7 +208,7 @@ class MeshConfig(HydroModelBase):
 
     model_config = ConfigDict(allow_inf_nan=False)
 
-    engine: Annotated[str, Profile.USER] = Field(
+    engine: Annotated[str, Profile.USER, AfterValidator(_registered_mesh_engine)] = Field(
         default="regular",
         description=(
             "Mesh engine: 'regular' (one quadrilateral cell per DEM pixel, or per "
@@ -334,26 +347,6 @@ class MeshConfig(HydroModelBase):
                 "give 1 or more, or 0 to switch the gap term off."
             )
         return value
-
-    @field_validator("engine", mode="before")
-    @classmethod
-    def _strip_engine(cls, value: Any) -> Any:
-        return value.strip() if isinstance(value, str) else value
-
-    @field_validator("engine")
-    @classmethod
-    def _check_engine_resolves(cls, value: str) -> str:
-        """Refuse an engine this installation cannot serve, while reading the document."""
-        from hydromodpy.mesh import registry as mesh_registry
-
-        if value in mesh_registry.mesh_engines.names():
-            return value
-        served = ", ".join(mesh_registry.mesh_engines.names()) or "none"
-        raise ValueError(
-            f"mesh.engine names {value!r}, and this installation serves {served}. A "
-            f"third-party engine joins that list through the {mesh_registry.ENTRY_POINT_GROUP!r} "
-            "entry-point group, without a patch to HydroModPy."
-        )
 
     @model_validator(mode="after")
     def _check_engine_tables(self) -> MeshConfig:

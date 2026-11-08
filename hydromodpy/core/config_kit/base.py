@@ -22,8 +22,13 @@ from typing import Any, ClassVar, Literal, NoReturn, get_args, get_origin
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
 
-from hydromodpy.core.config_kit.introspect import extract_profile, unwrap_members
-from hydromodpy.core.config_kit.profile import ProfileName
+from hydromodpy.core.config_kit.introspect import (
+    extract_profile,
+    held_tables_of,
+    named_tables_of,
+    unwrap_members,
+)
+from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.exceptions import ConfigValidationError, FrozenConfigError
 
@@ -317,6 +322,16 @@ class HydroModelBase(BaseModel):
                     examples = _json_schema_examples(field_info)
                     if examples is not None:
                         field_schema.setdefault("examples", examples)
+            tables = named_tables_of(cls, shipped_only=True)
+            for name, table in tables.items():
+                # Through the generator, so the table is a $ref with its own profile marks.
+                generator = handler.generate_json_schema
+                table_schema = dict(generator.generate_inner(table.__pydantic_core_schema__))
+                table_schema["x-hmp-profile"] = Profile.USER.name.lower()
+                properties.setdefault(name, table_schema)
+            if tables:
+                # A plugin's table is checked by its own class when the file is read.
+                schema["additionalProperties"] = {"type": "object"}
         return schema
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -413,10 +428,10 @@ def thawed_copy(model: HydroModelBase) -> HydroModelBase:
 
 
 def _sections_of(value: Any) -> Iterator[HydroModelBase]:
-    """Yield every config model under *value*, itself included."""
+    """Yield every config model under *value*, itself included, named tables too."""
     if isinstance(value, HydroModelBase):
         yield value
-        children: Iterable[Any] = value.__dict__.values()
+        children: Iterable[Any] = [*value.__dict__.values(), *held_tables_of(value).values()]
     elif isinstance(value, Mapping):
         children = value.values()
     elif isinstance(value, list | tuple):

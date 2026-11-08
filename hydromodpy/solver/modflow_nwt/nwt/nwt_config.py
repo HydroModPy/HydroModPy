@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -274,6 +274,24 @@ class ModflowConfig(HydroModelBase):
             "[mesh] and the layering is [domain.layers]."
         ),
     )
+
+    @model_validator(mode="after")
+    def _check_the_zonal_top_reads_no_channel_tree(self) -> ModflowConfig:
+        """Refuse a zonal top that asks for a channel tree this backend never reads."""
+        top_sampling = self.sgrid.top_sampling
+        if (
+            top_sampling is not None
+            and top_sampling.mode == "zonal"
+            and top_sampling.channel_source != "none"
+        ):
+            raise ValueError(
+                "[solver.modflow_nwt.sgrid.top_sampling] mode = 'zonal' with "
+                f"channel_source = {top_sampling.channel_source!r}: MODFLOW-NWT does "
+                "not read the channel tree for the zonal top, so the channel cells would "
+                "get the hillslope statistic like the others. Set channel_source = 'none' "
+                "(median only) or run MODFLOW 6."
+            )
+        return self
 
 
 def _coerce_modflow_config(

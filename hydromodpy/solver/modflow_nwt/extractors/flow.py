@@ -198,8 +198,8 @@ class ModflowNwtOutputAdapter:
         """Read .hds and .cbc files and write fields into the store.
 
         ``hdry`` and ``hnoflo`` are the sentinels the run was configured with
-        (``[modflownwt.runtime.upw] hdry`` and ``[modflownwt.runtime.bas]
-        hnoflo``). They carry no default here: masking a user's heads against
+        (``[solver.modflow_nwt.runtime.upw] hdry`` and
+        ``[solver.modflow_nwt.runtime.bas] hnoflo``). They carry no default here: masking a user's heads against
         the stock -100 / -9999 would silently keep sentinel values in the
         field, or blank out real heads that happen to sit near them.
 

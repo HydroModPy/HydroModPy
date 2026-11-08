@@ -75,6 +75,10 @@ class ModflowNwtFlowAdapter:
             "drain_conductance_floor_m2_s",
             "head_rule",
             "steady_start",
+            "recharge",
+            "wells",
+            "etp",
+            "layers",
         }
     )
     options: ClassVar[type[BaseModel] | None] = ModflowConfig
@@ -229,7 +233,7 @@ class ModflowNwtFlowAdapter:
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,
-            modflow_config=state.cfg.modflownwt,
+            modflow_config=state.cfg.solver.options_of(self.name),
             preprocess_options=preprocess_options,
         )
         return run_flow_model(ctx, model_modflow, preprocess_options)

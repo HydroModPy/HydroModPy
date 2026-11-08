@@ -9,6 +9,7 @@ import numpy as np
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, ModelTime, model_from_flow
+from hydromodpy.solver.base.solver_config import SolverConfig
 from tests._helpers.model_factory import default_options
 
 
@@ -19,12 +20,14 @@ def adapter_state(
     cell_mesh: object = None,
     domain: object = None,
     time_grid: object = None,
+    solver: SolverConfig | None = None,
     **setup: object,
 ) -> RunState:
     """The run state the Boussinesq adapter reads: the Model of ``flow`` and the setup facts.
 
     The setup keeps what is not in the Model: the scratch folder, the mesh bundle
-    and the mesh summary. ``[flow.runtime]`` comes from ``cfg.flow``.
+    and the mesh summary. ``[solver.boussinesq]`` comes from ``cfg.solver``, which
+    defaults to a solver section with every setting at its default.
     """
     model = model_from_flow(
         flow,
@@ -38,7 +41,7 @@ def adapter_state(
         "workspace": SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
     }
     return RunState(
-        cfg=SimpleNamespace(flow=flow.config),
+        cfg=SimpleNamespace(flow=flow.config, solver=solver or SolverConfig()),
         setup=SimpleNamespace(model=model, **{**facts, **setup}),
     )
 

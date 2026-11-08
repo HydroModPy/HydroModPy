@@ -574,7 +574,7 @@ source_mode = "synthetic"
 crs_project = "EPSG:2154"
 
 [solver]
-backend = { kind = "modflow6" }
+backend = "modflow6"
 
 [flow]
 param_list = ["K", "K22", "angle1", "angle2"]

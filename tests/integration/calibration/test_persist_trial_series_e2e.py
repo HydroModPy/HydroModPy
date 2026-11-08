@@ -78,7 +78,7 @@ right_to_left_amplitude = 1.0
 kind = "constant_thickness"
 thickness = "5 m"
 
-[modflow6.runtime]
+[solver.modflow6.runtime]
 mf6_runner = "{runner}"
 
 [flow]

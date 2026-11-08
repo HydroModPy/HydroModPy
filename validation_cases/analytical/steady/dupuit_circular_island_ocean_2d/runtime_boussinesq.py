@@ -20,6 +20,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -96,7 +97,6 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                         },
                     },
                     flow_regime="steady",
-                    solver=solver_name,
                 ),
                 case_dir=CASE_DIR,
                 config_name=boussinesq_variant_config_name(solver_name),
@@ -104,6 +104,12 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
         ),
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
+        options=boussinesq_variant_options(
+            flow_regime="steady",
+            solver=solver_name,
+            case_dir=CASE_DIR,
+            config_name=boussinesq_variant_config_name(solver_name),
+        ),
     )
     run = ProcessRun(
         id="flow_validation::boussinesq",

@@ -10,6 +10,7 @@ from typing import Annotated, Any, Union, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.introspect import fields_and_tables, held_tables_of
 from hydromodpy.core.tracking.input_file import InputFile, TrackedFileEntry
 
 
@@ -50,6 +51,8 @@ def _walk(
             if marker is not None:
                 _record_path_value(marker, value, seen, entries, base)
             _walk(value, seen, entries, base)
+        for table in held_tables_of(node).values():
+            _walk(table, seen, entries, base)
         return
 
     if isinstance(node, (list, tuple)):
@@ -122,8 +125,8 @@ def rewrite_input_paths(
 
     The document is the plain mapping a TOML file or ``model_dump`` gives;
     *model* is the class it validates against. The walk follows the fields of
-    the model into nested tables, lists of tables and tables of tables, and
-    tries every member of a union.
+    the model, and its named tables, into nested tables, lists of tables and
+    tables of tables, and tries every member of a union.
     """
     _rewrite(payload, [model], rewrite)
 
@@ -135,7 +138,12 @@ def _rewrite(
 ) -> None:
     for key, value in list(payload.items()):
         field_info = next(
-            (model.model_fields[key] for model in models if key in model.model_fields), None
+            (
+                fields[key]
+                for model in models
+                if key in (fields := fields_and_tables(model, shipped_only=False))
+            ),
+            None,
         )
         if field_info is None:
             continue

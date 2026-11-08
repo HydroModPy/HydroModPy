@@ -33,9 +33,9 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.core.site import SITE_NAME_PATTERN
 from hydromodpy.core.toml_io.paths import parse as parse_dotted_path
-from hydromodpy.results.metric_rule import METRIC_NAMES
 
 RECIPE_NAME_PATTERN = SITE_NAME_PATTERN
 """Grammar of a recipe name, the same as a site name."""
@@ -225,20 +225,20 @@ class SitesSummaryConfig(HydroModelBase):
     @field_validator("metrics")
     @classmethod
     def _metrics_are_metrics_of_the_rule(cls, value: list[str]) -> list[str]:
-        unknown = [name for name in value if name not in METRIC_NAMES]
+        unknown = [name for name in value if name not in RUN_METRIC_NAMES]
         if unknown:
             raise ValueError(
                 f"metrics {', '.join(map(repr, unknown))} are not metrics the run rule writes: "
-                f"{', '.join(METRIC_NAMES)}."
+                f"{', '.join(RUN_METRIC_NAMES)}."
             )
         return value
 
     @field_validator("rank_by")
     @classmethod
     def _rank_by_is_a_metric_of_the_rule(cls, value: str) -> str:
-        if value not in METRIC_NAMES:
+        if value not in RUN_METRIC_NAMES:
             raise ValueError(
-                f"rank_by {value!r} is not a metric the run rule writes: {', '.join(METRIC_NAMES)}."
+                f"rank_by {value!r} is not a metric the run rule writes: {', '.join(RUN_METRIC_NAMES)}."
             )
         return value
 

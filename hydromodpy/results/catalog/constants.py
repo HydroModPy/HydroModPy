@@ -1,14 +1,15 @@
 """Catalog constants and small solver helpers.
 
-Hosts the Parquet view names, the solver vocabulary and the direction of every metric. The DDL of the index lives in
+Hosts the Parquet view names, the solver vocabulary and the metric helpers that read the direction table. The DDL of the index lives in
 :mod:`hydromodpy.results.catalog.index_schema`.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE, MetricSense
 
 if TYPE_CHECKING:
     import numpy as np
@@ -100,44 +101,6 @@ def validate_solver_code(solver_name: str) -> str:
         known = ", ".join(sorted(VALID_SOLVER_CODES))
         raise ValueError(f"Unknown solver code {solver_name!r}. Expected one of: {known}.")
     return key
-
-
-# Which value of a metric is the good one. The single table of metric
-# directions: ``@best:<metric>``, ``Catalog.best``, ``RunSet.best``,
-# ``hmp catalog rank`` and the calibration criteria read it, so "best" means the
-# best fit whatever the metric, and a score becomes a cost the same way
-# everywhere.
-#
-# - ``max``: a higher value is better (efficiency scores).
-# - ``min``: a lower value is better (errors, costs).
-# - ``zero``: the value closest to zero is better (signed biases).
-# - ``one``: the value closest to one is better (KGE ratios).
-MetricSense = Literal["max", "min", "zero", "one"]
-"""Which value of a metric is the good one."""
-
-METRIC_SENSE: dict[str, MetricSense] = {
-    "nse": "max",
-    "nse_log": "max",
-    "nse_delta": "max",
-    "nse_seasonal": "max",
-    "kge": "max",
-    "kge_r": "max",
-    "correlation": "max",
-    "reservoir": "max",
-    "rmse": "min",
-    "mae": "min",
-    "distance_gap": "min",
-    "distance_mean": "min",
-    "bias": "zero",
-    "pbias": "zero",
-    "kge_alpha": "one",
-    "kge_beta": "one",
-}
-"""Direction of every metric the catalog knows how to rank.
-
-Each key has a producer: the run kernels (``metric_rule.METRIC_NAMES``) or the
-calibration criteria. A test holds the two lists together.
-"""
 
 
 RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
@@ -234,12 +197,10 @@ SIMULATIONS_FROM = (
 
 __all__ = [
     "SIMULATIONS_FROM",
-    "METRIC_SENSE",
     "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",
     "RETIRED_METRIC_NAMES",
     "SOLVER_ALIASES",
-    "MetricSense",
     "UnrankedMetricError",
     "VALID_SOLVER_CODES",
     "canonical_solver_code",

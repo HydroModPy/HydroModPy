@@ -650,7 +650,7 @@ export.resolution	float | None	None	stable
 export.time	str | int | list[str | int] | None	None	stable
 export.variables	str | list[str]	<required>	stable
 flow	table	<table>	stable
-flow.bc	dict[str, table]	{}	stable
+flow.bc	dict[Literal['west_side', 'east_side', 'north_side', 'south_side', 'stream', 'ocean', 'drainage'], table]	{}	stable
 flow.bc.application_domain	str | None	None	stable
 flow.bc.data_value	bool	False	stable
 flow.bc.description	str	''	stable
@@ -735,22 +735,6 @@ flow.param_list	list[str]	[]	stable
 flow.restart_from	str | table | None	None	stable
 flow.restart_from.path	str | None	None	stable
 flow.restart_from.sim_id	str | None	None	stable
-flow.runtime	table	<table>	stable
-flow.runtime.backend	Literal['auto', 'local', 'scipy', 'scipy_sparse', 'petsc']	'auto'	experimental
-flow.runtime.max_iterations	int | None	None	experimental
-flow.runtime.partition_release_depth_m	float	0.05	experimental
-flow.runtime.surface_interaction_model	Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']	'auto'	stable
-flow.runtime.tol_residual_inf	float | None	None	experimental
-flow.runtime.tol_state_update_inf	float | None	None	experimental
-flow.runtime.ts_vi_adapt	bool	False	experimental
-flow.runtime.ts_vi_dt_max_fraction	float	0.25	experimental
-flow.runtime.ts_vi_dt_min_fraction	float	0.015625	experimental
-flow.runtime.ts_vi_snes_type	str	'vinewtonrsls'	experimental
-flow.runtime.ts_vi_steps_per_period	int	4	experimental
-flow.runtime.ts_vi_type	str	'beuler'	experimental
-flow.runtime.vi_max_adaptive_substeps	int | None	None	experimental
-flow.runtime.vi_substep_on_failure	bool	False	experimental
-flow.runtime.vi_substeps_per_period	int	1	experimental
 flow.sinks_sources	table	<table>	stable
 flow.sinks_sources.etp	table | None	None	stable
 flow.sinks_sources.etp.enabled	bool	True	stable
@@ -1267,7 +1251,7 @@ geographic.capped_breach	table | None	None	stable
 geographic.capped_breach.max_depth	float	0.5	stable
 geographic.capped_breach.max_distance	float	200.0	stable
 geographic.catchment	table | None	<required>	stable
-geographic.catchment.buff_area	str | float	<required>	stable
+geographic.catchment.buff_area	float | str	<required>	stable
 geographic.catchment.cell_size	float	<required>	stable
 geographic.catchment.dem_init_path	Path | None	<required>	stable
 geographic.catchment.dem_init_path	Path | None	None	stable
@@ -1378,103 +1362,6 @@ metrics.station	str | None	None	stable
 metrics.window	table | None	None	stable
 metrics.window.end	date	<required>	stable
 metrics.window.start	date	<required>	stable
-modflow6	table	<table>	stable
-modflow6.process_specific	table	<table>	stable
-modflow6.process_specific.evt_extinction_depth	float	1.0	stable
-modflow6.process_specific.lak_forcing_mode	Literal['auto', 'inline', 'ts6']	'auto'	stable
-modflow6.process_specific.ts6_min_periods	int	120	stable
-modflow6.process_specific.vka	float	1.0	stable
-modflow6.runtime	table	<table>	stable
-modflow6.runtime.ims_print_option	Literal['NONE', 'SUMMARY', 'ALL']	'NONE'	stable
-modflow6.runtime.mf6_api_timeout_s	float | None	None	stable
-modflow6.runtime.mf6_ats	bool	False	stable
-modflow6.runtime.mf6_ats_dtmin_s	float	60.0	stable
-modflow6.runtime.mf6_backtracking_number	int | None	None	stable
-modflow6.runtime.mf6_enable_rewet	bool | None	None	stable
-modflow6.runtime.mf6_enable_xt3d	bool | None	None	stable
-modflow6.runtime.mf6_executable_name	str	'mf6'	stable
-modflow6.runtime.mf6_ims_complexity	Literal['SIMPLE', 'MODERATE', 'COMPLEX']	'COMPLEX'	stable
-modflow6.runtime.mf6_inner_dvclose	float	0.0001	stable
-modflow6.runtime.mf6_inner_maximum	int	500	stable
-modflow6.runtime.mf6_inner_rclose	float | None	None	stable
-modflow6.runtime.mf6_linear_acceleration	Literal['CG', 'BICGSTAB'] | None	None	stable
-modflow6.runtime.mf6_newton	bool	True	stable
-modflow6.runtime.mf6_newton_under_relaxation	bool	True	stable
-modflow6.runtime.mf6_outer_dvclose	float	0.0001	stable
-modflow6.runtime.mf6_outer_maximum	int	500	stable
-modflow6.runtime.mf6_preconditioner_drop_tolerance	float | None	None	stable
-modflow6.runtime.mf6_preconditioner_levels	int | None	None	stable
-modflow6.runtime.mf6_reordering_method	Literal['none', 'rcm', 'md']	'none'	stable
-modflow6.runtime.mf6_rewet_ihdwet	int	0	stable
-modflow6.runtime.mf6_rewet_iwetit	int	1	stable
-modflow6.runtime.mf6_rewet_wetdry	float	0.1	stable
-modflow6.runtime.mf6_rewet_wetfct	float	0.1	stable
-modflow6.runtime.mf6_runner	Literal['subprocess', 'api']	'subprocess'	stable
-modflow6.runtime.mf6_under_relaxation	Literal['NONE', 'SIMPLE', 'COOLEY', 'DBD'] | None	None	stable
-modflow6.runtime.mf_verbose	bool	False	stable
-modflow6.runtime.print_head	bool	False	stable
-modflow6.runtime.save_saturation	bool	True	stable
-modflow6.runtime.save_specific_discharge	bool	True	stable
-modflow6.sgrid	table	<table>	stable
-modflow6.sgrid.top_sampling	table	<table>	stable
-modflow6.sgrid.top_sampling.channel_buffer_px	int	0	stable
-modflow6.sgrid.top_sampling.channel_source	Literal['none', 'streams_raster']	'streams_raster'	stable
-modflow6.sgrid.top_sampling.channel_stat	Literal['min', 'p10', 'p25', 'median', 'mean']	'min'	stable
-modflow6.sgrid.top_sampling.hillslope_stat	Literal['mean', 'median', 'min', 'max', 'p10', 'p25']	'median'	stable
-modflow6.sgrid.top_sampling.min_pixels	int	3	stable
-modflow6.sgrid.top_sampling.min_thickness_m	float	0.1	stable
-modflow6.sgrid.top_sampling.mode	Literal['centroid', 'zonal']	'centroid'	stable
-modflow6.sgrid.top_sampling.spike_guard_tol_m	float	2.0	stable
-modflownwt	table	<table>	stable
-modflownwt.process_specific	table	<table>	stable
-modflownwt.process_specific.exdp	float	1.0	stable
-modflownwt.process_specific.vka	float	1.0	stable
-modflownwt.runtime	table	<table>	stable
-modflownwt.runtime.bas	table	<table>	stable
-modflownwt.runtime.bas.hnoflo	float	-9999.0	stable
-modflownwt.runtime.dis	table	<table>	stable
-modflownwt.runtime.dis.itmuni	int	0	stable
-modflownwt.runtime.evt	table	<table>	stable
-modflownwt.runtime.evt.ievt	int	1	stable
-modflownwt.runtime.evt.ipakcb	int	1	stable
-modflownwt.runtime.evt.nevtop	int	3	stable
-modflownwt.runtime.lmt	table	<table>	stable
-modflownwt.runtime.lmt.extension	str	'lmt8'	stable
-modflownwt.runtime.lmt.output_file_name	str	'mt3d_link.ftl'	stable
-modflownwt.runtime.lmt.output_format	str	'unformatted'	stable
-modflownwt.runtime.nwt	table	<table>	stable
-modflownwt.runtime.nwt.backflag	int	0	stable
-modflownwt.runtime.nwt.continue_run	bool	False	stable
-modflownwt.runtime.nwt.fluxtol	float	0.005787037037037037	stable
-modflownwt.runtime.nwt.headtol	float	0.0001	stable
-modflownwt.runtime.nwt.ibotav	int	1	stable
-modflownwt.runtime.nwt.iprnwt	int	1	stable
-modflownwt.runtime.nwt.linmeth	int	2	stable
-modflownwt.runtime.nwt.listunit	int	2	stable
-modflownwt.runtime.nwt.maxiterout	int	5000	stable
-modflownwt.runtime.nwt.options	str	'MODERATE'	stable
-modflownwt.runtime.nwt.stoptol	float	1e-10	stable
-modflownwt.runtime.nwt.thickfact	float	1e-05	stable
-modflownwt.runtime.nwt.verbose	bool	False	stable
-modflownwt.runtime.nwt.version	str	'mfnwt'	stable
-modflownwt.runtime.oc	table	<table>	stable
-modflownwt.runtime.oc.compact	bool	True	stable
-modflownwt.runtime.upw	table	<table>	stable
-modflownwt.runtime.upw.hdry	float	-100.0	stable
-modflownwt.runtime.upw.iphdry	int	1	stable
-modflownwt.runtime.upw.layvka	int	1	stable
-modflownwt.runtime.wel	table	<table>	stable
-modflownwt.runtime.wel.ipakcb	int	1	stable
-modflownwt.sgrid	table	<table>	stable
-modflownwt.sgrid.top_sampling	table	<table>	stable
-modflownwt.sgrid.top_sampling.channel_buffer_px	int	0	stable
-modflownwt.sgrid.top_sampling.channel_source	Literal['none', 'streams_raster']	'streams_raster'	stable
-modflownwt.sgrid.top_sampling.channel_stat	Literal['min', 'p10', 'p25', 'median', 'mean']	'min'	stable
-modflownwt.sgrid.top_sampling.hillslope_stat	Literal['mean', 'median', 'min', 'max', 'p10', 'p25']	'median'	stable
-modflownwt.sgrid.top_sampling.min_pixels	int	3	stable
-modflownwt.sgrid.top_sampling.min_thickness_m	float	0.1	stable
-modflownwt.sgrid.top_sampling.mode	Literal['centroid', 'zonal']	'centroid'	stable
-modflownwt.sgrid.top_sampling.spike_guard_tol_m	float	2.0	stable
 observation	table	<table>	stable
 observation.points	list[table]	[]	stable
 observation.points.depth	float | None	None	stable
@@ -1575,15 +1462,123 @@ sites.summary.rank_by	str	'nse'	stable
 sites.summary.variables	list[str]	[]	stable
 sites.table	Path | None	None	stable
 solver	table	<table>	stable
-solver.backend	table	<table>	stable
-solver.backend.kind	Literal['boussinesq']	'boussinesq'	stable
-solver.backend.kind	Literal['custom']	'custom'	stable
-solver.backend.kind	Literal['modflow6']	'modflow6'	stable
-solver.backend.kind	Literal['modflow_nwt']	'modflow_nwt'	stable
-solver.backend.name	str	<required>	experimental
+solver.backend	str	'modflow6'	stable
+solver.boussinesq	table	<table>	stable
+solver.boussinesq.backend	Literal['auto', 'local', 'scipy', 'scipy_sparse', 'petsc']	'auto'	experimental
+solver.boussinesq.max_iterations	int | None	None	experimental
+solver.boussinesq.partition_release_depth_m	float	0.05	experimental
+solver.boussinesq.surface_interaction_model	Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']	'auto'	stable
+solver.boussinesq.tol_residual_inf	float | None	None	experimental
+solver.boussinesq.tol_state_update_inf	float | None	None	experimental
+solver.boussinesq.ts_vi_adapt	bool	False	experimental
+solver.boussinesq.ts_vi_dt_max_fraction	float	0.25	experimental
+solver.boussinesq.ts_vi_dt_min_fraction	float	0.015625	experimental
+solver.boussinesq.ts_vi_snes_type	str	'vinewtonrsls'	experimental
+solver.boussinesq.ts_vi_steps_per_period	int	4	experimental
+solver.boussinesq.ts_vi_type	str	'beuler'	experimental
+solver.boussinesq.vi_max_adaptive_substeps	int | None	None	experimental
+solver.boussinesq.vi_substep_on_failure	bool	False	experimental
+solver.boussinesq.vi_substeps_per_period	int	1	experimental
 solver.drain_band_depth_m	float	0.0	stable
 solver.drain_bed_thickness_m	float	1.0	stable
 solver.drain_conductance_floor_m2_s	float	1e-12	stable
+solver.modflow6	table	<table>	stable
+solver.modflow6.process_specific	table	<table>	stable
+solver.modflow6.process_specific.evt_extinction_depth	float	1.0	stable
+solver.modflow6.process_specific.lak_forcing_mode	Literal['auto', 'inline', 'ts6']	'auto'	stable
+solver.modflow6.process_specific.ts6_min_periods	int	120	stable
+solver.modflow6.process_specific.vka	float	1.0	stable
+solver.modflow6.runtime	table	<table>	stable
+solver.modflow6.runtime.ims_print_option	Literal['NONE', 'SUMMARY', 'ALL']	'NONE'	stable
+solver.modflow6.runtime.mf6_api_timeout_s	float | None	None	stable
+solver.modflow6.runtime.mf6_ats	bool	False	stable
+solver.modflow6.runtime.mf6_ats_dtmin_s	float	60.0	stable
+solver.modflow6.runtime.mf6_backtracking_number	int | None	None	stable
+solver.modflow6.runtime.mf6_enable_rewet	bool | None	None	stable
+solver.modflow6.runtime.mf6_enable_xt3d	bool | None	None	stable
+solver.modflow6.runtime.mf6_executable_name	str	'mf6'	stable
+solver.modflow6.runtime.mf6_ims_complexity	Literal['SIMPLE', 'MODERATE', 'COMPLEX']	'COMPLEX'	stable
+solver.modflow6.runtime.mf6_inner_dvclose	float	0.0001	stable
+solver.modflow6.runtime.mf6_inner_maximum	int	500	stable
+solver.modflow6.runtime.mf6_inner_rclose	float | None	None	stable
+solver.modflow6.runtime.mf6_linear_acceleration	Literal['CG', 'BICGSTAB'] | None	None	stable
+solver.modflow6.runtime.mf6_newton	bool	True	stable
+solver.modflow6.runtime.mf6_newton_under_relaxation	bool	True	stable
+solver.modflow6.runtime.mf6_outer_dvclose	float	0.0001	stable
+solver.modflow6.runtime.mf6_outer_maximum	int	500	stable
+solver.modflow6.runtime.mf6_preconditioner_drop_tolerance	float | None	None	stable
+solver.modflow6.runtime.mf6_preconditioner_levels	int | None	None	stable
+solver.modflow6.runtime.mf6_reordering_method	Literal['none', 'rcm', 'md']	'none'	stable
+solver.modflow6.runtime.mf6_rewet_ihdwet	int	0	stable
+solver.modflow6.runtime.mf6_rewet_iwetit	int	1	stable
+solver.modflow6.runtime.mf6_rewet_wetdry	float	0.1	stable
+solver.modflow6.runtime.mf6_rewet_wetfct	float	0.1	stable
+solver.modflow6.runtime.mf6_runner	Literal['subprocess', 'api']	'subprocess'	stable
+solver.modflow6.runtime.mf6_under_relaxation	Literal['NONE', 'SIMPLE', 'COOLEY', 'DBD'] | None	None	stable
+solver.modflow6.runtime.mf_verbose	bool	False	stable
+solver.modflow6.runtime.print_head	bool	False	stable
+solver.modflow6.runtime.save_saturation	bool	True	stable
+solver.modflow6.runtime.save_specific_discharge	bool	True	stable
+solver.modflow6.sgrid	table	<table>	stable
+solver.modflow6.sgrid.top_sampling	table	<table>	stable
+solver.modflow6.sgrid.top_sampling.channel_buffer_px	int	0	stable
+solver.modflow6.sgrid.top_sampling.channel_source	Literal['none', 'streams_raster']	'streams_raster'	stable
+solver.modflow6.sgrid.top_sampling.channel_stat	Literal['min', 'p10', 'p25', 'median', 'mean']	'min'	stable
+solver.modflow6.sgrid.top_sampling.hillslope_stat	Literal['mean', 'median', 'min', 'max', 'p10', 'p25']	'median'	stable
+solver.modflow6.sgrid.top_sampling.min_pixels	int	3	stable
+solver.modflow6.sgrid.top_sampling.min_thickness_m	float	0.1	stable
+solver.modflow6.sgrid.top_sampling.mode	Literal['centroid', 'zonal']	'centroid'	stable
+solver.modflow6.sgrid.top_sampling.spike_guard_tol_m	float	2.0	stable
+solver.modflow_nwt	table	<table>	stable
+solver.modflow_nwt.process_specific	table	<table>	stable
+solver.modflow_nwt.process_specific.exdp	float	1.0	stable
+solver.modflow_nwt.process_specific.vka	float	1.0	stable
+solver.modflow_nwt.runtime	table	<table>	stable
+solver.modflow_nwt.runtime.bas	table	<table>	stable
+solver.modflow_nwt.runtime.bas.hnoflo	float	-9999.0	stable
+solver.modflow_nwt.runtime.dis	table	<table>	stable
+solver.modflow_nwt.runtime.dis.itmuni	int	0	stable
+solver.modflow_nwt.runtime.evt	table	<table>	stable
+solver.modflow_nwt.runtime.evt.ievt	int	1	stable
+solver.modflow_nwt.runtime.evt.ipakcb	int	1	stable
+solver.modflow_nwt.runtime.evt.nevtop	int	3	stable
+solver.modflow_nwt.runtime.lmt	table	<table>	stable
+solver.modflow_nwt.runtime.lmt.extension	str	'lmt8'	stable
+solver.modflow_nwt.runtime.lmt.output_file_name	str	'mt3d_link.ftl'	stable
+solver.modflow_nwt.runtime.lmt.output_format	str	'unformatted'	stable
+solver.modflow_nwt.runtime.nwt	table	<table>	stable
+solver.modflow_nwt.runtime.nwt.backflag	int	0	stable
+solver.modflow_nwt.runtime.nwt.continue_run	bool	False	stable
+solver.modflow_nwt.runtime.nwt.fluxtol	float	0.005787037037037037	stable
+solver.modflow_nwt.runtime.nwt.headtol	float	0.0001	stable
+solver.modflow_nwt.runtime.nwt.ibotav	int	1	stable
+solver.modflow_nwt.runtime.nwt.iprnwt	int	1	stable
+solver.modflow_nwt.runtime.nwt.linmeth	int	2	stable
+solver.modflow_nwt.runtime.nwt.listunit	int	2	stable
+solver.modflow_nwt.runtime.nwt.maxiterout	int	5000	stable
+solver.modflow_nwt.runtime.nwt.options	str	'MODERATE'	stable
+solver.modflow_nwt.runtime.nwt.stoptol	float	1e-10	stable
+solver.modflow_nwt.runtime.nwt.thickfact	float	1e-05	stable
+solver.modflow_nwt.runtime.nwt.verbose	bool	False	stable
+solver.modflow_nwt.runtime.nwt.version	str	'mfnwt'	stable
+solver.modflow_nwt.runtime.oc	table	<table>	stable
+solver.modflow_nwt.runtime.oc.compact	bool	True	stable
+solver.modflow_nwt.runtime.upw	table	<table>	stable
+solver.modflow_nwt.runtime.upw.hdry	float	-100.0	stable
+solver.modflow_nwt.runtime.upw.iphdry	int	1	stable
+solver.modflow_nwt.runtime.upw.layvka	int	1	stable
+solver.modflow_nwt.runtime.wel	table	<table>	stable
+solver.modflow_nwt.runtime.wel.ipakcb	int	1	stable
+solver.modflow_nwt.sgrid	table	<table>	stable
+solver.modflow_nwt.sgrid.top_sampling	table	<table>	stable
+solver.modflow_nwt.sgrid.top_sampling.channel_buffer_px	int	0	stable
+solver.modflow_nwt.sgrid.top_sampling.channel_source	Literal['none', 'streams_raster']	'streams_raster'	stable
+solver.modflow_nwt.sgrid.top_sampling.channel_stat	Literal['min', 'p10', 'p25', 'median', 'mean']	'min'	stable
+solver.modflow_nwt.sgrid.top_sampling.hillslope_stat	Literal['mean', 'median', 'min', 'max', 'p10', 'p25']	'median'	stable
+solver.modflow_nwt.sgrid.top_sampling.min_pixels	int	3	stable
+solver.modflow_nwt.sgrid.top_sampling.min_thickness_m	float	0.1	stable
+solver.modflow_nwt.sgrid.top_sampling.mode	Literal['centroid', 'zonal']	'centroid'	stable
+solver.modflow_nwt.sgrid.top_sampling.spike_guard_tol_m	float	2.0	stable
 solver.sink_fill	bool	False	stable
 spinup	table | None	None	stable
 spinup.max_cycles	int	10	stable

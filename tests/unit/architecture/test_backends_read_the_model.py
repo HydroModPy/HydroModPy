@@ -58,13 +58,16 @@ EXEMPTIONS: dict[str, dict[str, object]] = {
         "why": _TRANSPORT_WHY,
         "lifted_by": "3.5",
     },
-    "hydromodpy/solver/boussinesq/adapters/flow.py": {
-        "reads": frozenset({"cfg.flow.runtime"}),
-        "why": (
-            "Boussinesq reads [flow.runtime] as its options object until the table "
-            "becomes BoussinesqOptions under [solver.boussinesq]."
-        ),
-        "lifted_by": "3.4",
+    **{
+        f"hydromodpy/solver/{folder}/adapters/flow.py": {
+            "reads": frozenset({"cfg.solver.options_of"}),
+            "why": (
+                "A flow adapter reads its own settings, [solver.<name>], by "
+                "cfg.solver.options_of(self.name) until the adapter contract hands them in."
+            ),
+            "lifted_by": "3.4",
+        }
+        for folder in ("modflow6", "modflow_nwt", "boussinesq")
     },
 }
 
@@ -138,8 +141,8 @@ def forbidden_reads(source: str) -> list[tuple[int, str]]:
             label = f"cfg.{member}"
             outer = parents.get(node)
             outer_read = None if outer is None else _member_read(outer)
-            if member == "flow" and outer_read is not None and outer_read[1] == "runtime":
-                label = "cfg.flow.runtime"
+            if member == "solver" and outer_read is not None and outer_read[1] == "options_of":
+                label = "cfg.solver.options_of"
             found.append((node.lineno, label))
     return found
 
@@ -288,10 +291,15 @@ READ_CASES = (
         ["cfg.geographic"],
     ),
     ("config flow", "def f(cfg):\n    return cfg.flow.restart_from\n", ["cfg.flow"]),
-    ("config flow runtime", "def f(cfg):\n    return cfg.flow.runtime\n", ["cfg.flow.runtime"]),
+    ("config flow runtime", "def f(cfg):\n    return cfg.flow.runtime\n", ["cfg.flow"]),
+    (
+        "config solver options",
+        "def f(self, state):\n    return state.cfg.solver.options_of(self.name)\n",
+        ["cfg.solver.options_of"],
+    ),
     (
         "allowed members",
-        "def f(state):\n    return state.setup.workspace, state.cfg.modflow6\n",
+        "def f(state):\n    return state.setup.workspace, state.cfg.simulation\n",
         [],
     ),
     ("the model", "def f(state):\n    return state.setup.model.geometry.domain\n", []),

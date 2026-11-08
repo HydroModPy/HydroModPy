@@ -98,12 +98,12 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'kind = "dem"',
                 'dem_init_path = "dem.tif"',
                 "[solver]",
-                'backend = { kind = "modflow_nwt" }',
+                'backend = "modflow_nwt"',
                 "",
-                "[modflownwt.runtime.nwt]",
+                "[solver.modflow_nwt.runtime.nwt]",
                 'options = "SIMPLE"',
                 "",
-                "[modflownwt.process_specific]",
+                "[solver.modflow_nwt.process_specific]",
                 "vka = 2.5",
                 "exdp = 3.0",
                 "",
@@ -123,10 +123,10 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.solver.backend_name == "modflow_nwt"
-    assert cfg.modflownwt.process_specific.vka == 2.5
-    assert cfg.modflownwt.process_specific.exdp == 3.0
-    assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
-    assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
+    assert cfg.solver.options_of("modflow_nwt").process_specific.vka == 2.5
+    assert cfg.solver.options_of("modflow_nwt").process_specific.exdp == 3.0
+    assert cfg.solver.options_of("modflow_nwt").runtime.nwt.options == "SIMPLE"
+    assert isinstance(cfg.solver.options_of("modflow_nwt").sgrid, SolverSGridConfig)
     assert cfg.mesh.regular.shape == (5, 6)
     assert cfg.domain.layers.genmtd_lay == "decay"
     assert cfg.domain.layers.nlay == 3
@@ -154,9 +154,9 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
                 'kind = "dem"',
                 'dem_init_path = "dem.tif"',
                 "[solver]",
-                'backend = { kind = "modflow_nwt" }',
+                'backend = "modflow_nwt"',
                 "",
-                "[modflownwt.sgrid]",
+                "[solver.modflow_nwt.sgrid]",
                 'genmtd_lay = "decay"',
                 "nlay = 4",
                 "lay_decay = 1.5",
@@ -190,9 +190,9 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
                 'kind = "dem"',
                 'dem_init_path = "dem.tif"',
                 "[solver]",
-                'backend = { kind = "modflow_nwt" }',
+                'backend = "modflow_nwt"',
                 "",
-                "[modflownwt.process_specific]",
+                "[solver.modflow_nwt.process_specific]",
                 "vka = 2.5",
                 'exdp = "3.0 m"',
             ]
@@ -201,7 +201,7 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
     )
 
     cfg = HydroModPyConfig.from_toml(toml_path)
-    assert cfg.modflownwt.process_specific.exdp == pytest.approx(3.0)
+    assert cfg.solver.options_of("modflow_nwt").process_specific.exdp == pytest.approx(3.0)
 
 
 def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
@@ -286,16 +286,16 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 'kind = "dem"',
                 'dem_init_path = "dem.tif"',
                 "[solver]",
-                'backend = { kind = "modflow6" }',
+                'backend = "modflow6"',
                 "",
-                "[modflow6.runtime]",
+                "[solver.modflow6.runtime]",
                 'mf6_executable_name = "mf6_custom"',
                 'mf6_ims_complexity = "SIMPLE"',
                 "mf6_enable_rewet = true",
                 "mf6_enable_xt3d = true",
                 "mf6_rewet_wetdry = 0.05",
                 "",
-                "[modflow6.process_specific]",
+                "[solver.modflow6.process_specific]",
                 "evt_extinction_depth = 2.5",
             ]
         ),
@@ -304,16 +304,18 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
     assert cfg.solver.backend_name == "modflow6"
-    assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
-    assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
-    assert cfg.modflow6.runtime.mf6_enable_rewet is True
-    assert cfg.modflow6.runtime.mf6_enable_xt3d is True
-    assert cfg.modflow6.runtime.mf6_rewet_wetdry == pytest.approx(0.05)
-    assert cfg.modflow6.process_specific.evt_extinction_depth == pytest.approx(2.5)
+    assert cfg.solver.options_of("modflow6").runtime.mf6_executable_name == "mf6_custom"
+    assert cfg.solver.options_of("modflow6").runtime.mf6_ims_complexity == "SIMPLE"
+    assert cfg.solver.options_of("modflow6").runtime.mf6_enable_rewet is True
+    assert cfg.solver.options_of("modflow6").runtime.mf6_enable_xt3d is True
+    assert cfg.solver.options_of("modflow6").runtime.mf6_rewet_wetdry == pytest.approx(0.05)
+    assert cfg.solver.options_of("modflow6").process_specific.evt_extinction_depth == pytest.approx(
+        2.5
+    )
 
 
 def test_modflownwt_rejects_the_removed_tgrid_section():
-    """[modflownwt.tgrid] was a mirror nothing read back; the schema refuses it."""
+    """[solver.modflow_nwt.tgrid] was a mirror nothing read back; the schema refuses it."""
     with pytest.raises(ValueError, match="tgrid"):
         ModflowConfig.model_validate({"tgrid": {"nper": 1}})
 
@@ -761,3 +763,27 @@ def test_two_trials_move_the_depth_each_time() -> None:
     ]
 
     assert depths == [pytest.approx(3.0), pytest.approx(15.0)]
+
+
+@pytest.mark.parametrize(
+    ("top_sampling", "refused"),
+    [
+        ({}, True),
+        ({"channel_source": "streams_raster"}, True),
+        ({"channel_source": "none"}, False),
+        ({"mode": "centroid"}, False),
+    ],
+    ids=["default source", "channel tree", "median only", "centroid"],
+)
+def test_a_zonal_top_with_a_channel_source_is_refused_by_the_table(top_sampling, refused) -> None:
+    """MODFLOW-NWT reads no channel tree, so the table says so as it is read."""
+    document = {"sgrid": {"top_sampling": {"mode": "zonal", **top_sampling}}}
+    if refused:
+        with pytest.raises(
+            ValueError, match="MODFLOW-NWT does not read the channel tree"
+        ) as caught:
+            ModflowConfig.model_validate(document)
+        assert "channel_source = 'none'" in str(caught.value)
+        assert "MODFLOW 6" in str(caught.value)
+    else:
+        assert ModflowConfig.model_validate(document).sgrid.top_sampling is not None

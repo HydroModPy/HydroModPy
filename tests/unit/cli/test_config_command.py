@@ -286,3 +286,16 @@ def test_config_validate_field_ends_in_the_usage_refusal() -> None:
 
     assert result.exit_code == 14
     assert "usage: hmp config" in result.stderr
+
+
+def test_the_validate_field_example_names_a_field_that_validates() -> None:
+    """The example of the help is a real one: a registered name is valid, an absent one is not."""
+    from hydromodpy.schema import validate_field
+
+    result = CliRunner().invoke(["config", "validate-field", "--help"])
+
+    assert "hmp config validate-field solver.backend modflow6" in result.stdout
+    assert validate_field("solver.backend", "modflow6").valid
+    absent = validate_field("solver.backend", "nope")
+    assert not absent.valid
+    assert "this installation serves" in str(absent.error)

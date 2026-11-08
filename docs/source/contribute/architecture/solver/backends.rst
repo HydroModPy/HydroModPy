@@ -65,8 +65,8 @@ each other. No gate checks that independence: the import scanner of
 The shortest reading path for one flow run is the one of
 :doc:`../simulation/toml-to-solver-walkthrough`, then the adapter of the backend, then
 ``flow_adapter_helpers.py``, then the model class of the table above. Configuration is
-validated by ``modflow6_config.py`` (``[modflow6.*]``) and ``nwt/nwt_config.py``
-(``[modflownwt.*]``). MODFLOW 6 reads the output back through
+validated by ``modflow6_config.py`` (``[solver.modflow6.*]``) and ``nwt/nwt_config.py``
+(``[solver.modflow_nwt.*]``). MODFLOW 6 reads the output back through
 ``solver/modflow6/extractors/``, and resolves HydroModPy properties into
 MF6 arrays in ``solver/modflow6/support/property_mapping.py``.
 

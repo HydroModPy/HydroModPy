@@ -5,7 +5,7 @@
 kind = "custom"
 value = 4.0
 
-[flow.runtime]
+[solver.boussinesq]
 max_iterations = 300
 tol_residual_inf = 1e-8
 tol_state_update_inf = 1e-11

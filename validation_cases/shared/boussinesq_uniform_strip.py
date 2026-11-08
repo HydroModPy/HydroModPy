@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -20,6 +20,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     boussinesq_run_state,
     boussinesq_variant_config_name,
     boussinesq_variant_flow_section,
+    boussinesq_variant_options,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -415,8 +416,13 @@ def run_boussinesq_uniform_strip_case(
     dt_seconds: float | None = None,
     export_initial_state: bool | None = None,
     public_solver_label: str = "boussinesq",
+    boussinesq_settings: Mapping[str, Any] | None = None,
 ) -> ValidationRunResult:
-    """Run one Boussinesq validation case on a small homogeneous strip mesh."""
+    """Run one Boussinesq validation case on a small homogeneous strip mesh.
+
+    ``boussinesq_settings`` holds the ``[solver.boussinesq]`` values the case
+    writes itself, over the table of its config.
+    """
     del timeout
 
     normalized_regime = normalize_flow_regime(flow_regime)
@@ -458,7 +464,6 @@ def run_boussinesq_uniform_strip_case(
     effective_flow_section = boussinesq_variant_flow_section(
         flow_section,
         flow_regime=normalized_regime,
-        solver=public_solver_label,
     )
 
     state = boussinesq_run_state(
@@ -472,6 +477,13 @@ def run_boussinesq_uniform_strip_case(
         bundle_dir=bundle_dir,
         simulations_folder=simulations_folder,
         time_grid=time_grid,
+        options=boussinesq_variant_options(
+            flow_regime=normalized_regime,
+            solver=public_solver_label,
+            case_dir=case_dir,
+            config_name=boussinesq_variant_config_name(public_solver_label),
+            written=boussinesq_settings,
+        ),
     )
     run = ProcessRun(
         id=f"{process_id}::boussinesq",

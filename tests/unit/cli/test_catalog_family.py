@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations
 from hydromodpy.results.catalog import Catalog, rebuild_index
-from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.metric_rows import headline_row

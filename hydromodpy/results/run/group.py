@@ -41,9 +41,9 @@ import pandas as pd
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.manifest import is_sealed
-from hydromodpy.results.metric_rule import METRIC_NAMES
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import RULE_COLUMNS, check_one_rule, headline_metrics
 
@@ -241,7 +241,7 @@ class RunSet:
         rows = [{"sim_id": sid, **self._scores(sid)} for sid in self._sim_ids]
         frame = pd.DataFrame(rows)
         leading = ["sim_id", *RULE_COLUMNS]
-        known = [name for name in METRIC_NAMES if name in frame.columns]
+        known = [name for name in RUN_METRIC_NAMES if name in frame.columns]
         others = sorted(set(frame.columns) - set(leading) - set(known) - set(_RUN_COLUMNS))
         return frame[[*leading, *known, *others]]
 

@@ -175,7 +175,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "validate-field",
         help="Validate one field value without loading a whole config",
         parents=[workspace_parser(reads_none=True), format_parser()],
-        epilog="Example:\n  hmp config validate-field solver.backend.kind modflow6",
+        epilog="Example:\n  hmp config validate-field solver.backend modflow6",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     val.add_argument("path", help="Dotted field path")

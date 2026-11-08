@@ -248,7 +248,7 @@ def rank_simulations(
     rule version of the score; ``station`` keeps the rows of one station only.
     ``best=True`` puts the best values first, ``best=False`` the worst ones.
     The direction of the metric comes from
-    :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: a metric missing
+    :data:`hydromodpy.core.scoring.metric_table.METRIC_SENSE`: a metric missing
     from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
     A missing or non-finite value never ranks. The scores must share one rule
     (station, variable, window, rule version): otherwise

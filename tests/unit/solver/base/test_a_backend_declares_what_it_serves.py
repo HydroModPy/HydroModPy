@@ -33,7 +33,7 @@ def _config(tmp_path, backend: str, **flow: object):
         workflow={"mode": "simulation"},
         workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
         geographic=GeographicConfig(source_mode="synthetic"),
-        solver=SolverConfig(backend={"kind": backend}),
+        solver=SolverConfig(backend=backend),
         flow=FlowConfig(**flow),
         mesh=mesh,
     )

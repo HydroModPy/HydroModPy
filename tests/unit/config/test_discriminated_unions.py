@@ -22,13 +22,8 @@ from hydromodpy.solver.base.simulation_config import (
     SimulationProcessConfig,
     TransportProcessConfig,
 )
-from hydromodpy.solver.base.solver_config import (
-    BoussinesqBackend,
-    CustomBackend,
-    Modflow6Backend,
-    ModflowNwtBackend,
-    SolverConfig,
-)
+from hydromodpy.solver.base.solver_config import SolverConfig
+from tests._helpers.fake_solvers import fake_adapter
 
 pytestmark = pytest.mark.fast
 
@@ -118,43 +113,29 @@ class TestDataSourceUnion:
 
 
 # ---------------------------------------------------------------------------
-# SolverConfig axis (backend discriminator with custom plugin fallback)
+# SolverConfig axis: no union any more, the backend is a registered name
 # ---------------------------------------------------------------------------
 
 
 class TestSolverConfigUnion:
-    # expected_backend_name of None means the original test only checked the
-    # dispatched type, not SolverConfig.backend_name.
     BACKEND_CASES = [
-        pytest.param({"kind": "modflow6"}, Modflow6Backend, "modflow6", id="modflow6_backend"),
-        pytest.param(
-            {"kind": "modflow_nwt"}, ModflowNwtBackend, "modflow_nwt", id="modflow_nwt_backend"
-        ),
-        pytest.param(
-            {"kind": "boussinesq"}, BoussinesqBackend, "boussinesq", id="boussinesq_backend"
-        ),
-        pytest.param(
-            {"kind": "custom", "name": "pluginsolver"},
-            CustomBackend,
-            "pluginsolver",
-            id="plugin_backend_via_custom",
-        ),
-        pytest.param(
-            {"kind": "modflow_nwt"},
-            ModflowNwtBackend,
-            None,
-            id="discriminated_payload_form",
-        ),
+        pytest.param("modflow6", "modflow6", id="modflow6_backend"),
+        pytest.param("modflow_nwt", "modflow_nwt", id="modflow_nwt_backend"),
+        pytest.param("boussinesq", "boussinesq", id="boussinesq_backend"),
+        pytest.param("PluginSolver", "pluginsolver", id="plugin_backend_by_its_name"),
     ]
 
-    @pytest.mark.parametrize(
-        ("backend_payload", "expected_type", "expected_backend_name"), BACKEND_CASES
-    )
-    def test_backend_dispatch(self, backend_payload, expected_type, expected_backend_name) -> None:
-        cfg = SolverConfig(backend=backend_payload)
-        assert isinstance(cfg.backend, expected_type)
-        if expected_backend_name is not None:
-            assert cfg.backend_name == expected_backend_name
+    @pytest.mark.parametrize(("backend", "expected_backend_name"), BACKEND_CASES)
+    def test_backend_dispatch(self, isolated_solvers, backend, expected_backend_name) -> None:
+        isolated_solvers.solvers.register(fake_adapter("pluginsolver"))
+        cfg = SolverConfig(backend=backend)
+        assert cfg.backend == expected_backend_name
+        assert cfg.backend_name == expected_backend_name
+
+    def test_the_table_form_of_2_0_is_read_by_the_migration_only(self) -> None:
+        # The loader writes {kind = "modflow_nwt"} as "modflow_nwt" before the model reads it.
+        with pytest.raises(ValidationError, match="valid string"):
+            SolverConfig(backend={"kind": "modflow_nwt"})
 
     def test_legacy_solver_engine_rejected(self) -> None:
         with pytest.raises(ValidationError):

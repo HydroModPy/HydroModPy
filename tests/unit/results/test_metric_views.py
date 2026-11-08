@@ -23,6 +23,7 @@ from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
 from hydromodpy.core.exceptions import DataError
 from hydromodpy.core.scoring import metrics as core
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE, RUN_METRIC_NAMES
 from hydromodpy.model.sinks_sources.wells import (
     WELLS_PUMPED_CHECK,
     WELLS_PUMPED_METRIC,
@@ -32,7 +33,6 @@ from hydromodpy.project.accessors import ProjectRunsAccessor
 from hydromodpy.results import field_registry
 from hydromodpy.results.catalog import Catalog, SimulationNotFoundError
 from hydromodpy.results.catalog.constants import (
-    METRIC_SENSE,
     RETIRED_METRIC_NAMES,
     UnrankedMetricError,
     cost_of,
@@ -55,7 +55,6 @@ from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.manifest import MetricRow, ParameterRow
 from hydromodpy.results.metric_rule import (
     HEADLINE_WINDOW,
-    METRIC_NAMES,
     METRIC_RULE_VERSION,
     DateWindow,
     MetricRule,
@@ -1090,7 +1089,7 @@ def test_the_direction_of_a_metric_is_ranked_by_one_key() -> None:
 # calibration criteria their own ten. ``r2``, ``mse`` and ``kge_delta`` had a
 # direction and no producer, and the wide view carried columns nothing filled.
 PRODUCERS = {
-    "the run kernels": set(METRIC_NAMES),
+    "the run kernels": set(RUN_METRIC_NAMES),
     "the calibration criteria": set(CALIBRATION_METRICS),
 }
 
@@ -1138,7 +1137,7 @@ def index(tmp_path):
 def test_the_wide_view_pivots_the_names_the_kernels_compute(index) -> None:
     columns = index.sql("SELECT * FROM v_metrics_wide").columns
     pivoted = [c for c in columns if c not in {"sim_id", "station_id", "variable"}]
-    assert pivoted == list(METRIC_NAMES)
+    assert pivoted == list(RUN_METRIC_NAMES)
 
 
 # A calibration scores ``nse_log``; the old spelling ``log_nse`` is refused

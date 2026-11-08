@@ -235,7 +235,7 @@ class OutletCatchDef(_CatchDefBase):
             "the DEM: no observed network is read."
         ),
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(
+    buff_area: Annotated[float | str, Profile.USER] = Field(
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
     )
 
@@ -256,7 +256,7 @@ class PolygonCatchDef(_CatchDefBase):
         examples=["watershed.shp"],
         json_schema_extra=field_metadata(site_scoped=True),
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(
+    buff_area: Annotated[float | str, Profile.USER] = Field(
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
     )
 

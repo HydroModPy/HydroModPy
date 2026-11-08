@@ -97,6 +97,16 @@ class _Scripted:
         )
 
 
+class _SolverWithTimeout:
+    """The ``[solver]`` section of a run whose MODFLOW 6 table sets the trial timeout."""
+
+    def __init__(self, runtime: SimpleNamespace) -> None:
+        self._runtime = runtime
+
+    def options_of(self, _name: str) -> SimpleNamespace:
+        return SimpleNamespace(runtime=self._runtime)
+
+
 def _folder(trial_ctx: TrialContext, trial_id: int) -> Path:
     return trial_ctx.ctx.setup.workspace.solver_scratch_folder / f"toy_trial{trial_id:06d}"
 
@@ -273,7 +283,7 @@ def test_workers_do_not_outlive_a_parent_killed_hard(tmp_path: Path) -> None:
 def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path)
     runtime = SimpleNamespace(mf6_api_timeout_s=30.0)
-    trial_ctx.base_cfg = SimpleNamespace(modflow6=SimpleNamespace(runtime=runtime))
+    trial_ctx.base_cfg = SimpleNamespace(solver=_SolverWithTimeout(runtime))
     with _pool(trial_ctx) as pool:
         assert pool._limit_s == 30.0
         before = _ask(pool, 1, 0.5)
@@ -284,13 +294,13 @@ def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: P
 
     assert stuck.status == "crashed" and math.isnan(stuck.cost)
     assert "wall-clock limit of 2 s" in stuck.error
-    assert "[modflow6.runtime] mf6_api_timeout_s" in stuck.error
+    assert "[solver.modflow6.runtime] mf6_api_timeout_s" in stuck.error
     assert not _folder(trial_ctx, 2).exists()
     assert _child_of_the_hanging_trial_is_dead(tmp_path)
     assert after.status == "completed" and after.components != before.components
 
 
-def test_the_limit_is_the_default_without_a_modflow6_section(tmp_path: Path) -> None:
+def test_the_limit_is_the_default_without_a_modflow6_table(tmp_path: Path) -> None:
     with _pool(_trial_ctx(tmp_path)) as pool:
         assert pool._limit_s == DEFAULT_TRIAL_LIMIT_S == 14400.0
 

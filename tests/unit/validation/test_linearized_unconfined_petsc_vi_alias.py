@@ -145,11 +145,12 @@ def test_linearized_unconfined_petsc_vi_runtime_sets_fixed_vi_substeps(
         public_solver_label="petsc_vi_obstacle",
     )
 
-    flow_section = dict(captured["flow_section"])
+    settings = dict(captured["boussinesq_settings"])
     assert result.solver_name == "petsc_vi_obstacle"
-    assert flow_section["runtime"]["backend"] == "petsc"
-    assert flow_section["runtime"]["surface_interaction_model"] == "vi_obstacle"
-    assert flow_section["runtime"]["vi_substeps_per_period"] == 4
-    assert flow_section["runtime"]["vi_substep_on_failure"] is False
-    assert "ts_vi_steps_per_period" not in flow_section["runtime"]
-    assert "ts_vi_type" not in flow_section["runtime"]
+    assert "runtime" not in captured["flow_section"]
+    assert settings["backend"] == "petsc"
+    assert settings["surface_interaction_model"] == "vi_obstacle"
+    assert settings["vi_substeps_per_period"] == 4
+    assert settings["vi_substep_on_failure"] is False
+    assert "ts_vi_steps_per_period" not in settings
+    assert "ts_vi_type" not in settings

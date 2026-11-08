@@ -30,9 +30,10 @@ from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
 from hydromodpy.project.check import check_project
 from hydromodpy.project.dispatch.workflow import run_overview
-from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
 from tests._helpers.cli_runner import CliRunner
+from tests._helpers.fake_solvers import fake_adapter
 from tests.unit.project.launch.test_sites_plan import write_sites_project
 
 WRITTEN_LOGGER = "hydromodpy.core.config_kit.written"
@@ -91,7 +92,7 @@ extent = "watershed"
 ru = "150 mm"
 """
 
-ADAPT = "[flow.runtime]\nts_vi_adapt = true\n"
+ADAPT = "[solver.boussinesq]\nts_vi_adapt = true\n"
 
 TRANSPORT_PROCESS = """
 [[simulation.process]]
@@ -154,12 +155,12 @@ def test_only_the_marked_key_the_file_wrote_is_named(tmp_path: Path) -> None:
     # default. The sections nobody wrote give nothing either: `calibration` is set
     # to None by its loader, and `transport.modpath` is built from its defaults.
     cfg = HydroModPyConfig.from_toml(
-        _write(tmp_path, tables="[flow.runtime]\npartition_release_depth_m = 0.02")
+        _write(tmp_path, tables="[solver.boussinesq]\npartition_release_depth_m = 0.02")
     )
 
     assert cfg.flow.first_period_steady is False
-    assert cfg.flow.runtime.vi_substeps_per_period == 1
-    assert written_experimental_keys(cfg) == ("flow.runtime.partition_release_depth_m",)
+    assert cfg.solver.options_of("boussinesq").vi_substeps_per_period == 1
+    assert written_experimental_keys(cfg) == ("solver.boussinesq.partition_release_depth_m",)
 
 
 def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -> None:
@@ -176,23 +177,23 @@ def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -
     ("sections", "expected"),
     [
         pytest.param(
-            {"tables": "[flow.runtime]\npartition_release_depth_m = 0.05"},
-            ("flow.runtime.partition_release_depth_m",),
+            {"tables": "[solver.boussinesq]\npartition_release_depth_m = 0.05"},
+            ("solver.boussinesq.partition_release_depth_m",),
             id="written-at-the-value-of-its-default",
         ),
         pytest.param(
-            {"tables": '[flow.runtime]\nsurface_interaction_model = "vi_obstacle"'},
-            ('flow.runtime.surface_interaction_model = "vi_obstacle"',),
+            {"tables": '[solver.boussinesq]\nsurface_interaction_model = "vi_obstacle"'},
+            ('solver.boussinesq.surface_interaction_model = "vi_obstacle"',),
             id="marked-value-of-a-selector",
         ),
         pytest.param(
-            {"tables": '[flow.runtime]\nsurface_interaction_model = "regularized_partition"'},
+            {"tables": '[solver.boussinesq]\nsurface_interaction_model = "regularized_partition"'},
             (),
             id="stable-value-of-the-same-selector",
         ),
         pytest.param(
-            {"tables": "[flow.runtime]\nts_vi_adapt = true\nmax_iterations = 40"},
-            ("flow.runtime.max_iterations", "flow.runtime.ts_vi_adapt"),
+            {"tables": "[solver.boussinesq]\nts_vi_adapt = true\nmax_iterations = 40"},
+            ("solver.boussinesq.max_iterations", "solver.boussinesq.ts_vi_adapt"),
             id="runtime-knobs",
         ),
         pytest.param(
@@ -254,18 +255,23 @@ def test_a_mapping_below_a_section_is_walked() -> None:
     assert written_experimental_keys(sinks) == ("lakes.dam.cutoff_wall",)
 
 
-def test_a_custom_solver_is_named_and_a_built_in_one_is_not() -> None:
-    assert written_experimental_keys(SolverConfig(backend=CustomBackend(name="mine"))) == (
-        "backend.name",
-    )
+def test_a_marked_key_of_a_solver_table_is_named_and_the_solver_name_is_not(
+    isolated_solvers,
+) -> None:
+    isolated_solvers.solvers.register(fake_adapter("mine"))
+
+    assert written_experimental_keys(SolverConfig(backend="mine")) == ()
     assert written_experimental_keys(SolverConfig()) == ()
+    assert written_experimental_keys(SolverConfig(boussinesq={"ts_vi_adapt": True})) == (
+        "boussinesq.ts_vi_adapt",
+    )
 
 
 def test_the_copy_a_run_freezes_names_the_same_keys(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(
         _write(
             tmp_path,
-            tables="[flow.runtime]\npartition_release_depth_m = 0.02\n" + SOIL + "kc = 0.9",
+            tables="[solver.boussinesq]\npartition_release_depth_m = 0.02\n" + SOIL + "kc = 0.9",
         )
     )
     frozen = tmp_path / "frozen.toml"
@@ -288,7 +294,7 @@ def test_the_line_is_a_milestone_and_not_a_warning(tmp_path: Path, caplog) -> No
     [record] = caplog.records
     assert record.levelno == logging.INFO
     assert getattr(record, MILESTONE_KEY) is True
-    assert record.getMessage() == experimental_keys_line(("flow.runtime.ts_vi_adapt",))
+    assert record.getMessage() == experimental_keys_line(("solver.boussinesq.ts_vi_adapt",))
 
 
 def test_a_run_says_it_once_and_loading_says_nothing(tmp_path: Path, caplog) -> None:
@@ -299,7 +305,7 @@ def test_a_run_says_it_once_and_loading_says_nothing(tmp_path: Path, caplog) -> 
         assert not _said(caplog)
         project._execute(until_step="validate", no_display=True)
 
-    assert _said(caplog) == [experimental_keys_line(("flow.runtime.ts_vi_adapt",))]
+    assert _said(caplog) == [experimental_keys_line(("solver.boussinesq.ts_vi_adapt",))]
 
 
 def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
@@ -345,7 +351,9 @@ def test_a_calibration_says_it_at_its_gate_and_its_trials_say_nothing(
             steps=(ValidateStep(), ResolveStep(), _Flow()),
         )
 
-    assert said_at_the_gate == [experimental_keys_line(("flow.runtime.ts_vi_adapt", "calibration"))]
+    assert said_at_the_gate == [
+        experimental_keys_line(("solver.boussinesq.ts_vi_adapt", "calibration"))
+    ]
     assert not _said(caplog)
 
 
@@ -355,7 +363,7 @@ def test_config_check_prints_the_same_line(tmp_path: Path) -> None:
     result = CliRunner().invoke(["config", "check", str(path)])
 
     assert result.exit_code == 0, result.stderr
-    assert experimental_keys_line(("flow.runtime.ts_vi_adapt",)) in result.stderr
+    assert experimental_keys_line(("solver.boussinesq.ts_vi_adapt",)) in result.stderr
     assert "warning:" not in result.stderr
 
 

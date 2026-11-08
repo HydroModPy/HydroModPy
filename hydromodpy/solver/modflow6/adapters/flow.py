@@ -146,6 +146,15 @@ class Modflow6FlowAdapter:
             "steady_start",
             "cyclic_start",
             "prior_state",
+            "recharge",
+            "wells",
+            "etp",
+            "flow_barriers",
+            "cutoff_wall",
+            "soil",
+            "k_tensor",
+            "layers",
+            "pass_through",
         }
     )
     options: ClassVar[type[BaseModel] | None] = Modflow6Config
@@ -284,14 +293,19 @@ class Modflow6FlowAdapter:
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,
-            modflow_config=state.cfg.modflow6,
+            modflow_config=state.cfg.solver.options_of(self.name),
             preprocess_options=preprocess_options,
         )
         result = run_flow_model(ctx, model_modflow, preprocess_options)
+        handed_back: dict[str, Any] = {}
         pumped = getattr(model_modflow, "well_pumped_percent", None)
-        if pumped is None:
-            return result
-        return replace(result, metrics={**result.metrics, WELLS_PUMPED_METRIC: float(pumped)})
+        if pumped is not None:
+            handed_back["metrics"] = {**result.metrics, WELLS_PUMPED_METRIC: float(pumped)}
+        # Set by the auxiliary steady solve of a steady start, None for any other start.
+        converged = getattr(model_modflow, "initial_state_converged", None)
+        if converged is not None:
+            handed_back["initial_state_converged"] = bool(converged)
+        return replace(result, **handed_back) if handed_back else result
 
 
 def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:

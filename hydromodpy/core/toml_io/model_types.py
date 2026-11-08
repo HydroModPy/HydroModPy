@@ -15,7 +15,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit.introspect import is_union_origin
+from hydromodpy.core.config_kit.introspect import held_tables_of, is_union_origin
 
 
 def is_mapping_field(field_info: FieldInfo) -> bool:
@@ -90,6 +90,9 @@ def restore_variant_tags(model: BaseModel, values: Any) -> None:
         if name not in values:
             continue
         _restore_tags_in_value(getattr(model, name, None), values[name])
+    for name, table in held_tables_of(model).items():
+        if name in values:
+            restore_variant_tags(table, values[name])
 
 
 def _restore_tags_in_value(held: Any, dumped: Any) -> None:

@@ -7,7 +7,10 @@ trait of the ``Model``, an extractor for its key) is only seen by
 backend the suite has never heard of and runs the suite against it in a
 subprocess. The probe solves nothing: what passes here is the plumbing
 (discovered under the join of ``process_type`` and ``name``, held to the port),
-not a solver.
+not a solver. The probe declares a settings class and two traits, so the suite
+also shows that the TOML accepts its name, reads its ``[solver.<name>]`` table
+by that class, refuses an unknown key of the table, and refuses every trait it
+does not list.
 
 Two controls. A probe published under a name that is not that join is ignored,
 with a warning naming what the class declares. A probe that declares a stored
@@ -54,6 +57,16 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from pydantic import BaseModel, ConfigDict
+
+
+class ProbeOptions(BaseModel):
+    """The settings of the probe, read from its [solver.conformance_probe] table."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    steps: int = 3
+
 
 class ProbeFlowAdapter:
     name: ClassVar[str] = "conformance_probe"
@@ -63,7 +76,7 @@ class ProbeFlowAdapter:
     writes: ClassVar[tuple[str, ...]] = ("head", "budget/recharge", "budgets")
     reads: ClassVar[tuple[str, ...]] = ()
     supports: ClassVar[frozenset[str]] = frozenset({"head_rule", "steady_start"})
-    options: ClassVar = None
+    options: ClassVar = ProbeOptions
     category: ClassVar[str] = "distributed"
     native_step: ClassVar = None
     mutable: ClassVar[frozenset[str]] = frozenset()
@@ -182,6 +195,22 @@ def test_installing_a_backend_adds_it_to_the_suite(bare_collection, probe_collec
         collected(without.stdout, CONFORMANCE_SUITE)
     )
     assert added == len(probe_nodes), "the probe may only add its own parameter set"
+
+
+PROBE_SETS = (
+    "test_the_toml_accepts_the_name_of_each_flow",
+    "test_the_settings_of_a_flow_read_back_from_its_own_table",
+    "test_an_unknown_key_of_a_flow_table_is_refused",
+    "test_a_document_that_uses_a_trait_loads_if_and_only_if_the_flow_lists_it",
+    "test_a_transport_loads_if_and_only_if_its_requires_names_the_flow",
+)
+"""The cases of the suite that read a TOML, which the probe must reach as a flow."""
+
+
+def test_the_probe_reaches_every_case_that_reads_a_toml(probe_collection) -> None:
+    probe_nodes = collected(probe_collection.stdout, CONFORMANCE_SUITE, PROBE_KEY)
+    for case in PROBE_SETS:
+        assert any(f"::{case}[" in node for node in probe_nodes), case
 
 
 def test_every_conformance_assertion_passes_against_the_installed_backend(

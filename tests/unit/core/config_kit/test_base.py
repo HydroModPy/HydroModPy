@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import pytest
-from pydantic import Field, ValidationError
+from pydantic import Field, PrivateAttr, ValidationError
 
 from hydromodpy.core.config_kit import base
 from hydromodpy.core.config_kit.base import (
@@ -373,3 +373,40 @@ def test_a_real_section_refuses_a_quoted_switch() -> None:
     with pytest.raises(ValidationError, match="save = 'yes' is quoted"):
         DisplayConfig.model_validate({"save": "yes"})
     assert DisplayConfig.model_validate({"save": True}).save is True
+
+
+# Named tables: frozen with their section, and listed in its schema ---------------
+
+
+class _Table(HydroModelBase):
+    """Settings of one plugin."""
+
+    steps: Annotated[int, Profile.EXPERT] = 4
+
+
+class _Section(HydroModelBase):
+    name: str = "x"
+    _tables: dict[str, _Table] = PrivateAttr(default_factory=lambda: {"plugin": _Table()})
+
+    @classmethod
+    def named_tables(cls, *, shipped_only: bool) -> dict[str, type[HydroModelBase]]:
+        return {"plugin": _Table}
+
+    def held_tables(self) -> dict[str, _Table]:
+        return self._tables
+
+
+def test_a_frozen_copy_freezes_the_named_tables_of_a_section() -> None:
+    frozen = frozen_copy(_Section())
+
+    with pytest.raises(FrozenConfigError):
+        frozen.held_tables()["plugin"].steps = 8
+    assert thawed_copy(frozen).held_tables()["plugin"].steps == 4
+
+
+def test_the_schema_of_a_section_lists_its_named_tables_and_takes_a_plugin_one() -> None:
+    schema = _Section.model_json_schema()
+
+    assert schema["properties"]["plugin"] == {"$ref": "#/$defs/_Table", "x-hmp-profile": "user"}
+    assert schema["$defs"]["_Table"]["properties"]["steps"]["x-hmp-profile"] == "expert"
+    assert schema["additionalProperties"] == {"type": "object"}

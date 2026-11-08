@@ -19,7 +19,6 @@ from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.fake_solvers import fake_adapter
 
 
@@ -72,7 +71,6 @@ def _context(tmp_path: Path) -> RunContext:
     plan = SimulationPlan(name="demo", description="demo", runs=(run,))
     state = RunState(
         cfg=SimpleNamespace(
-            modflownwt=ModflowConfig(),
             solver=SolverConfig(),
             observation=None,
             domain=DomainConfig(),

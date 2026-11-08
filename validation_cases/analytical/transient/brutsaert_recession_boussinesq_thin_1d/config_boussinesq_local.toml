@@ -12,5 +12,5 @@
 # error; from 1e-10 m3/s it settles at -0.23 % (1e-11 and 1e-12 change it by
 # less than 1e-8). It is set at 1e-12, as on the deep strip.
 
-[flow.runtime]
+[solver.boussinesq]
 tol_residual_inf = 1e-12

@@ -108,13 +108,13 @@ def run_boussinesq_hillslope_sloping_substratum_case(
         z_bottom_m=build_bottom_profile,
         hydraulic_conductivity_m_s=HYDRAULIC_CONDUCTIVITY_M_S,
         storage_coefficient=SPECIFIC_YIELD,
+        boussinesq_settings={
+            "backend": "local",
+            "max_iterations": 80,
+            "tol_residual_inf": 1.0e-7,
+        },
         flow_section={
             "flow_regime": "transient",
-            "runtime": {
-                "backend": "local",
-                "max_iterations": 80,
-                "tol_residual_inf": 1.0e-7,
-            },
             "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
             "sinks_sources": {
                 "recharge": {

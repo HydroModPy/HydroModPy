@@ -7,7 +7,7 @@
 kind = "custom"
 value = 2.0
 
-[flow.runtime]
+[solver.boussinesq]
 backend = "petsc"
 surface_interaction_model = "vi_obstacle"
 max_iterations = 80

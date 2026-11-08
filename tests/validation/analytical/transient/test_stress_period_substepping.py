@@ -539,6 +539,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
         boussinesq_run_state,
         boussinesq_variant_config_name,
         boussinesq_variant_flow_section,
+        boussinesq_variant_options,
     )
     from validation_cases.shared.boussinesq_uniform_strip import (
         aggregate_triangle_history_to_structured_fields,
@@ -572,26 +573,23 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
             "east_side": {"value": base_head},
         },
     }
+    settings: dict[str, object] = {}
     if solver == "boussinesq":
         # The driver is the only source of sub-steps: one TS step per solve.
-        flow_section.update(
-            {
-                "runtime_backend": "petsc",
-                "surface_interaction_model": "ts_vi_obstacle",
-                "ts_vi_steps_per_period": 1,
-                "ts_vi_adapt": False,
-                "ts_vi_type": "beuler",
-                "ts_vi_snes_type": "vinewtonrsls",
-            }
-        )
+        settings = {
+            "backend": "petsc",
+            "surface_interaction_model": "ts_vi_obstacle",
+            "ts_vi_steps_per_period": 1,
+            "ts_vi_adapt": False,
+            "ts_vi_type": "beuler",
+            "ts_vi_snes_type": "vinewtonrsls",
+        }
     simulations = workspace / "results_simulations"
     simulations.mkdir(exist_ok=True)
     state = boussinesq_run_state(
         flow=Flow(
             build_flow_config(
-                boussinesq_variant_flow_section(
-                    flow_section, flow_regime="transient", solver=solver
-                ),
+                boussinesq_variant_flow_section(flow_section, flow_regime="transient"),
                 case_dir=CASE_DIR,
                 config_name=boussinesq_variant_config_name(solver),
             )
@@ -602,6 +600,13 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
             period_lengths_seconds=(period_seconds,),
             nstp_per_period=int(substeps),
             window=None,
+        ),
+        options=boussinesq_variant_options(
+            flow_regime="transient",
+            solver=solver,
+            case_dir=CASE_DIR,
+            config_name=boussinesq_variant_config_name(solver),
+            written=settings,
         ),
     )
     run = ProcessRun(

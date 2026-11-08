@@ -33,7 +33,6 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
 )
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
-    LOG_METRICS,
     METRICS,
     RESERVOIR_INCREMENT_DAYS,
     SeriesCriterion,
@@ -45,6 +44,7 @@ from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective, SimulationOutput
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.scoring import metrics as core
+from hydromodpy.core.scoring.metric_table import METRIC_SENSE, METRIC_SPECS
 from hydromodpy.core.scoring.metrics import (
     clip_negatives,
     kge,
@@ -55,7 +55,6 @@ from hydromodpy.core.scoring.metrics import (
     nse_delta,
     nse_seasonal,
 )
-from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.checks import Validity
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 from hydromodpy.results.fit_metrics import score_timeseries
@@ -149,21 +148,9 @@ def test_an_error_over_several_outputs_stays_pooled(metric: str) -> None:
 # From test_metric_kind_matches_the_registry.py
 # Every metric the engine can compute must be selectable from a TOML.
 #
-# ``MetricKind`` re-encodes the keys of ``METRICS`` as a closed ``Literal``. Two
-# lists of the same thing drift, and this one had: the engine computed ten metrics
-# while the schema offered seven, so ``nse_delta``, ``nse_seasonal`` and
-# ``reservoir`` ran correctly in Python and were refused by validation. The last
-# of those is the objective built for an impounded level, which is exactly the
-# subject of the projects that could not select it.
-#
-# The lists stay two, because a ``Literal`` is what gives an operator the value
-# list in the generated reference page and the completion in an editor. What must
-# not stay is the drift, so this test is the seam that holds them equal.
-
-
-def test_every_computable_metric_is_selectable() -> None:
-    """The TOML vocabulary is exactly the registry's keys."""
-    assert set(get_args(MetricKind)) == set(METRICS)
+# ``MetricKind`` is cut from the table of ``core.scoring.metric_table``, and
+# ``tests/unit/core/scoring/test_metric_table.py`` holds it equal to the keys of
+# ``METRICS``. The tests below hold the direction and the documentation.
 
 
 def test_every_metric_declares_its_direction() -> None:
@@ -739,7 +726,7 @@ class TestTheCostsAreUnchanged:
         """Reproduce exactly what the objective did before the contract."""
 
         sim, obs = _SIM, _OBS
-        if name in LOG_METRICS:
+        if METRIC_SPECS[name].clips_negatives:
             sim, obs, _ = clip_negatives(sim, obs)
         raw = float(METRICS[name](sim, obs))
         return (1.0 - raw) if name in HIGHER_IS_BETTER else raw

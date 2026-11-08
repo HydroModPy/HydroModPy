@@ -157,3 +157,34 @@ def test_the_locator_finds_a_quoted_key() -> None:
     assert locate_loc(text, ("sites", "bind", "site.name")) == 2
     assert locate_loc(text, ("sites", "bind", "geographic.catchment.x_outlet")) == 3
     assert locate_loc(text, ("sites", "bind", "plain")) == 4
+
+
+SOLVER_TABLE_PATHS = (
+    ("solver.modflow6.runtime.mf6_ims_complexity", "mf6_ims_complexity"),
+    ("solver.modflow_nwt.runtime.upw.hdry", "hdry"),
+    ("solver.boussinesq.max_iterations", "max_iterations"),
+    ("solver.modflow6", None),
+)
+
+
+@pytest.mark.parametrize(("path", "leaf"), SOLVER_TABLE_PATHS)
+def test_resolve_field_walks_the_settings_table_of_a_flow_solver(
+    path: str, leaf: str | None
+) -> None:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.config_kit.introspect import fields_and_tables
+    from hydromodpy.solver.base.solver_config import SolverConfig
+
+    field = resolve_field(HydroModPyConfig, path)
+
+    if leaf is None:
+        assert field is fields_and_tables(SolverConfig)["modflow6"]
+    else:
+        assert field.annotation is not None
+
+
+def test_a_solver_table_nothing_serves_is_refused_with_the_tables_served() -> None:
+    from hydromodpy.config import HydroModPyConfig
+
+    with pytest.raises(UnknownPathError, match="solver has no key 'modflow7'; nearest: modflow6"):
+        resolve_field(HydroModPyConfig, "solver.modflow7.runtime")

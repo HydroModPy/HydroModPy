@@ -13,7 +13,7 @@ of a lake are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
 **Scope.** MODFLOW 6 builds every exit below. MODFLOW-NWT builds the drains, the
 sea, the side heads and the evapotranspiration package, and no stream, lake or
 water mover: a file that declares a stream network or a lake with another solver in
-{toml}`solver.backend` is refused when it is read. The Boussinesq solver has its own surface exchange, on
+{toml}`solver.backend` is refused when it is read, with the solvers that honor it. The Boussinesq solver has its own surface exchange, on
 {doc}`boussinesq`.
 :::
 

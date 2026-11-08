@@ -170,11 +170,9 @@ def test_a_non_modflow6_solver_is_refused_by_name(tmp_path: Path, solver: str) -
         HydroModPyConfig.from_toml(config_path)
 
     assert (
-        "[flow.sinks_sources.recharge.soil] is wired to MODFLOW 6 only, and "
-        f"this run's flow solver is {solver!r}: the recharge it computes "
-        'would never reach that solver. Write solvers = ["modflow6"] in '
-        "[[simulation.process]], or remove [flow.sinks_sources.recharge.soil] "
-        "and declare [data.recharge]."
+        f"solver.backend = {solver!r} does not honor flow.sinks_sources.recharge.soil: it "
+        "would be ignored without a word. Remove it, or run a flow solver that honors it "
+        "(modflow6)."
     ) in str(excinfo.value)
 
 
@@ -917,3 +915,27 @@ def test_a_capacity_map_without_a_soil_section_names_the_fix(tmp_path: Path) -> 
         HydroModPyConfig(**_base_kwargs(tmp_path), data=data)
 
     assert "declare the soil section, or remove [data.soil_capacity]" in str(excinfo.value)
+
+
+def test_a_soil_settled_on_its_first_year_beside_a_cyclic_aquifer_loads_without_a_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The two starts are computed over two windows, which a study may want: it is allowed."""
+    config_path = _write_2(tmp_path, "modflow6")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            'kind = "steady_state"', 'kind = "spinup_cyclic"'
+        ),
+        encoding="utf-8",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.flow.sinks_sources.recharge.soil.spinup == "first_year"
+    assert cfg.flow.ic.h.kind == "spinup_cyclic"
+    assert not [
+        record
+        for record in caplog.records
+        if record.levelno >= logging.WARNING and "spinup" in record.getMessage()
+    ]

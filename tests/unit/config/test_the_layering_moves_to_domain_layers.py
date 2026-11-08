@@ -40,7 +40,7 @@ def test_a_nwt_table_alone_moves_and_keeps_the_other_solver_keys() -> None:
 
     assert "modflownwt.sgrid.vertical -> [domain.layers]" in changes
     assert doc["domain"]["layers"] == {"genmtd_lay": "constant", "nlay": 3}
-    assert doc["modflownwt"]["sgrid"] == {"top_sampling": {"mode": "zonal"}}
+    assert doc["solver"]["modflow_nwt"]["sgrid"] == {"top_sampling": {"mode": "zonal"}}
 
 
 def test_two_equal_tables_keep_one_and_say_the_dropped_one_held_the_same_values() -> None:
@@ -188,8 +188,8 @@ def test_a_dotted_phase_override_moves_in_a_file_with_its_comment(tmp_path: Path
 
 def test_a_config_without_solver_layering_is_untouched() -> None:
     doc = tomllib.loads(
-        '[domain.layers]\nnlay = 2\n\n[modflow6.sgrid.top_sampling]\nmode = "zonal"\n'
+        '[domain.layers]\nnlay = 2\n\n[solver.modflow6.sgrid.top_sampling]\nmode = "zonal"\n'
     )
 
     assert migrate_config_doc(doc) == []
-    assert doc["modflow6"]["sgrid"]["top_sampling"] == {"mode": "zonal"}
+    assert doc["solver"]["modflow6"]["sgrid"]["top_sampling"] == {"mode": "zonal"}

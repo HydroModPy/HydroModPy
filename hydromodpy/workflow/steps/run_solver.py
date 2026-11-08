@@ -33,8 +33,6 @@ class RunSolverStep:
         "flow",
         "transport",
         "solver",
-        "modflownwt",
-        "modflow6",
     )
 
     def __init__(self, launcher: SimulationRunner | None = None) -> None:

@@ -28,6 +28,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
 )
+from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 from hydromodpy.core.scoring.metrics import (
     clip_negatives,
     kge,
@@ -38,17 +39,7 @@ from hydromodpy.core.scoring.metrics import (
     nse_seasonal,
     rmse,
 )
-from hydromodpy.results.catalog.constants import METRIC_SENSE, cost_of
-
-# Kernels that take a logarithm: negative values are clipped to zero and counted.
-LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
-
-# Kernels whose cost is already a pure number: an efficiency score has no unit
-# to remove, so dividing it by the spread of its own observations reweights the
-# block rather than making it comparable to another.
-DIMENSIONLESS: frozenset[str] = frozenset(
-    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
-)
+from hydromodpy.results.catalog.constants import cost_of
 
 # The unit of the cost of a residual kernel: whatever the observations are in.
 _OBSERVED_UNIT = "observed unit"
@@ -194,7 +185,7 @@ METRICS: dict[str, Callable[..., float]] = {
 # Kernels whose score rises with agreement, so the cost is one minus the score.
 # Read from the one table of metric directions; every other kernel is a cost.
 HIGHER_IS_BETTER: frozenset[str] = frozenset(
-    name for name in METRICS if METRIC_SENSE.get(name) == "max"
+    name for name in METRICS if METRIC_SPECS[name].sense == "max"
 )
 
 
@@ -204,7 +195,7 @@ class SeriesCriterion:
     def __init__(self, name: str, kernel: Any) -> None:
         self.name = str(name)
         self._kernel = kernel
-        self._takes_log = self.name in LOG_METRICS
+        self._takes_log = METRIC_SPECS[self.name].clips_negatives
 
     def requirements(self) -> CriterionRequirements:
         """A series criterion fits observations and publishes no residual.
@@ -212,7 +203,9 @@ class SeriesCriterion:
         It reads a series, so it scores the supports that produce one and no
         other: a network output hands it two distances, not a chronicle.
         """
-        dimensionless = self.name in DIMENSIONLESS
+        # An efficiency score has no unit to remove, so dividing it by the spread of its
+        # own observations reweights the block rather than making it comparable.
+        dimensionless = METRIC_SPECS[self.name].dimensionless
         return CriterionRequirements(
             needs_observations=True,
             has_time_axis=True,
@@ -262,9 +255,7 @@ class SeriesCriterion:
 
 
 __all__ = [
-    "DIMENSIONLESS",
     "HIGHER_IS_BETTER",
-    "LOG_METRICS",
     "METRICS",
     "DAYS_PER_YEAR",
     "RESERVOIR_INCREMENT_DAYS",

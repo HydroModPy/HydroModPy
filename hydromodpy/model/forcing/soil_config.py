@@ -298,7 +298,10 @@ class SoilReservoirConfig(HydroModelBase):
             "365 days of the run until the storage at the end of that year moves by "
             "less than 0.1 mm, 20 times at most; the run must last 364 days "
             '(52 weeks) at least, and a 364-day run repeats those 364 days. "none" starts from a full soil, the state of a soil in a wet '
-            "winter."
+            "winter. Beside a cyclic spin-up of the aquifer (flow.ic.kind = "
+            '"spinup_cyclic"), the two starts are computed over two windows: the soil '
+            "settles on the first year, the heads on the whole run. That pair is allowed "
+            "without a warning, because it is sometimes what the study wants."
         ),
         json_schema_extra=field_metadata(
             value_docs={
@@ -338,6 +341,10 @@ class SoilReservoirConfig(HydroModelBase):
                 "a full soil."
             )
         return value
+
+
+SOIL = "soil"
+"""The trait a solver backend lists in ``supports`` when it reads the recharge of the soil reservoir."""
 
 
 def soil_reservoir_of(flow_config: object) -> SoilReservoirConfig | None:
@@ -385,6 +392,7 @@ def spinup_refusal(config: SoilReservoirConfig, run_days: int) -> str | None:
 
 
 __all__ = [
+    "SOIL",
     "SPINUP_MIN_RUN_DAYS",
     "SoilReservoirConfig",
     "soil_reservoir_of",

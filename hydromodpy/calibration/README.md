@@ -525,13 +525,13 @@ declared share when the blocks have different units.
    plus its options model in `optim/method_config.py` added to the
    `CalibrationMethodConfig` union. Test it in
    `tests/unit/calibration/test_optim_adapters_<method>_adapter.py`.
-2. **A criterion a TOML can name.** The kernel `(sim, obs) -> float` in
-   `criteria/series.py`, its name in `METRICS`, its direction in `METRIC_SENSE`
-   (`results/catalog/constants.py`, which turns a score into a cost with
-   `cost_of`), and its name in `LOG_METRICS` or `DIMENSIONLESS` when that applies. Add the name to
-   `MetricKind` in `config.py`: `test_criteria_series.py`
-   keeps the two equal. `criteria/registry.py` builds from `METRICS`, with no
-   second list.
+2. **A criterion a TOML can name.** One row in
+   `hydromodpy/core/scoring/metric_table.py`, with its sense and its flags
+   `clips_negatives` and `dimensionless`. `MetricKind` in `config.py` and
+   `METRIC_SENSE` are built from that table. Then the kernel `(sim, obs) -> float`
+   in `criteria/series.py`, under its name in `METRICS`:
+   `test_metric_table.py` keeps the two equal. `criteria/registry.py` builds
+   from `METRICS`, with no second list.
 3. **An evaluator.** A class with `evaluator_id`, `needs_prepared_model` and
    `evaluate(TrialRequest) -> TrialOutcome` (`evaluation/port.py`). Its
    constructor takes only names from `CONSTRUCTION_OPTIONS`

@@ -337,6 +337,16 @@ until no store moves by 0.1 mm or more over one repetition. The run stops with a
 repetitions are not enough. A run shorter than 52 weeks is refused with this option, and a run of
 364 days repeats those 364 days.
 
+The soil and the aquifer each get a starting state, and the two are computed apart. The soil settles on
+its first year. If {toml}`flow.ic.h.kind` of the aquifer is `spinup_cyclic`, the aquifer settles on
+cycles of the whole period, with the recharge the soil gave on that period. The soil state at the
+start of the run is the one of the first year, and the heads at the start of the run are the ones of
+the cycled period. The two states come from two windows of the same forcing, and no step makes them
+agree. The file is accepted without a warning, because this is sometimes what is wanted: a soil that
+needs one year to fill, and an aquifer that needs the mean of many years to reach its yearly cycle.
+A modeller who wants both states of one window runs `hmp spinup` over that window and starts from its
+result with {toml}`flow.restart_from`.
+
 ## Columns and capacity classes
 
 Without {toml}`data.soil_capacity`, each cell of the rain and ETP grid is one column with the same

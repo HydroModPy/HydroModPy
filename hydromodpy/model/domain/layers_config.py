@@ -335,3 +335,19 @@ class VerticalGridConfig(HydroModelBase):
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):
         return cls.model_validate(dict(config_data))
+
+
+LAYERS = "layers"
+"""The trait a solver backend lists in ``supports`` when it solves more than one layer."""
+
+PASS_THROUGH = "pass_through"
+"""The trait a solver backend lists in ``supports`` when it has vertical pass-through cells."""
+
+
+def asks_for_layers(layers: VerticalGridConfig) -> bool:
+    """True when ``layers`` builds more than one layer, or gives each layer its own base.
+
+    A solver of one layer would ignore such a table. A layering by surfaces asks
+    for layers even with one table, because it reads a base raster by name.
+    """
+    return layers.genmtd_lay == "surfaces" or layers.layer_count > 1

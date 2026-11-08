@@ -16,8 +16,9 @@ import pyarrow as pa
 import pytest
 
 from hydromodpy.core.scoring import metrics as kernels
+from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.fit_metrics import UnscoredObservation, fit_metrics, score_timeseries
-from hydromodpy.results.metric_rule import METRIC_NAMES, DateWindow, MetricRule
+from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
@@ -62,7 +63,7 @@ def test_a_perfect_run_scores_one_on_the_whole_panel() -> None:
     scores = score_timeseries(_frame(_closing(days), values, days, values), rule=rule)
 
     by_metric = _by_metric(scores)
-    assert set(by_metric) == set(METRIC_NAMES)
+    assert set(by_metric) == set(RUN_METRIC_NAMES)
     assert by_metric["nse"] == pytest.approx(1.0)
     assert by_metric["kge"] == pytest.approx(1.0)
     assert by_metric["rmse"] == pytest.approx(0.0, abs=1e-12)

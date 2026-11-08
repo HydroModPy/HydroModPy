@@ -10,9 +10,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
-from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.runtime_config import FlowRuntimeConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.drivers.forcing import ResolvedRuntimeForcing
@@ -203,7 +203,7 @@ def test_time_grid_sub_step_count_must_be_a_positive_integer() -> None:
 
 
 def test_auto_engine_is_the_flow_default_and_resolves_on_the_mesh_size() -> None:
-    assert FlowConfig().runtime.backend == "auto"
+    assert SolverConfig().options_of("boussinesq").backend == "auto"
     assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS) == "local"
     assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS + 1) == (
         "scipy_sparse"

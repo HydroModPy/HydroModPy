@@ -30,7 +30,7 @@ def _warm_start_release_depth_m(mesh: BoussinesqMesh) -> float:
 
     The warm start sits off the kink of the Fischer-Burmeister residual by a
     fixed share of its head scale. It does not follow
-    ``flow.runtime.partition_release_depth_m``, a physical depth for the head-only closure.
+    ``solver.boussinesq.partition_release_depth_m``, a physical depth for the head-only closure.
     """
     return _WARM_START_RELEASE_FRACTION * _head_scale_m(mesh)
 

@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_param.sections import FieldHeterogeneousSection
-from hydromodpy.core.config_kit.introspect import extract_profile
+from hydromodpy.core.config_kit.introspect import extract_profile, fields_and_tables
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.generator import generate_toml
@@ -35,6 +35,7 @@ from hydromodpy.schema.config_schema import (
 )
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.base.simulation_config import SimulationConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 # Tests for the JSON Schema exporter.
 
@@ -70,6 +71,11 @@ def test_model_json_schema_exposes_profile_metadata():
     defs = schema["$defs"]
     assert defs["ResultsConfig"]["properties"]["keep_per_cell_budget"]["x-hmp-profile"] == "dev"
     assert defs["Modflow6Config"]["properties"]["runtime"]["x-hmp-profile"] == "expert"
+    # A named table, [solver.modflow6], is a property of its section.
+    assert defs["SolverConfig"]["properties"]["modflow6"] == {
+        "$ref": "#/$defs/Modflow6Config",
+        "x-hmp-profile": "user",
+    }
 
 
 def test_export_schema_unknown_section_raises():
@@ -406,7 +412,8 @@ TAUGHT = [
     (FieldHeterogeneousSection, ("values_csv_file", "csv_key_column", "csv_value_column")),
     (CalibrationConfig, ("persist_trial_series", "persist_iteration_detail")),
     (MeshConfig, ("engine", "cell_size", "river_cell_size", "river_band", "families")),
-    (HydroModPyConfig, ("mesh", "modflow6", "modflownwt")),
+    (HydroModPyConfig, ("mesh",)),
+    (SolverConfig, ("modflow6", "modflow_nwt")),
 ]
 
 
@@ -416,14 +423,14 @@ TAUGHT = [
     ids=lambda v: v if isinstance(v, str) else v.__name__,
 )
 def test_a_taught_key_is_a_user_key(model, name) -> None:
-    assert extract_profile(model.model_fields[name]) is Profile.USER
+    assert extract_profile(fields_and_tables(model)[name]) is Profile.USER
 
 
 def test_the_user_template_now_shows_the_structured_layers() -> None:
     text = generate_toml(modules=["domain"], profile="user")
     assert "[domain.layers]" in text
     assert "lay_proportions" in text
-    assert "mf6_newton" not in generate_toml(modules=["modflow6"], profile="user")
+    assert "mf6_newton" not in generate_toml(modules=["solver"], profile="user")
 
 
 def test_a_switch_condition_is_declared_with_a_boolean() -> None:

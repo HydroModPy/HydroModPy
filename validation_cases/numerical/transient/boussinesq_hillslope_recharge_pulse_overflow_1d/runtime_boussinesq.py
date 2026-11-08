@@ -10,6 +10,7 @@ import numpy as np
 
 from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.model.flow import Flow
+from hydromodpy.model.runtime_config import FlowRuntimeConfig
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
@@ -390,9 +391,9 @@ def run_boussinesq_hillslope_overflow_case(
         "bc": {
             "east_side": {"value": float(geometry_cfg["east_head_m"])},
         },
-        "runtime": {
-            "surface_interaction_model": str(variant.surface_interaction_model),
-        },
+    }
+    runtime_settings: dict[str, object] = {
+        "surface_interaction_model": str(variant.surface_interaction_model),
     }
     drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
     if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
@@ -404,15 +405,11 @@ def run_boussinesq_hillslope_overflow_case(
             }
         }
     if variant.runtime_backend is not None:
-        flow_section.setdefault("runtime", {})["backend"] = str(variant.runtime_backend)
+        runtime_settings["backend"] = str(variant.runtime_backend)
     if resolved_runtime_max_iterations is not None:
-        flow_section.setdefault("runtime", {})["max_iterations"] = int(
-            resolved_runtime_max_iterations
-        )
+        runtime_settings["max_iterations"] = int(resolved_runtime_max_iterations)
     if resolved_runtime_tol_residual_inf is not None:
-        flow_section.setdefault("runtime", {})["tol_residual_inf"] = float(
-            resolved_runtime_tol_residual_inf
-        )
+        runtime_settings["tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
 
@@ -424,6 +421,7 @@ def run_boussinesq_hillslope_overflow_case(
             period_lengths_seconds=period_lengths_seconds,
             window=None,
         ),
+        options=FlowRuntimeConfig.model_validate(runtime_settings),
     )
     run = ProcessRun(
         id=f"flow_validation::{variant.solver_name}",

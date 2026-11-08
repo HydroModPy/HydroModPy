@@ -18,6 +18,7 @@ from pydantic.fields import FieldInfo
 from hydromodpy.core.config_kit.introspect import (
     is_implicit_relative_path_default,
     iter_fields_by_profile,
+    named_tables_of,
 )
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
@@ -122,7 +123,8 @@ def _emit_section(
                 "",
             ]
         )
-    lines.extend(_emit_nested(ctx, section_name, nested, values))
+    tables = frozenset(named_tables_of(model_cls))
+    lines.extend(_emit_nested(ctx, section_name, nested, values, tables))
     lines.extend(_emit_arrays(ctx, section_name, arrays, values))
     return lines
 
@@ -273,13 +275,23 @@ def _emit_description(lines: list[str], field_info: FieldInfo) -> None:
 
 
 def _emit_nested(
-    ctx: _Ctx, section_name: str, nested: list[_ModelField], values: dict | None
+    ctx: _Ctx,
+    section_name: str,
+    nested: list[_ModelField],
+    values: dict | None,
+    tables: frozenset[str] = frozenset(),
 ) -> list[str]:
-    """Write each nested model as a sub-table of *section_name*."""
+    """Write each nested model as a sub-table of *section_name*.
+
+    A named table of *tables* (``[solver.modflow6]``) that a config written from
+    instances does not hold is left out: the config did not write it.
+    """
     lines: list[str] = []
     for name, field_info, _level, nested_cls in nested:
         sub_section = f"{section_name}.{name}"
         sub_values = _values_of(values, name)
+        if name in tables and ctx.from_instance and sub_values is None:
+            continue
         nested_cls = variant_for_values(field_info, nested_cls, sub_values)
         is_truly_optional = default_value(field_info) is None and field_info.default_factory is None
         _emit_description(lines, field_info)

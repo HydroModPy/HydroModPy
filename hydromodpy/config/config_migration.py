@@ -69,6 +69,7 @@ from hydromodpy.calibration.config import CALIBRATION_RENAMES
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE, refuse_old_forms, warn_old_form
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 from hydromodpy.core.state.result_dirs import is_sealed_run_config
 from hydromodpy.core.time import parse_step_spec
 from hydromodpy.core.toml_io.loader import read_toml_chain
@@ -154,10 +155,17 @@ class TableMove:
 
 _LAYERING = "domain.layers"
 
+SOLVER_TABLES_SINCE = "2.1.0"
+"""``since`` of the settings tables of the flow solvers that moved under ``[solver]``."""
+
 #: What the loader moves to another path: the layering each solver wrote under
-#: ``sgrid``, which every solver reads from ``[domain.layers]`` now, and the settings of
-#: the Boussinesq solve. Two rows with one ``new`` are alternatives, and the flow solver
-#: chooses between them.
+#: ``sgrid``, which every solver reads from ``[domain.layers]`` now, the keys of the
+#: Boussinesq solve, then the settings table of each flow solver, under ``[solver]`` by
+#: the name of the solver. Two rows with one ``new`` are alternatives, and the flow
+#: solver chooses between them. The rows are read in order, so a file of a pre-release
+#: moves in one pass: ``flow.max_iterations`` to ``flow.runtime.max_iterations`` to
+#: ``solver.boussinesq.max_iterations``, and ``modflow6.sgrid.vertical`` leaves for
+#: ``[domain.layers]`` before the rest of ``[modflow6]`` moves.
 MOVED_TABLES: tuple[TableMove, ...] = (
     *(
         TableMove(f"{section}.sgrid.vertical", _LAYERING, since=ALPHA_FORM)
@@ -167,6 +175,9 @@ MOVED_TABLES: tuple[TableMove, ...] = (
         TableMove(f"flow.{old}", f"flow.runtime.{new}", since=ALPHA_FORM)
         for old, new in FLOW_RUNTIME_KEYS.items()
     ),
+    TableMove("modflow6", "solver.modflow6", since=SOLVER_TABLES_SINCE),
+    TableMove("modflownwt", "solver.modflow_nwt", since=SOLVER_TABLES_SINCE),
+    TableMove("flow.runtime", "solver.boussinesq", since=SOLVER_TABLES_SINCE),
 )
 
 
@@ -377,12 +388,14 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes = _drop_dead_result_options(doc)
     changes.extend(_report_retired_results_tables(doc))
     changes.extend(_move_the_bottom_path(doc))
+    # Before the tables move: [modflow6.tgrid] is dropped, not carried to [solver.modflow6].
+    changes.extend(_drop_the_solver_time_grids(doc))
     changes.extend(_move_the_tables(doc, context))
     changes.extend(_flatten_boundary_conditions(doc))
-    changes.extend(_drop_the_solver_time_grids(doc))
     changes.extend(_rename_simulation_keys(doc))
     changes.extend(_rename_export_times(doc))
     changes.extend(_rename_keys(doc, sealed=sealed, context=context))
+    changes.extend(_flatten_the_backend_table(doc))
     changes.extend(_rename_field_values(doc))
     changes.extend(_rename_figures(doc))
     changes.extend(_rename_the_drain_kinds(doc))
@@ -1070,9 +1083,14 @@ def migrate_sealed_config_doc(doc: Any) -> list[str]:
     The frozen ``config.toml`` of a run is replayed as it was written, so the
     loader reads it under the names of today. Runs before the protocol is
     expanded: a protocol stage sealed with an old key would otherwise read as a
-    contradiction of the protocol that wrote it.
+    contradiction of the protocol that wrote it. The settings tables of the flow
+    solvers move under ``[solver]`` too, and ``solver.backend`` becomes the name,
+    because a run of 2.0.0 wrote ``[modflow6]`` and ``backend = {kind = ...}``. The
+    moves of a pre-release are not applied: no sealed run of 2.0.0 holds them.
     """
-    changes = _rename_keys(doc, sealed=True)
+    changes = _move_the_tables(doc, doc, since=SOLVER_TABLES_SINCE)
+    changes.extend(_rename_keys(doc, sealed=True))
+    changes.extend(_flatten_the_backend_table(doc))
     changes.extend(_rename_figures(doc))
     changes.extend(_rewrite_search_options(doc, sealed=True))
     changes.extend(_rewrite_cost_margin(doc, sealed=True))
@@ -1213,11 +1231,15 @@ def rewrite_dotted_path(path: str, *, sealed: bool = False) -> str:
     """Return a dotted path of the document under its current name.
 
     A path whose value changes form on the way stays as it is, and the place that
-    reads it refuses it.
+    reads it refuses it. ``solver.backend.kind`` and ``solver.backend.name`` end on
+    ``solver.backend``, whose value is the name they held
+    (:func:`_flatten_the_backend_table`).
     """
     for row in moved_paths(sealed=sealed):
         if not row.converts:
             path = row.rewrite(path) or path
+    if path in {f"{_BACKEND}.{key}" for key in _BACKEND_KEYS}:
+        return _BACKEND
     return path
 
 
@@ -1261,8 +1283,10 @@ def _rewrite_path_keys(
     """Rewrite the dotted keys of *table*. *holds_values* says its values are key values."""
     changes: list[str] = []
     beaten = _beaten_moves(table, context)
+    # A key one row leaves stays where it is: a later row does not move it on.
+    left: set[str] = set()
     for row in moved_paths(sealed=sealed):
-        for key in [str(key) for key in table]:
+        for key in [str(key) for key in table if str(key) not in left]:
             renamed = row.rewrite(key)
             if renamed is None:
                 continue
@@ -1271,6 +1295,7 @@ def _rewrite_path_keys(
                 del table[key]
                 changes.append(f"{label} dropped ({beaten[row.rule].section} is the flow solver)")
             elif renamed in table:
+                left.add(key)
                 changes.append(f'{label}{CANNOT_REWRITE}"{renamed}" is given too, keep one')
             elif sealed and isinstance(row.rule, KeyRename) and row.rule.sealed_drop:
                 del table[key]
@@ -1334,7 +1359,7 @@ def _rewrite_path_values(doc: Any, *, sealed: bool) -> list[str]:
     return changes
 
 
-_NETWORK_ESTIMATORS = frozenset({"distance_gap", "distance_mean"})
+_NETWORK_ESTIMATORS = frozenset(NETWORK_METRIC_NAMES)
 _PROTOCOL_UNDECIDED = (
     "the search it covers is written by a protocol, so it is not known whether it is scored "
     "by network distances; write cost_margin by hand, '5%' or a length such as '25 m'"
@@ -2086,6 +2111,73 @@ def _rename_export_times(doc: Any) -> list[str]:
     return changes
 
 
+_BACKEND = "solver.backend"
+_BACKEND_KEYS = ("kind", "name")
+
+
+def _backend_name_of(table: Mapping[str, Any]) -> Any:
+    """Return the name a ``solver.backend`` table says: ``kind``, or ``name`` when it is custom."""
+    kind = _plain(table.get("kind"))
+    if isinstance(kind, str) and kind.strip().lower() == "custom":
+        return _plain(table.get("name"))
+    return kind
+
+
+def _flatten_the_backend_table(doc: Any) -> list[str]:
+    """Write ``solver.backend`` as the name of the flow solver, not as a table.
+
+    ``backend = {kind = "modflow_nwt"}`` becomes ``backend = "modflow_nwt"``, and
+    ``{kind = "custom", name = "x"}`` becomes ``"x"``. It runs after the rename of a
+    pre-release, ``backend.backend`` to ``backend.kind``. The overrides of a
+    calibration phase and the tables of ``[sites]`` say the same as dotted keys,
+    ``solver.backend.kind``, and get one key ``solver.backend``. A table that holds
+    another key is left, and the loader refuses it with the key to write.
+    """
+    changes: list[str] = []
+    solver = doc.get("solver")
+    if isinstance(solver, Mapping):
+        changes.extend(_flatten_one_backend(solver, _BACKEND))
+    for where, phase in _tables_at(doc, _PHASES):
+        overrides = phase.get("overrides")
+        if not isinstance(overrides, Mapping):
+            continue
+        nested = overrides.get("solver")
+        if isinstance(nested, Mapping):
+            changes.extend(_flatten_one_backend(nested, f"{where}.overrides.{_BACKEND}"))
+        changes.extend(_flatten_backend_keys(overrides, f"{where}.overrides"))
+    for scope in _PATH_KEYS:
+        for where, table in _tables_at(doc, scope):
+            changes.extend(_flatten_backend_keys(table, where))
+    return changes
+
+
+def _flatten_one_backend(solver: Any, label: str) -> list[str]:
+    backend = solver.get("backend")
+    if not isinstance(backend, Mapping) or set(backend) - set(_BACKEND_KEYS):
+        return []
+    name = _backend_name_of(backend)
+    if not isinstance(name, str) or not name.strip():
+        return []
+    solver["backend"] = name.strip()
+    return [f"{label}.kind -> {label} = {name.strip()!r}"]
+
+
+def _flatten_backend_keys(table: Any, where: str) -> list[str]:
+    """Fold the dotted keys ``solver.backend.kind`` and ``.name`` of *table* into one key."""
+    dotted = {key: f"{_BACKEND}.{key}" for key in _BACKEND_KEYS}
+    written = {key: table[path] for key, path in dotted.items() if path in table}
+    if not written or _BACKEND in table:
+        return []
+    name = _backend_name_of(written)
+    if not isinstance(name, str) or not name.strip():
+        return []
+    for path in dotted.values():
+        if path in table:
+            del table[path]
+    table[_BACKEND] = name.strip()
+    return [f'{where}."{_BACKEND}.kind" -> "{_BACKEND}"']
+
+
 def _drop_the_solver_time_grids(doc: Any) -> list[str]:
     """Drop ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]``, both removed.
 
@@ -2101,7 +2193,9 @@ def _drop_the_solver_time_grids(doc: Any) -> list[str]:
         table = doc.get(name)
         if not isinstance(table, Mapping) or "tgrid" not in table:
             continue
-        del table["tgrid"]
+        # With the section, when it held nothing else: an empty table moved
+        # under [solver] would write a key the file never wrote.
+        _drop_table(doc, f"{name}.tgrid")
         changes.append(f"{name}.tgrid dropped (removed from the schema, never read)")
     return changes
 
@@ -2665,11 +2759,12 @@ def _set_at(doc: Any, path: str, value: Any) -> None:
     table[key] = value if moved is None else moved
 
 
-def _moves_by_target() -> dict[str, list[TableMove]]:
-    """Return the rows of :data:`MOVED_TABLES`, by the path they lead to."""
+def _moves_by_target(since: str | None = None) -> dict[str, list[TableMove]]:
+    """Return the rows of :data:`MOVED_TABLES`, by the path they lead to, or those of *since*."""
     grouped: dict[str, list[TableMove]] = {}
     for move in MOVED_TABLES:
-        grouped.setdefault(move.new, []).append(move)
+        if since is None or move.since == since:
+            grouped.setdefault(move.new, []).append(move)
     return grouped
 
 
@@ -2683,8 +2778,8 @@ def _kept_move(written: Sequence[TableMove], context: Any) -> TableMove:
     return written[0]
 
 
-def _move_the_tables(doc: Any, context: Any) -> list[str]:
-    """Move what :data:`MOVED_TABLES` lists to its new path.
+def _move_the_tables(doc: Any, context: Any, *, since: str | None = None) -> list[str]:
+    """Move what :data:`MOVED_TABLES` lists to its new path, or only the rows of *since*.
 
     Several old paths can lead to one, as the table of each solver leads to
     ``[domain.layers]``. When the document writes more than one, *context* decides:
@@ -2693,7 +2788,7 @@ def _move_the_tables(doc: Any, context: Any) -> list[str]:
     path written in the same file wins over all of them.
     """
     changes: list[str] = []
-    for target, moves in _moves_by_target().items():
+    for target, moves in _moves_by_target(since).items():
         found = [move for move in moves if _value_at(doc, move.old) is not None]
         if found:
             changes.extend(_move_to(doc, target, moves, found, context))
@@ -2844,6 +2939,8 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
         for key in sorted({option for _, option in _BUDGET_OPTIONS})
     ),
     *(OldForm(path, None, ALPHA_FORM) for path in _DROPPED_KEYS),
+    OldForm(f"{_BACKEND}.kind", _BACKEND, SOLVER_TABLES_SINCE),
+    OldForm(f"{_BACKEND}.name", _BACKEND, SOLVER_TABLES_SINCE),
     OldForm("flow.active_bc", "flow.bc", ALPHA_FORM),
     OldForm("flow.active_sinks_sources", "flow.sinks_sources", ALPHA_FORM),
     *(OldForm(f"transport.{key}", None, ALPHA_FORM) for key in _TRANSPORT_NEVER_READ),
@@ -2886,8 +2983,13 @@ REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
 
 
 def old_forms() -> tuple[OldForm, ...]:
-    """Return every old form of the grammar this build still knows, with its ``since``."""
-    return (
+    """Return every old form of the grammar this build still knows, with its ``since``.
+
+    ``new`` is where the key ends after every row, so a key that moved twice, as
+    ``flow.runtime_backend`` to ``flow.runtime.backend`` to
+    ``solver.boussinesq.backend``, names the key a file writes today.
+    """
+    forms = (
         *(
             OldForm(
                 f"{rule.scope}.{rule.old}",
@@ -2900,6 +3002,12 @@ def old_forms() -> tuple[OldForm, ...]:
         *(OldForm(move.old, move.new, move.since) for move in MOVED_TABLES),
         *HAND_WRITTEN_FORMS,
         *REFUSED_OR_RETIRED_FORMS,
+    )
+    return tuple(
+        form
+        if form.new is None
+        else OldForm(form.old, rewrite_dotted_path(form.new), form.since, form.rewritten)
+        for form in forms
     )
 
 
@@ -2920,6 +3028,7 @@ __all__ = [
     "OLD_VALUES",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
+    "SOLVER_TABLES_SINCE",
     "KeyRename",
     "Layer",
     "OldForm",

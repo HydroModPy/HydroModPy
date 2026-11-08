@@ -3,7 +3,7 @@
 A method is a physical formulation (the unknowns and the surface closure) on
 one space scheme (finite volumes on triangles, heads at the cell centers) and
 one time scheme per regime. An engine is the nonlinear and linear solver that
-runs a method. ``resolve_runtime_backend`` turns the ``[flow.runtime]`` backend
+runs a method. ``resolve_runtime_backend`` turns the ``[solver.boussinesq]`` backend
 and surface model into one method, one engine, and the runtime module that
 solves it. The descriptions and labels feed the runtime summary of a run.
 """

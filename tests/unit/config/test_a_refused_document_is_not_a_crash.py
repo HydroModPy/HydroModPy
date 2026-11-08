@@ -174,7 +174,7 @@ def test_a_typed_error_without_details_omits_the_member() -> None:
 
 MALFORMED = {
     "unknown key in a section": "[flow]\ntypo_runtime = true\n",
-    "unknown key in a nested model": "[modflow6.sgrid]\ntypo = 1\n",
+    "unknown key in a nested model": "[solver.modflow6.sgrid]\ntypo = 1\n",
     "a section that is a scalar": "flow = 3\n",
     "a value outside its literal": "[flow]\nflow_regime = 'not_a_regime'\n",
     "a retired section": "[modflow]\nexe_name = 'mfnwt'\n",

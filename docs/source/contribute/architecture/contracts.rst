@@ -263,6 +263,19 @@ the Protocol.
 details. A solver is one adapter class with its attributes and a line in each registry table
 (:doc:`how-to/add-a-solver`).
 
+The TOML meets this port in three places, and none of them names a backend.
+``solver.backend`` is a string checked against the registry while the file is read, and an
+unknown name is refused with the names the installation serves. The table
+``[solver.<name>]`` is validated by the ``options`` class of the adapter. And
+``hydromodpy/config/cross_checks.py`` refuses a key the chosen backend leaves out of
+``supports``: the message gives the key the file wrote, the backend, and the backends that honor
+it, and the error is ``IncompatibleCapabilitiesError``. A transport solver whose ``requires``
+does not name the flow of the run is refused in the same way. Two pairs of keys spoil
+each other whatever the solver, a lake with a ``spinup_cyclic`` start for one, and they are rows
+of ``CONTAMINATIONS``. A run sealed before a refusal existed is read back with a warning.
+The one refusal that waits for the solve is a transport behind a steady start whose heads
+did not converge, because convergence is only known then.
+
 Pipeline step
 ~~~~~~~~~~~~~
 
