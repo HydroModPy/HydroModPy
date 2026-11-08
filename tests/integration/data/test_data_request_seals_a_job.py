@@ -109,16 +109,46 @@ def stub_bdtopage(monkeypatch):
 
 
 @pytest.fixture
-def stub_hubeau(monkeypatch):
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+def stub_hubeau(isolated_registry):
+    """Replace the Hub'Eau source behind the registry key with a recorder.
+
+    The manager resolves a listed source through ``data_sources``, so the
+    recorder is the class that key resolves to; its ``fetch`` reads the
+    request the way a real client reads it and answers the records.
+    """
+    from hydromodpy.data.source.port import FetchResult
 
     calls: list[dict] = []
 
-    def _record(cfg, *, bbox, station_ids, start, end, context):
-        calls.append({"station_ids": station_ids, "start": start, "end": end})
-        return _stations()
+    class _RecordedHubeau:
+        source_id: ClassVar[str] = "hubeau"
+        section: ClassVar[str] = "hydrometry"
+        payload_kind: ClassVar[str] = "points"
+        extent_crs: ClassVar[str] = "EPSG:4326"
+        selectors: ClassVar[tuple[str, ...]] = ("extent", "station_ids")
+        period_need: ClassVar[str] = "required"
+        writes_out_dir: ClassVar[bool] = False
 
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", _record)
+        def __init__(self, **_options: object) -> None:
+            self.variables: tuple[str, ...] = ("hydrometry",)
+            self.hosts: tuple[str, ...] = ()
+
+        def fetch(self, request):
+            calls.append(
+                {
+                    "station_ids": list(request.station_ids) if request.station_ids else None,
+                    "start": request.period.start if request.period is not None else None,
+                    "end": request.period.end if request.period is not None else None,
+                }
+            )
+            return FetchResult(
+                source_id=self.source_id,
+                kind=self.payload_kind,
+                variables=self.variables,
+                points=tuple(_stations()),
+            )
+
+    isolated_registry.register(_RecordedHubeau, replace=True)
     return calls
 
 
@@ -355,14 +385,27 @@ def test_a_sealed_directory_under_another_id_is_refused(sealed_network):
         run(job, exit_code_for=exit_code_for)
 
 
-def test_a_failed_variable_fails_the_job_with_a_typed_code_and_no_seal(tmp_path, monkeypatch):
+def test_a_failed_variable_fails_the_job_with_a_typed_code_and_no_seal(tmp_path, isolated_registry):
     from hydromodpy.core.exceptions import DataSourceError
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+    from hydromodpy.data.source.port import FetchRequest
 
-    def _down(cfg, **kwargs):
-        raise DataSourceError("provider down")
+    class _DownHubeau:
+        source_id: ClassVar[str] = "hubeau"
+        section: ClassVar[str] = "hydrometry"
+        payload_kind: ClassVar[str] = "points"
+        extent_crs: ClassVar[str] = "EPSG:4326"
+        selectors: ClassVar[tuple[str, ...]] = ("extent", "station_ids")
+        period_need: ClassVar[str] = "required"
+        writes_out_dir: ClassVar[bool] = False
 
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", _down)
+        def __init__(self, **_options: object) -> None:
+            self.variables: tuple[str, ...] = ("hydrometry",)
+            self.hosts: tuple[str, ...] = ()
+
+        def fetch(self, request: FetchRequest):
+            raise DataSourceError("provider down")
+
+    isolated_registry.register(_DownHubeau, replace=True)
     job = _staged(
         tmp_path,
         _request(HYDROMETRY, extent={"station_ids": ["J0001"]}, period=dict(PERIOD)),
@@ -385,6 +428,7 @@ class AcmeLineworkSource:
     """A river-network source a third party ships, named in no file of this tree."""
 
     source_id: ClassVar[str] = "acme-linework"
+    section: ClassVar[str] = "hydrography"
     payload_kind: ClassVar[str] = "features"
     extent_crs: ClassVar[str] = "EPSG:3035"
     selectors: ClassVar[tuple[str, ...]] = ("extent",)

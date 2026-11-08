@@ -10,7 +10,6 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Station, Variable
-from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -34,7 +33,6 @@ _MONTH_NAMES = (
 )
 
 
-@register
 class SeasonalBoxplotFigure(BaseFigure):
     """Monthly distribution of a variable as a box-plot."""
 

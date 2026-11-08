@@ -8,13 +8,17 @@ when serialized on its own.
 
 The generated graph stays self-contained: every ``hasPart`` / ``object`` /
 ``result`` reference resolves to a sibling entity in the same ``@graph``.
+
+:class:`RoCrateView` is the RO-Crate format of the export port: the view a
+``format = "rocrate"`` request writes is the same crate this module builds,
+declared for the registry the way every export format declares itself.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.results.export.context import (
     AssetEntry,
@@ -22,10 +26,14 @@ from hydromodpy.results.export.context import (
     _is_missing,
     to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory
+from hydromodpy.results.export.directory import context_from_directory, sealed_root_of
 from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import OCTET_STREAM_MEDIA_TYPE
+
+if TYPE_CHECKING:
+    from hydromodpy.results.exporters.export_spec import PlannedFile
+    from hydromodpy.results.exporters.job import ExportJob
 
 RO_CRATE_CONFORMS = "https://w3id.org/ro/crate/1.1"
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
@@ -258,10 +266,41 @@ def loads(payload: str) -> dict[str, Any]:
     return json.loads(payload)
 
 
+class RoCrateView:
+    """The RO-Crate format of the export port, the one view the wheel ships."""
+
+    name: ClassVar[str] = "rocrate"
+    suffix: ClassVar[str] = ".json"
+    writes: ClassVar[tuple[str, ...]] = ("run",)
+    natural: ClassVar[tuple[str, ...]] = ()
+    instants: ClassVar[str] = "many"
+    reprojects: ClassVar[bool] = False
+    help: ClassVar[str] = "The RO-Crate metadata of the run."
+
+    def write(
+        self,
+        job: ExportJob | None,
+        item: PlannedFile | None,
+        dest: Path,
+    ) -> list[Path]:
+        """Render the crate of the sealed directory *dest* lands in.
+
+        *dest* is the run directory itself for a request without ``folder``
+        and ``file``, so the crate sits at the crate root ``./`` where its
+        relative paths resolve, or one exact path under ``exports/``, whose
+        hrefs then name the files of the run directory.
+        """
+        del job, item  # a view renders the seal; it reads no run data.
+        out = Path(dest)
+        root = sealed_root_of(out)
+        return [write_ro_crate(context_from_directory(root), out)]
+
+
 __all__ = [
     "RO_CRATE_CONFORMS",
     "RO_CRATE_CONTEXT",
     "RO_CRATE_METADATA_FILENAME",
+    "RoCrateView",
     "build_ro_crate",
     "loads",
     "write_ro_crate",

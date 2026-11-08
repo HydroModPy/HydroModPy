@@ -37,7 +37,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import annotate_note, cell_count
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
@@ -115,7 +114,6 @@ DEFAULT_ARROW_BINS = 24
 """Arrows across the widest side of the domain. Zero draws none."""
 
 
-@register
 class FlowDirectionMap(BaseFigure):
     """Direction of the receiver of every cell of the mesh, on the descent D.
 

@@ -1,8 +1,12 @@
 """DEM variable manager - standard data-manager pattern.
 
-Downloads, caches, and serves DEM data from IGN Geoplateforme or custom
-files. Returns a ``LoadResult`` containing ``FieldRecord`` objects pointing to
-cached GeoTIFF files.
+Caches and serves DEM data from the port source the configuration names, or
+from the user's own files. Returns a ``LoadResult`` containing ``FieldRecord``
+objects pointing to cached GeoTIFF files.
+
+The download itself is the port source ``(dem, ign_geoplateforme_dem)``: this
+manager resolves the box, keeps the catalogue and wraps the file the source
+returns into the ``FieldRecord`` the loader reads.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir
+from hydromodpy.data.source.port import FetchRequest
 
 
 class DemManager(SourceTable):
@@ -23,9 +28,9 @@ class DemManager(SourceTable):
 
     Follows the standard variable-manager pattern:
     - iterates over configured sources,
-    - checks catalog cache (bbox-based, no temporal dimension),
+    - builds each one through the ``data_sources`` registry,
     - downloads / loads on miss,
-    - registers in SQL catalog with subsumption.
+    - registers in SQL catalog.
     """
 
     VARIABLE_NAME = "dem"
@@ -58,61 +63,46 @@ class DemManager(SourceTable):
                     result.points.append(rec)
         return result
 
+    def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
+        """What only this manager can compute for the IGN source.
+
+        The resolution the dataset names and the departments the declared
+        regions hold are measured here, and the catalog entry below keeps the
+        same values, so what was registered is what the source served.
+        """
+        return {
+            "resolution_m": _resolution_for_ign_geoplateforme(source_cfg),
+            "file_format": _file_format_for_ign_geoplateforme(source_cfg),
+            "departments": _department_codes_for_french_dem_source(source_cfg),
+        }
+
     # ------------------------------------------------------------------
-    # Bbox resolution
+    # Registered sources
     # ------------------------------------------------------------------
 
-    def _resolve_bbox(self, source_cfg) -> tuple | None:
-        """The request box in the CRS of whatever declared it."""
+    def _fetch_listed_source(self, source: Any, source_cfg: Any) -> list[FieldRecord]:
+        """Fetch the DEM of the built source and index it in the catalog."""
+        name = str(getattr(source_cfg, "source", "")).strip()
         extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
-        return None if extent is None else extent.bbox
-
-    def _resolve_bbox_2154(self, source_cfg) -> tuple | None:
-        """The request box in EPSG:2154, which is what IGN is asked in."""
-        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
-        return None if extent is None else extent.to_crs("EPSG:2154").bbox
-
-    # ------------------------------------------------------------------
-    # IGN DEM through dynamic Geoplateforme discovery
-    # ------------------------------------------------------------------
-
-    def _fetch_ign_geoplateforme_dem(self, source_cfg) -> list[FieldRecord]:
-        """Fetch an IGN DEM product through the dynamic Geoplateforme client."""
-
-        bbox = self._resolve_bbox_2154(source_cfg)
-        if bbox is None:
+        if extent is None:
             raise ValueError(
-                "ign_geoplateforme_dem source requires a bbox "
+                f"{name} source requires a bbox "
                 "(set mask_path, or extent together with a project extent)"
             )
+        bbox = extent.to_crs("EPSG:2154").bbox
 
-        from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
-
-        output_dir = self.data_dir or (_hmp_cache_dir() / "dem")
         dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
         resolution_m = _resolution_for_ign_geoplateforme(source_cfg)
-        if dataset == "rge-alti":
-            # Fetched by extent from WMS-Raster: no archive, no department.
-            file_format = "GEOTIFF"
-            department_codes = None
-        else:
-            file_format = str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
-            department_codes = _department_codes_for_french_dem_source(source_cfg)
+        file_format = _file_format_for_ign_geoplateforme(source_cfg)
+        department_codes = _department_codes_for_french_dem_source(source_cfg)
 
-        tif_path = fetch_ign_dem(
-            output_dir=output_dir,
-            bbox=bbox,
-            departments=department_codes,
-            dataset=dataset,
-            resolution_m=resolution_m,
-            file_format=file_format,
-            crs=getattr(source_cfg, "crs", None),
-            force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
-        )
+        output_dir = self.data_dir or (_hmp_cache_dir() / "dem")
+        result = source.fetch(FetchRequest(out_dir=Path(output_dir), extent=extent))
+        tif_path = result.files[0].path
 
         record = FieldRecord(
             variable="dem",
-            source="ign_geoplateforme_dem",
+            source=name,
             unit="m",
             data=tif_path,
             bbox=bbox,
@@ -122,7 +112,7 @@ class DemManager(SourceTable):
         if self.catalog is not None:
             self.catalog.register(
                 variable="dem",
-                source="ign_geoplateforme_dem",
+                source=name,
                 file_path=str(tif_path),
                 bbox=bbox,
                 crs="EPSG:2154",
@@ -169,11 +159,22 @@ class DemManager(SourceTable):
 
         return records
 
-    SOURCES = {"ign_geoplateforme_dem": _fetch_ign_geoplateforme_dem}
-    """Each source is a method of this hand-written manager, called with the manager."""
+    # ------------------------------------------------------------------
+    # Bbox resolution
+    # ------------------------------------------------------------------
 
-    def _fetch_listed_source(self, fetch, source_cfg) -> list:
-        return fetch(self, source_cfg)
+    def _resolve_bbox(self, source_cfg) -> tuple | None:
+        """The request box in the CRS of whatever declared it."""
+        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
+        return None if extent is None else extent.bbox
+
+
+def _file_format_for_ign_geoplateforme(source_cfg: Any) -> str:
+    dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
+    if dataset == "rge-alti":
+        # Fetched by extent from WMS-Raster: no archive, no department.
+        return "GEOTIFF"
+    return str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
 
 
 def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None:

@@ -20,8 +20,8 @@ import pytest
 from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.variables.hydrometry.apis import hubeau as hubeau_api
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
 RENNES_WGS84 = (-1.75, 48.05, -1.60, 48.15)
 RENNES_L93 = [340000.0, 6780000.0, 360000.0, 6800000.0]
@@ -34,7 +34,7 @@ def _station(station_id: str, x: float, y: float, crs: str) -> PointRecord:
     dates = pd.date_range("2020-01-01", periods=10, freq="D")
     return PointRecord(
         station_id=station_id,
-        variable="hydrometry",
+        variable="discharge",
         source="hubeau",
         unit="m3/s",
         frequency="D",
@@ -46,7 +46,7 @@ def _station(station_id: str, x: float, y: float, crs: str) -> PointRecord:
 
 
 def _outside_warnings(monkeypatch, stations: list[PointRecord]) -> list[str]:
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", lambda cfg, **kwargs: stations)
+    monkeypatch.setattr(hubeau_api, "fetch", lambda **kwargs: stations)
     cfg = HydrometryConfig.model_validate({"sources": [{"source": "hubeau"}]})
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -68,10 +68,8 @@ def test_a_station_outside_the_basin_is_named(monkeypatch) -> None:
 
 
 def test_a_box_request_hands_the_station_manager_its_box_in_wgs84(monkeypatch, tmp_path) -> None:
-    monkeypatch.setitem(
-        HydrometryManager.SOURCES,
-        "hubeau",
-        lambda cfg, **kwargs: [_station("J0001", -1.68, 48.11, "EPSG:4326")],
+    monkeypatch.setattr(
+        hubeau_api, "fetch", lambda **kwargs: [_station("J0001", -1.68, 48.11, "EPSG:4326")]
     )
     request = DataRequest.for_variable(
         "hydrometry",

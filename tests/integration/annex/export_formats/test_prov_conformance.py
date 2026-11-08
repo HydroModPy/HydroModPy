@@ -1,4 +1,4 @@
-"""Lightweight conformance tests for the PROV-O JSON-LD exporter."""
+"""Lightweight conformance tests for the PROV-O JSON-LD exporter in the annex."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.export.prov import (
+from hydromodpy.results.export.prov import build_prov_document
+from hydromodpy_annex.export.prov import (
     PROV_CONTEXT,
-    build_prov_document,
     serialise_prov,
     write_prov,
 )
-from tests.integration.exports.conftest import SIM_ID
+from tests.integration.annex.exports.conftest import SIM_ID
 
 
 def test_prov_document_has_action_and_outputs(fair_context):
@@ -74,12 +74,7 @@ def test_prov_activity_was_associated_with_agents(fair_context):
 
 
 def test_prov_outputs_have_was_derived_from_when_inputs_exist(fair_context):
-    """Output entities link to inputs via ``wasDerivedFrom`` -- when inputs are declared.
-
-    The fixture may not seed any input entries; in that case the
-    ``wasDerivedFrom`` field is intentionally omitted (an empty list would
-    be misleading). The check is conditional on the presence of inputs.
-    """
+    """Output entities link to inputs via ``wasDerivedFrom`` -- when inputs are declared."""
     sid = SIM_ID
     doc = build_prov_document(fair_context)
     activities = doc["activities"]

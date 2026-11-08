@@ -25,13 +25,13 @@ It holds three things of unequal weight:
 Figures are the part of HydroModPy the user sees most. Every figure follows five
 rules.
 
-1. **A figure shows a quantity, not a tool.** It draws a field, a flux, a budget,
+1. A figure shows a quantity. It draws a field, a flux, a budget,
    a simulated series against an observed one, a mesh or a network, under the
    names of `results/field_registry.py`. It never tests a solver name, and neither
    its name nor its title names a solver or a data provider. The same figure
    works for MODFLOW-NWT, MODFLOW 6 and Boussinesq when the run holds the field.
-2. **A figure is offered only when the run has what it needs.** `spec` declares
-   the fields, tables and solvers it requires; a need that `spec` cannot express
+2. A figure is offered only when the run has what it needs. `spec` declares
+   the fields and tables it requires; a need that `spec` cannot express
    (a network, a DEM raster, hydrochemistry, the series of a stream reach, a
    lake or a piezometer, a particle that moved) is checked in the figure's own
    `unavailable_reason`. A figure that cannot draw a run is refused with a
@@ -40,7 +40,7 @@ rules.
    reason by `hmp viz list --run`. It never raises from inside `render` and never
    writes a placeholder PNG. A lumped run (GR4J) has no grid, so every map is
    refused and the discharge figures stay offered.
-3. **An instant is a date.** A figure that draws one instant is asked for it by
+3. An instant is a date. A figure that draws one instant is asked for it by
    `time`: a date, `"first"` or `"last"`, in `[display] time` for the whole
    gallery or in `[display.overrides.<figure>]` for one. `runs._resolve_time`
    is the one place a date meets a run: it calls `run.periods.step_at` and hands the
@@ -50,12 +50,12 @@ rules.
    persists it); a `DisplayConfig` built from a
    dict renames it in its own before-validator, with a `ConfigKeyRenamedWarning`.
    A date the run does not hold skips the figure with its reason.
-4. **An option is a parameter.** The keys `[display.overrides.<figure>]` takes
+4. An option is a parameter. The keys `[display.overrides.<figure>]` takes
    are the named parameters of the figure's `plot` and `render`, read along the
    MRO while a `**` parameter forwards them (`figure.option_names_of`). A key
    the figure does not take is refused at config load, with the list. A new
    figure option therefore needs no declaration beyond its parameter.
-5. **One name on every surface.** A figure has one name, written in
+5. A figure has one name, written on every surface:
    `[display].figures`, `hmp viz show <run> <name>` and `hmp.figure(run, "<name>")`.
    A renamed figure keeps its old name in `former_names`, so project files that
    use it still load. `[display]` fields are `USER` when they choose what to
@@ -78,12 +78,12 @@ never in a figure.
 |---|---|
 | `report_blocks`, `style`, `maps`, `png_metadata`, `quicklook` | nothing |
 | `figure` | `png_metadata` |
-| `figure_registry` | `figure`; and `figures` by its name written as text, on first lookup (the one exception, which keeps `import hydromodpy.display` light) |
+| `figure_registry` | `figure`; the names come from the generated `figure_table`, which imports nothing (no exception left: no module of `figures/` is imported to answer a name) |
 | `run_comparison` | `maps` |
 | `calibration_report` | `figure_registry`, `report_blocks`, `runs` |
-| `figures` | `figure`, `figure_registry`, `maps`, `style` |
+| `figures` | `figure`, `maps`, `style` |
 | `config` | `figure_registry` |
-| `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
+| `<init>` (the `__init__.py` docstring) | nothing |
 | `runs` | `<init>`, `config`, `figure`, `png_metadata`, `style` |
 | `catalog_figures` | `figure_registry`, `runs` (it parses `--opt NAME=VALUE` against the registry, so it cannot sit under `figure_options`, which the registry already reads) |
 | `overview` | `report_blocks`, `style` |
@@ -98,22 +98,26 @@ ruff rule SLF001 checks it.
 
 ```
 hydromodpy/display/
-├── __init__.py            facade: BaseFigure, Figure, FigureSpec, get, list_figures, names, register
+├── __init__.py            docstring only; every name is imported from the module that defines it
 │
 │   the figure catalogue of a run
 ├── figure.py              contract: FigureSpec (metadata), BaseFigure (plot, render, unavailable_reason),
 │                          the title and show_run_name options every figure takes (run_suffix), options_of
 ├── figure_options.py      what each figure option means: Opt on the parameter, shared aliases,
 │                          describe_options; figure.options_of gives the catalog type, default, unit
-├── figure_registry.py     register, get, resolve, names, list_figures; imports figures/ on first lookup
-├── figures/               one figure per file, flat, discovered automatically
+├── figure_registry.py     figures (the registry instance on the common engine), get, resolve, names,
+│                          list_figures, figure_option_names; it reads the table and imports nothing
+│                          to answer a name
+├── figure_table.py        the generated table: FIGURES, FORMER_NAMES, OPTIONS, PYTHON_ONLY_OPTIONS;
+│                          literals only, regenerated by `python -m tools.figure_table`
+├── figures/               one figure per file, flat, each named by the spec its class carries
 │   ├── scalar_face_map.py    base of the "one value per mesh face" maps
 │   ├── _stream_comparison.py, _flow_persistence.py, _trial_diagnostics.py,
 │   │   _calibration_session.py, _hydrochem.py, _cohort.py, _observed.py,
 │   │   _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
-│   ├── lake_level_fit.py      public helper, not registered, no caller in `hydromodpy`
-│   └── <name>.py              the registered figures
+│   ├── lake_level_fit.py      public helper, no spec, not a figure
+│   └── <name>.py              the figures
 │
 │   rendering the figures of a run ([display])
 ├── config.py              DisplayConfig, the [display] TOML section
@@ -156,18 +160,24 @@ hydromodpy/display/
 ## Template of a figure
 
 A figure is a class in `figures/<name>.py`. The file name does not start with `_`
-(discovery skips those). Two models cover nearly everything.
+(only helpers do). Nothing registers it by hand: `BaseFigure.__init_subclass__`
+takes the name from the `spec` the class carries, and the generated table
+`figure_table.py` is the list. After adding or renaming a figure, regenerate it:
 
-**Map of a field, one value per mesh face**: a subclass of `ScalarFaceMap`, with no
+```bash
+python -m tools.figure_table
+```
+
+Two models cover nearly everything.
+
+Map of a field, one value per mesh face is a subclass of `ScalarFaceMap`, with no
 `render` to write. Model: `figures/piezometric_map.py`.
 
 ```python
 from hydromodpy.display.figure import FigureSpec
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
-@register
 class PiezometricMap(ScalarFaceMap):
     spec = FigureSpec(
         name="piezometric_map",  # the name written in [display].figures
@@ -179,7 +189,7 @@ class PiezometricMap(ScalarFaceMap):
     default_overlays = ("watershed", "outlet")
 ```
 
-**Time series, chart, anything else**: `BaseFigure` and a `render(sim, ax, **opts)`
+Time series, chart and anything else is a `BaseFigure` and a `render(sim, ax, **opts)`
 method that draws on the axes it gets and returns them. Model: `figures/hydrograph.py`.
 `BaseFigure.plot` builds the matplotlib figure, calls `render` and writes the PNG
 with its provenance. A figure that lays out its own figure may define its own
@@ -187,7 +197,7 @@ with its provenance. A figure that lays out its own figure may define its own
 `title` and `show_run_name` options, with nothing to write for them.
 
 What `spec` declares decides whether the figure applies to a run:
-`required_fields` (Zarr fields), `required_tables` (tables), `required_solvers`.
+`required_fields` (Zarr fields) and `required_tables` (tables).
 A need `spec` cannot express goes into an `unavailable_reason` override that calls
 the base first and returns a sentence (model: `figures/lake_abacus_comparison.py`).
 `render` may then assume the data is there.
@@ -216,7 +226,7 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 
 ## How data flows
 
-**Figures of a run.**
+Figures of a run.
 
 ```
 TOML [display]  ->  DisplayConfig (config.py; names checked by figure_registry.resolve)
@@ -228,7 +238,7 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
                 ->  runs/<run>/figures/<name>.png, recorded in runs/<run>/figures/index.json
 ```
 
-**Cohort figures.** `figures/cohort_map.py` and `figures/cohort_distribution.py`
+Cohort figures. `figures/cohort_map.py` and `figures/cohort_distribution.py`
 draw one table with one row per site, not a run; `figures/_cohort.py` reads
 the columns they share. `hmp campaign collect` (`project/launch/summary.py`) draws them with `cohort.py`
 under `summary/figures/` for each name of `[sites.summary] figures`.
@@ -239,12 +249,12 @@ renders one figure after the same applicability check and stamps a saved PNG
 with the identity of its run. `hmp viz list --run <ref>` calls
 `runs.figure_availability(run)`.
 
-**Overview.** `workflow/overview.py` builds a `DataOverviewState`
+Overview. `workflow/overview.py` builds a `DataOverviewState`
 (geography and loaded data, no run); `overview.generate_overview_report` renders
 one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`,
 and its web pages under `runs/<overview>/report/` (`overview/location.py`).
 
-**Catchment report.** `hmp report catchment <toml>` (options in
+Catchment report. `hmp report catchment <toml>` (options in
 `hydromodpy/cli/commands/report.py`) calls
 `catchment_report.pipeline.run_catchment_report_pipeline`. When asked, the pipeline
 runs the overview and the simulation (subprocess `hydromodpy run`). It then builds
@@ -258,38 +268,37 @@ under `report/context/` (`inputs.py`).
 
 ## Where to add what
 
-1. **A map of a field, one value per face.** Create `figures/<name>.py` on the
-   model of `piezometric_map.py`. Add its line to `REGISTRY_CONTRACT` in
-   `tests/unit/display/test_figure_registry_completeness.py` (class, `kind`,
-   `required_fields`): the test refuses a figure missing from that table.
-2. **A time series or a chart.** Create `figures/<name>.py` on the model of
-   `hydrograph.py`: `@register`, `spec`, `render`. Dates on the x axis:
-   `maps.axes.style_date_axis`. Same line in `REGISTRY_CONTRACT`. If the figure
+1. A map of a field, one value per face: create `figures/<name>.py` on the
+   model of `piezometric_map.py`, then run `python -m tools.figure_table`:
+   a test regenerates the table in memory and fails while the file is stale.
+2. A time series or a chart: create `figures/<name>.py` on the model of
+   `hydrograph.py`: `spec`, `render`. Dates on the x axis:
+   `maps.axes.style_date_axis`. Regenerate the table. If the figure
    needs something `spec` cannot declare, override `unavailable_reason`;
    `tests/unit/display/test_every_figure_refuses_an_empty_run.py` fails otherwise.
-3. **Rename a figure.** Change `spec.name`, put the old name in
-   `spec.former_names`, update `REGISTRY_CONTRACT`. Project files that write the
+3. Rename a figure: change `spec.name`, put the old name in
+   `spec.former_names`, regenerate the table. Project files that write the
    old name still load, with a warning.
-4. **A helper shared by several figures.** A module `figures/_<name>.py`. If a
+4. A helper shared by several figures is a module `figures/_<name>.py`. If a
    shared tool or another layer needs it too, it does not belong in `figures/`: a
    root tool if it draws, `results` if it reads or computes.
-5. **A layer drawn on maps.** A function `draw_<name>(ax, sim, *, timestep)` and a
+5. A layer drawn on maps: a function `draw_<name>(ax, sim, *, timestep)` and a
    key in `maps.overlays.OVERLAYS`. Raise `OverlayUnavailable` when the run lacks the
    data: the layer is skipped, not the map.
-6. **A panel of the overview.** A boolean in `OverviewPanelsConfig`
+6. A panel of the overview: a boolean in `OverviewPanelsConfig`
    (`overview/config.py`), the drawing function in `overview/panels.py`, its
    conditional call in `overview/report.py:generate_overview_report`.
-7. **A block or a figure of the catchment report.** In
+7. A block or a figure of the catchment report: in
    `catchment_report/blocks.py`, the declaration (`ReportBlockSpec`, and one
    `BlockFigureSpec` per figure) and the content (a function in
    `_CONTENT_BUILDERS`); the expected PNG in `artifacts.py` (`artifact_spec`).
-8. **A read of a run that a figure needs.** In `results`, not in `display`: an
+8. A read of a run that a figure needs goes in `results`, never in `display`: an
    existing public method of `Run`, else a module function of `results` that takes
    the run (models: `results/run/particles.py`, `results/calibration_trials.py`,
    `results.run.geographic.crs_epsg`).
    `Run` itself is capped at 50 public attributes
    (`tests/unit/results/test_run_surface.py`).
-9. **An import rule.** A line in `tests/unit/architecture/display_layout.yaml`.
+9. An import rule is a line in `tests/unit/architecture/display_layout.yaml`.
 
 A new figure appears in the figure catalog of the documentation at the next
 build: `tools/docs/catalogs.py` reads `list_figures()`.
@@ -301,7 +310,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 
 | module | for |
 |---|---|
-| `hydromodpy.display` | `get`, `list_figures`, `names`, `register`, `BaseFigure`, `FigureSpec` |
+| `hydromodpy.display.figure` | `BaseFigure`, `FigureSpec` |
 | `hydromodpy.display.config` | `DisplayConfig` |
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
@@ -347,11 +356,11 @@ class FigureSpec:
     required_fields: tuple[str, ...] = ()
     optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
-    required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
 class BaseFigure(ABC):
+    name: ClassVar[str]
     spec: FigureSpec
 
     @abstractmethod
@@ -360,9 +369,11 @@ class BaseFigure(ABC):
     def unavailable_reason(self, sim: Run) -> str | None: ...
 ```
 
-`optional_fields` lists fields the figure reads when they are there. `@register`
-places the class in the registry under `spec.name`. The list of figures is
-generated from the registry into the figures page of the documentation, and
+`optional_fields` lists fields the figure reads when they are there. The rule
+is the membership: every `BaseFigure` subclass of a public module of
+`figures/` is in the generated table under its `spec.name`, and the registry
+finds the class from it. The list of figures is
+generated from the table into the figures page of the documentation, and
 `hmp viz list` prints the live list. A run reaches data only through `Run`
 (`run.field`, `run.timeseries`, `run.budget`) or a module function of `results`.
 
@@ -370,9 +381,9 @@ generated from the registry into the figures page of the documentation, and
 
 | word | meaning here |
 |---|---|
-| figure | a registered class that draws one thing from a run; its name is the one of `[display].figures` |
+| figure | a `BaseFigure` subclass of `figures/` that draws one thing from a run; its name is the one of `[display].figures` |
 | `spec` | the static metadata of a figure: name, title, `kind`, what it requires from the run |
-| `kind` | the plotting family (`spatial`, `section`, `timeseries`, `balance`, `particles`, `table`, `comparison`, `animation`), not the hydrological domain |
+| `kind` | the plotting family (`spatial`, `section`, `timeseries`, `balance`, `particles`, `table`, `comparison`, `animation`); the hydrological domain stays out of it |
 | unavailable | a figure the run cannot feed; it is refused or skipped with a sentence |
 | overlay | a named drawing put on an existing map, skipped when the run lacks the data |
 | panel | one image of the overview, drawn without a run |
@@ -382,9 +393,10 @@ generated from the registry into the figures page of the documentation, and
 
 ## Key public symbols
 
-- `hydromodpy.display.{get, list_figures, names, register, BaseFigure, FigureSpec}`
-- `hydromodpy.display.figure_registry.{register, get, resolve, names,
-  figure_option_names}`
+- `hydromodpy.display.figure.{BaseFigure, FigureSpec}`
+- `hydromodpy.display.figure_registry.{get, resolve, names, list_figures,
+  figure_option_names}` and the registry instance
+  `hydromodpy.display.figure_registry.figures`
 - `hydromodpy.display.figure_options.Opt` and `hydromodpy.display.figure.options_of`
 - `hydromodpy.display.runs.{render_figures_for_run, render_figure,
   figure_availability}`
@@ -405,9 +417,9 @@ the network, the extents, the routing surface and the depression floods are comp
 
 ## Reading path
 
-1. `figure.py` for the contract, then `figure_registry.py`.
-2. `figures/__init__.py` for the discovery.
-3. One simple figure, `figures/hydrograph.py`, and one map,
+1. `figure.py` for the contract, then `figure_registry.py` and the generated
+   `figure_table.py`.
+2. One simple figure, `figures/hydrograph.py`, and one map,
    `figures/piezometric_map.py`.
-4. `report_blocks.py` for the HTML contract.
-5. `catchment_report/builder.py` for a complete block-based report producer.
+3. `report_blocks.py` for the HTML contract.
+4. `catchment_report/builder.py` for a complete block-based report producer.

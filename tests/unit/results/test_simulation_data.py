@@ -10,7 +10,7 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
 )
-from hydromodpy.display import get as get_figure
+from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.results.run import Run
 from tests._helpers.run_builders import populate, runs
 

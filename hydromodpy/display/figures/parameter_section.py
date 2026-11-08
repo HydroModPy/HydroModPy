@@ -30,7 +30,6 @@ from hydromodpy.display.figure_options import (
     SectionSamples,
     SectionThrough,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._parameter_scale import (
     CONDUCTIVITY_FIELDS,
     CYCLIC_FIELDS,
@@ -61,7 +60,6 @@ _LOG_OPTION = (
 )
 
 
-@register
 class ParameterSection(BaseFigure):
     """Aquifer properties along one transect, one panel per property."""
 

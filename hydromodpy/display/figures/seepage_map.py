@@ -18,7 +18,6 @@ import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_options import Extent, Layer, Overlays, Timestep
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     catchment_cells,
     checked_cells,
@@ -46,7 +45,6 @@ SEEPAGE_COLOR = "#08519c"
 """Cells where the water table reaches the land surface."""
 
 
-@register
 class SeepageMap(ScalarFaceMap):
     """Seepage and no-seepage cells of one stress period.
 

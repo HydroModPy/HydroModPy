@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -15,6 +15,7 @@ from hydromodpy.data.managers.timeseries_config import (
     SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -33,10 +34,19 @@ class OceanicSourceConfig(
     and naming a station is what turning the search off actually means.
     """
 
-    source: Annotated[Literal["custom", "shom", "constant"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
+        description=(
+            "Data provider: 'custom' for user CSV/NC/TIF files, or the id of a source "
+            "registered for the oceanic section, such as 'shom' for the SHOM API and "
+            "'constant' for a fixed mean sea level."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_oceanic(cls, source: str) -> str:
+        return registered_section_source(source, "oceanic")
 
     # --- Custom source fields ---
     path: Annotated[

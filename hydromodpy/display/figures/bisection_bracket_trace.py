@@ -30,7 +30,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import OneParameter, OutputName, SessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     chosen_session,
     float_or,
@@ -82,7 +81,6 @@ class _BracketTrace:
         return bool(self.parameter_low.size) and bool(np.isfinite(self.parameter_low[-1]))
 
 
-@register
 class BisectionBracketTraceFigure(BaseFigure):
     """Signed residual per evaluation, and the bracket closing onto zero."""
 

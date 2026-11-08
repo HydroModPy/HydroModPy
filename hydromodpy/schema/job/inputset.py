@@ -38,6 +38,15 @@ Confidence = Literal["declared", "assumed", "undetermined"]
 
 _CONFIDENCE_ORDER: tuple[Confidence, ...] = ("undetermined", "assumed", "declared")
 
+InputState = Literal["raw", "conditioned"]
+"""How far from its origin a file was carried when it was sealed.
+
+``raw`` for the bytes a provider answered with, ``conditioned`` for a file the
+pipeline rewrote on the way. A source that hands a file back states which one
+it is, and the run records it, so two inputs with the same digest and different
+states stay two different facts about what was read.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class Licence:
@@ -244,6 +253,7 @@ __all__ = [
     "Confidence",
     "InputResource",
     "InputSet",
+    "InputState",
     "Licence",
     "LicenceRollup",
     "build_inputset",

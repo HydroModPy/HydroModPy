@@ -12,20 +12,30 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING
-
-import pandas as pd
+from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import keep_nearest
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
 
 if TYPE_CHECKING:
-    from hydromodpy.data.managers.base_manager_common import SourceContext
-    from hydromodpy.data.variables.water_quality.config import WaterQualitySourceConfig
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 logger = get_logger(__name__)
 
@@ -57,6 +67,8 @@ def fetch(
     fallback_search_radius_km : float | None
         If no station found in bbox, expand by this radius and retry.
     """
+    import pandas as pd
+
     is_river = site_type.startswith("river")
 
     if station_ids is None:
@@ -88,6 +100,8 @@ def fetch(
             return []
 
     logger.debug(f"Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
     records: list[PointRecord] = []
 
     for sid in progress.track(station_ids, "Fetching water quality stations"):
@@ -140,26 +154,62 @@ def fetch(
     return records
 
 
-def fetch_for_config(
-    cfg: WaterQualitySourceConfig,
-    *,
-    bbox: tuple | None,
-    station_ids: Sequence[str] | None,
-    start: datetime,
-    end: datetime,
-    context: SourceContext,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section."""
-    return fetch(
-        site_type=cfg.site_type,
-        bbox=bbox,
-        station_ids=station_ids,
-        date_start=start,
-        date_end=end,
-        parameters=cfg.parameters,
-        nearest_to=context.nearest_to,
-        fallback_search_radius_km=cfg.fallback_search_radius_km,
-    )
+class HubeauWaterQuality:
+    """The river and piezometer analyses of Hub'Eau, behind the data-source port.
+
+    One record per (station, parameter). ``nearest_to`` is what the manager
+    resolves when the section asks for the nearest station, and ``parameters``
+    keeps only the analyses of the listed parameters. Without a filter the
+    provider names its own parameters (and writes them with its own case), so
+    the declaration names the family and no per-record check can be exact;
+    with a filter, the provider keeps the members the list selects.
+    """
+
+    source_id: ClassVar[str] = "hubeau"
+    section: ClassVar[str] = "water_quality"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        *,
+        site_type: str = "river",
+        parameters: Sequence[str] | None = None,
+        fallback_search_radius_km: float | None = None,
+        nearest_to: tuple[float, float] | None = None,
+    ) -> None:
+        self.site_type = site_type
+        self.parameters = list(parameters) if parameters else None
+        self.fallback_search_radius_km = fallback_search_radius_km
+        self.nearest_to = nearest_to
+        self.variables: tuple[str, ...] = tuple(self.parameters or ("water_quality",))
+        self.hosts: tuple[str, ...] = shipped_hosts("hubeau")
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request) if request.extent is not None else None
+        records = fetch(
+            site_type=self.site_type,
+            bbox=None if extent is None else extent.bbox,
+            station_ids=list(request.station_ids) or None,
+            date_start=period.start,
+            date_end=period.end,
+            parameters=self.parameters,
+            nearest_to=self.nearest_to,
+            fallback_search_radius_km=self.fallback_search_radius_km,
+        )
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
 
 
 def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -> list[str]:
@@ -218,6 +268,8 @@ def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocati
     if x is None or y is None:
         return None
 
+    from hydromodpy.data.contracts.location import StationLocation
+
     name = row.get("libelle_station") or row.get("nom_station") or station_id
     return StationLocation(
         id=station_id, x=float(x), y=float(y), crs="EPSG:4326", metadata={"name": name}
@@ -226,6 +278,10 @@ def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocati
 
 def _extract_location_from_data(station_id: str, df: pd.DataFrame) -> StationLocation | None:
     """Try to get coordinates from analysis records."""
+    import pandas as pd
+
+    from hydromodpy.data.contracts.location import StationLocation
+
     for _, row in df.head(5).iterrows():
         x, y = row.get("longitude"), row.get("latitude")
         if pd.notna(x) and pd.notna(y):
@@ -241,6 +297,8 @@ def _download_analyses(
     is_river: bool,
 ) -> pd.DataFrame:
     """Download analyses year by year."""
+    import pandas as pd
+
     url = API_RIVER_URL if is_river else API_PZ_URL
     all_records: list[dict] = []
 
@@ -267,6 +325,8 @@ def _download_analyses(
 
 def _normalize_dataframe(df: pd.DataFrame, *, is_river: bool) -> pd.DataFrame:
     """Normalize raw API output to columns [datetime, parameter, value, unit]."""
+    import pandas as pd
+
     out = pd.DataFrame()
 
     # Date

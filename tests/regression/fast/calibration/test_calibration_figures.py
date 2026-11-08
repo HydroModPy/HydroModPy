@@ -35,7 +35,7 @@ from hydromodpy.calibration.optim.diagnostics import (  # noqa: E402
     parameter_correlation,
 )
 from hydromodpy.core.scoring.metrics import kge as _kge_metric  # noqa: E402
-from hydromodpy.display import get as get_figure  # noqa: E402
+from hydromodpy.display.figure_registry import get as get_figure  # noqa: E402
 from validation_cases.calibration.recession_hillslope_aquifer.experiment import (  # noqa: E402
     _DEFAULT_CHRONICLE_TEST,
     BaseflowConfig,

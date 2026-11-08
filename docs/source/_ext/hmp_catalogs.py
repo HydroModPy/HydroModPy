@@ -253,8 +253,6 @@ class FiguresDirective(SphinxDirective):
                 facts = [
                     f"<li><b>Reads</b> {'; '.join(reads) or '<span class=hmp-muted>nothing fixed</span>'}</li>"
                 ]
-                if r["required_solvers"]:
-                    facts.append(f"<li><b>Only with</b> {code_list(r['required_solvers'])}</li>")
                 if r["availability_rule"]:
                     facts.append(
                         f"<li><b>Drawn when</b> {H.inline_md(r['availability_rule'], builder, doc)}</li>"

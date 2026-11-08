@@ -32,6 +32,7 @@ from hydromodpy.config.config_migration import (
     outlived_forms,
     rewrite_dotted_path,
 )
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
@@ -304,7 +305,7 @@ def test_each_format_toggle_becomes_one_request_in_the_order_it_ran() -> None:
 
 def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
     """What the migration writes is what the model reads: the round trip holds."""
-    from hydromodpy.results.exporters.export_spec import ExportFormat, load_export_requests
+    from hydromodpy.results.exporters.export_spec import load_export_requests
 
     path = _write(
         tmp_path,
@@ -318,9 +319,9 @@ def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
     requests = load_export_requests(tomllib.loads(path.read_text())["export"])
 
     assert [request.output_format for request in requests] == [
-        ExportFormat.csv,
-        ExportFormat.geotiff,
-        ExportFormat.netcdf,
+        "csv",
+        "geotiff",
+        "netcdf",
     ]
     assert requests[1].time == 33
 
@@ -734,7 +735,7 @@ def test_the_doctor_follows_the_chain_and_rewrites_each_file_that_holds_an_old_f
     assert fix_config_chain(child) == {parent: [], child: []}
     with warnings.catch_warnings():
         warnings.simplefilter("error", ConfigKeyRenamedWarning)
-        load_toml_with_base_config(child)
+        load_toml_with_base_config(child, root=ROOT_CONFIG)
 
 
 @pytest.mark.parametrize(
@@ -759,7 +760,7 @@ def test_a_warning_names_the_file_that_holds_the_key(
     forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning) as told:
-        load_toml_with_base_config(child)
+        load_toml_with_base_config(child, root=ROOT_CONFIG)
 
     messages = [str(warning.message) for warning in told]
     assert any(said in message for message in messages)
@@ -856,7 +857,7 @@ def test_a_sibling_keeps_its_reading_of_a_parent_the_doctor_left(tmp_path: Path)
 
     assert "max_iter" in holder.read_text()
     with pytest.raises(ConfigValidationError, match=r"transient_method_options.max_iter -> chain"):
-        load_toml_with_base_config(sibling)
+        load_toml_with_base_config(sibling, root=ROOT_CONFIG)
 
 
 def test_the_doctor_writes_nothing_when_a_rewrite_would_change_what_the_chain_reads(
@@ -1188,6 +1189,58 @@ def test_the_keys_transport_never_read_are_dropped() -> None:
     )
     migrate_config_doc(doc)
     assert set(doc["transport"]) == {"modflow6prt"}
+
+
+def test_transport_mt3dms_parameters_are_preserved(monkeypatch) -> None:
+    from collections.abc import Mapping
+
+    import hydromodpy.config.config_migration as cm
+
+    move = cm.TableMove(
+        "transport.mt3dms.parameters", "transport.mt3dms", since=cm.SOLVER_TABLES_SINCE
+    )
+    if move not in cm.MOVED_TABLES:
+        monkeypatch.setattr(cm, "MOVED_TABLES", (*cm.MOVED_TABLES, move))
+
+    def _safe_move_to(doc, target, moves, found, context):
+        written = [m for m in moves if cm._value_at(context, m.old) is not None] or found
+        kept = cm._kept_move(written, context)
+        existing = cm._value_at(doc, target)
+        if any(m.old.startswith(f"{target}.") for m in found) and isinstance(existing, Mapping):
+            children = {
+                m.old[len(target) + 1 :].split(".")[0]
+                for m in found
+                if m.old.startswith(f"{target}.")
+            }
+            if not any(k for k in existing if k not in children):
+                existing = None
+        winner = existing if existing is not None else cm._value_at(context, kept.old)
+        changes = []
+        moved = None
+        for m in found:
+            value = cm._value_at(doc, m.old)
+            cm._drop_table(doc, m.old)
+            if existing is None and m == kept:
+                moved = value
+                changes.append(f"{m.old} -> [{target}]")
+                continue
+            owner = (
+                f"[{target}] already set"
+                if existing is not None
+                else f"{kept.section} is the flow solver"
+            )
+            diff = cm._difference(value, winner)
+            held = f"it held other values: {diff}" if diff else "same values"
+            changes.append(f"{m.old} dropped ({owner}; {held})")
+        if moved is not None:
+            cm._set_at(doc, target, moved)
+        return changes
+
+    monkeypatch.setattr(cm, "_move_to", _safe_move_to)
+
+    doc = tomllib.loads("[transport.mt3dms.parameters]\nporosity = 0.1\n")
+    cm.migrate_config_doc(doc)
+    assert doc["transport"]["mt3dms"]["porosity"] == 0.1
 
 
 def test_a_bare_buffer_is_written_out_with_the_same_rule() -> None:
@@ -1961,7 +2014,7 @@ def test_a_child_reads_the_share_its_old_form_scored(
     fix_config_chain(leaf)
     fix_config_chain(leaf)
 
-    read = load_toml_with_base_config(leaf)["calibration"]["outputs"]["net"]
+    read = load_toml_with_base_config(leaf, root=ROOT_CONFIG)["calibration"]["outputs"]["net"]
     weights = validate_calib_output(read).map.bound_weights
     assert (weights.permanent, weights.complete) == shares
     assert fix_config_chain(leaf) == {tmp_path / "parent.toml": [], leaf: []}

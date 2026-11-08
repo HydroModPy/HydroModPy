@@ -6,116 +6,40 @@ variable: a public API, the user's own files (``custom``), or a generator
 (``constant``, ``synthetic``). For a brand-new variable family, see
 :doc:`add-a-data-variable` first.
 
-Two paths, and which one you are on
------------------------------------
+One form, in tree or out
+------------------------
 
-**In this repository**, a provider is a function in the variable's package
-and one entry in its manager's ``SOURCES`` table. That is how every shipped
-variable reaches Hub'Eau, SIM2, the BRGM, the IGN or the SHOM.
-
-**Out of tree**, a provider is a ``DataSource`` class (the port,
-``hydromodpy/data/source/port.py``) published on the
-``hydromodpy.data.source`` entry-point group. It is nameable in a
-``[data.hydrography]`` section when it serves a river network, and for any
-payload kind under the ``installed`` member of a data request, without a
-patch to this repository.
+Every source is one class of the ``DataSource`` port
+(``hydromodpy/data/source/port.py``), whatever it serves: the three river
+networks, Hub'Eau, SIM2, Explore2, the IGN DEM, the two BRGM products, the
+SHOM, BD TOPO, ROE and the two computed sources are classes of the port, the
+same as a third-party plugin. The contract of the port, member by member, is
+``hydromodpy/data/source/README.md``.
 
 An in-tree provider
 -------------------
 
-Four edits: three inside the variable's package, and one entry in the source table
-of ``hydromodpy/schema/sources.py``:
+Four edits, three inside the variable's package and one in the registry:
 
-1. the provider module, ``variables/<variable>/apis/<provider>.py`` (or
-   ``common/clients/`` when several variables share it, as SIM2 does);
-2. the value in the ``source`` field of ``variables/<variable>/config.py``;
-3. the entry in the manager's ``SOURCES`` table;
+1. the provider class, ``variables/<variable>/apis/<provider>.py`` (or
+   ``common/clients/`` when several variables share it, as SIM2 does;
+   a computed source lives in the module named after its value, as
+   ``recharge/synthetic.py`` does);
+2. the entry in ``_BUILTIN_PATHS`` of ``data/source/registry.py``, a
+   dotted path, joined to the section and the class name;
+3. the ``source`` field of ``variables/<variable>/config.py``, a string
+   the config validates against ``data_sources.names(section)``;
 4. an entry (licence, network hosts) in ``hydromodpy/schema/sources.py``.
 
-A station provider has the form
-``fetch(cfg, *, bbox, station_ids, start, end, context)``, a gridded one
-``fetch(cfg, *, bbox, period, context)``. ``cfg`` is the validated source
-section, ``bbox`` the box the manager resolved for the provider's CRS, and
-``context`` a ``SourceContext``: project extent, cache folder, section dates,
-nearest point.
+A source class declares its section and its name, both ``ClassVar``:
 
 .. code-block:: python
 
    # hydromodpy/data/variables/wind/apis/acme.py
-   from hydromodpy.data.contracts.spatial_field import FieldRecord
-
-
-   def fetch(cfg, *, bbox, period, context) -> list[FieldRecord]:
-       """Wind speed from the Acme grid service, over bbox and period."""
-       ...
-
-.. code-block:: python
-
-   # hydromodpy/data/variables/wind/config.py
-   source: Annotated[Literal["custom", "sim2", "acme"], Profile.USER] = Field(
-       ...,
-       description="Data provider.",
-       json_schema_extra={"value_docs": {"acme": "Wind speed from the Acme service."}},
-   )
-
-.. code-block:: python
-
-   # hydromodpy/data/variables/wind/manager.py
-   from hydromodpy.data.variables.wind.apis import acme
-
-
-   class WindManager(BaseFieldManager):
-       VARIABLE_NAME = "wind"
-       INTERNAL_UNIT = "m/s"
-       SOURCES = {"sim2": sim2_source("wind"), "acme": acme.fetch}
-
-The manager owns the cache: ``BaseFieldManager`` keeps grids as NetCDF,
-``BaseVariableManager`` keeps chronicles per station and asks the provider
-only for the missing periods. A provider never opens the catalog.
-
-A grid provider is cached only when it can say which variables it returns:
-give the function a ``variables(cfg)`` attribute, as ``sim2_source`` does.
-Without it the provider is called on every load and receives
-``bbox=None``, which is right for a local generator and wrong for a download.
-
-Use ``get_json`` (``hydromodpy/data/common/api_client.py``) or ``HTTPClient``
-(``hydromodpy/core/io/http_client.py``) rather than raw ``requests``: they
-handle retry, backoff and timeout.
-
-``tests/unit/data/test_the_variable_families_agree.py`` checks that the
-``source`` values of each variable (``custom`` aside) are exactly the keys of
-its ``SOURCES``, and that each has an entry in ``schema/sources.py``; a
-missing edit fails there with the file to complete. ``value_docs`` renders
-the explanation of each value on the card of the key, at the next
-documentation build.
-
-The source section is **one flat model**: every source's fields sit side by
-side and ``source`` selects which are read. ``extra="forbid"`` refuses an
-unknown key, not a field of another source of the same section, so a field
-name is never reused across two sources of one variable.
-
-Custom files and generators
----------------------------
-
-``source = "custom"`` never appears in ``SOURCES``: the base class loads the
-user's files with ``load_custom``, from the manager's ``VARIABLE_NAME`` and
-``INTERNAL_UNIT``. A variable whose files need real work overrides it, or
-keeps a ``custom.py`` beside its manager. A generator is a module named after
-its value (``recharge/synthetic.py``, ``oceanic/constant.py``) with the same
-signature as a provider.
-
-A plugin source
----------------
-
-Eight members, seven of them class-level declarations read *before* any fetch
-runs, and one ``fetch``:
-
-.. code-block:: python
-
-   # mypackage/acme_radar.py
    from typing import ClassVar
 
    from hydromodpy.data.source.port import (
+       Extent,
        FetchRequest,
        FetchResult,
        PayloadKind,
@@ -127,18 +51,19 @@ runs, and one ``fetch``:
    )
 
 
-   class AcmeRadarSource:
-       source_id: ClassVar[str] = "acme-radar"
+   class AcmeGrid:
+       source_id: ClassVar[str] = "acme"
+       section: ClassVar[str] = "wind"
        payload_kind: ClassVar[PayloadKind] = "fields"
        extent_crs: ClassVar[str] = "EPSG:3035"
        selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
        period_need: ClassVar[PeriodNeed] = "required"
-       hosts: ClassVar[tuple[str, ...]] = ("radar.acme.example",)
        writes_out_dir: ClassVar[bool] = False
 
        def __init__(self, *, sweep: str = "long") -> None:
            self.sweep = sweep
-           self.variables: tuple[str, ...] = ("radar_rainfall",)
+           self.variables: tuple[str, ...] = ("wind_speed",)
+           self.hosts: tuple[str, ...] = ("grid.acme.example",)
 
        def fetch(self, request: FetchRequest) -> FetchResult:
            require_selectors(self, request)
@@ -146,85 +71,140 @@ runs, and one ``fetch``:
            extent = extent_for(self, request)  # converted into extent_crs
            ...
 
-``variables`` belongs to the instance, because a source configured one way
-may serve fewer variables than the class can. Everything else is a
-``ClassVar``, so the registry refuses a non-conforming class when it is
-registered, not mid-fetch.
+``section`` is the ``[data.<section>]`` the class serves, one only. The
+constructor carries what varies between two sources of one provider: its
+parameters are the fields of the source section, bound by
+``build_from_section``, exactly as a solver backend binds the fields of
+``[solver.<name>]``. A source configured one way may serve fewer variables
+than the class can, so ``variables`` belongs to the instance, and the hosts
+it contacts belong to the instance too. A shipped source reads its hosts
+from ``hydromodpy/schema/sources.py`` through ``shipped_hosts`` and writes
+none itself, so a host is named once.
+
+The request and the result
+--------------------------
+
+A ``FetchRequest`` carries an ``out_dir`` the source owns alone, an
+``Extent`` (a bounding box and the CRS it is expressed in), ``station_ids``
+and a ``Period``. A request with neither an extent nor stations is accepted
+only from a source that declares ``selectors = ()``, and
+``require_selectors`` enforces that: a URL or a local file service, a
+constant or a synthetic series have nothing to ask for. Do not declare a
+selector the fetch does not read.
+
+A ``FetchResult`` carries ``points`` or ``fields`` records, or ``files`` as
+``FileRecord`` entries (``path``, ``sha256``, ``state``, ``nodata``,
+``origin``, built by ``FileRecord.of``, which hashes the file for the seal;
+``state`` is ``"raw"`` or ``"conditioned"``, the vocabulary of
+``schema/job/inputset.py``). Each record carries the unit its provider
+answers in: the port converts no value, and the SI is reached at the entry
+of the Model, where ``core/units`` converts and refuses a unit it cannot
+read. A source that answers in a unit ``core/units`` cannot read yet is
+allowed, and its ``SourceCase`` pins the unit it writes today.
 
 A source must **not** know the DuckDB catalog, the project workspace, a
-lock or a cache. It receives an ``Extent`` carrying its own CRS, an optional
-``Period`` and an ``out_dir`` scratch it owns alone.
+lock or a cache. The manager of the variable builds the request (a family of
+stations from the station list or the extent, a family of grids from the
+project extent) and owns the cache: ``BaseFieldManager`` keeps grids,
+``BaseVariableManager`` keeps chronicles per station and asks only for the
+missing periods. Use ``get_json`` (``hydromodpy/data/common/api_client.py``)
+or ``HTTPClient`` (``hydromodpy/core/io/http_client.py``) rather than raw
+``requests``: they handle retry, backoff and timeout.
 
-The registry is ``data_sources`` in ``data/source/registry.py``, an instance of
-the engine every plugin surface shares (``core/plugin_registry.py``).
+The section is still **one flat model**: the fields of every source sit side
+by side and ``source`` selects which are read, so a field name is never
+reused across two sources of one variable. ``dem``, ``geology`` and
+``crossings`` keep a discriminated union for now, because each of their
+sources carries its own model of options; the test of the variable families
+holds the labels of each union equal to ``data_sources.names(section)``,
+and the flat model comes with the ``file`` source. A module that holds a
+``DataSource`` class imports geopandas, pandas, rasterio or requests inside
+its functions, so looking a source up loads nothing heavy.
 
-Publish it from your own distribution:
+``tests/unit/data/test_the_variable_families_agree.py`` checks that the
+``source`` values of each variable match what the registry serves, and that
+each has an entry in ``schema/sources.py``; a missing edit fails there with
+the file to complete. ``value_docs`` renders the explanation of each value
+on the card of the key, at the next documentation build.
+
+Custom files and generators
+---------------------------
+
+``source = "custom"`` is never resolved by the registry: the base class of
+the manager loads the user's files with ``load_custom``, from the manager's
+``VARIABLE_NAME`` and ``INTERNAL_UNIT``. A variable whose files need real
+work overrides it, or keeps a ``custom.py`` beside its manager. A generator
+is a source like any other, in the module named after its value
+(``recharge/synthetic.py``, ``oceanic/constant.py``), and declares
+``selectors = ()``, because it asks for neither an extent nor stations.
+Until the ``file`` source closes the story, ``dem``, ``geology`` and
+``crossings`` keep a discriminated union whose labels the test of the
+variable families holds against ``data_sources.names(section)``.
+
+A plugin source
+---------------
+
+Publish it from your own distribution. The entry-point name is
+``<section>_<source_id>``, the rule the solver backends follow:
 
 .. code-block:: toml
 
    # your package's pyproject.toml
    [project.entry-points."hydromodpy.data.source"]
-   acme-radar = "mypackage.acme_radar:AcmeRadarSource"
+   wind_acme = "mypackage.acme_grid:AcmeGrid"
 
-The entry-point name must equal the ``source_id`` the class declares: a
-request writes the name and a result is stamped with the ``source_id``. A
-name this build already ships is refused. A plugin that fails any check is
-skipped with a warning naming what is wrong, never raised: one broken plugin
-must not take down a host that asked for a different source.
+A plugin that fails any check is skipped with a warning naming what is
+wrong, never raised: one broken plugin must not take down a host that asked
+for a different source. The registry verifies the name against the section
+and the ``source_id`` of the class it loads, without cutting the string, so
+two sections whose names share a prefix are safe. A name this build already
+ships under the same section is refused.
 
 Name it from a document
 -----------------------
 
 .. code-block:: toml
 
-   # not checked: acme-linework is the placeholder source of this recipe
-   # A project TOML. The section names a source whose payload kind is
-   # "features"; a source of another kind is refused by the document.
-   [[data.hydrography.sources]]
-   source = "acme-linework"
+   # not checked: acme is the placeholder source of this recipe
+   # A project TOML. The section names a source of its own section; a source
+   # of another section is refused, because the key is the pair of both.
+   [data.wind]
+   source = "acme"
 
 .. code-block:: json
 
    {
      "process": {"id": "data-request", "version": "1.0.0"},
      "inputs": {
-       "installed": [{"name": "acme-radar", "options": {"sweep": "short"}}],
+       "installed": [{"name": "acme", "options": {"sweep": "short"}}],
        "extent": {"bbox": [-1.85, 48.05, -1.55, 48.25], "crs": "EPSG:4326"},
        "period": {"start": "2020-01-01", "end": "2020-01-31"}
      }
    }
 
-``options`` is handed to the constructor as keyword arguments and bound
-against its signature before anything runs, so an argument the source cannot
-take is refused by name. An installed source does not appear in the process
-description, which ships frozen in the wheel, and the hosts it reaches are
-not declared there; ``outputs/request.json`` names the source
-of each file the run wrote.
-
-A ``[[data.hydrography.sources]]`` section is flat and shared by every source
-it can name, so the binder hands a plugin **the section field its constructor
-names, and nothing else**. A name the section does not carry keeps your
-default; a positional-only parameter without a default is refused.
-
-``tests/contract/test_data_source_contract.py`` holds every source to the port.
-Its declarations and its refusals run on every source the registry serves,
-whether it ships or is installed: the members and the closed vocabularies, the
-CRS, the hosts, a selector or a period it does not take. The rest of the suite reads
-what reaches the provider (the CRS the provider is really asked in, whether
-``out_dir`` is left alone), so it needs to know which function a source calls. A
-``SourceCase`` says so, and the sources that ship have one.
+Under ``installed``, a source resolves by its name alone, whatever its
+section: a name two sections share is refused with both keys, so say
+which one you mean. ``options`` is handed to the constructor as keyword
+arguments and bound against its signature before anything runs, so an
+argument the source cannot take is refused by name. An installed source does
+not appear in the process description, which ships frozen in the wheel, and
+the hosts it reaches are not declared there; ``outputs/request.json`` names
+the source of each file the run wrote, in the unit the records carry.
 
 Tests to add
 ------------
 
-- the config: a value the section refuses, a field that belongs to another
-  source;
+- the config: a source name the section refuses (a name of another section,
+  an unknown name), a field that belongs to another source;
 - the provider on a recorded answer, so the tier runs offline;
-- for a plugin, the contract suite run from a clone of this repository with your
-  distribution installed. ``pytest tests/contract/test_data_source_contract.py``
-  then finds your source through its entry point. To run the part that reads the
-  provider too, add a ``SourceCase`` for your class to ``BUILTIN_CASES`` in your
-  clone. The suite is not in the wheel.
+- a ``SourceCase`` describing which function your source calls, in your clone
+  of this repository. The contract suite,
+  ``tests/contract/test_data_source_contract.py``, runs its declarations and
+  its refusals on every source the registry serves, whether it ships or is
+  installed, and the rest of the suite reads what the ``SourceCase`` says:
+  the CRS the provider is really asked in, whether ``out_dir`` is left
+  alone. To run it, install your distribution in a clone of this repository:
+  the suite is not in the wheel.
 
 See also
 --------

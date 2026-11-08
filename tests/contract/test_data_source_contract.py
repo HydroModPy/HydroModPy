@@ -1,15 +1,15 @@
 """Conformance suite for the data-source port, run against every source.
 
 What a source declares and what it refuses before reaching its provider runs on every
-source the registry serves, an installed one too. Run this file from a clone with
-the plugin installed (``tests/contract/test_data_source_conformance_reaches_an_installed_source.py``
+source the registry serves -- a source of any section, an installed one too. Run this
+file from a clone with the plugin installed (``tests/contract/test_data_source_conformance_reaches_an_installed_source.py``
 proves it). What reaches the provider needs a :class:`SourceCase`, which says which
 function a source delegates to.
 
 The port is only worth its name if adapters that agree on nothing else answer
-the same questions the same way. The three sources this build ships are river
-networks and agree on too much, so three doubles defined here stand for the
-plugin sources an ``installed`` request may name:
+the same questions the same way. The river networks this build ships agree on
+too much, so three doubles defined here stand for the plugin sources an
+``installed`` request may name:
 
 ============== ============ ============= ========= ==============
 source         payload kind extent CRS    period    writes out_dir
@@ -20,7 +20,7 @@ double-grid    ``fields``   **EPSG:2154** required  no
 double-tiles   ``files``    **EPSG:2154** refused   **yes**
 ============== ============ ============= ========= ==============
 
-Two CRS, all four payload kinds, both values of ``PeriodNeed`` and both answers
+Two CRS, all four payload kinds, all three values of ``PeriodNeed`` and both answers
 on writing. A member that only makes sense for one of them cannot survive this
 file, and :func:`test_the_suite_spans_the_vocabularies` fails if a future edit
 collapses that spread.
@@ -28,8 +28,8 @@ collapses that spread.
 Two layers, and why both are needed
 -----------------------------------
 **Layer A** records the provider entry point each adapter delegates to and
-reads the arguments off it. It is uniform over the six cases and it is
-where the declarations are compared against a real call. A source that reached
+reads the arguments off it. It is uniform over every case the suite names and it
+is where the declarations are compared against a real call. A source that reached
 the network behind its own provider function would be caught by
 the ``no_network`` fixture, which makes every transport of this tree raise.
 
@@ -37,7 +37,7 @@ the ``no_network`` fixture, which makes every transport of this tree raise.
 HTTP transport stubbed, and reads the bounding box out of the query string that
 was about to be sent. Layer A alone would prove the adapter passes *something*
 to a function; Layer B proves the reprojected coordinates are what the provider
-receives. It covers the three shipped sources, which all go through
+receives. It covers the three shipped river networks, which all go through
 ``hydromodpy.core.io.http_client.HTTPClient.request``.
 """
 
@@ -46,9 +46,9 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -57,26 +57,53 @@ from hydromodpy.core.exceptions import (
     DataProductError,
     DataRequestError,
 )
-from hydromodpy.data.source import (
+from hydromodpy.data.common.clients.explore2_files import (
+    Explore2Etp,
+    Explore2Precipitation,
+)
+from hydromodpy.data.common.clients.sim2_products import (
+    Sim2Etp,
+    Sim2Humidity,
+    Sim2Precipitation,
+    Sim2Radiation,
+    Sim2Recharge,
+    Sim2Runoff,
+    Sim2SoilMoisture,
+    Sim2Temperature,
+    Sim2Wind,
+)
+from hydromodpy.data.source import registry
+from hydromodpy.data.source.port import (
     ALL_PAYLOAD_KINDS,
     ALL_PERIOD_NEEDS,
     ALL_SELECTORS,
     SOURCE_MEMBERS,
-    BdTopageSource,
     DataSource,
-    EuHydroSource,
     Extent,
     FetchRequest,
     FetchResult,
-    OsmSource,
     Period,
     extent_for,
     missing_source_members,
-    registry,
     require_declared_variables,
     require_period,
     require_selectors,
 )
+from hydromodpy.data.variables.crossings.apis.bdtopo import BdTopoCrossings
+from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings
+from hydromodpy.data.variables.dem.apis.ign_dem_fr import IgnGeoplateformeDem
+from hydromodpy.data.variables.geology.apis.brgm_1m import Brgm1m
+from hydromodpy.data.variables.geology.apis.brgm_50k import Brgm50k
+from hydromodpy.data.variables.hydrography.apis.bdtopage import BdTopageSource
+from hydromodpy.data.variables.hydrography.apis.euhydro import EuHydroSource
+from hydromodpy.data.variables.hydrography.apis.osm import OsmSource
+from hydromodpy.data.variables.hydrometry.apis.hubeau import HubeauHydrometry
+from hydromodpy.data.variables.intermittency.apis.hubeau import HubeauIntermittency
+from hydromodpy.data.variables.oceanic.apis.shom import ShomSeaLevel
+from hydromodpy.data.variables.oceanic.constant import ConstantSeaLevel
+from hydromodpy.data.variables.piezometry.apis.hubeau import HubeauPiezometry
+from hydromodpy.data.variables.recharge.synthetic import SyntheticRecharge
+from hydromodpy.data.variables.water_quality.apis.hubeau import HubeauWaterQuality
 
 pyproj = pytest.importorskip("pyproj")
 
@@ -96,7 +123,7 @@ def _expected_bbox(extent: Extent, crs: str) -> tuple[float, float, float, float
     if source.equals(target):
         return extent.bbox
     transformer = pyproj.Transformer.from_crs(source, target, always_xy=True)
-    return tuple(transformer.transform_bounds(*extent.bbox))
+    return tuple(transformer.transform_bounds(*extent.bbox))  # type: ignore[return-value]
 
 
 # --------------------------------------------------------------------------- #
@@ -108,6 +135,7 @@ def _expected_bbox(extent: Extent, crs: str) -> tuple[float, float, float, float
 class SourceCase:
     """One source, plus how to intercept the provider call it makes."""
 
+    section: str
     name: str
     build: Callable[[], Any]
     provider_module: str
@@ -115,11 +143,17 @@ class SourceCase:
     read_bbox: Callable[[tuple, dict], tuple | None]
     canned: Callable[[], Any]
 
+    @property
+    def key(self) -> str:
+        """The id the registry knows this source under."""
+        return f"{self.section}_{self.name}"
+
     def request(self, out_dir: Path, *, extent: Extent | None = CALLER_EXTENT) -> FetchRequest:
         """A request this source accepts, with the period it needs and no other."""
         source = self.build()
-        period = PERIOD if source.period_need == "required" else None
-        return FetchRequest(out_dir=out_dir, extent=extent, period=period)
+        period = PERIOD if source.period_need in ("required", "optional") else None
+        effective_extent = None if not source.selectors else extent
+        return FetchRequest(out_dir=out_dir, extent=effective_extent, period=period)
 
 
 def _empty_frame() -> Any:
@@ -138,9 +172,163 @@ def _grid_provider(*, bbox, start, end) -> list:
     return []
 
 
+def _tiles_canned() -> Path:
+    """A real one-pixel GeoTIFF the provider stands for, written in the sandbox."""
+    import tempfile
+
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    handle = tempfile.NamedTemporaryFile(  # type: ignore[arg-type]
+        prefix="hmp_tiles_wire_", suffix=".tif", delete=False
+    )
+    handle.close()
+    profile = {
+        "driver": "GTiff",
+        "height": 1,
+        "width": 1,
+        "count": 1,
+        "dtype": "float32",
+        "crs": "EPSG:2154",
+        "transform": from_origin(340000.0, 6810000.0, 5.0, 5.0),
+        "nodata": -9999.0,
+    }
+    with rasterio.open(handle.name, "w", **profile) as dst:
+        dst.write(np.full((1, 1), 17.0, dtype="float32"), 1)
+    return Path(handle.name)
+
+
 def _tile_provider(*, output_dir, bbox) -> Path:
     """Stands for a tile downloader that writes under the directory it is given."""
     return Path(output_dir) / "tiles.tif"
+
+
+def _dem_canned() -> Path:
+    """A one-pixel Lambert-93 GeoTIFF carrying a nodata the header declares."""
+    import tempfile
+
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    handle = tempfile.NamedTemporaryFile(  # type: ignore[arg-type]
+        prefix="hmp_dem_wire_", suffix=".tif", delete=False
+    )
+    handle.close()
+    profile = {
+        "driver": "GTiff",
+        "height": 1,
+        "width": 1,
+        "count": 1,
+        "dtype": "float32",
+        "crs": "EPSG:2154",
+        "transform": from_origin(340000.0, 6810000.0, 5.0, 5.0),
+        "nodata": -9999.0,
+    }
+    with rasterio.open(handle.name, "w", **profile) as dst:
+        dst.write(np.full((1, 1), 17.0, dtype="float32"), 1)
+    return Path(handle.name)
+
+
+def _vector_canned() -> Path:
+    """A small file a vector source hands back; only its bytes matter here."""
+    import tempfile
+
+    handle = tempfile.NamedTemporaryFile(  # type: ignore[arg-type]
+        prefix="hmp_vector_wire_", suffix=".gpkg", delete=False
+    )
+    handle.write(b"crossings contract canned payload")
+    handle.close()
+    return Path(handle.name)
+
+
+def _crossings_page_canned() -> Any:
+    """One page of crossings records, in the fixed columns of the variable."""
+    from shapely.geometry import LineString
+
+    from hydromodpy.data.variables.crossings import records
+
+    return [
+        records.build(
+            [LineString([(340000.0, 6800000.0), (340100.0, 6800100.0)])],
+            kind=["road"],
+            source="",
+            name=[""],
+            drop_m=[float("nan")],
+            crs="EPSG:2154",
+        )
+    ]
+
+
+def _point_record_canned(variable: str, unit: str, source: str) -> list:
+    import pandas as pd
+
+    from hydromodpy.data.contracts.timeseries import PointRecord
+
+    df = pd.DataFrame(
+        {
+            "datetime": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
+            "value": [1.0, 1.0],
+        }
+    )
+    return [
+        PointRecord(
+            station_id="ST01" if source == "shom" else source,
+            variable=variable,
+            source=source,
+            unit=unit,
+            frequency="D" if source != "shom" else "H",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 3, 31),
+        )
+    ]
+
+
+def _field_record_canned(variable: str, unit: str, source: str = "sim2") -> list:
+    import numpy as np
+    import xarray as xr
+
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
+
+    da = xr.DataArray(
+        np.zeros((1, 1, 1), dtype="float32"),
+        dims=("time", "y", "x"),
+        coords={
+            "time": [datetime(2020, 1, 1)],
+            "y": [6800000.0],
+            "x": [340000.0],
+        },
+    )
+    return [
+        FieldRecord(
+            variable=variable,
+            source=source,
+            unit=unit,
+            data=da.to_dataset(name=variable),
+            bbox=(335000.0, 6795000.0, 345000.0, 6805000.0),
+            crs="EPSG:2154",
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 3, 31),
+            frequency="D",
+        )
+    ]
+
+
+def _sim2_precipitation_canned() -> list:
+    return [
+        *_field_record_canned("precipitation_liquid", "mm/day", "sim2"),
+        *_field_record_canned("precipitation_solid", "mm/day", "sim2"),
+        *_field_record_canned("precipitation_total", "mm/day", "sim2"),
+    ]
+
+
+def _sim2_radiation_canned() -> list:
+    return [
+        *_field_record_canned("radiation_atmospheric", "MJ/m2/j", "sim2"),
+        *_field_record_canned("radiation_visible", "MJ/m2/j", "sim2"),
+    ]
 
 
 def _provider(name: str) -> Callable[..., Any]:
@@ -152,6 +340,7 @@ class _GaugeDouble:
     """A station source: points, WGS84, a period required, two selectors."""
 
     source_id = "double-gauge"
+    section: ClassVar[str] = "conformance-doubles"
     payload_kind = "points"
     extent_crs = "EPSG:4326"
     selectors = ("extent", "station_ids")
@@ -187,6 +376,7 @@ class _GridDouble:
     """A grid source: fields, Lambert-93, a period required."""
 
     source_id = "double-grid"
+    section: ClassVar[str] = "conformance-doubles"
     payload_kind = "fields"
     extent_crs = "EPSG:2154"
     selectors = ("extent",)
@@ -216,6 +406,7 @@ class _TileDouble:
     """A tile source: files, Lambert-93, no time axis, writes under ``out_dir``."""
 
     source_id = "double-tiles"
+    section: ClassVar[str] = "conformance-doubles"
     payload_kind = "files"
     extent_crs = "EPSG:2154"
     selectors = ("extent",)
@@ -227,6 +418,8 @@ class _TileDouble:
         self.variables = ("elevation",)
 
     def fetch(self, request: FetchRequest) -> FetchResult:
+        from hydromodpy.data.contracts.file_record import FileRecord
+
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
@@ -236,12 +429,13 @@ class _TileDouble:
             kind=self.payload_kind,
             variables=self.variables,
             extent=extent,
-            files=(merged,),
+            files=(FileRecord.of(merged, state="raw", nodata=None, origin=self.hosts[0]),),
         )
 
 
 BUILTIN_CASES: tuple[SourceCase, ...] = (
     SourceCase(
+        section="hydrography",
         name="bdtopage",
         build=BdTopageSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.bdtopage",
@@ -250,6 +444,7 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         canned=_empty_frame,
     ),
     SourceCase(
+        section="hydrography",
         name="osm",
         build=OsmSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.osm",
@@ -258,6 +453,7 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         canned=_empty_frame,
     ),
     SourceCase(
+        section="hydrography",
         name="euhydro",
         build=EuHydroSource,
         provider_module="hydromodpy.data.variables.hydrography.apis.euhydro",
@@ -265,10 +461,218 @@ BUILTIN_CASES: tuple[SourceCase, ...] = (
         read_bbox=lambda args, kwargs: args[1] if len(args) > 1 else kwargs.get("bbox_wgs84"),
         canned=_empty_frame,
     ),
+    SourceCase(
+        section="dem",
+        name="ign_geoplateforme_dem",
+        build=IgnGeoplateformeDem,
+        provider_module="hydromodpy.data.variables.dem.apis.ign_dem_fr",
+        provider_attr="fetch_ign_dem",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_dem_canned,
+    ),
+    SourceCase(
+        section="geology",
+        name="brgm_1m",
+        build=Brgm1m,
+        provider_module="hydromodpy.data.variables.geology.apis.brgm_1m",
+        provider_attr="fetch_brgm_1m",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_vector_canned,
+    ),
+    SourceCase(
+        section="geology",
+        name="brgm_50k",
+        build=Brgm50k,
+        provider_module="hydromodpy.data.variables.geology.apis.brgm_50k",
+        provider_attr="fetch_brgm_50k",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_vector_canned,
+    ),
+    SourceCase(
+        section="crossings",
+        name="bdtopo",
+        build=BdTopoCrossings,
+        provider_module="hydromodpy.data.variables.crossings.apis.bdtopo",
+        provider_attr="fetch_pages",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_crossings_page_canned,
+    ),
+    SourceCase(
+        section="crossings",
+        name="roe",
+        build=RoeCrossings,
+        provider_module="hydromodpy.data.variables.crossings.apis.roe",
+        provider_attr="fetch_pages",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_crossings_page_canned,
+    ),
+    SourceCase(
+        section="hydrometry",
+        name="hubeau",
+        build=HubeauHydrometry,
+        provider_module="hydromodpy.data.variables.hydrometry.apis.hubeau",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _point_record_canned("discharge", "m3/s", "hubeau"),
+    ),
+    SourceCase(
+        section="piezometry",
+        name="hubeau",
+        build=HubeauPiezometry,
+        provider_module="hydromodpy.data.variables.piezometry.apis.hubeau",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _point_record_canned("groundwater_level", "m", "hubeau"),
+    ),
+    SourceCase(
+        section="water_quality",
+        name="hubeau",
+        build=lambda: HubeauWaterQuality(parameters=["pH"]),
+        provider_module="hydromodpy.data.variables.water_quality.apis.hubeau",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _point_record_canned("pH", "u", "hubeau"),
+    ),
+    SourceCase(
+        section="intermittency",
+        name="hubeau",
+        build=HubeauIntermittency,
+        provider_module="hydromodpy.data.variables.intermittency.apis.hubeau",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _point_record_canned("flow_state", "code", "hubeau"),
+    ),
+    SourceCase(
+        section="precipitation",
+        name="sim2",
+        build=Sim2Precipitation,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_sim2_precipitation_canned,
+    ),
+    SourceCase(
+        section="etp",
+        name="sim2",
+        build=Sim2Etp,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("etp", "mm/day", "sim2"),
+    ),
+    SourceCase(
+        section="temperature",
+        name="sim2",
+        build=Sim2Temperature,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("temperature", "degC", "sim2"),
+    ),
+    SourceCase(
+        section="wind",
+        name="sim2",
+        build=Sim2Wind,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("wind", "m/s", "sim2"),
+    ),
+    SourceCase(
+        section="humidity",
+        name="sim2",
+        build=Sim2Humidity,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("humidity", "%", "sim2"),
+    ),
+    SourceCase(
+        section="radiation",
+        name="sim2",
+        build=Sim2Radiation,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=_sim2_radiation_canned,
+    ),
+    SourceCase(
+        section="soil_moisture",
+        name="sim2",
+        build=Sim2SoilMoisture,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("soil_moisture_index", "%", "sim2"),
+    ),
+    SourceCase(
+        section="runoff",
+        name="sim2",
+        build=Sim2Runoff,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("runoff", "mm/day", "sim2"),
+    ),
+    SourceCase(
+        section="recharge",
+        name="sim2",
+        build=Sim2Recharge,
+        provider_module="hydromodpy.data.common.clients.sim2_products",
+        provider_attr="fetch_sim2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("recharge", "mm/day", "sim2"),
+    ),
+    SourceCase(
+        section="precipitation",
+        name="explore2",
+        build=lambda: Explore2Precipitation(path=Path("explore2_precipitation_stub.nc")),
+        provider_module="hydromodpy.data.common.clients.explore2_files",
+        provider_attr="read_explore2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("precipitation", "mm/day", "explore2"),
+    ),
+    SourceCase(
+        section="etp",
+        name="explore2",
+        build=lambda: Explore2Etp(path=Path("explore2_etp_stub.nc")),
+        provider_module="hydromodpy.data.common.clients.explore2_files",
+        provider_attr="read_explore2",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _field_record_canned("etp", "mm/day", "explore2"),
+    ),
+    SourceCase(
+        section="recharge",
+        name="synthetic",
+        build=SyntheticRecharge,
+        provider_module="hydromodpy.data.variables.recharge.synthetic",
+        provider_attr="generate",
+        read_bbox=lambda args, kwargs: None,
+        canned=lambda: _point_record_canned("recharge", "mm/day", "synthetic"),
+    ),
+    SourceCase(
+        section="oceanic",
+        name="constant",
+        build=ConstantSeaLevel,
+        provider_module="hydromodpy.data.variables.oceanic.constant",
+        provider_attr="generate_constant",
+        read_bbox=lambda args, kwargs: None,
+        canned=lambda: _point_record_canned("mean_sea_level", "m", "constant"),
+    ),
+    SourceCase(
+        section="oceanic",
+        name="shom",
+        build=ShomSeaLevel,
+        provider_module="hydromodpy.data.variables.oceanic.apis.shom",
+        provider_attr="fetch",
+        read_bbox=lambda args, kwargs: kwargs.get("bbox"),
+        canned=lambda: _point_record_canned("sea_level", "m", "shom"),
+    ),
 )
 
 DOUBLE_CASES: tuple[SourceCase, ...] = (
     SourceCase(
+        section="conformance-doubles",
         name="double-gauge",
         build=_GaugeDouble,
         provider_module=__name__,
@@ -277,6 +681,7 @@ DOUBLE_CASES: tuple[SourceCase, ...] = (
         canned=list,
     ),
     SourceCase(
+        section="conformance-doubles",
         name="double-grid",
         build=_GridDouble,
         provider_module=__name__,
@@ -285,27 +690,36 @@ DOUBLE_CASES: tuple[SourceCase, ...] = (
         canned=list,
     ),
     SourceCase(
+        section="conformance-doubles",
         name="double-tiles",
         build=_TileDouble,
         provider_module=__name__,
         provider_attr="_tile_provider",
         read_bbox=lambda args, kwargs: kwargs.get("bbox"),
-        canned=lambda: Path("tiles_stub.tif"),
+        canned=_tiles_canned,
     ),
 )
 
 CASES = BUILTIN_CASES + DOUBLE_CASES
-CASE_PARAMS = [pytest.param(case, id=case.name) for case in CASES]
+CASE_PARAMS = [pytest.param(case, id=case.key) for case in CASES]
+_CASES_BY_NAME = {case.name: case for case in CASES}
 
-# Every source the registry serves, shipped or installed, and the doubles. A source
-# with a constructor that needs an argument has to give it a default for this suite.
-SOURCE_PARAMS = [
-    *(
-        pytest.param(registry.data_sources.get(name), id=name)
-        for name in registry.data_sources.names()
-    ),
-    *(pytest.param(case.build, id=case.name) for case in DOUBLE_CASES),
+# Every source the registry serves, shipped or installed, and the doubles. A
+# source with a constructor that needs an argument has to give it a default for
+# this suite. The registry is resolved at run time, inside each test: a key
+# whose class is not in the tree yet fails as one named red case, and does not
+# take the collection of the others down with it.
+BUILTIN_PARAMS = [
+    *(pytest.param("registry", key, id=key) for key in registry.data_sources.names()),
+    *(pytest.param("double", case.name, id=case.name) for case in DOUBLE_CASES),
 ]
+
+
+def _resolve(kind: str, name: str) -> Any:
+    """Build one source the parametrization named."""
+    if kind == "registry":
+        return registry.data_sources.get(name)()
+    return _CASES_BY_NAME[name].build()
 
 
 @dataclass
@@ -362,8 +776,13 @@ def record_provider(monkeypatch: pytest.MonkeyPatch) -> Callable[[SourceCase], l
 
 
 def test_the_suite_covers_every_source_this_build_ships() -> None:
-    """An adapter added to the registry and not here would be untested by omission."""
-    assert {case.name for case in BUILTIN_CASES} == set(
+    """An adapter added to the registry and not here would be untested by omission.
+
+    The cases name their section and their id, joined the way the registry keys
+    them, so a source can only be missing from this suite by being missing from
+    the registry too.
+    """
+    assert {case.key for case in BUILTIN_CASES} == set(
         registry.data_sources.names(shipped_only=True)
     )
 
@@ -376,6 +795,7 @@ def test_the_suite_spans_the_vocabularies() -> None:
     assert {s.period_need for s in sources} == set(ALL_PERIOD_NEEDS)
     assert len({s.writes_out_dir for s in sources}) == 2
     assert {s.source_id for s in sources} == {case.name for case in CASES}
+    assert {s.section for s in sources} == {case.section for case in CASES}
 
 
 # --------------------------------------------------------------------------- #
@@ -383,42 +803,68 @@ def test_the_suite_spans_the_vocabularies() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
-def test_a_source_has_every_member_the_port_asks_for(build: Callable[[], Any]) -> None:
-    source = build()
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_a_source_has_every_member_the_port_asks_for(kind: str, name: str) -> None:
+    source = _resolve(kind, name)
     assert missing_source_members(source) == ()
     assert isinstance(source, DataSource)
     assert set(SOURCE_MEMBERS) <= set(dir(source))
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
-def test_the_declarations_use_the_closed_vocabularies(build: Callable[[], Any]) -> None:
-    source = build()
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_the_declarations_use_the_closed_vocabularies(kind: str, name: str) -> None:
+    source = _resolve(kind, name)
     assert source.payload_kind in ALL_PAYLOAD_KINDS
     assert source.period_need in ALL_PERIOD_NEEDS
-    assert source.selectors, "a source that selects by nothing cannot be asked anything"
-    assert set(source.selectors) <= set(ALL_SELECTORS)
+    assert set(source.selectors) <= set(ALL_SELECTORS), (
+        "a source may select by nothing, and then only by nothing"
+    )
     assert len(set(source.selectors)) == len(source.selectors)
     assert source.variables, "a source that names no variable serves nothing askable"
     assert isinstance(source.writes_out_dir, bool)
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
-def test_the_declared_extent_crs_resolves(build: Callable[[], Any]) -> None:
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_the_declared_extent_crs_resolves(kind: str, name: str) -> None:
     """A CRS nothing can resolve makes every conversion into this source fail."""
-    source = build()
+    source = _resolve(kind, name)
     assert pyproj.CRS.from_user_input(source.extent_crs) is not None
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
-def test_the_declared_hosts_are_bare_names(build: Callable[[], Any]) -> None:
-    """A host list is what a capability publishes; a URL there would not compare."""
-    source = build()
-    assert source.hosts, "every source of this suite reaches a provider over the network"
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_the_declared_hosts_are_bare_names(kind: str, name: str) -> None:
+    """A host list is what a capability publishes; a URL there would not compare.
+
+    A source computed from the section alone declares no host, and that empty
+    list is the honest answer: nothing to contact, nothing to publish.
+    """
+    source = _resolve(kind, name)
+    assert isinstance(source.hosts, tuple)
     for host in source.hosts:
         assert host == host.strip().lower()
         assert "/" not in host and ":" not in host
         assert not host.startswith("http")
+
+
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_a_shipped_source_reads_its_hosts_in_the_licence_table(kind: str, name: str) -> None:
+    """The one table the licence pages read is the one a shipped source answers.
+
+    A plugin source writes its own hosts, so the suite checks only what this
+    build ships, and the section is the marker: a source of no shipped section
+    is somebody else's.
+    """
+    if kind != "registry" or name not in registry.data_sources.builtin_paths:
+        pytest.skip("only a source this build ships reads the licence table")
+    from hydromodpy.schema.sources import source_entry
+
+    source_cls = registry.data_sources.get(name)
+    entry = source_entry(getattr(source_cls, "source_id", None))
+    if entry is None:
+        pytest.skip(f"{name} serves a section the licence pages do not describe")
+    assert source_cls().hosts == tuple(entry.hosts), (
+        "a shipped source reads its hosts on the licence table, and nothing else"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -434,9 +880,16 @@ def test_a_source_answers_every_selector_it_declares(
     record_provider: Callable[..., list[ProviderCall]],
 ) -> None:
     source = case.build()
+    calls = record_provider(case)
+    period = PERIOD if source.period_need in ("required", "optional") else None
+    if not source.selectors:
+        # A source that selects by nothing is asked exactly nothing, and answers.
+        request = FetchRequest(out_dir=tmp_path, period=period)
+        source.fetch(request)
+        assert len(calls) == 1, f"{source.source_id} did not serve the empty request"
+        return
     for selector in source.selectors:
-        calls = record_provider(case)
-        period = PERIOD if source.period_need == "required" else None
+        calls.clear()
         if selector == "extent":
             request = FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT, period=period)
         else:
@@ -445,19 +898,31 @@ def test_a_source_answers_every_selector_it_declares(
         assert len(calls) == 1, f"{source.source_id} did not serve selector {selector!r}"
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
 def test_a_source_refuses_a_selector_it_does_not_declare(
-    build: Callable[[], Any], tmp_path: Path, no_network: None
+    kind: str, name: str, tmp_path: Path, no_network: None
 ) -> None:
-    source = build()
-    undeclared = [name for name in ALL_SELECTORS if name not in source.selectors]
+    source = _resolve(kind, name)
+    undeclared = [sel for sel in ALL_SELECTORS if sel not in source.selectors]
     if not undeclared:
         pytest.skip(f"{source.source_id} declares every selector the port knows")
-    period = PERIOD if source.period_need == "required" else None
+    period = PERIOD if source.period_need in ("required", "optional") else None
     request = FetchRequest(out_dir=tmp_path, station_ids=("X1",), period=period)
     with pytest.raises(DataCapabilityError) as excinfo:
         source.fetch(request)
     assert "station_ids" in str(excinfo.value)
+
+
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
+def test_a_source_that_selects_refuses_a_request_that_selects_nothing(
+    kind: str, name: str, tmp_path: Path, no_network: None
+) -> None:
+    """The empty request is a source's to answer, and only a source that selects nothing."""
+    source = _resolve(kind, name)
+    if not source.selectors:
+        pytest.skip(f"{source.source_id} declares selectors = ()")
+    with pytest.raises(DataRequestError, match="selects nothing"):
+        source.fetch(FetchRequest(out_dir=tmp_path))
 
 
 @pytest.mark.parametrize("case", CASE_PARAMS)
@@ -478,7 +943,7 @@ def test_no_source_answers_two_selectors_at_once(
     if set(source.selectors) != set(ALL_SELECTORS):
         pytest.skip(f"{source.source_id} declares only {list(source.selectors)}")
     calls = record_provider(case)
-    period = PERIOD if source.period_need == "required" else None
+    period = PERIOD if source.period_need in ("required", "optional") else None
     request = FetchRequest(
         out_dir=tmp_path,
         extent=CALLER_EXTENT,
@@ -490,21 +955,31 @@ def test_no_source_answers_two_selectors_at_once(
     assert calls == [], "the provider was reached before the request was refused"
 
 
-@pytest.mark.parametrize("build", SOURCE_PARAMS)
+@pytest.mark.parametrize(["kind", "name"], BUILTIN_PARAMS)
 def test_a_source_answers_the_period_exactly_as_it_declares(
-    build: Callable[[], Any], tmp_path: Path, no_network: None
+    kind: str, name: str, tmp_path: Path, no_network: None
 ) -> None:
-    source = build()
+    source = _resolve(kind, name)
+    extent = CALLER_EXTENT if "extent" in source.selectors else None
     if source.period_need == "refused":
-        request = FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT, period=PERIOD)
+        request = FetchRequest(out_dir=tmp_path, extent=extent, period=PERIOD)
         with pytest.raises(DataCapabilityError) as excinfo:
             source.fetch(request)
         assert source.source_id in str(excinfo.value)
     elif source.period_need == "required":
-        request = FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT, period=None)
+        request = FetchRequest(out_dir=tmp_path, extent=extent, period=None)
         with pytest.raises(DataRequestError) as excinfo:
             source.fetch(request)
         assert source.source_id in str(excinfo.value)
+    elif source.period_need == "optional":
+        assert (
+            require_period(source, FetchRequest(out_dir=tmp_path, extent=extent, period=PERIOD))
+            == PERIOD
+        )
+        assert (
+            require_period(source, FetchRequest(out_dir=tmp_path, extent=extent, period=None))
+            is None
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -587,10 +1062,15 @@ def test_the_result_says_what_the_source_declared(
     assert result.variables == source.variables, (
         "a result names exactly the variables the source it came from declares"
     )
-    assert result.extent is not None
-    assert result.extent.crs == source.extent_crs, (
-        "the result must report the extent that was queried, not the one that was asked"
-    )
+    if result.kind == "files":
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        assert all(isinstance(record, FileRecord) for record in result.files)
+    if "extent" in source.selectors:
+        assert result.extent is not None
+        assert result.extent.crs == source.extent_crs, (
+            "the result must report the extent that was queried, not the one that was asked"
+        )
     if source.period_need == "refused":
         assert result.period is None
     else:
@@ -604,16 +1084,24 @@ def test_the_out_dir_reaches_the_provider_only_when_the_source_writes(
     no_network: None,
     record_provider: Callable[..., list[ProviderCall]],
 ) -> None:
-    """A source that declares no write never even names the directory."""
+    """A source that declares no write never names the directory nor writes in it.
+
+    A writing source reaches the directory one of two ways: it hands ``out_dir``
+    to its provider (the tile downloaders take it as ``output_dir``), or it
+    stages its files inside it (the crossings sources write between the pages).
+    What the suite reads is the directory: a file lands there if and only if the
+    source declares ``writes_out_dir``.
+    """
     source = case.build()
     calls = record_provider(case)
     request = case.request(tmp_path)
     source.fetch(request)
+    reached = tmp_path.exists() and any(tmp_path.iterdir())
     passed = [*calls[0].args, *calls[0].kwargs.values()]
     mentions_out_dir = any(
         isinstance(value, (str, Path)) and Path(value) == request.out_dir for value in passed
     )
-    assert mentions_out_dir is source.writes_out_dir
+    assert (reached or mentions_out_dir) is source.writes_out_dir
 
 
 @pytest.mark.parametrize("case", CASE_PARAMS)
@@ -690,8 +1178,10 @@ def test_the_bbox_on_the_bdtopage_wire_is_the_reprojected_one(tmp_path: Path, wi
     """The real WFS paging code runs; only the transport is canned."""
     wire.responses.append(
         _CannedResponse(
-            content=b'<?xml version="1.0"?><wfs:FeatureCollection numberMatched="0" '
-            b'xmlns:wfs="http://www.opengis.net/wfs/2.0"/>'
+            content=(
+                b'<?xml version="1.0"?><wfs:FeatureCollection numberMatched="0" '
+                b'xmlns:wfs="http://www.opengis.net/wfs/2.0"/>'
+            )
         )
     )
     source = BdTopageSource()
@@ -741,7 +1231,7 @@ def test_the_bbox_on_the_euhydro_wire_is_the_reprojected_one(tmp_path: Path, wir
 def test_the_bbox_on_the_osm_wire_is_the_reprojected_one(tmp_path: Path, wire: Wire) -> None:
     """The real Overpass query is built; only its HTTP request is canned."""
     wire.responses.append(_CannedResponse(content=b'{"elements": []}'))
-    source = OsmSource(waterway_types=("river", "canal"))
+    source = OsmSource(waterway_types=(("river", "canal")))
     result = source.fetch(FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT_L93))
 
     assert [call["url"] for call in wire.calls] == ["https://overpass-api.de/api/interpreter"]
@@ -752,6 +1242,82 @@ def test_the_bbox_on_the_osm_wire_is_the_reprojected_one(tmp_path: Path, wire: W
     assert 'way["waterway"="river"]' in query
     assert 'way["waterway"="canal"]' in query
     assert result.is_empty
+
+
+def test_the_bbox_on_the_ign_wire_is_the_reprojected_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real RGE ALTI WMS assembly runs; only ``requests.Session`` is canned.
+
+    Every tile the plan asks for carries the snapped box of the request, so the
+    reprojected extent is what reaches the wire, tile by tile, for a box that
+    covers two departments offline.
+    """
+    import numpy as np
+    import rasterio
+    import requests
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+
+    from hydromodpy.data.variables.dem.apis import geoplateforme_wms as wms
+
+    sent: list[dict[str, Any]] = []
+
+    def _get(_self: object, url: str, **kwargs: Any) -> Any:
+        params = kwargs.get("params") or {}
+        if params.get("REQUEST") != "GetMap":
+            raise AssertionError(f"an unexpected request reached the wire: {url} {params}")
+        sent.append(dict(params))
+        width, height = int(params["WIDTH"]), int(params["HEIGHT"])
+        bbox = tuple(float(v) for v in params["BBOX"].split(","))
+        profile = {
+            "driver": "GTiff",
+            "height": height,
+            "width": width,
+            "count": 1,
+            "dtype": "float32",
+            "crs": "EPSG:2154",
+            "transform": from_origin(bbox[0], bbox[3], 5.0, 5.0),
+            "nodata": -99999.0,
+        }
+        with MemoryFile() as memory:
+            with rasterio.open(memory, "w", **profile) as dst:
+                dst.write(np.zeros((height, width), dtype="float32"), 1)
+            payload = memory.read()
+
+        class _Answer:
+            content = payload
+            status_code = 200
+            headers: dict[str, str] = {}
+
+            def raise_for_status(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        return _Answer()
+
+    monkeypatch.setattr(requests.Session, "get", _get)
+
+    caller = Extent(
+        xmin=-2.0,
+        ymin=48.0,
+        xmax=-2.0 + 0.011,
+        ymax=48.0 + 0.011,
+        crs="EPSG:4326",
+    )
+    source = IgnGeoplateformeDem(dataset="rge-alti")
+    result = source.fetch(FetchRequest(out_dir=tmp_path, extent=caller))
+
+    expected = wms.snap_bbox(_expected_bbox(caller, source.extent_crs), 5.0)
+    assert sent, "no tile request reached the wire"
+    for params in sent:
+        xmin, ymin, xmax, ymax = (float(v) for v in params["BBOX"].split(","))
+        assert xmin >= expected[0] - 1e-6 and xmax <= expected[2] + 1e-6
+        assert ymin >= expected[1] - 1e-6 and ymax <= expected[3] + 1e-6
+        assert (xmax - xmin) / int(params["WIDTH"]) == pytest.approx(5.0)
+    assert result.files, "the assembled raster came back as a files payload"
 
 
 def test_reprojection_is_what_makes_the_dem_request_answerable() -> None:
@@ -808,135 +1374,8 @@ def test_what_the_dem_download_makes_on_disk_lands_under_its_directory(
 
 
 # --------------------------------------------------------------------------- #
-# The value types of the port
+# The doubles answer like the sources they stand for
 # --------------------------------------------------------------------------- #
-
-
-def test_an_extent_without_a_crs_is_refused() -> None:
-    with pytest.raises(DataRequestError, match="carries the CRS"):
-        Extent(xmin=0.0, ymin=0.0, xmax=1.0, ymax=1.0, crs="  ")
-
-
-@pytest.mark.parametrize(
-    "bounds",
-    [(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0)],
-    ids=["x-inverted", "y-inverted", "x-degenerate"],
-)
-def test_an_empty_or_inverted_extent_is_refused(bounds: tuple[float, ...]) -> None:
-    with pytest.raises(DataRequestError, match="empty or inverted"):
-        Extent(xmin=bounds[0], ymin=bounds[1], xmax=bounds[2], ymax=bounds[3], crs="EPSG:4326")
-
-
-def test_an_extent_with_no_image_in_the_target_crs_is_refused() -> None:
-    """The far side of the globe has no image in an orthographic projection.
-
-    Measured rather than assumed: pyproj happily **extrapolates** a conic such
-    as Lambert-93 well past its area of use -- a box off New Zealand comes back
-    at x = 17 435 929 m with every bound finite -- so a guard tested on that
-    case would have been dead code. An orthographic projection centered on the
-    basin is the one that really returns ``inf``, and it is what proves the
-    branch is reachable at all.
-    """
-    far_side = Extent(xmin=100.0, ymin=-40.0, xmax=140.0, ymax=-20.0, crs="EPSG:4326")
-    with pytest.raises(DataRequestError, match="no image in"):
-        far_side.to_crs("+proj=ortho +lat_0=48 +lon_0=-2 +datum=WGS84")
-
-
-def test_a_conversion_that_wraps_the_antimeridian_is_refused_as_inverted() -> None:
-    """A nonsense box does not come back as a plausible one.
-
-    Lambert-93 meters a thousand times past the planet convert to a longitude
-    range that wraps: ``(163.6, -90.0, -145.5, -90.0)``. Nothing in those four
-    numbers is non-finite, so the finiteness guard does not see it -- what
-    refuses it is :class:`Extent` itself, on the invariant every extent holds.
-    """
-    nonsense = Extent(xmin=1e12, ymin=1e12, xmax=2e12, ymax=2e12, crs="EPSG:2154")
-    with pytest.raises(DataRequestError, match="empty or inverted"):
-        nonsense.to_crs("EPSG:4326")
-
-
-def test_densifying_the_edges_is_not_the_same_as_transforming_the_corners() -> None:
-    """Why :meth:`Extent.to_crs` uses ``transform_bounds``, with the number.
-
-    Over the French mainland envelope the conic parallels of Lambert-93 bow
-    south between the corners, so the image of the box is not the box of the
-    images: a four-corner transform puts the southern edge 26 163 m too far
-    north. At basin scale the two agree to the meter, which is why the defect
-    would not have shown up in any example project of this tree.
-    """
-    france = Extent(xmin=-5.0, ymin=41.0, xmax=10.0, ymax=51.5, crs="EPSG:4326")
-    transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:2154", always_xy=True)
-    corners = [
-        transformer.transform(x, y)
-        for x, y in ((-5.0, 41.0), (10.0, 41.0), (-5.0, 51.5), (10.0, 51.5))
-    ]
-    corner_ymin = min(point[1] for point in corners)
-    densified = france.to_crs("EPSG:2154")
-    assert corner_ymin - densified.ymin == pytest.approx(26162.6, abs=1.0)
-
-    basin = CALLER_EXTENT.to_crs("EPSG:2154")
-    basin_corners = [
-        transformer.transform(x, y)
-        for x, y in (
-            (CALLER_EXTENT.xmin, CALLER_EXTENT.ymin),
-            (CALLER_EXTENT.xmax, CALLER_EXTENT.ymin),
-            (CALLER_EXTENT.xmin, CALLER_EXTENT.ymax),
-            (CALLER_EXTENT.xmax, CALLER_EXTENT.ymax),
-        )
-    ]
-    assert min(point[1] for point in basin_corners) - basin.ymin == pytest.approx(0.0, abs=1.0)
-
-
-def test_a_period_that_ends_before_it_starts_is_refused() -> None:
-    with pytest.raises(DataRequestError, match="ends"):
-        Period(start=datetime(2020, 2, 1), end=datetime(2020, 1, 1))
-
-
-def test_a_period_mixing_an_aware_bound_with_a_naive_one_is_refused() -> None:
-    with pytest.raises(DataRequestError, match="aware"):
-        Period(start=datetime(2020, 1, 1), end=datetime(2020, 2, 1, tzinfo=UTC))
-
-
-def test_a_request_that_selects_nothing_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(DataRequestError, match="selects nothing"):
-        FetchRequest(out_dir=tmp_path)
-
-
-def test_a_single_string_of_station_ids_is_refused(tmp_path: Path) -> None:
-    """``station_ids="BSS1"`` would be read one character per station."""
-    with pytest.raises(DataRequestError, match="single string"):
-        FetchRequest(out_dir=tmp_path, station_ids="BSS1")  # type: ignore[arg-type]
-
-
-def test_repeated_station_ids_are_refused(tmp_path: Path) -> None:
-    with pytest.raises(DataRequestError, match="repeat"):
-        FetchRequest(out_dir=tmp_path, station_ids=("A", "B", "A"))
-
-
-def test_a_bare_tuple_is_not_an_extent(tmp_path: Path) -> None:
-    with pytest.raises(DataRequestError, match="which CRS"):
-        FetchRequest(out_dir=tmp_path, extent=(-2.0, 48.0, -1.5, 48.4))  # type: ignore[arg-type]
-
-
-def test_a_result_carrying_a_payload_its_kind_does_not_name_is_refused() -> None:
-    with pytest.raises(DataProductError, match="declares kind"):
-        FetchResult(
-            source_id="x",
-            kind="points",
-            variables=("v",),
-            files=(Path("a.tif"),),
-        )
-
-
-def test_a_result_that_names_no_variable_is_refused() -> None:
-    with pytest.raises(DataProductError, match="names no variable"):
-        FetchResult(source_id="x", kind="files", variables=(), files=(Path("a.tif"),))
-
-
-def test_an_empty_result_is_not_an_error() -> None:
-    """A box over the sea holds no gauging station, and that is an answer."""
-    empty = FetchResult(source_id="x", kind="points", variables=("v",))
-    assert empty.is_empty
 
 
 def test_a_record_the_source_does_not_declare_is_refused(
@@ -961,37 +1400,6 @@ def test_a_record_the_source_does_not_declare_is_refused(
     )
     with pytest.raises(DataProductError, match="gauge_depth"):
         _GaugeDouble().fetch(FetchRequest(out_dir=Path("."), extent=CALLER_EXTENT, period=PERIOD))
-
-
-def test_a_numpy_scalar_is_a_coordinate() -> None:
-    """An extent built straight off a geopandas ``total_bounds`` is legitimate.
-
-    ``numpy.int64`` and ``numpy.float32`` are not subclasses of ``int`` or
-    ``float`` in CPython -- only ``numpy.float64`` is -- so an ``isinstance``
-    whitelist refused a real number from the one place callers get bounds.
-    """
-    numpy = pytest.importorskip("numpy")
-
-    bounds = numpy.array([317000, 6780000, 354000, 6826000], dtype=numpy.int64)
-    extent = Extent(xmin=bounds[0], ymin=bounds[1], xmax=bounds[2], ymax=bounds[3], crs="EPSG:2154")
-    assert extent.bbox == (317000.0, 6780000.0, 354000.0, 6826000.0)
-    assert all(isinstance(value, float) for value in extent.bbox)
-
-    as_float32 = Extent(
-        xmin=numpy.float32(-2.0),
-        ymin=numpy.float32(48.0),
-        xmax=numpy.float32(-1.5),
-        ymax=numpy.float32(48.4),
-        crs="EPSG:4326",
-    )
-    assert as_float32.crs == "EPSG:4326"
-
-    with pytest.raises(DataRequestError, match="not a number"):
-        Extent(xmin="0", ymin=0.0, xmax=1.0, ymax=1.0, crs="EPSG:4326")  # type: ignore[arg-type]
-    with pytest.raises(DataRequestError, match="boolean"):
-        Extent(xmin=False, ymin=0.0, xmax=1.0, ymax=1.0, crs="EPSG:4326")  # type: ignore[arg-type]
-    with pytest.raises(DataRequestError, match="not finite"):
-        Extent(xmin=float("nan"), ymin=0.0, xmax=1.0, ymax=1.0, crs="EPSG:4326")
 
 
 def test_the_bdtopage_defaults_match_the_config_they_replace() -> None:

@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 import requests
 from filelock import FileLock
@@ -22,6 +22,17 @@ from filelock import FileLock
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 from hydromodpy.data.variables.dem.apis import geoplateforme_wms as wms
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DiscoveryFilters,
@@ -986,8 +997,106 @@ def _write_processed_cache_metadata(
         )
 
 
+class IgnGeoplateformeDem:
+    """The IGN DEM (BD ALTI or RGE ALTI), one GeoTIFF written in Lambert-93.
+
+    The port class over the same assembly this module has always served:
+    ``fetch`` asks :func:`fetch_ign_dem` for the whole product of a box, from
+    the department archives of BD ALTI or the WMS-Raster tiles of RGE ALTI.
+    The raster is the provider's answer as the manager caches it, so its
+    ``state`` is ``"raw"`` and its ``nodata`` is read from the header the file
+    carries (``-9999`` once this module has written it).
+    """
+
+    source_id: ClassVar[str] = "ign_geoplateforme_dem"
+    section: ClassVar[str] = "dem"
+    payload_kind: ClassVar[PayloadKind] = "files"
+    extent_crs: ClassVar[str] = "EPSG:2154"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "refused"
+    writes_out_dir: ClassVar[bool] = True
+
+    def __init__(
+        self,
+        *,
+        dataset: str = "bd-alti",
+        resolution_m: float | None = None,
+        file_format: str = "ASC",
+        crs: str | None = None,
+        force_refresh: bool = False,
+        departments: Sequence[str] | None = None,
+    ) -> None:
+        resolved_dataset = _normalize_dataset(dataset)
+        self.dataset: IgnDemDataset = resolved_dataset
+        self.resolution_m = None if resolution_m is None else float(resolution_m)
+        self.file_format = str(file_format or "ASC").upper()
+        self.crs = crs
+        self.force_refresh = bool(force_refresh)
+        self.departments = tuple(departments or ())
+        self.variables = ("dem",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        """Assemble the DEM of the request's extent and return it as a file."""
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        raster_path = fetch_ign_dem(
+            output_dir=request.out_dir,
+            bbox=extent.bbox,
+            departments=list(self.departments) or None,
+            dataset=self.dataset,
+            resolution_m=self.resolution_m,
+            file_format=self.file_format,
+            crs=self.crs,
+            force_refresh=self.force_refresh,
+        )
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        record = FileRecord.of(
+            raster_path,
+            state="raw",
+            nodata=_raster_nodata(raster_path),
+            origin=GEOPLATEFORME_ORIGIN,
+        )
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            files=(record,),
+            metadata=self.metadata(),
+        )
+
+    def metadata(self) -> dict[str, object]:
+        """The options a result reports about the question it answered."""
+        return {
+            "dataset": self.dataset,
+            "resolution_m": self.resolution_m,
+            "file_format": self.file_format,
+            "departments": list(self.departments),
+        }
+
+
+GEOPLATEFORME_ORIGIN = "https://data.geopf.fr"
+"""The service ``fetch`` answers of, for the :class:`FileRecord` it returns."""
+
+
+def _raster_nodata(raster_path: Path) -> float | None:
+    """The nodata value the raster's header declares, if it declares one.
+
+    A file an older run cached before the header was written with a nodata
+    band carries none, and ``None`` is the honest answer rather than a guess.
+    """
+    import rasterio
+
+    with rasterio.open(str(raster_path)) as dataset:
+        return dataset.nodata
+
+
 __all__ = [
     "DATASET_RESOURCE_NAMES",
+    "IgnGeoplateformeDem",
     "discover_ign_dem_files",
     "download_ign_dem_departments",
     "fetch_ign_dem",

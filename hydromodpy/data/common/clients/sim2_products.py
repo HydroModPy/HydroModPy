@@ -16,7 +16,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
+
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -170,51 +183,110 @@ def fetch_sim2(
 
 
 class Sim2Source:
-    """The ``SOURCES`` entry of a variable backed by SIM2.
+    """Base DataSource for gridded products from SIM2 (SAFRAN-ISBA)."""
 
-    Called as ``fetch(cfg, *, bbox, period, context)`` by the grid managers; it
-    reads only ``cfg.components``, the one option a SIM2 section adds.
-    ``variables(cfg)`` names the grids a config yields, which is what lets the
-    manager reuse the ones it already cached.
-    """
+    source_id: ClassVar[str] = "sim2"
+    payload_kind: ClassVar[PayloadKind] = "fields"
+    extent_crs: ClassVar[str] = SIM2_CRS
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+    section: ClassVar[str] = ""
 
-    def __init__(self, variable: str) -> None:
-        self.variable = variable
-        self.product = SIM2_PRODUCTS[variable]
+    variables: tuple[str, ...]
+    hosts: tuple[str, ...]
 
-    def variables(self, cfg: object) -> list[str]:
-        """Names of the grids this config yields, in the order they are fetched."""
-        components = getattr(cfg, "components", None)
-        return [member.variable for member in _selected(self.product, self.variable, components)]
-
-    def __call__(
+    def __init__(
         self,
-        cfg: object,
         *,
-        bbox: tuple[float, float, float, float] | None,
-        period: tuple[datetime, datetime] | None,
-        context: object,
-    ) -> list[FieldRecord]:
-        del context
-        return fetch_sim2(
-            self.variable,
-            components=getattr(cfg, "components", None),
-            bbox=bbox,
-            project_period=period,
+        components: Sequence[str] | None = None,
+        section: str | None = None,
+    ) -> None:
+        if section is not None:
+            self.section = section
+        self.components = tuple(components) if components is not None else None
+        self.product = SIM2_PRODUCTS[self.section]
+        if self.components is not None:
+            self.variables = tuple(
+                member.variable for member in _selected(self.product, self.section, self.components)
+            )
+        elif self.product.single is not None:
+            self.variables = (self.product.single.variable,)
+        else:
+            self.variables = tuple(member.variable for member in self.product.components.values())
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request)
+        records = fetch_sim2(
+            self.section,
+            components=self.components,
+            bbox=extent.bbox,
+            project_period=period.as_tuple if period is not None else None,
+        )
+        require_declared_variables(self, [r.variable for r in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            fields=tuple(records),
         )
 
 
-def sim2_source(variable: str) -> Sim2Source:
-    """The ``SOURCES`` entry that serves ``variable`` from SIM2."""
-    return Sim2Source(variable)
+class Sim2Precipitation(Sim2Source):
+    section: ClassVar[str] = "precipitation"
+
+
+class Sim2Etp(Sim2Source):
+    section: ClassVar[str] = "etp"
+
+
+class Sim2Temperature(Sim2Source):
+    section: ClassVar[str] = "temperature"
+
+
+class Sim2Wind(Sim2Source):
+    section: ClassVar[str] = "wind"
+
+
+class Sim2Humidity(Sim2Source):
+    section: ClassVar[str] = "humidity"
+
+
+class Sim2Radiation(Sim2Source):
+    section: ClassVar[str] = "radiation"
+
+
+class Sim2SoilMoisture(Sim2Source):
+    section: ClassVar[str] = "soil_moisture"
+
+
+class Sim2Runoff(Sim2Source):
+    section: ClassVar[str] = "runoff"
+
+
+class Sim2Recharge(Sim2Source):
+    section: ClassVar[str] = "recharge"
 
 
 __all__ = [
     "SIM2_CRS",
     "SIM2_PRODUCTS",
     "Sim2Component",
+    "Sim2Etp",
+    "Sim2Humidity",
+    "Sim2Precipitation",
     "Sim2Product",
+    "Sim2Radiation",
+    "Sim2Recharge",
+    "Sim2Runoff",
+    "Sim2SoilMoisture",
     "Sim2Source",
+    "Sim2Temperature",
+    "Sim2Wind",
     "fetch_sim2",
-    "sim2_source",
 ]

@@ -48,7 +48,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
@@ -151,7 +150,6 @@ def _note_box() -> dict[str, object]:
 """The delineated catchment, under the name the geographic step persists it."""
 
 
-@register
 class BoundaryPackageMap(BaseFigure):
     """Categorical map of the boundary package acting on each cell.
 

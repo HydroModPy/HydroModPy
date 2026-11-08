@@ -1,4 +1,4 @@
-"""Conformance tests for the STAC Item 1.0 exporter."""
+"""Conformance tests for the STAC Item 1.0 exporter in the annex."""
 
 from __future__ import annotations
 
@@ -7,10 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.export import build_stac_item, write_stac_item
-from hydromodpy.results.export.stac import STAC_VERSION
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from tests.integration.exports.conftest import SIM_ID, wgs84_bbox
+from hydromodpy_annex.export.stac import STAC_VERSION, build_stac_item, write_stac_item
+from tests.integration.annex.exports.conftest import SIM_ID, wgs84_bbox
 
 
 def test_stac_item_has_required_keys(fair_context):
@@ -70,7 +69,7 @@ def test_stac_pystac_round_trip(fair_context):
 
 def test_stac_collection_aggregates_items(fair_context):
     """``build_stac_collection`` unions the bbox and temporal range of items."""
-    from hydromodpy.results.export.stac import build_stac_collection
+    from hydromodpy_annex.export.stac import build_stac_collection
 
     sid = SIM_ID
     item = build_stac_item(fair_context)
@@ -85,7 +84,7 @@ def test_stac_collection_aggregates_items(fair_context):
 
 def test_stac_catalog_lists_collections(tmp_path: Path):
     """``build_stac_catalog`` references every collection_id as a child link."""
-    from hydromodpy.results.export.stac import build_stac_catalog
+    from hydromodpy_annex.export.stac import build_stac_catalog
 
     catalog = build_stac_catalog(
         catalog_id="my-workspace",
@@ -102,7 +101,7 @@ def test_stac_catalog_lists_collections(tmp_path: Path):
 
 def test_stac_write_collection_and_catalog(tmp_path: Path, fair_context):
     """Both writers materialize valid JSON on disk."""
-    from hydromodpy.results.export.stac import (
+    from hydromodpy_annex.export.stac import (
         write_stac_catalog,
         write_stac_collection,
     )

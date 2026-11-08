@@ -8,7 +8,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Cmap, FieldName, ReferenceRun, Timestep
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
 if TYPE_CHECKING:
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class DifferenceMap(BaseFigure):
     """Map of ``sim - reference`` for one field at one timestep.
 

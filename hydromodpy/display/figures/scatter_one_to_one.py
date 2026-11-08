@@ -15,7 +15,6 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Station, Variable
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.figures._run_score import run_score
 from hydromodpy.results.derive.time_alignment import (
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class ScatterOneToOne(BaseFigure):
     """Sim vs obs scatter with 1:1 line and the scores the run recorded."""
 

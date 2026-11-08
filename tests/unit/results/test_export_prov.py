@@ -20,9 +20,7 @@ from hydromodpy.results.export.context import (
 )
 from hydromodpy.results.export.prov import (
     HYDROMODPY_NAMESPACE,
-    PROV_CONTEXT,
     build_prov_document,
-    serialise_prov,
 )
 
 pytestmark = pytest.mark.fast
@@ -267,30 +265,3 @@ def test_two_inputs_produce_distinct_entity_and_fetch_ids() -> None:
 def test_hydromodpy_namespace_is_the_canonical_docs_host() -> None:
     """The vocabulary IRI is pinned to the canonical documentation host."""
     assert HYDROMODPY_NAMESPACE == "https://docs.hydromodpy.fr/schema#"
-    assert PROV_CONTEXT["hydromodpy"] == HYDROMODPY_NAMESPACE
-
-
-def test_serialise_prov_graph_head_is_action(context: FairExportContext) -> None:
-    """serialise_prov wraps the doc with PROV context and puts the action first."""
-    doc = serialise_prov(context)
-    assert doc["@context"] == PROV_CONTEXT
-    graph = doc["@graph"]
-    assert isinstance(graph, list)
-    assert graph[0]["@id"] == _ACTION_ID
-
-    # The graph is the action plus every activity node, no loss.
-    built = build_prov_document(context)
-    assert len(graph) == 1 + len(built["activities"])
-    graph_ids = {node["@id"] for node in graph if "@id" in node}
-    for node in built["activities"]:
-        assert node["@id"] in graph_ids
-
-
-def test_serialise_prov_is_json_serialisable(context: FairExportContext) -> None:
-    """The full document round-trips through json without custom encoders."""
-    import json
-
-    doc = serialise_prov(context)
-    parsed = json.loads(json.dumps(doc))
-    assert parsed["@context"]["prov"] == "http://www.w3.org/ns/prov#"
-    assert parsed["@graph"][0]["@type"] == ["CreateAction", "prov:Activity"]

@@ -13,19 +13,21 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-from hydromodpy.display import (
+from hydromodpy.display import figure_registry
+from hydromodpy.display.config import DisplayConfig
+from hydromodpy.display.figure import (
     BaseFigure,
     Figure,
     FigureSpec,
-    figure_registry,
+    options_of,
+)
+from hydromodpy.display.figure_options import COMMON_OPTIONS
+from hydromodpy.display.figure_registry import (
+    figure_option_names,
     get,
     list_figures,
     names,
 )
-from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.figure import options_of
-from hydromodpy.display.figure_options import COMMON_OPTIONS
-from hydromodpy.display.figure_registry import figure_option_names
 from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures import sfr_reach_timeseries
 from hydromodpy.display.figures.difference_map import DifferenceMap

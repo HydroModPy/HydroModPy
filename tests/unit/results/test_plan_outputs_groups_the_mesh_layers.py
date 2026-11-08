@@ -10,7 +10,6 @@ from pydantic import ValidationError
 
 from hydromodpy.results.exporters.export_spec import (
     MESH_LAYERS,
-    ExportFormat,
     ExportKind,
     ExportRequest,
     plan_outputs,
@@ -31,7 +30,7 @@ def test_the_three_layers_are_one_file_named_after_the_run() -> None:
     (planned,) = _plan(ExportRequest(variables=list(MESH_LAYERS)))
 
     assert str(planned.path) == "nancon_mesh.gpkg"
-    assert planned.format is ExportFormat.geopackage
+    assert planned.format == "geopackage"
     assert planned.variables == MESH_LAYERS
 
 
@@ -87,7 +86,7 @@ def test_a_file_refuses_two_layers_in_a_shapefile() -> None:
 def test_a_crs_reprojects_the_mesh_layers() -> None:
     (planned,) = _plan(ExportRequest(variables=list(MESH_LAYERS), crs="EPSG:4326"))
 
-    assert planned.format is ExportFormat.geopackage
+    assert planned.format == "geopackage"
 
 
 def test_a_mesh_layer_cannot_be_written_as_a_netcdf() -> None:

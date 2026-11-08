@@ -7,19 +7,30 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import keep_nearest, station_period_overlaps
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_declared_variables,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.data.contracts.location import StationLocation
     from hydromodpy.data.contracts.timeseries import PointRecord
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig
 
 logger = get_logger(__name__)
 
@@ -122,40 +133,67 @@ def fetch(
     return records
 
 
-def fetch_for_config(
-    cfg: PiezometrySourceConfig,
-    *,
-    bbox: tuple | None,
-    station_ids: Sequence[str] | None,
-    start: datetime,
-    end: datetime,
-    context: Any,
-) -> list[PointRecord]:
-    """The ``SOURCES`` entry of ``source = "hubeau"``: :func:`fetch` for one section.
+class HubeauPiezometry:
+    """The BSS piezometers of Hub'Eau, behind the data-source port.
 
-    ``context`` is the manager's ``SourceContext``, typed loosely because a
-    module that holds a data source imports no manager.
+    ``nearest_to`` is what the manager resolves when the section asks for the
+    nearest piezometer: the point it starts from depends on the project
+    extent, which a source must not read by itself. The download stays in
+    :func:`fetch`, whose body this class does not restate.
     """
-    return fetch(
-        product=cfg.product,
-        bbox=bbox,
-        station_ids=station_ids,
-        date_start=start,
-        date_end=end,
-        nearest_to=context.nearest_to,
-        require_observations=cfg.require_observations,
-        fallback_search_radius_km=cfg.fallback_search_radius_km,
-    )
+
+    source_id: ClassVar[str] = "hubeau"
+    section: ClassVar[str] = "piezometry"
+    payload_kind: ClassVar[PayloadKind] = "points"
+    extent_crs: ClassVar[str] = "EPSG:4326"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
+    period_need: ClassVar[PeriodNeed] = "required"
+    writes_out_dir: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        *,
+        product: str = "level",
+        require_observations: bool = True,
+        fallback_search_radius_km: float | None = None,
+        nearest_to: tuple[float, float] | None = None,
+    ) -> None:
+        self.product = product
+        self.require_observations = require_observations
+        self.fallback_search_radius_km = fallback_search_radius_km
+        # Same fold as the record of fetch: a product that is not "level"
+        # serves the depth, because that is what the download would return.
+        self.variables: tuple[str, ...] = (
+            ("groundwater_level",) if product == "level" else ("groundwater_depth",)
+        )
+        self.nearest_to = nearest_to
+        self.hosts: tuple[str, ...] = shipped_hosts("hubeau")
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        require_selectors(self, request)
+        period = require_period(self, request)
+        extent = extent_for(self, request) if request.extent is not None else None
+        records = fetch(
+            product=self.product,
+            bbox=None if extent is None else extent.bbox,
+            station_ids=list(request.station_ids) or None,
+            date_start=period.start,
+            date_end=period.end,
+            nearest_to=self.nearest_to,
+            require_observations=self.require_observations,
+            fallback_search_radius_km=self.fallback_search_radius_km,
+        )
+        require_declared_variables(self, [record.variable for record in records])
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=period,
+            points=tuple(records),
+        )
 
 
-# ---------------------------------------------------------------------------
-# Nearest selection
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Discovery
-# ---------------------------------------------------------------------------
 def _discover_piezometers_in_bbox(
     bbox: tuple,
     *,
@@ -309,6 +347,6 @@ def _download_chronicles(
 
 __all__ = [
     "COVERAGE",
+    "HubeauPiezometry",
     "fetch",
-    "fetch_for_config",
 ]

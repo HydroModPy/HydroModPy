@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames, TrialsSessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class CalibrationTrialDistributionFigure(BaseFigure):
     """One histogram per parameter, shaded by mean objective when available."""
 

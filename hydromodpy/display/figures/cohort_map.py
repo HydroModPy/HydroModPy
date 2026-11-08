@@ -15,7 +15,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Cmap, Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._cohort import (
     COHORT_SITE_COLUMN,
     cohort_refusal,
@@ -31,7 +30,6 @@ LABELLED_SITES_MAX = 40
 """Most sites whose name is written next to their point."""
 
 
-@register
 class CohortMap(BaseFigure):
     """The outlets of a project's sites, colored by a metric or a parameter."""
 

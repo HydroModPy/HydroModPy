@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -15,6 +15,7 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -34,10 +35,19 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         ),
     }
 
-    source: Annotated[Literal["custom", "sim2", "synthetic"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.",
+        description=(
+            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "for the recharge section, such as 'sim2' for the SIM2 EDR API and 'synthetic' "
+            "for generated series."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_recharge(cls, source: str) -> str:
+        return registered_section_source(source, "recharge")
 
     # --- Custom source fields ---
     path: Annotated[

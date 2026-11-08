@@ -17,8 +17,10 @@ make impossible (a vector layer in a NetCDF, a reprojection a format cannot
 carry). The step 0 check and the exporters both call it, so the plan checked
 before the solve is the plan written after it.
 
-Lives in ``core.config_kit`` because ``config``, ``results`` and ``workflow``
-all build it, and ``core`` is the only layer they may all import.
+A format is a name the export registry serves
+(:mod:`hydromodpy.results.exporters.registry`), never an enum value here: the
+registry derives the tables this module plans files with, so a format added
+anywhere is refused or served everywhere on the same lines.
 """
 
 from __future__ import annotations
@@ -30,31 +32,29 @@ from enum import StrEnum
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Annotated, Any
 
-from pydantic import Field, TypeAdapter, field_validator, model_validator
+from pydantic import AfterValidator, Field, TypeAdapter, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.results.exporters.registry import (
+    check_format_name,
+    format_suffix,
+    kind_formats,
+    known_extensions,
+    non_reprojecting_formats,
+    one_instant_formats,
+    run_formats,
+    suffix_format,
+    view_filename,
+)
+from hydromodpy.schema.generated_views import VIEW_FILENAMES
 
 EXPORT_ALL = "all"
 """The ``variables`` value that asks for everything a run holds."""
 
 STEP_DATE_TOKEN = "{date}"
 """Placeholder in a planned file name, filled with the date of each step written."""
-
-
-class ExportFormat(StrEnum):
-    """What an export writes."""
-
-    netcdf = "netcdf"
-    geotiff = "geotiff"
-    csv = "csv"
-    geopackage = "geopackage"
-    shapefile = "shapefile"
-    vtu = "vtu"
-    stac = "stac"
-    rocrate = "rocrate"
-    prov = "prov"
 
 
 class ExportKind(StrEnum):
@@ -67,60 +67,6 @@ class ExportKind(StrEnum):
     raster = "raster"
 
 
-# File extension -> format. The one place an extension is read.
-_SUFFIX_TO_FORMAT: dict[str, ExportFormat] = {
-    ".nc": ExportFormat.netcdf,
-    ".tif": ExportFormat.geotiff,
-    ".tiff": ExportFormat.geotiff,
-    ".csv": ExportFormat.csv,
-    ".gpkg": ExportFormat.geopackage,
-    ".shp": ExportFormat.shapefile,
-    ".vtu": ExportFormat.vtu,
-    ".jsonld": ExportFormat.prov,
-}
-
-FORMAT_SUFFIX: dict[ExportFormat, str] = {
-    ExportFormat.netcdf: ".nc",
-    ExportFormat.geotiff: ".tif",
-    ExportFormat.csv: ".csv",
-    ExportFormat.geopackage: ".gpkg",
-    ExportFormat.shapefile: ".shp",
-    ExportFormat.vtu: ".vtu",
-}
-"""The extension of the files a data format writes."""
-
-SINGLE_INSTANT_FORMATS = frozenset(
-    {ExportFormat.geotiff, ExportFormat.shapefile, ExportFormat.geopackage, ExportFormat.vtu}
-)
-"""Formats holding one instant of a field per file: several dates write one file per date."""
-
-RUN_FORMATS = frozenset({ExportFormat.stac, ExportFormat.rocrate, ExportFormat.prov})
-"""Formats that describe the whole run, not a variable: they take ``variables = "all"``."""
-
-NON_REPROJECTING_FORMATS = frozenset({ExportFormat.netcdf, ExportFormat.vtu, ExportFormat.csv})
-"""Formats written in the model CRS only: ``crs`` is refused on them."""
-
-KIND_FORMATS: dict[ExportKind, tuple[ExportFormat, ...]] = {
-    ExportKind.field: (
-        ExportFormat.netcdf,
-        ExportFormat.geotiff,
-        ExportFormat.geopackage,
-        ExportFormat.shapefile,
-        ExportFormat.vtu,
-    ),
-    ExportKind.series: (ExportFormat.csv,),
-    ExportKind.table: (ExportFormat.csv,),
-    ExportKind.vector: (ExportFormat.geopackage, ExportFormat.shapefile),
-    ExportKind.raster: (ExportFormat.geotiff,),
-}
-"""The formats each kind of data can be written in. The first one is its natural format."""
-
-_RUN_FORMAT_FILES: dict[ExportFormat, str] = {
-    ExportFormat.stac: "stac-item.json",
-    ExportFormat.rocrate: "ro-crate-metadata.json",
-    ExportFormat.prov: "prov.jsonld",
-}
-
 MESH_LAYERS: tuple[str, ...] = ("mesh_cells", "mesh_seeds", "mesh_family_faces")
 """The vector layers of the cell mesh of a run: its cells, their seeds, the faces of its lines.
 
@@ -128,6 +74,16 @@ In a GeoPackage they share one file, a layer each; a Shapefile holds one layer p
 
 # The stem of a file that holds several names of one kind.
 _GROUP_STEM: dict[ExportKind, str] = {ExportKind.field: "fields", ExportKind.series: "series"}
+
+
+def _the_format_help(schema: dict[str, Any]) -> None:
+    """Fill the value docs of the format field from the formats this build ships."""
+    from hydromodpy.results.exporters.registry import export_formats, format_help
+
+    schema["value_docs"] = {
+        name: format_help(name) for name in export_formats.names(shipped_only=True)
+    }
+
 
 RETIRED_FORMATS: dict[str, str] = {
     "package": (
@@ -142,9 +98,16 @@ _KEYWORDS = ("first", "last")
 _TIME_HELP = 'a date "YYYY-MM-DD", "first", "last", or a list of them'
 
 
-def format_from_path(path: str | PurePath) -> ExportFormat | None:
-    """Return the format a file extension names, or None."""
-    return _SUFFIX_TO_FORMAT.get(PurePath(path).suffix.lower())
+def _the_format_is_registered(value: str | None) -> str | None:
+    """A format is a name the export registry serves, refused with what it serves."""
+    if value is None:
+        return None
+    return check_format_name(str(value))
+
+
+def format_from_path(path: str | PurePath) -> str | None:
+    """Return the name of the format a file extension names, or None."""
+    return suffix_format(PurePath(path).suffix.lower())
 
 
 def _iso_text(value: Any) -> Any:
@@ -248,30 +211,15 @@ class ExportRequest(HydroModelBase):
             "stress period it overlaps is written. Cannot be given with time."
         ),
     )
-    format: Annotated[ExportFormat | None, Profile.USER] = Field(
+    format: Annotated[str | None, Profile.USER, AfterValidator(_the_format_is_registered)] = Field(
         default=None,
         description=(
-            "The file format. Left out, each data takes its natural format, or the one "
-            "the extension of 'file' names. 'stac', 'rocrate' and 'prov' write the "
-            'metadata of the run; those three describe the whole run and take variables = "all" '
-            "only. The portable archive of a run is written by 'hmp publish --container tar'."
+            "The file format, a name the export registry serves. Left out, each data "
+            "takes its natural format, or the one the extension of 'file' names. A "
+            'view format describes the whole run and takes variables = "all" only. '
+            "The portable archive of a run is written by 'hmp publish --container tar'."
         ),
-        json_schema_extra={
-            "value_docs": {
-                "netcdf": "A NetCDF file (.nc): fields and series over time.",
-                "geotiff": "A GeoTIFF raster (.tif), one file per date.",
-                "csv": "A CSV table (.csv): series and tables.",
-                "geopackage": (
-                    "A GeoPackage vector file (.gpkg), one file per date. The mesh layers "
-                    "of a run share one file."
-                ),
-                "shapefile": "An ESRI Shapefile (.shp), one file per date.",
-                "vtu": "A VTK unstructured grid (.vtu) of the mesh, one file per date.",
-                "stac": "The STAC metadata of the run.",
-                "rocrate": "The RO-Crate metadata of the run.",
-                "prov": "The PROV provenance record of the run.",
-            }
-        },
+        json_schema_extra=_the_format_help,
     )
     folder: Annotated[Path | None, Profile.USER] = Field(
         default=None,
@@ -441,50 +389,50 @@ class ExportRequest(HydroModelBase):
                 "a window, not both."
             )
         fmt = self._resolve_format()
-        if fmt in RUN_FORMATS:
+        if fmt in run_formats():
             self._check_run_format(fmt)
             return self
-        if fmt in NON_REPROJECTING_FORMATS and self.crs is not None:
+        if fmt in non_reprojecting_formats() and self.crs is not None:
             raise ValueError(
-                f"crs = {self.crs!r} on format {fmt.value!r}, which does not reproject: "
+                f"crs = {self.crs!r} on format {fmt!r}, which does not reproject: "
                 f"it is written in the model CRS. Drop crs, or write a GeoTIFF, a "
                 "GeoPackage or a Shapefile."
             )
-        if self.resolution is not None and fmt is not None and fmt is not ExportFormat.geotiff:
+        if self.resolution is not None and fmt is not None and fmt != "geotiff":
             raise ValueError(
                 f"resolution = {self.resolution!r} sizes the pixels of a GeoTIFF, and this "
-                f'request writes {fmt.value}. Drop resolution, or write format = "geotiff".'
+                f'request writes {fmt}. Drop resolution, or write format = "geotiff".'
             )
         if self.file is not None:
             self._check_single_file(fmt)
         return self
 
-    def _resolve_format(self) -> ExportFormat | None:
+    def _resolve_format(self) -> str | None:
         """Return the declared format, checked against the extension of ``file``."""
         if self.file is None:
             return self.format
         named = format_from_path(self.file)
         if self.format is None:
             if named is None:
-                known = ", ".join(sorted(_SUFFIX_TO_FORMAT))
+                known = ", ".join(known_extensions())
                 raise ValueError(
                     f"file = {self.file.as_posix()!r} has no extension a format is known by "
                     f"({known}). Give it one, or write format."
                 )
             return named
-        if named is not None and named is not self.format:
+        if named is not None and named != self.format:
             raise ValueError(
-                f"format = {self.format.value!r} and file = {self.file.as_posix()!r}, which "
-                f"names a {named.value} file. Drop format to take the extension, or give the file "
-                f"the extension {FORMAT_SUFFIX.get(self.format, 'of the format')}."
+                f"format = {self.format!r} and file = {self.file.as_posix()!r}, which "
+                f"names a {named} file. Drop format to take the extension, or give the file "
+                f"the extension {format_suffix(self.format)}."
             )
         return self.format
 
-    def _check_run_format(self, fmt: ExportFormat) -> None:
+    def _check_run_format(self, fmt: str) -> None:
         """A run format describes the whole run: every selector is refused."""
         if self.variables != EXPORT_ALL:
             raise ValueError(
-                f"format = {fmt.value!r} describes the whole run, not a variable. Write "
+                f"format = {fmt!r} describes the whole run, not a variable. Write "
                 f'variables = "all".'
             )
         given = [
@@ -494,14 +442,14 @@ class ExportRequest(HydroModelBase):
         ]
         if given:
             raise ValueError(
-                f"format = {fmt.value!r} writes the whole run, so {', '.join(given)} "
+                f"format = {fmt!r} writes the whole run, so {', '.join(given)} "
                 f"{'selects' if len(given) == 1 else 'select'} nothing. Drop "
                 f"{'it' if len(given) == 1 else 'them'}."
             )
 
-    def _check_single_file(self, fmt: ExportFormat | None) -> None:
+    def _check_single_file(self, fmt: str | None) -> None:
         """Refuse a ``file`` on a request that writes several files, when that is certain."""
-        if fmt not in SINGLE_INSTANT_FORMATS:
+        if fmt not in one_instant_formats():
             return
         reasons: list[str] = []
         if self.variables == EXPORT_ALL:
@@ -517,7 +465,7 @@ class ExportRequest(HydroModelBase):
             reasons.append(f"{len(self.times)} dates write one file each")
         if reasons:
             raise ValueError(
-                f"file = {self.file.as_posix()!r} names one file, but in {fmt.value} "
+                f"file = {self.file.as_posix()!r} names one file, but in {fmt} "
                 f"{' and '.join(reasons)}. Write folder instead of file, or format = "
                 '"netcdf", which holds several variables and dates in one file.'
             )
@@ -542,7 +490,7 @@ class ExportRequest(HydroModelBase):
         return list(self.time) if isinstance(self.time, list) else [self.time]
 
     @property
-    def output_format(self) -> ExportFormat | None:
+    def output_format(self) -> str | None:
         """The format the request declares, directly or by the extension of ``file``."""
         if self.format is not None:
             return self.format
@@ -562,7 +510,7 @@ class PlannedFile:
     """
 
     path: PurePosixPath
-    format: ExportFormat
+    format: str
     variables: tuple[str, ...]
     instant: str | int | None = None
 
@@ -572,23 +520,23 @@ class PlannedFile:
         return STEP_DATE_TOKEN in self.path.name
 
 
-def _natural_format(kind: ExportKind, request: ExportRequest) -> ExportFormat:
+def _natural_format(kind: ExportKind, request: ExportRequest) -> str:
     """Return the format a kind of data takes when the request names none."""
     if kind is ExportKind.field:
-        return ExportFormat.geotiff if len(request.times) == 1 else ExportFormat.netcdf
-    return KIND_FORMATS[kind][0]
+        return "geotiff" if len(request.times) == 1 else kind_formats(kind)[0]
+    return kind_formats(kind)[0]
 
 
-def _count_files(names: Sequence[str], fmt: ExportFormat) -> int:
+def _count_files(names: Sequence[str], fmt: str) -> int:
     """Return how many files ``names`` write in a one-instant format, one each at most."""
     mesh = sum(name in MESH_LAYERS for name in names)
-    if fmt is ExportFormat.geopackage and mesh:
+    if fmt == "geopackage" and mesh:
         return len(names) - mesh + 1
     return len(names)
 
 
 def _files_of_names(
-    kind: ExportKind, fmt: ExportFormat, names: Sequence[str], run_label: str
+    kind: ExportKind, fmt: str, names: Sequence[str], run_label: str
 ) -> list[tuple[str, tuple[str, ...]]]:
     """Return the ``(stem, names)`` of each file that holds names of one kind.
 
@@ -597,7 +545,7 @@ def _files_of_names(
     are several. A Shapefile holds a single layer, so it keeps a file each.
     """
     mesh = [name for name in names if name in MESH_LAYERS]
-    if kind is not ExportKind.vector or fmt is not ExportFormat.geopackage or not mesh:
+    if kind is not ExportKind.vector or fmt != "geopackage" or not mesh:
         return [(name, (name,)) for name in names]
     files = [(name, (name,)) for name in names if name not in MESH_LAYERS]
     files.append((mesh[0] if len(mesh) == 1 else f"{run_label}_mesh", tuple(mesh)))
@@ -652,30 +600,37 @@ def plan_outputs(
     folder = _posix(native)
     file = None if request.file is None else _posix(native / request.file)
     fmt = request.output_format
-    if fmt in RUN_FORMATS:
-        path = file if file is not None else folder / _RUN_FORMAT_FILES[fmt]
+    views = run_formats()
+    if fmt is not None and fmt in views:
+        if fmt not in VIEW_FILENAMES:
+            raise ValueError(
+                f"format = {fmt!r} describes the whole run, and the storage contract "
+                f"names no file for it. A view format is one of {', '.join(sorted(views))}."
+            )
+        path = file if file is not None else folder / view_filename(fmt)
         return (PlannedFile(path=path, format=fmt, variables=()),)
 
     selected = request.names if not request.exports_all else list(names or ())
     by_kind: dict[ExportKind, list[str]] = {}
     for name in selected:
         kind = ExportKind(kinds[name])
-        if fmt is not None and fmt not in KIND_FORMATS[kind]:
+        if fmt is not None and fmt not in kind_formats(kind):
             if request.exports_all:
                 continue
-            accepted = ", ".join(item.value for item in KIND_FORMATS[kind])
+            accepted = ", ".join(kind_formats(kind))
             raise ValueError(
-                f"{name!r} is a {kind.value}, which cannot be written as {fmt.value}. "
+                f"{name!r} is a {kind.value}, which cannot be written as {fmt}. "
                 f"A {kind.value} is written as {accepted}."
             )
         by_kind.setdefault(kind, []).append(name)
 
     planned: list[PlannedFile] = []
     span = _span_token(request)
+    one_instant = one_instant_formats()
     for kind, kind_names in by_kind.items():
         out = fmt or _natural_format(kind, request)
-        suffix = FORMAT_SUFFIX[out]
-        if kind is ExportKind.field and out in SINGLE_INSTANT_FORMATS:
+        suffix = format_suffix(out)
+        if kind is ExportKind.field and out in one_instant:
             instants: list[str | int | None] = list(request.times) or [None]
             for name in kind_names:
                 for instant in instants:
@@ -720,17 +675,17 @@ def plan_outputs(
 def _check_plan(request: ExportRequest, planned: list[PlannedFile]) -> None:
     """Refuse the keys no planned file can honor, and a file that is several."""
     formats = {item.format for item in planned}
-    flat = formats & NON_REPROJECTING_FORMATS
+    flat = formats & non_reprojecting_formats()
     # "all" takes each data in its format, so crs reprojects the ones that can be.
     # A named list is a choice: a name crs would not reach is refused.
     refused = flat == formats if request.exports_all else bool(flat)
     if request.crs is not None and formats and refused:
-        written = ", ".join(sorted(item.value for item in flat))
+        written = ", ".join(sorted(flat))
         raise ValueError(
             f"crs = {request.crs!r}, but this request writes {written}, which does not "
             "reproject. Drop crs, or ask for a GeoTIFF, a GeoPackage or a Shapefile."
         )
-    if request.resolution is not None and formats and ExportFormat.geotiff not in formats:
+    if request.resolution is not None and formats and "geotiff" not in formats:
         raise ValueError(
             f"resolution = {request.resolution!r} sizes the pixels of a GeoTIFF, and this "
             "request writes none. Drop resolution, or write one date of a field."
@@ -770,15 +725,9 @@ def load_export_requests(data: Any) -> list[ExportRequest]:
 
 __all__ = [
     "EXPORT_ALL",
-    "FORMAT_SUFFIX",
-    "KIND_FORMATS",
     "MESH_LAYERS",
-    "NON_REPROJECTING_FORMATS",
     "RETIRED_FORMATS",
-    "RUN_FORMATS",
-    "SINGLE_INSTANT_FORMATS",
     "STEP_DATE_TOKEN",
-    "ExportFormat",
     "ExportKind",
     "ExportRequest",
     "PlannedFile",

@@ -39,7 +39,6 @@ import pandas as pd
 from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import OutputName, SessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     RESIDUAL_COSTS,
     CostBlock,
@@ -222,7 +221,6 @@ def _best_so_far(cost: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-@register
 class CalibrationProgressFigure(BaseFigure):
     """How a calibration search converged, run after run, for any method.
 

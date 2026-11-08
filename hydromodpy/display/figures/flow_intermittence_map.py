@@ -32,7 +32,6 @@ from hydromodpy.display.figure_options import (
     Overlays,
     VisibleFlow,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
     cycle_flow,
@@ -72,7 +71,6 @@ DRY_EDGE = "#C8C8C8"
 """A border on the legend swatch, which is otherwise near-white on white."""
 
 
-@register
 class FlowIntermittenceMap(BaseFigure):
     """Perennial, intermittent and dry cells over one hydrological cycle."""
 

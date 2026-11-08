@@ -10,13 +10,11 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt, Station, Variable
-from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 
-@register
 class EnsembleBandFigure(BaseFigure):
     """Median and a quantile band across an ensemble of simulations."""
 

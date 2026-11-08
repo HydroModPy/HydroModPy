@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import haversine_km
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.location import StationLocation
@@ -57,6 +56,8 @@ def keep_nearest(
     label: str,
 ) -> list[str]:
     """Keep only the station closest to ``nearest_to`` ``(lon, lat)``, located by ``locate``."""
+    from hydromodpy.data.common.geo_helpers import haversine_km
+
     target_lon, target_lat = nearest_to
     best_id: str | None = None
     best_dist = float("inf")

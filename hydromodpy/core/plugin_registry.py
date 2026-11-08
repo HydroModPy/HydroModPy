@@ -5,16 +5,20 @@ module: ``solvers`` and ``extractors`` in ``solver/base/registry.py``,
 ``data_sources`` in ``data/source/registry.py``, ``evaluators`` in
 ``calibration/evaluation/registry.py``, ``forward_models`` in
 ``calibration/evaluation/forward_registry.py``, ``mesh_engines`` in
-``mesh/registry.py`` and ``terrain_engines`` in ``catchment/terrain/registry.py``.
-They resolve a name the same way: an in-tree declaration imported on first
-lookup, then one scan of an entry-point group for the out-of-tree surface. Only
-the noun, the id attributes, the group and the port members differ, so they are
-parameters here.
+``mesh/registry.py``, ``terrain_engines`` in ``catchment/terrain/registry.py``,
+``export_formats`` in ``results/exporters/registry.py`` and ``figures`` in
+``display/figure_registry.py``. They resolve a name the same way: an in-tree
+declaration imported on first lookup, then one scan of an entry-point group for
+the out-of-tree surface, or no scan at all when the surface declares no group.
+Only the noun, the id attributes, the group and the port members differ, so they
+are parameters here.
 
 The contract of a registry is :meth:`~PluginRegistry.register`,
 :meth:`~PluginRegistry.get` and :meth:`~PluginRegistry.names`. A key of a
 document that names a plugin is checked by :func:`check_registered_name`, the
-one sentence that refuses a name nothing serves.
+one sentence that refuses a name nothing serves. An entry point that cannot be
+imported is refused by name, with its target and the reason, instead of being
+silently absent.
 """
 
 from __future__ import annotations
@@ -87,7 +91,9 @@ class PluginRegistry:
         The class attributes whose values, joined by ``_``, make the id. They are
         read off the class and never passed in.
     group
-        The entry-point group of the out-of-tree plugins.
+        The entry-point group of the out-of-tree plugins, or ``None`` when the
+        surface takes none and stays a closed list: such a registry never
+        scans, and its refusals name no group.
     builtin_paths
         ``id -> "module:Class"`` of the in-tree classes, imported on first lookup.
     members
@@ -111,7 +117,7 @@ class PluginRegistry:
         *,
         kind: str,
         id_attributes: tuple[str, ...],
-        group: str,
+        group: str | None,
         builtin_paths: dict[str, str],
         members: Callable[[], tuple[str, ...]],
         error: type[Exception],
@@ -131,6 +137,7 @@ class PluginRegistry:
         self.validate = validate
         self.construction_options = construction_options
         self.classes: dict[str, type] = {}
+        self.unavailable: dict[str, str] = {}
         self.plugins_loaded = False
 
     def names(self, *prefix: str, shipped_only: bool = False) -> tuple[str, ...]:
@@ -243,12 +250,17 @@ class PluginRegistry:
             cls = self.classes.get(wanted)
             if cls is not None:
                 return cls
+        unavailable = self.unavailable.get(wanted)
+        if unavailable is not None:
+            raise self.error(unavailable)
         known = ", ".join(sorted(set(self.classes) | set(self.builtin_paths))) or "none"
-        raise self.error(
-            f"No {self.kind} is registered for {wanted!r}. This installation serves {known}. "
-            f"A third-party {self.kind} joins that list through the {self.group!r} "
-            "entry-point group, without a patch to HydroModPy."
-        )
+        message = f"No {self.kind} is registered for {wanted!r}. This installation serves {known}."
+        if self.group is not None:
+            message += (
+                f" A third-party {self.kind} joins that list through the {self.group!r} "
+                "entry-point group, without a patch to HydroModPy."
+            )
+        raise self.error(message)
 
     def create(self, *parts: str | None, **options: object) -> object:
         """Build the class registered under *parts*, binding the parameters it names.
@@ -312,12 +324,26 @@ class PluginRegistry:
 
         Kept public because :meth:`get` and :meth:`names` call it once, and a
         test that installs an entry point calls it again with *force*. Returns
-        the number newly registered. A bad entry point is skipped with a
-        warning naming what is wrong with it, never raised: one broken plugin
-        must not take down a calibration that asked for a different one.
+        the number newly registered. A registry without a group scans nothing.
+
+        An entry point whose import fails is not served, but it is not lost
+        either: it is recorded in :attr:`unavailable` with its target and the
+        reason, and :meth:`get` refuses the name with that sentence. Two entry
+        points of two distributions that name the same target are one plugin;
+        two that name different targets are a conflict, and the name is served
+        by neither: :meth:`get` refuses it naming both.
+
+        A bad entry point is skipped with a warning naming what is wrong with
+        it, never raised: one broken plugin must not take down a calibration
+        that asked for a different one.
         """
         if self.plugins_loaded and not force:
             return 0
+        if self.group is None:
+            self.plugins_loaded = True
+            return 0
+        if force:
+            self.unavailable = {}
 
         count = 0
         try:
@@ -334,6 +360,7 @@ class PluginRegistry:
             )
             self.plugins_loaded = True
             return 0
+        seen: dict[str, str] = {}
         for entry_point in declared:
             name = str(entry_point.name).strip()
             if not name:
@@ -351,12 +378,38 @@ class PluginRegistry:
                     self.kind,
                 )
                 continue
+            target = str(getattr(entry_point, "value", name)).strip()
+            previous = seen.get(name)
+            if previous is not None:
+                if previous == target:
+                    continue
+                self.classes.pop(name, None)
+                self.unavailable[name] = (
+                    f"{name!r} is declared by two entry points that do not agree: "
+                    f"{name} = {previous} and {name} = {target}. This installation serves "
+                    "neither; uninstall the distribution you do not want."
+                )
+                continue
+            seen[name] = target
             if name in self.classes and not force:
                 continue
             try:
                 cls = entry_point.load()
+            except ModuleNotFoundError as exc:
+                logger.debug("plugin %s %r not installed: %s", self.kind, entry_point, exc)
+                self.unavailable[name] = (
+                    f"{name!r} is declared by the entry point {name} = {target}, which cannot "
+                    f"be imported here ({type(exc).__name__}: {exc}). Put the package that "
+                    "provides it on sys.path."
+                )
+                continue
             except Exception as exc:  # pragma: no cover - exercised with stub entry points
                 logger.warning("failed to load %s plugin %r: %s", self.kind, entry_point, exc)
+                self.unavailable[name] = (
+                    f"{name!r} is declared by the entry point {name} = {target}, which cannot "
+                    f"be imported here ({type(exc).__name__}: {exc}). Put the package that "
+                    "provides it on sys.path."
+                )
                 continue
             if self._declared_id(cls) != name:
                 logger.warning(
@@ -391,6 +444,7 @@ class PluginRegistry:
         name = "_".join(parts)
         self.classes.pop(name, None)
         self.builtin_paths.pop(name, None)
+        self.unavailable.pop(name, None)
 
     def _wanted(self, parts: tuple[str | None, ...]) -> str:
         """The id *parts* join to, or the default for no part or a single ``None``."""

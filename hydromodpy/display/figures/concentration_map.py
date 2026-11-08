@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from hydromodpy.display.figure import FigureSpec
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
-@register
 class ConcentrationMap(ScalarFaceMap):
     """Per-cell solute concentration at one timestep."""
 

@@ -27,7 +27,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Extent, Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
     cell_count,
@@ -86,7 +85,6 @@ _LOST_SIZE_PT = 42.0
 _FORCED_SIZE_PT = 46.0
 
 
-@register
 class ObservedNetworkHeadsMap(BaseFigure):
     """Draw the mapped lines, the heads kept and lost, and the trace they draw.
 

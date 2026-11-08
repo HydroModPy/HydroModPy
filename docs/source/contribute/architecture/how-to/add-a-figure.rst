@@ -1,20 +1,23 @@
 Add a figure
 ============
 
-Figures live in ``hydromodpy.display`` and are auto-discovered through
-``display/figures/__init__.py`` (``pkgutil.iter_modules``). ``hmp viz list``
-prints every registered figure, and :doc:`/understand/reading-results` carries the
-generated inventory: ``hydrograph``, ``piezometric_map``, ``water_budget``,
-``calibration_convergence``, ``hydrographic_network_comparison``,
-``simulated_active_network``, ``side_by_side``, and the others. The map of the
-package, with its import rules, is ``hydromodpy/display/README.md``.
+Figures live in ``hydromodpy.display``. Each one is a ``BaseFigure``
+subclass that carries its ``spec``, in a public module of
+``display/figures/``, and that rule is the whole membership list: the
+generated table ``display/figure_table.py`` is what the registry reads.
+``hmp viz list`` prints every figure, and :doc:`/understand/reading-results`
+carries the generated inventory: ``hydrograph``, ``piezometric_map``,
+``water_budget``, ``calibration_convergence``,
+``hydrographic_network_comparison``, ``simulated_active_network``,
+``side_by_side``, and the others. The map of the package, with its import
+rules, is ``hydromodpy/display/README.md``.
 
 Contract
 --------
 
-Every figure is a ``BaseFigure`` subclass decorated with
-``@register``. It exposes a ``FigureSpec`` dataclass and a ``render``
-method:
+Every figure is a ``BaseFigure`` subclass. It exposes a ``FigureSpec``
+dataclass and a ``render`` method, and nothing registers it by hand:
+``BaseFigure.__init_subclass__`` takes its name from the ``spec``.
 
 .. code-block:: python
 
@@ -28,7 +31,6 @@ method:
        required_fields: tuple[str, ...] = ()
        optional_fields: tuple[str, ...] = ()
        required_tables: tuple[str, ...] = ()
-       required_solvers: tuple[str, ...] = ()
        default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
@@ -50,9 +52,11 @@ A new figure called ``my_figure``:
 .. code-block:: text
 
    hydromodpy/display/figures/my_figure.py
+   hydromodpy/display/figure_table.py   regenerated, never edited
 
-The file name must not start with ``_``: discovery skips those, which is
-where helpers shared by several figures live.
+The file name must not start with ``_``: that is where helpers shared by
+several figures live, and the generated table covers only the public
+modules.
 
 A map of one value per mesh face needs no ``render``: subclass
 ``ScalarFaceMap`` and declare the field. Model: ``figures/piezometric_map.py``.
@@ -60,11 +64,9 @@ A map of one value per mesh face needs no ``render``: subclass
 .. code-block:: python
 
    from hydromodpy.display.figure import FigureSpec
-   from hydromodpy.display.figure_registry import register
    from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
-   @register
    class PiezometricMap(ScalarFaceMap):
        spec = FigureSpec(
            name="piezometric_map",
@@ -82,12 +84,10 @@ gets. Skeleton:
 
    from matplotlib.axes import Axes
 
-   from hydromodpy.display.figure_registry import register
    from hydromodpy.display.figure import BaseFigure, FigureSpec
    from hydromodpy.results.run import Run
 
 
-   @register
    class MyFigure(BaseFigure):
        spec = FigureSpec(
            name="my_figure",
@@ -106,6 +106,17 @@ gets. Skeleton:
            ax.figure.colorbar(im, ax=ax, label="head [m]")
            return ax
 
+Then regenerate the table:
+
+.. code-block:: bash
+
+   python -m tools.figure_table
+
+``hydromodpy/display/figure_table.py`` holds ``FIGURES`` (each name to its
+module and class), ``FORMER_NAMES``, ``OPTIONS`` and ``PYTHON_ONLY_OPTIONS``,
+literals only. A test regenerates it in memory and fails while the file is
+stale, so a figure added without the command never passes the suite.
+
 The base ``BaseFigure.plot`` method creates the matplotlib subplots with
 ``default_figsize``, calls ``render`` and, when asked, saves the PNG with its
 provenance. Whether the figure applies to a run is decided before, by
@@ -115,7 +126,8 @@ provenance. Whether the figure applies to a run is decided before, by
 Pick the right ``kind``
 -----------------------
 
-``kind`` is the plotting family, not the hydrological domain, and takes one
+``kind`` is the plotting family. It says how the figure is drawn, and the
+hydrological domain stays out of it. It takes one
 of the eight values of ``FigureKind``:
 
 - ``spatial`` -- a map (one value per face, a network, a raster).
@@ -171,18 +183,26 @@ missing data and never draws a placeholder. Model:
 ``hmp viz list --run <sim_id>`` prints, for each figure, whether a run
 supports it or the sentence that says why not.
 
-Auto-discovery
---------------
+The table, and how a name resolves
+----------------------------------
 
-``display/figures/__init__.py`` walks every ``.py`` module in the
-folder with ``pkgutil.iter_modules`` and imports it. Any
-``@register``-decorated class becomes part of the global catalog. No
-extra wiring is needed.
+``display/figure_registry.py`` holds ``figures``, the registry of the common
+engine, with ``get``, ``resolve``, ``names``, ``list_figures`` and
+``figure_option_names``. All of them read the generated table
+``figure_table.py``, which imports nothing: answering a name, an old name or
+the options of a figure loads no module of ``display/figures/``, and
+validating a ``[display]`` section imports no figure module either.
+Resolving a name to be drawn imports the one module of that figure.
+``resolve`` keeps the former names of the table, with a ``DeprecationWarning``.
+
+Renaming a figure is therefore: change ``spec.name``, put the old name in
+``spec.former_names``, regenerate the table. Project files that write the
+old name still load, with a warning.
 
 Render from CLI and TOML
 ------------------------
 
-Once registered, the figure is reachable from:
+Once in the table, the figure is reachable from:
 
 .. code-block:: bash
 
@@ -200,23 +220,22 @@ And from TOML:
 Tests to add
 ------------
 
-- **Registry**: a line in ``REGISTRY_CONTRACT``
-  (``tests/unit/display/test_figure_registry_completeness.py``: class,
-  ``kind``, ``required_fields``). The test refuses a figure missing from it.
-- **Refusal**: ``tests/unit/display/test_every_figure_refuses_an_empty_run.py``
-  runs on every registered figure and fails when one accepts a run that holds
+- Table: run ``python -m tools.figure_table``; the freshness test
+  regenerates the table in memory and fails while the file is stale.
+- Refusal: ``tests/unit/display/test_every_figure_refuses_an_empty_run.py``
+  runs on every figure and fails when one accepts a run that holds
   nothing.
-- **Unit** under ``tests/unit/display/`` against a synthetic ``Run``
+- Unit: under ``tests/unit/display/`` against a synthetic ``Run``
   fixture: assert the figure produces a non-empty axes.
-- **Image regression** (optional): commit a small reference PNG and
+- Image regression (optional): commit a small reference PNG and
   compare with ``matplotlib.testing.compare_images``.
 
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``display`` may import ``core``, ``schema``, ``results``, and
-  ``display``. It must **not** import ``data``, ``model``,
-  ``solver``, ``calibration``, ``project``, or ``workflow``.
+- ``display`` may import ``core`` and ``results``. It must **not** import
+  ``data``, ``model``, ``solver``, ``calibration``, ``project``, or
+  ``workflow``.
 - Inside ``display``, a shared tool never imports ``figures/``;
   ``tests/unit/architecture/display_layout.yaml`` lists who may import whom.
 - Reach the data through ``Run`` (``run.field``, ``run.timeseries``,

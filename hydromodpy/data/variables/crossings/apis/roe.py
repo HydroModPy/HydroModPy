@@ -24,23 +24,40 @@ answer measured on 2026-10-05 over the upper Ille (Flume).
 from __future__ import annotations
 
 import re
+import time
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 from hydromodpy.core.exceptions import DataSourceError
+from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.logging import get_logger
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 from hydromodpy.data.variables.crossings import records
-from hydromodpy.data.variables.crossings.apis import wfs
+from hydromodpy.data.variables.crossings.apis import bdtopo, wfs
 
 if TYPE_CHECKING:
     import geopandas as gpd
 
-    from hydromodpy.data.managers.base_manager_common import SourceContext
+logger = get_logger(__name__)
 
 SOURCE_ID: Final = "roe"
 WFS_URL: Final = "https://services.sandre.eaufrance.fr/geo/obs"
 HOST: Final = "services.sandre.eaufrance.fr"
 LAYER: Final = "sa:ObstEcoul_FXX"
+
+DEFAULT_PAGE_SIZE: Final = bdtopo.DEFAULT_PAGE_SIZE
+"""The page size ``_ApiCrossingsSource`` declares for this source."""
 
 _SA: Final = "{http://xml.sandre.eaufrance.fr/}"
 _GML: Final = "{http://www.opengis.net/gml/3.2}"
@@ -49,18 +66,16 @@ _EXISTING: Final = "existant"
 
 
 def fetch_pages(
-    source_cfg: Any,
     *,
     bbox: tuple[float, float, float, float],
-    context: SourceContext,
+    page_size: int,
 ) -> Iterator[gpd.GeoDataFrame]:
     """The existing obstacles touching *bbox*, one page of records at a time (EPSG:2154)."""
-    del context
     for rows in wfs.iter_pages(
         WFS_URL,
         LAYER,
         bbox,
-        page_size=int(source_cfg.page_size),
+        page_size=int(page_size),
         sort_by="gid",
         parse_page=parse_page,
         identify=lambda row: row["id"],
@@ -128,3 +143,65 @@ def _number(text: str | None) -> float:
         return float(str(text).strip())
     except ValueError:
         return float("nan")
+
+
+class RoeCrossings:
+    """The obstacles of the ROE, one GeoPackage per request box.
+
+    The port class over :func:`fetch_pages`: the existing obstacles of the
+    request's extent, written page by page so memory holds one page however
+    many features the box holds. The file is ``crossings_roe_<bbox
+    hash>.gpkg``, the name the catalog caches a download under, and it is
+    ``state = "raw"``: the provider's records as it answered them.
+    """
+
+    source_id: ClassVar[str] = SOURCE_ID
+    section: ClassVar[str] = "crossings"
+    payload_kind: ClassVar[PayloadKind] = "files"
+    extent_crs: ClassVar[str] = wfs.QUERY_CRS
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "refused"
+    writes_out_dir: ClassVar[bool] = True
+
+    def __init__(self, *, page_size: int = DEFAULT_PAGE_SIZE) -> None:
+        self.page_size = int(page_size)
+        self.variables = ("crossings",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        """Write the obstacles of the request's extent into a GeoPackage."""
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        request.out_dir.mkdir(parents=True, exist_ok=True)
+        from hydromodpy.data.variables.crossings.manager import cache_file_name
+
+        out_path = request.out_dir / cache_file_name(self.source_id, extent.bbox)
+        started = time.perf_counter()
+        with staged_path(out_path) as staged:
+            count = records.append_pages(
+                staged,
+                fetch_pages(bbox=extent.bbox, page_size=self.page_size),
+                wfs.QUERY_CRS,
+            )
+            if count == 0:
+                records.empty(wfs.QUERY_CRS).to_file(staged, driver="GPKG")
+        logger.info(
+            "Crossings from %s: %d features in %s, %.1f s",
+            self.source_id,
+            count,
+            out_path,
+            time.perf_counter() - started,
+        )
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        record = FileRecord.of(out_path, state="raw", nodata=None, origin=WFS_URL)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            files=(record,),
+            records=count,
+            metadata={"page_size": self.page_size},
+        )

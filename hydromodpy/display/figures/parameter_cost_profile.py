@@ -33,7 +33,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import OneParameter, Opt, ParameterUnits, SessionId
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     Interval,
     Tolerance,
@@ -119,7 +118,6 @@ class _Ends:
         return self.low == "crossed" and self.high == "crossed"
 
 
-@register
 class ParameterCostProfileFigure(BaseFigure):
     """Cost versus one calibrated parameter, with its asymmetry measured."""
 

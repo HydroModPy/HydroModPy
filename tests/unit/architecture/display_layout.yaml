@@ -7,6 +7,7 @@
 # Rows are written lowest first: a row names only rows written above it, so
 # this table cannot allow a cycle.
 allowed:
+  figure_table:     []
   report_blocks:    []
   style:            []
   maps:             []
@@ -14,28 +15,30 @@ allowed:
   quicklook:        []
   figure_options:   []
   figure:           [png_metadata, figure_options]
-  figure_registry:  [figure]
-  figures:          [figure, figure_options, figure_registry, maps, style]
-  config:           [figure_registry]
-  cohort:           [figure_registry]
+  figure_registry:  [figure, figure_table]
+  figures:          [figure, figure_options, maps, style]
+  config:           [figure_registry, figure_table]
+  cohort:           [figure_registry, figure_table]
   run_comparison:   [maps]
-  "<init>":         [figure, figure_registry]
-  runs:             ["<init>", config, figure, png_metadata, style]
-  catalog_figures:  [figure_registry, runs]
+  "<init>":         []
+  runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style]
+  catalog_figures:  [figure_registry, figure_table, runs]
   overview:         [report_blocks, style]
-  catchment_report: [config, figure_registry, overview, report_blocks, runs]
-  calibration_report: [figure_registry, report_blocks, runs]
+  catchment_report: [config, figure_registry, figure_table, overview, report_blocks, runs]
+  calibration_report: [figure_registry, figure_table, report_blocks, runs]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
 # that importing the registry stays light. Only this file may name a module so.
 text_paths:
-  - hydromodpy/display/figure_registry.py
+  - hydromodpy/display/figure_table.py
 
 # What another layer of hydromodpy may import from hydromodpy/display.
 public:
   - hydromodpy.display
   - hydromodpy.display.config
+  - hydromodpy.display.figure
   - hydromodpy.display.figure_registry
+  - hydromodpy.display.figure_table
   - hydromodpy.display.runs
   - hydromodpy.display.catalog_figures
   - hydromodpy.display.cohort

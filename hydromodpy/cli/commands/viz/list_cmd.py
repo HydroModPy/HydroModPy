@@ -47,7 +47,7 @@ def run(args: argparse.Namespace) -> None:
     if args.sim_ref is not None:
         _list_for_run(args)
         return
-    from hydromodpy.display import list_figures
+    from hydromodpy.display.figure_registry import list_figures
 
     specs = [spec for spec in list_figures() if args.kind in (None, spec.kind)]
 
@@ -58,8 +58,6 @@ def run(args: argparse.Namespace) -> None:
                 requirements.append("fields " + ", ".join(spec.required_fields))
             if spec.required_tables:
                 requirements.append("tables " + ", ".join(spec.required_tables))
-            if spec.required_solvers:
-                requirements.append("solvers " + ", ".join(spec.required_solvers))
             needs = "; ".join(requirements) or "no declared requirement"
             print(f"{spec.name:44s} {spec.kind:11s} {needs}")
         print(f"\n{len(specs)} figure(s)")
@@ -73,7 +71,6 @@ def run(args: argparse.Namespace) -> None:
                 "kind": spec.kind,
                 "required_fields": list(spec.required_fields),
                 "required_tables": list(spec.required_tables),
-                "required_solvers": list(spec.required_solvers),
             }
             for spec in specs
         ],

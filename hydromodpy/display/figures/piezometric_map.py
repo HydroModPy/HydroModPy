@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from hydromodpy.display.figure import FigureSpec
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
-@register
 class PiezometricMap(ScalarFaceMap):
     """Map of the water-table elevation at a given timestep."""
 

@@ -10,14 +10,20 @@ variable, how data flows, and where to add what.
 Each `[data.<name>]` section of a project TOML is one variable. The single
 list of the 28 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 
-| family | variables | sources besides `custom` | manager base |
-|---|---|---|---|
-| grids (10) | `precipitation`, `etp`, `temperature`, `wind`, `humidity`, `radiation`, `soil_moisture`, `runoff`, `recharge`, `oceanic` | `sim2` (all but `oceanic`), `explore2` (`precipitation`, `etp`), `synthetic` (`recharge`), `shom` and `constant` (`oceanic`) | `BaseFieldManager` |
-| stations (4) | `hydrometry`, `piezometry`, `water_quality`, `intermittency` | `hubeau` | `BaseVariableManager` |
-| terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` | written by hand |
-| structures (1) | `crossings` | `bdtopo`, `roe` | `SourceTable`, written by hand |
-| lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none | `BaseVariableManager` |
-| user files (6) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster), `soil_capacity` (raster), `layer_base` (raster) | none | `BaseFileManager` |
+| family | variables | sources besides `custom` |
+|---|---|---|
+| grids (10) | `precipitation`, `etp`, `temperature`, `wind`, `humidity`, `radiation`, `soil_moisture`, `runoff`, `recharge`, `oceanic` | `sim2` (all but `oceanic`), `explore2` (`precipitation`, `etp`), `synthetic` (`recharge`), `shom` and `constant` (`oceanic`) |
+| stations (4) | `hydrometry`, `piezometry`, `water_quality`, `intermittency` | `hubeau` |
+| terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` |
+| structures (1) | `crossings` | `bdtopo`, `roe` |
+| lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none |
+| user files (6) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster), `soil_capacity` (raster), `layer_base` (raster) | none |
+
+Every value of this column is a key of `data_sources` for its section (the
+two-part key of `source/`), except the `custom` files the section loads
+itself. The manager of a variable still owns its cache, whatever the source:
+grids in `BaseFieldManager`, stations in `BaseVariableManager`, user files in
+`BaseFileManager`.
 
 ## Subpackages
 
@@ -27,12 +33,12 @@ In dependency order, lowest first.
 |---|---|
 | `contracts/` | the records handed upward: `PointRecord`, `FieldRecord`, `TableRecord`, `LoadResult` |
 | `schemas/` | pandera schemas of the input tables (stations, chronicles, abacus, lithology, DEM), each with its `validate()` |
-| `source/` | the `DataSource` port (`port.py`) and the registry of sources, plugins included (`registry.py`) |
+| `source/` | the `DataSource` port (`port.py`), its README being the contract, and the registry of sources, plugins included (`registry.py`) |
 | `common/` | helpers with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers, the local DRIAS Explore2 NetCDF reader (`explore2_files.py`, read by `precipitation` and `etp`) |
 | `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids, and the observation series a run keeps beside the simulated ones (`observations.py`) |
 | `provenance/` | what sits next to a file on disk: sidecars, derived copies, `hydromodpy.lock` |
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `input_cache.py` reads it for a workspace: `InputCache(workspace).list(variable=, source=, limit=)` and `.find(...)`. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
-| `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
+| `managers/` | the bases the variable managers inherit: shared state, the caches, and the `FetchRequest` the family builds and hands to the class of the source port |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
 | `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), `[site] gauge` as the station of the series sources (`gauge.py`), and `single_site.py`, which resolves a `[site]` against the site catalog of the workspace (`match_site`, `resolve_single_site`, `SiteMismatchError`) |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
@@ -51,90 +57,85 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
 2. Another layer of HydroModPy imports only the modules listed under `public`
    in `data_layout.yaml`. Managers, `common`, `schemas`, and the inside of
    `loading` and of the variables stay private.
-3. A manager reaches its providers through its `SOURCES` table, never through
-   an `if` on the source name.
+3. A manager reaches its providers through the source registry, so adding a
+   provider touches no manager body and an `if` on the source name has no
+   reason to appear.
 4. No module uses a `_private` attribute of another. Ruff rule `SLF001`
    checks it.
-5. The three modules that hold a `DataSource` class import geopandas, pandas,
+5. The modules that hold a `DataSource` class import geopandas, pandas,
    rasterio or requests inside their functions: looking a source up by name
    loads nothing heavy. `tests/unit/architecture/test_data_source_port_stands_alone.py`
-   checks it.
+   checks it, one module per source.
 6. One exception to the import rules: the source registry
-   (`source/registry.py`) names the three built-in classes by a dotted path
+   (`source/registry.py`) names the shipped classes by a dotted path
    written as text and imports each on first use, so that a third-party plugin
-   joins the same table. The registry is `data_sources`, an instance of the engine of `core/plugin_registry.py`.
+   joins the same table. The registry is `data_sources`, an instance of the engine of `core/plugin_registry.py`, keyed on the
+   section and the `source_id` of the class.
 
 ## Template of a variable
 
 ```
 variables/<v>/
 ├── __init__.py   imports only the config: validating a TOML loads no manager
-├── config.py     <V>Config and <V>SourceConfig; the `source` field lists the allowed values
-├── manager.py    VARIABLE_NAME, INTERNAL_UNIT, SOURCES
+├── config.py     <V>Config and <V>SourceConfig; the `source` field is a name of the registry
+├── manager.py    VARIABLE_NAME, INTERNAL_UNIT, the FetchRequest of the section
 ├── apis/         one module per network provider of the variable, if it has one
 └── custom.py     only when loading the user's files takes real work
 ```
 
 `dem`, `crossings` and `hydrography` also keep a `resolver.py`: the geographic step runs before any data manager, so it turns their sources into files on disk first (`fill_dem_init_path`, `fill_crossings_path`, `resolve_network_map_path`).
 
-A manager maps each value a user may write in `source =` to the function that
-fetches it:
+A manager names its variable and the unit its records carry, and leaves every
+provider to the registry:
 
 ```python
 class HydrometryManager(BaseVariableManager):
     VARIABLE_NAME = "hydrometry"
     INTERNAL_UNIT = "m3/s"
     RECORD_VARIABLE = "discharge"
-    SOURCES = {"hubeau": hubeau.fetch_for_config}
 ```
 
 - `RECORD_VARIABLE` is optional. It names what a record carries when that
   differs from `VARIABLE_NAME`.
-- `custom` is never in `SOURCES`. The base class loads the user's files through
+- `data_sources.get(VARIABLE_NAME, cfg.source)` answers the class, and
+  `build_from_section` binds the fields of the section to its constructor. A
+  family of stations builds `FetchRequest(out_dir, station_ids=...)`, or the
+  extent with the period the cache misses; a family of grids builds the extent
+  in `PROJECT_EXTENT_CRS` with its period. The base class owns the
+  cache: `BaseFieldManager` keeps grids, `BaseVariableManager` keeps
+  chronicles per station and asks only for the missing periods.
+- `custom` is never resolved by the registry. The base class loads the user's files through
   `load_custom`; a variable whose format takes real work overrides it or keeps
   a `custom.py`.
-- A `SOURCES` function receives the validated config, the extent and a
-  `SourceContext` (project extent, cache folder, section dates, nearest
-  point). A grid: `fetch(cfg, *, bbox, period, context)`. Stations:
-  `fetch(cfg, *, bbox, station_ids, start, end, context)`. The base class owns
-  the cache: `BaseFieldManager` keeps grids, `BaseVariableManager` keeps
-  chronicles per station and asks only for the missing periods.
-- The `source` field stays a closed `Literal`; the JSON schema and the config
-  reference publish it. `hydrography` is the exception: its sources resolve
-  through the registry, plugins included.
+- The `source` field is a string checked against
+  `data_sources.names(section)` while the file is read, so a name this
+  installation does not serve is refused with the names it serves; the JSON
+  schema and the config reference publish the values. `dem`, `geology` and
+  `crossings` keep a discriminated union, because each of their sources
+  carries its own model of options.
 - `tests/unit/data/test_the_variable_families_agree.py` ties the lists: the
-  `source` values of each variable (but `custom`) are the keys of `SOURCES`, and
-  each has an entry (licence, network hosts) in `hydromodpy/schema/sources.py`.
+  `source` values of each variable (the union labels and `custom` included)
+  match `data_sources.names(section)`, and each has an entry (licence, network
+  hosts) in `hydromodpy/schema/sources.py`.
 
 ## The DataSource port
 
-`source/port.py` holds the `DataSource` Protocol and its value types. A source
-answers one question about one provider, conforms structurally (no base class)
-and declares eight things about itself: `source_id`, `variables`, `payload_kind`
-(`points`, `fields`, `features` or `files`), `extent_crs`, `selectors`
-(`extent`, `station_ids`), `period_need` (`required` or `refused`), `hosts` (every
-host it contacts) and `writes_out_dir`. `variables` belongs to the instance, the
-other seven to the class.
+`source/README.md` is the contract of the port, in full: the members a source
+class declares, the `FetchRequest` (an extent and its CRS, stations, a period,
+or a request with none of them for a source that selects nothing), the
+`FetchResult` and its `FileRecord` entries, and the hosts a shipped source
+reads from `hydromodpy.schema.sources`.
 
-An `Extent` is a bounding box **and** its CRS. `extent_for()` converts it into
-the CRS the source declares, densifying the edges rather than transforming four
-corners, because a projected box is not the image of its own corners. A box that
-crosses the antimeridian is refused.
-
-Three sources ship, the river networks that `[data.hydrography]` resolves through
-the registry: `BdTopageSource`, `EuHydroSource` and `OsmSource`, on the shared
-`FeatureSource` base (`variables/hydrography/apis/features.py`). A third-party
-package adds a source by declaring a `DataSource` class on the
-`hydromodpy.data.source` entry-point group. It is then nameable in a hydrography
-section, and for any payload kind under the `installed` member of a data request.
-`tests/contract/test_data_source_contract.py` compares each declaration with a
-real fetch.
-
-`source/registry.py` holds `data_sources`, which maps `source_id` to class. The in-tree sources are declared
-once, as dotted paths in `_BUILTIN_PATHS`, and imported on first lookup.
-`data_sources.names(shipped_only=True)` answers what this build ships, `data_sources.names()` what
-this installation resolves. `get_serving` and `build_from_section` stay functions of the module. `source/permanence.py` names the one canonical
-`permanence` column a source writes when it knows whether water flows all year.
+Three facts are worth carrying here. Every provider is one class of the
+port, so a source is found the same way whatever it serves:
+`data_sources.get(section, source_id)`, the two-part key joined by `_` (26
+shipped keys today, from `hydrography_bdtopage` to `crossings_roe`). A
+source's points and fields are written in the unit their record carries; the
+SI is reached at the entry of the Model, through `core/units`, and the port
+converts no value. And a source knows nothing of the catalog, the workspace,
+a lock or a cache: the manager builds the request and keeps the cache, the
+source fetches. `source/permanence.py` names the one canonical `permanence`
+column a source writes when it knows whether water flows all year.
 
 ## How data flows
 
@@ -145,7 +146,8 @@ During a run:
   -> loading/config_schema.DataManagersConfig   validation
   -> loading/planner.DataPlanner.build()        asked-for and inferred variables
   -> loading/loader.DataManagersRuntimeLoader   simulation window, basin mask
-  -> variables/<v>/manager.<V>Manager.load()    custom files, or SOURCES[source]
+  -> variables/<v>/manager.<V>Manager.load()    custom files, or the class of the port
+                                                   named by data_sources.get(section, source)
   -> contracts.LoadResult(points, fields, tables, warnings)
 ```
 
@@ -212,7 +214,7 @@ into `mask_path` before it hands the config to the store.
 
 - `mask_geometry(path)` returns the polygon and the CRS the file declares, and
   refuses a mask with no CRS. A raster mask goes through the hull of its valid
-  cells, not its footprint: a catchment mask is `1` on the catchment and nodata
+  cells rather than its footprint: a catchment mask is `1` on the catchment and nodata
   elsewhere in a rectangle.
 - `mask_extent(path)` gives its box, and `mask_extent_in(path, crs)` the box of
   the reprojected shape, which is tighter than a reprojected box and keeps a
@@ -253,9 +255,12 @@ class LoadResult:
   lazily.
 - `hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB`: the cache index.
 - `hydromodpy.data.contracts.load_result.LoadResult` and the three records.
-- `hydromodpy.data.source.{DataSource, Extent, Period, FetchRequest, FetchResult,
-  BdTopageSource, EuHydroSource, OsmSource}` and
-  `hydromodpy.data.source.registry.{data_sources, get_serving}`.
+- `hydromodpy.data.source.port.{DataSource, Extent, Period, FetchRequest,
+  FetchResult, require_selectors, require_period, extent_for, shipped_hosts}`,
+  `hydromodpy.data.contracts.file_record.FileRecord` and
+  `hydromodpy.data.source.registry.{data_sources, build_from_section}`. The
+  source classes themselves are imported from the module of their provider,
+  for example `hydromodpy.data.variables.hydrography.apis.bdtopage`.
 - `hydromodpy.data.request.job.{DATA_REQUEST, run}`.
 - `hydromodpy.data.sites.catalog.{read_catalog, write_catalog, nearest_site,
   add_sites, declare_sites, SITE_CATALOG_RELPATH}`, `hydromodpy.data.sites.importers`
@@ -285,8 +290,8 @@ class LoadResult:
 
 | to add | where |
 |---|---|
-| a provider for an existing variable | a function in `variables/<v>/apis/<provider>.py` (or `common/clients/` when several variables share it), a key in the manager's `SOURCES`, a value in the `source` `Literal`, an entry in `schema/sources.py` |
-| a plugin source, out of tree | a `DataSource` class declared on the `hydromodpy.data.source` entry-point group; see `docs/source/contribute/architecture/how-to/add-a-data-source.rst` |
+| a provider for an existing variable | a `DataSource` class in `variables/<v>/apis/<provider>.py` (or `common/clients/` when several variables share it), its section and key in `_BUILTIN_PATHS` of `source/registry.py`, a value the config validates against `data_sources.names(section)`, an entry in `schema/sources.py` |
+| a plugin source, out of tree | a `DataSource` class published on the `hydromodpy.data.source` entry-point group under the name `<section>_<source_id>`; see `docs/source/contribute/architecture/how-to/add-a-data-source.rst` |
 | a variable | a package on the template above, a field of `DataManagersConfig`, a row of `VARIABLE_SPECS`; see `docs/source/contribute/architecture/how-to/add-a-data-variable.rst` |
 | a user-file format | `ingest/` |
 | an import rule | `tests/unit/architecture/data_layout.yaml` |

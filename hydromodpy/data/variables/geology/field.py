@@ -13,8 +13,20 @@ from __future__ import annotations
 
 from typing import Any
 
-BRGM_SOURCES = frozenset({"brgm_1m", "brgm_50k"})
 BRGM_CODE_FIELD = "CODE_LEG"
+
+
+def brgm_sources() -> frozenset[str]:
+    """The sources of the ``geology`` section the registry serves.
+
+    Every registered geology source is a BRGM map carrying the
+    ``CODE_LEG`` legend column, which is what the encoding reads on the file
+    it returned. The user's own files stay outside this set: their code column
+    comes from the ``code_field`` of their source section.
+    """
+    from hydromodpy.data.source.registry import data_sources
+
+    return frozenset(data_sources.names("geology"))
 
 
 def build_geology_field(field_record: Any, *, geology_cfg: Any, raster_support: Any) -> Any:
@@ -108,7 +120,7 @@ def _zone_polygons(
 
 def _code_field(field_record: Any, geology_cfg: Any) -> str:
     """The column holding the geological code: the BRGM one, or a custom source's."""
-    if getattr(field_record, "source", "") in BRGM_SOURCES:
+    if getattr(field_record, "source", "") in brgm_sources():
         return BRGM_CODE_FIELD
     for src in getattr(geology_cfg, "sources", []):
         if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
@@ -116,4 +128,4 @@ def _code_field(field_record: Any, geology_cfg: Any) -> str:
     return BRGM_CODE_FIELD
 
 
-__all__ = ["BRGM_CODE_FIELD", "BRGM_SOURCES", "build_geology_field"]
+__all__ = ["BRGM_CODE_FIELD", "brgm_sources", "build_geology_field"]

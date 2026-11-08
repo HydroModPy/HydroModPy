@@ -76,9 +76,9 @@ from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
+from hydromodpy.model.flow_config import FLOW_RUNTIME_KEYS
 from hydromodpy.model.properties.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
-from hydromodpy.model.runtime_config import FLOW_RUNTIME_KEYS
-from hydromodpy.results.exporters.export_spec import RUN_FORMATS, format_from_path
+from hydromodpy.results.exporters.export_spec import format_from_path
 
 _logger = get_logger(__name__)
 
@@ -1994,8 +1994,8 @@ def _writes_the_run(block: Mapping[str, Any]) -> bool:
     fmt = block.get("format")
     if fmt is None and block.get("file") is not None:
         named = format_from_path(str(block["file"]))
-        fmt = named.value if named is not None else None
-    return fmt in {run_format.value for run_format in RUN_FORMATS}
+        fmt = named if named is not None else None
+    return fmt in {"stac", "rocrate", "prov"}
 
 
 def _export_blocks(table: Mapping[str, Any]) -> tuple[list[dict[str, Any]], int]:

@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
-from hydromodpy.data.variables.intermittency.apis import hubeau
 from hydromodpy.data.variables.intermittency.config import IntermittencySourceConfig
+
+if TYPE_CHECKING:
+    from hydromodpy.data.source.port import FetchRequest
 
 
 class IntermittencyManager(BaseVariableManager):
@@ -21,9 +26,6 @@ class IntermittencyManager(BaseVariableManager):
 
     RECORD_VARIABLE = "flow_state"
     """Variable name the records are stored under."""
-
-    SOURCES = {"hubeau": hubeau.fetch_for_config}
-    """Sources other than ``custom``: ``hubeau`` reads the ONDE campaigns of Hub'Eau."""
 
     def load_custom(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
         """Load observed flow states: codes 1 to 5, irregular dates, never expanded."""
@@ -49,3 +51,35 @@ class IntermittencyManager(BaseVariableManager):
             source_unit_override=source_cfg.source_unit,
         )
         return self._apply_mask(records, source_cfg)
+
+    def _station_request(
+        self,
+        source_cfg: IntermittencySourceConfig,
+        out_dir: Path,
+        station_ids: Sequence[str],
+        bbox: tuple[float, float, float, float] | None,
+        start: datetime | None,
+        end: datetime | None,
+    ) -> FetchRequest:
+        from hydromodpy.catchment.administrative.france import bbox_for_departments
+        from hydromodpy.data.source.port import Extent, FetchRequest, Period
+
+        station_ids = list(station_ids or ())
+        period = Period(start=start, end=end) if start is not None and end is not None else None
+        if station_ids:
+            return FetchRequest(out_dir=out_dir, station_ids=tuple(station_ids), period=period)
+
+        code_dept = getattr(source_cfg, "code_departement", None)
+        if bbox is None and code_dept:
+            dept_bbox_2154 = bbox_for_departments(code_dept)
+            extent = Extent(*dept_bbox_2154, crs="EPSG:2154").to_crs("EPSG:4326")
+            return FetchRequest(out_dir=out_dir, extent=extent, period=period)
+
+        return super()._station_request(
+            source_cfg,
+            out_dir=out_dir,
+            station_ids=station_ids,
+            bbox=bbox,
+            start=start,
+            end=end,
+        )

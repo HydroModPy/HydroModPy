@@ -1,9 +1,6 @@
-"""Unit tests for the pure STAC helpers and the ``build_stac_item`` builder.
+"""Unit tests for the pure STAC helpers, ``build_stac_item`` and ``StacItemView``.
 
-These cover the deterministic branches the integration conformance test does
-not exercise: bbox->polygon ring closure, UTC ISO normalization, period
-midpoint, multi-item bbox union, ``validate_item`` valid/invalid paths and the
-top-level shape of ``build_stac_item`` on a synthetic context.
+Moved to the annex tests beside the STAC exporter.
 """
 
 from __future__ import annotations
@@ -14,8 +11,12 @@ import pytest
 
 from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.export.context import AssetEntry, FairExportContext
-from hydromodpy.results.export.stac import (
+from hydromodpy.results.exporters.port import RUN_VIEW, ExportWriter
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.schema.generated_views import STAC_ITEM_VIEW_FILENAME
+from hydromodpy_annex.export.stac import (
     STAC_VERSION,
+    StacItemView,
     _bbox_to_polygon,
     _midpoint,
     _to_utc_iso,
@@ -23,7 +24,6 @@ from hydromodpy.results.export.stac import (
     build_stac_item,
     validate_item,
 )
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 
 def _make_context(
@@ -231,3 +231,57 @@ class TestBuildStacItem:
         assert "collection" in rels
         coll_link = next(link for link in item["links"] if link["rel"] == "collection")
         assert coll_link["title"] == "test"
+
+
+@pytest.mark.fast
+class TestStacItemView:
+    def test_stac_item_view_members_and_protocol(self):
+        view = StacItemView()
+        assert isinstance(view, ExportWriter)
+        assert view.name == "stac"
+        assert view.suffix == ".json"
+        assert RUN_VIEW in view.writes
+        assert view.natural == ()
+        assert view.instants == "many"
+        assert view.reprojects is False
+        assert view.help
+
+    def test_stac_item_view_write_to_directory(self, tmp_path: Path):
+        from tests._helpers.run_records import make_record
+
+        record = make_record()
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        record.write(run_dir)
+
+        view = StacItemView()
+        written = view.write(None, None, run_dir)
+        assert written == [run_dir / STAC_ITEM_VIEW_FILENAME]
+        assert (run_dir / STAC_ITEM_VIEW_FILENAME).is_file()
+
+    def test_stac_item_view_write_to_explicit_file(self, tmp_path: Path):
+        """A view renders the seal, so an explicit file lives inside the sealed directory."""
+        from tests._helpers.run_records import make_record
+
+        record = make_record()
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        record.write(run_dir)
+
+        target_file = run_dir / "exports" / "custom-stac.json"
+        target_file.parent.mkdir()
+        view = StacItemView()
+        written = view.write(None, None, target_file)
+        assert written == [target_file]
+        assert target_file.is_file()
+
+    def test_stac_item_view_refuses_variable_and_time_selectors(self, isolated_export_formats):
+        from pydantic import ValidationError
+
+        from hydromodpy.results.exporters.export_spec import ExportRequest
+
+        isolated_export_formats.register(StacItemView)
+        with pytest.raises(ValidationError, match='Write variables = "all"'):
+            ExportRequest(variables="head", format="stac")
+        with pytest.raises(ValidationError, match="time selects nothing"):
+            ExportRequest(variables="all", format="stac", time="last")

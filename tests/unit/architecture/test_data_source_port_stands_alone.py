@@ -17,11 +17,10 @@ on the pattern D46 set for the terrain port, and it reads the same scanner the
 matrix uses -- so an import deferred inside a method is caught like a top-level
 one.
 
-The three built-in sources used to be adapters in this package, each allowed one
-deferred import of its provider. They now live in the provider's module, so
-``data/source`` holds the port and the registry and takes no exception at all;
-the provider modules are held to the forbidden list and to deferring their
-heavy libraries.
+The built-in sources live in the provider modules that also hold their fetch
+code, one of the 26 modules the registry names by dotted path, so ``data/source``
+holds the port and the registry and takes no exception at all; the provider
+modules are held to the forbidden list and to deferring their heavy libraries.
 """
 
 from __future__ import annotations
@@ -55,9 +54,13 @@ ALLOWED_PREFIXES = (
     "hydromodpy.core",
     "hydromodpy.data.contracts",
     "hydromodpy.data.source",
+    "hydromodpy.schema",
 )
 """``core`` is the kernel leaf every layer may read, ``contracts`` holds the
-record types a payload is made of, and the rest is the port itself."""
+record types a payload is made of, and the rest is the port itself. ``schema``
+is what :func:`shipped_hosts` reads, the one licence table this repository
+keeps, deferred inside the function so a third-party source that never asks for
+its hosts pays nothing for it."""
 
 FORBIDDEN_NEIGHBOURS = (
     "hydromodpy.data.managers",
@@ -112,13 +115,14 @@ def test_the_scanner_sees_the_data_source_package() -> None:
 
 
 def test_the_port_module_itself_imports_only_core() -> None:
-    """``port.py`` carries the vocabulary, so it takes no exception at all."""
+    """``port.py`` carries the vocabulary, so it imports no provider library."""
     offenders = [
         f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
         for edge in _source_edges()
         if _relative(edge) == "hydromodpy/data/source/port.py"
         and not edge.target_module.startswith("hydromodpy.core")
         and not edge.target_module.startswith("hydromodpy.data.contracts")
+        and not edge.target_module.startswith("hydromodpy.schema")
     ]
     assert not offenders, (
         "the port module is what a third-party source imports; these pull more in:\n  "
@@ -156,9 +160,12 @@ def test_a_source_imports_no_manager_no_catalog_no_workspace() -> None:
 
 
 def test_a_builtin_source_module_opens_no_forbidden_door() -> None:
-    """The three provider modules that hold a source reach no manager, catalog or workspace."""
+    """The provider modules that hold a source reach no manager, catalog or workspace."""
+    from hydromodpy.data.source import registry
+
+    assert len(registry._BUILTIN_PATHS) == 26
     provider_files = _builtin_provider_files()
-    assert len(provider_files) == 3
+    assert len(provider_files) == len(_builtin_provider_modules())
     edges = [edge for edge in scan_package(PKG_ROOT) if _relative(edge) in provider_files]
     assert {_relative(edge) for edge in edges} == provider_files, "anti-vacuity"
     offenders = [
@@ -184,10 +191,10 @@ def test_every_provider_import_stays_deferred() -> None:
         "import hydromodpy\n"
         "from hydromodpy.data.source.registry import data_sources\n"
         "report = {}\n"
-        "for source_id in data_sources.names(shipped_only=True):\n"
+        "for key in data_sources.names(shipped_only=True):\n"
         "    before = set(sys.modules)\n"
-        "    cls = data_sources.get(source_id)\n"
-        "    report[source_id] = [cls.__module__, sorted(set(sys.modules) - before)]\n"
+        "    cls = data_sources.get(key)\n"
+        "    report[key] = [cls.__module__, sorted(set(sys.modules) - before)]\n"
         "print(json.dumps(report))\n"
     )
     completed = subprocess.run(
@@ -198,7 +205,7 @@ def test_every_provider_import_stays_deferred() -> None:
         cwd=REPO_ROOT,
     )
     report = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert len(report) == 3, "anti-vacuity: the registry resolved no built-in"
+    assert len(report) == 26, "anti-vacuity: the registry resolved no built-in"
     loaded = {
         source_id: sorted({name.split(".")[0] for name in added} & HEAVY_LIBRARIES)
         for source_id, (_module, added) in report.items()
@@ -218,7 +225,7 @@ def test_importing_the_port_pulls_in_no_provider_library() -> None:
         "import sys, json;"
         "import hydromodpy;"
         "before = set(sys.modules);"
-        "import hydromodpy.data.source;"
+        "import hydromodpy.data.source.port;"
         "print(json.dumps(sorted(set(sys.modules) - before)))"
     )
     completed = subprocess.run(

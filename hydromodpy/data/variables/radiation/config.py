@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -14,6 +14,7 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    registered_section_source,
 )
 
 
@@ -25,10 +26,18 @@ class RadiationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     downstream forcing and HELP coupling.
     """
 
-    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+        description=(
+            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "for the radiation section, such as 'sim2' for the SIM2 EDR API."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_radiation(cls, source: str) -> str:
+        return registered_section_source(source, "radiation")
 
     # --- Radiation-specific ---
     components: Annotated[list[Literal["atmospheric", "visible"]], Profile.USER] = Field(

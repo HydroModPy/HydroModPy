@@ -327,6 +327,8 @@ def _isolate_plugin_registry(
     monkeypatch.setattr(registry, "classes", dict(registry.classes))
     monkeypatch.setattr(registry, "builtin_paths", dict(registry.builtin_paths))
     monkeypatch.setattr(registry, "plugins_loaded", plugins_loaded)
+    if hasattr(registry, "unavailable"):
+        monkeypatch.setattr(registry, "unavailable", dict(registry.unavailable))
 
 
 @pytest.fixture
@@ -342,6 +344,15 @@ def isolated_registry(monkeypatch: pytest.MonkeyPatch):
 
     _isolate_plugin_registry(monkeypatch, data_sources, plugins_loaded=False)
     return data_sources
+
+
+@pytest.fixture
+def isolated_export_formats(monkeypatch: pytest.MonkeyPatch):
+    """Give one test its own export-formats registry, restored afterwards, and return it."""
+    from hydromodpy.results.exporters.registry import export_formats
+
+    _isolate_plugin_registry(monkeypatch, export_formats, plugins_loaded=False)
+    return export_formats
 
 
 @pytest.fixture

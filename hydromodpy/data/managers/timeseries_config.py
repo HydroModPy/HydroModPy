@@ -8,14 +8,39 @@ add the ``source`` field and its check for the variables that differ only by nam
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, ClassVar, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import StationName
+
+
+def registered_section_source(source: str, variable: str) -> str:
+    """Return *source* when a ``[data.<variable>]`` section may name it.
+
+    What a section may write in ``source =`` is ``custom`` plus every source
+    registered for that section, plugins included. The list lives on the source
+    registry and nowhere beside it, so adding a source and describing it are one
+    act, and the refusal names what this installation serves.
+
+    Raises
+    ------
+    ValueError
+        When the name is served by no source of that section, so pydantic
+        places the fault on the field being read.
+    """
+    from hydromodpy.core.plugin_registry import check_registered_name
+    from hydromodpy.data.source.registry import ENTRY_POINT_GROUP, data_sources
+
+    return check_registered_name(
+        str(source).strip(),
+        (*data_sources.names(variable), "custom"),
+        key=f"data.{variable}.sources.source",
+        group=ENTRY_POINT_GROUP,
+    )
 
 
 class TimeseriesColumnsMixin(HydroModelBase):
@@ -112,16 +137,34 @@ class SparseStationFallbackMixin(HydroModelBase):
 
 
 class Sim2GridSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
-    """Source of a variable read from custom files or from SIM2 EDR products.
+    """Source of a variable read from custom files or from the SIM2 EDR products.
 
-    A subclass declares ``path``, because the ``InputFile`` role of that field
-    is the name of the variable.
+    A subclass declares ``VARIABLE_NAME``, the section it serves, and ``path``,
+    because the ``InputFile`` role of that field is the name of the variable.
+    What ``source =`` may name is checked on the registry, so a source installed
+    beside this build is nameable here without this file knowing it.
     """
 
-    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
+    VARIABLE_NAME: ClassVar[str] = ""
+    """The ``[data.<name>]`` section this config serves, named by each subclass."""
+
+    source: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+        description=(
+            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "for this variable's section, such as 'sim2' for the SIM2 EDR API."
+        ),
     )
+
+    @field_validator("source")
+    @classmethod
+    def _check_the_source_is_served_for_this_variable(cls, source: str) -> str:
+        if not cls.VARIABLE_NAME:
+            raise ValueError(
+                "a source config that checks its names needs its VARIABLE_NAME, and this "
+                "subclass declares none"
+            )
+        return registered_section_source(source, cls.VARIABLE_NAME)
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> Self:
@@ -158,4 +201,5 @@ __all__ = [
     "SparseStationFallbackMixin",
     "TimeseriesColumnsMixin",
     "TimeseriesSelectionMixin",
+    "registered_section_source",
 ]

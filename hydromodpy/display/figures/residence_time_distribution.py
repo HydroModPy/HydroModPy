@@ -21,7 +21,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 from hydromodpy.results.run.particles import has_particle_tracks, particle_travel_years
 
@@ -50,7 +49,6 @@ def _log_spaced_density(values: np.ndarray, n_bins: int) -> tuple[np.ndarray, np
     return centres, density
 
 
-@register
 class ResidenceTimeDistribution(BaseFigure):
     """Travel-time density of the tracked particles, against the exponential law."""
 

@@ -26,7 +26,8 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.source.port import FetchResult, extent_for
+from hydromodpy.data.source.port import FetchRequest, FetchResult, extent_for
+from hydromodpy.data.source.registry import data_sources
 from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 from hydromodpy.data.variables.precipitation.manager import PrecipitationManager
 from hydromodpy.schema.job.digest import sha256_file
@@ -54,11 +55,46 @@ def _station(station_id: str, lon: float, lat: float, start: str, days: int) -> 
     )
 
 
-def test_a_chronicle_is_cut_to_the_period(tmp_path: Path, monkeypatch) -> None:
-    def fake_hubeau(cfg, *, bbox, station_ids, start, end, context):
-        return [_station("J0001", -1.7, 48.1, "2019-12-01", 120)]
+def _hubeau_double(
+    answers: list[PointRecord] | None = None, *, raises: Exception | None = None
+) -> type:
+    """The class behind the ``("hydrometry", "hubeau")`` key, answering what the test hands it.
 
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", fake_hubeau)
+    The manager resolves a listed source on the registry, so a stub is the
+    class that key resolves to: its ``fetch`` returns the records as points,
+    or raises the exception the case needs.
+    """
+
+    class _StubHubeau:
+        source_id: ClassVar[str] = "hubeau"
+        section: ClassVar[str] = "hydrometry"
+        payload_kind: ClassVar[str] = "points"
+        extent_crs: ClassVar[str] = "EPSG:4326"
+        selectors: ClassVar[tuple[str, ...]] = ("extent", "station_ids")
+        period_need: ClassVar[str] = "required"
+        writes_out_dir: ClassVar[bool] = False
+
+        def __init__(self) -> None:
+            self.variables: tuple[str, ...] = ("hydrometry",)
+            self.hosts: tuple[str, ...] = ()
+
+        def fetch(self, request: FetchRequest) -> FetchResult:
+            if raises is not None:
+                raise raises
+            return FetchResult(
+                source_id=self.source_id,
+                kind=self.payload_kind,
+                variables=self.variables,
+                points=tuple(answers or ()),
+            )
+
+    return _StubHubeau
+
+
+def test_a_chronicle_is_cut_to_the_period(tmp_path: Path, isolated_registry) -> None:
+    isolated_registry.register(
+        _hubeau_double([_station("J0001", -1.7, 48.1, "2019-12-01", 120)]), replace=True
+    )
     request = DataRequest.for_variable(
         "hydrometry",
         station_ids=["J0001"],
@@ -80,39 +116,61 @@ def test_a_chronicle_is_cut_to_the_period(tmp_path: Path, monkeypatch) -> None:
 class _LargeGrid:
     """A SIM2 stand-in that answers with a grid larger than any request."""
 
-    def variables(self, cfg):
-        return [f"precipitation_{name}" for name in cfg.components]
+    source_id: ClassVar[str] = "sim2"
+    section: ClassVar[str] = "precipitation"
+    payload_kind: ClassVar[str] = "fields"
+    extent_crs: ClassVar[str] = "EPSG:2154"
+    selectors: ClassVar[tuple[str, ...]] = ("extent",)
+    period_need: ClassVar[str] = "required"
+    writes_out_dir: ClassVar[bool] = False
 
-    def __call__(self, cfg, *, bbox, period, context):
+    def __init__(self, *, components: list[str] | None = None, **_options: object) -> None:
+        self.components = components
+        self.variables: tuple[str, ...] = (
+            tuple(f"precipitation_{name}" for name in components) if components else ()
+        )
+        self.hosts: tuple[str, ...] = ()
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
         import xarray as xr
 
+        time = pd.date_range("2019-01-01", "2021-12-31", freq="D")
         x = np.arange(300000.0, 360000.0, 8000.0)
         y = np.arange(6810000.0, 6760000.0, -8000.0)
-        time = pd.date_range("2019-01-01", "2021-12-31", freq="D")
         data = np.ones((len(time), len(y), len(x)))
-        dataset = xr.Dataset(
-            {"precipitation_total": (("time", "y", "x"), data)},
-            coords={"time": time, "y": y, "x": x},
-        )
-        return [
-            FieldRecord(
-                variable="precipitation_total",
-                source="sim2",
-                unit="mm/day",
-                data=dataset,
-                bbox=(300000.0, 6760000.0, 360000.0, 6810000.0),
-                crs="EPSG:2154",
-                date_start=time[0].to_pydatetime(),
-                date_end=time[-1].to_pydatetime(),
-                frequency="D",
+        records = []
+        for name in self.variables or ("precipitation_total",):
+            dataset = xr.Dataset(
+                {name: (("time", "y", "x"), data)},
+                coords={"time": time, "y": y, "x": x},
             )
-        ]
+            records.append(
+                FieldRecord(
+                    variable=name,
+                    source="sim2",
+                    unit="mm/day",
+                    data=dataset,
+                    bbox=(300000.0, 6760000.0, 360000.0, 6810000.0),
+                    crs="EPSG:2154",
+                    date_start=time[0].to_pydatetime(),
+                    date_end=time[-1].to_pydatetime(),
+                    frequency="D",
+                )
+            )
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables or ("precipitation_total",),
+            extent=extent_for(self, request),
+            period=request.period,
+            fields=tuple(records),
+        )
 
 
-def test_a_grid_larger_than_the_request_is_cut(tmp_path: Path, monkeypatch) -> None:
+def test_a_grid_larger_than_the_request_is_cut(tmp_path: Path, isolated_registry) -> None:
     import xarray as xr
 
-    monkeypatch.setitem(PrecipitationManager.SOURCES, "sim2", _LargeGrid())
+    isolated_registry.register(_LargeGrid, replace=True)
     request = DataRequest.for_variable(
         "precipitation",
         bbox=BOX_2154,
@@ -176,6 +234,7 @@ class _AcmeRivers:
     """A network source served through the registry, like BD Topage."""
 
     source_id: ClassVar[str] = "acme-rivers"
+    section: ClassVar[str] = "hydrography"
     payload_kind: ClassVar[str] = "features"
     extent_crs: ClassVar[str] = "EPSG:2154"
     selectors: ClassVar[tuple[str, ...]] = ("extent",)
@@ -228,8 +287,8 @@ def test_a_network_is_cut_to_the_box(tmp_path: Path, isolated_registry) -> None:
     assert list(network["name"]) == ["inside"]
 
 
-def test_an_empty_answer_is_a_success(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", lambda cfg, **kwargs: [])
+def test_an_empty_answer_is_a_success(tmp_path: Path, isolated_registry) -> None:
+    isolated_registry.register(_hubeau_double(), replace=True)
     request = DataRequest.for_variable(
         "hydrometry",
         bbox=[-5.0, 47.0, -4.9, 47.1],
@@ -246,12 +305,11 @@ def test_an_empty_answer_is_a_success(tmp_path: Path, monkeypatch) -> None:
     assert document["files"][0]["path"] is None
 
 
-def test_a_failed_variable_is_listed_and_the_others_are_served(tmp_path: Path, monkeypatch) -> None:
-    def boom(cfg, **kwargs):
-        raise RuntimeError("provider down")
-
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", boom)
-    monkeypatch.setitem(PrecipitationManager.SOURCES, "sim2", _LargeGrid())
+def test_a_failed_variable_is_listed_and_the_others_are_served(
+    tmp_path: Path, isolated_registry
+) -> None:
+    isolated_registry.register(_hubeau_double(raises=RuntimeError("provider down")), replace=True)
+    isolated_registry.register(_LargeGrid, replace=True)
     request = DataRequest.model_validate(
         {
             "data": {
@@ -271,8 +329,8 @@ def test_a_failed_variable_is_listed_and_the_others_are_served(tmp_path: Path, m
     assert [f["variable"] for f in document["files"]] == ["precipitation"]
 
 
-def test_the_report_names_each_file_by_its_checksum(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setitem(PrecipitationManager.SOURCES, "sim2", _LargeGrid())
+def test_the_report_names_each_file_by_its_checksum(tmp_path: Path, isolated_registry) -> None:
+    isolated_registry.register(_LargeGrid, replace=True)
     request = DataRequest.for_variable(
         "precipitation", bbox=BOX_2154, crs="EPSG:2154", start="2020-01-01", end="2020-01-05"
     )
@@ -299,6 +357,7 @@ from hydromodpy.data.source.port import FetchResult, extent_for
 
 class Rivers:
     source_id: ClassVar[str] = "acme-rivers"
+    section: ClassVar[str] = "hydrography"
     payload_kind: ClassVar[str] = "features"
     extent_crs: ClassVar[str] = "EPSG:2154"
     selectors: ClassVar[tuple] = ("extent",)
@@ -353,7 +412,7 @@ def test_a_period_is_a_closed_window(tmp_path: Path) -> None:
         )
 
 
-def test_the_last_day_of_the_period_is_kept_whole(tmp_path: Path, monkeypatch) -> None:
+def test_the_last_day_of_the_period_is_kept_whole(tmp_path: Path, isolated_registry) -> None:
     hours = pd.date_range("2020-01-30", "2020-02-01 23:00", freq="h")
     hourly = PointRecord(
         station_id="J0001",
@@ -366,7 +425,7 @@ def test_the_last_day_of_the_period_is_kept_whole(tmp_path: Path, monkeypatch) -
         date_end=hours[-1].to_pydatetime(),
         location=StationLocation(id="J0001", x=-1.7, y=48.1, crs="EPSG:4326"),
     )
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", lambda cfg, **kwargs: [hourly])
+    isolated_registry.register(_hubeau_double([hourly]), replace=True)
     request = DataRequest.for_variable(
         "hydrometry", station_ids=["J0001"], start="2020-01-31", end="2020-01-31"
     )

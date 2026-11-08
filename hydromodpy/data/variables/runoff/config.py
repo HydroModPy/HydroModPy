@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import Field
 
@@ -21,6 +21,8 @@ class RunoffSourceConfig(Sim2GridSourceConfig):
     custom files or SIM2 EDR products. Source-level fields define file paths,
     station columns, masks, units, and cache refresh behavior.
     """
+
+    VARIABLE_NAME: ClassVar[str] = "runoff"
 
     path: Annotated[
         Path | None,

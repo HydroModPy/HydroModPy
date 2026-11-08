@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.scope import station_name_refusal
@@ -46,6 +48,8 @@ class PointRecord:
             raise ValueError(
                 f"PointRecord.data missing columns: {missing}. Got: {list(self.data.columns)}"
             )
+        import pandas as pd
+
         self.data["datetime"] = pd.to_datetime(self.data["datetime"], errors="coerce")
         self.data["value"] = pd.to_numeric(self.data["value"], errors="coerce")
 
@@ -74,6 +78,8 @@ class PointRecord:
 
     def filter_by_period(self, start: datetime, end: datetime) -> PointRecord:
         """Return a new PointRecord filtered to [start, end]."""
+        import pandas as pd
+
         mask = (self.data["datetime"] >= pd.Timestamp(start)) & (
             self.data["datetime"] <= pd.Timestamp(end)
         )

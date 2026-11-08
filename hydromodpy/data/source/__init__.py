@@ -1,78 +1,13 @@
-"""The data-source port and the adapters that serve it.
+"""The data-source port and its registry.
 
-``port`` holds the Protocol and its value types and imports nothing heavier
-than the exception module, so a caller that only needs the vocabulary pulls in
-neither geopandas, nor pandas, nor requests, nor pydantic. The adapters are
-resolved lazily for the same reason, and each of them reaches its provider's
-api module from inside ``fetch`` rather than at import time.
+``port`` holds the Protocol and its value types, a :class:`FetchRequest` and a
+:class:`FetchResult`, and loads nothing heavier than the exception module: a
+source needs no import of HydroModPy beyond it and ``data.contracts``. ``registry``
+holds ``data_sources``, keyed on the section a source serves and the word a
+document writes, and it is the surface a third-party source registers on.
 
-``registry`` holds ``data_sources``, which resolves a name to a source class and
-is the surface a third-party source registers on. It is not re-exported here: the
-canonical path is ``hydromodpy.data.source.registry``, and importing it pulls in
-no adapter at all.
+Nothing is re-exported here: import each name from the module that defines it
+(the facade ``hydromodpy/__init__.py`` is the one exception this repository
+carries), and the source classes are resolved through the registry rather than
+imported. See ``README.md`` in this folder for the contract of the port.
 """
-
-from __future__ import annotations
-
-from importlib import import_module
-
-from hydromodpy.data.source.port import (
-    ALL_PAYLOAD_KINDS,
-    ALL_PERIOD_NEEDS,
-    ALL_SELECTORS,
-    SOURCE_MEMBERS,
-    DataSource,
-    Extent,
-    FetchRequest,
-    FetchResult,
-    PayloadKind,
-    Period,
-    PeriodNeed,
-    Selector,
-    extent_for,
-    missing_source_members,
-    require_declared_variables,
-    require_period,
-    require_selectors,
-)
-
-__all__ = [
-    "ALL_PAYLOAD_KINDS",
-    "ALL_PERIOD_NEEDS",
-    "ALL_SELECTORS",
-    "SOURCE_MEMBERS",
-    "BdTopageSource",
-    "DataSource",
-    "EuHydroSource",
-    "Extent",
-    "FetchRequest",
-    "FetchResult",
-    "OsmSource",
-    "PayloadKind",
-    "Period",
-    "PeriodNeed",
-    "Selector",
-    "extent_for",
-    "missing_source_members",
-    "require_declared_variables",
-    "require_period",
-    "require_selectors",
-]
-
-_LAZY_IMPORTS = {
-    "BdTopageSource": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
-    "EuHydroSource": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
-    "OsmSource": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
-}
-
-
-def __getattr__(name: str):
-    try:
-        target = _LAZY_IMPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-
-    module_path, attr_name = target.split(":", 1)
-    attr = getattr(import_module(module_path), attr_name)
-    globals()[name] = attr
-    return attr

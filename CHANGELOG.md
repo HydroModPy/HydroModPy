@@ -281,6 +281,40 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `channel_tree_for_run`: it keeps the rule of a build (A off, no folder, rasters missing, or
   an SFR network that needs A) and returns the exits of the `Model`, and a `Model` that did not
   read an A the build needs is refused.
+- Every data source is a class of the DataSource port, registered under its section and its name,
+  for example `data_sources.get("hydrometry", "hubeau")`. Hub'Eau, SIM2, Explore2, IGN, BRGM, SHOM,
+  BD TOPO, ROE and the two computed sources join the three river networks, and the `SOURCES`
+  tables of the variable managers are gone.
+- A result of the files kind carries `FileRecord` entries (path, sha256, state, nodata, origin)
+  instead of bare paths, and a source that declares no selector accepts a request with neither an
+  extent nor stations.
+- `hosts` is read on the source instance, and a shipped source reads its hosts from
+  `hydromodpy.schema.sources` instead of writing its own copy.
+- The entry-point name of a plugin data source is `<section>_<source_id>`, as for solver
+  backends, and the installed member of a data request resolves its name among the plugin
+  source ids, refusing an ambiguity by naming the keys.
+- Hydrometry, piezometry, water quality and intermittency download the same observations as
+  before through the four Hub'Eau source classes, and `[site] gauge` takes its station sources
+  from the `station_ids` selector a source declares instead of a fixed list of names.
+- Meteorological and hydrogeological grids (SIM2, Explore2) and computed sources
+  (SyntheticRecharge, ConstantSeaLevel, ShomSeaLevel) conform to the DataSource port and are
+  registered under the common plugin registry.
+- The IGN DEM source reads the nodata of the raster header into the `FileRecord` it returns, and
+  the crossings sources write their own downloaded GeoPackage under the request directory, page
+  by page.
+- A geology fetch without any extent is refused by name, where `brgm_1m` used to serve the whole
+  national map. The national file stays reachable through `fetch_brgm_1m`.
+- Every export format is a class of the export port, registered in
+  `hydromodpy.results.exporters.registry.export_formats`. `[[export]].format` and
+  `hmp export --as` take a registered name and refuse an unknown one with the list.
+- The figure registry is `hydromodpy.display.figure_registry.figures`, read from the generated
+  table `hydromodpy/display/figure_table.py` (`python -m tools.figure_table`). The `register`
+  decorator is gone, and a `[display]` section is checked without importing a figure module.
+- A files fetch result declares records, the number of records its source wrote, and an answer
+  whose one file holds nothing is read as empty by the request engine.
+- A source that declares `period_need = "optional"` serves a request that carries no period. The
+  computed recharge, the constant sea level and SHOM answer without a window, and SHOM falls back
+  to the start and end dates its section declares.
 
 ### Removed
 
@@ -331,6 +365,24 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `hydromodpy.catchment.delineation.whitebox_workflows_backend`.
 - `last_largest_drainable_share`, a module value written during a run. `upstream_area` returns
   the value.
+- The `SOURCES` tables, `SourceContext`, and the legacy helper factories (`sim2_source`,
+  `explore2_source`) of the variable managers across precipitation, etp, temperature, wind,
+  humidity, radiation, soil_moisture, runoff, recharge, and oceanic are gone.
+- `hydromodpy.data.source` no longer re-exports names. Import each name from the module that
+  defines it.
+- `hydromodpy.data.source.registry.get_serving` is gone. A source is registered under the
+  section that asks for it, so a class of another payload kind cannot be named by that section
+  any more; the two hydrography seams that still check the kind read the declaration of the
+  class they resolved.
+- STAC and the standalone PROV view leave the wheel for `hydromodpy_annex`. `format = "stac"`
+  and `"prov"` are refused unless `hydromodpy_annex` can be imported. RO-Crate stays, with its
+  PROV activities.
+- `hydromodpy.results.export` no longer re-exports names. Import each name from the module that
+  defines it.
+- `FigureSpec.required_solvers` and the `required_solvers` column of `hmp viz list` are gone.
+  No figure set them.
+- `hydromodpy.display` no longer re-exports names. Import each name from the module that
+  defines it.
 
 ### Fixed
 

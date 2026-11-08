@@ -26,7 +26,6 @@ import numpy as np
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 from hydromodpy.results.derive.recession import (
     SECONDS_PER_DAY,
@@ -41,7 +40,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class RecessionPowerLaw(BaseFigure):
     """``-dQ/dt`` against ``Q`` in log-log, against a power law of exponent ``b``."""
 

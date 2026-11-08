@@ -1419,14 +1419,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
-                "enum": [
-                  "custom",
-                  "sim2",
-                  "explore2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the ETP section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -1755,13 +1750,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -2151,13 +2142,9 @@
               },
               "source": {
                 "default": "hubeau",
-                "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
-                "enum": [
-                  "custom",
-                  "hubeau"
-                ],
+                "description": "Data provider: 'custom' for user files, or the id of a source registered for the hydrometry section, such as 'hubeau' for the Hub'Eau API.",
                 "examples": [
-                  "custom"
+                  "hubeau"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -2590,13 +2577,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.",
-                "enum": [
-                  "custom",
-                  "hubeau"
-                ],
+                "description": "Data provider: 'custom' for user files, or the id of a source registered for the intermittency section, such as 'hubeau' for the Hub'Eau stream-flow API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -3909,14 +3892,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
-                "enum": [
-                  "custom",
-                  "shom",
-                  "constant"
-                ],
+                "description": "Data provider: 'custom' for user CSV/NC/TIF files, or the id of a source registered for the oceanic section, such as 'shom' for the SHOM API and 'constant' for a fixed mean sea level.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -4191,13 +4169,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Where the groundwater-level records come from: your own files or the Hub'Eau API.",
-                "enum": [
-                  "custom",
-                  "hubeau"
-                ],
+                "description": "Where the groundwater-level records come from: your own files, or the id of a source registered for the piezometry section, such as the Hub'Eau API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -4474,14 +4448,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
-                "enum": [
-                  "custom",
-                  "sim2",
-                  "explore2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the precipitation section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -4739,13 +4708,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the radiation section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -5004,14 +4969,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.",
-                "enum": [
-                  "custom",
-                  "sim2",
-                  "synthetic"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the recharge section, such as 'sim2' for the SIM2 EDR API and 'synthetic' for generated series.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -5391,13 +5351,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -5654,13 +5610,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -5917,13 +5869,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -6173,13 +6121,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
-                "enum": [
-                  "custom",
-                  "hubeau"
-                ],
+                "description": "Data provider: 'custom' for user files, or the id of a source registered for the water quality section, such as 'hubeau' for the Hub'Eau API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",
@@ -6455,13 +6399,9 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-                "enum": [
-                  "custom",
-                  "sim2"
-                ],
+                "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
                 "examples": [
-                  "custom"
+                  "example"
                 ],
                 "title": "Source",
                 "type": "string",

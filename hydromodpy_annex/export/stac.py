@@ -1,5 +1,8 @@
 """STAC Item 1.0 generator for HydroModPy simulations (https://stacspec.org).
 
+Moved here from ``hydromodpy.results.export.stac`` so that the STAC exporter
+lives in the annex and registers on the export port.
+
 Each simulation maps to one ``Item`` with:
 
 - ``bbox`` and ``geometry`` taken from the catalog ``bbox_xmin..bbox_ymax``;
@@ -19,17 +22,21 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,
-    _is_missing,
     to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory
+from hydromodpy.results.export.directory import context_from_directory, sealed_root_of
+from hydromodpy.results.exporters.port import RUN_VIEW
 from hydromodpy.schema.generated_views import STAC_ITEM_VIEW_FILENAME
 from hydromodpy.schema.media_types import GEOJSON_MEDIA_TYPE, JSON_MEDIA_TYPE
+
+if TYPE_CHECKING:
+    from hydromodpy.results.exporters.export_spec import PlannedFile
+    from hydromodpy.results.exporters.job import ExportJob
 
 _LICENSE_URL_TO_SPDX = {
     "https://creativecommons.org/licenses/by/4.0/": "CC-BY-4.0",
@@ -154,6 +161,18 @@ def build_stac_item(
     period_start = context.period_start
     period_end = context.period_end
     item_datetime = _midpoint(period_start, period_end, context.generated_at)
+
+    def _is_missing(val: Any) -> bool:
+        if val is None:
+            return True
+        if isinstance(val, str):
+            return val == ""
+        try:
+            import pandas as pd
+
+            return bool(pd.isna(val))
+        except (TypeError, ValueError):
+            return False
 
     def _pick(key: str) -> Any:
         val = sim_row.get(key)
@@ -434,9 +453,43 @@ def write_stac_catalog(
     return to_json(payload, out)
 
 
+class StacItemView:
+    """STAC 1.0 Item describing the directory as one catalog entry."""
+
+    name: ClassVar[str] = "stac"
+    suffix: ClassVar[str] = ".json"
+    writes: ClassVar[tuple[str, ...]] = (RUN_VIEW,)
+    natural: ClassVar[tuple[str, ...]] = ()
+    instants: ClassVar[str] = "many"
+    reprojects: ClassVar[bool] = False
+    help: ClassVar[str] = "The STAC metadata of the run (.json)."
+
+    def write(
+        self,
+        job: ExportJob | None,
+        item: PlannedFile | None,
+        dest: Path,
+    ) -> list[Path]:
+        """Write one planned STAC view file at *dest* and return the paths written."""
+        del job, item
+        out = Path(dest)
+        if out.is_dir() or out.suffix == "":
+            out = out / STAC_ITEM_VIEW_FILENAME
+        root = sealed_root_of(out)
+        context = context_from_directory(root)
+        if out.parent == root:
+            payload = build_stac_item(
+                context, self_href=STAC_ITEM_VIEW_FILENAME, collection_href=None
+            )
+        else:
+            payload = build_stac_item(context)
+        return [to_json(payload, out)]
+
+
 __all__ = [
     "STAC_EXTENSIONS",
     "STAC_VERSION",
+    "StacItemView",
     "build_stac_catalog",
     "build_stac_collection",
     "build_stac_item",

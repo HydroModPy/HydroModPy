@@ -13,7 +13,10 @@ file, or from the French departments that a region names. The manager returns a 
   study area touches: `apis/ign_dem_fr.py` finds them, `apis/geoplateforme_download.py` downloads
   and extracts them, and `apis/_bdalti_archive_index.py` indexes the BD ALTI archives. The
   departments come from `hydromodpy/catchment/administrative`. With `dataset = "rge-alti"` (5 m by
-  default, 1 m allowed) it builds the DEM from WMS-Raster tiles (`apis/geoplateforme_wms.py`).
+  default, 1 m allowed) it builds the DEM from WMS-Raster tiles (`apis/geoplateforme_wms.py`). All
+  three datasets are downloaded by the class of the DataSource port registered under
+  (dem, ign_geoplateforme_dem) in apis/ign_dem_fr.py; the manager keeps the cache folder and the
+  catalog entry.
 - The cache is indexed by box, with no time dimension.
 
 ## The folder map

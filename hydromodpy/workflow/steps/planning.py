@@ -92,7 +92,7 @@ def step_configure_results(
                 names.append(consumer)
 
     if display_active and display.enabled:
-        from hydromodpy.display import figure_registry
+        import hydromodpy.display.figure_registry as figure_registry
 
         for figure_name in display.figures:
             spec = figure_registry.get(figure_name).spec

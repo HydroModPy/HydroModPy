@@ -17,7 +17,6 @@ import numpy as np
 from hydromodpy.core.scoring.metrics import nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
@@ -148,7 +147,6 @@ def plot_lake_abacus_comparison(
     return metrics
 
 
-@register
 class LakeAbacusComparison(BaseFigure):
     """Reference abacus vs the carved-bed geometry, requestable via display.
 

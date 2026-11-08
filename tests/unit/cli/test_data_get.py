@@ -13,7 +13,8 @@ import pytest
 
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+from hydromodpy.data.source.port import FetchRequest, FetchResult
+from hydromodpy.data.variables.hydrometry.apis.hubeau import HubeauHydrometry
 
 from ._hmp import run_main as _run
 
@@ -38,11 +39,23 @@ def hubeau_stub(monkeypatch) -> list[dict]:
     """Replace the Hub'Eau hydrometry fetch; record what each call asked."""
     calls: list[dict] = []
 
-    def fake_hubeau(cfg, *, bbox, station_ids, start, end, context):
-        calls.append({"bbox": bbox, "station_ids": station_ids})
-        return [_station("J0001")]
+    def fake_hubeau(self, request: FetchRequest) -> FetchResult:
+        calls.append(
+            {
+                "bbox": request.extent.bbox if request.extent is not None else None,
+                "station_ids": list(request.station_ids),
+            }
+        )
+        return FetchResult(
+            source_id="hubeau",
+            kind="points",
+            variables=self.variables,
+            extent=request.extent,
+            period=request.period,
+            points=(_station("J0001"),),
+        )
 
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", fake_hubeau)
+    monkeypatch.setattr(HubeauHydrometry, "fetch", fake_hubeau)
     return calls
 
 
@@ -125,10 +138,10 @@ def test_a_negative_bbox_parses_with_the_equals_form(monkeypatch, tmp_path, hube
 
 
 def test_a_failed_variable_exits_with_the_validation_code(monkeypatch, tmp_path, capsys) -> None:
-    def broken(cfg, *, bbox, station_ids, start, end, context):
+    def broken(self, request: FetchRequest) -> FetchResult:
         raise RuntimeError("upstream down")
 
-    monkeypatch.setitem(HydrometryManager.SOURCES, "hubeau", broken)
+    monkeypatch.setattr(HubeauHydrometry, "fetch", broken)
     code = _run(
         monkeypatch,
         [

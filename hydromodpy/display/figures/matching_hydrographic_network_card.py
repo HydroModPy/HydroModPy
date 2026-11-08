@@ -50,7 +50,6 @@ import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     as_mapping,
     bare_id,
@@ -210,7 +209,6 @@ class _Reading:
     missing: str
 
 
-@register
 class MatchingHydrographicNetworkCard(BaseFigure):
     """A four-panel synthesis of one staged downslope-distance calibration.
 

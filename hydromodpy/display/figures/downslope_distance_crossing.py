@@ -28,7 +28,6 @@ from hydromodpy.display.figure_options import (
     ParameterUnits,
     SessionId,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     chosen_session,
     declared_units,
@@ -46,7 +45,6 @@ _SIMULATED_TO_MAPPED = HIGH_CONTRAST_TRIPLET[0]
 _MAPPED_TO_SIMULATED = HIGH_CONTRAST_TRIPLET[2]
 
 
-@register
 class DownslopeDistanceCrossingFigure(BaseFigure):
     """``D_so`` and ``D_os`` versus the calibrated parameter, on a log axis.
 

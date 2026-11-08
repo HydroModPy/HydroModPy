@@ -116,6 +116,30 @@ class RequestPeriod(HydroModelBase):
         return self
 
 
+def _data_sections() -> tuple[str, ...]:
+    """Every ``[data.<name>]`` section, the variables the loader dispatches on."""
+    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
+
+    return tuple(VARIABLE_SPECS)
+
+
+def _shipped_source_ids(data_sources: object, sections: tuple[str, ...]) -> set[str]:
+    """The source ids this build ships, read off the joined keys it declares.
+
+    A key is ``<section>_<source_id>`` and is compared against the known
+    sections, never split on ``_``: a section is not the prefix of another
+    followed by ``_``, which is what the registry's own gate holds, so the id
+    cut behind the matching section is the one and only id the key declares.
+    """
+    ids: set[str] = set()
+    joined = tuple(data_sources.names(shipped_only=True))  # type: ignore[attr-defined]
+    for key in joined:
+        for section in sections:
+            if key.startswith(f"{section}_"):
+                ids.add(key[len(section) + 1 :])
+    return ids
+
+
 class InstalledSource(HydroModelBase):
     """A source a plugin installed beside this build, asked by its name."""
 
@@ -137,22 +161,25 @@ class InstalledSource(HydroModelBase):
 
     @model_validator(mode="after")
     def _refuse_what_this_installation_cannot_answer(self) -> InstalledSource:
-        """Refuse a shipped name, an unresolvable one, and options it cannot take.
+        """Refuse a shipped id, an unresolvable one, and options it cannot take.
 
-        A shipped source is asked for through its ``[data]`` section, which
-        describes its shape. The options are bound against the constructor's
-        signature: a misspelled or missing one is refused by name, a wrong type
-        is the source's to refuse.
+        A source is registered under its section and its source id, and this
+        member asks by the id alone, so two plugin sections that both serve one
+        id are an ambiguity the resolution refuses by naming the keys. A shipped
+        source is asked for through its ``[data]`` section, which describes its
+        shape. The options are bound against the constructor's signature: a
+        misspelled or missing one is refused by name, a wrong type is the
+        source's to refuse.
         """
         from hydromodpy.data.source import registry
 
-        if self.name in registry.data_sources.names(shipped_only=True):
+        if self.name in _shipped_source_ids(registry.data_sources, _data_sections()):
             raise ValueError(
                 f"{self.name!r} is a source this build ships; ask for it through its "
                 "[data] section, which describes its options"
             )
         try:
-            source_cls = registry.data_sources.get(self.name)
+            source_cls = registry.installed_source_cls(self.name)
         except DataRequestError as exc:
             raise ValueError(str(exc)) from exc
         try:
@@ -208,17 +235,17 @@ class DataRequest(HydroModelBase):
         Without ``source``, the variable's one downloading source is used; a
         variable with several must name one.
         """
-        from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+        from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
+        from hydromodpy.data.source import registry
         from hydromodpy.schema.sources import SOURCES as SOURCE_REGISTRY
 
         if variable not in VARIABLE_SPECS:
             raise ValueError(f"Unknown variable {variable!r}; known: {sorted(VARIABLE_SPECS)}")
         if source is None:
-            sources = sorted(get_manager_class(variable).SOURCES)
+            sources = list(registry.data_sources.names(variable, shipped_only=True))
             # A source read or built locally (explore2, synthetic, constant) needs
             # more than a variable name, so only the downloading ones are candidates.
-            downloading = [name for name in sources if SOURCE_REGISTRY[name].hosts]
-            served = downloading or sources
+            served = [name for name in sources if SOURCE_REGISTRY[name].hosts] or sources
             if len(served) != 1:
                 raise ValueError(f"{variable!r} is served by {served}; name one with source")
             source = served[0]

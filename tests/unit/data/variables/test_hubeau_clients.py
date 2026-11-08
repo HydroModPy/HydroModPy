@@ -1,16 +1,33 @@
-"""Hub'Eau clients of piezometry, intermittency, hydrometry and water quality, over a fake HTTP layer."""
+"""Hub'Eau clients of piezometry, intermittency, hydrometry and water quality, over a fake HTTP layer.
+
+The plain ``fetch`` functions below prove what each client downloads. The
+four ``Hubeau...`` classes prove what the port asks of them: one selector per
+request, the station list before the box, and the result carrying what the
+class declares.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.data.common import api_client
+from hydromodpy.data.source.port import (
+    DataSource,
+    Extent,
+    FetchRequest,
+    Period,
+    missing_source_members,
+)
+from hydromodpy.data.source.registry import build_from_section
+from hydromodpy.schema.sources import source_entry
 
 START, END = datetime(2020, 1, 1), datetime(2020, 1, 31)
 BBOX = (-2.0, 47.0, -1.0, 48.0)
@@ -259,29 +276,172 @@ def test_closed_station_is_dropped_only_when_observations_are_required(install, 
     assert _ids(_fetch(name, bbox=BBOX, require_observations=False)) == [sid]
 
 
+# --------------------------------------------------------------------------- #
+# The four classes behind the data-source port
+# --------------------------------------------------------------------------- #
+
+OUT = Path("out")
+"""A request's out_dir: the Hub'Eau sources declare they never write one."""
+
+
+def _class(name):
+    """The port class of one client's module."""
+    class_names = {
+        "hydrometry": "HubeauHydrometry",
+        "piezometry": "HubeauPiezometry",
+        "water_quality": "HubeauWaterQuality",
+        "intermittency": "HubeauIntermittency",
+    }
+    return getattr(_mod(name), class_names[name])
+
+
+def _period() -> Period:
+    return Period(start=START, end=END)
+
+
+def _extent_request() -> FetchRequest:
+    return FetchRequest(out_dir=OUT, extent=Extent(*BBOX, crs="EPSG:4326"), period=_period())
+
+
+def _station_request(sid: str) -> FetchRequest:
+    return FetchRequest(out_dir=OUT, station_ids=(sid,), period=_period())
+
+
+SECTION_MODELS = {
+    "hydrometry": ("HydrometrySourceConfig", {"source": "hubeau", "product": "QmM"}),
+    "piezometry": ("PiezometrySourceConfig", {"source": "hubeau", "product": "level"}),
+    "water_quality": ("WaterQualitySourceConfig", {"source": "hubeau", "parameters": ["pH"]}),
+    "intermittency": (
+        "IntermittencySourceConfig",
+        {"source": "hubeau", "code_departement": ["35"]},
+    ),
+}
+SECTION_FIELD_CALLS = {
+    "hydrometry": {"product": "QmM"},
+    "piezometry": {"product": "level"},
+    "water_quality": {"parameters": ["pH"], "variables": ("pH",)},
+    "intermittency": {"code_departement": ["35"], "variables": ("flow_state",)},
+}
+
+
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_fetch_for_config_forwards_the_section(install, name):
+def test_each_client_is_a_class_of_the_port(name):
+    source = _class(name)(**SPECS[name].base)
+    assert missing_source_members(source) == ()
+    assert isinstance(source, DataSource)
+    assert source.source_id == "hubeau"
+    assert source.section == name
+    assert source.payload_kind == "points"
+    assert source.extent_crs == "EPSG:4326"
+    assert source.selectors == ("extent", "station_ids")
+    assert source.period_need == "required"
+    assert source.writes_out_dir is False
+    assert source.variables, "a source that names no variable serves nothing askable"
+    assert source.hosts == source_entry("hubeau").hosts
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_a_station_request_names_no_bbox(install, name):
+    sid = STATION_ID[name]
+    world = install(name, {sid: IN_A}, {sid: _data(2)})
+    result = _class(name)(**SPECS[name].base).fetch(_station_request(sid))
+    assert _ids(list(result.points)) == [sid]
+    assert result.extent is None
+    assert all("bbox" not in p for _, p in world.calls), (
+        "the station list wins and the box must not be named anywhere"
+    )
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_an_extent_request_drives_discovery_and_is_reported(install, name):
+    sid = STATION_ID[name]
+    world = install(name, {sid: IN_A}, {sid: _data(2)})
+    result = _class(name)(**SPECS[name].base).fetch(_extent_request())
+    assert _ids(list(result.points)) == [sid]
+    assert result.extent is not None
+    assert result.extent.bbox == BBOX
+    assert result.extent.crs == "EPSG:4326"
+    assert [p for _, p in world.calls if "bbox" in p], "the discovery never saw the box"
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_two_selectors_are_refused_before_the_provider(install, name):
+    sid = STATION_ID[name]
+    world = install(name, {sid: IN_A}, {sid: _data(2)})
+    both = FetchRequest(
+        out_dir=OUT,
+        extent=Extent(*BBOX, crs="EPSG:4326"),
+        station_ids=(sid,),
+        period=_period(),
+    )
+    with pytest.raises(DataCapabilityError, match="at once"):
+        _class(name)(**SPECS[name].base).fetch(both)
+    assert world.calls == [], "the provider was reached before the request was refused"
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_a_request_without_a_period_is_refused(install, name):
     sid = STATION_ID[name]
     install(name, {sid: IN_A}, {sid: _data(2)})
-    cfg = SimpleNamespace(
-        product=SPECS[name].base.get("product"),
-        require_observations=True,
-        fallback_search_radius_km=None,
-        max_stations=None,
-        code_departement=None,
-        site_type="river",
-        parameters=None,
-    )
-    records = _mod(name).fetch_for_config(
-        cfg,
-        bbox=None,
-        station_ids=[sid],
-        start=START,
-        end=END,
-        context=SimpleNamespace(nearest_to=None),
-    )
+    request = FetchRequest(out_dir=OUT, station_ids=(sid,))
+    with pytest.raises(DataRequestError, match="period"):
+        _class(name)(**SPECS[name].base).fetch(request)
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_a_section_binds_the_constructor_and_serves_the_station(install, name):
+    sid = STATION_ID[name]
+    install(name, {sid: IN_A}, {sid: _data(2)})
+    model_name, section_kwargs = SECTION_MODELS[name]
+    module = import_module(f"hydromodpy.data.variables.{name}.config")
+    section = getattr(module, model_name).model_validate(section_kwargs)
+    source = build_from_section(_class(name), section)
+    for field, expected in SECTION_FIELD_CALLS[name].items():
+        assert getattr(source, field) == expected, (name, field)
+    records = list(source.fetch(_station_request(sid)).points)
     assert _ids(records) == [sid]
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ["piezometry", "water_quality"])
+def test_the_constructor_takes_the_nearest_point_the_manager_resolves(install, name):
+    near, far = STATION_ID[name], STATION_ID[name][:-1] + "2"
+    install(name, {near: IN_A, far: IN_B}, {near: _data(2), far: _data(2)})
+    source = _class(name)(**SPECS[name].base, nearest_to=IN_A)
+    records = list(source.fetch(_extent_request()).points)
+    assert _ids(records) == [near]
+
+
+@pytest.mark.fast
+def test_code_departement_reaches_the_discovery_of_an_extent_request(install):
+    world = install("intermittency", {"S1": IN_A}, {"S1": _data(2)})
+    source = _class("intermittency")(code_departement=["35"])
+    records = list(source.fetch(_extent_request()).points)
+    assert _ids(records) == ["S1"]
+    discovery = [p for url, p in world.calls if url.endswith("/stations")]
+    assert discovery[0]["code_departement"] == "35"
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("name", ALL)
+def test_the_result_says_what_the_class_declares(install, name):
+    sid = STATION_ID[name]
+    spec = SPECS[name]
+    install(name, {sid: IN_A}, {sid: _data(2)})
+    source = _class(name)(**spec.base)
+    result = source.fetch(_extent_request())
+    assert result.source_id == "hubeau"
+    assert result.kind == "points"
+    assert result.variables == source.variables
+    assert result.period == _period()
+    (record,) = result.points
+    assert (record.variable, record.unit) == (spec.variable, spec.unit)
 
 
 @pytest.mark.fast

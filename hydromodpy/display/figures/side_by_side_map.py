@@ -8,7 +8,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_label
 from hydromodpy.display.figure_options import Cmap, FieldName, ReferenceRun, Timestep
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
 if TYPE_CHECKING:
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class SideBySideMapFigure(BaseFigure):
     """Draw the same field from two simulations on two axes with a shared range."""
 

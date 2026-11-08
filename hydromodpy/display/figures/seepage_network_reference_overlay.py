@@ -36,7 +36,6 @@ from hydromodpy.display.figure_options import (
     Overlays,
     TauSpecificRatio,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
     cell_count,
@@ -100,7 +99,6 @@ _RELIEF_MIN_SPREAD = 0.02
 _DEFAULT_OVERLAYS: tuple[str, ...] = ("watershed", "outlet")
 
 
-@register
 class SeepageNetworkReferenceOverlay(BaseFigure):
     """Simulated stream cells over the mapped ones, on a shaded relief.
 

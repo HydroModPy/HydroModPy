@@ -29,7 +29,6 @@ from hydromodpy.display.figure_options import (
     Overlays,
     VisibleFlow,
 )
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
     cycle_flow,
@@ -60,7 +59,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class FlowPersistenceMap(BaseFigure):
     """Fraction of the simulated timesteps each cell flowed."""
 

@@ -28,7 +28,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.exceptions import DataProductError
+from hydromodpy.core.exceptions import DataCapabilityError, DataProductError
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.port import DataSource, Extent, FetchRequest
 
@@ -37,36 +37,42 @@ if TYPE_CHECKING:
 
 
 NETWORK_PAYLOAD_KIND = "features"
-"""What a river network is, as the port names payload shapes.
-
-A variable that accepts one kind is the whole reason this refusal can be made
-on the declaration instead of on the answer.
-"""
+"""What a river network is, as the port names payload shapes."""
 
 
 def source_from_section(source_cfg: object) -> DataSource:
     """Return the registered source one section names, built from that section.
 
     The section field a constructor names reaches it and nothing else, which is
-    :func:`~hydromodpy.data.source.registry.build_from_section`. A section
-    naming a source nobody serves raises
+    :func:`~hydromodpy.data.source.registry.build_from_section`, and the name is
+    resolved within the section the caller serves: a section of hydrography
+    reaches the sources registered under ``hydrography`` and no others, so the
+    DEM of the ``dem`` section cannot be named here at all. That is what the
+    key on the pair ``(section, source_id)`` buys, and it is why the payload
+    kind is checked on the declaration rather than at the build seam.
+
+    A section naming a source nobody serves raises
     :class:`~hydromodpy.core.exceptions.DataRequestError` listing what this
     installation does serve, plugins included.
 
     **A source serving another payload kind is refused on its declaration,
-    before it is built**, which is :func:`~hydromodpy.data.source.registry.get_serving`.
-    The adversarial gate of this phase is why: the resolver used to
-    carry an allowlist of three names and branched on "not custom", so
-    every id the registry resolved reached this function -- and reading the kind
-    off the *answer* meant a DEM source named in a hydrography section started
-    downloading France-wide archives before anything noticed.
-
-    The configuration model refuses the same thing on the same rule, and this
+    before it is built.** The adversarial gate of this phase is why: reading
+    the kind off the *answer* meant a DEM source named in a hydrography section
+    started downloading France-wide archives before anything noticed. The
+    configuration model refuses the same thing on the same rule, and this
     check is not redundant with it: the model sees a document, this seam is
     called with duck-typed objects that never went through one.
     """
     source_id = str(getattr(source_cfg, "source", "")).strip()
-    source_cls = registry.get_serving(source_id, NETWORK_PAYLOAD_KIND)
+    source_cls = registry.data_sources.get("hydrography", source_id)
+    declared = getattr(source_cls, "payload_kind", None)
+    if declared != NETWORK_PAYLOAD_KIND:
+        raise DataCapabilityError(
+            f"Source {source_id!r} serves a {declared!r} payload, and this section accepts a "
+            f"{NETWORK_PAYLOAD_KIND!r} payload. A source of another kind belongs to another "
+            "variable, and asking it anyway would contact its provider before the answer "
+            "could be refused."
+        )
     return registry.build_from_section(source_cls, source_cfg)
 
 

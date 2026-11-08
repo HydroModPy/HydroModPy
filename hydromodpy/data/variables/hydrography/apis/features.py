@@ -2,8 +2,10 @@
 
 BD Topage, EU-Hydro and OpenStreetMap answer the same question the same way: a
 feature table over a box in WGS84, with no time axis and nothing written under
-the request's directory. A subclass names its source and hosts, validates its
-own options, and says how to download a box.
+the request's directory. A subclass names its source, validates its own options,
+and says how to download a box; the section is the one they all serve, and the
+hosts are read from the licence table on the pattern every shipped source
+follows.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from hydromodpy.data.source.port import (
     extent_for,
     require_period,
     require_selectors,
+    shipped_hosts,
 )
 
 if TYPE_CHECKING:
@@ -31,13 +34,18 @@ class FeatureSource:
     """A river network over a WGS84 box, with no time axis."""
 
     source_id: ClassVar[str]
-    hosts: ClassVar[tuple[str, ...]]
+    section: ClassVar[str] = "hydrography"
     payload_kind: ClassVar[PayloadKind] = "features"
     extent_crs: ClassVar[str] = "EPSG:4326"
     selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
     period_need: ClassVar[PeriodNeed] = "refused"
     writes_out_dir: ClassVar[bool] = False
     variables: tuple[str, ...] = NETWORK_VARIABLES
+
+    @property
+    def hosts(self) -> tuple[str, ...]:
+        """The hosts of this network, read from the licence table this build ships."""
+        return shipped_hosts(self.source_id)
 
     def fetch(self, request: FetchRequest) -> FetchResult:
         """Download every feature inside the request's extent."""

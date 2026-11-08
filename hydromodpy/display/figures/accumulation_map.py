@@ -20,7 +20,6 @@ import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays, Timestep
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
@@ -50,7 +49,6 @@ that never meets the background.
 """
 
 
-@register
 class AccumulationMap(ScalarFaceMap):
     """Accumulated drain outflow per cell, on a logarithmic ramp.
 

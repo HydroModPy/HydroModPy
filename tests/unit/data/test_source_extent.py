@@ -258,10 +258,26 @@ def test_a_mask_in_its_own_crs_is_reprojected_from_that_crs(tmp_path, monkeypatc
     captured: dict[str, object] = {}
 
     def fake_fetch_ign_dem(*, output_dir, bbox, **_kwargs):
+        import numpy as np
+        import rasterio
+        from rasterio.transform import from_origin
+
         captured["bbox"] = bbox
         path = Path(output_dir) / "dem.tif"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("dem", encoding="utf-8")
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            height=1,
+            width=1,
+            count=1,
+            dtype="float32",
+            crs="EPSG:2154",
+            transform=from_origin(bbox[0], bbox[3], 5.0, 5.0),
+            nodata=-9999.0,
+        ) as dst:
+            dst.write(np.full((1, 1), 17.0, dtype="float32"), 1)
         return path
 
     monkeypatch.setattr(

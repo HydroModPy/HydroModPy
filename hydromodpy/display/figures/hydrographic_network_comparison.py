@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import (
     fmt_km,
     plot_topography_background,
@@ -26,7 +25,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class HydrographicNetworkComparisonFigure(BaseFigure):
     """Reference, generated, overlay, then diff view for canonical networks."""
 
@@ -462,7 +460,6 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         )
 
 
-@register
 class HydrographicNetworkReferenceMissingOnlyFigure(_HydrographicNetworkDifferenceRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_reference_missing_only",
@@ -536,7 +533,6 @@ class HydrographicNetworkReferenceMissingOnlyFigure(_HydrographicNetworkDifferen
             )
 
 
-@register
 class HydrographicNetworkGeneratedExtraOnlyFigure(_HydrographicNetworkDifferenceRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_generated_extra_only",

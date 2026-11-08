@@ -17,19 +17,32 @@ from __future__ import annotations
 import urllib.request
 import zipfile
 from pathlib import Path
+from typing import ClassVar
 
-import geopandas as gpd
 from filelock import FileLock
-from shapely.geometry import box
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.source.port import (
+    FetchRequest,
+    FetchResult,
+    PayloadKind,
+    PeriodNeed,
+    Selector,
+    extent_for,
+    require_period,
+    require_selectors,
+    shipped_hosts,
+)
 from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash, find_fgeol_shp
 
 logger = get_logger(__name__)
 
 BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
+
+BRGM_50K_ORIGIN = "http://infoterre.brgm.fr/telechargements/BDCharm50"
+"""The service ``fetch`` answers of, for the :class:`FileRecord` it returns."""
 
 
 def _download_department(
@@ -98,6 +111,8 @@ def _build_department_gpkg(
         return None
 
     # Convert to GeoPackage for faster future reads
+    import geopandas as gpd
+
     gdf = gpd.read_file(str(shp_path))
     gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
     if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
@@ -106,6 +121,50 @@ def _build_department_gpkg(
         gdf.to_file(str(staged), driver="GPKG")
 
     return dept_gpkg
+
+
+class Brgm50k:
+    """The BRGM 1:50K departmental geological maps, merged and cropped.
+
+    The port class over :func:`fetch_brgm_50k`: one GeoPackage of the geo
+    logy of the request's extent, the departments it overlaps downloaded and
+    merged once each. The map is vector geology, so the file carries no nodata.
+    """
+
+    source_id: ClassVar[str] = "brgm_50k"
+    section: ClassVar[str] = "geology"
+    payload_kind: ClassVar[PayloadKind] = "files"
+    extent_crs: ClassVar[str] = "EPSG:2154"
+    selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+    period_need: ClassVar[PeriodNeed] = "refused"
+    writes_out_dir: ClassVar[bool] = True
+
+    def __init__(self, *, code_field: str = "CODE_LEG") -> None:
+        self.code_field = str(code_field)
+        self.variables = ("geology",)
+        self.hosts = shipped_hosts(self.source_id)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        """Download, merge and crop the map over the request's extent."""
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        gpkg_path = fetch_brgm_50k(
+            output_dir=request.out_dir,
+            bbox=extent.bbox,
+            code_field=self.code_field,
+        )
+        from hydromodpy.data.contracts.file_record import FileRecord
+
+        record = FileRecord.of(gpkg_path, state="raw", nodata=None, origin=BRGM_50K_ORIGIN)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            files=(record,),
+            metadata={"code_field": self.code_field},
+        )
 
 
 def fetch_brgm_50k(
@@ -149,6 +208,9 @@ def fetch_brgm_50k(
     # Step 2: download each department
     dept_cache = output_dir / "departments_50k"
     dept_cache.mkdir(parents=True, exist_ok=True)
+
+    import geopandas as gpd
+    from shapely.geometry import box
 
     gdfs = []
     for code in progress.track(dept_codes, "Downloading BRGM 50K departments"):

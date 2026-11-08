@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hydromodpy.model.properties.geology_field import GeologyField
 
 import numpy as np
 import rasterio
@@ -70,11 +73,15 @@ def resolve_data_path(data_path: str, *, config_path: str | Path | None = None) 
 
 def load_vector_geology_dataframe(
     config: Mapping[str, Any],
-    *,
     config_path: str | Path | None = None,
+    *,
     zone_key_column: str = "zone_key",
 ):
-    """Load vector geology source and return a GeoDataFrame ready for plotting."""
+    """Load vector geology source and return a GeoDataFrame ready for plotting.
+
+    The two-argument form ``(config, config_path)`` is the ``read_vector`` contract
+    the mesh planner takes as an argument.
+    """
     import geopandas as gpd
 
     cfg = dict(config)
@@ -486,13 +493,37 @@ def load_geology_encoded_grid_on_raster_support(
     }
 
 
+def geology_field_from_config(config: Mapping[str, Any]) -> GeologyField:
+    """Build field from validated geology config mapping (standalone use)."""
+    from hydromodpy.data.variables.geology.config import validate_geology_config_data
+    from hydromodpy.model.properties.geology_field import GeologyField
+
+    cfg = validate_geology_config_data(config)
+    loaded = load_geology_encoded_grid(cfg)
+    return GeologyField(
+        identifier=str(cfg["id"]),
+        encoded_codes=loaded["encoded_codes"],
+        encoded_to_zone=loaded["encoded_to_zone"],
+        transform=loaded["transform"],
+        crs=loaded["crs"],
+        source_kind=str(loaded["source_kind"]),
+        default_cell_samples_per_axis=int(cfg.get("cell_samples_per_axis", 8)),
+    )
+
+
+def geology_field_from_toml(toml_path: str | Path, section: str = "geology") -> GeologyField:
+    """Build field directly from one TOML section (standalone use)."""
+    from hydromodpy.data.variables.geology.config import load_geology_toml
+
+    cfg = load_geology_toml(toml_path, section=section)
+    return geology_field_from_config(cfg)
+
+
 class GeologyDataIO:
     """Concrete ``GeologyDataSource`` backed by ``data.variables.geology``."""
 
     def validate_config(self, config: Mapping[str, Any]) -> dict[str, Any]:
-        from hydromodpy.data.variables.geology.config import (
-            validate_geology_config_data,
-        )
+        from hydromodpy.data.variables.geology.config import validate_geology_config_data
 
         return validate_geology_config_data(config)
 

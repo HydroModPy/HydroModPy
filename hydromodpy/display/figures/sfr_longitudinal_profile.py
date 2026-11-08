@@ -8,7 +8,6 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures.sfr_reach_timeseries import (
     STATE_UNITS,
@@ -48,7 +47,6 @@ def distance_to_outlet(links: DataFrame) -> dict[tuple[str, int], float]:
     return distances
 
 
-@register
 class SfrLongitudinalProfile(BaseFigure):
     """One SFR quantity per reach at a chosen time step (default: the last).
 

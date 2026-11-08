@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.sfr_reach_timeseries import (
     no_reach_series_reason,
     sfr_reach_stations,
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-@register
 class SfrReachNetwork(BaseFigure):
     """The delineated stream network that the SFR reaches discretize.
 

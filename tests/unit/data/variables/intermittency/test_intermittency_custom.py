@@ -186,3 +186,23 @@ class TestIntermittencyManagerCustom:
         assert result.has_points
         assert len(result.points) == 2
         assert all(r.variable == "flow_state" for r in result.points)
+
+
+@pytest.mark.fast
+class TestIntermittencyStationRequest:
+    def test_code_departement_alone_resolves_to_department_extent(self, tmp_path):
+        cfg = IntermittencySourceConfig(source="hubeau", code_departement=["35"])
+        manager = IntermittencyManager(config=None, catalog=None, project_extent=None)
+        req = manager._station_request(
+            cfg,
+            out_dir=tmp_path,
+            station_ids=(),
+            bbox=None,
+            start=datetime(2020, 1, 1),
+            end=datetime(2020, 1, 31),
+        )
+        assert req.extent is not None
+        assert req.extent.crs == "EPSG:4326"
+        assert req.station_ids == ()
+        assert -2.5 < req.extent.xmin < -1.5
+        assert 47.5 < req.extent.ymin < 48.5

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
 from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_relative_km_axes,
@@ -78,7 +77,6 @@ class _HydrographicNetworkRoleFigure(BaseFigure):
         return ax
 
 
-@register
 class HydrographicNetworkReferenceFigure(_HydrographicNetworkRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_reference",
@@ -92,7 +90,6 @@ class HydrographicNetworkReferenceFigure(_HydrographicNetworkRoleFigure):
     subtitle = "data.hydrography"
 
 
-@register
 class HydrographicNetworkGeneratedFigure(_HydrographicNetworkRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_generated",
@@ -116,7 +113,6 @@ _PERMANENCE_COLUMN = "permanence"
 """The canonical column of ``hydromodpy.data.source.permanence``, read by name."""
 
 
-@register
 class HydrographicNetworkPermanenceFigure(BaseFigure):
     """Draw the mapped network split by permanence: the minimal and the maximal map.
 

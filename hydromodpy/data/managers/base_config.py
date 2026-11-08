@@ -7,7 +7,7 @@ and path resolution boilerplate across all variable config.py files.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated, ClassVar
 
 from pydantic import Field, model_validator
 
@@ -16,6 +16,9 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IsoDateStr
 from hydromodpy.core.toml_io.loader import validate_toml
 from hydromodpy.core.toml_io.paths import resolve_declared_path
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config_kit.root import RootConfig
 
 
 class BaseVariableConfig(HydroModelBase):
@@ -75,17 +78,20 @@ class BaseVariableConfig(HydroModelBase):
         return self
 
     @classmethod
-    def from_toml(cls, path: str | Path):
+    def from_toml(cls, path: str | Path, *, root: RootConfig | None = None):
         """Load config from a TOML file.
 
         Relative paths (``path``, ``mask_path``) in the TOML are resolved
         from the project root (the folder of ``project.toml``), not the CWD.
+        The caller passes the ``RootConfig`` it holds, so the file is read the
+        way a run reads it; ``None`` reads it as written.
         """
         if cls._TOML_SECTION is None:
             raise NotImplementedError(f"{cls.__name__} must define _TOML_SECTION")
         return validate_toml(
             cls,
             path,
+            root=root,
             section=cls._TOML_SECTION,
             base_dir_resolver=_resolve_source_paths,
         )
