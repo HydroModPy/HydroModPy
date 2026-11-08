@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.catchment.algorithms.catchment_from_point import extract_catchment_from_point
-from hydromodpy.catchment.delineation.registry import resolve_delineation_backend
+from hydromodpy.catchment.delineation import resolve_delineation_backend
 
 # HydroModPy
 from hydromodpy.core.exceptions import TerrainProductError

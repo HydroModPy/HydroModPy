@@ -3,9 +3,9 @@ Mesh engines
 
 .. rst-class:: lead
 
-A mesh engine turns one request into one cell mesh. Three engines are built in, ``regular``,
-``triangle`` and ``voronoi``, and others join through the ``hydromodpy.mesh.engine`` entry
-point. Every consumer reads the cell mesh the same way, so the engine is a choice of the
+A mesh engine turns one request into one cell mesh. Four engines are built in, ``regular``,
+``triangle``, ``voronoi`` and ``catchment``, and others join through the
+``hydromodpy.mesh.engine`` entry point. Every consumer reads the cell mesh the same way, so the engine is a choice of the
 ``[mesh]`` section and nothing else.
 
 Code: ``hydromodpy/mesh/``. The cell mesh is on :doc:`mesh-pivot`, and the choice of an
@@ -39,7 +39,9 @@ the line families, the size field, the seed, the options of the engine, an optio
 triangulation and the notes of the planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
 ``canonical_hash()`` names it, so two requests with the same hash ask for the same mesh. The list
 of ``source_runs`` enters the hash when it is not empty, so a request with no such run keeps its
-hash.
+hash. ``catchment`` is the outline of the catchment the outlet closes. The planner fills it for a
+lumped engine only, and it enters the hash only when it is there, so the hash of every request for
+another engine does not change.
 The engine and its version enter the identity hash of the run, so a run on another generator is
 never taken for an identical run.
 
@@ -58,6 +60,10 @@ The planner
 
 ``plan_mesh_request`` (``mesh/planning/``) is the one place that knows the project.
 
+- For a lumped engine, it puts the catchment outline in the request: the delineated polygon, or the
+  domain on a synthetic support, which has no other catchment. A real support without a delineated
+  polygon is refused with ``MeshRequestError``. The workflow step reads the delineated polygon for
+  such an engine, as it does for a graded one.
 - It sets the intent of each family from ``[mesh.families]``. Rivers are ``cell`` lines, and
   geology contacts, lake shores and the catchment boundary are ``face`` lines.
 - It clips the lines to the domain and cleans them, for every engine but a triangulation read
@@ -101,6 +107,7 @@ table gives them for the built-in engines, with the flow solvers that read each 
      - River chain
      - Deterministic
      - Cached
+     - Lumped
      - Read by
    * - ``regular``
      - ``quadrilateral``
@@ -109,6 +116,7 @@ table gives them for the built-in engines, with the flow solvers that read each 
      - no
      - ``rasterized``
      - yes
+     - no
      - no
      - ``modflow6``, ``modflow_nwt``
    * - ``triangle``
@@ -119,6 +127,7 @@ table gives them for the built-in engines, with the flow solvers that read each 
      - ``derived_from_faces``
      - no
      - yes
+     - no
      - ``boussinesq``, ``modflow6``
    * - ``voronoi``
      - ``polygon``
@@ -128,14 +137,27 @@ table gives them for the built-in engines, with the flow solvers that read each 
      - ``exact``
      - yes
      - no
+     - no
      - ``modflow6``
+   * - ``catchment``
+     - ``polygon``
+     - no
+     - no
+     - no
+     - ``derived_from_faces``
+     - yes
+     - no
+     - yes
+     - none yet
 
 ``graded`` means that the engine follows the size field, and ``exact_faces`` that a face line
 lies exactly on cell faces. ``cell_families`` says how a river becomes a
 chain of cells: on the line itself, by rasterizing it, or from the faces of the cells on one
 bank. ``deterministic`` means that one request gives one mesh, and ``needs_cache`` that the
-engine cannot rebuild a mesh it built before. The quality report of every mesh repeats these
-claims and notes what the engine left out.
+engine cannot rebuild a mesh it built before. ``lumped`` means that the engine meshes the catchment
+as one cell, for a global model. It defaults to ``False``, so an engine written before it keeps its
+capabilities. The quality report of every mesh repeats the first four of these claims and notes
+what the engine left out.
 
 ``regular``
    ``engines/regular/``. Square cells of one pitch, bit for bit the grid FloPy builds, with row 0
@@ -150,13 +172,26 @@ claims and notes what the engine left out.
 ``voronoi``
    ``engines/voronoi/``, described on :doc:`voronoi-engine`.
 
+``catchment``
+   ``engines/catchment/``. One polygon cell whose vertices are the exterior ring of
+   ``MeshRequest.catchment``, counterclockwise, with no face. A hole of the outline is filled, and a
+   note of the mesh gives how many and their area, because the water that falls in a hole of a
+   delineated catchment still reaches its outlet. The center is the point that shapely's
+   ``point_on_surface`` gives (``center_kind = "interior_point"``), so it lies in the cell even when
+   the vertex mean of a concave catchment does not. The engine refuses lines, a size field and an
+   input triangulation, which one cell cannot hold. So a real catchment needs
+   ``[mesh.families] rivers = "none"`` with this engine, since ``"cell"`` is the default, and the
+   other families set to ``"none"`` when the project has such lines.
+
 Which solver reads which engine
 -------------------------------
 
 Each flow adapter declares ``accepted_meshes`` as a class attribute, one of the twelve of ``solver/base/adapter_protocol.py``. It lists
 the engine ids the solver reads, or ``*planar`` for any engine whose cells are triangles,
-quadrilaterals or polygons. ``HydroModPyConfig`` checks the pair while it reads the file, before
-any step runs. Its message names the engines the solver reads and the solvers that read the engine
+quadrilaterals or polygons and that is not lumped. A solver that reads one cell names the lumped
+engine, so MODFLOW 6 never computes on the single cell of ``catchment``. The rule is
+``engine_accepted`` of ``mesh/registry.py``, which loads the engine class only when its capabilities
+decide. ``HydroModPyConfig`` checks the pair while it reads the file, before any step runs. Its message names the engines the solver reads and the solvers that read the engine
 asked for. In the same place it refuses a cell addressed by ``[lay, row, col]`` (a well, an SFR
 reach) on every engine but ``regular``.
 

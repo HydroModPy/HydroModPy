@@ -1,29 +1,35 @@
 """The descent D follows the generated network A on the cells A crosses.
 
 A is a raster: the stream pixels, the D8 pointer it was traced on, and its
-accumulation. Each mesh cell holding a pixel of A is a channel cell pinned to
-the next channel cell along A; a lake cell is never one, and a cell where A
-leaves through a lake or off the raster is an outlet of A. Checked on a quad
-grid and on a brick mesh whose cells meet by faces only.
+accumulation. ``prepare_solver`` reads it on the cells once
+(``Model.geometry.channel_exits``), and the build pins D on it with its active
+columns and its lakes. Each channel cell drains to the next channel cell along
+A. Checked on a quad grid and on a brick mesh whose cells meet by faces only.
+The projection itself is tested in ``tests/unit/catchment/drainage/test_channel_tree.py``.
+
+``channel_exits_for_build`` says whether a build uses A at all, by the rule of
+the run: A off, no folder, rasters missing, or an SFR network that needs it.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
+from hydromodpy.catchment.drainage.channel_tree import ChannelExits, ChannelTree, channel_exits
 from hydromodpy.catchment.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.solver.modflow_common.channel_tree import (
-    ChannelTree,
-    project_channel_tree,
-    read_channel_tree,
+from hydromodpy.model.domain.geometry import ChannelRasters
+from hydromodpy.solver.modflow_common.flow_directions import (
+    build_solver_mesh_descent,
+    channel_exits_for_build,
 )
-from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
@@ -49,6 +55,14 @@ def _tree(shape: tuple[int, int], path: list[tuple[int, int]], *, pixel: float, 
     )
 
 
+def _exits(tree: ChannelTree, mesh: SolverMesh) -> ChannelExits:
+    """A read on the cells of ``mesh``, the way ``prepare_solver`` reads it."""
+    labels = rasterize_cell_ids(
+        mesh.planar_mesh, transform=tree.transform, out_shape=tree.link.shape
+    )
+    return channel_exits(tree, labels, n_cells=int(mesh.n_cells))
+
+
 def _quad(nrow: int, ncol: int, top: np.ndarray, inactive: np.ndarray | None = None):
     """A structured mesh of 10 m cells; mesh row 0 is the NORTH row, like a raster."""
     return solver_mesh_from_structured_arrays(
@@ -67,23 +81,6 @@ def _cell(ncol: int, raster_row: int, col: int) -> int:
     return raster_row * ncol + col
 
 
-def test_a_staircase_of_a_pins_each_cell_to_the_next_one_on_a() -> None:
-    nrow = ncol = 8
-    path = [(1, 1), (1, 2), (2, 2), (2, 3), (3, 3), (3, 4), (4, 4), (5, 5), (6, 6)]
-    tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
-    mesh = _quad(nrow, ncol, np.full(nrow * ncol, 50.0))
-    cells = [_cell(ncol, r, c) for r, c in path]
-    n = nrow * ncol
-
-    pinned, channel = project_channel_tree(
-        tree, mesh.planar_mesh, routable=np.ones(n, dtype=bool), lake_of=np.full(n, -1)
-    )
-
-    assert np.flatnonzero(channel).tolist() == sorted(cells)
-    assert [int(pinned[c]) for c in cells] == cells[1:] + [-1]
-    assert np.all(pinned[~channel] == -1)
-
-
 def test_pins_drive_the_receivers_of_d_even_where_the_top_climbs(caplog) -> None:
     nrow = ncol = 8
     path = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7)]
@@ -96,7 +93,7 @@ def test_pins_drive_the_receivers_of_d_even_where_the_top_climbs(caplog) -> None
 
     with caplog.at_level(logging.INFO):
         descent = build_solver_mesh_descent(
-            mesh, lake_cells_by_lake={}, base_level_mask=None, channel_tree=tree
+            mesh, lake_cells_by_lake={}, base_level_mask=None, channel_exits=_exits(tree, mesh)
         )
 
     assert [int(descent.receiver[c]) for c in cells[:-1]] == cells[1:]
@@ -125,71 +122,11 @@ def test_a_flat_beside_a_drains_into_a_not_along_it() -> None:
 
     plain = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     pinned = build_solver_mesh_descent(
-        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_tree=tree
+        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_exits=_exits(tree, mesh)
     )
 
     assert not np.isin(plain.receiver[side], a_cells).all()
     assert pinned.channel[pinned.receiver[side]].all(), "a flat cell beside A runs along it"
-
-
-def test_a_leaves_through_a_lake_so_the_cell_above_it_is_an_outlet_of_a() -> None:
-    nrow, ncol = 8, 5
-    path = [(r, 2) for r in range(1, 7)]
-    tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
-    n = nrow * ncol
-    lake_cell = _cell(ncol, 3, 2)
-    lake_of = np.full(n, -1)
-    lake_of[lake_cell] = 0
-    above, below = _cell(ncol, 2, 2), _cell(ncol, 4, 2)
-
-    pinned, channel = project_channel_tree(
-        tree,
-        _quad(nrow, ncol, np.zeros(n)).planar_mesh,
-        routable=np.ones(n, dtype=bool),
-        lake_of=lake_of,
-    )
-
-    assert not channel[lake_cell]
-    assert pinned[lake_cell] == -1
-    assert lake_cell not in pinned.tolist()
-    assert pinned[above] == -1
-    assert channel[below] and pinned[below] == _cell(ncol, 5, 2)
-
-
-def test_a_cell_off_the_graph_is_neither_a_channel_nor_a_pin() -> None:
-    nrow, ncol = 6, 3
-    path = [(r, 1) for r in range(1, 5)]
-    tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
-    n = nrow * ncol
-    routable = np.ones(n, dtype=bool)
-    off = _cell(ncol, 3, 1)
-    routable[off] = False
-
-    pinned, channel = project_channel_tree(
-        tree,
-        _quad(nrow, ncol, np.zeros(n)).planar_mesh,
-        routable=routable,
-        lake_of=np.full(n, -1),
-    )
-
-    assert not channel[off]
-    assert pinned[_cell(ncol, 2, 1)] == -1
-    assert off not in pinned.tolist()
-
-
-def test_a_pointer_that_closes_a_loop_is_refused() -> None:
-    nrow = ncol = 4
-    tree = _tree((nrow, ncol), [(1, 1), (1, 2), (2, 2), (2, 1)], pixel=10.0, top_y=40.0)
-    tree.pointer[2, 1] = _CODE_OF_STEP[(-1, 0)]  # back to (1, 1)
-    n = nrow * ncol
-
-    with pytest.raises(ValueError, match="closes a loop"):
-        project_channel_tree(
-            tree,
-            _quad(nrow, ncol, np.zeros(n)).planar_mesh,
-            routable=np.ones(n, dtype=bool),
-            lake_of=np.full(n, -1),
-        )
 
 
 def _brick_mesh(nrow: int, n_bricks: int, top: float) -> SolverMesh:
@@ -240,66 +177,108 @@ def test_on_a_brick_mesh_a_runs_down_pinned_bricks_and_d_follows_it() -> None:
     tree = _tree((nrow, 2 * n_bricks), path, pixel=1.0, top_y=float(nrow))
     bricks = [_brick_of(mesh, 3.5, nrow - r - 0.5) for r, _ in path]
 
-    pinned, channel = project_channel_tree(
-        tree, mesh.planar_mesh, routable=np.ones(n, dtype=bool), lake_of=np.full(n, -1)
-    )
     descent = build_solver_mesh_descent(
-        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_tree=tree
+        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_exits=_exits(tree, mesh)
     )
 
-    assert np.flatnonzero(channel).tolist() == sorted(bricks)
-    assert [int(pinned[b]) for b in bricks] == bricks[1:] + [-1]
+    assert int(mesh.n_cells) == n
+    assert np.flatnonzero(descent.channel).tolist() == sorted(bricks)
     assert not descent.diagonal_neighbors
-    # A seed is never pinned; every other brick of A follows its pin.
-    followed = [b for b in bricks[:-1] if not descent.base_level[b]]
+    # A seed is never pinned; every other brick of A follows A to the next brick.
+    followed = [i for i, b in enumerate(bricks[:-1]) if not descent.base_level[b]]
     assert followed
-    assert all(int(descent.receiver[b]) == int(pinned[b]) for b in followed)
+    assert all(int(descent.receiver[bricks[i]]) == bricks[i + 1] for i in followed)
 
 
-def test_the_tree_is_read_on_a_window_around_the_mesh(tmp_path) -> None:
-    import rasterio
+# -- Whether a build uses A ----------------------------------------------------
 
-    shape = (20, 30)
-    transform = from_origin(-100.0, 200.0, 10.0, 10.0)
-    link = np.zeros(shape, dtype=np.int32)
-    link[5, 12] = 7
-    profile = {
-        "driver": "GTiff",
-        "height": shape[0],
-        "width": shape[1],
-        "count": 1,
-        "transform": transform,
-    }
-    paths = {}
-    for name, data in (
-        ("link", link),
-        ("pointer", np.full(shape, 2, dtype=np.int32)),
-        ("acc", np.arange(np.prod(shape), dtype=np.float32).reshape(shape)),
-    ):
-        paths[name] = tmp_path / f"{name}.tif"
-        with rasterio.open(paths[name], "w", dtype=data.dtype, **profile) as dst:
-            dst.write(data, 1)
+_NAMES = ("link.tif", "pointer.tif", "accumulation.tif")
 
-    tree = read_channel_tree(
-        link_tif=str(paths["link"]),
-        pointer_tif=str(paths["pointer"]),
-        accumulation_tif=str(paths["acc"]),
-        bounds=(0.0, 100.0, 50.0, 150.0),
-    )
 
-    # Mesh bounds cover columns 10..14 and rows 5..9, plus one pixel of margin.
-    assert tree.link.shape == (7, 7)
-    assert tree.transform.c == pytest.approx(-10.0) and tree.transform.f == pytest.approx(160.0)
-    assert np.argwhere(tree.link).tolist() == [[1, 3]]
+def _rasters(folder: Path, *, enabled: bool = True) -> ChannelRasters:
+    link, pointer, accumulation = (str(folder / name) for name in _NAMES)
+    return ChannelRasters(enabled=enabled, link=link, pointer=pointer, accumulation=accumulation)
 
-    with rasterio.open(
-        tmp_path / "shifted.tif", "w", dtype="int32", **{**profile, "width": shape[1] + 1}
-    ) as dst:
-        dst.write(np.zeros((shape[0], shape[1] + 1), dtype=np.int32), 1)
-    with pytest.raises(ValueError, match="misaligned"):
-        read_channel_tree(
-            link_tif=str(paths["link"]),
-            pointer_tif=str(tmp_path / "shifted.tif"),
-            accumulation_tif=str(paths["acc"]),
-            bounds=(0.0, 100.0, 50.0, 150.0),
-        )
+
+def _write_files(folder: Path) -> None:
+    for name in _NAMES:
+        (folder / name).write_bytes(b"")
+
+
+def _some_exits() -> ChannelExits:
+    return ChannelExits(np.ones(2, bool), np.array([1, -1]), np.array([True, False]))
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_a_build_uses_the_exits_of_the_model_with_or_without_the_sfr_need(
+    tmp_path: Path, required: bool
+) -> None:
+    _write_files(tmp_path)
+    exits = _some_exits()
+
+    assert channel_exits_for_build(_rasters(tmp_path), exits, required=required) is exits
+
+
+@pytest.mark.parametrize(
+    ("rasters", "message"),
+    [
+        (None, "river network is off"),
+        (ChannelRasters(False, "a", "b", "c"), "river network is off"),
+        (ChannelRasters(True, None, None, None), "No corrected-flow folder"),
+    ],
+    ids=["no_choice", "step_off", "no_folder"],
+)
+def test_a_run_that_has_no_network_pins_nothing_and_says_why(
+    rasters, message: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level("INFO"):
+        assert channel_exits_for_build(rasters, _some_exits()) is None
+
+    assert message in caplog.text
+
+
+def test_a_network_that_the_sfr_needs_without_a_folder_pins_nothing_and_says_why(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("INFO"):
+        assert channel_exits_for_build(None, None, required=True) is None
+
+    assert "No corrected-flow folder" in caplog.text
+
+
+def test_the_clipped_rasters_alone_are_never_the_network(caplog) -> None:
+    rasters = ChannelRasters(True, None, None, None, clipped=("clipped.tif",))
+
+    with caplog.at_level("INFO"):
+        assert channel_exits_for_build(rasters, None, required=True) is None
+    assert "No corrected-flow folder" in caplog.text
+
+
+def test_missing_rasters_are_an_error_only_when_the_sfr_lies_on_the_network(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    rasters = _rasters(tmp_path)
+
+    with caplog.at_level("INFO"):
+        assert channel_exits_for_build(rasters, None) is None
+    assert f"No generated river network A in {tmp_path}" in caplog.text
+    with pytest.raises(FileNotFoundError, match="rasters are missing"):
+        channel_exits_for_build(rasters, None, required=True)
+
+
+def test_rasters_left_by_an_earlier_configuration_are_not_used(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    _write_files(tmp_path)
+
+    with caplog.at_level("INFO"):
+        assert channel_exits_for_build(_rasters(tmp_path, enabled=False), _some_exits()) is None
+    assert "river network is off" in caplog.text
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_a_model_that_did_not_read_a_it_serves_is_refused(tmp_path: Path, required: bool) -> None:
+    _write_files(tmp_path)
+
+    with pytest.raises(ValueError, match="channel_exits is None"):
+        channel_exits_for_build(_rasters(tmp_path), None, required=required)

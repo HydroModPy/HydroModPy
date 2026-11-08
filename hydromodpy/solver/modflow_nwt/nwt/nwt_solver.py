@@ -33,10 +33,12 @@ from hydromodpy.solver.modflow_common import (
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
-from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import (
+    build_solver_mesh_descent,
+    channel_exits_for_build,
+)
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -379,7 +381,7 @@ class ModflowNwt:
             solver_mesh,
             lake_cells_by_lake={},
             base_level_mask=constant_head,
-            channel_tree=channel_tree_for_run(geometry.raster.channel, solver_mesh),
+            channel_exits=channel_exits_for_build(geometry.raster.channel, geometry.channel_exits),
             active_column=(ibound_cells != 0).any(axis=0),
             geographic=geometry.catchment,
         )

@@ -9,13 +9,24 @@ rules (names, refusals, messages) live in
 
 Besides the port members, a mesh engine must declare a non-empty ``engine_version``
 and a :class:`~hydromodpy.mesh.port.MeshEngineCapabilities`.
+
+:func:`engine_accepted` is the one rule that says whether a reader, a solver
+that lists the meshes it reads, reads the meshes of an engine. It lives here
+because it may have to resolve the engine to read its capabilities.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.core.plugin_registry import PluginRegistry
-from hydromodpy.mesh.port import MeshEngineCapabilities, engine_members
+from hydromodpy.mesh.port import (
+    ANY_PLANAR_ENGINE,
+    PLANAR_CELL_TYPES,
+    MeshEngineCapabilities,
+    engine_members,
+)
 
 ENTRY_POINT_GROUP = "hydromodpy.mesh.engine"
 """The out-of-tree plugin group. One entry point per engine, named on its id."""
@@ -24,6 +35,7 @@ DEFAULT_ENGINE_ID = "regular"
 """The engine a project without ``[mesh]`` gets: cells are the DEM pixels."""
 
 _BUILTIN_PATHS: dict[str, str] = {
+    "catchment": "hydromodpy.mesh.engines.catchment.engine:CatchmentMeshEngine",
     "regular": "hydromodpy.mesh.engines.regular.engine:RegularMeshEngine",
     "triangle": "hydromodpy.mesh.engines.triangle.engine:TriangleMeshEngine",
     "voronoi": "hydromodpy.mesh.engines.voronoi.engine:VoronoiMeshEngine",
@@ -58,8 +70,27 @@ mesh_engines = PluginRegistry(
 )
 """The mesh-engine registry: ``mesh_engines.get``, ``names`` and ``register``."""
 
+
+def engine_accepted(accepted: Collection[str], engine_id: str) -> bool:
+    """Whether a reader that accepts *accepted* reads the meshes of *engine_id*.
+
+    A reader names engine ids, or :data:`~hydromodpy.mesh.port.ANY_PLANAR_ENGINE`
+    to read any engine whose cell types are planar ones and that is not lumped.
+    The engine class is loaded only when the id is not named and the token is
+    there, since only then do its capabilities decide. An id nothing serves
+    raises :class:`~hydromodpy.core.exceptions.MeshRequestError` in that case.
+    """
+    if engine_id in accepted:
+        return True
+    if ANY_PLANAR_ENGINE not in accepted:
+        return False
+    capabilities = mesh_engines.get(engine_id).capabilities
+    return not capabilities.lumped and set(capabilities.cell_types) <= PLANAR_CELL_TYPES
+
+
 __all__ = [
     "DEFAULT_ENGINE_ID",
     "ENTRY_POINT_GROUP",
+    "engine_accepted",
     "mesh_engines",
 ]

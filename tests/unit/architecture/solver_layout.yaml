@@ -37,5 +37,3 @@ public:
   # Read by cli and workflow to find the binaries and run the flow adapter.
   - hydromodpy.solver.modflow_common.binaries
   - hydromodpy.solver.modflow_common.flow_adapter_helpers
-  # Read by the prepare_solver step to pick the channel rasters of a run.
-  - hydromodpy.solver.modflow_common.channel_tree

@@ -12,19 +12,24 @@ constant-head cells as explicit masks, and hands them to
 A is the generated river network, traced on the D8 pointer of the routing DEM.
 Without it, D descends its own flats by flood order and runs beside A, so the
 hillslope joins it lower down. With it, a cell A crosses has a pinned receiver,
-the next cell along A (``channel_tree.py``), and every other cell takes the
-steepest descent. On a domain that is the catchment itself
+the next cell along A, and every other cell takes the steepest descent.
+``prepare_solver`` reads A on the cells once (``Model.geometry.channel_exits``,
+:mod:`hydromodpy.catchment.drainage.channel_tree`). :func:`channel_exits_for_build`
+says whether a build uses it, and the pins are set here with the active columns
+and the lakes of the build. On a domain that is the catchment itself
 (``geographic.domain_extent = "watershed"``) D is flooded from the catchment
 outlet and the constant-head cells, not from the whole rim.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.catchment.drainage.channel_tree import ChannelExits, pin_channel
 from hydromodpy.catchment.drainage.descent import Descent, build_descent
 from hydromodpy.catchment.drainage.distance import resolve_outlet
 from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M
@@ -34,9 +39,8 @@ from hydromodpy.solver.modflow_common.catchment_basin import (
     finite_cell_areas,
     outlet_search,
 )
-from hydromodpy.solver.modflow_common.channel_tree import ChannelTree, project_channel_tree
 
-__all__ = ["build_solver_mesh_descent", "resolve_dam_foot_cells"]
+__all__ = ["build_solver_mesh_descent", "channel_exits_for_build", "resolve_dam_foot_cells"]
 
 logger = get_logger(__name__)
 
@@ -44,12 +48,62 @@ DESCENT_EPSILON_M = DEFAULT_EPSILON_M
 """Flood step of D, recorded with it so a reader knows the drop it guarantees."""
 
 
+def channel_exits_for_build(
+    rasters: Any, exits: ChannelExits | None, *, required: bool = False
+) -> ChannelExits | None:
+    """The river network A this build pins D on, or None when it has none.
+
+    ``rasters`` is ``Model.geometry.raster.channel`` and ``exits`` is
+    ``Model.geometry.channel_exits``, which ``prepare_solver`` read on the cells.
+    The clipped rasters are cut to the watershed and miss the buffer, so they
+    are never used here.
+
+    A belongs to the build only when ``rasters.enabled`` says the river-network
+    step ran for it; rasters an earlier configuration left in the folder are
+    never used. ``required`` is set when a network of the run was delineated
+    from A, so missing rasters are an error.
+    """
+    if not required and not (rasters is not None and rasters.enabled):
+        logger.info(
+            "The river network is off for this run: the descent D has no pinned cell and "
+            "follows the steepest descent everywhere."
+        )
+        return None
+    if rasters is None or rasters.link is None:
+        logger.info(
+            "No corrected-flow folder for this run: the descent D has no pinned cell and "
+            "follows the steepest descent everywhere."
+        )
+        return None
+    link, pointer, accumulation = rasters.link, rasters.pointer, rasters.accumulation
+    missing = [path for path in (link, pointer, accumulation) if not os.path.exists(path)]
+    if missing and required:
+        raise FileNotFoundError(
+            "The SFR reaches lie on the generated river network A, but its rasters are "
+            f"missing: {', '.join(missing)}. Rerun the geographic preprocessing."
+        )
+    if missing:
+        logger.info(
+            "No generated river network A in %s: the descent D has no pinned cell and "
+            "follows the steepest descent everywhere.",
+            os.path.dirname(link),
+        )
+        return None
+    if exits is None:
+        raise ValueError(
+            "The generated river network A serves this build and its rasters exist, but "
+            "Model.geometry.channel_exits is None: prepare_solver reads A on the cells, "
+            "and this Model was built without it."
+        )
+    return exits
+
+
 def build_solver_mesh_descent(
     solver_mesh: Any,
     *,
     lake_cells_by_lake: Mapping[Any, Sequence[int]],
     base_level_mask: np.ndarray | None,
-    channel_tree: ChannelTree | None = None,
+    channel_exits: ChannelExits | None = None,
     active_column: np.ndarray | None = None,
     geographic: object | None = None,
 ) -> Descent:
@@ -63,7 +117,8 @@ def build_solver_mesh_descent(
     ``lake_cells_by_lake``, the order build.py numbers LAK lakes in.
     ``base_level_mask`` holds the constant-head cells, where water leaves the
     model: they seed the flood and keep their steepest descent.
-    ``channel_tree`` is the generated network A; without it D has no pin and
+    ``channel_exits`` is the generated network A read on the cells, as
+    :func:`channel_exits_for_build` returns it; without it D has no pin and
     follows the steepest descent everywhere. The adjacency is fixed by the
     mesh: shared nodes (D8) on quads, shared faces elsewhere.
 
@@ -83,10 +138,8 @@ def build_solver_mesh_descent(
     routable = np.asarray(active_column, dtype=bool).reshape(-1) | (lake_of >= 0)
     pinned_receiver: np.ndarray | None = None
     channel: np.ndarray | None = None
-    if channel_tree is not None:
-        pinned_receiver, channel = project_channel_tree(
-            channel_tree, planar_mesh, routable=routable, lake_of=lake_of
-        )
+    if channel_exits is not None:
+        pinned_receiver, channel = pin_channel(channel_exits, routable=routable, lake_of=lake_of)
         logger.info(
             "Channel tree A on the mesh: %d channel cell(s), %d pinned to the next cell "
             "of A, %d outlet(s) of A keeping the steepest descent.",

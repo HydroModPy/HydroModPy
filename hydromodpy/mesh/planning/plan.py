@@ -9,8 +9,9 @@ non-graded engine (``regular``) gets the raw lines and no size field. A
 triangulation read from a file is meshed as it is: no size field, raw lines,
 its own outline as the domain. A generated Voronoi mesh gets the lake shores it
 can follow at its cell size (``lake_shores.py``) and the rivers off the lakes.
-The line families are built in ``families.py`` and the size terms in
-``size_terms.py``.
+A lumped engine, which meshes the catchment as one cell, gets the catchment
+outline in the request, and no other engine does. The line families are built
+in ``families.py`` and the size terms in ``size_terms.py``.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import numpy as np
 from rasterio.features import rasterize
 from shapely.geometry import Polygon
 
+from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
@@ -99,9 +101,11 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
     fits in such a hole, and its ring only seeds cells a few meters apart.
     Then close vertices merge and loose line ends are cut back and snapped, at
     a tenth of the DEM pixel. The sizes are read again on the cleaned
-    geometry. A triangulation read is meshed as it is.
+    geometry. A triangulation read is meshed as it is. A lumped engine gets the
+    catchment outline (:func:`_lumped_catchment`).
     """
-    graded = registry.mesh_engines.get(mesh_cfg.engine).capabilities.graded
+    capabilities = registry.mesh_engines.get(mesh_cfg.engine).capabilities
+    graded = capabilities.graded
     triangulation = inputs.input_triangulation
     pixel = _pixel_size(inputs.dem_grid)
     cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
@@ -133,6 +137,25 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
             *cleanup.notes(),
         ),
         source_runs=_source_runs(inputs) if sized else (),
+        catchment=_lumped_catchment(mesh_cfg, inputs) if capabilities.lumped else None,
+    )
+
+
+def _lumped_catchment(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> Polygon:
+    """The outline a lumped engine meshes as one cell: the delineated catchment.
+
+    A synthetic support has no catchment but its domain, so the domain is the
+    catchment there. A real support without a delineated polygon is refused,
+    since the domain may be the DEM rectangle or a buffer around the catchment.
+    """
+    if inputs.watershed is not None:
+        return inputs.watershed
+    if inputs.synthetic:
+        return inputs.domain
+    raise MeshRequestError(
+        f"mesh.engine = {mesh_cfg.engine!r} meshes the catchment as one cell, and the run "
+        "has no delineated catchment polygon (watershed.shp). Delineate the catchment from "
+        "its outlet under [geographic], or use a synthetic support."
     )
 
 

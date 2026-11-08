@@ -1,4 +1,7 @@
-"""The mesh port: the members an engine owes, its declared capabilities, and who reads its meshes."""
+"""The mesh port: the members an engine owes and its declared capabilities.
+
+Who reads the meshes of an engine is tested with the registry, in ``test_registry.py``.
+"""
 
 from __future__ import annotations
 
@@ -9,14 +12,8 @@ import pytest
 from hydromodpy.mesh import port
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.quality import DECLARATION_KEYS
-from hydromodpy.mesh.port import (
-    ANY_PLANAR_ENGINE,
-    PLANAR_CELL_TYPES,
-    MeshEngine,
-    MeshEngineCapabilities,
-    engine_accepted,
-)
-from tests._helpers.fake_engines import fake_capabilities
+from hydromodpy.mesh.port import MeshEngine, MeshEngineCapabilities
+from tests._helpers.fake_engines import fake_capabilities, lumped_capabilities
 
 pytestmark = pytest.mark.fast
 
@@ -46,8 +43,16 @@ def test_a_conforming_class_satisfies_the_protocol() -> None:
         ({"cell_families": "snapped"}, "cell_families must be one of"),
         ({"structured": "yes"}, "MeshEngineCapabilities.structured must be a bool"),
         ({"needs_cache": 1}, "MeshEngineCapabilities.needs_cache must be a bool"),
+        ({"lumped": "no"}, "MeshEngineCapabilities.lumped must be a bool"),
     ],
-    ids=["volume_cell", "no_cell_type", "unknown_family_rule", "text_flag", "integer_flag"],
+    ids=[
+        "volume_cell",
+        "no_cell_type",
+        "unknown_family_rule",
+        "text_flag",
+        "integer_flag",
+        "text_lumped",
+    ],
 )
 def test_capabilities_refuse_what_a_planar_engine_cannot_declare(
     members: dict[str, object], message: str
@@ -69,14 +74,14 @@ def test_capabilities_give_the_declarations_the_qa_reports() -> None:
     assert declarations == {key: getattr(_CAPABILITIES, key) for key in DECLARATION_KEYS}
 
 
-def test_a_reader_accepts_the_engines_it_names() -> None:
-    assert engine_accepted({"regular"}, "regular", _CAPABILITIES)
-    assert not engine_accepted({"regular"}, "voronoi", _CAPABILITIES)
+def test_an_engine_is_not_lumped_unless_it_says_so() -> None:
+    """An engine written before ``lumped`` existed declares the same capabilities."""
+    assert _CAPABILITIES.lumped is False
+    assert lumped_capabilities().lumped is True
 
 
-@pytest.mark.parametrize("cell_type", sorted(PLANAR_CELL_TYPES, key=lambda t: t.value))
-def test_the_planar_token_accepts_an_engine_of_planar_cells(cell_type: CellType) -> None:
-    capabilities = fake_capabilities(cell_types=(cell_type,))
+def test_lumped_is_not_one_of_the_declarations_the_qa_reports() -> None:
+    lumped = lumped_capabilities()
 
-    assert engine_accepted({"regular", ANY_PLANAR_ENGINE}, "test-conforming", capabilities)
-    assert not engine_accepted({"triangle"}, "test-conforming", capabilities)
+    assert "lumped" not in lumped.declarations()
+    assert set(lumped.declarations()) == DECLARATION_KEYS

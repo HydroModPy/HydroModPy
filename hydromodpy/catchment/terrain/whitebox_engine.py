@@ -9,12 +9,10 @@ from the DEM before and after so a user sees what was dug. The import of
 
 from __future__ import annotations
 
-import hashlib
 import math
 import os
 from collections.abc import Sequence
 from importlib.metadata import version as distribution_version
-from math import hypot
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -23,11 +21,8 @@ import numpy as np
 import rasterio
 
 from hydromodpy.catchment.terrain.artifacts import (
-    boundary_area_m2,
     is_stream_cell,
-    mask_cell_count,
     raster_crs,
-    raster_max_near,
     raster_nodata,
     write_outlet_point,
 )
@@ -50,25 +45,20 @@ from hydromodpy.catchment.terrain.port import (
     Outlet,
     SnapMethod,
     StreamNetwork,
-    require_batch,
-    require_rank_preserving,
-    require_resolvable_counts,
-    require_snap_method,
-    require_untransformed,
+    require_accumulation,
+    require_conditioning,
+    require_delineable,
+    require_stream,
+    stamp,
     stream_window_refusal,
 )
-from hydromodpy.core.exceptions import (
-    EmptyCatchmentError,
-    TerrainCapabilityError,
-    TerrainProductError,
-    TerrainRequestError,
-)
+from hydromodpy.core.exceptions import EmptyCatchmentError, TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_OUT_TYPE_BY_UNITS: dict[str, str] = {"cells": "cells", "m2": "catchment area"}
+_OUT_TYPE = {"cells": "cells", "m2": "catchment area"}  # the tool's name of each unit
 
 MOVE_THRESHOLD_M = 0.01
 """A cell moved by less than this does not count as lowered or raised.
@@ -90,58 +80,36 @@ class WhiteboxTerrainEngine:
 
             backend = get_whitebox_backend()
         self._backend: Any = backend
-        # The rasters this engine wrote, by path, with the state of the file
-        # after the write. A later member takes its input from here instead of
-        # reading back the file it just wrote.
+        # Rasters this engine wrote, with the state of their file. A later member takes
+        # its input from here instead of reading back what it just wrote.
         self._written: dict[Path, tuple[Any, tuple[int, int, int]]] = {}
 
     def engine_digest(self) -> str:
-        payload = "\n".join((self.engine_id, self.engine_version, "d8_wbt"))
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return stamp(self.engine_id, self.engine_version)
 
     def condition_dem(
-        self,
-        dem: Path,
-        *,
-        method: ConditioningMethod,
-        extent: ConditioningExtent,
-        out: Path,
+        self, dem: Path, *, method: ConditioningMethod, extent: ConditioningExtent, out: Path
     ) -> ConditionedDem:
-        if extent.kind != "regional":
-            raise TerrainCapabilityError(
-                f"{self.engine_id} conditions the whole DEM; extent "
-                f"{extent.kind!r} is not implemented."
-            )
-        if not (isinstance(method, CappedBreach) or method in ("fill", "breach")):
-            raise TerrainCapabilityError(
-                f"{self.engine_id} conditions with 'fill', 'breach' or a capped breach; "
-                f"{method!r} is not implemented."
-            )
-        crs = raster_crs(dem)
-        source = self._backend.raster.read_raster(str(dem))
-        report: CappedBreachReport | None = None
+        require_conditioning(self.engine_id, method, extent, serves=("fill", "breach", "capped"))
+        crs, source, report = raster_crs(dem), self._backend.raster.read_raster(str(dem)), None
         if isinstance(method, CappedBreach):
-            max_dist = _breach_length_cells(method.max_distance_m, _cell_size_m(dem))
-            conditioned = self._backend.flow.breach_depressions_raster(
-                source,
-                max_dist=max_dist,
-                max_cost=method.max_depth_m,
-                fill_deps=True,
+            cells = _breach_length_cells(method.max_distance_m, _cell_size_m(dem))
+            result = self._backend.flow.breach_depressions_raster(
+                source, max_dist=cells, max_cost=method.max_depth_m, fill_deps=True
             )
         elif method == "fill":
-            conditioned = self._backend.flow.fill_depressions_raster(source)
+            result = self._backend.flow.fill_depressions_raster(source)
         else:
-            conditioned = self._backend.flow.breach_depressions_raster(source)
-        self._write_product(conditioned, out, crs)
+            result = self._backend.flow.breach_depressions_raster(source)
+        self._write_product(result, out, crs)
         if isinstance(method, CappedBreach):
             report = _measure_capped_breach(
-                Path(dem), Path(out), max_dist=max_dist, max_cost_m=method.max_depth_m
+                Path(dem), Path(out), max_dist=cells, max_cost_m=method.max_depth_m
             )
             logger.info(
                 "Capped breach: %d cells lowered, %d cells raised (pit raise before the "
                 "breach and the residual fill); realised max lowering %.3f m, max raise "
-                "%.3f m "
-                "(max_dist=%d cells, max_cost=%.3f m).",
+                "%.3f m (max_dist=%d cells, max_cost=%.3f m).",
                 report.cells_lowered,
                 report.cells_raised,
                 report.max_lowering_m,
@@ -159,24 +127,13 @@ class WhiteboxTerrainEngine:
                     report.max_lowering_m,
                     method.max_depth_m,
                 )
-        return ConditionedDem(
-            path=Path(out), method=method, extent=extent, crs=crs, breach_report=report
-        )
+        return ConditionedDem(Path(out), method, extent, crs, report)
 
-    def drainage_directions(
-        self,
-        conditioned: ConditionedDem,
-        *,
-        out: Path,
-    ) -> DrainageDirections:
+    def drainage_directions(self, conditioned: ConditionedDem, *, out: Path) -> DrainageDirections:
         source = self._read_raster(conditioned.path)
         pointer = self._backend.flow.d8_pointer_raster(source, esri_pntr=False)
         self._write_product(pointer, out, conditioned.crs)
-        return DrainageDirections(
-            path=Path(out),
-            pointer_convention="d8_wbt",
-            conditioned_dem=conditioned,
-        )
+        return DrainageDirections(Path(out), "d8_wbt", conditioned)
 
     def flow_accumulation(
         self,
@@ -186,56 +143,26 @@ class WhiteboxTerrainEngine:
         transform: AccumulationTransform,
         out: Path,
     ) -> FlowAccumulation:
-        out_type = _OUT_TYPE_BY_UNITS.get(units)
-        if out_type is None:
-            raise TerrainCapabilityError(
-                f"{self.engine_id} accumulates in {sorted(_OUT_TYPE_BY_UNITS)}; "
-                f"{units!r} is not implemented."
-            )
-        if transform not in ("none", "ln"):
-            raise TerrainCapabilityError(
-                f"{self.engine_id} transforms with 'none' or 'ln'; "
-                f"{transform!r} is not implemented."
-            )
-        pointer = self._read_raster(directions.path)
+        require_accumulation(self.engine_id, units, transform)
         accumulated = self._backend.flow.d8_flow_accumulation_raster(
-            pointer,
+            self._read_raster(directions.path),
             log=transform == "ln",
-            out_type=out_type,
+            out_type=_OUT_TYPE[units],
             input_is_pointer=True,
         )
         self._write_product(accumulated, out, directions.conditioned_dem.crs)
-        return FlowAccumulation(
-            path=Path(out),
-            units=units,
-            transform=transform,
-            directions=directions,
-            nodata=raster_nodata(out),
-        )
+        return FlowAccumulation(Path(out), units, transform, directions, raster_nodata(out))
 
     def stream_network(
-        self,
-        accumulation: FlowAccumulation,
-        *,
-        threshold: float,
-        out: Path,
+        self, accumulation: FlowAccumulation, *, threshold: float, out: Path
     ) -> StreamNetwork:
-        require_untransformed(accumulation, member="stream_network")
-        if threshold <= 0.0:
-            raise TerrainRequestError("A stream threshold must be > 0.")
-        source = self._read_raster(accumulation.path)
+        require_stream(accumulation, threshold)
         streams = self._backend.delineation.extract_streams_raster(
-            source,
-            threshold=float(threshold),
-            zero_background=False,
+            self._read_raster(accumulation.path), threshold=float(threshold), zero_background=False
         )
         self._write_product(streams, out, accumulation.directions.conditioned_dem.crs)
-        return StreamNetwork(
-            path=Path(out),
-            threshold=float(threshold),
-            threshold_units=accumulation.units,
-            directions=accumulation.directions,
-        )
+        directions = accumulation.directions
+        return StreamNetwork(Path(out), float(threshold), accumulation.units, directions)
 
     def delineate(
         self,
@@ -247,143 +174,69 @@ class WhiteboxTerrainEngine:
         snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        _refuse_an_unusable_batch(
+        require_delineable(
             accumulation, outlets, snap=snap, snap_distance_m=snap_distance_m, layout=layout
         )
         crs = accumulation.directions.conditioned_dem.crs
-        # Read the shared products once: that is what makes this a batch. The
-        # raster the snap ranks is the accumulation for the window snap and the
-        # stream network for a Jenson one.
-        snap_raster = self._read_raster(
+        # The products are read once for the whole batch. The snap ranks the accumulation
+        # for a window and the stream network for a Jenson snap.
+        ranked = self._read_raster(
             snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path
         )
         pointer = self._read_raster(accumulation.directions.path)
-        return tuple(
-            self._delineate_outlet(
-                outlet,
-                site_dir=layout.site_dir(Path(out_dir), outlet),
-                layout=layout,
-                crs=crs,
-                snap=snap,
-                snap_raster=snap_raster,
-                snap_distance_m=snap_distance_m,
-                pointer=pointer,
-            )
-            for outlet in outlets
-        )
+        delineation = self._backend.delineation
+        found = []
+        for outlet in outlets:
+            site, mask_path, boundary_path = layout.make_site(out_dir, outlet)
+            snapped, x, y = self._snap(outlet, site, crs, snap, ranked, snap_distance_m)
+            watershed = delineation.watershed_raster(pointer, snapped, esri_pntr=False)
+            self._write_raster(watershed, mask_path, crs)
+            boundary = delineation.raster_to_vector_polygons_raster(watershed)
+            if self._backend.raster.vector_record_count(boundary) == 0:
+                raise EmptyCatchmentError(
+                    f"Outlet {outlet.outlet_id!r} delineated an empty catchment."
+                )
+            self._backend.raster.write_vector(boundary, str(boundary_path))
+            ensure_crs(boundary_path, crs or None)
+            found.append(Catchment.from_files(outlet, mask_path, boundary_path, x, y))
+        return tuple(found)
 
-    def _delineate_outlet(
+    def _snap(
         self,
         outlet: Outlet,
-        *,
-        site_dir: Path,
-        layout: CatchmentLayout,
+        site: Path,
         crs: str,
         snap: SnapMethod,
-        snap_raster: Any,
-        snap_distance_m: float,
-        pointer: Any,
-    ) -> Catchment:
-        """Snap one outlet, then write its catchment mask and boundary."""
-        site_dir.mkdir(parents=True, exist_ok=True)
-        mask_path = site_dir / layout.mask_name
-        boundary_path = site_dir / layout.boundary_name
-        snapped, snapped_x, snapped_y = self._snap_outlet(
-            outlet,
-            site_dir=site_dir,
-            crs=crs,
-            snap=snap,
-            snap_raster=snap_raster,
-            snap_distance_m=snap_distance_m,
-        )
-        self._write_watershed(
-            outlet,
-            snapped,
-            pointer=pointer,
-            mask_path=mask_path,
-            boundary_path=boundary_path,
-            crs=crs,
-        )
-        return Catchment(
-            outlet=outlet,
-            mask_path=mask_path,
-            boundary_path=boundary_path,
-            cell_count=mask_cell_count(mask_path),
-            area_m2=boundary_area_m2(boundary_path),
-            snapped_x=snapped_x,
-            snapped_y=snapped_y,
-            snap_distance_m=hypot(snapped_x - outlet.x, snapped_y - outlet.y),
-        )
-
-    def _snap_outlet(
-        self,
-        outlet: Outlet,
-        *,
-        site_dir: Path,
-        crs: str,
-        snap: SnapMethod,
-        snap_raster: Any,
-        snap_distance_m: float,
+        ranked: Any,
+        distance: float,
     ) -> tuple[Any, float, float]:
-        """Write the outlet, snap it and return the snapped vector and point."""
-        outlet_shp = site_dir / OUTLET_LAYER_NAME
-        snapped_shp = site_dir / SNAPPED_OUTLET_LAYER_NAME
+        """Write the outlet, snap it, rewrite the snapped layer with the port columns."""
+        outlet_shp, snapped_shp = site / OUTLET_LAYER_NAME, site / SNAPPED_OUTLET_LAYER_NAME
         write_outlet_point(outlet_shp, outlet.outlet_id, outlet.x, outlet.y, crs)
         ensure_crs(outlet_shp, crs or None)
-        outlet_vector = self._backend.raster.read_vector(str(outlet_shp))
+        raster, delineation = self._backend.raster, self._backend.delineation
+        vector = raster.read_vector(str(outlet_shp))
         if isinstance(snap, JensonSnap):
-            snapped = self._backend.delineation.jenson_snap_pour_points_vector(
-                outlet_vector, snap_raster, snap_distance_m
-            )
+            snapped = delineation.jenson_snap_pour_points_vector(vector, ranked, distance)
         else:
-            snapped = self._backend.delineation.snap_pour_points_vector(
-                outlet_vector, snap_raster, int(snap_distance_m)
-            )
-        if self._backend.raster.vector_record_count(snapped) == 0:
+            snapped = delineation.snap_pour_points_vector(vector, ranked, int(distance))
+        if raster.vector_record_count(snapped) == 0:
             raise TerrainProductError(
-                f"Snapping outlet {outlet.outlet_id!r} produced no feature within "
-                f"{snap_distance_m} m. The outlet may sit outside the accumulation raster."
+                f"Snapping outlet {outlet.outlet_id!r} produced no feature within {distance} m. "
+                "The outlet may sit outside the accumulation raster."
             )
-        self._backend.raster.write_vector(snapped, str(snapped_shp))
-        snapped_x, snapped_y = read_point(snapped_shp)
-        # The tool moves the point but writes the columns of the declared
-        # outlet back empty (x and y read NaN), so the layer is written again
-        # with the columns of the port, on the snapped point.
-        write_outlet_point(snapped_shp, outlet.outlet_id, snapped_x, snapped_y, crs)
+        raster.write_vector(snapped, str(snapped_shp))
+        x, y = read_point(snapped_shp)
+        # The tool writes the declared columns back empty, so the layer is written again.
+        write_outlet_point(snapped_shp, outlet.outlet_id, x, y, crs)
         ensure_crs(snapped_shp, crs or None)
-        # The tool leaves an outlet where it was when its window holds no
-        # stream cell, so a point that is not on the network is a refusal.
-        if isinstance(snap, JensonSnap) and not is_stream_cell(
-            snap.streams.path, snapped_x, snapped_y
-        ):
-            raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
-        return snapped, snapped_x, snapped_y
-
-    def _write_watershed(
-        self,
-        outlet: Outlet,
-        snapped: Any,
-        *,
-        pointer: Any,
-        mask_path: Path,
-        boundary_path: Path,
-        crs: str,
-    ) -> None:
-        """Write the catchment mask of a snapped outlet and its boundary polygon."""
-        watershed = self._backend.delineation.watershed_raster(
-            pointer,
-            snapped,
-            esri_pntr=False,
-        )
-        self._write_raster(watershed, mask_path, crs)
-        boundary = self._backend.delineation.raster_to_vector_polygons_raster(watershed)
-        if self._backend.raster.vector_record_count(boundary) == 0:
-            raise EmptyCatchmentError(f"Outlet {outlet.outlet_id!r} delineated an empty catchment.")
-        self._backend.raster.write_vector(boundary, str(boundary_path))
-        ensure_crs(boundary_path, crs or None)
+        # The tool leaves an outlet where it was when its window holds no stream cell.
+        if isinstance(snap, JensonSnap) and not is_stream_cell(snap.streams.path, x, y):
+            raise TerrainProductError(stream_window_refusal(outlet, distance, snap))
+        return snapped, x, y
 
     def _read_raster(self, path: str | Path) -> Any:
-        """Return a raster this engine wrote and nobody changed since, or read it."""
+        """A raster this engine wrote and nobody changed since, or a fresh read."""
         held = self._written.get(Path(path))
         if held is not None and Path(path).is_file() and held[1] == _file_state(path):
             return held[0]
@@ -392,43 +245,12 @@ class WhiteboxTerrainEngine:
     def _write_raster(self, raster: Any, out: str | Path, crs: str) -> None:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         self._backend.raster.write_raster(raster, str(out))
-        # An empty string is what a DEM with no declared CRS reads back as, and
-        # stamping that on an output declares a CRS nobody chose.
-        ensure_crs(out, crs or None)
+        ensure_crs(out, crs or None)  # an empty CRS must not be stamped on an output
 
     def _write_product(self, raster: Any, out: Path, crs: str) -> None:
         """Write a product a later member reads, and keep it for that member."""
         self._write_raster(raster, out, crs)
         self._written[Path(out)] = (raster, _file_state(out))
-
-
-def _refuse_an_unusable_batch(
-    accumulation: FlowAccumulation,
-    outlets: Sequence[Outlet],
-    *,
-    snap: SnapMethod,
-    snap_distance_m: float,
-    layout: CatchmentLayout,
-) -> None:
-    """Refuse a batch the snap cannot rank or the layout cannot hold."""
-    require_snap_method(snap, accumulation, member="delineate")
-    # Only the window snap ranks the accumulation; a Jenson snap never reads it.
-    ranks_counts = snap == "window"
-    if ranks_counts:
-        require_rank_preserving(accumulation, member="delineate")
-    require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
-    if ranks_counts and accumulation.transform != "none":
-        # Only when the values are transformed, and only where the snap reads:
-        # the search window of each outlet is all the snap compares.
-        require_resolvable_counts(
-            accumulation,
-            max_stored_value=raster_max_near(
-                accumulation.path,
-                [(outlet.x, outlet.y) for outlet in outlets],
-                snap_distance_m,
-            ),
-            member="delineate",
-        )
 
 
 def _file_state(path: str | Path) -> tuple[int, int, int]:

@@ -106,9 +106,10 @@ def test_the_descent_reads_the_channel_rasters_and_the_catchment_of_the_model(
     seen: dict = {}
     descent = SimpleNamespace(without_adjacency=lambda: "bare")
 
-    def fake_tree(rasters, solver_mesh, **kwargs):
+    def fake_exits(rasters, exits, **kwargs):
         seen["rasters"] = rasters
-        return "tree"
+        seen["exits"] = (exits, kwargs)
+        return "exits"
 
     def fake_descent(solver_mesh, **kwargs):
         seen["descent"] = kwargs
@@ -118,7 +119,7 @@ def test_the_descent_reads_the_channel_rasters_and_the_catchment_of_the_model(
         seen["basin"] = (catchment, found)
         return "basin"
 
-    monkeypatch.setattr(nwt_solver, "channel_tree_for_run", fake_tree)
+    monkeypatch.setattr(nwt_solver, "channel_exits_for_build", fake_exits)
     monkeypatch.setattr(nwt_solver, "build_solver_mesh_descent", fake_descent)
     monkeypatch.setattr(nwt_solver, "run_basin", fake_basin)
     monkeypatch.setattr(nwt_solver, "write_descent_sidecar", lambda *a, **k: None)
@@ -131,7 +132,9 @@ def test_the_descent_reads_the_channel_rasters_and_the_catchment_of_the_model(
 
     catchment = solver.inputs.geometry.catchment
     assert seen["rasters"] is CHANNEL
-    assert seen["descent"]["channel_tree"] == "tree"
+    # NWT has no SFR, so A is never required, and the exits are those of the Model.
+    assert seen["exits"] == (solver.inputs.geometry.channel_exits, {})
+    assert seen["descent"]["channel_exits"] == "exits"
     assert seen["descent"]["geographic"] is catchment
     assert seen["basin"] == (catchment, descent)
     assert (result, solver.descent_basin) == ("bare", "basin")

@@ -28,6 +28,24 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `hmp spinup`, which carries both, or start from `flow.restart_from`.
 - A transport run behind a steady start whose heads did not converge stops with `SolverDivergedError`, where it used
   to start with a warning. The replay of a sealed run still warns.
+- MODFLOW 6 can rerun a solved model for a new K or Sy. It copies the input files of the solved run, rewrites only NPF
+  and DRN for K, STO for Sy, and the file of the properties, and the result is bit-identical to a new build. A start
+  from a steady or cyclic solve, a change that turns XT3D on or off, a change of the drain cells, other binaries or
+  another shared forcing folder still rebuild.
+- `[solver.boussinesq] exchange_mesh` names a mesh bundle folder that the Boussinesq solver reads as its cells, with
+  their conductivity and storage. It is a developer option for the validation cases. A relative path is read from the
+  folder of the TOML file.
+- The `catchment` mesh engine meshes the catchment as one polygon cell, for a global model. It
+  declares the `lumped` capability, and a solver that accepts any planar engine does not read
+  it.
+- `MeshRequest` carries the catchment outline. The planner fills it for a lumped engine only,
+  so the hash of every other request is unchanged.
+- The `center_kind` attribute of a mesh can say `interior_point`, the center of the one cell of
+  the `catchment` engine, a point inside it from shapely's `point_on_surface`.
+- The terrain port accepts the conditioning method `"provided"`, and
+  `ConditionedDem.provided(path)` wraps a DEM that another tool conditioned. Both engines route
+  it like any conditioned DEM, and `condition_dem` refuses it with `TerrainRequestError`. The
+  port does not check that the DEM has no depression.
 
 ### Changed
 
@@ -203,6 +221,66 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   there, and `LOG_METRICS`, `DIMENSIONLESS` and `CLIPPED_METRICS` became flags of the table rows.
 - `calibration.evaluator`, `calibration.forward_model`, `mesh.engine` and `geographic.terrain_engine` are refused with
   one sentence that names the key, the value and the names this installation serves.
+- A solver backend is called through `validate`, `build`, `run`, `extract` and `cleanup`. It receives a frozen `Model`,
+  its options and a `RunSlot` that names its folder, its run name, its solver binaries, whether to stop before the
+  solve, and the folder of the forcing files a calibration trial shares. `execute` is gone, and `RunExecutionResult` is
+  now `SolverRun`, with `primary_model` renamed `solver_model` and `solver_output_dir` renamed `output_dir`.
+- `extract` receives a `Retention` of `hydromodpy.results.storage.kept`, built from `keep_per_cell_budget` and
+  `keep_solver_files`, instead of keywords read from its signature. The extractor port `OutputAdapter` moved to
+  `hydromodpy.solver.base.adapter_protocol`, and an extractor answers `extract(solver_run, store, retention)`. The
+  dry-cell sentinels of MODFLOW-NWT come from its own options, and the start date and the vertical layout from the
+  `Model` of the run.
+- `extract_observables(ctx, store, requests)` of a flow adapter is now `observables(solver_run, requests)`,
+  `locate_cell` and `top_active_layer` take the `SolverRun`, and `declared_observables` receives the ids of the active
+  conditions of `[flow]` instead of the configuration.
+- The runner of a plan records one `SolverRun` per run in `execution.solver_runs`, which replaces `models_by_run_id` and
+  `output_dirs_by_run_id`. A consumer reads the product of its run as `RunContext.solver_run`, and a transport run reads
+  its flow run as `RunContext.upstream`.
+- A calibration trial asks for its run name, its stop before the solve and its forcing folder through a typed
+  `SlotRequest` on the setup, which replaces `setup.flow_runtime_overrides`. The solver no longer recognises a trial by
+  the name of its folder. `TrialSandbox.flow_overrides` is now `TrialSandbox.slot_request()`.
+- The flow adapters moved to `solver/<backend>/adapter.py` for `modflow6`, `modflow_nwt` and `boussinesq`, and
+  `solver/boussinesq/adapters/` is gone. The transport adapters stay in `adapters/`.
+- The Boussinesq settings class `FlowRuntimeConfig` of `hydromodpy.model.runtime_config` is now `BoussinesqOptions` of
+  `hydromodpy.solver.boussinesq.options`, the table `[solver.boussinesq]`. `FLOW_RUNTIME_KEYS` now lives in
+  `hydromodpy.model.flow_config`.
+- The Boussinesq scratch folder is named after the run like the other backends, so parallel calibration trials each get
+  their own folder. Its extractor writes the diagnostics of the variational inequality solve into the diagnostics folder
+  of the run store when it extracts.
+- The auxiliary steady solve and the spin-up cycles of MODFLOW 6 solve in a slot derived from the run, with its binaries
+  and its shared forcing folder.
+- A resumed run puts back one `SolverRun` per solver folder it recorded, and a missing solver output folder raises
+  `NothingThereError`. A per-cell budget that `keep_per_cell_budget = false` leaves out raises `ConfigError`.
+- `hmp catalog rerun` calls `hydromodpy.project.dispatch.rerun.rerun_config` directly.
+- `engine_accepted` moves from `hydromodpy.mesh.port` to `hydromodpy.mesh.registry` and
+  resolves the engine itself.
+- The terrain port is shorter. `require_batch`, `require_rank_preserving`,
+  `require_snap_method` and `require_untransformed` are folded into `require_delineable` and
+  `require_stream`, and the refusals of an engine are `require_conditioning`,
+  `require_accumulation`, `require_stream` and `require_delineable`. A refusal keeps its
+  exception class, and some messages are shorter. `terrain.port` has no `__all__`.
+- `get_whitebox_backend`, `clear_whitebox_backend_cache`, `resolve_delineation_backend` and
+  `backend_has_callables` are defined in `hydromodpy.catchment.delineation`. The classes
+  `WhiteboxWorkflowsBackend`, `WhiteboxRasterBackend`, `WhiteboxFlowBackend` and
+  `WhiteboxDelineationBackend` are no longer attributes of that package. Import them from
+  `hydromodpy.catchment.delineation.whitebox_workflows_backend`.
+- The channel tree and the per-cell discharge routing move from
+  `hydromodpy.solver.modflow_common` to `hydromodpy.catchment.drainage.channel_tree` and
+  `hydromodpy.catchment.drainage.routing`. `project_channel_tree` is split in two:
+  `channel_exits` reads the cell numbers of the pixels of A, and `pin_channel` reads the active
+  columns and the lakes of a backend. `upstream_area` takes the cell areas and returns the
+  areas with the largest drainable share, in place of `upstream_area_m2`.
+  `channel_rasters_for_run` moves to `hydromodpy.model.domain.geometry`.
+  `routing_graph_for_model` and `flat_cell_index` move to
+  `hydromodpy.solver.modflow_common.observable_extraction`.
+- `Model.geometry.channel_exits` carries the river network A read on the mesh cells.
+  `prepare_solver` reads it once, when the river network step ran or an SFR network was
+  delineated from A and the three rasters exist.
+- `build_solver_mesh_descent` takes `channel_exits` in place of `channel_tree`.
+  `channel_exits_for_build` of `hydromodpy.solver.modflow_common.flow_directions` replaces
+  `channel_tree_for_run`: it keeps the rule of a build (A off, no folder, rasters missing, or
+  an SFR network that needs A) and returns the exits of the `Model`, and a `Model` that did not
+  read an A the build needs is refused.
 
 ### Removed
 
@@ -237,6 +315,22 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `hydromodpy.model.boundaries.boundary_condition_registry`, and `layering_refusal` of
   `hydromodpy.solver.boussinesq.solver_contract`. A solver says what it builds through its `supports`.
   `BoundaryConditionBundle.unsupported_active_ids(backend)` is now `active_ids_outside(supports)`.
+- `RunResult`, `STOP_BEFORE_THE_SOLVE`, `post_run_results`, `resolve_run_model_name`, `resolve_base_model_name` and
+  `flow_model_name`, and the re-exports of `hydromodpy.solver`, `hydromodpy.solver.base` and
+  `hydromodpy.solver.modflow6.adapters`. The run name is chosen once by the runner.
+- `PRIVATE_TRIAL_RECHARGE_KEY` and `TRIAL_RECHARGE_DIRNAME` of `hydromodpy.solver.modflow6.builders.recharge`. The
+  calibration sandbox names the forcing folder of a trial.
+- `hydromodpy.results.run.rerun_contract` and `ProjectRerunProvider` of `hydromodpy.project.dispatch.rerun`.
+- `resolve_mesh_bundle` of `hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter`, the mesh summary key
+  `output_exchange_bundle_dir` and `SetupContext.mesh_bundle`. A mesh bundle comes from the `exchange_mesh` option.
+- `hydromodpy.catchment.delineation.registry` (`get_backend`, `register_backend`,
+  `available_backends`, `clear_backend_cache`) and the `kind` argument of
+  `get_whitebox_backend`. `get_whitebox_backend()` returns the one Whitebox environment of the
+  process, and a caller passes another backend by argument.
+- `get_whitebox_backend` and `clear_whitebox_backend_cache` of
+  `hydromodpy.catchment.delineation.whitebox_workflows_backend`.
+- `last_largest_drainable_share`, a module value written during a run. `upstream_area` returns
+  the value.
 
 ### Fixed
 

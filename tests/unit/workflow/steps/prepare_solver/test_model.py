@@ -20,6 +20,7 @@ import hydromodpy.workflow.steps.prepare_solver.model as model_module
 import hydromodpy.workflow.steps.prepare_solver.step as step_module
 from hydromodpy.core.exceptions import ConfigError, IncompatibleMeshError
 from hydromodpy.core.state.run_state import ExecutionRegistry, SetupContext
+from hydromodpy.model.domain.geometry import ChannelRasters
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial.state import HeadRule, PriorState
@@ -99,7 +100,7 @@ def test_the_model_is_put_on_the_setup_with_the_members_of_the_flow(tmp_path: Pa
 def test_the_river_rasters_are_chosen_once_for_the_run(tmp_path: Path, monkeypatch) -> None:
     geographic = SimpleNamespace(river_network_enabled=False, correcflow_path=None)
     calls = []
-    chosen = SimpleNamespace(link=None)
+    chosen = ChannelRasters(enabled=False, link=None, pointer=None, accumulation=None)
 
     def fake(geo):
         calls.append(geo)
@@ -112,6 +113,7 @@ def test_the_river_rasters_are_chosen_once_for_the_run(tmp_path: Path, monkeypat
 
     assert calls == [geographic]
     assert model.geometry.raster.channel is chosen
+    assert model.geometry.channel_exits is None
     assert model.geometry.catchment.crs == "EPSG:2154"
 
 

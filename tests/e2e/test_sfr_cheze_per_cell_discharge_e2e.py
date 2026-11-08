@@ -239,16 +239,14 @@ def test_the_routed_outlet_carries_the_whole_catchment_release(tmp_path: Path) -
         require_mt3dms=False,
     )
     import hydromodpy as hmp
+    from hydromodpy.catchment.drainage.routing import route_release_to_discharge
     from hydromodpy.solver.modflow_common.calibration_extractors import (
         extract_release_flux_by_cell_from_cbc,
-    )
-    from hydromodpy.solver.modflow_common.discharge_routing import (
-        route_release_to_discharge,
-        routing_graph_for_model,
     )
     from hydromodpy.solver.modflow_common.observable_extraction import (
         excluded_release_records_for_model,
         release_packages_for_model,
+        routing_graph_for_model,
     )
 
     out_path = tmp_path / "no_sfr_identity"

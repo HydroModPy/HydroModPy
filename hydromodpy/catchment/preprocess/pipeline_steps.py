@@ -36,7 +36,7 @@ from hydromodpy.catchment.algorithms.dem_aggregation import (
 )
 from hydromodpy.catchment.algorithms.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.catchment.algorithms.river_network import resolve_stream_threshold_cells
-from hydromodpy.catchment.delineation.registry import resolve_delineation_backend
+from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.terrain.port import FlowAccumulation
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.filesystem import create_folder

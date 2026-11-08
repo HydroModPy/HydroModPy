@@ -52,7 +52,7 @@ An adapter of a flow solver reads one object, the frozen `Model` of `model/model
 
 | member | what it holds |
 |---|---|
-| `geometry` | the cell mesh, the `Domain`, the raster facts (`RasterGeometry`, with the channel rasters) and the catchment facts (`CatchmentGeometry`) |
+| `geometry` | the cell mesh, the `Domain`, the raster facts (`RasterGeometry`, with the channel rasters), the catchment facts (`CatchmentGeometry`) and the river network A read on the cells (`ChannelExits`, `None` for a run without A) |
 | `properties` | one `FieldParam` per parameter id, and the per-cell values set by `with_properties` |
 | `boundaries` | the boundary conditions and the ids that are active |
 | `recharge`, `etp`, `wells` | the sinks and sources, in m/s and m3/s |

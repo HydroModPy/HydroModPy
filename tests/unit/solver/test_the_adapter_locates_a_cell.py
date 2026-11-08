@@ -101,7 +101,7 @@ class TestOnASolverMesh:
             Modflow6FlowAdapter,
             _collapse_to_disv_cells,
         )
-        from hydromodpy.solver.modflow_common.discharge_routing import flat_cell_index
+        from hydromodpy.solver.modflow_common.observable_extraction import flat_cell_index
 
         model = SimpleNamespace(solver_mesh=regular_solver_mesh(2, 3))
 

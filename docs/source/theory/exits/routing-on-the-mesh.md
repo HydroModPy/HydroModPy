@@ -177,8 +177,9 @@ appears here on the next build.
 ```{hmp-tested-by}
 hydromodpy.catchment.drainage.descent
 hydromodpy.catchment.drainage.filling
+hydromodpy.catchment.drainage.channel_tree
+hydromodpy.catchment.drainage.routing
 hydromodpy.solver.modflow_common.flow_directions
-hydromodpy.solver.modflow_common.channel_tree
 ```
 
 ## In the code
@@ -188,5 +189,6 @@ hydromodpy.solver.modflow_common.channel_tree
 | The flood, the receivers, the pins | `hydromodpy/catchment/drainage/descent.py` |
 | The flood of the criterion | `hydromodpy/catchment/drainage/filling.py` |
 | $D$ on a solver mesh | `hydromodpy/solver/modflow_common/flow_directions.py` |
-| The channel tree $A$ and its pins | `hydromodpy/solver/modflow_common/channel_tree.py` |
+| The channel tree $A$, read on the cells, and its pins | `hydromodpy/catchment/drainage/channel_tree.py` |
+| The release and the area routed down $D$ | `hydromodpy/catchment/drainage/routing.py` |
 | $D$ in the run store | `hydromodpy/solver/modflow_common/descent_store.py` |

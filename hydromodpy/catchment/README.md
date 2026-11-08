@@ -6,8 +6,8 @@ the surfaces the model sits on, the routing of water on the cells of the model t
 pick data tiles. The mesh itself is in `hydromodpy/mesh`. The aquifer geometry, the fields and the forcings are in
 `hydromodpy/model`. The package knows no solver and no data provider. The geology source is registered at start-up.
 
-This file is the map of the package. Two sub-packages are ports and have a README of their own, `terrain/` and
-`delineation/`. The other parts have none and are described here.
+This file is the map of the package. One sub-package is a port and has a README of its own, `terrain/`. The other parts
+have none and are described here.
 
 ## Parts
 
@@ -19,12 +19,28 @@ holds the same order.
 | `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits (`RasterSupport`), the surfaces of the domain (`Surface`), and samplers prepared for repeated reads at points |
 | `protocols.py` | the `GeologyDataSource` Protocol that the package needs from outside, and its registration |
 | `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
-| `delineation/` | the backends that route flow on a DEM and delineate a catchment. `whitebox_workflows_backend/` is the one shipped (README) |
+| `delineation/` | the one Whitebox Workflows environment of the process, in `whitebox_workflows_backend/`, and the two helpers that read a backend |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader (README) |
 | `algorithms/` | one module per processing block: the ground, the flow products, the catchment, the zones, the river and hydrographic networks, the lakes, the SFR reaches |
 | `synthetic/` | analytic catchments with no DEM, for validation, and `[geographic.synthetic]` |
 | `preprocess/` | the pipeline before the simulation: the run, its cache, the `[geographic]` configuration and the runtime objects others read |
-| `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D and the downslope distance |
+| `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D, the downslope distance, the channel tree of the river network A (`channel_tree.py`) and the routing of a release to a discharge (`routing.py`) |
+
+## The Whitebox backend
+
+`delineation/whitebox_workflows_backend/` wraps Whitebox Workflows in a facade, `WhiteboxWorkflowsBackend`, with three
+parts that share one Whitebox environment. `raster` reads and writes files, `flow` runs the depressions, the D8 pointer
+and the accumulation, and `delineation` snaps pour points and traces watersheds and streams. Only `raster.py` and the
+child script `depression_child.py` import `whitebox_workflows`.
+
+A process holds one facade. `get_whitebox_backend()` in `delineation/__init__.py` builds it on the first call, and
+`clear_whitebox_backend_cache()` drops it. Importing `delineation` does not load Whitebox, so a caller that needs a
+class of the backend imports it from `whitebox_workflows_backend`. A function that takes a backend as an argument
+receives it from `resolve_delineation_backend(backend)`, which returns the argument when there is one.
+
+Whitebox 1.3.5 can end the process that calls it, with no exception, when two of its threads race in a depression tool.
+So `isolated.py` runs depression removal in a child Python process, and the parent runs it again after a crash, three
+attempts in all.
 
 ## How the work flows
 
@@ -83,8 +99,8 @@ catchment/
 │   ├── regions.py             names and codes of the regions
 │   ├── france.py              codes, bounding boxes and geometries
 │   └── departement.gpkg       bundled department polygons, Lambert-93
-├── delineation/               catchment delineation and flow routing backends
-│   ├── registry.py            backend name to backend class
+├── delineation/               the Whitebox environment of the process
+│   ├── __init__.py            get_whitebox_backend and the two backend helpers
 │   └── whitebox_workflows_backend/   raster, flow and delineation sub-backends
 ├── terrain/                   the terrain port and its engines
 │   ├── port.py                TerrainEngine and its value types
@@ -116,7 +132,9 @@ catchment/
     ├── filling.py             depression filling
     ├── pins.py                pinned cells a descent passes through
     ├── descent.py             the descent D
-    └── distance.py            downslope distance to a mask
+    ├── distance.py            downslope distance to a mask
+    ├── channel_tree.py        the river network A read around a mesh, and its projection on the cells
+    └── routing.py             a per-cell release routed downstream, and the area upstream of a cell
 ```
 
 The `__init__.py` files hold a docstring and export no name. A name is imported from the module that defines it, for
@@ -140,8 +158,9 @@ Four more rules hold inside.
 1. `terrain/` imports `core` and itself, and one thing more. `WhiteboxTerrainEngine.__init__` imports
    `catchment.delineation` inside the function, and only when it is given no backend. A third-party engine needs
    nothing of HydroModPy but the port module. `tests/unit/architecture/test_terrain_port_stands_alone.py` checks it.
-2. `drainage/` imports `core` and itself. `hydromodpy/mesh/planning/height_above_stream.py` reads it, and `terrain/`
-   and `preprocess/` do not, because they work on D8 pixels before the mesh exists.
+2. `drainage/` imports `core`, itself, `terrain/` and `algorithms/`. `hydromodpy/mesh/planning/height_above_stream.py`
+   reads it, and `terrain/` and `preprocess/` do not, because they work on D8 pixels before the mesh exists.
+   `channel_tree.py` reads the D8 table of `terrain/` and the pointer name of `algorithms/flow_products.py`.
 3. `algorithms/` reads no configuration of the pipeline. Only `pipeline_steps.py` in `preprocess/` names
    `GeographicConfig`, under `TYPE_CHECKING`, and the other modules take the config as an argument.
 4. A third-party terrain engine joins through the entry-point group `hydromodpy.terrain.engine`. The conformance suite
@@ -155,13 +174,14 @@ Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `resul
 
 | to add | where |
 |---|---|
-| a delineation backend | a loader registered with `register_backend` in `delineation/registry.py`. This is the one registry that does not use the engine of `core/plugin_registry.py`, and it stays so until the delineation port is written |
+| a Whitebox tool | a method of the part it belongs to in `delineation/whitebox_workflows_backend/`, as a pair, a `*_raster` or `*_vector` method on objects in memory and a method that reads and writes files. A depression tool that can end the process also goes to `DEPRESSION_TOOLS` in `isolated.py` |
 | a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain_engines.register` in `terrain/registry.py` or on the `hydromodpy.terrain.engine` entry-point group |
 | a geographic product | a module in `algorithms/`, called from `preprocess/pipeline.py`, and a field on `GeographicConfig` for its options |
 | a `[geographic]` key | a field of the Pydantic model in `preprocess/geographic_config.py` or in the file of its sub-table, with its description |
 | a name or place of an output file | `algorithms/geographic_paths.py`, and the tree list of `preprocess/geographic_cache.py` when a resume must find it |
 | a synthetic topography | `synthetic/synthetic_config.py`, then `synthetic/topography.py` |
-| a routing rule or a distance on the model top | `drainage/graph.py`, `drainage/descent.py` or `drainage/distance.py` |
+| a routing rule or a distance on the model top | `drainage/graph.py`, `drainage/descent.py`, `drainage/distance.py` or `drainage/routing.py` |
+| how the river network A is read or pinned on the cells | `drainage/channel_tree.py` |
 | another country for the departments | a new module beside `administrative/france.py` |
 | a mesh engine | a class that satisfies the port in `hydromodpy/mesh/port.py`, see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |
 | a capability | a `CapabilityDecl` and a worker beside the code, see `hydromodpy/schema/README.md` |
@@ -176,6 +196,9 @@ configs and cached trees with the helpers of `tests/_helpers/geographic_cases.py
 ```bash
 pytest tests/unit/catchment -q
 ```
+
+The CI runs `tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py` in its own
+step, apart from the rest of the suite, because the Whitebox binding is not safe under pytest-xdist fork distribution.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` keeps a coverage floor for `preprocess/`, `terrain/`,
 `delineation/` and `administrative/`, and the floors only go up. The parameter reference of the table is

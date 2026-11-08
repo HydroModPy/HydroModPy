@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import replace
+from typing import get_args
 
 import numpy as np
 import pytest
@@ -13,6 +14,7 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import (
     CellChain,
+    CenterKind,
     FaceFamilyTable,
     MeshIdentity,
     PlanarCellMesh,
@@ -103,6 +105,16 @@ def test_another_qa_keeps_the_mesh_and_its_geometry() -> None:
     assert carried.qa is qa and cell_mesh.qa.notes == ()
     assert carried.geometry is geometry
     assert carried.mesh is cell_mesh.mesh
+
+
+@pytest.mark.parametrize("center_kind", get_args(CenterKind))
+def test_each_center_rule_is_accepted(center_kind: str) -> None:
+    assert replace(_cell_mesh(), center_kind=center_kind).center_kind == center_kind
+
+
+def test_the_center_rules_are_the_four_the_engines_use() -> None:
+    """A run store and the mesh cache write this attribute; a new value is a format change."""
+    assert get_args(CenterKind) == ("generator", "cell_center", "vertex_mean", "interior_point")
 
 
 @pytest.mark.parametrize("crs_wkt", ["", "   "])

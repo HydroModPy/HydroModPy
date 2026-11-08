@@ -22,7 +22,7 @@ def _in_memory(calls: list[str]) -> SimpleNamespace:
 
 
 def _on_disk(calls: list[str]) -> SimpleNamespace:
-    """The file API a backend registered through ``register_backend`` may offer instead."""
+    """The file API a backend passed as an argument may offer instead."""
     return SimpleNamespace(
         clip_raster_to_polygon=lambda src, poly, dst, maintain_dimensions: write_geotiff(
             dst, np.ones((2, 2)), crs=None

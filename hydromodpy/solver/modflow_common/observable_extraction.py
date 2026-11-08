@@ -19,6 +19,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.catchment.drainage.graph import DownhillGraph
+from hydromodpy.catchment.drainage.routing import route_release_to_discharge, upstream_area
 from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
@@ -40,12 +42,6 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_saturated_thickness_by_cell_from_hds,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
-from hydromodpy.solver.modflow_common.discharge_routing import (
-    flat_cell_index,
-    route_release_to_discharge,
-    routing_graph_for_model,
-    upstream_area_m2,
-)
 
 RoutedDischargeReader = Callable[[Path, str, "pd.DatetimeIndex | None"], "pd.Series | None"]
 StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tuple[int, int, int]]]
@@ -214,6 +210,52 @@ def excluded_release_records_for_model(model: Any) -> dict[str, str]:
     return excluded
 
 
+def routing_graph_for_model(model: Any) -> DownhillGraph:
+    """Return the graph the release is routed on: the receivers of the descent D.
+
+    D is the routing copy of the top the solver itself meshed, built once by
+    the backend's build: filled so every cell drains, seeded on the rim and the
+    constant-head cells, pinned along the generated network A. A river CHD
+    keeps its steepest descent, so the release passes through it and the
+    outlet keeps the domain sum. Its neighborhood
+    is fixed by the mesh, shared nodes (D8) on quads and shared faces elsewhere.
+    The raster the geographic step conditioned is never read: sampling it at
+    cell centers grows new pits and drops the cells whose center falls on
+    nodata.
+    """
+    descent = getattr(model, "descent", None)
+    if descent is None:
+        raise ValueError(
+            "a per-cell discharge is routed on the descent D of the build, and this model "
+            "carries none: run its pre-processing first."
+        )
+    return descent.metric.graph
+
+
+def flat_cell_index(model: Any, cell: tuple[int, int, int]) -> int:
+    """Return the flat mesh index of a ``(layer, row, col)`` observable cell.
+
+    The release is summed over layers onto one value per planar cell, so the
+    layer is dropped here. On an unstructured mesh a cell arrives as
+    ``(layer, 0, cell_id)`` and the third slot already IS the flat index, which
+    is the convention ``find_cell_at_point`` and the head reader share.
+    """
+    solver_mesh = model.solver_mesh
+    _, row, col = (int(part) for part in cell)
+    n_cells = int(solver_mesh.n_cells)
+    if not solver_mesh.is_structured:
+        if row != 0:
+            raise ValueError(
+                f"an unstructured mesh addresses a cell as (layer, 0, cell_id); got row={row}."
+            )
+        index = col
+    else:
+        index = row * int(solver_mesh.ncol) + col
+    if not 0 <= index < n_cells:
+        raise ValueError(f"cell {cell} maps to flat index {index}, outside the {n_cells} cells.")
+    return index
+
+
 def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return the top and the base of the aquifer and the water-table layer, per cell.
 
@@ -342,7 +384,11 @@ def extract_common_modflow_observables(
         # Static geometry, but it belongs with the discharge: the runoff a gauge
         # sees has to be the runoff over exactly the cells whose release it sees.
         graph = routing_graph_for_model(model)
-        areas = upstream_area_m2(model, graph, catchment_mask=catchment_cell_mask(model))
+        areas = upstream_area(
+            np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1),
+            graph,
+            catchment_mask=catchment_cell_mask(model),
+        ).m2
         for request in area_requests:
             if request.support == "cells":
                 # The whole static field, one row: what a gauge snap searches for
@@ -448,6 +494,8 @@ def _n_cells(model: Any) -> int | None:
 
 __all__ = (
     "extract_common_modflow_observables",
+    "flat_cell_index",
     "release_packages_for_model",
     "resolve_run_output",
+    "routing_graph_for_model",
 )

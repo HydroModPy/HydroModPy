@@ -104,7 +104,8 @@ class SolverAdapter(Protocol):
     """The mesh engine ids whose cells the backend reads.
 
     ``ANY_PLANAR_ENGINE`` of ``mesh/port.py`` stands for every engine whose cells
-    are planar. A transport declares none: it reads the mesh of the flow it follows.
+    are planar and that is not lumped; ``engine_accepted`` of ``mesh/registry.py``
+    is the rule. A transport declares none: it reads the mesh of the flow it follows.
     """
 
     geometry: ClassVar[str]

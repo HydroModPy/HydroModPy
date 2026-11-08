@@ -2,16 +2,19 @@
 
 A backend that builds its grid on the DEM (NWT) reads ``RasterGeometry``, and
 MODFLOW 6 reads it too for the DEM its routing is conditioned on. The rasters
-of the generated river network are chosen once, before the solve, and kept in
-``ChannelRasters``. ``CatchmentGeometry`` says where the catchment closes. The
-arrays and paths are those of the delineation, never copies.
+of the generated river network are chosen once, before the solve, by
+``channel_rasters_for_run``, and kept in ``ChannelRasters``.
+``CatchmentGeometry`` says where the catchment closes. The arrays and paths are
+those of the delineation, never copies.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
+from hydromodpy.catchment.drainage.channel_tree import channel_raster_paths
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 
 
@@ -33,6 +36,42 @@ class ChannelRasters:
     pointer: str | None
     accumulation: str | None
     clipped: tuple[str, ...] = ()
+
+
+def channel_rasters_for_run(geographic: object | None) -> ChannelRasters | None:
+    """The rasters of the generated network A that this run reads, chosen once.
+
+    A is the full-extent stream-link raster of the river-network step (the
+    stream raster when links were not computed, see
+    :func:`~hydromodpy.catchment.drainage.channel_tree.active_channel_raster`),
+    with the D8 pointer it was traced on and its accumulation, all in
+    ``geographic.correcflow_path``. Their paths are returned whether or not the
+    files exist, and the reader checks. The rasters cut to the watershed
+    (``river_stream_link_id_tif`` then ``river_streams_tif``) that exist are
+    kept in ``clipped``: they miss the buffer, so the zonal top sampling reads
+    them only when the full-extent raster is missing.
+
+    ``enabled`` is ``geographic.river_network_enabled``. Nothing is returned for a
+    run that has no corrected-flow folder, no clipped raster and no river
+    network step, which is the run without A.
+    """
+    enabled = bool(getattr(geographic, "river_network_enabled", False))
+    folder = getattr(geographic, "correcflow_path", None)
+    clipped = tuple(
+        str(candidate)
+        for name in ("river_stream_link_id_tif", "river_streams_tif")
+        if (candidate := getattr(geographic, name, None)) and os.path.exists(str(candidate))
+    )
+    if folder is None and not clipped and not enabled:
+        return None
+    if folder is None:
+        return ChannelRasters(
+            enabled=enabled, link=None, pointer=None, accumulation=None, clipped=clipped
+        )
+    link, pointer, accumulation = channel_raster_paths(folder)
+    return ChannelRasters(
+        enabled=enabled, link=link, pointer=pointer, accumulation=accumulation, clipped=clipped
+    )
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -125,4 +164,4 @@ class CatchmentGeometry:
         )
 
 
-__all__ = ["CatchmentGeometry", "ChannelRasters", "RasterGeometry"]
+__all__ = ["CatchmentGeometry", "ChannelRasters", "RasterGeometry", "channel_rasters_for_run"]

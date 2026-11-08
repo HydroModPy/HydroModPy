@@ -19,20 +19,27 @@ import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
+from hydromodpy.catchment.drainage.channel_tree import (
+    ChannelExits,
+    ChannelTree,
+    active_channel_raster,
+    channel_exits,
+    read_channel_tree,
+)
 from hydromodpy.catchment.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.mesh.cells.zonal_stats import rasterize_cell_ids
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.domain.geometry import ChannelRasters, channel_rasters_for_run
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import (
-    ChannelTree,
-    channel_rasters_for_run,
-    channel_tree_for_run,
-)
 from hydromodpy.solver.modflow_common.descent_store import read_descent_sidecar
-from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import (
+    build_solver_mesh_descent,
+    channel_exits_for_build,
+)
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import geometry_of
 from tests._helpers.model_factory import make_model
@@ -51,6 +58,26 @@ def _mesh(nrow: int, ncol: int, top: np.ndarray) -> SolverMesh:
         dx=10.0,
         dy=10.0,
     )
+
+
+def _exits_on(mesh: SolverMesh, tree: ChannelTree) -> ChannelExits:
+    """A read on the cells of ``mesh``, the way ``prepare_solver`` reads it."""
+    labels = rasterize_cell_ids(
+        mesh.planar_mesh, transform=tree.transform, out_shape=tree.link.shape
+    )
+    return channel_exits(tree, labels, n_cells=int(mesh.n_cells))
+
+
+def _read_on(mesh: SolverMesh, rasters: ChannelRasters) -> ChannelExits:
+    """A read from the rasters of a run on a window around ``mesh``, as ``prepare_solver`` does."""
+    vertices = np.asarray(mesh.planar_mesh.vertices, dtype=float)[:, :2]
+    tree = read_channel_tree(
+        link_tif=rasters.link,
+        pointer_tif=rasters.pointer,
+        accumulation_tif=rasters.accumulation,
+        bounds=(*vertices.min(axis=0).tolist(), *vertices.max(axis=0).tolist()),
+    )
+    return _exits_on(mesh, tree)
 
 
 def _model(sfr: dict, **extra) -> SimpleNamespace:
@@ -202,7 +229,7 @@ def test_rectify_on_mesh_traces_d_and_keeps_a_lone_staircase_whole() -> None:
         mesh,
         lake_cells_by_lake={},
         base_level_mask=None,
-        channel_tree=_staircase_tree(nrow, ncol, path),
+        channel_exits=_exits_on(mesh, _staircase_tree(nrow, ncol, path)),
     )
     staircase = [r * ncol + c for r, c in path]
     head_row, head_col = divmod(staircase[0], ncol)
@@ -376,23 +403,23 @@ def test_a_is_read_from_the_corrected_flow_folder_with_or_without_sfr(tmp_path) 
     _write_network_rasters(tmp_path, (5, 5))
     mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
+    rasters = channel_rasters_for_run(geographic)
+    exits = _read_on(mesh, rasters)
 
     for required in (False, True):
-        tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=required)
-
-        assert tree is not None
-        assert np.argwhere(tree.link).tolist() == [[2, 1], [2, 2], [2, 3]]
+        assert channel_exits_for_build(rasters, exits, required=required) is exits
+    # Raster row 2, columns 1 to 3, is mesh row 2 on cells of the same size.
+    assert np.flatnonzero(exits.holds_a).tolist() == [11, 12, 13]
 
 
 def test_a_run_without_the_river_network_rasters_pins_nothing(tmp_path, caplog) -> None:
-    mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
     with caplog.at_level("INFO"):
-        assert channel_tree_for_run(channel_rasters_for_run(geographic), mesh) is None
+        assert channel_exits_for_build(channel_rasters_for_run(geographic), None) is None
     assert "No generated river network A" in caplog.text
     with pytest.raises(FileNotFoundError, match="rasters are missing"):
-        channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=True)
+        channel_exits_for_build(channel_rasters_for_run(geographic), None, required=True)
 
 
 def test_rasters_left_by_an_earlier_configuration_pin_nothing(tmp_path, caplog) -> None:
@@ -400,8 +427,10 @@ def test_rasters_left_by_an_earlier_configuration_pin_nothing(tmp_path, caplog) 
     mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=False)
 
+    rasters = channel_rasters_for_run(geographic)
+
     with caplog.at_level("INFO"):
-        assert channel_tree_for_run(channel_rasters_for_run(geographic), mesh) is None
+        assert channel_exits_for_build(rasters, _read_on(mesh, rasters)) is None
     assert "river network is off" in caplog.text
 
 
@@ -410,11 +439,12 @@ def test_a_link_raster_older_than_the_stream_raster_is_never_read(tmp_path) -> N
     mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
-    for required in (False, True):
-        tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh, required=required)
+    rasters = channel_rasters_for_run(geographic)
+    exits = _read_on(mesh, rasters)
 
-        assert tree is not None
-        assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]
+    for required in (False, True):
+        assert channel_exits_for_build(rasters, exits, required=required) is exits
+    assert np.flatnonzero(exits.holds_a).tolist() == [16, 17, 18]
 
 
 def _write_streams(path, shape: tuple[int, int], row: int, *, age_s: float = 0.0) -> None:
@@ -441,8 +471,6 @@ def _write_streams(path, shape: tuple[int, int], row: int, *, age_s: float = 0.0
 
 
 def test_the_active_raster_of_a_is_one_rule_for_every_reader(tmp_path) -> None:
-    from hydromodpy.solver.modflow_common.channel_tree import active_channel_raster
-
     streams = tmp_path / "dem_streams_full.tif"
     pruned = tmp_path / "dem_streams_pruned_full.tif"
     link = tmp_path / "dem_stream_link_id_full.tif"
@@ -473,10 +501,11 @@ def test_a_with_pruning_and_no_link_raster_is_the_pruned_network(tmp_path) -> No
     mesh = _mesh(5, 5, np.full(25, 10.0))
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
-    tree = channel_tree_for_run(channel_rasters_for_run(geographic), mesh)
+    rasters = channel_rasters_for_run(geographic)
+    exits = _read_on(mesh, rasters)
 
-    assert tree is not None
-    assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]  # the pruned row
+    assert channel_exits_for_build(rasters, exits) is exits
+    assert np.flatnonzero(exits.holds_a).tolist() == [16, 17, 18]  # the pruned row
 
 
 def test_the_zonal_channel_mask_reads_the_same_raster_as_the_projection(tmp_path) -> None:

@@ -15,13 +15,9 @@ import rasterio
 from shapely.geometry import LineString, Point, box
 
 import hydromodpy.catchment.delineation as delineation_pkg
-from hydromodpy.catchment.delineation import get_whitebox_backend
+from hydromodpy.catchment.delineation import clear_whitebox_backend_cache, get_whitebox_backend
 from hydromodpy.catchment.delineation import whitebox_workflows_backend as wbw_backend
-from hydromodpy.catchment.delineation.registry import get_backend
-from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
-    WhiteboxWorkflowsBackend,
-    clear_whitebox_backend_cache,
-)
+from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 from tests._helpers.geotiffs import write_geotiff
 
 # The whitebox_workflows native binding is not safe under pytest-xdist fork
@@ -59,19 +55,16 @@ def slope(tmp_path: Path) -> SimpleNamespace:
     return layers
 
 
-@pytest.mark.parametrize(
-    "kind", [None, "whitebox_workflows", "Workflows", "wbw", "whitebox-workflows"]
-)
-def test_every_spelling_of_whitebox_workflows_selects_the_one_shared_backend(kind):
+def test_two_calls_return_the_one_backend_until_the_cache_is_cleared():
     clear_whitebox_backend_cache()
-    backend = get_whitebox_backend(kind)
+    backend = get_whitebox_backend()
     assert isinstance(backend, WhiteboxWorkflowsBackend)
-    assert backend is get_whitebox_backend() is get_backend()
-    delineation_pkg.clear_whitebox_backend_cache()
-    assert get_whitebox_backend(kind) is not backend
+    assert get_whitebox_backend() is backend
+    clear_whitebox_backend_cache()
+    assert get_whitebox_backend() is not backend
 
 
-def test_the_package_exposes_the_three_thematic_backends_lazily():
+def test_the_package_exposes_the_three_thematic_backends():
     """The production surface: ``raster``, ``flow`` and ``delineation`` of the facade."""
     surfaces = {
         "WhiteboxRasterBackend": ("read_raster", "write_raster", "clip_raster_to_polygon"),
@@ -79,10 +72,12 @@ def test_the_package_exposes_the_three_thematic_backends_lazily():
         "WhiteboxDelineationBackend": ("watershed", "extract_streams", "snap_pour_points"),
     }  # fmt: skip
     for name, methods in surfaces.items():
-        cls = getattr(delineation_pkg, name)
-        assert cls is getattr(wbw_backend, name)
+        cls = getattr(wbw_backend, name)
         assert all(callable(getattr(cls, method)) for method in methods)
-    assert delineation_pkg.WhiteboxWorkflowsBackend is WhiteboxWorkflowsBackend
+    backend = WhiteboxWorkflowsBackend()
+    assert isinstance(backend.raster, wbw_backend.WhiteboxRasterBackend)
+    assert isinstance(backend.flow, wbw_backend.WhiteboxFlowBackend)
+    assert isinstance(backend.delineation, wbw_backend.WhiteboxDelineationBackend)
 
 
 @pytest.mark.parametrize(
@@ -90,9 +85,9 @@ def test_the_package_exposes_the_three_thematic_backends_lazily():
     [
         (lambda: delineation_pkg.WhiteboxToolsBackend, AttributeError, None),
         (lambda: importlib.import_module("hydromodpy.catchment.delineation.whitebox_tools_backend"), ModuleNotFoundError, None),
-        (lambda: get_whitebox_backend("whitebox"), ValueError, "only 'whitebox_workflows'"),
+        (lambda: get_whitebox_backend("whitebox"), TypeError, "positional argument"),
     ],
-    ids=["whitebox_tools_alias", "whitebox_tools_backend_module", "legacy_whitebox_selection"],
+    ids=["whitebox_tools_alias", "whitebox_tools_backend_module", "backend_selector_argument"],
 )  # fmt: skip
 def test_a_retired_whitebox_tools_name_is_gone(load, error, match):
     sys.modules.pop("hydromodpy.catchment.delineation.whitebox_tools_backend", None)
@@ -169,7 +164,7 @@ def test_a_raster_is_written_compressed_only_when_asked(slope, tmp_path: Path):
 
 @pytest.mark.allow_subprocess  # depression removal runs in a child
 def test_whitebox_workflows_backend_smoke_operations(slope, tmp_path: Path):
-    backend = get_whitebox_backend("whitebox_workflows")
+    backend = get_whitebox_backend()
     dem, polygon, points, lines = (str(slope.dem), str(slope.polygon), str(slope.points), str(slope.lines))  # fmt: skip
     names = """dem_fill.tif dem_breach.tif dem_direc.tif dem_acc.tif dem_acc_cells.tif dem_clip.tif
         points_clip.shp points_snap.shp watershed.tif watershed.shp watershed_lines.shp points.tif

@@ -1,72 +1,49 @@
-"""Catchment delineation backends.
+"""The Whitebox environment of the process, and the two helpers that read a backend.
 
-Runtime entry points:
-
-- ``WhiteboxWorkflowsBackend`` - facade aggregating raster IO, flow analysis,
-  and delineation sub-backends.
-- ``WhiteboxRasterBackend`` / ``WhiteboxFlowBackend`` /
-  ``WhiteboxDelineationBackend`` - thematic sub-backends accessible via the
-  facade attributes ``raster`` / ``flow`` / ``delineation``.
-- ``delineation.registry.get_backend(name)`` - resolve a registered backend
-  by name with graceful fallback when an optional dependency is missing.
-- ``get_whitebox_backend()`` - shortcut returning the default
-  workflows-backed facade.
+One process holds one Whitebox environment. ``get_whitebox_backend`` builds it on the first
+call and returns the same object after. Importing this package does not load
+``whitebox_workflows``, so the classes of the backend are imported from
+``hydromodpy.catchment.delineation.whitebox_workflows_backend``.
 """
 
 from __future__ import annotations
 
+from functools import cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
-__all__ = [
-    "WhiteboxDelineationBackend",
-    "WhiteboxFlowBackend",
-    "WhiteboxRasterBackend",
-    "WhiteboxWorkflowsBackend",
-    "clear_whitebox_backend_cache",
-    "get_whitebox_backend",
-]
+
+@cache
+def get_whitebox_backend() -> WhiteboxWorkflowsBackend:
+    """Return the one Whitebox facade of the process, built on the first call."""
+    try:
+        from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
+            WhiteboxWorkflowsBackend,
+        )
+    except ImportError as exc:
+        raise ImportError(
+            f"Backend 'whitebox_workflows' is not available: missing optional dependency ({exc})."
+        ) from exc
+    return WhiteboxWorkflowsBackend()
 
 
 def clear_whitebox_backend_cache() -> None:
-    """Clear the shared workflows backend singleton."""
-    from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
-        clear_whitebox_backend_cache as _clear_whitebox_backend_cache,
-    )
-
-    _clear_whitebox_backend_cache()
+    """Drop the shared facade, so the next call builds a new one (used by tests)."""
+    get_whitebox_backend.cache_clear()
 
 
-def get_whitebox_backend(kind: str | None = None) -> WhiteboxWorkflowsBackend:
-    """Return the shared workflows backend used by runtime code."""
-    from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
-        get_whitebox_backend as _get_whitebox_backend,
-    )
-
-    return _get_whitebox_backend(kind)
+def resolve_delineation_backend(backend: object | None = None) -> object:
+    """Return the injected backend, or the Whitebox facade of the process."""
+    if backend is not None:
+        return backend
+    return get_whitebox_backend()
 
 
-def __getattr__(name: str):
-    if name in {
-        "WhiteboxDelineationBackend",
-        "WhiteboxFlowBackend",
-        "WhiteboxRasterBackend",
-        "WhiteboxWorkflowsBackend",
-    }:
-        from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
-            WhiteboxDelineationBackend,
-            WhiteboxFlowBackend,
-            WhiteboxRasterBackend,
-            WhiteboxWorkflowsBackend,
-        )
-
-        mapping = {
-            "WhiteboxDelineationBackend": WhiteboxDelineationBackend,
-            "WhiteboxFlowBackend": WhiteboxFlowBackend,
-            "WhiteboxRasterBackend": WhiteboxRasterBackend,
-            "WhiteboxWorkflowsBackend": WhiteboxWorkflowsBackend,
-        }
-        return mapping[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+def backend_has_callables(backend: object, component_name: str, *method_names: str) -> bool:
+    """Return true when one backend component exposes all named methods."""
+    component = getattr(backend, component_name, None)
+    if component is None:
+        return False
+    return all(callable(getattr(component, method_name, None)) for method_name in method_names)

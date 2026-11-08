@@ -71,7 +71,8 @@ Who imports the model: `solver` (most of it), `workflow`, `calibration`, `config
    same cascade runs for a calibration trial.
 4. Freeze. `prepare_solver` calls `model_from_flow` and gets a `Model`. It holds the same objects as the
    `Flow`, in SI, with the geometry, the time grid and the shared solver options beside them. A prior run is
-   read into a `PriorState` there, so no adapter opens a Zarr.
+   read into a `PriorState` there, so no adapter opens a Zarr, and the river network A is read on the cells
+   there (`Geometry.channel_exits`, `None` for a run without A), so no adapter projects A itself.
 5. Solve. A solver adapter reads the `Model` and never the `Flow`. It resolves each dated forcing to one
    value per stress period with `forcing/time_forcing.resolve_period_values_from_forcing`. Boundary support
    per backend comes from `FLOW_BOUNDARY_DEFINITIONS`. A change to the model is a new object, made by

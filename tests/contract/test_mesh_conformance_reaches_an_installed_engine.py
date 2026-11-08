@@ -12,7 +12,9 @@ running the suite against it in a subprocess. What is asserted is the plumbing:
 the probe delegates the meshing to ``RegularMeshEngine``, so what passes here is
 "an out-of-tree distribution is discovered, built and held to the port", not
 "an independent mesher is correct". The negative control is an engine that
-passes the registry and puts its cell centers outside their cells.
+passes the registry and puts its cell centers outside their cells. A lumped
+engine, which meshes the catchment as one cell, is reached the same way and
+passes the same suite, under the conditions its capability sets.
 
 Deliberately a subprocess. ``importlib.metadata`` reads the entry-point group off
 ``sys.path`` once and the registry caches what it found, so a plugin installed
@@ -41,6 +43,32 @@ no node of that name without the probe.
 """
 
 BROKEN_ENGINE_ID = "conformance_probe_off_center"
+
+LUMPED_ENGINE_ID = "conformance_probe_one_cell"
+"""The name the installed lumped distribution answers to, written here and in its module."""
+
+LUMPED_PROBE_MODULE = '''\
+"""An out-of-tree lumped mesh engine: the catchment as one cell, delegated to the built-in one."""
+
+from __future__ import annotations
+
+import dataclasses
+from typing import ClassVar
+
+from hydromodpy.mesh.engines.catchment.engine import CatchmentMeshEngine
+from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity
+
+
+class OneCellMeshEngine:
+    engine_id: ClassVar[str] = "conformance_probe_one_cell"
+    engine_version: ClassVar[str] = "0.1.0"
+    capabilities: ClassVar = CatchmentMeshEngine.capabilities
+
+    def build(self, request):
+        cell_mesh = CatchmentMeshEngine().build(request)
+        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
+        return dataclasses.replace(cell_mesh, identity=identity)
+'''
 
 PROBE_MODULE = '''\
 """An out-of-tree mesh engine, as a third party would ship one.
@@ -124,6 +152,19 @@ def installed_broken_probe(tmp_path_factory) -> Path:
         "hydromodpy.mesh.engine",
         BROKEN_ENGINE_ID,
         "OffCenterMeshEngine",
+    )
+
+
+@pytest.fixture(scope="module")
+def installed_lumped_probe(tmp_path_factory) -> Path:
+    """A distribution that publishes an engine declaring the lumped capability."""
+    return unpack(
+        tmp_path_factory.mktemp("lumped_probe_site_packages"),
+        "hmp_mesh_conformance_lumped_probe",
+        LUMPED_PROBE_MODULE,
+        "hydromodpy.mesh.engine",
+        LUMPED_ENGINE_ID,
+        "OneCellMeshEngine",
     )
 
 
@@ -233,3 +274,37 @@ def test_an_engine_the_registry_accepts_and_a_solver_cannot_use_is_caught(
 
     assert result.returncode != 0
     assert "test_the_center_of_a_cell_lies_in_the_cell" in result.stdout
+
+
+def test_every_conformance_assertion_passes_against_an_installed_lumped_engine(
+    installed_lumped_probe, tmp_path
+) -> None:
+    """A third-party lumped engine is reached by the entry-point group and held to the suite.
+
+    The cases one cell cannot hold skip for it, and the cases it holds pass,
+    the one-cell invariants included.
+    """
+    expected = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_lumped_probe,
+    )
+    probe_nodes = collected(expected.stdout, CONFORMANCE_SUITE, LUMPED_ENGINE_ID)
+
+    result = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "probe",
+        "-q",
+        "-k",
+        LUMPED_ENGINE_ID,
+        site_packages=installed_lumped_probe,
+    )
+
+    assert any("test_a_lumped_engine_meshes_the_catchment_as_one_cell" in n for n in probe_nodes)
+    assert result.returncode == 0, result.stdout[-8000:]
+    assert _count(result.stdout, "failed") == 0
+    passed, skipped = _count(result.stdout, "passed"), _count(result.stdout, "skipped")
+    assert passed > 0, result.stdout[-4000:]
+    assert passed + skipped == len(probe_nodes)

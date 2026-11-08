@@ -33,7 +33,14 @@ __all__ = [
     "build_planar_cell_mesh",
 ]
 
-CenterKind = Literal["generator", "cell_center", "vertex_mean"]
+CenterKind = Literal["generator", "cell_center", "vertex_mean", "interior_point"]
+"""How an engine places the center of a cell.
+
+``generator`` is the Voronoi generator, ``cell_center`` the center of a regular
+cell, ``vertex_mean`` the mean of the vertices of a triangle, and
+``interior_point`` a point inside the cell that shapely's ``point_on_surface``
+gives, for a cell whose vertex mean may fall outside it (a whole catchment).
+"""
 
 _CELL_TYPES = frozenset({CellType.QUADRILATERAL, CellType.TRIANGLE, CellType.POLYGON})
 
@@ -183,8 +190,8 @@ class PlanarCellMesh:
     """A planar mesh of cells with its centers, CRS, families, identity and QA.
 
     ``centers`` is the only cell center rule for every consumer: the Voronoi
-    generator, the regular cell center or the triangle vertex mean, as
-    ``center_kind`` says. Boundary sides are face families named
+    generator, the regular cell center, the triangle vertex mean or a point
+    inside a catchment cell, as ``center_kind`` says. Boundary sides are face families named
     ``boundary:<label>`` with ``cell_b = -1``. ``smoothed_catchment`` is the
     outline of the catchment the planner smoothed before meshing, in the CRS of
     the mesh, None when the mesh follows the delineated polygon as it is: a

@@ -34,7 +34,7 @@ from hydromodpy.catchment.algorithms.river_network import (
     build_river_network_products,
 )
 from hydromodpy.catchment.algorithms.stream_dem_agreement import report_network_dem_agreement
-from hydromodpy.catchment.delineation.registry import resolve_delineation_backend
+from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.preprocess.capped_breach_config import capped_breach_of
 from hydromodpy.catchment.preprocess.domain_rasters import (
     DomainRasterProducts,

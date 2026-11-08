@@ -9,10 +9,11 @@ and the run provenance rely on.
 Arrays handed to these classes are copied and made read-only, so a request
 cannot change after its hash was taken. A request refuses what an engine
 cannot mesh: a grid whose steps, shape and bounds disagree, a size that is not
-finite and positive, an invalid domain, a family named twice, a line without
-length, zones that do not match the lines, an index outside the vertices. It
-does not check the type of a member, which its annotation states: the config
-refuses what a user writes, and the planner fills each member.
+finite and positive, an invalid domain, a catchment that is not one valid
+polygon, a family named twice, a line without length, zones that do not match
+the lines, an index outside the vertices. It does not check the type of the
+other members, which their annotation states: the config refuses what a user
+writes, and the planner fills each member.
 """
 
 from __future__ import annotations
@@ -319,6 +320,10 @@ class MeshRequest:
     ``source_runs`` holds the ``sim_id`` of each earlier run whose result shaped
     the size field, sorted: the mesh depends on those runs, so they are hashed,
     and another run gives another request even where the sizes agree.
+    ``catchment`` is the outline of the catchment the outlet closes. The planner
+    fills it for an engine that meshes the catchment as one cell (a lumped
+    engine) and leaves it None for every other engine, so their hash does not
+    read it.
     """
 
     domain: Polygon
@@ -331,6 +336,7 @@ class MeshRequest:
     input_triangulation: InputTriangulation | None = None
     notes: tuple[str, ...] = ()
     source_runs: tuple[str, ...] = ()
+    catchment: Polygon | None = None
 
     def __post_init__(self) -> None:
         """Refuse what no engine can mesh, then sort the lines and freeze the options."""
@@ -356,6 +362,8 @@ class MeshRequest:
         if not all(run.strip() for run in self.source_runs):
             raise MeshRequestError("MeshRequest.source_runs must be a sequence of sim ids")
         object.__setattr__(self, "source_runs", tuple(sorted(set(self.source_runs))))
+        if self.catchment is not None:
+            _check_catchment(self.catchment)
 
     @property
     def crs_wkt(self) -> str:
@@ -374,7 +382,8 @@ class MeshRequest:
         since both decide which cell sits left of a line and how a chain runs.
         The source runs enter only when there are some, so the hash of a
         request that reads no run does not depend on them, and the meshes
-        cached for such requests stay valid.
+        cached for such requests stay valid. The catchment enters the same way,
+        only when there is one, in its normalized form.
         """
         digest = hashlib.sha256()
         _feed(digest, b"hydromodpy.mesh.request/1")
@@ -401,7 +410,18 @@ class MeshRequest:
             _feed(digest, struct.pack("<q", len(self.source_runs)))
             for run in self.source_runs:
                 _feed(digest, run.encode("utf-8"))
+        if self.catchment is not None:
+            _feed(digest, b"catchment")
+            _feed(digest, _wkb(shapely.normalize(self.catchment)))
         return digest.hexdigest()
+
+
+def _check_catchment(catchment: object) -> None:
+    """Refuse a catchment outline that is not one valid polygon with an area."""
+    if not isinstance(catchment, Polygon) or catchment.is_empty:
+        raise MeshRequestError("MeshRequest.catchment must be one non-empty shapely Polygon")
+    if not catchment.is_valid or catchment.area <= 0.0:
+        raise MeshRequestError("MeshRequest.catchment must be a valid polygon with an area > 0")
 
 
 def _feed(digest: _Digest, chunk: bytes) -> None:

@@ -1,5 +1,10 @@
 """The ``release_flux`` observable must read every surface-release package.
 
+The per-cell discharge is routed on the descent D of the build
+(``routing_graph_for_model``), at the flat index of a cell (``flat_cell_index``),
+and the discharge of the catchment takes the drain budget only when the network
+does not route the drainage.
+
 The MF6 builder zeroes the DRN rows on the cells an SFR reach or a stream-role
 CHD already owns, so a DRN-only reading is empty exactly where a stream-network
 calibration aims. These tests write a real MODFLOW 6 compact budget file (imeth
@@ -19,12 +24,19 @@ import pytest
 
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow_common import calibration_extractors as extractors
+from hydromodpy.solver.modflow_common import observable_extraction as extraction
 from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
+    flat_cell_index,
     release_packages_for_model,
+    routing_graph_for_model,
 )
+from tests._helpers.model_factory import make_model
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NCPL = 4
 
@@ -261,3 +273,183 @@ def test_release_flux_observable_unions_sfr_with_drn(tmp_path: Path) -> None:
 
     assert unserved == []
     np.testing.assert_allclose(served["net"].values, [[2.0, 3.0, 1.0, 0.0]])
+
+
+# -- The graph and the cell a per-cell discharge is read on ----------------------
+#
+# The graph was once the steepest descent of the unfilled top, rebuilt per
+# extraction with a per-output neighborhood. It is now the receivers of D, so a
+# diagonal talweg is followed on a quad mesh.
+
+
+def _descent_model(top: np.ndarray) -> SimpleNamespace:
+    """A structured model whose top D is built on, as the build does."""
+    nrow, ncol = top.shape
+    mesh = solver_mesh_from_structured_arrays(
+        nrow=nrow, ncol=ncol, top=top, botm=np.full((1, nrow, ncol), -10.0)
+    )
+    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    return SimpleNamespace(solver_mesh=mesh, descent=descent)
+
+
+def _receiver_pairs(graph) -> set[tuple[int, int]]:
+    return {
+        tuple(sorted((cell, int(receiver))))
+        for cell, receiver in enumerate(graph.downstream)
+        if receiver >= 0
+    }
+
+
+def test_a_structured_cell_maps_to_its_flat_index() -> None:
+    model = _descent_model(np.arange(9, dtype=float).reshape(3, 3))
+
+    assert flat_cell_index(model, (0, 2, 1)) == 2 * 3 + 1
+
+
+def test_a_cell_outside_the_mesh_is_refused() -> None:
+    model = _descent_model(np.arange(9, dtype=float).reshape(3, 3))
+
+    with pytest.raises(ValueError, match="outside"):
+        flat_cell_index(model, (0, 9, 9))
+
+
+def test_a_model_without_a_descent_says_so() -> None:
+    with pytest.raises(ValueError, match="carries none"):
+        routing_graph_for_model(SimpleNamespace(solver_mesh=None))
+
+
+def test_the_graph_is_the_receivers_of_d() -> None:
+    model = _descent_model(np.arange(25, dtype=float).reshape(5, 5))
+
+    graph = routing_graph_for_model(model)
+
+    assert graph is model.descent.metric.graph
+
+
+def test_a_diagonal_talweg_is_followed_on_a_quad_mesh() -> None:
+    n = 30
+    rows, cols = np.meshgrid(np.arange(n), np.arange(n), indexing="ij")
+    top = 100.0 + 0.5 * np.abs(rows - cols) + 0.01 * (rows + cols)
+    model = _descent_model(top)
+
+    graph = routing_graph_for_model(model)
+
+    diagonal = {
+        tuple(sorted((r * n + c, (r + 1) * n + (c + 1))))
+        for r in range(n - 1)
+        for c in range(n - 1)
+    }
+    assert _receiver_pairs(graph) & diagonal
+    assert model.descent.diagonal_neighbors
+
+
+# The routed discharge takes the drain budget only when the network does not route the drainage.
+#
+# With ``route_drainage`` the hillslope drainage reaches the network, so the routed
+# series is the catchment discharge and already holds the runoff. Without it the
+# drainage stays in DRAIN, the routed series would leave it out, and the discharge
+# is the routed series plus the drain budget of the catchment.
+
+_INDEX = pd.date_range("2000-01-01", periods=3, freq="D")
+
+
+_ROUTED = pd.Series([1.0, 1.0, 1.0], index=_INDEX)
+
+
+_DRAIN = pd.Series([0.25, 0.25, 0.25], index=_INDEX)
+
+
+def _network_model(*, route_drainage: bool | None) -> SimpleNamespace:
+    payload = {} if route_drainage is None else {"route_drainage": route_drainage}
+    inputs = make_model(
+        boundaries=BoundaryConditionBundle(conditions={}, active_ids=("sfr",)),
+        sfr={"net": payload},
+    )
+    return SimpleNamespace(inputs=inputs)
+
+
+def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[object, list[str]]:
+    calls: list[str] = []
+
+    def routed_reader(output_dir, model_name, time_index):
+        calls.append("routed")
+        return _ROUTED
+
+    def drain_sum(output_dir, model_name, time_index, *, catchment_mask):
+        calls.append("drain")
+        return _DRAIN
+
+    monkeypatch.setattr(extraction, "extract_discharge_from_cbc", drain_sum)
+    monkeypatch.setattr(extraction, "catchment_cell_mask", lambda model: np.ones(4, dtype=bool))
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
+    served, unserved = extraction.extract_common_modflow_observables(
+        Path("."),
+        "m",
+        model,
+        [request],
+        time_index=_INDEX,
+        routed_discharge_reader=routed_reader,
+    )
+    assert unserved == []
+    return served["catchment"], calls
+
+
+def test_a_network_that_routes_the_drainage_serves_the_routed_series(monkeypatch) -> None:
+    result, calls = _serve(_network_model(route_drainage=True), monkeypatch)
+
+    assert calls == ["routed"]
+    assert result.includes_runoff is True
+    np.testing.assert_allclose(result.values, _ROUTED.to_numpy())
+
+
+def test_a_network_that_does_not_say_routes_the_drainage(monkeypatch) -> None:
+    result, calls = _serve(_network_model(route_drainage=None), monkeypatch)
+
+    assert calls == ["routed"]
+    assert result.includes_runoff is True
+
+
+def test_a_network_that_keeps_the_drainage_out_adds_the_drain_budget(monkeypatch) -> None:
+    result, calls = _serve(_network_model(route_drainage=False), monkeypatch)
+
+    assert calls == ["routed", "drain"]
+    assert result.includes_runoff is True
+    np.testing.assert_allclose(result.values, (_ROUTED + _DRAIN).to_numpy())
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",))),
+        make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            sfr={"net": {}},
+        ),
+    ],
+    ids=["no_network", "a_network_not_active"],
+)
+def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, inputs) -> None:
+    result, calls = _serve(SimpleNamespace(inputs=inputs), monkeypatch)
+
+    assert calls == ["routed", "drain"]
+    assert result.includes_runoff is True
+    np.testing.assert_allclose(result.values, (_ROUTED + _DRAIN).to_numpy())
+
+
+def test_a_drain_budget_that_cannot_be_read_leaves_the_routed_series(monkeypatch) -> None:
+    def refuse(*args, **kwargs):
+        raise NotImplementedError("a mover record is in the budget")
+
+    monkeypatch.setattr(extraction, "extract_discharge_from_cbc", refuse)
+    monkeypatch.setattr(extraction, "catchment_cell_mask", lambda model: np.ones(4, dtype=bool))
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
+    served, _ = extraction.extract_common_modflow_observables(
+        Path("."),
+        "m",
+        _network_model(route_drainage=False),
+        [request],
+        time_index=_INDEX,
+        routed_discharge_reader=lambda *args: _ROUTED,
+    )
+
+    np.testing.assert_allclose(served["catchment"].values, _ROUTED.to_numpy())

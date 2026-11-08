@@ -4,6 +4,7 @@ A graded engine gets a size field and its lines resampled on it, a regular grid
 the raw lines, a triangulation read its own outline. A refinement zone refines
 the field where it lies, the planner notes the share of the catchment a zone
 drawn by a threshold covers, and records the earlier runs the mesh depends on.
+A lumped engine gets the catchment outline, and no other engine does.
 """
 
 from __future__ import annotations
@@ -19,7 +20,9 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
+from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.cache import cache_key
+from hydromodpy.mesh.engines.catchment.engine import CatchmentMeshEngine
 from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.mesh.planning import size_terms
@@ -444,3 +447,59 @@ def test_a_zone_without_a_catchment_counts_its_share_of_the_domain() -> None:
     request = plan_mesh_request(_voronoi(), inputs)
 
     assert f"{100.0 * 3 / 100:.1f} %" in _zone_note(request, 0)
+
+
+# A lumped engine meshes the catchment as one cell, so the request carries the
+# catchment outline for it, and for no other engine.
+
+_BASE_HASHES = {
+    ("regular", False): "454e757c1ad7f453d1cc6e63787fafbbb0fdde61bb320ae883eda2da708998f6",
+    ("regular", True): "454e757c1ad7f453d1cc6e63787fafbbb0fdde61bb320ae883eda2da708998f6",
+    ("triangle", False): "a6d560cfbc91429bf2e4ffb4806576c1e2e68394870f88a1758ae6f95d01888a",
+    ("triangle", True): "13f0012bd8947cb26fdb5e4a7e26839dd4359600ba228ea856cc1a2b5c50daa9",
+    ("voronoi", False): "7893f6449937567d1028ca983cc31b0aac8d1e0f1b77e6566b5b3dc66393d882",
+    ("voronoi", True): "1648f0a61a9f8650e6b85e2d96a06a2dc5e768521e88c441d5612c1e4929833e",
+}
+"""Hashes of the planned requests at bcd98022e, before the request had a catchment.
+
+The key is the engine and whether the support is real, with ``_CATCHMENT`` delineated.
+"""
+
+
+def _support(*, real: bool) -> PlanningInputs:
+    if real:
+        return planning_inputs(_GRID, watershed=_CATCHMENT, synthetic=False)
+    return planning_inputs(_GRID)
+
+
+@pytest.mark.parametrize(("engine", "real"), sorted(_BASE_HASHES))
+def test_a_meshed_engine_gets_no_catchment_and_keeps_its_hash(engine: str, real: bool) -> None:
+    request = plan_mesh_request(MeshConfig(engine=engine, cell_size=40.0), _support(real=real))
+
+    assert request.catchment is None
+    assert request.canonical_hash() == _BASE_HASHES[engine, real]
+
+
+def test_a_lumped_engine_gets_the_delineated_catchment_and_not_the_domain() -> None:
+    request = plan_mesh_request(MeshConfig(engine="catchment"), _support(real=True))
+
+    assert request.catchment is not None
+    assert shapely.normalize(request.catchment).equals(shapely.normalize(_CATCHMENT))
+    assert request.domain.area > request.catchment.area
+    assert request.lines == () and request.size_field is None
+    assert CatchmentMeshEngine().build(request).geometry.areas.tolist() == [_CATCHMENT.area]
+
+
+def test_a_lumped_engine_on_a_synthetic_support_gets_the_domain() -> None:
+    inputs = _support(real=False)
+
+    request = plan_mesh_request(MeshConfig(engine="catchment"), inputs)
+
+    assert request.catchment is not None and request.catchment.equals(inputs.domain)
+
+
+def test_a_lumped_engine_on_a_real_support_without_a_catchment_is_refused() -> None:
+    inputs = planning_inputs(_GRID, synthetic=False)
+
+    with pytest.raises(MeshRequestError, match="no delineated catchment polygon"):
+        plan_mesh_request(MeshConfig(engine="catchment"), inputs)

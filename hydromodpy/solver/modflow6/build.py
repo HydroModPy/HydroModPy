@@ -121,11 +121,11 @@ from hydromodpy.solver.modflow_common import (
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
-from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
 from hydromodpy.solver.modflow_common.flow_directions import (
     build_solver_mesh_descent,
+    channel_exits_for_build,
     resolve_dam_foot_cells,
 )
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
@@ -225,9 +225,9 @@ def _run_descent(
         solver_mesh,
         lake_cells_by_lake=lake_cell_ids_by_lake,
         base_level_mask=constant_head,
-        channel_tree=channel_tree_for_run(
+        channel_exits=channel_exits_for_build(
             None if raster is None else raster.channel,
-            solver_mesh,
+            geometry.channel_exits,
             required=is_bc_active(model, "sfr") and sfr_networks_lie_on_the_river_network(model),
         ),
         geographic=geometry.catchment,

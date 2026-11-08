@@ -212,9 +212,11 @@ class MeshConfig(HydroModelBase):
         default="regular",
         description=(
             "Mesh engine: 'regular' (one quadrilateral cell per DEM pixel, or per "
-            "cell_size), 'triangle' (triangles that follow the lines) or 'voronoi' "
-            "(polygons around generators). A string and not a closed choice, since an "
-            "installed third-party engine is named the same way."
+            "cell_size), 'triangle' (triangles that follow the lines), 'voronoi' "
+            "(polygons around generators) or 'catchment' (the catchment as one polygon "
+            "cell, for a global model, read only by a solver that names it). A string "
+            "and not a closed choice, since an installed third-party engine is named the "
+            "same way."
         ),
         examples=["regular", "triangle", "voronoi"],
     )

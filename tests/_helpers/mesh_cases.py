@@ -130,7 +130,8 @@ def mesh_request(grid: RasterGridSpec | None = None, **overrides: object) -> Mes
     """Return a request on *grid*, by default ``grid_spec(10, 10, 100.0)``.
 
     The domain is the box of the grid, the CRS the one of the grid and the
-    nominal size its pixel. *overrides* set any member of ``MeshRequest``.
+    nominal size its pixel. *overrides* set any member of ``MeshRequest``; a
+    request for a lumped engine gives ``catchment``, as the planner does.
     """
     grid = grid_spec(10, 10, 100.0) if grid is None else grid
     members: dict[str, object] = {

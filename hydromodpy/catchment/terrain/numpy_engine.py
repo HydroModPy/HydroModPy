@@ -25,7 +25,6 @@ Where it can differ from Whitebox, by construction and not by accident:
 
 from __future__ import annotations
 
-import hashlib
 from collections import deque
 from collections.abc import Sequence
 from heapq import heappop, heappush
@@ -39,17 +38,12 @@ import rasterio
 from rasterio.features import shapes as raster_shapes
 from shapely.geometry import shape as shapely_shape
 
-from hydromodpy.catchment.terrain.artifacts import (
-    MASK_INSIDE,
-    MASK_NODATA,
-    boundary_area_m2,
-    mask_cell_count,
-    raster_max_near,
-    write_outlet_point,
-)
+from hydromodpy.catchment.terrain.artifacts import write_outlet_point
 from hydromodpy.catchment.terrain.port import (
     D8_WBT_OFFSETS,
     DEFAULT_CATCHMENT_LAYOUT,
+    MASK_INSIDE,
+    MASK_NODATA,
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,
     AccumulationTransform,
@@ -65,20 +59,15 @@ from hydromodpy.catchment.terrain.port import (
     Outlet,
     SnapMethod,
     StreamNetwork,
-    require_batch,
-    require_rank_preserving,
-    require_resolvable_counts,
-    require_snap_method,
-    require_untransformed,
+    require_accumulation,
+    require_conditioning,
+    require_delineable,
+    require_stream,
     snap_window_cells,
+    stamp,
     stream_window_refusal,
 )
-from hydromodpy.core.exceptions import (
-    EmptyCatchmentError,
-    TerrainCapabilityError,
-    TerrainProductError,
-    TerrainRequestError,
-)
+from hydromodpy.core.exceptions import EmptyCatchmentError, TerrainProductError
 from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.io.raster_io import write_band
@@ -136,55 +125,28 @@ class _Grid:
 
 
 class NumpyTerrainEngine:
-    """Terrain engine implemented on numpy, with no flow-routing dependency."""
+    """Terrain engine on numpy, with no flow-routing dependency. Fill only, by name."""
 
     engine_id: ClassVar[str] = "numpy_d8"
     engine_version: ClassVar[str] = np.__version__
 
     def engine_digest(self) -> str:
-        payload = "\n".join((self.engine_id, self.engine_version, "d8_wbt"))
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return stamp(self.engine_id, self.engine_version)
 
     def condition_dem(
-        self,
-        dem: Path,
-        *,
-        method: ConditioningMethod,
-        extent: ConditioningExtent,
-        out: Path,
+        self, dem: Path, *, method: ConditioningMethod, extent: ConditioningExtent, out: Path
     ) -> ConditionedDem:
-        if extent.kind != "regional":
-            raise TerrainCapabilityError(
-                f"{self.engine_id} conditions the whole DEM; extent "
-                f"{extent.kind!r} is not implemented."
-            )
-        if method != "fill":
-            raise TerrainCapabilityError(
-                f"{self.engine_id} conditions with 'fill' only; {method!r} is not "
-                "implemented. 'breach' and the capped breach both need a least-cost "
-                "carving search this engine does not have."
-            )
+        require_conditioning(self.engine_id, method, extent, serves=("fill",))
         grid = _Grid(dem)
-        filled = _priority_flood_fill(grid)
         nodata = -9999.0 if grid.nodata is None else float(grid.nodata)
-        filled = np.where(grid.valid, filled, nodata)
+        filled = np.where(grid.valid, _priority_flood_fill(grid), nodata)
         grid.write(out, filled, dtype="float32", nodata=nodata)
-        return ConditionedDem(path=Path(out), method=method, extent=extent, crs=grid.crs)
+        return ConditionedDem(Path(out), method, extent, grid.crs)
 
-    def drainage_directions(
-        self,
-        conditioned: ConditionedDem,
-        *,
-        out: Path,
-    ) -> DrainageDirections:
+    def drainage_directions(self, conditioned: ConditionedDem, *, out: Path) -> DrainageDirections:
         grid = _Grid(conditioned.path)
-        codes = _steepest_descent_codes(grid)
-        grid.write(out, codes, dtype="int16", nodata=_POINTER_NODATA)
-        return DrainageDirections(
-            path=Path(out),
-            pointer_convention="d8_wbt",
-            conditioned_dem=conditioned,
-        )
+        grid.write(out, _steepest_descent_codes(grid), dtype="int16", nodata=_POINTER_NODATA)
+        return DrainageDirections(Path(out), "d8_wbt", conditioned)
 
     def flow_accumulation(
         self,
@@ -194,52 +156,26 @@ class NumpyTerrainEngine:
         transform: AccumulationTransform,
         out: Path,
     ) -> FlowAccumulation:
-        if units not in ("cells", "m2"):
-            raise TerrainCapabilityError(
-                f"{self.engine_id} accumulates in 'cells' or 'm2'; {units!r} is not implemented."
-            )
-        if transform not in ("none", "ln"):
-            raise TerrainCapabilityError(
-                f"{self.engine_id} transforms with 'none' or 'ln'; {transform!r} is "
-                "not implemented."
-            )
+        require_accumulation(self.engine_id, units, transform)
         grid = _pointer_grid(directions)
-        counts = _accumulate(grid)
-        values = counts.astype("float64")
+        values = _accumulate(grid).astype("float64")
         if units == "m2":
             values = values * grid.cell_area_m2
         if transform == "ln":
-            values = np.where(values > 0.0, np.log(np.where(values > 0.0, values, 1.0)), 0.0)
+            values = np.log(np.where(values > 0.0, values, 1.0))
         values = np.where(grid.valid, values, ACCUMULATION_NODATA)
         grid.write(out, values, dtype="float32", nodata=ACCUMULATION_NODATA)
-        return FlowAccumulation(
-            path=Path(out),
-            units=units,
-            transform=transform,
-            directions=directions,
-            nodata=ACCUMULATION_NODATA,
-        )
+        return FlowAccumulation(Path(out), units, transform, directions, ACCUMULATION_NODATA)
 
     def stream_network(
-        self,
-        accumulation: FlowAccumulation,
-        *,
-        threshold: float,
-        out: Path,
+        self, accumulation: FlowAccumulation, *, threshold: float, out: Path
     ) -> StreamNetwork:
-        require_untransformed(accumulation, member="stream_network")
-        if threshold <= 0.0:
-            raise TerrainRequestError("A stream threshold must be > 0.")
+        require_stream(accumulation, threshold)
         grid = _Grid(accumulation.path)
-        channel = grid.valid & (grid.values > float(threshold))
-        mask = np.where(channel, MASK_INSIDE, MASK_NODATA)
+        mask = np.where(grid.valid & (grid.values > float(threshold)), MASK_INSIDE, MASK_NODATA)
         grid.write(out, mask, dtype="int16", nodata=MASK_NODATA)
-        return StreamNetwork(
-            path=Path(out),
-            threshold=float(threshold),
-            threshold_units=accumulation.units,
-            directions=accumulation.directions,
-        )
+        directions = accumulation.directions
+        return StreamNetwork(Path(out), float(threshold), accumulation.units, directions)
 
     def delineate(
         self,
@@ -251,76 +187,33 @@ class NumpyTerrainEngine:
         snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_snap_method(snap, accumulation, member="delineate")
-        # Only the window snap ranks the accumulation; a Jenson snap never reads it.
-        ranks_counts = snap == "window"
-        if ranks_counts:
-            require_rank_preserving(accumulation, member="delineate")
-        require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
-        if ranks_counts and accumulation.transform != "none":
-            # Only when the values are transformed, and only where the snap reads:
-            # the search window of each outlet is all the snap compares.
-            require_resolvable_counts(
-                accumulation,
-                max_stored_value=raster_max_near(
-                    accumulation.path,
-                    [(outlet.x, outlet.y) for outlet in outlets],
-                    snap_distance_m,
-                ),
-                member="delineate",
-            )
-
-        snap_grid = _Grid(snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path)
+        require_delineable(
+            accumulation, outlets, snap=snap, snap_distance_m=snap_distance_m, layout=layout
+        )
+        ranked = _Grid(snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path)
         pointer = _pointer_grid(accumulation.directions)
         donors = _donors(pointer)
-
-        delineated: list[Catchment] = []
+        found = []
         for outlet in outlets:
             if isinstance(snap, JensonSnap):
-                row, col = _snap_to_stream(snap_grid, outlet, snap_distance_m, snap)
+                row, col = _snap_to_stream(ranked, outlet, snap_distance_m, snap)
             else:
-                row, col = _snap(snap_grid, outlet, snap_distance_m)
-            snapped_x, snapped_y = snap_grid.centre(row, col)
+                row, col = _snap(ranked, outlet, snap_distance_m)
+            x, y = ranked.centre(row, col)
             inside = _upstream_mask(donors, pointer, row, col)
-
-            site_dir = layout.site_dir(Path(out_dir), outlet)
-            site_dir.mkdir(parents=True, exist_ok=True)
-            mask_path = site_dir / layout.mask_name
-            boundary_path = site_dir / layout.boundary_name
-            # The geographic pipeline publishes both points beside the catchment
-            # and reads them back from disk, so an engine that writes neither
-            # is unusable through that caller.
+            site, mask_path, boundary_path = layout.make_site(out_dir, outlet)
+            # The geographic pipeline reads both point layers back from beside the catchment.
             write_outlet_point(
-                site_dir / OUTLET_LAYER_NAME, outlet.outlet_id, outlet.x, outlet.y, pointer.crs
+                site / OUTLET_LAYER_NAME, outlet.outlet_id, outlet.x, outlet.y, pointer.crs
             )
             write_outlet_point(
-                site_dir / SNAPPED_OUTLET_LAYER_NAME,
-                outlet.outlet_id,
-                snapped_x,
-                snapped_y,
-                pointer.crs,
+                site / SNAPPED_OUTLET_LAYER_NAME, outlet.outlet_id, x, y, pointer.crs
             )
-            pointer.write(
-                mask_path,
-                np.where(inside, MASK_INSIDE, MASK_NODATA),
-                dtype="int16",
-                nodata=MASK_NODATA,
-            )
+            mask = np.where(inside, MASK_INSIDE, MASK_NODATA)
+            pointer.write(mask_path, mask, dtype="int16", nodata=MASK_NODATA)
             _write_boundary(boundary_path, inside, pointer)
-
-            delineated.append(
-                Catchment(
-                    outlet=outlet,
-                    mask_path=mask_path,
-                    boundary_path=boundary_path,
-                    cell_count=mask_cell_count(mask_path),
-                    area_m2=boundary_area_m2(boundary_path),
-                    snapped_x=snapped_x,
-                    snapped_y=snapped_y,
-                    snap_distance_m=hypot(snapped_x - outlet.x, snapped_y - outlet.y),
-                )
-            )
-        return tuple(delineated)
+            found.append(Catchment.from_files(outlet, mask_path, boundary_path, x, y))
+        return tuple(found)
 
 
 def _priority_flood_fill(grid: _Grid) -> np.ndarray:
