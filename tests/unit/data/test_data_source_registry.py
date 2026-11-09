@@ -135,11 +135,18 @@ def test_the_two_member_sets_partition_the_port() -> None:
     assert INSTANCE_SOURCE_MEMBERS == ("variables", "hosts")
 
 
-def test_the_builtin_paths_are_the_twenty_six_sources_this_build_ships() -> None:
-    """26 sources under 18 sections, the single declaration of what is served."""
-    assert len(registry._BUILTIN_PATHS) == 26
+def test_the_builtin_paths_are_the_seventy_three_sources_this_build_ships() -> None:
+    """26 providers, plus ``file`` under 28 sections and ``url`` under 19: 73 in all.
+
+    The single declaration of what is served. The generic ``file`` and ``url``
+    sources of lot 4.3 are registered per section, so a section only reaches
+    the ones its own registry names.
+    """
+    assert len(registry._BUILTIN_PATHS) == 73
     shipped = registry.data_sources.names(shipped_only=True)
-    assert len(shipped) == 26
+    assert len(shipped) == 73
+    assert sum(key.endswith("_file") for key in shipped) == 28
+    assert sum(key.endswith("_url") for key in shipped) == 19
     # The ids any [data] section resolves, read the joined keys against the
     # sections the loader dispatches on, never by cutting on "_".
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
@@ -149,10 +156,10 @@ def test_the_builtin_paths_are_the_twenty_six_sources_this_build_ships() -> None
         for section in VARIABLE_SPECS:
             if key.startswith(f"{section}_"):
                 ids_by_section.setdefault(section, set()).add(key[len(section) + 1 :])
-    assert sum(len(ids) for ids in ids_by_section.values()) == 26
-    assert ids_by_section["hydrography"] == {"bdtopage", "euhydro", "osm"}
-    assert ids_by_section["water_quality"] == {"hubeau"}
-    assert ids_by_section["oceanic"] == {"shom", "constant"}
+    assert sum(len(ids) for ids in ids_by_section.values()) == 73
+    assert ids_by_section["hydrography"] == {"bdtopage", "euhydro", "osm", "file", "url"}
+    assert ids_by_section["water_quality"] == {"hubeau", "file"}
+    assert ids_by_section["oceanic"] == {"shom", "constant", "file"}
 
 
 def test_no_section_is_the_prefix_of_another_followed_by_an_underscore() -> None:

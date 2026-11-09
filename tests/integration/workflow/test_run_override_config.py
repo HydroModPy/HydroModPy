@@ -50,7 +50,6 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -63,8 +62,12 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = ["recharge"]
+types = ["dem", "recharge"]
 inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
 
 [[data.recharge.sources]]
 source = "synthetic"

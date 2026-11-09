@@ -3,8 +3,7 @@
 Each plugin surface is an instance of :class:`PluginRegistry`, exposed by its own
 module: ``solvers`` and ``extractors`` in ``solver/base/registry.py``,
 ``data_sources`` in ``data/source/registry.py``, ``evaluators`` in
-``calibration/evaluation/registry.py``, ``forward_models`` in
-``calibration/evaluation/forward_registry.py``, ``mesh_engines`` in
+``calibration/evaluation/registry.py``, ``mesh_engines`` in
 ``mesh/registry.py``, ``terrain_engines`` in ``catchment/terrain/registry.py``,
 ``export_formats`` in ``results/exporters/registry.py`` and ``figures`` in
 ``display/figure_registry.py``. They resolve a name the same way: an in-tree

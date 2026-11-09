@@ -14,15 +14,11 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import MeshError, ObservableNotAvailableError, SolverDivergedError
-from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.model import ModelOptions, ModelTime
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
-    ProcessRun,
-    RunContext,
     RunSlot,
-    SimulationPlan,
     SolverRun,
 )
 from hydromodpy.solver.modflow6.support.names import mf6_output_name, mf6_safe_name
@@ -126,25 +122,6 @@ def test_mf6_safe_name_hashes_long_names_within_limit() -> None:
 # The two halves of the lifecycle
 # ---------------------------------------------------------------------------
 
-FLOW = ProcessRun(
-    id="flow_main::modflow_nwt", process_id="flow_main", process_type="flow", solver="modflow_nwt"
-)
-
-
-def _transport(solver: str, depends_on: tuple[str, ...]) -> ProcessRun:
-    return ProcessRun(
-        id=f"transport_main::{solver}",
-        process_id="transport_main",
-        process_type="transport",
-        solver=solver,
-        depends_on=depends_on,
-    )
-
-
-def _context(*runs: ProcessRun, run: ProcessRun = FLOW) -> RunContext:
-    plan = SimulationPlan(name="demo", description="demo", runs=(FLOW, *runs))
-    return RunContext(plan=plan, run=run, state=RunState(cfg=SimpleNamespace()))
-
 
 class _Solver:
     """A MODFLOW solver object that writes nothing and records the calls it receives."""
@@ -171,7 +148,7 @@ _OPTIONS = build_preprocess_options(make_model())
 def _built(folder: Path, **solver: Any) -> tuple[SolverRun, _Solver]:
     slot = RunSlot(folder.parent, folder.name)
     solver_model = _Solver(folder, **solver)
-    built = build_flow_model(solver_model, make_model(), None, slot, _context(), _OPTIONS)
+    built = build_flow_model(solver_model, make_model(), None, slot, _OPTIONS)
     return built, solver_model
 
 
@@ -182,7 +159,7 @@ def test_a_build_hands_the_model_and_the_slot_to_the_solver_and_solves_nothing(
     slot = RunSlot(tmp_path, "island")
     solver = _Solver(tmp_path / "island")
 
-    built = build_flow_model(solver, model, None, slot, _context(), _OPTIONS)
+    built = build_flow_model(solver, model, None, slot, _OPTIONS)
 
     assert solver.pre == [(model, _OPTIONS, slot)]
     assert solver.runs == []
@@ -202,34 +179,9 @@ def test_a_model_without_the_cell_mesh_stops_the_build_before_the_solver(tmp_pat
     solver = _Solver(tmp_path / "island")
 
     with pytest.raises(MeshError, match="planar cell mesh"):
-        build_flow_model(solver, model, None, RunSlot(tmp_path, "island"), _context(), _OPTIONS)
+        build_flow_model(solver, model, None, RunSlot(tmp_path, "island"), _OPTIONS)
 
     assert solver.pre == []
-
-
-MT3DMS_LINKS = (
-    ("no transport run", None, False),
-    ("an MT3DMS run that follows this flow", ("mt3dms", (FLOW.id,)), True),
-    ("an MT3DMS run that follows another flow", ("mt3dms", ("flow_other::x",)), False),
-    ("a MODPATH run that follows this flow", ("modpath", (FLOW.id,)), False),
-)
-
-
-@pytest.mark.parametrize(
-    ("case", "transport", "linked"), MT3DMS_LINKS, ids=[c[0] for c in MT3DMS_LINKS]
-)
-def test_the_build_says_whether_an_mt3dms_run_reads_the_output(
-    tmp_path: Path, case: str, transport: tuple | None, linked: bool
-) -> None:
-    del case
-    runs = () if transport is None else (_transport(*transport),)
-    solver = _Solver(tmp_path / "island")
-
-    build_flow_model(
-        solver, make_model(), None, RunSlot(tmp_path, "island"), _context(*runs), _OPTIONS
-    )
-
-    assert solver.link_mt3dms is linked
 
 
 def test_a_run_writes_the_input_files_of_a_build_and_solves(tmp_path: Path) -> None:

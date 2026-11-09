@@ -34,10 +34,6 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     observed_series_for_outputs,
     pair_outputs_with_observations,
 )
-from hydromodpy.calibration.metrics.scored_forward import (
-    ScoredForwardEvaluator,
-    refuse_a_shape_the_document_cannot_score,
-)
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.protocols import expand_calibration_protocol
@@ -1420,18 +1416,3 @@ def test_each_producer_is_given_the_run_and_its_time_index_and_an_output_replace
 def test_a_covariance_needs_an_output_that_names_a_station() -> None:
     with pytest.raises(ValueError, match="no calibration output names a station"):
         build_paired_vector_capture({}, ctx=_Ctx(_Loaded()))
-
-
-@pytest.mark.parametrize("cfg", [None, SimpleNamespace(outputs={}, objective_blocks=[])])
-def test_the_forward_evaluator_is_built_with_outputs_and_blocks(cfg) -> None:
-    with pytest.raises(CalibrationError, match="scored_forward_model"):
-        ScoredForwardEvaluator(cfg=cfg)
-
-
-def test_a_shape_is_checked_only_where_values_are_typed_and_served() -> None:
-    outputs = {
-        "typed": SimpleNamespace(observed_values=None),
-        "q": SimpleNamespace(observed_values=[1.0]),
-    }
-
-    refuse_a_shape_the_document_cannot_score(outputs, {"typed": _answer([1.0])}, model_id="m")

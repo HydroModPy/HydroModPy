@@ -185,6 +185,7 @@ def run_plan(
     fresh: bool = False,
     force: bool = False,
     resume: bool = False,
+    environment_flags: Sequence[str] = (),
 ) -> LaunchReport:
     """Launch the current plan of *project_root* and return what happened.
 
@@ -246,6 +247,7 @@ def run_plan(
             until=until,
             fresh=fresh,
             force=force,
+            environment_flags=environment_flags,
         )
         report = LaunchReport(
             project_root=root,
@@ -294,6 +296,7 @@ def _launch(
     until: str | None,
     fresh: bool,
     force: bool,
+    environment_flags: Sequence[str] = (),
 ) -> tuple[list[CaseOutcome], Path | None, tuple[str, ...]]:
     """Prepare then run *chosen*; return the outcomes, the lockfile and the prepared cases."""
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
@@ -316,6 +319,7 @@ def _launch(
             shared_cache=shared_cache,
             parallel=prepare_parallel,
             threads_per_case=run_config.threads_per_case,
+            environment_flags=environment_flags,
         )
         failed_prepare = {item.case_id for item in prepared if not item.ok}
         prepared_ok = tuple(item.case_id for item in prepared if item.ok)
@@ -356,6 +360,7 @@ def _launch(
             frozen=frozen,
             fresh=fresh,
             force=force,
+            environment_flags=environment_flags,
         )
     )
     return outcomes, lockfile, prepared_ok
@@ -374,6 +379,7 @@ def _run_cases(
     frozen: bool,
     fresh: bool,
     force: bool,
+    environment_flags: Sequence[str] = (),
 ) -> list[CaseOutcome]:
     """Run the workers of *chosen* under a budget of *parallel* solves side by side."""
     pending = deque(chosen)
@@ -392,7 +398,7 @@ def _run_cases(
                 child = start_child(
                     job_dir,
                     case,
-                    worker_command(case, flags),
+                    worker_command(case, flags, environment_flags=environment_flags),
                     phase="run",
                     threads_per_case=threads_per_case,
                 )

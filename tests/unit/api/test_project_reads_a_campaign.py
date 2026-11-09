@@ -47,9 +47,15 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 
 [simulation.time]
 start_datetime = "2000-01-01"
@@ -310,8 +316,36 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     project = _campaign(tmp_path)
     calls: dict[str, Any] = {}
 
-    def run_plan(root: Path, **kwargs: Any) -> str:
-        calls["run"] = (root, kwargs)
+    def run_plan(
+        root: Path,
+        *,
+        parallel: int | None = None,
+        prepare_parallel: int | None = None,
+        only: tuple[str, ...] = (),
+        site: str | None = None,
+        until: str | None = None,
+        fresh: bool = False,
+        force: bool = False,
+        resume: bool = False,
+        environment_flags: tuple[str, ...] = (),
+    ) -> str:
+        # The words of the CLI: an environment rides as the flags the CLI
+        # words carry, never as the object. The signature stays the real one,
+        # so a drift of the launcher's words fails this test, not production.
+        calls["run"] = (
+            root,
+            {
+                "parallel": parallel,
+                "prepare_parallel": prepare_parallel,
+                "only": only,
+                "site": site,
+                "until": until,
+                "fresh": fresh,
+                "force": force,
+                "resume": resume,
+                "environment_flags": environment_flags,
+            },
+        )
         return "launched"
 
     def collect_project(root: Path, **kwargs: Any) -> str:
@@ -332,6 +366,9 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     assert kwargs["parallel"] == 8
     assert kwargs["only"] == ("failed",)
     assert kwargs["site"] == "nancon"
+    # No allowed host, no ceiling away from its default and no credentials file
+    # beyond the default one: a case line stays what it was.
+    assert kwargs["environment_flags"] == ()
     assert calls["collect"] == (project.resolve(), {"write_sites": True, "mixed_windows": False})
     assert {row.case_id for row in status.rows} == PLAN_CASES
     assert {row.status for row in status.rows} == {"planned"}

@@ -17,7 +17,7 @@ from hydromodpy.data.workspace.scaffold import scaffold
 from tests._helpers.demo_mound import AREA_M2, RECHARGE_M_S, dupuit_mound_m
 from tests._helpers.tolerances import tol
 
-pytestmark = [pytest.mark.integration, pytest.mark.binary, pytest.mark.nwt, pytest.mark.fast]
+pytestmark = [pytest.mark.integration, pytest.mark.binary, pytest.mark.mf6, pytest.mark.fast]
 
 BUDGET_CLOSURE = tol("global_water_budget_closure")
 MOUND_RTOL = tol("scaffolded_demo__mound_against_the_dupuit_integral")

@@ -12,15 +12,16 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.managers.timeseries_config import UrlSourceFieldsMixin
 from hydromodpy.data.source import registry
 from hydromodpy.data.variables.hydrography.api_source import NETWORK_PAYLOAD_KIND
 
 
-class HydrographySourceConfig(HydroModelBase):
+class HydrographySourceConfig(UrlSourceFieldsMixin, HydroModelBase):
     """Configuration for one hydrography data source.
 
     Hydrography sources describe river-network vector or raster data. Use
-    ``custom`` for local files, and otherwise the id of a source that serves
+    ``file`` for local files, and otherwise the id of a source that serves
     river linework -- ``osm``, ``bdtopage`` and ``euhydro`` ship here, and a
     third party adds one by registering it on the
     ``hydromodpy.data.source`` entry-point group.
@@ -50,10 +51,10 @@ class HydrographySourceConfig(HydroModelBase):
             "linework is accepted, so a third-party source registered on the "
             "'hydromodpy.data.source' entry-point group is named here by its id."
         ),
-        examples=["custom"],
+        examples=["file"],
         json_schema_extra={
             "value_docs": {
-                "custom": "Loads a river network from a local vector or raster file you provide.",
+                "file": "Loads a river network from a local vector or raster file you provide.",
                 "osm": "Downloads waterway geometries from OpenStreetMap.",
                 "bdtopage": "Downloads every reach of the French BD Topage network from the "
                 "Sandre WFS, each with its permanence, and writes the permanent network too.",
@@ -111,9 +112,9 @@ class HydrographySourceConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_custom_requires_path(self) -> HydrographySourceConfig:
-        if self.source == "custom" and self.path is None:
-            raise ValueError("Custom source requires 'path'.")
+    def _check_file_requires_path(self) -> HydrographySourceConfig:
+        if self.source == "file" and self.path is None:
+            raise ValueError("File source requires 'path'.")
         return self
 
     @field_validator("source")
@@ -138,7 +139,10 @@ class HydrographySourceConfig(HydroModelBase):
         costs one lazy import of the adapter module, and no adapter pulls
         geopandas, rasterio or xarray at import.
         """
-        if source == "custom":
+        if source in ("file", "url"):
+            # A user file is read by the file reader, and a URL only fills the
+            # data cache with the file it names; the reader then reads that
+            # file, so neither reaches the payload the registry declares.
             return source
         try:
             source_cls = registry.data_sources.get("hydrography", source)

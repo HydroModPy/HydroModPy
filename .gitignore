@@ -186,6 +186,7 @@ examples/data/crossings/*roe_*.gpkg
 examples/data/crossings/crossings_ground_*.gpkg
 examples/data/**/*_hubeau_*.csv
 examples/data/**/*_sim2_*.nc
+examples/data/**/*_url_*
 examples/data/**/*.aux.xml
 examples/data/dem/raw_ign/
 examples/data/dem/extracted_ign/

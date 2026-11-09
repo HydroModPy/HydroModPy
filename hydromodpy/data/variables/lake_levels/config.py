@@ -59,5 +59,5 @@ class LakeLevelsConfig(BaseVariableConfig):
         return cls(
             date_start=start,
             date_end=end,
-            sources=[LakeLevelsSourceConfig(source="custom", path=Path(path), **overrides)],
+            sources=[LakeLevelsSourceConfig(source="file", path=Path(path), **overrides)],
         )

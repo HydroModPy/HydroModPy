@@ -19,11 +19,11 @@ import pytest
 from hydromodpy.data.provenance.derived import custom_derived_dir, derived_path
 from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for, unlink_with_sidecar
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.variables.dem.config import CustomDemSource, DemConfig
+from hydromodpy.data.variables.dem.config import DemConfig, FileDemSource
 from hydromodpy.data.variables.dem.custom import load_custom_dem
 from hydromodpy.data.variables.dem.manager import DemManager
 from hydromodpy.data.variables.lake_abacus.config import (
-    CustomLakeAbacusSource,
+    FileLakeAbacusSource,
     LakeAbacusConfig,
 )
 from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
@@ -101,7 +101,7 @@ _CASES = [
         "dem_custom_valley.asc",
         _write_asc,
         DemManager,
-        lambda p: DemConfig(sources=[CustomDemSource(path=p)]),
+        lambda p: DemConfig(sources=[FileDemSource(path=p)]),
         "geotiff",
         ".tif",
         "fields",
@@ -158,7 +158,7 @@ def test_the_manager_writes_the_copy_under_blobs_and_the_sidecar_follows_it(
         assert copy.name.startswith(f"{user_file.stem}_{case.kind}_")
         assert copy.suffix == case.suffix
         assert sorted(p.name for p in var_dir.iterdir()) == before
-        assert load_sidecar(copy).source == "custom"
+        assert load_sidecar(copy).source == "file"
         assert sidecar_path_for(copy).parent == copy.parent
     finally:
         catalog.close()
@@ -176,8 +176,7 @@ def test_two_dem_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
     derived = tmp_path / "derived"
 
     paths = [
-        load_custom_dem(CustomDemSource(path=p), derived_dir=derived)[0].data
-        for p in (first, second)
+        load_custom_dem(FileDemSource(path=p), derived_dir=derived)[0].data for p in (first, second)
     ]
 
     assert paths[0] != paths[1]
@@ -189,9 +188,7 @@ def test_two_lake_ids_give_two_abacus_pivots(tmp_path: Path) -> None:
     derived = tmp_path / "derived"
 
     records = [
-        load_custom_abacus(CustomLakeAbacusSource(path=source, lake_id=lake), derived_dir=derived)[
-            0
-        ]
+        load_custom_abacus(FileLakeAbacusSource(path=source, lake_id=lake), derived_dir=derived)[0]
         for lake in ("lac0", "lac1")
     ]
 
@@ -206,7 +203,7 @@ def test_two_lake_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
 
     bathy_manager = LakeBathymetryManager(config=None, catalog=None)
     bathy = [
-        bathy_manager.read_custom(
+        bathy_manager.read_file_source(
             LakeBathymetryConfig.from_raster(p).sources[0], derived_dir=derived
         )[0].data
         for p in rasters

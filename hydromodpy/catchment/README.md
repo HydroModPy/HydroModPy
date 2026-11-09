@@ -4,7 +4,8 @@ This package takes a DEM and an outlet and gives the catchment, its river networ
 It routes flow on the DEM, delineates the catchment, cuts the domain polygons and extracts the streams. It also holds
 the surfaces the model sits on, the routing of water on the cells of the model top, and the French departments used to
 pick data tiles. The mesh itself is in `hydromodpy/mesh`. The aquifer geometry, the fields and the forcings are in
-`hydromodpy/model`. The package knows no solver and no data provider: a geology map is read by a function the caller
+`hydromodpy/model`. The package knows no solver and no data provider: the DEM arrives
+as a resolved `dem_path: Path` argument from the caller, and a geology map is read by a function the caller
 passes as an argument.
 
 This file is the map of the package. One sub-package is a port and has a README of its own, `terrain/`. The other parts
@@ -46,8 +47,9 @@ attempts in all.
 
 A preprocess run has seven steps. `preprocess/pipeline.py` runs them and `algorithms/` holds the code of each one.
 
-1. `preprocess/pipeline_steps.py` resolves the output paths, reads the CRS and the cell size of the DEM, and
-   aggregates the DEM to a coarser cell when `[geographic.catchment]` asks for it.
+1. `preprocess/pipeline_steps.py` receives `dem_path` from the caller, resolves the output paths, reads the
+   CRS and the cell size of the DEM, and aggregates the DEM to a coarser cell when `[geographic.catchment]`
+   asks for it.
 2. `preprocess/geographic_cache.py` checks whether an earlier run left a tree with the same fingerprint. If it did,
    the run reads that tree and skips steps 3 to 6.
 3. `algorithms/ground_corrections.py` builds the ground, which is the DEM plus the corrections the project declares.
@@ -69,7 +71,8 @@ A preprocess run has seven steps. `preprocess/pipeline.py` runs them and `algori
 `[geographic.synthetic]` table and returns a `SyntheticGeographic` object with the same public attributes.
 
 The runtime object that others read is `CatchmentDelineation`, in `preprocess/catchment_delineation.py`. The workflow
-step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` is the caller. The tree lives in the preprocessing
+step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` is the caller, passing the resolved `dem_path` to
+the pipeline. The tree lives in the preprocessing
 folder of the run, and `preprocess/preprocessing_cleanup.py` removes it once the run holds what it needs, unless
 `write_intermediates` keeps it.
 
@@ -143,8 +146,9 @@ example `GeographicConfig` from `preprocess/geographic_config.py` and `build_syn
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives the package `core`, `schema` and itself. A grep of every
-`hydromodpy` import in the package, deferred ones included, finds only these. No module reads `data`: the reader of
-one vector geology map is a function the caller passes as an argument, as the mesh planner shows.
+`hydromodpy` import in the package, deferred ones included, finds only these. No module reads `data`: the DEM path
+is passed as an argument by the caller, and the reader of one vector geology map is a function the caller passes as
+an argument, as the mesh planner shows.
 
 `catchment_layout.yaml` orders the parts. Each part reads only the parts above it in the table of this file, so a cycle
 cannot be declared. Another layer of HydroModPy may import only the modules listed under `public` in that file. The

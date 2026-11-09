@@ -80,7 +80,7 @@ def test_a_crop_over_a_request_box_answers_a_file_record(
     asked: dict = {}
     fetch = getattr(module, f"fetch_{cls.source_id}")
 
-    def fake(*, output_dir, bbox, code_field):
+    def fake(*, output_dir, bbox, code_field, **_kw):
         asked.update(bbox=bbox, code_field=code_field)
         return _gpkg(Path(output_dir) / f"{cls.source_id}.gpkg")
 
@@ -105,7 +105,7 @@ def test_a_foreign_crs_box_reaches_the_provider_in_lambert(
 ) -> None:
     asked: dict = {}
 
-    def fake(*, output_dir, bbox, code_field):
+    def fake(*, output_dir, bbox, code_field, **_kw):
         asked["bbox"] = bbox
         return _gpkg(Path(output_dir) / "map.gpkg")
 
@@ -154,8 +154,8 @@ def test_the_code_column_of_the_field_comes_from_the_registry_reading(
     config = type("C", (), {"sources": []})()
     assert _code_field(record, config) == "CODE_LEG"
 
-    record.source = "custom"
-    config.sources = [type("S", (), {"source": "custom", "code_field": "CODE_B"})()]
+    record.source = "file"
+    config.sources = [type("S", (), {"source": "file", "code_field": "CODE_B"})()]
     assert _code_field(record, config) == "CODE_B"
 
 
@@ -165,7 +165,7 @@ def test_a_crop_that_holds_no_feature_is_refused_by_the_provider(
 ) -> None:
     """Kept from the provider level: an empty crop is the provider's refusal, not a file."""
 
-    def fake(*, output_dir, bbox, code_field):
+    def fake(*, output_dir, bbox, code_field, **_kw):
         raise ValueError("No geology feature from the 1M map intersects the requested bbox")
 
     monkeypatch.setattr(brgm_1m, "fetch_brgm_1m", fake)

@@ -206,7 +206,7 @@ def test_public_refuses_by_name_an_input_that_may_not_be_redistributed(tmp_path)
         )
 
     message = str(refused.value)
-    assert "data/dem/bdalti_25m.tif (custom): LicenseRef-undetermined" in message
+    assert "data/dem/bdalti_25m.tif (file): LicenseRef-undetermined" in message
     assert "J0014010.csv" not in message
     assert not (tmp_path / "out" / "nancon").exists()
 
@@ -216,7 +216,7 @@ def test_public_carries_an_input_whose_sidecar_declares_a_licence(tmp_path) -> N
     run_dir = make_sealed_run(project)
     dem = project.parent.parent / "data" / "dem" / "bdalti_25m.tif"
     dem.with_name(dem.name + ".json").write_text(
-        json.dumps({"source": "custom", "sha256": sha256_of(dem), "license": "CC-BY-4.0"}),
+        json.dumps({"source": "file", "sha256": sha256_of(dem), "license": "CC-BY-4.0"}),
         encoding="utf-8",
     )
 

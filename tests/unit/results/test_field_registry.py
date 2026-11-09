@@ -8,12 +8,17 @@ from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import (
     FIELD_REGISTRY,
+    SHAPE_TIME,
+    TIME_SERIES_REGISTRY,
     FieldDescriptor,
+    TimeSeriesDescriptor,
     all_names,
     all_zarr_paths,
     cf_attrs,
     get,
     has,
+    series_names,
+    series_unit,
 )
 from hydromodpy.results.zarr_store.cf_validation import is_cf_standard_name
 
@@ -154,3 +159,69 @@ class TestPublicAPI:
         attrs = cf_attrs("topography")
         assert attrs.get("standard_name") == "surface_altitude"
         assert attrs.get("csdms_standard_name") == "land_surface__elevation"
+
+
+_RATES = (
+    "gwf_exchange",
+    "lake_bed_vertical_exchange",
+    "rainfall",
+    "evaporation",
+    "runoff",
+    "inflow",
+    "withdrawal",
+    "ext_outflow",
+    "outlet",
+    "outlet_inflow",
+    "to_mvr",
+    "from_mvr",
+    "lak_connection",
+    "downstream_flow",
+    "ext_inflow",
+    "gw_exchange",
+)
+
+
+class TestSeriesRegistry:
+    def test_shape_time_is_the_shape_of_a_station_series(self):
+        assert SHAPE_TIME == "time"
+
+    def test_the_catchment_series_are_registered_with_their_units(self):
+        registry = TIME_SERIES_REGISTRY
+        assert registry["discharge"].units == "m3 s-1"
+        assert registry["well_pumping"].units == "m3 s-1"
+        assert registry["reservoir_storage"].units == "m3"
+
+    def test_the_lake_and_reach_states_are_registered(self):
+        registry = TIME_SERIES_REGISTRY
+        assert registry["stage"].units == "m"
+        assert registry["volume"].units == "m3"
+        assert registry["surface_area"].units == "m2"
+        assert registry["depth"].units == "m"
+
+    @pytest.mark.parametrize("name", _RATES)
+    def test_a_rate_of_a_lake_or_reach_is_a_flow(self, name):
+        assert TIME_SERIES_REGISTRY[name].units == "m3 s-1"
+
+    def test_storage_is_not_a_series_name(self):
+        # A lake's storage and the budget field storage of the aquifer are two
+        # volumes of control; the collision is settled where it is refused.
+        assert "storage" not in TIME_SERIES_REGISTRY
+
+    def test_every_series_names_itself(self):
+        for name, descriptor in TIME_SERIES_REGISTRY.items():
+            assert descriptor.public_name == name
+            assert descriptor.long_name
+
+    def test_a_time_descriptor_has_no_zarr_dimensions(self):
+        for descriptor in TIME_SERIES_REGISTRY.values():
+            assert not hasattr(descriptor, "dimensions")
+            assert not hasattr(descriptor, "zarr_path")
+
+    def test_series_and_field_tables_are_disjoint(self):
+        assert not set(TIME_SERIES_REGISTRY) & set(FIELD_REGISTRY)
+
+    def test_series_unit_of_an_unregistered_name_is_empty(self):
+        assert series_unit("unknown") == ""
+
+    def test_all_series_names_are_sorted(self):
+        assert series_names() == sorted(series_names())

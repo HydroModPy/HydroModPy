@@ -14,11 +14,12 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    UrlSourceFieldsMixin,
     registered_section_source,
 )
 
 
-class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class EtpSourceConfig(UrlSourceFieldsMixin, TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     """Configuration for one potential evapotranspiration data source.
 
     ETP sources load potential evapotranspiration from custom files or SIM2
@@ -64,10 +65,10 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> EtpSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         if self.source == "explore2":
             if self.path is None:

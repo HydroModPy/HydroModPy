@@ -117,7 +117,7 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
     point = PointRecord(
         station_id="sta1",
         variable="runoff",
-        source="custom",
+        source="file",
         unit="mm/day",
         frequency="D",
         data=df,

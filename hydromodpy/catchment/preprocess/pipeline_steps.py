@@ -60,16 +60,17 @@ def prepare_geographic_run(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
+    dem_path: str | Path | None = None,
 ) -> PreparedGeographicRun:
     """Build canonical paths, ensure folders exist, and resolve DEM/CRS primitives."""
-    if config.dem_init_path is None:
-        raise ValueError("geographic.catchment.dem_init_path is required")
+    if dem_path is None:
+        raise ValueError("dem_path is required")
 
     paths = build_geographic_paths(out_dir_path)
     create_folder(paths.geographic_path)
     create_folder(paths.correcflow_path)
 
-    dem_init_path = str(config.dem_init_path)
+    dem_init_path = str(dem_path)
     with rasterio.open(dem_init_path) as dem_src:
         epsg = dem_src.crs.to_epsg() if dem_src.crs is not None else None
         dem_res = float(abs(dem_src.transform.a))

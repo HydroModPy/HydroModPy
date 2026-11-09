@@ -16,7 +16,7 @@ source_mode = "synthetic"
 types = ["recharge"]
 
 [[data.recharge.sources]]
-source = "custom"
+source = "file"
 path = "inputs/recharge.csv"
 """
 
@@ -65,12 +65,14 @@ source_mode = "synthetic"
 types = ["recharge"]
 
 [[data.recharge.sources]]
-source = "custom"
+source = "file"
 path = "{path}"
 """
 
 
-def _workspace_project(root: Path, *, path: str = "recharge_custom_basin.csv") -> Path:
+def _workspace_project(
+    root: Path, *, path: str = "../../data/recharge/recharge_custom_basin.csv"
+) -> Path:
     (root / "workspace.toml").parent.mkdir(parents=True, exist_ok=True)
     (root / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")
     data = root / "data" / "recharge"
@@ -92,9 +94,9 @@ def test_two_workspaces_holding_the_same_data_give_one_config_hash(tmp_path: Pat
 
 
 def test_a_sidecar_in_a_declared_folder_leaves_the_hash_as_it_was(tmp_path: Path) -> None:
-    project = _workspace_project(tmp_path / "ws", path="recharge")
+    project = _workspace_project(tmp_path / "ws", path="../../data/recharge")
     before = _config_hash(project)
     data = tmp_path / "ws" / "data" / "recharge"
-    (data / "recharge_custom_basin.csv.json").write_text('{"source": "custom"}', encoding="utf-8")
+    (data / "recharge_custom_basin.csv.json").write_text('{"source": "file"}', encoding="utf-8")
 
     assert _config_hash(project) == before

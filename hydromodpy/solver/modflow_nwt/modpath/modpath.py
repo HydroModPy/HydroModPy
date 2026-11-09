@@ -15,15 +15,27 @@ import io
 import os
 from collections.abc import Mapping
 from contextlib import redirect_stdout
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import numpy as np
+from pydantic import BaseModel
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.budget.flux import first_finite_layer, seepage_mask
+from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverInputError
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.model.transport.transport_config import ModpathParametersConfig
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import nwt_safe_name
 
 from ._pre_processing import (
     attach_starting_locations,
@@ -33,6 +45,8 @@ from ._pre_processing import (
     load_modflow_for_modpath,
 )
 from .resolvers import (
+    get_catchment,
+    get_raster,
     resolve_crs_proj,
     resolve_domain_raster,
     resolve_seepage_clip_raster,
@@ -58,7 +72,7 @@ class Modpath:
     def __init__(
         self,
         domain: DomainLike,
-        transport: TransportLike,
+        params: Mapping[str, object] | None = None,
         model_modflow: FlowModelLike | None = None,
         # Workflow settings
         model_folder: str = "HydroModPy_outputs",
@@ -88,7 +102,7 @@ class Modpath:
             )
 
         self.domain = domain
-        self.transport = transport
+        self.params = dict(params or {})
         self.model_modflow = model_modflow
         self.model_name = model_name
         self.model_folder = model_folder
@@ -98,10 +112,7 @@ class Modpath:
             raise FileNotFoundError(f"Directory not found: {self.full_path}")
         self.exe = str(ensure_solver_binary("mp6", bin_path))
 
-        particle_params: dict = {}
-        raw_params = getattr(transport.modpath, "parameters", None)
-        if isinstance(raw_params, Mapping):
-            particle_params = dict(raw_params)
+        particle_params: dict = dict(self.params)
 
         def _pick(key: str, explicit: object, default: object) -> object:
             if explicit is not None:
@@ -310,3 +321,242 @@ class Modpath:
             verbose = self.verbose
             success_model, _tempo = self.mp.run_model(silent=not verbose)
         return success_model
+
+
+def _only_upstream(upstream: tuple[SolverRun, ...], adapter_name: str) -> SolverRun:
+    """Return the one upstream run the adapter follows, or say what the plan declared."""
+    if len(upstream) != 1:
+        names = ", ".join(
+            sorted(
+                {
+                    name
+                    for name in (
+                        getattr(getattr(run, "slot", None), "name", None) or getattr(run, "id", "")
+                        for run in upstream
+                    )
+                    if name
+                }
+            )
+        )
+        raise SolverInputError(
+            f"Transport '{adapter_name}' follows exactly one flow run, and the plan "
+            f"declares {len(upstream)} of them ({names or 'none'})."
+        )
+    return upstream[0]
+
+
+def _particle_parameters(options: BaseModel | None) -> dict[str, object]:
+    """Flatten the validated ``[transport.modpath]`` table to its parameter values."""
+    if options is None:
+        return {}
+    return dict(options.model_dump())
+
+
+def _wants_seepage_clip(parameters: Mapping[str, object]) -> bool:
+    """Return True when the release zone asks for the seepage areas of the flow.
+
+    The value is read on the parameters as declared, before the engine
+    resolves the alias to a raster path.
+    """
+    return str(parameters.get("zone_partic", "domain")) == "seepage_clip"
+
+
+def _with_maybe_slot(slot: RunSlot | None, default_folder: str, default_name: str) -> RunSlot:
+    """Return ``slot`` unchanged, or a slot that names a folder of its own."""
+    return slot if slot is not None else RunSlot(folder=default_folder, name=default_name)
+
+
+def _write_seepage_clip_raster(flow_run: SolverRun) -> None:
+    """Derive the seepage raster of the flow run it follows from its own heads.
+
+    The rule is the one the run store derives the ``seepage_mask`` field with:
+    the water table stands in the highest layer that holds a finite head, and a
+    cell seeps when it reaches ``topography - band_depth / 2``, with the drain
+    band the flows carry in ``Model.options.drain_band_depth_m``. The raster is
+    written early, beside the flow deck, in the folder the release zone reads,
+    and is rebuilt at every build: a raster left behind by an earlier run of
+    the same project is never an input of this one.
+    """
+    flow = flow_run.solver_model
+    flow_dir = (
+        Path(flow_run.output_dir) if flow_run.output_dir is not None else Path(str(flow.full_path))
+    )
+    reference = getattr(flow, "dem_watershed_path", None)
+    if reference is None:
+        raise SolverInputError(
+            "zone_partic = 'seepage_clip' needs the topography raster the flow run wrote "
+            "on its solver grid, and the run it follows does not declare one."
+        )
+    raster_path = flow_dir / "_postprocess" / "_rasters" / "seepage_areas_t(0).tif"
+    raster_path.parent.mkdir(parents=True, exist_ok=True)
+
+    name = str(flow_run.slot.name)
+    model_name = getattr(flow, "model_name", None) or nwt_safe_name(name)
+    heads_path = flow_dir / f"{model_name}.hds"
+    if not heads_path.is_file():
+        raise SolverInputError(
+            f"zone_partic = 'seepage_clip' reads the heads of the flow run it follows, "
+            f"and {heads_path} does not exist."
+        )
+    hds = flopy.utils.binaryfile.HeadFile(str(heads_path))
+    try:
+        heads = np.asarray(hds.get_data(totim=hds.get_times()[0]), dtype="float64")
+    finally:
+        hds.close()
+
+    # The dry and the inactive sentinels are finite numbers, so they leave the
+    # array as not-a-number before the water table is read off the layers.
+    sentinels = [
+        float(value)
+        for value in (getattr(flow, "bas_hnoflo", None), getattr(flow, "upw_hdry", None))
+        if value is not None
+    ]
+    dead = np.zeros(heads.shape, dtype=bool)
+    for sentinel in sentinels:
+        dead |= np.isclose(heads, sentinel)
+    dead |= ~np.isfinite(heads)
+    heads = np.where(dead, np.nan, heads)
+
+    # The heads read (layer, row, col); the rule of the store reads (time, layer, cell).
+    watertable = first_finite_layer(heads.reshape(1, heads.shape[0], -1))[0]
+    model_options = getattr(flow_run.model, "options", None)
+    band = float(getattr(model_options, "drain_band_depth_m", 0.0) or 0.0)
+    topography = np.asarray(getattr(flow, "top_elevation", None), dtype="float64").reshape(-1)
+    mask = seepage_mask(watertable=watertable.reshape(-1), topography=topography, band_depth=band)
+
+    shape = (int(getattr(flow, "nrow", 0)), int(getattr(flow, "ncol", 0)))
+    seepage = np.asarray(mask, dtype="float64").reshape(shape)
+    export_tif(str(reference), seepage, str(raster_path), -9999.0)
+    logger.info("Rebuilt the seepage raster of run %s at %s", name, raster_path)
+
+
+class ModpathTransportAdapter:
+    """Adapter for ``transport/modpath`` runs, beside its engine class.
+
+    A transport run follows one flow run through its ``requires`` edge and
+    reads the validated ``[transport.modpath]`` table through ``options``. Its
+    build takes the ``Model`` of that flow from ``upstream[0]`` and the
+    finished MODFLOW-NWT solver of that run. Same folder, same base name, no
+    suffix: the deck carries the name of the flow model it reads its heads
+    and budget from.
+
+    The release zone stays solver-side. When ``zone_partic`` asks for the
+    seepage areas, the build derives the raster from the heads of the flow
+    run before the engine resolves the alias, so no store is read during a
+    solve.
+    """
+
+    name: ClassVar[str] = "modpath"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "raster"
+    writes: ClassVar[tuple[str, ...]] = (
+        "particles/x",
+        "particles/y",
+        "particles/z",
+        "particles/time",
+        "particles/endpoint_x",
+        "particles/endpoint_y",
+        "particles/endpoint_z",
+        "particles/endpoint_time",
+    )
+    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = ModpathParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Check the release zone the deck will read, before anything is written.
+
+        The alias resolution runs on the engine at build time, and a release
+        zone asking for the seepage areas needs the heads of the flow. Nothing
+        here reads them: the refusal of a flow run without its head file stays
+        at the build, which knows the folder and the name it reads.
+        """
+        if options is not None:
+            zone = getattr(options, "zone_partic", None)
+            if zone is None or not str(zone).strip():
+                raise SolverInputError(
+                    "[transport.modpath] zone_partic is empty: write 'domain', "
+                    "'seepage_clip', or the path of a raster that marks the "
+                    "release cells."
+                )
+
+    def build(
+        self,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the MODPATH deck of the flow run it follows, in memory.
+
+        The solver object is the one of ``upstream[0]``, a finished
+        :class:`~hydromodpy.solver.modflow_nwt.nwt.nwt_solver.ModflowNwt`. The
+        folder and the base name are the slot's, with no suffix, so the deck
+        reads the heads and the budget of the flow run in place. The release
+        zone is resolved on the engine, and ``seepage_clip`` has its raster
+        derived from the flow run first.
+        """
+        flow_run = _only_upstream(upstream, self.name)
+        if flow_run.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "MODPATH reads the NWT objects and files of the flow, and none was built."
+            )
+        parameters = _particle_parameters(options)
+        if _wants_seepage_clip(parameters):
+            _write_seepage_clip_raster(flow_run)
+        solver_model = Modpath(
+            model.geometry.domain,
+            params=parameters,
+            model_modflow=flow_run.solver_model,
+            model_folder=str(slot.folder) if slot is not None else "HydroModPy_outputs",
+            model_name=nwt_safe_name(str(flow_run.slot.name)),
+            bin_path=slot.bin_dir if slot is not None else None,
+        )
+        solver_model.raster = get_raster(model)
+        solver_model.catchment = get_catchment(model)
+        solver_model.pre_processing()
+        return SolverRun(
+            slot=_with_maybe_slot(
+                slot, str(solver_model.model_folder), nwt_safe_name(str(flow_run.slot.name))
+            ),
+            model=flow_run.model,
+            options=options,
+            solver_model=solver_model,
+        )
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the MODPATH input files, solve, and return the solved run.
+
+        The legacy post-processing and filtering stay with the annex: the
+        extractor reads pathlines and endpoints into the run store, and no
+        shapefile is written by this run.
+        """
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(write_model=not solver_run.written, run_model=True)
+        if not success:
+            raise SolverDivergedError(
+                f"[HMPY.E401] Transport solver '{self.name}' failed for run "
+                f"'{solver_run.slot.name}'. "
+                f"See {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path) if hasattr(solver_model, "full_path") else None,
+            written=True,
+            solved=True,
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the pathlines and endpoints of a solved run through its registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)

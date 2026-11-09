@@ -2459,9 +2459,10 @@ def test_the_seal_names_its_inputs_relative_to_the_workspace(tmp_path: Path) -> 
 
     tracked = {entry.role: entry for entry in record.tracked_inputs}
     assert tracked["dem"].path == "data/dem/DEM_armorican_massif.tif"
-    assert tracked["dem"].declared_path == "DEM_armorican_massif.tif"
+    # The declared form is the path a configuration writes from the project root.
+    assert tracked["dem"].declared_path == "../../data/dem/DEM_armorican_massif.tif"
     assert tracked["hydrometry"].path == "data/hydrometry"
-    assert tracked["hydrometry"].declared_path == "hydrometry"
+    assert tracked["hydrometry"].declared_path == "../../data/hydrometry"
     (declared,) = record.inputs
     assert declared.variable == "dem"
     assert declared.path == "data/dem/DEM_armorican_massif.tif"

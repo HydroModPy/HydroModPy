@@ -37,13 +37,13 @@ def test_a_user_file_is_stamped_undetermined(tmp_path: Path) -> None:
 
 def test_a_declared_licence_survives_a_rewrite_of_the_same_bytes(tmp_path: Path) -> None:
     path = _raw(tmp_path)
-    write_sidecar(path, Sidecar(source="custom", sha256="abc", license="CC0-1.0"))
+    write_sidecar(path, Sidecar(source="file", sha256="abc", license="CC0-1.0"))
     assert _emit(path, "custom").license == "CC0-1.0"
 
 
 def test_a_declared_licence_does_not_follow_new_bytes(tmp_path: Path) -> None:
     path = _raw(tmp_path)
-    write_sidecar(path, Sidecar(source="custom", sha256="abc", license="CC0-1.0"))
+    write_sidecar(path, Sidecar(source="file", sha256="abc", license="CC0-1.0"))
     assert _emit(path, "custom", sha256="def").license == UNDETERMINED_LICENSE
 
 
@@ -56,4 +56,4 @@ def test_a_sidecar_that_cannot_be_written_never_blocks_the_registration(
         raise OSError("read-only folder")
 
     monkeypatch.setattr(cache_store, "write_sidecar", refuse)
-    emit_input_sidecar(_raw(tmp_path), sha256="abc", source="custom", crs=None, bbox=(None,) * 4)
+    emit_input_sidecar(_raw(tmp_path), sha256="abc", source="file", crs=None, bbox=(None,) * 4)

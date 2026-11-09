@@ -41,33 +41,29 @@ def _attach_to_lakes(
 def apply_lake_geometry_to_flow(
     *,
     flow: Flow,
-    lake_geometry: object | None,
+    polygons: Mapping[str, object] | None = None,
+    lake_geometry: object | None = None,
 ) -> bool:
-    """Attach loaded lake-geometry polygons onto each flow lake payload.
+    """Attach lake-geometry polygons onto each flow lake payload.
 
-    ``lake_geometry`` is the ``LoadResult`` of the ``lake_geometry`` data family:
-    its ``fields`` carry ``FieldRecord`` objects whose ``data`` is a GeoParquet
-    path. The polygon is matched to a lake id by the ``lake_id`` column when
-    present, otherwise the single record feeds the single declared lake. The LAK
-    builder then intersects the polygon with the mesh to resolve the lake cells.
+    ``polygons`` is a mapping from lake id to shapely geometry, as returned by
+    :func:`hydromodpy.data.variables.lake_geometry.read.lake_polygons`.
 
     Returns True if at least one polygon was attached, False otherwise.
     """
-    if lake_geometry is None:
-        return False
-    records = list(getattr(lake_geometry, "fields", []) or [])
-    if not records:
+    resolved_polygons = (
+        polygons
+        if polygons is not None
+        else (lake_geometry if isinstance(lake_geometry, Mapping) else None)
+    )
+    if not resolved_polygons:
         return False
 
     payloads = payloads_as_mappings(flow, "lakes")
     if not payloads:
         return False
 
-    polygons_by_lake = _resolve_lake_polygons(records, lake_ids=list(payloads))
-    if not polygons_by_lake:
-        return False
-
-    return _attach_to_lakes(flow, payloads, "polygon", polygons_by_lake)
+    return _attach_to_lakes(flow, payloads, "polygon", dict(resolved_polygons))
 
 
 def apply_cutoff_wall_to_flow(
@@ -76,16 +72,17 @@ def apply_cutoff_wall_to_flow(
     project_crs: object = None,
     outlet_xy: tuple[float, float] | None = None,
     data_dir: object = None,
+    cutoff_wall_traces: Mapping[str, Any] | None = None,
+    wall_traces: Mapping[str, Any] | None = None,
 ) -> bool:
     """Resolve each lake's cutoff_wall trace into a shapely line on its payload.
 
     The wall trace is declared on ``FlowLakeConfig.cutoff_wall`` in any of four
-    forms: inline ``line`` coordinates, a ``line_path`` vector file (.gpkg / .shp
-    / .geojson), a ``line_path`` .csv of x,y vertices, or ``auto`` (derived from
-    the reservoir footprint + the catchment ``outlet_xy``). A bare ``line_path``
-    resolves against ``<data_dir>/cutoff_wall/``. This reads / derives it into a
-    shapely LineString and attaches it as ``payload['cutoff_wall_line']`` so the
-    HFB builder and the mesh dam refinement both map it onto the faces.
+    forms: inline ``line`` coordinates, a preloaded ``line_path`` vector / csv
+    LineString in ``cutoff_wall_traces``, or ``auto`` (derived from the reservoir
+    footprint + the catchment ``outlet_xy``). This attaches it as
+    ``payload['cutoff_wall_line']`` so the HFB builder and the mesh dam
+    refinement both map it onto the faces.
 
     The trace is then laid on the lake shore (:func:`snap_wall_to_shore`):
     ``cutoff_wall_line`` is the wall on the shore, ``cutoff_wall_shore`` the
@@ -119,8 +116,14 @@ def apply_cutoff_wall_to_flow(
                 )
             trace = auto_dam_axis(polygon, outlet_xy)
         else:
+            traces_map = cutoff_wall_traces or wall_traces or {}
+            line_trace = traces_map.get(lake_id)
             trace = resolve_barrier_line(
-                cfg, where=where, project_crs=project_crs, data_dir=data_dir
+                cfg,
+                where=where,
+                project_crs=project_crs,
+                line_trace=line_trace,
+                data_dir=data_dir,
             )
         payload["cutoff_wall_trace"] = trace
         payload["cutoff_wall_line"] = trace
@@ -173,65 +176,57 @@ def _lay_wall_on_shore(
 def apply_lake_abacus_to_flow(
     *,
     flow: Flow,
-    lake_abacus: object | None,
+    abacus: Mapping[str, dict[str, list[float]]] | None = None,
+    lake_abacus: object | None = None,
 ) -> bool:
-    """Attach loaded stage-volume-area abacus rows onto each flow lake payload.
+    """Attach loaded stage-volume-area abacus mappings onto each flow lake payload.
 
-    ``lake_abacus`` is the ``LoadResult`` of the ``lake_abacus`` data family: its
-    ``tables`` carry ``TableRecord`` objects whose ``data`` is a Parquet table of
-    ``lake_id, stage, volume, sarea`` rows, keyed by ``table_id``. The abacus is
-    attached as a ``{stage, volume, sarea}`` column mapping that the LAK builder
-    turns into the ``ModflowUtllaktab`` table.
+    ``abacus`` is a mapping from lake id to ``{stage, volume, sarea}`` column dicts,
+    as returned by :func:`hydromodpy.data.variables.lake_abacus.read.lake_abacus`.
 
     Returns True if at least one abacus was attached, False otherwise.
     """
-    if lake_abacus is None:
-        return False
-    records = list(getattr(lake_abacus, "tables", []) or [])
-    if not records:
+    resolved_abacus = (
+        abacus
+        if abacus is not None
+        else (lake_abacus if isinstance(lake_abacus, Mapping) else None)
+    )
+    if not resolved_abacus:
         return False
 
     payloads = payloads_as_mappings(flow, "lakes")
     if not payloads:
         return False
 
-    abacus_by_lake = _resolve_lake_abacus(records, lake_ids=list(payloads))
-    if not abacus_by_lake:
-        return False
-
-    return _attach_to_lakes(flow, payloads, "abacus", abacus_by_lake)
+    return _attach_to_lakes(flow, payloads, "abacus", dict(resolved_abacus))
 
 
 def apply_lake_bathymetry_to_flow(
     *,
     flow: Flow,
-    lake_bathymetry: object | None,
+    bathymetry: Mapping[str, Any] | None = None,
+    lake_bathymetry: object | None = None,
 ) -> bool:
     """Attach the loaded lake-bathymetry raster path onto each flow lake payload.
 
-    ``lake_bathymetry`` is the ``LoadResult`` of the ``lake_bathymetry`` data
-    family: its ``fields`` carry ``FieldRecord`` objects whose ``data`` is a
-    GeoTIFF path. The raster is matched to a lake id (single record feeds the
-    single declared lake; otherwise the file stem must contain the lake id) and
-    attached as ``payload['bathymetry']`` so the LAK builder can carve the bed.
+    ``bathymetry`` is a mapping from lake id to raster Path, as returned by
+    :func:`hydromodpy.data.variables.lake_bathymetry.read.lake_bathymetry`.
 
     Returns True if at least one raster was attached, False otherwise.
     """
-    if lake_bathymetry is None:
-        return False
-    records = list(getattr(lake_bathymetry, "fields", []) or [])
-    if not records:
+    resolved_bathy = (
+        bathymetry
+        if bathymetry is not None
+        else (lake_bathymetry if isinstance(lake_bathymetry, Mapping) else None)
+    )
+    if not resolved_bathy:
         return False
 
     payloads = payloads_as_mappings(flow, "lakes")
     if not payloads:
         return False
 
-    bathy_by_lake = _resolve_lake_bathymetry(records, lake_ids=list(payloads))
-    if not bathy_by_lake:
-        return False
-
-    return _attach_to_lakes(flow, payloads, "bathymetry", bathy_by_lake)
+    return _attach_to_lakes(flow, payloads, "bathymetry", dict(resolved_bathy))
 
 
 def apply_lake_flux_forcings_to_flow(
@@ -411,80 +406,3 @@ def _point_record_series(record: Any):
         index=pd.DatetimeIndex(frame["datetime"]),
         dtype=float,
     )
-
-
-def _resolve_lake_polygons(
-    records: list[Any],
-    *,
-    lake_ids: list[str],
-) -> dict[str, object]:
-    """Match each lake-geometry record's footprint polygon to a lake id."""
-    import geopandas as gpd
-
-    polygons_by_lake: dict[str, object] = {}
-    for record in records:
-        gdf = gpd.read_parquet(str(record.data))
-        if gdf.empty:
-            continue
-        if "lake_id" in gdf.columns:
-            for lake_id, group in gdf.groupby("lake_id"):
-                polygons_by_lake[str(lake_id)] = group.union_all()
-        elif len(lake_ids) == 1:
-            polygons_by_lake[lake_ids[0]] = gdf.union_all()
-    return polygons_by_lake
-
-
-def _resolve_lake_abacus(
-    records: list[Any],
-    *,
-    lake_ids: list[str],
-) -> dict[str, dict[str, list[float]]]:
-    """Match each abacus record's stage-volume-area rows to a lake id."""
-    import pandas as pd
-
-    abacus_by_lake: dict[str, dict[str, list[float]]] = {}
-    for record in records:
-        frame = pd.read_parquet(str(record.data))
-        if "lake_id" in frame.columns:
-            for lake_id, group in frame.groupby("lake_id"):
-                abacus_by_lake[str(lake_id)] = _abacus_columns(group)
-        else:
-            table_id = str(getattr(record, "table_id", "") or "")
-            target = table_id if table_id in lake_ids else (lake_ids[0] if lake_ids else None)
-            if target is not None:
-                abacus_by_lake[target] = _abacus_columns(frame)
-    return abacus_by_lake
-
-
-def _resolve_lake_bathymetry(
-    records: list[Any],
-    *,
-    lake_ids: list[str],
-) -> dict[str, str]:
-    """Match each bathymetry raster path to a lake id.
-
-    A single record feeds the single declared lake. With several records or
-    lakes, a record is matched to a lake id when its file stem contains that id
-    (e.g. ``lake_bathymetry_custom_lac0.tif`` -> ``lac0``).
-    """
-    from pathlib import Path
-
-    paths = [str(getattr(rec, "data", "")) for rec in records if getattr(rec, "data", None)]
-    bathy_by_lake: dict[str, str] = {}
-    if len(paths) == 1 and len(lake_ids) == 1:
-        bathy_by_lake[lake_ids[0]] = paths[0]
-        return bathy_by_lake
-    for path in paths:
-        stem = Path(path).stem
-        for lake_id in lake_ids:
-            if lake_id in stem:
-                bathy_by_lake[lake_id] = path
-    return bathy_by_lake
-
-
-def _abacus_columns(frame: Any) -> dict[str, list[float]]:
-    """Return the ``{stage, volume, sarea}`` column mapping from an abacus frame."""
-    return {
-        column: [float(value) for value in frame[column].tolist()]
-        for column in ("stage", "volume", "sarea")
-    }

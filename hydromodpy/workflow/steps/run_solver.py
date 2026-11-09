@@ -152,13 +152,11 @@ class RunSolverStep:
         t0 = time.monotonic()
         launcher = self.launcher if self.launcher is not None else SimulationRunner()
         if run_is_persisted(ctx):
-            # One handle for the whole solve: the adapters reach the run's
-            # store through the ``RunContext`` the launcher builds, and the
-            # metrics of every executed run are written before it closes.
+            # One handle for the whole solve: the products of every executed run
+            # are written through it, and the folder each run solved in is read
+            # back to the facts, for the derive step and for a resume.
             with run_store(ctx) as store:
-                executed_results = (
-                    launcher.execute(plan, ctx, callbacks=callbacks, store=store) or ()
-                )
+                executed_results = launcher.execute(plan, ctx, callbacks=callbacks) or ()
                 for run, result in executed_results:
                     record_run_execution_metrics(
                         ctx=RunContext.of(ctx, plan=plan, run=run, store=store),

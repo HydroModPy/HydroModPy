@@ -38,7 +38,7 @@ HTTP transport stubbed, and reads the bounding box out of the query string that
 was about to be sent. Layer A alone would prove the adapter passes *something*
 to a function; Layer B proves the reprojected coordinates are what the provider
 receives. It covers the three shipped river networks, which all go through
-``hydromodpy.core.io.http_client.HTTPClient.request``.
+``hydromodpy.core.io.fetch.HTTPClient.request``.
 """
 
 from __future__ import annotations
@@ -700,6 +700,37 @@ DOUBLE_CASES: tuple[SourceCase, ...] = (
     ),
 )
 
+
+def _user_source_cases() -> tuple[SourceCase, ...]:
+    """One case per ``<section>_file`` and ``<section>_url`` key the registry ships.
+
+    The two user sources call no provider with a box, so the cases of layer A
+    do not apply to them. They are generated from the registry, so a section
+    that gains a user source is covered without a line written here, and
+    :func:`test_a_user_source_serves_its_one_file` checks what they return.
+    """
+    cases = []
+    for key in sorted(registry.data_sources.names(shipped_only=True)):
+        section, _, name = key.rpartition("_")
+        if name not in ("file", "url"):
+            continue
+        cases.append(
+            SourceCase(
+                section=section,
+                name=name,
+                build=lambda key=key: registry.data_sources.get(key)(),
+                provider_module="hydromodpy.data.source.url" if name == "url" else "",
+                provider_attr="download" if name == "url" else "",
+                read_bbox=lambda args, kwargs: None,
+                canned=lambda: None,
+            )
+        )
+    return tuple(cases)
+
+
+USER_CASES = _user_source_cases()
+USER_PARAMS = [pytest.param(case, id=case.key) for case in USER_CASES]
+
 CASES = BUILTIN_CASES + DOUBLE_CASES
 CASE_PARAMS = [pytest.param(case, id=case.key) for case in CASES]
 _CASES_BY_NAME = {case.name: case for case in CASES}
@@ -740,7 +771,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     import requests
 
-    from hydromodpy.core.io.http_client import HTTPClient
+    from hydromodpy.core.io.fetch import HTTPClient
 
     def _refuse(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("a source reached the network outside its provider function")
@@ -782,9 +813,55 @@ def test_the_suite_covers_every_source_this_build_ships() -> None:
     them, so a source can only be missing from this suite by being missing from
     the registry too.
     """
-    assert {case.key for case in BUILTIN_CASES} == set(
+    assert {case.key for case in BUILTIN_CASES + USER_CASES} == set(
         registry.data_sources.names(shipped_only=True)
     )
+
+
+@pytest.mark.parametrize("case", USER_PARAMS)
+def test_a_user_source_serves_its_one_file(
+    case: SourceCase,
+    tmp_path: Path,
+    no_network: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A ``file`` source reads in place, a ``url`` source fills ``out_dir`` once."""
+    import hashlib
+
+    from hydromodpy.core.io.fetch import Fetched
+    from hydromodpy.data.contracts.file_record import FileRecord
+
+    source = case.build()
+    assert source.source_id == case.name
+    assert source.selectors == ()
+    out_dir = tmp_path / "out"
+    if case.name == "file":
+        given = tmp_path / "given.bin"
+        given.write_bytes(b"user file")
+        source.path = given
+    else:
+        source.url = "https://example.org/given.bin"
+        calls: list[str] = []
+
+        def _download(url: str, dest: Path, **_kwargs: object) -> Fetched:
+            calls.append(url)
+            Path(dest).write_bytes(b"user file")
+            digest = hashlib.sha256(b"user file").hexdigest()
+            return Fetched(path=Path(dest), sha256=digest, size=9, final_url=url)
+
+        monkeypatch.setattr(f"{case.provider_module}.{case.provider_attr}", _download)
+    period = PERIOD if source.period_need in ("required", "optional") else None
+    result = source.fetch(FetchRequest(out_dir=out_dir, period=period))
+
+    assert result.source_id == source.source_id
+    assert result.kind == source.payload_kind
+    assert result.variables == source.variables == (case.section,)
+    assert len(result.files) == 1 and isinstance(result.files[0], FileRecord)
+    written = out_dir.exists() and any(out_dir.iterdir())
+    assert written is source.writes_out_dir
+    if case.name == "url":
+        assert calls == ["https://example.org/given.bin"]
+        assert result.files[0].path.parent == out_dir
 
 
 def test_the_suite_spans_the_vocabularies() -> None:
@@ -1160,7 +1237,7 @@ class Wire:
 @pytest.fixture
 def wire(monkeypatch: pytest.MonkeyPatch) -> Iterator[Wire]:
     """Stub the shared HTTP transport and record every request it was given."""
-    from hydromodpy.core.io.http_client import HTTPClient
+    from hydromodpy.core.io.fetch import HTTPClient
 
     recorded = Wire(calls=[], responses=[])
 
@@ -1247,7 +1324,7 @@ def test_the_bbox_on_the_osm_wire_is_the_reprojected_one(tmp_path: Path, wire: W
 def test_the_bbox_on_the_ign_wire_is_the_reprojected_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The real RGE ALTI WMS assembly runs; only ``requests.Session`` is canned.
+    """The real RGE ALTI WMS assembly runs; only ``HTTPClient.request`` is canned.
 
     Every tile the plan asks for carries the snapped box of the request, so the
     reprojected extent is what reaches the wire, tile by tile, for a box that
@@ -1255,15 +1332,16 @@ def test_the_bbox_on_the_ign_wire_is_the_reprojected_one(
     """
     import numpy as np
     import rasterio
-    import requests
     from rasterio.io import MemoryFile
     from rasterio.transform import from_origin
 
+    from hydromodpy.core.io.fetch import HTTPClient
     from hydromodpy.data.variables.dem.apis import geoplateforme_wms as wms
 
     sent: list[dict[str, Any]] = []
 
-    def _get(_self: object, url: str, **kwargs: Any) -> Any:
+    def _request(_self: object, method: str, url: str, **kwargs: Any) -> Any:
+        assert "data.geopf.fr" in url, f"unexpected host on wire: {url}"
         params = kwargs.get("params") or {}
         if params.get("REQUEST") != "GetMap":
             raise AssertionError(f"an unexpected request reached the wire: {url} {params}")
@@ -1298,7 +1376,7 @@ def test_the_bbox_on_the_ign_wire_is_the_reprojected_one(
 
         return _Answer()
 
-    monkeypatch.setattr(requests.Session, "get", _get)
+    monkeypatch.setattr(HTTPClient, "request", _request)
 
     caller = Extent(
         xmin=-2.0,

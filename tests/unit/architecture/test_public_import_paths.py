@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.calibration.evaluation import forward_registry
 from hydromodpy.calibration.evaluation import registry as evaluator_registry
+from hydromodpy.calibration.optim.optimizer import ENTRY_POINT_GROUP as OPTIMIZER_ENTRY_POINT_GROUP
 from hydromodpy.catchment.terrain import registry as terrain_registry
 from hydromodpy.data.source import registry as source_registry
 from hydromodpy.mesh import registry as mesh_registry
@@ -40,8 +40,8 @@ PORT_STABILITY = {
     terrain_registry.ENTRY_POINT_GROUP: "stable",
     mesh_registry.ENTRY_POINT_GROUP: "stable",
     source_registry.ENTRY_POINT_GROUP: "stable",
-    forward_registry.ENTRY_POINT_GROUP: "stable signature, experimental construction options",
     evaluator_registry.ENTRY_POINT_GROUP: "experimental",
+    OPTIMIZER_ENTRY_POINT_GROUP: "experimental",
     solver_registry.ENTRY_POINT_GROUP: "experimental",
     solver_registry.EXTRACTOR_ENTRY_POINT_GROUP: "experimental",
     EXPORT_FORMAT_GROUP: "experimental",

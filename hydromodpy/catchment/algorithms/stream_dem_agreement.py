@@ -9,7 +9,7 @@ of spurious trace, the signature of a systematic one-pixel shift.
 This is not a quality mark on the network, which is an input taken as given. It
 measures the disagreement between the DEM and that network. It is a diagnostic of
 the geographic step: it decides no treatment and never stops a run. It reads a local vector file only (a
-``[[data.hydrography.sources]]`` entry with ``source = "custom"``) and needs no
+``[[data.hydrography.sources]]`` entry with ``source = "file"``) and needs no
 calibration.
 """
 

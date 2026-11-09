@@ -86,7 +86,6 @@ crs_project = "EPSG:2154"
 # The outlet comes from the row of each site; the DEM is shared.
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 snap_dist = "150 m"
 buff_area = "10%"
 
@@ -95,7 +94,12 @@ kind = "constant_thickness"
 thickness = "30.0 m"
 
 [data]
-types = ["hydrography", "hydrometry", "recharge", "runoff"]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
 
 # BD Topage: every reach with its permanence. The download box comes from the
 # delineated watershed of each site.

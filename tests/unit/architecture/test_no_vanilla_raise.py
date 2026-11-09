@@ -30,17 +30,36 @@ SCOPE: tuple[str, ...] = (
     "solver/base/runner.py",
     "solver/base/rerun.py",
     "solver/modflow_common/flow_adapter_helpers.py",
+    "solver/modflow_common/mt3dms_extractor_base.py",
     "solver/modflow6/adapter.py",
     "solver/modflow6/rerun.py",
+    "solver/modflow6/transport.py",
+    "solver/modflow6/prt.py",
     "solver/modflow_nwt/adapter.py",
+    "solver/modflow_nwt/mt3dms/mt3dms.py",
+    "solver/modflow_nwt/modpath/modpath.py",
     "solver/boussinesq/adapter.py",
-    "solver/modflow6/adapters/transport.py",
-    "solver/modflow_nwt/adapters/transport_modpath.py",
-    "solver/modflow_nwt/adapters/transport_mt3dms.py",
 )
 """Files and folders, relative to the package, that raise typed exceptions only. Each must exist."""
 
-EXEMPT: dict[str, dict[str, str]] = {}
+EXEMPT: dict[str, dict[str, str]] = {
+    "solver/modflow6/transport.py": {
+        "why": "legacy engine class Modflow6Gwt raises RuntimeError before solve",
+        "lifted_by": "4.16",
+    },
+    "solver/modflow6/prt.py": {
+        "why": "legacy engine class Modflow6Prt raises ValueError/RuntimeError",
+        "lifted_by": "4.16",
+    },
+    "solver/modflow_nwt/mt3dms/mt3dms.py": {
+        "why": "legacy engine class Mt3dms raises ValueError/RuntimeError",
+        "lifted_by": "4.16",
+    },
+    "solver/modflow_nwt/modpath/modpath.py": {
+        "why": "legacy engine class Modpath raises ValueError",
+        "lifted_by": "4.16",
+    },
+}
 """Files inside a scoped folder that keep their vanilla raises for now.
 
 Each entry says why and names the lot that lifts it, like ``known_stale`` in

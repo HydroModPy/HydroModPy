@@ -248,10 +248,18 @@ def _catchment_definition_label(value: Any) -> str:
 
 
 def _regional_context_title(state: DataOverviewState) -> str:
+    dem_source_path = None
+    dem_cfg = getattr(getattr(state.cfg, "data", None), "dem", None)
+    if dem_cfg and getattr(dem_cfg, "sources", None):
+        first = dem_cfg.sources[0]
+        dem_source_path = getattr(first, "path", None)
     return regional_context_title(
         getattr(getattr(state.cfg, "overview", None), "regional_context_label", None),
         (
             getattr(getattr(state, "domain_geographic", None), "regional_dem_path", None),
+            getattr(state, "dem_path", None),
+            getattr(getattr(state, "geographic", None), "dem_init_path", None),
+            dem_source_path,
             getattr(getattr(state.cfg, "geographic", None), "dem_init_path", None),
         ),
     )

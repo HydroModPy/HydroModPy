@@ -38,7 +38,7 @@ BOUND_FIELDS: dict[str, tuple[str, ...]] = {
 SECTION_ONLY_FIELDS = ("source", "path", "rasterize_field")
 """Fields of the section no source of THIS family may take.
 
-``source`` is the selector, ``path`` belongs to the ``custom`` loader, and
+``source`` is the selector, ``path`` belongs to the ``file`` loader, and
 ``rasterize_field`` is the manager's: what a vector is burned onto a grid by is
 decided after a fetch, never inside one. A file-reading source of another
 family (the Explore2 grids, and the ``file`` source of the full cache lot) does
@@ -56,8 +56,22 @@ def _bindable_parameters(source_id: str) -> tuple[str, ...]:
     return tuple(name for name, parameter in parameters.items() if parameter.kind in bindable)
 
 
+def _network_source_ids() -> list[str]:
+    """The shipped sources of the section that answer a river network.
+
+    The generic ``file`` and ``url`` sources are registered under every section
+    and answer files, which the manager reads itself; they bind ``path`` or
+    ``url`` and belong to no network table.
+    """
+    return [
+        source_id
+        for source_id in registry.data_sources.names("hydrography", shipped_only=True)
+        if registry.data_sources.get("hydrography", source_id).payload_kind == NETWORK_PAYLOAD_KIND
+    ]
+
+
 def test_the_table_covers_every_source_the_section_ships() -> None:
-    assert set(BOUND_FIELDS) == set(registry.data_sources.names("hydrography", shipped_only=True))
+    assert set(BOUND_FIELDS) == set(_network_source_ids())
 
 
 @pytest.mark.parametrize("source_id", sorted(BOUND_FIELDS))
@@ -68,7 +82,7 @@ def test_the_bound_fields_are_exactly_the_shared_names(source_id: str) -> None:
 
 
 def test_no_source_of_the_section_takes_a_field_the_manager_owns() -> None:
-    for source_id in registry.data_sources.names("hydrography", shipped_only=True):
+    for source_id in _network_source_ids():
         taken = set(_bindable_parameters(source_id)) & set(SECTION_ONLY_FIELDS)
         assert not taken, f"{source_id} would be handed {sorted(taken)}"
 
@@ -224,7 +238,7 @@ def _documented_names() -> tuple[str, ...]:
 
 def test_every_source_the_section_documents_serves_a_network() -> None:
     """Anti-vacuity: a refusal that refused everything would pass both tests."""
-    names = [name for name in _documented_names() if name != "custom"]
+    names = [name for name in _documented_names() if name not in ("file", "url")]
     assert len(names) == 3, "the documented list lost a source without anyone noticing"
     for name in names:
         assert source_from_section(SimpleNamespace(source=name)).source_id == name

@@ -26,7 +26,8 @@ a "where to add what" table. The rules are held by
   search methods are the modules of ``optim/adapters/``.
 - ``hydromodpy/calibration/criteria/`` scores a simulated series against an observed one.
 - ``hydromodpy/calibration/evaluation/`` defines what one trial must answer: the
-  ``TrialEvaluator`` port, the forward-model port and their registries.
+  ``TrialEvaluator`` port, its registry and the ``analytic_bowl`` evaluator that needs nothing
+  from the calibration document.
 - ``hydromodpy/calibration/metrics/`` and ``observations/`` extract the outputs of a trial and
   pair them with the observations.
 - ``hydromodpy/calibration/persistence.py`` writes a session (the journal first, then the

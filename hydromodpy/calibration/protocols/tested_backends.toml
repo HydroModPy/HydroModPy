@@ -1,0 +1,11 @@
+# What a case in this repository runs, per calibration protocol.
+#
+# One table per protocol name, and ``tested`` is the only verdict carried: a
+# backend that cannot serve a protocol says so itself, in
+# ``declared_observables``, and the verdict is read from that answer. Every
+# name in this file has to be a shipped flow backend, which the protocol tests
+# hold, so a rename fails here before it lies in a sentence.
+
+[matching_hydrographic_network]
+modflow6 = "tested"
+modflow_nwt = "tested"

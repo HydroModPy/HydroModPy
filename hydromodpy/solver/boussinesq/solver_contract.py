@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.boundaries.boundary_condition_registry import boundary_definition
+from hydromodpy.solver.base.registry import backends_honoring
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
@@ -201,10 +202,15 @@ def assert_supported_runtime_subset(model: Model, supports: Set[str]) -> None:
         and definition.family == "advanced_package"
     )
     if advanced_bc:
+        honoring = backends_honoring("lake")
         raise IncompatibleCapabilitiesError(
             "The boussinesq backend does not support advanced-package boundaries "
-            "(LAK lake/reservoir); they require the modflow6 backend. Offending "
-            "boundaries: " + ",".join(advanced_bc) + "."
+            "(LAK lake/reservoir); they require a backend that honors the lake "
+            "boundary, and this installation serves: "
+            + (", ".join(honoring) or "none")
+            + ". Offending boundaries: "
+            + ",".join(advanced_bc)
+            + "."
         )
 
     unsupported: list[str] = []

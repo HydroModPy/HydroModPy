@@ -124,6 +124,8 @@ def _refusal_of_the_run(previous: SolverRun, model: Any, slot: RunSlot) -> str |
     sim = getattr(solver, "sim", None)
     if sim is None or _resolved(sim.sim_path) != _resolved(previous.output_dir):
         return "the solver model no longer writes into the folder of the previous run"
+    if len(getattr(sim, "model_names", ())) > 1:
+        return "the simulation of the previous run was solved more than once"
     if not previous.input_files:
         return "the previous run lists no input files"
     missing = [name for name in previous.input_files if not (previous.output_dir / name).is_file()]
@@ -329,7 +331,17 @@ def rerun_modflow6(
     and the packages the change reaches are written. The run returned has
     ``written`` true and ``solved`` false, lists the same input files, and is
     solved by ``run``, which writes nothing more.
+
+    A rerun refuses a run whose simulation was solved a second time by a
+    transport run: after GWT or PRT solve in the same folder, the simulation of
+    ``previous`` carries packages no build of this adapter wrote, and a reprise
+    would relaunch the transports without saying so. The previous run is then
+    left untouched and the runner builds instead.
     """
+    solver = previous.solver_model
+    if solver is None:
+        logger.debug("MODFLOW 6 builds run %r instead of a rerun: no solver model.", slot.name)
+        return None
     plan = plan_rerun(previous, model, slot, mutable=mutable)
     if plan.refusal is not None:
         logger.debug("MODFLOW 6 builds run %r instead of a rerun: %s.", slot.name, plan.refusal)

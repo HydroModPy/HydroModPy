@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import hashlib
 import os
-import shutil
-import urllib.error
-import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
+from hydromodpy.core.io.fetch import download, open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import PayloadFile
 from hydromodpy.core.payload.install import sha256_of
@@ -145,47 +143,10 @@ def _encode(repo_path: str) -> str:
 
 def _download(origin: str, destination: Path, *, label: str, size: int) -> str:
     """Stream ``origin`` into ``destination`` and return the sha256 it hashed to."""
-    digest = hashlib.sha256()
-    show_progress = size >= PROGRESS_THRESHOLD_BYTES
-    with _open_source(origin) as reader, destination.open("wb") as writer:
-        if show_progress:
-            with progress.task(f"Fetching {label}", total=float(size), unit="bytes") as handle:
-                for chunk in iter(lambda: reader.read(_CHUNK_BYTES), b""):
-                    digest.update(chunk)
-                    writer.write(chunk)
-                    handle.advance(len(chunk))
-        else:
-            shutil.copyfileobj(_HashingReader(reader, digest), writer, _CHUNK_BYTES)
-    return digest.hexdigest()
-
-
-class _HashingReader:
-    """Wrap a reader so ``copyfileobj`` hashes what it copies."""
-
-    def __init__(self, reader, digest) -> None:  # noqa: ANN001 - stdlib duck types
-        self._reader = reader
-        self._digest = digest
-
-    def read(self, size: int = -1) -> bytes:
-        chunk = self._reader.read(size)
-        self._digest.update(chunk)
-        return chunk
-
-
-def _open_source(origin: str):  # noqa: ANN201 - a binary reader, stdlib duck type
-    """Open ``origin`` for reading, over HTTP or from the local filesystem."""
     if origin.startswith(("http://", "https://")):
-        try:
-            return urllib.request.urlopen(origin, timeout=_TIMEOUT_SECONDS)  # noqa: S310
-        except urllib.error.HTTPError as exc:
-            raise NetworkError(
-                f"{origin} answered HTTP {exc.code}. Check the --ref: the tag has to "
-                f"exist on the repository before its files can be fetched.",
-                source=origin,
-                status=exc.code,
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise NetworkError(f"Cannot reach {origin}: {exc.reason}.", source=origin) from exc
+        with open_client() as client:
+            fetched = download(origin, destination, client=client)
+            return fetched.sha256
 
     local = Path(origin[len("file://") :] if origin.startswith("file://") else origin)
     if not local.is_file():
@@ -194,4 +155,18 @@ def _open_source(origin: str):  # noqa: ANN201 - a binary reader, stdlib duck ty
             f"repo_path of the manifest has to resolve under it.",
             source=str(local),
         )
-    return local.open("rb")
+
+    digest = hashlib.sha256()
+    show_progress = size >= PROGRESS_THRESHOLD_BYTES
+    with local.open("rb") as reader, destination.open("wb") as writer:
+        if show_progress:
+            with progress.task(f"Fetching {label}", total=float(size), unit="bytes") as handle:
+                for chunk in iter(lambda: reader.read(_CHUNK_BYTES), b""):
+                    digest.update(chunk)
+                    writer.write(chunk)
+                    handle.advance(len(chunk))
+        else:
+            for chunk in iter(lambda: reader.read(_CHUNK_BYTES), b""):
+                digest.update(chunk)
+                writer.write(chunk)
+    return digest.hexdigest()

@@ -73,11 +73,11 @@ class BaseFieldManager(BaseManagerCommon):
         self._register_point_records(result.points)
         return result
 
-    def load_custom(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
+    def load_file(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
         """Load a folder of chronicles, a NetCDF or a GeoTIFF of the user."""
-        from hydromodpy.data.ingest.custom_points import load_custom_multiformat
+        from hydromodpy.data.ingest.custom_points import load_file_multiformat
 
-        records = load_custom_multiformat(
+        records = load_file_multiformat(
             Path(source_cfg.path),
             variable_name=self.VARIABLE_NAME,
             internal_unit=self.INTERNAL_UNIT,
@@ -95,7 +95,7 @@ class BaseFieldManager(BaseManagerCommon):
             grid_crs=getattr(source_cfg, "crs", None),
             grid_nodata=getattr(source_cfg, "nodata", None),
         )
-        return self._handle_custom_results(records, source_cfg)
+        return self._handle_file_results(records, source_cfg)
 
     def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
         """The window the section writes, bound as datetimes.
@@ -195,17 +195,19 @@ class BaseFieldManager(BaseManagerCommon):
 
         return mask_geometry(mask_path)[0]
 
-    def _handle_custom_results(self, records: list, source_cfg) -> list:
-        """Dispatch custom results: mask PointRecords, register FieldRecords."""
+    def _handle_file_results(self, records: list, source_cfg) -> list:
+        """Dispatch file results: mask PointRecords, register FieldRecords."""
         point_records = [r for r in records if isinstance(r, PointRecord)]
         field_records = [r for r in records if isinstance(r, FieldRecord)]
         result: list = []
         if point_records:
             result.extend(self._apply_mask(point_records, source_cfg))
         if field_records:
-            self._register_custom_fields(field_records)
+            self._register_file_fields(field_records)
             result.extend(field_records)
         return result
+
+    _handle_custom_results = _handle_file_results
 
     # ------------------------------------------------------------------
     # Grid cache: check catalog -> load .nc or fetch API -> persist
@@ -372,7 +374,7 @@ class BaseFieldManager(BaseManagerCommon):
         if self.catalog is None:
             return
         for r in records:
-            if r.file_path is None and r.source != "custom":
+            if r.file_path is None and r.source not in ("file", "custom"):
                 continue
             bbox = None
             crs = None
@@ -391,18 +393,18 @@ class BaseFieldManager(BaseManagerCommon):
                 frequency=r.frequency,
                 bbox=bbox,
                 crs=crs,
-                is_custom=(r.source == "custom"),
+                is_custom=(r.source in ("file", "custom")),
             )
 
-    def _register_custom_fields(self, records: list[FieldRecord]) -> None:
-        """Register custom FieldRecords in the catalog (metadata only)."""
+    def _register_file_fields(self, records: list[FieldRecord]) -> None:
+        """Register file FieldRecords in the catalog (metadata only)."""
         if self.catalog is None:
             return
         for rec in records:
-            file_path = str(rec.data) if rec.is_file_reference else "custom"
+            file_path = str(rec.data) if rec.is_file_reference else "file"
             self.catalog.register(
                 variable=rec.variable,
-                source="custom",
+                source=rec.source if rec.source in ("file", "custom") else "file",
                 file_path=file_path,
                 bbox=rec.bbox,
                 crs=rec.crs,
@@ -413,6 +415,8 @@ class BaseFieldManager(BaseManagerCommon):
                 source_unit=rec.source_unit,
                 is_custom=True,
             )
+
+    _register_custom_fields = _register_file_fields
 
     @staticmethod
     def _extract_field_source_unit(ds, variable: str) -> str | None:

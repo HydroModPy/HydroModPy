@@ -10,33 +10,33 @@ from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig
 from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
 
-def _load_custom(cfg, *, project_period=None):
+def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the piezometry manager does."""
-    return PiezometryManager(config=None, catalog=None, project_period=project_period).load_custom(
+    return PiezometryManager(config=None, catalog=None, project_period=project_period).load_file(
         cfg
     )
 
 
 class TestPiezometryCustomCSV:
     def test_load_two_piezometers(self, sample_piezo_dir, project_period):
-        cfg = PiezometrySourceConfig(source="custom", path=sample_piezo_dir, product=None)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = PiezometrySourceConfig(source="file", path=sample_piezo_dir, product=None)
+        records = _load_file(cfg, project_period=project_period)
 
         assert len(records) == 2
         for r in records:
             assert r.variable == "groundwater_level"
-            assert r.source == "custom"
+            assert r.source == "file"
             assert r.unit == "m"
             assert r.has_data
 
     def test_filter_ids(self, sample_piezo_dir, project_period):
         cfg = PiezometrySourceConfig(
-            source="custom",
+            source="file",
             path=sample_piezo_dir,
             station_ids=["BSS002"],
             product=None,
         )
-        records = _load_custom(cfg, project_period=project_period)
+        records = _load_file(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "BSS002"
 
@@ -60,8 +60,8 @@ class TestPiezometryCustomConstant:
             d / "piezometry_custom_PZ1_20200101_20200331_D.csv", index=False
         )
 
-        cfg = PiezometrySourceConfig(source="custom", path=d, product=None)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = PiezometrySourceConfig(source="file", path=d, product=None)
+        records = _load_file(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].is_constant
         assert records[0].data["value"].iloc[0] == pytest.approx(10.0)
@@ -84,8 +84,8 @@ class TestPiezometryCustomConstant:
             d / "piezometry_custom_PZ_CM_20200101_20200331_D.csv", index=False
         )
 
-        cfg = PiezometrySourceConfig(source="custom", path=d, product=None)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = PiezometrySourceConfig(source="file", path=d, product=None)
+        records = _load_file(cfg, project_period=project_period)
 
         assert len(records) == 1
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)

@@ -10,9 +10,10 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomSubstratumSource(HydroModelBase):
+class FileSubstratumSource(HydroModelBase):
     """User-provided substratum raster (GeoTIFF/ASC).
 
     The raster places the bottom of the aquifer. It is read only when
@@ -21,9 +22,9 @@ class CustomSubstratumSource(HydroModelBase):
     aquifer thickness below the top). With any other kind it is loaded but unused.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' substratum provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' substratum provider.",
     )
     path: Annotated[
         Path,
@@ -31,8 +32,25 @@ class CustomSubstratumSource(HydroModelBase):
         InputFile(role="substratum", category="geometry"),
     ] = Field(
         ...,
-        description="Path to a custom substratum raster file (GeoTIFF, ASC).",
+        description="Path to a user substratum raster file (GeoTIFF, ASC).",
     )
+    default_crs: Annotated[str, Profile.USER] = Field(
+        default="EPSG:2154",
+        description=(
+            "CRS to use for a raster that carries none of its own. Only a value written "
+            "here is used: without it, a file with no CRS is refused."
+        ),
+    )
+
+
+class UrlSubstratumSource(UrlSourceOptions, HydroModelBase):
+    """Remote substratum raster, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' substratum provider.",
+    )
+
     default_crs: Annotated[str, Profile.USER] = Field(
         default="EPSG:2154",
         description=(
@@ -48,11 +66,11 @@ class SubstratumConfig(HydroModelBase):
     Example TOML::
 
         [[data.substratum.sources]]
-        source = "custom"
-        path = "data/substratum/substratum_custom_bottom.tif"
+        source = "file"
+        path = "data/substratum/substratum_file_bottom.tif"
     """
 
-    sources: Annotated[list[CustomSubstratumSource], Profile.USER] = Field(
+    sources: Annotated[list[FileSubstratumSource | UrlSubstratumSource], Profile.USER] = Field(
         ...,
         min_length=1,
         max_length=1,
@@ -61,5 +79,5 @@ class SubstratumConfig(HydroModelBase):
 
     @classmethod
     def from_raster(cls, path: str | Path, **overrides) -> SubstratumConfig:
-        """SubstratumConfig from a custom substratum raster (GeoTIFF/ASC)."""
-        return cls(sources=[CustomSubstratumSource(path=Path(path))], **overrides)
+        """SubstratumConfig from a user substratum raster (GeoTIFF/ASC)."""
+        return cls(sources=[FileSubstratumSource(path=Path(path))], **overrides)

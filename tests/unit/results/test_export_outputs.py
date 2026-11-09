@@ -254,7 +254,7 @@ def test_inputs_with_a_stated_licence_give_it_to_the_run(tmp_path: Path) -> None
 def test_one_unknown_input_leaves_the_run_undetermined(tmp_path: Path) -> None:
     project = tmp_path / "demo"
     dem = _input(project, "dem.tif", source="ign_geoplateforme_dem", license="etalab-2.0")
-    recharge = _input(project, "recharge.csv", source="custom", license=UNDETERMINED_LICENSE)
+    recharge = _input(project, "recharge.csv", source="file", license=UNDETERMINED_LICENSE)
     with _open(project, [dem, recharge]) as store:
         assert store.licence() == UNDETERMINED_LICENSE
 
@@ -267,7 +267,7 @@ def test_a_run_with_no_recorded_input_is_undetermined(tmp_path: Path) -> None:
 
 def test_a_custom_record_counts_through_the_tracked_file_that_holds_it(tmp_path: Path) -> None:
     project = tmp_path / "demo"
-    series = _input(project, "recharge.csv", source="custom", license="etalab-2.0")
+    series = _input(project, "recharge.csv", source="file", license="etalab-2.0")
     from hydromodpy.results.storage.digests import sha256_streaming
 
     digest = sha256_streaming(series)

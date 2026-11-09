@@ -14,7 +14,9 @@ id, in the order of ``param_list``), ``initial_conditions``,
 ``boundary_condition_bundle``, ``active_bc``, ``sinks_sources`` (keys
 ``wells``, ``lakes``, ``sfr``, ``flow_barriers``, ``recharge`` and ``etp``) and
 ``active_sinks_sources``. Recharge and ETP are converted to m/s and well fluxes
-to m3/s when they are set.
+to m3/s when they are set. The recharge binder also reads
+``native_recharge``, the forcing at the step of its source for a global
+solver, in m/s; it stays ``None`` when no source gives one.
 """
 
 from numbers import Real
@@ -29,6 +31,7 @@ from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_p
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.model.flow_config import FlowConfig
+from hydromodpy.model.forcing.native import NativeSeries
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.payloads import BoundaryCondition
 from hydromodpy.model.process_spatial import ProcessSpatial
@@ -88,6 +91,7 @@ class Flow(ProcessSpatial):
         self.flow_regime: str
         self.first_period_steady: bool
         self.initial_conditions: FlowInitialConditions | None
+        self.native_recharge: NativeSeries | None = None
         self.boundary_condition_bundle: BoundaryConditionBundle = BoundaryConditionBundle(
             conditions={},
             active_ids=(),
@@ -137,6 +141,10 @@ class Flow(ProcessSpatial):
         self.set_boundary_conditions(self._build_boundary_conditions(config.bc))
         # Sinks/sources are stored in a process-level dictionary namespace.
         self.set_sinks_sources(config.sinks_sources)
+        # The recharge binder reads the forcing at its native step from a
+        # data-manager source, if the run carries one; ``None`` when no
+        # source gives one.
+        self.native_recharge = None
 
     @staticmethod
     def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:

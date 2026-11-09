@@ -39,8 +39,8 @@ from hydromodpy.solver.base.observables import (
     servable,
     unavailable,
 )
-from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
-from hydromodpy.solver.base.registry import extractors
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.registry import backends_honoring, extractors
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,
@@ -135,6 +135,7 @@ class BoussinesqFlowAdapter:
             "steady_start",
             "recharge",
             "wells",
+            "properties",
         }
     )
     options: ClassVar[type[BaseModel] | None] = BoussinesqOptions
@@ -147,8 +148,13 @@ class BoussinesqFlowAdapter:
         """No precondition checks for Boussinesq flow runs."""
 
     def build(
-        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+        self,
+        model: Any,
+        options: BaseModel | None,
+        slot: RunSlot,
+        upstream: tuple[SolverRun, ...] = (),
     ) -> SolverRun:
+        del upstream
         """Build the Boussinesq solver of ``model`` in memory, under ``slot``.
 
         The layering is checked here: an assignment after the file was read, or a
@@ -243,7 +249,8 @@ class BoussinesqFlowAdapter:
             unavailable(
                 "stage",
                 "the Boussinesq solver has no lake package, so there is no lake state "
-                "to read. Use the modflow6 backend for a lake.",
+                "to read. Backends that honor the lake boundary, this installation "
+                f"serves: {', '.join(backends_honoring('lake')) or 'none'}.",
             ),
             unavailable(
                 "routed_discharge",

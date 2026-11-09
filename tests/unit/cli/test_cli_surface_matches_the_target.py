@@ -71,7 +71,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
     "config": frozenset(
         {"template", "check", "resolve", "schema", "targets", "validate-field", "wizard"}
     ),
-    "data": frozenset({"ls", "get", "check", "add", "remove", "prune", "archive", "restore"}),
+    "data": frozenset({"ls", "get", "add", "remove", "prune", "archive", "restore"}),
     "example": frozenset({"list", "show", "add"}),
     "privacy": frozenset({"purge", "verify"}),
 }
@@ -217,7 +217,6 @@ def home_workspace(tmp_path, monkeypatch) -> Path:
         ["hmp", "site", "ls"],
         ["hmp", "site", "show", "demo"],
         ["hmp", "data", "ls"],
-        ["hmp", "data", "check"],
         ["hmp", "workspace", "clean", "--results"],
     ],
     ids=lambda argv: " ".join(argv[1:]),

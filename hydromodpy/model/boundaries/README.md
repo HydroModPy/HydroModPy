@@ -11,7 +11,7 @@ cannot place.
 
 | module | answers |
 |---|---|
-| `barriers.py` | Reads a barrier trace, inline or from a file, and puts the flow barriers on the flow |
+| `barriers.py` | Receives a barrier trace and puts the flow barriers on the flow |
 | `binder_payloads.py` | The lake and SFR payloads of a Flow as plain dicts the binders can enrich |
 | `boundary_condition_registry.py` | The table of boundary ids (`FLOW_BOUNDARY_DEFINITIONS`) and `BoundaryConditionBundle`, the view the solvers read |
 | `boundary_conditions.py` | The Dirichlet and drain payloads of `[flow.bc]` |
@@ -25,8 +25,10 @@ boundary and the recharge and ETP on the flow (`apply_oceanic_to_flow`,
 `apply_recharge_load_result_to_flow`, `apply_etp_load_result_to_flow`), and `watershed_mean_rates` gives
 the catchment mean of a loaded series, which the lakes and streams also read. `lakes.py` puts on each lake
 its geometry, abacus, bathymetry, cutoff wall, inflow and withdrawal, and its meteo forcings. `streams.py`
-puts the SFR reach networks on the flow and routes the catchment runoff to them. `barriers.py` reads a
-barrier trace and puts the flow barriers on the flow.
+puts the SFR reach networks on the flow and routes the catchment runoff to them. `barriers.py` receives a
+barrier trace and puts the flow barriers on the flow. The binders in this folder read no files from disk:
+lake polygons, abacus tables, bathymetry raster paths and barrier lines are loaded in `data` and passed
+directly as objects to the binders.
 
 Lakes read streams (a runoff routed by an active SFR is not given to a lake twice), barriers (the wall
 trace) and climate. Nothing here imports `data`, because a loaded record is read through

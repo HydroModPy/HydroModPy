@@ -75,6 +75,16 @@ class Calibrable:
     the first one under a file that already calibrates it.
     """
 
+    excluded_by: tuple[str, ...] = ()
+    """Dotted paths that set the target of this field aside.
+
+    A target is left out of the catalogue when one of these paths names an
+    entry the configuration declares: ``vka`` of a cell reads the ``Kv`` the
+    flow parameter carries, so the catalogue keeps one entry for the quantity
+    instead of two for the ways to write it. Empty by default: nothing is
+    excluded unless the field says so.
+    """
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly record for a schema export or a catalog."""
         return {
@@ -85,6 +95,7 @@ class Calibrable:
             "unit_field": self.unit_field,
             "description": self.description,
             "is_the_value_of_its_instance": self.is_the_value_of_its_instance,
+            "excluded_by": list(self.excluded_by),
         }
 
 

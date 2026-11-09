@@ -89,7 +89,9 @@ PACKAGE_MESH_DIRNAME: Final[str] = "mesh_cache"
 AUTHORED_EXTRAS: Final[tuple[str, ...]] = ("sites.csv", "site_overrides")
 """Files and folders of the project root the author wrote beside the TOML files."""
 
-_USER_PROVIDERS: Final[frozenset[str]] = frozenset({"custom", "constant", "synthetic"})
+_USER_PROVIDERS: Final[frozenset[str]] = frozenset(
+    {"file", "url", "custom", "constant", "synthetic"}
+)
 _MESH_DESCRIPTION: Final[str] = "mesh.json"
 _LOC_SUFFIX: Final[str] = "_LOC.csv"
 
@@ -219,7 +221,7 @@ def _project_bundle(
                 path,
                 workspace,
                 root,
-                provider=sidecar_source(path) or "custom",
+                provider=sidecar_source(path) or "file",
                 license=input_licence(path).spdx,
             ),
             path,

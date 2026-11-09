@@ -3,7 +3,6 @@ calibration.aggregate	table	<table>	experimental
 calibration.aggregate.min_samples	int	1	experimental
 calibration.batch_size	int	1	experimental
 calibration.evaluator	str | None	None	experimental
-calibration.forward_model	str | None	None	experimental
 calibration.materialize_candidates	bool	False	experimental
 calibration.max_trials	int | Literal['auto']	'auto'	experimental
 calibration.method	str | None	None	experimental
@@ -152,11 +151,15 @@ data.crossings.mask_path	Path | None	None	stable
 data.crossings.sources	list[table]	<required>	stable
 data.crossings.sources.default_crs	str	'EPSG:2154'	stable
 data.crossings.sources.force_refresh	bool	False	stable
+data.crossings.sources.license	str | None	None	stable
 data.crossings.sources.page_size	int	1000	stable
 data.crossings.sources.path	Path	<required>	stable
+data.crossings.sources.sha256	str | None	None	stable
 data.crossings.sources.source	Literal['bdtopo']	'bdtopo'	stable
-data.crossings.sources.source	Literal['custom']	'custom'	stable
+data.crossings.sources.source	Literal['file']	'file'	stable
 data.crossings.sources.source	Literal['roe']	'roe'	stable
+data.crossings.sources.source	Literal['url']	'url'	stable
+data.crossings.sources.url	str	<required>	stable
 data.dem	table | None	None	stable
 data.dem.sources	list[table]	<required>	stable
 data.dem.sources.country	str	'FR'	stable
@@ -166,12 +169,16 @@ data.dem.sources.departments	list[str]	[]	stable
 data.dem.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.dem.sources.file_format	str	'ASC'	stable
 data.dem.sources.force_refresh	bool	False	stable
+data.dem.sources.license	str | None	None	stable
 data.dem.sources.mask_path	Path | None	None	stable
 data.dem.sources.path	Path	<required>	stable
 data.dem.sources.regions	list[str]	[]	stable
 data.dem.sources.resolution_m	float | None	None	stable
-data.dem.sources.source	Literal['custom']	'custom'	stable
+data.dem.sources.sha256	str | None	None	stable
+data.dem.sources.source	Literal['file']	'file'	stable
 data.dem.sources.source	Literal['ign_geoplateforme_dem']	'ign_geoplateforme_dem'	stable
+data.dem.sources.source	Literal['url']	'url'	stable
+data.dem.sources.url	str	<required>	stable
 data.etp	table | None	None	stable
 data.etp.date_end	str | None	None	stable
 data.etp.date_start	str | None	None	stable
@@ -186,12 +193,15 @@ data.etp.sources.crs	str | None	None	stable
 data.etp.sources.default_crs	str	'EPSG:4326'	stable
 data.etp.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.etp.sources.force_refresh	bool	False	stable
+data.etp.sources.license	str | None	None	stable
 data.etp.sources.mask_path	Path | None	None	stable
 data.etp.sources.nodata	float | int | str | None	None	stable
 data.etp.sources.path	Path | None	None	stable
+data.etp.sources.sha256	str | None	None	stable
 data.etp.sources.source	str	<required>	stable
 data.etp.sources.source_unit	str | None	None	stable
 data.etp.sources.station_ids	list[str] | None	None	stable
+data.etp.sources.url	str | None	None	stable
 data.geology	table | None	None	stable
 data.geology.cell_samples_per_axis	int	8	stable
 data.geology.id	str	'field_geology'	stable
@@ -203,11 +213,15 @@ data.geology.sources.col_y	str	'y'	stable
 data.geology.sources.default_crs	str	'EPSG:2154'	stable
 data.geology.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.geology.sources.force_refresh	bool	False	stable
+data.geology.sources.license	str | None	None	stable
 data.geology.sources.mask_path	Path | None	None	stable
 data.geology.sources.path	Path	<required>	stable
+data.geology.sources.sha256	str | None	None	stable
 data.geology.sources.source	Literal['brgm_1m']	'brgm_1m'	stable
 data.geology.sources.source	Literal['brgm_50k']	'brgm_50k'	stable
-data.geology.sources.source	Literal['custom']	'custom'	stable
+data.geology.sources.source	Literal['file']	'file'	stable
+data.geology.sources.source	Literal['url']	'url'	stable
+data.geology.sources.url	str	<required>	stable
 data.geology.sources.values_table_path	Path | None	None	stable
 data.humidity	table | None	None	stable
 data.humidity.date_end	str | None	None	stable
@@ -222,21 +236,27 @@ data.humidity.sources.col_y	str	'y'	stable
 data.humidity.sources.default_crs	str	'EPSG:4326'	stable
 data.humidity.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.humidity.sources.force_refresh	bool	False	stable
+data.humidity.sources.license	str | None	None	stable
 data.humidity.sources.mask_path	Path | None	None	stable
 data.humidity.sources.path	Path | None	None	stable
+data.humidity.sources.sha256	str | None	None	stable
 data.humidity.sources.source	str	<required>	stable
 data.humidity.sources.source_unit	str | None	None	stable
 data.humidity.sources.station_ids	list[str] | None	None	stable
+data.humidity.sources.url	str | None	None	stable
 data.hydrography	table | None	None	stable
 data.hydrography.mask_path	Path | None	None	stable
 data.hydrography.sources	list[table]	<required>	stable
 data.hydrography.sources.euhydro_page_size	int	1000	stable
 data.hydrography.sources.force_refresh	bool	False	stable
 data.hydrography.sources.group_name	str	'River_Net_lines'	stable
+data.hydrography.sources.license	str | None	None	stable
 data.hydrography.sources.page_size	int	50000	stable
 data.hydrography.sources.path	Path | None	None	stable
 data.hydrography.sources.rasterize_field	str	'FID'	stable
+data.hydrography.sources.sha256	str | None	None	stable
 data.hydrography.sources.source	str	<required>	stable
+data.hydrography.sources.url	str | None	None	stable
 data.hydrography.sources.waterway_types	list[str]	['river', 'stream']	stable
 data.hydrometry	table | None	None	stable
 data.hydrometry.date_end	str | None	None	stable
@@ -285,18 +305,30 @@ data.intermittency.sources.station_ids	list[str] | None	None	stable
 data.lake_abacus	table | None	None	stable
 data.lake_abacus.sources	list[table]	<required>	stable
 data.lake_abacus.sources.lake_id	str | None	None	stable
+data.lake_abacus.sources.license	str | None	None	stable
 data.lake_abacus.sources.path	Path	<required>	stable
-data.lake_abacus.sources.source	Literal['custom']	'custom'	stable
+data.lake_abacus.sources.sha256	str | None	None	stable
+data.lake_abacus.sources.source	Literal['file']	'file'	stable
+data.lake_abacus.sources.source	Literal['url']	'url'	stable
+data.lake_abacus.sources.url	str	<required>	stable
 data.lake_bathymetry	table | None	None	stable
 data.lake_bathymetry.sources	list[table]	<required>	stable
 data.lake_bathymetry.sources.default_crs	str	'EPSG:2154'	stable
+data.lake_bathymetry.sources.license	str | None	None	stable
 data.lake_bathymetry.sources.path	Path	<required>	stable
-data.lake_bathymetry.sources.source	Literal['custom']	'custom'	stable
+data.lake_bathymetry.sources.sha256	str | None	None	stable
+data.lake_bathymetry.sources.source	Literal['file']	'file'	stable
+data.lake_bathymetry.sources.source	Literal['url']	'url'	stable
+data.lake_bathymetry.sources.url	str	<required>	stable
 data.lake_geometry	table | None	None	stable
 data.lake_geometry.sources	list[table]	<required>	stable
 data.lake_geometry.sources.default_crs	str	'EPSG:2154'	stable
+data.lake_geometry.sources.license	str | None	None	stable
 data.lake_geometry.sources.path	Path	<required>	stable
-data.lake_geometry.sources.source	Literal['custom']	'custom'	stable
+data.lake_geometry.sources.sha256	str | None	None	stable
+data.lake_geometry.sources.source	Literal['file']	'file'	stable
+data.lake_geometry.sources.source	Literal['url']	'url'	stable
+data.lake_geometry.sources.url	str	<required>	stable
 data.lake_inflow	table | None	None	stable
 data.lake_inflow.date_end	str | None	None	stable
 data.lake_inflow.date_start	str | None	None	stable
@@ -312,7 +344,7 @@ data.lake_inflow.sources.extent	Literal['watershed', 'study_area'] | None	None	s
 data.lake_inflow.sources.force_refresh	bool	False	stable
 data.lake_inflow.sources.mask_path	Path | None	None	stable
 data.lake_inflow.sources.path	Path | None	None	stable
-data.lake_inflow.sources.source	Literal['custom']	<required>	stable
+data.lake_inflow.sources.source	Literal['file']	<required>	stable
 data.lake_inflow.sources.source_unit	str | None	None	stable
 data.lake_inflow.sources.station_ids	list[str] | None	None	stable
 data.lake_levels	table | None	None	stable
@@ -330,7 +362,7 @@ data.lake_levels.sources.extent	Literal['watershed', 'study_area'] | None	None	s
 data.lake_levels.sources.force_refresh	bool	False	stable
 data.lake_levels.sources.mask_path	Path | None	None	stable
 data.lake_levels.sources.path	Path | None	None	stable
-data.lake_levels.sources.source	Literal['custom']	<required>	stable
+data.lake_levels.sources.source	Literal['file']	<required>	stable
 data.lake_levels.sources.source_unit	str | None	None	stable
 data.lake_levels.sources.station_ids	list[str] | None	None	stable
 data.lake_outflow	table | None	None	stable
@@ -348,7 +380,7 @@ data.lake_outflow.sources.extent	Literal['watershed', 'study_area'] | None	None	
 data.lake_outflow.sources.force_refresh	bool	False	stable
 data.lake_outflow.sources.mask_path	Path | None	None	stable
 data.lake_outflow.sources.path	Path | None	None	stable
-data.lake_outflow.sources.source	Literal['custom']	<required>	stable
+data.lake_outflow.sources.source	Literal['file']	<required>	stable
 data.lake_outflow.sources.source_unit	str | None	None	stable
 data.lake_outflow.sources.station_ids	list[str] | None	None	stable
 data.lake_withdrawal	table | None	None	stable
@@ -366,15 +398,19 @@ data.lake_withdrawal.sources.extent	Literal['watershed', 'study_area'] | None	No
 data.lake_withdrawal.sources.force_refresh	bool	False	stable
 data.lake_withdrawal.sources.mask_path	Path | None	None	stable
 data.lake_withdrawal.sources.path	Path | None	None	stable
-data.lake_withdrawal.sources.source	Literal['custom']	<required>	stable
+data.lake_withdrawal.sources.source	Literal['file']	<required>	stable
 data.lake_withdrawal.sources.source_unit	str | None	None	stable
 data.lake_withdrawal.sources.station_ids	list[str] | None	None	stable
 data.layer_base	table | None	None	stable
 data.layer_base.sources	list[table]	<required>	stable
 data.layer_base.sources.default_crs	str	'EPSG:2154'	stable
+data.layer_base.sources.license	str | None	None	stable
 data.layer_base.sources.name	str	<required>	stable
 data.layer_base.sources.path	Path	<required>	stable
-data.layer_base.sources.source	Literal['custom']	'custom'	stable
+data.layer_base.sources.sha256	str | None	None	stable
+data.layer_base.sources.source	Literal['file']	'file'	stable
+data.layer_base.sources.source	Literal['url']	'url'	stable
+data.layer_base.sources.url	str	<required>	stable
 data.oceanic	table | None	None	stable
 data.oceanic.date_end	str | None	None	stable
 data.oceanic.date_start	str | None	None	stable
@@ -432,11 +468,14 @@ data.precipitation.sources.components	list[Literal['liquid', 'solid', 'total']]	
 data.precipitation.sources.default_crs	str	'EPSG:4326'	stable
 data.precipitation.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.precipitation.sources.force_refresh	bool	False	stable
+data.precipitation.sources.license	str | None	None	stable
 data.precipitation.sources.mask_path	Path | None	None	stable
 data.precipitation.sources.path	Path | None	None	stable
+data.precipitation.sources.sha256	str | None	None	stable
 data.precipitation.sources.source	str	<required>	stable
 data.precipitation.sources.source_unit	str | None	None	stable
 data.precipitation.sources.station_ids	list[str] | None	None	stable
+data.precipitation.sources.url	str | None	None	stable
 data.radiation	table | None	None	stable
 data.radiation.date_end	str | None	None	stable
 data.radiation.date_start	str | None	None	stable
@@ -451,11 +490,14 @@ data.radiation.sources.components	list[Literal['atmospheric', 'visible']]	['atmo
 data.radiation.sources.default_crs	str	'EPSG:4326'	stable
 data.radiation.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.radiation.sources.force_refresh	bool	False	stable
+data.radiation.sources.license	str | None	None	stable
 data.radiation.sources.mask_path	Path | None	None	stable
 data.radiation.sources.path	Path | None	None	stable
+data.radiation.sources.sha256	str | None	None	stable
 data.radiation.sources.source	str	<required>	stable
 data.radiation.sources.source_unit	str | None	None	stable
 data.radiation.sources.station_ids	list[str] | None	None	stable
+data.radiation.sources.url	str | None	None	stable
 data.recharge	table | None	None	stable
 data.recharge.date_end	str | None	None	stable
 data.recharge.date_start	str | None	None	stable
@@ -471,15 +513,18 @@ data.recharge.sources.default_crs	str	'EPSG:4326'	stable
 data.recharge.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.recharge.sources.force_refresh	bool	False	stable
 data.recharge.sources.freq	str | None	None	stable
+data.recharge.sources.license	str | None	None	stable
 data.recharge.sources.mask_path	Path | None	None	stable
 data.recharge.sources.offset	float | None	None	stable
 data.recharge.sources.path	Path | None	None	stable
 data.recharge.sources.period_days	int | None	None	stable
 data.recharge.sources.periods	int | None	None	stable
+data.recharge.sources.sha256	str | None	None	stable
 data.recharge.sources.source	str	<required>	stable
 data.recharge.sources.source_unit	str | None	None	stable
 data.recharge.sources.start_date	str | None	None	stable
 data.recharge.sources.station_ids	list[str] | None	None	stable
+data.recharge.sources.url	str | None	None	stable
 data.recharge.sources.values	list[float] | None	None	stable
 data.runoff	table | None	None	stable
 data.runoff.date_end	str | None	None	stable
@@ -494,16 +539,23 @@ data.runoff.sources.col_y	str	'y'	stable
 data.runoff.sources.default_crs	str	'EPSG:4326'	stable
 data.runoff.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.runoff.sources.force_refresh	bool	False	stable
+data.runoff.sources.license	str | None	None	stable
 data.runoff.sources.mask_path	Path | None	None	stable
 data.runoff.sources.path	Path | None	None	stable
+data.runoff.sources.sha256	str | None	None	stable
 data.runoff.sources.source	str	<required>	stable
 data.runoff.sources.source_unit	str | None	None	stable
 data.runoff.sources.station_ids	list[str] | None	None	stable
+data.runoff.sources.url	str | None	None	stable
 data.soil_capacity	table | None	None	stable
 data.soil_capacity.sources	list[table]	<required>	stable
 data.soil_capacity.sources.default_crs	str	'EPSG:2154'	stable
+data.soil_capacity.sources.license	str | None	None	stable
 data.soil_capacity.sources.path	Path	<required>	stable
-data.soil_capacity.sources.source	Literal['custom']	'custom'	stable
+data.soil_capacity.sources.sha256	str | None	None	stable
+data.soil_capacity.sources.source	Literal['file']	'file'	stable
+data.soil_capacity.sources.source	Literal['url']	'url'	stable
+data.soil_capacity.sources.url	str	<required>	stable
 data.soil_moisture	table | None	None	stable
 data.soil_moisture.date_end	str | None	None	stable
 data.soil_moisture.date_start	str | None	None	stable
@@ -517,16 +569,23 @@ data.soil_moisture.sources.col_y	str	'y'	stable
 data.soil_moisture.sources.default_crs	str	'EPSG:4326'	stable
 data.soil_moisture.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.soil_moisture.sources.force_refresh	bool	False	stable
+data.soil_moisture.sources.license	str | None	None	stable
 data.soil_moisture.sources.mask_path	Path | None	None	stable
 data.soil_moisture.sources.path	Path | None	None	stable
+data.soil_moisture.sources.sha256	str | None	None	stable
 data.soil_moisture.sources.source	str	<required>	stable
 data.soil_moisture.sources.source_unit	str | None	None	stable
 data.soil_moisture.sources.station_ids	list[str] | None	None	stable
+data.soil_moisture.sources.url	str | None	None	stable
 data.substratum	table | None	None	stable
 data.substratum.sources	list[table]	<required>	stable
 data.substratum.sources.default_crs	str	'EPSG:2154'	stable
+data.substratum.sources.license	str | None	None	stable
 data.substratum.sources.path	Path	<required>	stable
-data.substratum.sources.source	Literal['custom']	'custom'	stable
+data.substratum.sources.sha256	str | None	None	stable
+data.substratum.sources.source	Literal['file']	'file'	stable
+data.substratum.sources.source	Literal['url']	'url'	stable
+data.substratum.sources.url	str	<required>	stable
 data.temperature	table | None	None	stable
 data.temperature.date_end	str | None	None	stable
 data.temperature.date_start	str | None	None	stable
@@ -540,11 +599,14 @@ data.temperature.sources.col_y	str	'y'	stable
 data.temperature.sources.default_crs	str	'EPSG:4326'	stable
 data.temperature.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.temperature.sources.force_refresh	bool	False	stable
+data.temperature.sources.license	str | None	None	stable
 data.temperature.sources.mask_path	Path | None	None	stable
 data.temperature.sources.path	Path | None	None	stable
+data.temperature.sources.sha256	str | None	None	stable
 data.temperature.sources.source	str	<required>	stable
 data.temperature.sources.source_unit	str | None	None	stable
 data.temperature.sources.station_ids	list[str] | None	None	stable
+data.temperature.sources.url	str | None	None	stable
 data.types	list[str]	[]	stable
 data.water_quality	table | None	None	stable
 data.water_quality.date_end	str | None	None	stable
@@ -581,11 +643,14 @@ data.wind.sources.col_y	str	'y'	stable
 data.wind.sources.default_crs	str	'EPSG:4326'	stable
 data.wind.sources.extent	Literal['watershed', 'study_area'] | None	None	stable
 data.wind.sources.force_refresh	bool	False	stable
+data.wind.sources.license	str | None	None	stable
 data.wind.sources.mask_path	Path | None	None	stable
 data.wind.sources.path	Path | None	None	stable
+data.wind.sources.sha256	str | None	None	stable
 data.wind.sources.source	str	<required>	stable
 data.wind.sources.source_unit	str | None	None	stable
 data.wind.sources.station_ids	list[str] | None	None	stable
+data.wind.sources.url	str | None	None	stable
 display	table	<table>	stable
 display.backend	Literal['agg', 'qt5agg', 'auto']	'auto'	stable
 display.cmap	str	'viridis'	stable
@@ -1253,8 +1318,6 @@ geographic.capped_breach.max_distance	float	200.0	stable
 geographic.catchment	table | None	<required>	stable
 geographic.catchment.buff_area	float | str	<required>	stable
 geographic.catchment.cell_size	float	<required>	stable
-geographic.catchment.dem_init_path	Path | None	<required>	stable
-geographic.catchment.dem_init_path	Path | None	None	stable
 geographic.catchment.dem_resolution	float | None	None	stable
 geographic.catchment.kind	Literal['dem']	'dem'	stable
 geographic.catchment.kind	Literal['from_outlet_coord']	'from_outlet_coord'	stable
@@ -1483,6 +1546,8 @@ solver.boussinesq.vi_substeps_per_period	int	1	experimental
 solver.drain_band_depth_m	float	0.0	stable
 solver.drain_bed_thickness_m	float	1.0	stable
 solver.drain_conductance_floor_m2_s	float	1e-12	stable
+solver.linear_reservoir	table	<required>	stable
+solver.linear_reservoir.time_constant	float	<required>	stable
 solver.modflow6	table	<table>	stable
 solver.modflow6.process_specific	table	<table>	stable
 solver.modflow6.process_specific.evt_extinction_depth	float	1.0	stable
@@ -1588,64 +1653,60 @@ spinup.tol_stage	float	0.01	stable
 spinup.window_end	str | None	None	stable
 spinup.window_start	str | None	None	stable
 transport	table	<table>	stable
-transport.modflow6gwt	table	<table>	stable
-transport.modflow6gwt.parameters	table	<table>	stable
-transport.modflow6gwt.parameters.diffu_coeff	float	0.0	stable
-transport.modflow6gwt.parameters.disp_long	float	0.0	stable
-transport.modflow6gwt.parameters.disp_transh	float	0.0	stable
-transport.modflow6gwt.parameters.disp_transv	float	0.0	stable
-transport.modflow6gwt.parameters.plot_conc	bool	True	stable
-transport.modflow6gwt.parameters.porosity	float | None	None	stable
-transport.modflow6gwt.parameters.rate_decay	float	0.0	stable
-transport.modflow6gwt.parameters.react_order	Literal[None, 0, 1]	None	stable
-transport.modflow6gwt.parameters.scheme	Literal['upstream', 'central', 'TVD']	'upstream'	stable
-transport.modflow6gwt.parameters.sconc_init	float	0.0	stable
-transport.modflow6gwt.parameters.sconc_input	float	0.0	stable
-transport.modflow6gwt.parameters.spc_name	str	'NO3'	stable
-transport.modflow6prt	table	<table>	experimental
-transport.modflow6prt.parameters	table	<table>	experimental
-transport.modflow6prt.parameters.dry_tracking_method	Literal['drop', 'stop', 'stay']	'drop'	experimental
-transport.modflow6prt.parameters.exit_solve_tolerance	float	1e-05	experimental
-transport.modflow6prt.parameters.extend_tracking	bool	True	experimental
-transport.modflow6prt.parameters.local_z	float	0.5	experimental
-transport.modflow6prt.parameters.max_particles	int | None	None	experimental
-transport.modflow6prt.parameters.outlet_bottom_quantile	float	0.1	experimental
-transport.modflow6prt.parameters.particle_cell_ids	list[int] | None	None	experimental
-transport.modflow6prt.parameters.porosity	float | None	None	experimental
-transport.modflow6prt.parameters.release_times	list[float] | None	None	experimental
-transport.modflow6prt.parameters.release_zone	str	'domain'	experimental
-transport.modflow6prt.parameters.sel_slice	int | None	None	experimental
-transport.modflow6prt.parameters.stop_time	float | None	None	experimental
-transport.modflow6prt.parameters.stop_travel_time	float | None	None	experimental
-transport.modflow6prt.parameters.track_dir	Literal['forward']	'forward'	experimental
-transport.modflow6prt.parameters.track_time_step	float | None	None	experimental
-transport.modflow6prt.parameters.track_times	list[float] | None	None	experimental
-transport.modflow6prt.parameters.upstream_top_quantile	float	0.9	experimental
-transport.modflow6prt.parameters.write_track_binary	bool	True	experimental
-transport.modflow6prt.parameters.write_track_csv	bool	True	experimental
+transport.modflow6	table	<table>	stable
+transport.modflow6.diffu_coeff	float	0.0	stable
+transport.modflow6.disp_long	float	0.0	stable
+transport.modflow6.disp_transh	float	0.0	stable
+transport.modflow6.disp_transv	float	0.0	stable
+transport.modflow6.plot_conc	bool	True	stable
+transport.modflow6.porosity	float | None	None	stable
+transport.modflow6.rate_decay	float	0.0	stable
+transport.modflow6.react_order	Literal[None, 0, 1]	None	stable
+transport.modflow6.scheme	Literal['upstream', 'central', 'TVD']	'upstream'	stable
+transport.modflow6.sconc_init	float	0.0	stable
+transport.modflow6.sconc_input	float	0.0	stable
+transport.modflow6.spc_name	str	'NO3'	stable
+transport.modflow6_prt	table	<table>	experimental
+transport.modflow6_prt.dry_tracking_method	Literal['drop', 'stop', 'stay']	'drop'	experimental
+transport.modflow6_prt.exit_solve_tolerance	float	1e-05	experimental
+transport.modflow6_prt.extend_tracking	bool	True	experimental
+transport.modflow6_prt.local_z	float	0.5	experimental
+transport.modflow6_prt.max_particles	int | None	None	experimental
+transport.modflow6_prt.outlet_bottom_quantile	float	0.1	experimental
+transport.modflow6_prt.particle_cell_ids	list[int] | None	None	experimental
+transport.modflow6_prt.porosity	float | None	None	experimental
+transport.modflow6_prt.release_times	list[float] | None	None	experimental
+transport.modflow6_prt.release_zone	str	'domain'	experimental
+transport.modflow6_prt.sel_slice	int | None	None	experimental
+transport.modflow6_prt.stop_time	float | None	None	experimental
+transport.modflow6_prt.stop_travel_time	float | None	None	experimental
+transport.modflow6_prt.track_dir	Literal['forward']	'forward'	experimental
+transport.modflow6_prt.track_time_step	float | None	None	experimental
+transport.modflow6_prt.track_times	list[float] | None	None	experimental
+transport.modflow6_prt.upstream_top_quantile	float	0.9	experimental
+transport.modflow6_prt.write_track_binary	bool	True	experimental
+transport.modflow6_prt.write_track_csv	bool	True	experimental
 transport.modpath	table	<table>	experimental
-transport.modpath.parameters	table	<table>	experimental
-transport.modpath.parameters.bore_depth	list[float] | None	None	experimental
-transport.modpath.parameters.cell_div	int	1	experimental
-transport.modpath.parameters.sel_random	int | None	None	experimental
-transport.modpath.parameters.sel_slice	int | None	None	experimental
-transport.modpath.parameters.track_dir	Literal['forward', 'backward']	'forward'	experimental
-transport.modpath.parameters.zloc_div	bool	False	experimental
-transport.modpath.parameters.zone_partic	str	'domain'	experimental
+transport.modpath.bore_depth	list[float] | None	None	experimental
+transport.modpath.cell_div	int	1	experimental
+transport.modpath.sel_random	int | None	None	experimental
+transport.modpath.sel_slice	int | None	None	experimental
+transport.modpath.track_dir	Literal['forward', 'backward']	'forward'	experimental
+transport.modpath.zloc_div	bool	False	experimental
+transport.modpath.zone_partic	str	'domain'	experimental
 transport.mt3dms	table	<table>	stable
-transport.mt3dms.parameters	table	<table>	stable
-transport.mt3dms.parameters.diffu_coeff	float	0.0	stable
-transport.mt3dms.parameters.disp_long	float	0.0	stable
-transport.mt3dms.parameters.disp_transh	float	0.0	stable
-transport.mt3dms.parameters.disp_transv	float	0.0	stable
-transport.mt3dms.parameters.plot_conc	bool	True	stable
-transport.mt3dms.parameters.porosity	float | None	None	stable
-transport.mt3dms.parameters.rate_decay	float	0.0	stable
-transport.mt3dms.parameters.react_order	Literal[None, 0, 1]	None	stable
-transport.mt3dms.parameters.scheme	Literal['upstream', 'central', 'TVD']	'upstream'	stable
-transport.mt3dms.parameters.sconc_init	float	0.0	stable
-transport.mt3dms.parameters.sconc_input	float	0.0	stable
-transport.mt3dms.parameters.spc_name	str	'NO3'	stable
+transport.mt3dms.diffu_coeff	float	0.0	stable
+transport.mt3dms.disp_long	float	0.0	stable
+transport.mt3dms.disp_transh	float	0.0	stable
+transport.mt3dms.disp_transv	float	0.0	stable
+transport.mt3dms.plot_conc	bool	True	stable
+transport.mt3dms.porosity	float | None	None	stable
+transport.mt3dms.rate_decay	float	0.0	stable
+transport.mt3dms.react_order	Literal[None, 0, 1]	None	stable
+transport.mt3dms.scheme	Literal['upstream', 'central', 'TVD']	'upstream'	stable
+transport.mt3dms.sconc_init	float	0.0	stable
+transport.mt3dms.sconc_input	float	0.0	stable
+transport.mt3dms.spc_name	str	'NO3'	stable
 workflow	table	<table>	stable
 workflow.mode	Literal['simulation', 'calibration', 'overview'] | None	None	stable
 workflow.profile	bool | str	False	stable

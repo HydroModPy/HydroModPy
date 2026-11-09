@@ -56,7 +56,7 @@ class TestFetchMocked:
         """Test fetch logic with mocked get_json calls."""
         call_count = {"n": 0}
 
-        def fake_get_json(url, *, params=None, **kwargs):
+        def fake_get_json(_client, url, *, params=None, **kwargs):
             call_count["n"] += 1
             if "station_pc" in url or "stations" in url:
                 return {

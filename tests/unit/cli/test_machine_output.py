@@ -498,7 +498,6 @@ crs_project = "EPSG:2154"
 kind = "from_outlet_coord"
 x_outlet = 385000.0
 y_outlet = 6814000.0
-dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
 

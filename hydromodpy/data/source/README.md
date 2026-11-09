@@ -23,11 +23,17 @@ shipped source reads its hosts from `hydromodpy.schema.sources` through
 ## The request and the result
 
 A `FetchRequest` carries an `out_dir`, an `Extent` (a box and the CRS it is
-expressed in), `station_ids` and a `Period`. A request with neither an extent
-nor stations is accepted only from a source that declares `selectors = ()`,
-and `require_selectors` enforces that: a content of plain files has no extent
-to ask for. The helpers `extent_for`, `require_period` and
+expressed in), `station_ids`, a `Period` and `bounds`. A request with neither
+an extent nor stations is accepted only from a source that declares
+`selectors = ()`, and `require_selectors` enforces that: a content of plain
+files has no extent to ask for. The helpers `extent_for`, `require_period` and
 `require_declared_variables` read the request the way the source declared it.
+
+The generic sources `file` and `url` both declare `payload_kind = "files"` and
+`selectors = ()`, asking for no extent and no station. A `file` source reads
+local files already on disk without caching, whereas an `url` source downloads
+a remote file to fill the data cache, verified by a pinned sha256 or remote
+headers and recorded in a sidecar.
 
 A `FetchResult` carries the one payload its `kind` names: `points` and
 `fields` records, `features` (one GeoDataFrame, the river networks), or

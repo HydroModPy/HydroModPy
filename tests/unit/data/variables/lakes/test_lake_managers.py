@@ -64,7 +64,7 @@ def test_load_emits_table_record_and_registers_once(tmp_path) -> None:
     assert len(catalog.registrations) == 1
     reg = catalog.registrations[0]
     assert reg["variable"] == "lake_abacus"
-    assert reg["source"] == "custom"
+    assert reg["source"] == "file"
     assert reg["is_custom"] is True
     assert reg["station_id"] == "lac0"
 
@@ -113,7 +113,7 @@ def test_bathymetry_load_emits_field_record_and_registers_custom(tmp_path) -> No
     assert len(catalog.registrations) == 1
     reg = catalog.registrations[0]
     assert reg["variable"] == "lake_bathymetry"
-    assert reg["source"] == "custom"
+    assert reg["source"] == "file"
     assert reg["is_custom"] is True
 
 
@@ -152,7 +152,7 @@ def test_geometry_load_emits_field_record_and_registers_custom(tmp_path) -> None
     assert len(catalog.registrations) == 1
     reg = catalog.registrations[0]
     assert reg["variable"] == "lake_geometry"
-    assert reg["source"] == "custom"
+    assert reg["source"] == "file"
     assert reg["is_custom"] is True
 
 
@@ -197,7 +197,7 @@ def test_load_emits_point_record_keyed_by_lake_id(tmp_path) -> None:
     rec = result.points[0]
     assert isinstance(rec, PointRecord)
     assert rec.variable == "lake_level"
-    assert rec.source == "custom"
+    assert rec.source == "file"
     assert rec.station_id == "lac0"
     assert rec.unit == "m"
 
@@ -206,6 +206,6 @@ def test_load_emits_point_record_keyed_by_lake_id(tmp_path) -> None:
     assert len(catalog.registrations) == 1
     reg = catalog.registrations[0]
     assert reg["variable"] == "lake_levels"
-    assert reg["source"] == "custom"
+    assert reg["source"] == "file"
     assert reg["is_custom"] is True
     assert reg["station_id"] == "lac0"

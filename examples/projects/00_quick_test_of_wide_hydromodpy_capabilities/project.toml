@@ -38,7 +38,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "regional_dem_aber.tif"
 x_outlet = 150727.164
 y_outlet = 6858066.520
 snap_dist = "100 m"
@@ -54,17 +53,17 @@ thickness = "50.0 m"
 types = ["dem", "hydrography", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "regional_dem_aber.tif"
+source = "file"
+path = "../../data/dem/regional_dem_aber.tif"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "regional_stream_network.shp"
+source = "file"
+path = "../../data/hydrography/regional_stream_network.shp"
 rasterize_field = "FID"
 
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["00"]
 
 

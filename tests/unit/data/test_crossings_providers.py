@@ -170,7 +170,7 @@ class _Server:
 
 @pytest.fixture
 def server(monkeypatch: pytest.MonkeyPatch) -> _Server:
-    from hydromodpy.core.io.http_client import HTTPClient
+    from hydromodpy.core.io.fetch import HTTPClient
 
     canned = _Server(pages=[], total=0)
 

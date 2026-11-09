@@ -13,11 +13,11 @@ from hydromodpy.data.variables.intermittency.config import (
 from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 
 
-def _load_custom(cfg, *, project_period=None):
+def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the intermittency manager does."""
-    return IntermittencyManager(
-        config=None, catalog=None, project_period=project_period
-    ).load_custom(cfg)
+    return IntermittencyManager(config=None, catalog=None, project_period=project_period).load_file(
+        cfg
+    )
 
 
 @pytest.fixture
@@ -69,10 +69,10 @@ class TestIntermittencyConfig:
 
     def test_custom_source_requires_path(self):
         with pytest.raises(ValueError, match="path"):
-            IntermittencySourceConfig(source="custom")
+            IntermittencySourceConfig(source="file")
 
     def test_custom_source_valid(self, tmp_path):
-        cfg = IntermittencySourceConfig(source="custom", path=tmp_path)
+        cfg = IntermittencySourceConfig(source="file", path=tmp_path)
         assert cfg.path == tmp_path
 
     def test_invalid_date_order(self):
@@ -111,8 +111,8 @@ class TestIntermittencyConfig:
 @pytest.mark.fast
 class TestIntermittencyCustomCSV:
     def test_load_two_stations(self, sample_intermittency_dir):
-        cfg = IntermittencySourceConfig(source="custom", path=sample_intermittency_dir)
-        records = _load_custom(cfg)
+        cfg = IntermittencySourceConfig(source="file", path=sample_intermittency_dir)
+        records = _load_file(cfg)
 
         assert len(records) == 2
         ids = {r.station_id for r in records}
@@ -120,39 +120,39 @@ class TestIntermittencyCustomCSV:
 
         for r in records:
             assert r.variable == "flow_state"
-            assert r.source == "custom"
+            assert r.source == "file"
             assert r.unit == "code"
             assert r.has_data
             assert r.location is not None
             assert r.location.crs == "EPSG:4326"
 
     def test_flow_codes_clamped(self, sample_intermittency_dir):
-        cfg = IntermittencySourceConfig(source="custom", path=sample_intermittency_dir)
-        records = _load_custom(cfg)
+        cfg = IntermittencySourceConfig(source="file", path=sample_intermittency_dir)
+        records = _load_file(cfg)
         for r in records:
             values = r.data["value"]
             assert values.min() >= 1
             assert values.max() <= 5
 
     def test_station_a_has_drought(self, sample_intermittency_dir):
-        cfg = IntermittencySourceConfig(source="custom", path=sample_intermittency_dir)
-        records = _load_custom(cfg)
+        cfg = IntermittencySourceConfig(source="file", path=sample_intermittency_dir)
+        records = _load_file(cfg)
         rec_a = [r for r in records if r.station_id == "ONDE_A"][0]
         assert 1 in rec_a.data["value"].values  # Assec present
 
     def test_filter_station_ids(self, sample_intermittency_dir):
         cfg = IntermittencySourceConfig(
-            source="custom",
+            source="file",
             path=sample_intermittency_dir,
             station_ids=["ONDE_B"],
         )
-        records = _load_custom(cfg)
+        records = _load_file(cfg)
         assert len(records) == 1
         assert records[0].station_id == "ONDE_B"
 
     def test_observation_count(self, sample_intermittency_dir):
-        cfg = IntermittencySourceConfig(source="custom", path=sample_intermittency_dir)
-        records = _load_custom(cfg)
+        cfg = IntermittencySourceConfig(source="file", path=sample_intermittency_dir)
+        records = _load_file(cfg)
         for r in records:
             assert len(r.data) == 5
 
@@ -160,16 +160,16 @@ class TestIntermittencyCustomCSV:
 @pytest.mark.fast
 class TestIntermittencyCustomErrors:
     def test_missing_directory(self):
-        cfg = IntermittencySourceConfig(source="custom", path=Path("/nonexistent"))
+        cfg = IntermittencySourceConfig(source="file", path=Path("/nonexistent"))
         with pytest.raises(FileNotFoundError):
-            _load_custom(cfg)
+            _load_file(cfg)
 
     def test_missing_location_file(self, tmp_path):
         d = tmp_path / "empty"
         d.mkdir()
-        cfg = IntermittencySourceConfig(source="custom", path=d)
+        cfg = IntermittencySourceConfig(source="file", path=d)
         with pytest.raises(FileNotFoundError, match="intermittency_custom_LOC"):
-            _load_custom(cfg)
+            _load_file(cfg)
 
 
 @pytest.mark.fast
@@ -177,7 +177,7 @@ class TestIntermittencyManagerCustom:
     def test_manager_load_result(self, sample_intermittency_dir):
         cfg = IntermittencyConfig(
             sources=[
-                IntermittencySourceConfig(source="custom", path=sample_intermittency_dir),
+                IntermittencySourceConfig(source="file", path=sample_intermittency_dir),
             ]
         )
         manager = IntermittencyManager(config=cfg, catalog=None, project_period=None)

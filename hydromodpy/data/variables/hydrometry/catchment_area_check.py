@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
@@ -68,20 +72,33 @@ def site_id_of_station(station_id: str) -> str:
     return cleaned[:-2] if len(cleaned) > 8 else cleaned
 
 
-def published_catchment_area_km2(station_id: str) -> float | None:
+def published_catchment_area_km2(
+    station_id: str,
+    client: HTTPClient | None = None,
+) -> float | None:
     """Return the drainage area Hub'Eau publishes for a station's site, in km2.
 
     ``None`` when the site is unknown, carries no area, or the service cannot be
     reached: this is a cross-check, and losing it must never fail a run.
     """
+    from hydromodpy.core.io.fetch import open_client
     from hydromodpy.data.common.api_client import get_json
 
     site_id = site_id_of_station(station_id)
     try:
-        payload = get_json(
-            f"{API_BASE}/referentiel/sites",
-            params={"code_site": site_id, "size": 1, "format": "json"},
-        )
+        if client is not None:
+            payload = get_json(
+                client,
+                f"{API_BASE}/referentiel/sites",
+                params={"code_site": site_id, "size": 1, "format": "json"},
+            )
+        else:
+            with open_client() as owned_client:
+                payload = get_json(
+                    owned_client,
+                    f"{API_BASE}/referentiel/sites",
+                    params={"code_site": site_id, "size": 1, "format": "json"},
+                )
     except Exception:
         logger.debug("Could not read the Hub'Eau site of %s", station_id, exc_info=True)
         return None
@@ -103,6 +120,7 @@ def compare_catchment_area(
     delineated_km2: float,
     *,
     warn_relative_gap: float = DEFAULT_WARN_RELATIVE_GAP,
+    client: HTTPClient | None = None,
 ) -> CatchmentAreaComparison | None:
     """Compare a delineated catchment to its gauge's published area, and warn.
 
@@ -113,7 +131,7 @@ def compare_catchment_area(
     """
     if delineated_km2 <= 0.0:
         raise ValueError(f"a delineated catchment area must be positive, got {delineated_km2}.")
-    published = published_catchment_area_km2(station_id)
+    published = published_catchment_area_km2(station_id, client=client)
     if published is None:
         return None
 
@@ -137,6 +155,8 @@ def compare_catchment_area(
 def check_gauge_area(
     gauge: str | None,
     catchment_area_km2: float | None,
+    *,
+    client: HTTPClient | None = None,
 ) -> CatchmentAreaComparison | None:
     """Run the area guard on the gauge of a run, when it has a Hub'Eau one.
 
@@ -150,7 +170,7 @@ def check_gauge_area(
     if not _HUBEAU_STATION_CODE.match(station_id):
         return None
     try:
-        return compare_catchment_area(station_id, float(catchment_area_km2))
+        return compare_catchment_area(station_id, float(catchment_area_km2), client=client)
     except Exception:
         logger.debug("Catchment area guard failed for %s", station_id, exc_info=True)
         return None

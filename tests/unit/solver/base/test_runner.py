@@ -16,27 +16,40 @@ from hydromodpy.core.exceptions import (
     SolverInputError,
 )
 from hydromodpy.core.state.run_state import RunState, SlotRequest
-from hydromodpy.solver.base import runner as runner_module
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import (
     ProcessCallbacks,
     SimulationRunner,
+    hand_off_of,
     options_for,
     run_name,
     slot_for,
     solve_one,
 )
-from tests._helpers.fake_solvers import FakeAdapter
+from tests._helpers.fake_solvers import FakeAdapter, fake_adapter
 from tests._helpers.model_factory import make_model
 
 FLOW = ProcessRun(
     id="flow_main::modflow6", process_id="flow_main", process_type="flow", solver="modflow6"
 )
+NWT_FLOW = ProcessRun(
+    id="flow_main::modflow_nwt",
+    process_id="flow_main",
+    process_type="flow",
+    solver="modflow_nwt",
+)
 SECOND_FLOW = ProcessRun(
     id="flow_second::modflow6", process_id="flow_second", process_type="flow", solver="modflow6"
 )
-TRANSPORT = ProcessRun(
+MT3DMS = ProcessRun(
+    id="transport_main::mt3dms",
+    process_id="transport_main",
+    process_type="transport",
+    solver="mt3dms",
+    depends_on=(NWT_FLOW.id,),
+)
+MODPATH = ProcessRun(
     id="transport_main::modpath",
     process_id="transport_main",
     process_type="transport",
@@ -63,7 +76,7 @@ def _workspace(tmp_path: Path, bin_path: str | None = None) -> SimpleNamespace:
 
 
 class _FailingAdapter(FakeAdapter):
-    def build(self, model, options, slot, ctx):
+    def build(self, model, options, slot, upstream=()):
         raise RuntimeError("solver failed")
 
 
@@ -103,9 +116,9 @@ class _RecordingAdapter(FakeAdapter):
         super().validate(model, options, slot)
         self.received.append(("validate", (model, options, slot)))
 
-    def build(self, model, options, slot, ctx):
-        self.received.append(("build", (model, options, slot, ctx)))
-        return super().build(model, options, slot, ctx)
+    def build(self, model, options, slot, upstream=()):
+        self.received.append(("build", (model, options, slot, upstream)))
+        return super().build(model, options, slot, upstream)
 
 
 def test_a_flow_run_needs_the_model_that_prepare_solver_builds(monkeypatch) -> None:
@@ -120,7 +133,7 @@ def test_a_flow_run_needs_the_model_that_prepare_solver_builds(monkeypatch) -> N
     assert adapter.calls == []
 
 
-def test_a_flow_run_hands_the_adapter_its_model_and_creates_no_flow(monkeypatch) -> None:
+def test_a_flow_run_hands_the_adapter_its_model_and_nothing_of_the_run(monkeypatch) -> None:
     adapter = _RecordingAdapter()
     monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
     model = object()
@@ -128,12 +141,13 @@ def test_a_flow_run_hands_the_adapter_its_model_and_creates_no_flow(monkeypatch)
 
     SimulationRunner().execute(_plan(FLOW), state)
 
-    name, (built_model, options, slot, ctx) = adapter.received[-1]
+    name, (built_model, options, slot, upstream) = adapter.received[-1]
     assert name == "build"
     assert built_model is model
     assert options is None
     assert isinstance(slot, RunSlot)
-    assert ctx.run == FLOW and ctx.solver_run is None and ctx.upstream == ()
+    assert upstream == ()
+    assert slot.hand_off == frozenset()
     assert state.setup.flow is None
 
 
@@ -195,7 +209,6 @@ NAMES: tuple[tuple[str, tuple[ProcessRun, ...], ProcessRun, dict[str, Any], str]
         {"run_id": "Example 12 launcher"},
         "Example 12 launcher",
     ),
-    ("a transport of one", (FLOW, TRANSPORT), TRANSPORT, {"run_id": "island"}, "island"),
 )
 
 
@@ -242,6 +255,7 @@ def test_a_slot_outside_a_trial_keeps_its_forcing_beside_the_model(tmp_path: Pat
     slot = slot_for(_plan(FLOW), FLOW, SimpleNamespace(workspace=_workspace(tmp_path)))
 
     assert (slot.shared_forcing_dir, slot.bin_dir, slot.stop_before_solve) == (None, None, False)
+    assert slot.hand_off == frozenset()
 
 
 def test_a_setup_without_a_workspace_solves_in_the_working_directory(
@@ -255,6 +269,123 @@ def test_a_setup_without_a_workspace_solves_in_the_working_directory(
     assert slot.bin_dir is None
 
 
+def _register_hand_off_backends(isolated_solvers: object) -> None:
+    """Register the fake flow and the two transports that read ``face_flow`` of it.
+
+    The isolated registry is the object the runner reads through ``solvers``, so
+    the names the table binds answer like the shipped backends do, without
+    importing one.
+    """
+
+    def flow_build(self: FakeAdapter, model, options, slot, upstream=()):
+        return SolverRun(slot=slot, model=model, solver_model=object())
+
+    def transport_build(self: FakeAdapter, model, options, slot, upstream=()):
+        (followed,) = upstream
+        return SolverRun(
+            slot=slot,
+            model=model,
+            solver_model=object(),
+            output_dir=followed.output_dir,
+        )
+
+    for name, process_type, members in (
+        ("modflow6", "flow", {"build": flow_build}),
+        ("modflow_nwt", "flow", {"build": flow_build}),
+        ("mt3dms", "transport", {"build": transport_build, "reads": ("face_flow",)}),
+        ("modpath", "transport", {"build": transport_build, "reads": ("face_flow",)}),
+    ):
+        cls = fake_adapter(name, process_type, **members)
+        isolated_solvers.solvers.register(cls, replace=True)
+
+
+HAND_OFFS: tuple[tuple[str, tuple[ProcessRun, ...], ProcessRun, frozenset[str]], ...] = (
+    ("a flow that no transport follows", (FLOW,), FLOW, frozenset()),
+    ("a flow an MT3DMS follows", (NWT_FLOW, MT3DMS), NWT_FLOW, frozenset({"face_flow"})),
+    ("a flow a MODPATH follows", (FLOW, MODPATH), FLOW, frozenset({"face_flow"})),
+    (
+        "a flow two transports follow",
+        (NWT_FLOW, MT3DMS, replace(MT3DMS, id="transport_second::modpath", solver="modpath")),
+        NWT_FLOW,
+        frozenset({"face_flow"}),
+    ),
+    (
+        "a flow a run of another family follows",
+        (FLOW, replace(FLOW, id="flow_second::modflow6", process_id="flow_second")),
+        FLOW,
+        frozenset(),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "runs", "run", "expected"), HAND_OFFS, ids=[c for c, *_ in HAND_OFFS]
+)
+def test_the_hand_off_is_the_reads_of_the_runs_that_depend_on_one(
+    isolated_solvers,
+    case: str,
+    runs: tuple[ProcessRun, ...],
+    run: ProcessRun,
+    expected: frozenset[str],
+) -> None:
+    del case
+    _register_hand_off_backends(isolated_solvers)
+
+    assert hand_off_of(_plan(*runs), run) == expected
+
+
+def test_the_hand_off_of_a_flow_without_a_transport_is_read_twice_the_same(
+    isolated_solvers,
+) -> None:
+    """The reads are computed from the registry once and named once: no dependency, nothing."""
+    _register_hand_off_backends(isolated_solvers)
+
+    assert hand_off_of(_plan(FLOW), FLOW) == frozenset()
+    assert hand_off_of(_plan(FLOW), FLOW) == frozenset()
+
+
+def test_the_slot_of_a_transport_is_the_slot_of_its_flow(tmp_path: Path) -> None:
+    flow_slot = RunSlot(tmp_path / "scratch", "island", bin_dir=tmp_path / "bin")
+    upstream = (SolverRun(slot=flow_slot),)
+
+    slot = slot_for(_plan(NWT_FLOW, MT3DMS), MT3DMS, SimpleNamespace(), upstream=upstream)
+
+    assert (slot.folder, slot.name, slot.bin_dir) == (
+        flow_slot.folder,
+        flow_slot.name,
+        flow_slot.bin_dir,
+    )
+    assert slot.stop_before_solve is False
+    assert slot.hand_off == frozenset()
+
+
+def test_the_slot_of_a_transport_keeps_its_own_stop_before_solve(tmp_path: Path) -> None:
+    flow_slot = RunSlot(tmp_path / "scratch", "island")
+    upstream = (SolverRun(slot=flow_slot),)
+
+    slot = slot_for(
+        _plan(NWT_FLOW, MT3DMS),
+        MT3DMS,
+        SimpleNamespace(slot_request=SlotRequest(stop_before_solve=True)),
+        upstream=upstream,
+    )
+
+    assert slot.stop_before_solve is True
+    assert flow_slot.stop_before_solve is False
+
+
+def test_a_transport_without_its_flow_run_has_no_slot() -> None:
+    with pytest.raises(SolverInputError, match="expected exactly one flow dependency, got 0"):
+        slot_for(_plan(NWT_FLOW, MT3DMS), MT3DMS, SimpleNamespace())
+
+
+class _TransportOptions(FakeAdapter):
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type | None] = object
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
+
+
 class _Options(FakeAdapter):
     options: ClassVar[type | None] = object
 
@@ -262,7 +393,8 @@ class _Options(FakeAdapter):
 OPTIONS: tuple[tuple[str, object, ProcessRun, str | None], ...] = (
     ("a flow with settings", _Options(), FLOW, "table of modflow6"),
     ("a flow without settings", FakeAdapter(), FLOW, None),
-    ("a transport", _Options(), TRANSPORT, None),
+    ("a transport with its table", _TransportOptions(), MODPATH, "params of modpath"),
+    ("a transport without settings", FakeAdapter(), MODPATH, None),
 )
 
 
@@ -271,9 +403,20 @@ OPTIONS: tuple[tuple[str, object, ProcessRun, str | None], ...] = (
 )
 def test_options_for(case: str, adapter: object, run: ProcessRun, expected: str | None) -> None:
     del case
-    cfg = SimpleNamespace(solver=SimpleNamespace(options_of=lambda name: f"table of {name}"))
+    cfg = SimpleNamespace(
+        solver=SimpleNamespace(options_of=lambda name: f"table of {name}"),
+        transport=SimpleNamespace(options_of=lambda name: f"params of {name}"),
+    )
 
     assert options_for(adapter, run, cfg) == expected
+
+
+def test_options_for_a_process_without_a_table_is_none() -> None:
+    run = ProcessRun(
+        id="custom_main::broken", process_id="custom_main", process_type="custom", solver="broken"
+    )
+
+    assert options_for(_Options(), run, SimpleNamespace(solver=None, transport=None)) is None
 
 
 def _ctx(run: ProcessRun = FLOW) -> RunContext:
@@ -336,7 +479,7 @@ def test_solve_one_reruns_only_when_the_change_fits_mutable(
     del case
     previous = SolverRun(slot=_slot(tmp_path), model=MODEL, written=True, solved=True)
 
-    result = solve_one(adapter, model, None, _slot(tmp_path), _ctx(), previous=previous)
+    result = solve_one(adapter, model, None, _slot(tmp_path), (), previous=previous)
 
     assert adapter.calls == calls
     assert result.model is model
@@ -346,7 +489,7 @@ def test_solve_one_reruns_only_when_the_change_fits_mutable(
 def test_solve_one_without_a_previous_run_builds(tmp_path: Path) -> None:
     adapter = _Mutable()
 
-    solve_one(adapter, MODEL, None, _slot(tmp_path), _ctx())
+    solve_one(adapter, MODEL, None, _slot(tmp_path), ())
 
     assert adapter.calls == ["validate", "build", "run"]
 
@@ -360,12 +503,24 @@ def test_solve_one_stops_before_the_solve_after_a_rerun(tmp_path: Path) -> None:
         MODEL.with_properties(K=2e-5),
         None,
         _slot(tmp_path, stop=True),
-        _ctx(),
+        (),
         previous=previous,
     )
 
     assert adapter.calls == ["validate", "rerun"]
     assert result.solved is False
+
+
+def test_solve_one_hands_the_upstream_run_to_the_transport_it_builds(tmp_path: Path) -> None:
+    """A transport build receives the SolverRun of the flow it follows, and nothing else."""
+    flow_run = SolverRun(slot=_slot(tmp_path), solver_model=object(), written=True, solved=True)
+    adapter = _RecordingAdapter()
+
+    solve_one(adapter, MODEL, None, flow_run.slot, (flow_run,))
+
+    name, (model, options, slot, upstream) = adapter.received[-1]
+    assert (name, model, options, slot) == ("build", MODEL, None, flow_run.slot)
+    assert upstream == (flow_run,)
 
 
 class _Diverging(FakeAdapter):
@@ -384,9 +539,12 @@ class _Diverging(FakeAdapter):
     [(None, FLOW.id), ("flow_other::modflow6", "flow_other::modflow6")],
     ids=["named by the runner", "named by the backend"],
 )
-def test_a_solver_error_names_its_run(named: str | None, expected: str, tmp_path: Path) -> None:
-    with pytest.raises(SolverDivergedError, match="for run 'island'") as caught:
-        solve_one(_Diverging(named), MODEL, None, _slot(tmp_path), _ctx())
+def test_a_solver_error_names_its_run(monkeypatch, named: str | None, expected: str) -> None:
+    """The message names the run by its slot; the runner fills an id the backend left."""
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: _Diverging(named))
+
+    with pytest.raises(SolverDivergedError, match="for run 'default'") as caught:
+        SimulationRunner().execute(_plan(FLOW), _state(model=object()))
 
     assert caught.value.run_id == expected
 
@@ -405,26 +563,64 @@ def test_the_runner_hands_previous_runs_to_their_own_run_only(monkeypatch) -> No
     assert adapter.calls == ["validate", "rerun", "run", "validate", "build", "run"]
 
 
-class _PerRunAdapter(FakeAdapter):
-    """Answers each run with the run written for its id and records the order."""
-
-    def __init__(self, produced: dict[str, dict[str, Any]]) -> None:
-        super().__init__()
-        self.produced = produced
-        self.ran: list[str] = []
-        self.upstream: dict[str, tuple[SolverRun, ...]] = {}
-
-    def build(self, model, options, slot, ctx):
-        self.ran.append(ctx.run.id)
-        self.upstream[ctx.run.id] = ctx.upstream
-        return SolverRun(slot=slot, model=model, **self.produced[ctx.run.id])
-
-    def run(self, solver_run):
-        return replace(solver_run, written=True, solved=True)
+# ---------------------------------------------------------------------------
+# A transport run follows one flow run, of the family its backend requires.
+#
+# The tests register a fake flow and two fake transports under the names the
+# shipped backends carry, in the isolated ``solvers`` registry, so the runner
+# is read without importing a backend or the paths of another lot.
+# ---------------------------------------------------------------------------
 
 
-def _flow_then_transport() -> SimulationPlan:
-    return _plan(FLOW, TRANSPORT)
+def _register_backends(
+    isolated_solvers: Any,
+    *,
+    trace: list[str],
+    converged: bool | None = None,
+) -> None:
+    """Register the fake flow and transports these tests read, under their own names."""
+
+    def flow_build(self: FakeAdapter, model, options, slot, upstream=()):
+        trace.append("flow")
+        return SolverRun(
+            slot=slot,
+            model=model,
+            solver_model=object(),
+            initial_state_converged=converged,
+        )
+
+    def transport_build(self: FakeAdapter, model, options, slot, upstream=()):
+        trace.append("transport")
+        if not upstream:
+            raise PipelineError("A fake transport received no flow to follow.")
+        (followed,) = upstream
+        return SolverRun(
+            slot=slot,
+            model=model,
+            solver_model=object(),
+            output_dir=followed.output_dir if followed.written else followed.slot.directory,
+        )
+
+    for name, process_type, extra in (
+        ("modflow6", "flow", {}),
+        ("modflow_nwt", "flow", {}),
+        ("mt3dms", "transport", {"reads": ("face_flow",), "requires": (("flow", "modflow_nwt"),)}),
+        ("modpath", "transport", {"reads": ("face_flow",), "requires": (("flow", "modflow6"),)}),
+    ):
+        build = transport_build if process_type == "transport" else flow_build
+        isolated_solvers.solvers.register(
+            fake_adapter(name, process_type, build=build, **extra), replace=True
+        )
+
+
+def _transport_run(solver: str, *, depends_on: tuple[ProcessRun, ...] = ()) -> ProcessRun:
+    return ProcessRun(
+        id=f"transport_main::{solver}",
+        process_id="transport_main",
+        process_type="transport",
+        solver=solver,
+        depends_on=tuple(one.id for one in depends_on),
+    )
 
 
 @pytest.mark.parametrize(
@@ -439,67 +635,72 @@ def _flow_then_transport() -> SimulationPlan:
     ids=["converged", "no steady start", "not converged", "not converged, sealed", "sealed"],
 )
 def test_a_transport_run_behind_a_start_that_did_not_converge(
-    monkeypatch, converged, sealed, outcome
+    isolated_solvers, converged, sealed, outcome
 ) -> None:
-    adapter = _PerRunAdapter(
-        {
-            FLOW.id: {"solver_model": object(), "initial_state_converged": converged},
-            TRANSPORT.id: {"solver_model": object()},
-        }
-    )
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    monkeypatch.setitem(runner_module._COMPONENT_ENSURERS, "transport", lambda _state: None)
+    trace: list[str] = []
+    _register_backends(isolated_solvers, trace=trace, converged=converged)
     state = _state(model=object())
     state.cfg = SimpleNamespace(read_as_sealed=sealed)
     runner = SimulationRunner()
 
     if outcome == "refused":
         with pytest.raises(SolverDivergedError, match="did not converge") as caught:
-            runner.execute(_flow_then_transport(), state)
-        assert caught.value.run_id == TRANSPORT.id
-        assert adapter.ran == [FLOW.id]
+            runner.execute(_plan(FLOW, MODPATH), state)
+        assert caught.value.run_id == MODPATH.id
+        assert trace == ["flow"]
         return
     if outcome == "warns":
         with pytest.warns(RuntimeWarning, match="did not converge"):
-            runner.execute(_flow_then_transport(), state)
+            runner.execute(_plan(FLOW, MODPATH), state)
     else:
-        runner.execute(_flow_then_transport(), state)
-    assert adapter.ran == [FLOW.id, TRANSPORT.id]
+        runner.execute(_plan(FLOW, MODPATH), state)
+    assert trace == ["flow", "transport"]
 
 
-def test_a_start_that_did_not_converge_is_forgotten_by_the_next_execution(monkeypatch) -> None:
-    produced = {
-        FLOW.id: {"solver_model": object(), "initial_state_converged": False},
-        TRANSPORT.id: {"solver_model": object()},
-    }
-    adapter = _PerRunAdapter(produced)
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    monkeypatch.setitem(runner_module._COMPONENT_ENSURERS, "transport", lambda _state: None)
+def test_a_start_that_did_not_converge_is_forgotten_by_the_next_execution(
+    isolated_solvers,
+) -> None:
+    """The refusal is read off the runs of THIS execution, not remembered across them."""
+    trace: list[str] = []
+    _register_backends(isolated_solvers, trace=trace, converged=False)
     runner = SimulationRunner()
     with pytest.raises(SolverDivergedError):
-        runner.execute(_flow_then_transport(), _state(model=object()))
+        runner.execute(_plan(FLOW, MODPATH), _state(model=object()))
 
-    produced[FLOW.id] = {"solver_model": object(), "initial_state_converged": True}
-    runner.execute(_flow_then_transport(), _state(model=object()))
+    trace.clear()
+    _register_backends(isolated_solvers, trace=trace, converged=True)
 
-    assert adapter.ran[-1] == TRANSPORT.id
+    runner.execute(_plan(FLOW, MODPATH), _state(model=object()))
+
+    assert trace == ["flow", "transport"]
 
 
-def test_a_transport_receives_the_solver_run_of_its_flow(monkeypatch) -> None:
-    flow_model = object()
-    adapter = _PerRunAdapter(
-        {FLOW.id: {"solver_model": flow_model}, TRANSPORT.id: {"solver_model": object()}}
+def test_a_transport_whose_dependency_is_not_the_family_its_backend_requires_is_refused(
+    isolated_solvers,
+) -> None:
+    """MT3DMS follows the flow MODFLOW 6 solves; hand it NWT's run and the runner refuses it."""
+    trace: list[str] = []
+    _register_backends(isolated_solvers, trace=trace)
+
+    def mt3dms_build(self: FakeAdapter, model, options, slot, upstream=()):
+        trace.append("cross")
+        return SolverRun(slot=slot, model=model, solver_model=object())
+
+    cross_backend = fake_adapter(
+        "mt3dms",
+        "transport",
+        build=mt3dms_build,
+        reads=("face_flow",),
+        requires=(("flow", "modflow6"),),
     )
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    monkeypatch.setitem(runner_module._COMPONENT_ENSURERS, "transport", lambda _state: None)
+    isolated_solvers.solvers.register(cross_backend, replace=True)
+    cross = _transport_run("mt3dms", depends_on=(NWT_FLOW,))
     state = _state(model=object())
 
-    SimulationRunner().execute(_flow_then_transport(), state)
+    with pytest.raises(SolverInputError, match="follows the \\(flow, modflow6\\) flow"):
+        SimulationRunner().execute(_plan(NWT_FLOW, cross), state)
 
-    assert adapter.upstream[FLOW.id] == ()
-    (flow_run,) = adapter.upstream[TRANSPORT.id]
-    assert flow_run is state.execution.solver_runs[FLOW.id]
-    assert flow_run.solver_model is flow_model
+    assert trace == ["flow"]
 
 
 @pytest.mark.parametrize(
@@ -507,10 +708,11 @@ def test_a_transport_receives_the_solver_run_of_its_flow(monkeypatch) -> None:
     [{}, {FLOW.id: {"solver_model": None}}],
     ids=["the flow has not run", "the flow produced no model"],
 )
-def test_a_transport_whose_flow_produced_nothing_is_refused(monkeypatch, recorded) -> None:
-    adapter = _PerRunAdapter({TRANSPORT.id: {"solver_model": object()}})
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    monkeypatch.setitem(runner_module._COMPONENT_ENSURERS, "transport", lambda _state: None)
+def test_a_transport_whose_flow_produced_nothing_is_refused(
+    isolated_solvers, recorded: dict[str, Any]
+) -> None:
+    trace: list[str] = []
+    _register_backends(isolated_solvers, trace=trace)
     state = _state(model=object())
     state.execution.solver_runs.update(
         {
@@ -520,7 +722,7 @@ def test_a_transport_whose_flow_produced_nothing_is_refused(monkeypatch, recorde
     )
 
     with pytest.raises(PipelineError, match="has produced no model") as caught:
-        SimulationRunner().execute(_plan(TRANSPORT), state)
+        SimulationRunner().execute(_plan(MODPATH), state)
 
-    assert caught.value.run_id == TRANSPORT.id
-    assert adapter.ran == []
+    assert caught.value.run_id == MODPATH.id
+    assert trace == []

@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 187 tolerances enforced today. Every tolerance
+The table below records the 188 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -215,6 +215,7 @@ must carry a rationale before it is merged.
 | 185 | Twin stream-network calibration under heads (MF6) | `D_optim` at the returned trial | `<= 1 m` | **Derived.** Over the band of row 184 the simulated network differs from the map by at most five cells, each a cell or two from it, averaged over 124 cells: the sweep reads 0.31 m at -1.4 % and 0.40 m at +2.9 %. The band is 2.5 times that, a twentieth of a cell. It exists because a balanced `J` does not say the two networks agree | Same module. Measured 0 m. Heads moved five cells south, so three shorten and two lengthen, keep K within 2.4 % and read 6.05 m; with one head missing, 2.17 m. The bound of `r_optim`, two cells, passes both. |
 | 186 | Twin stream-network calibration under heads (MF6) | `d_sat_m` of the returned trial over the truth run | `rel <= 1.1e-2` | **Derived.** The sweep gives `d dsat / d ln K` of -6.4 m around the truth on a mean of 17.9 m, so the 3 % of row 184 moves `dsat` by 0.19 m, 1.07 % of it | Same module. Measured 1.6e-3 at the 0.45 % of K the search lands off. |
 | 187 | Twin K and Sy on two maps (MF6, comb basin, monthly recharge, truth K = 6e-6 and Sy = 0.05) | `\|J\|` on each map at the true K, for Sy from 0.025 to 0.1 | `<= 20 m` | **Derived.** One cell of the 20 m grid, the width a network distance resolves. Measured: J_min from -11.2 to 2.7 m and J_max from 2.4 to -1.4 m, so Sy stays inside one cell across a factor of 4 while K has its sign outside 3e-6 to 8e-6 | `tests/validation/calibration/test_twin_matching_stream_heads_modflow6.py`. Over 0.0125 to 0.2, a factor of 16, the same two J stay inside the cell. A search from elsewhere: Nelder-Mead K -0.5 %, Sy +1.5 %; CMA-ES K +0.2 %, Sy +78 %; TPE K -2.3 %, Sy +86 %, the last two under 2 m of cost |
+| 188 | The linear reservoir on the one-cell mesh, discharge-depth series and released volume | state max abs error | `1e-4` of the tank peak | **Derived** from the RK4 reference of the case, an integration the backend never runs, at a thousandth of a day | `validation_cases/analytical/linear_reservoir`, a storm of 5 days then 20 dry ones, tau of 30 days |
 
 ## Update policy
 

@@ -24,14 +24,14 @@ def _warnings(caplog) -> list:
 
 
 def test_a_gap_of_fifteen_per_cent_does_not_warn(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: 100.0)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 100.0)
     with caplog.at_level(logging.INFO):
         mod.compare_catchment_area("J001401001", 115.0)
     assert not _warnings(caplog)
 
 
 def test_a_gap_beyond_twenty_per_cent_warns(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: 64.45)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 64.45)
     with caplog.at_level(logging.INFO):
         result = mod.check_gauge_area("J001401001", 96.5)
     assert result is not None
@@ -40,7 +40,9 @@ def test_a_gap_beyond_twenty_per_cent_warns(monkeypatch, caplog) -> None:
 
 def test_nothing_is_checked_without_a_hubeau_gauge_and_an_area(monkeypatch) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda sid: calls.append(sid) or 10.0)
+    monkeypatch.setattr(
+        mod, "published_catchment_area_km2", lambda sid, **_kw: calls.append(sid) or 10.0
+    )
     assert mod.check_gauge_area(None, 50.0) is None
     assert mod.check_gauge_area("my_station", 50.0) is None
     assert mod.check_gauge_area("J001401001", None) is None
@@ -50,7 +52,9 @@ def test_nothing_is_checked_without_a_hubeau_gauge_and_an_area(monkeypatch) -> N
 
 def test_the_gauge_of_the_run_is_the_one_checked(monkeypatch, caplog) -> None:
     seen: list[str] = []
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda sid: seen.append(sid) or 64.45)
+    monkeypatch.setattr(
+        mod, "published_catchment_area_km2", lambda sid, **_kw: seen.append(sid) or 64.45
+    )
     with caplog.at_level(logging.INFO):
         # Declared gauge among several stations.
         check_run_gauge_area(_site("J001401001"), _loaded("J001401001", "K123456701"), 96.5)
@@ -66,9 +70,10 @@ def test_the_gauge_of_the_run_is_the_one_checked(monkeypatch, caplog) -> None:
 
 
 def test_the_data_step_runs_the_guard_after_the_load(monkeypatch, caplog) -> None:
+    from hydromodpy.core.runtime.bounds import Bounds
     from hydromodpy.workflow.steps import data as data_step
 
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: 64.45)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 64.45)
     monkeypatch.setattr(data_step, "apply_structural_updates_from_data", lambda _state: None)
     monkeypatch.setattr(
         data_step,
@@ -82,6 +87,7 @@ def test_the_data_step_runs_the_guard_after_the_load(monkeypatch, caplog) -> Non
         execution=SimpleNamespace(lightweight=False),
         config_path="c.toml",
         data_plan=SimpleNamespace(types=()),
+        bounds=Bounds(),
     )
     with caplog.at_level(logging.INFO):
         data_step.step_data_loading(run_state)

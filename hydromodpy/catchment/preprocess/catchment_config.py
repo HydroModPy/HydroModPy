@@ -101,19 +101,6 @@ MISSING_CATCHMENT = (
 class _CatchDefBase(HydroModelBase):
     """Common base for catchment definition variants."""
 
-    dem_init_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="dem", category="data"),
-    ] = Field(
-        default=None,
-        description=(
-            "Path to the DEM raster used as input. "
-            "For 'dem' and 'txt' modes: defines the model domain directly. "
-            "For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. "
-            "May be left absent when [data.dem.sources] declares the DEM."
-        ),
-    )
     dem_resolution: Annotated[LengthMeters | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -155,19 +142,6 @@ class DemCatchDef(_CatchDefBase):
     kind: Annotated[Literal["dem"], Profile.USER] = Field(
         default="dem",
         description="Catchment defined by the DEM raster extent.",
-    )
-    dem_init_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="dem", category="data"),
-    ] = Field(
-        description=(
-            "Path to the DEM raster that is the model domain. A relative path is read "
-            "from the project root (the folder of project.toml); a bare file name is also looked up in "
-            "the dem folder of the workspace data. May be left out only when "
-            "[[data.dem.sources]] declares the DEM."
-        ),
-        examples=["dem.tif"],
     )
 
 

@@ -15,10 +15,10 @@ import numpy as np
 
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 
 
@@ -122,9 +122,9 @@ def test_gwt_disv_receives_idomain_with_inactive_cell(tmp_path: Path) -> None:
         exe="mf6",
         modflow_config=_coerce_modflow6_config(None),
     )
-    transport = Transport({"modflow6gwt": {"parameters": {"sconc_input": 0.0}}})
-
-    gwt_solver = Modflow6Transport(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
+    gwt_solver = Modflow6Transport(
+        make_model(), flow_model, str(tmp_path), "flow", options={"sconc_input": 0.0}
+    )
     gwt_solver.pre_processing()
 
     gwt_idomain = np.asarray(gwt_solver.gwtdis.idomain.array)

@@ -34,7 +34,7 @@ def _load_json(path: Path) -> dict:
 
 def _signature() -> dict:
     config = IntermittencyConfig(
-        sources=[IntermittencySourceConfig(source="custom", path=DATA_DIR)],
+        sources=[IntermittencySourceConfig(source="file", path=DATA_DIR)],
         date_start=START,
         date_end=END,
     )

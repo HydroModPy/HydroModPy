@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.exceptions import NothingThereError
+from hydromodpy.core.exceptions import NothingThereError, SolverInputError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
@@ -36,12 +36,24 @@ class Mt3dmsExtractorBase:
     solver_name: str
 
     def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
-        """Read the ``.ucn`` file of a solved run and write its concentration fields into the store.
+        """Read the ``.ucn`` file of a solved run and write its concentration into the store.
 
-        A concentration run keeps no per-cell budget, so ``retention`` is not read.
+        The concentration is stored under ``concentration/<spc_name>``, one
+        path per solute, named the way ``[transport.<name>]`` spells it. A
+        concentration run keeps no per-cell budget, so ``retention`` is not
+        read.
         """
         del retention
         sim_id = store.sim_id
+        options = solver_run.options
+        spc_name = getattr(options, "spc_name", None)
+        if spc_name is None or not str(spc_name).strip() or "/" in str(spc_name):
+            raise SolverInputError(
+                f"[transport.{self.solver_name}] spc_name = {spc_name!r} does not name "
+                "one solute: the concentration is stored at concentration/<spc_name>, "
+                "so the name must be non-empty and hold no '/'."
+            )
+        variable = str(spc_name)
         solver_output_dir = Path(solver_run.output_dir)
         ucn_files = list(solver_output_dir.glob("*.ucn")) + list(solver_output_dir.glob("*.UCN"))
         if not ucn_files:
@@ -77,7 +89,8 @@ class Mt3dmsExtractorBase:
 
         # Batched stack write in time slabs: one shard encode instead of a
         # per-timestep read-modify-write, without holding the whole
-        # (nper, nlay, ncells) stack in RAM.
+        # (nper, nlay, ncells) stack in RAM. The slabs write into the
+        # concentration subgroup, under the solute the run carries.
         slab = slab_steps(nlay, n_cells)
         try:
             for t0 in range(0, n_timesteps, slab):
@@ -86,7 +99,12 @@ class Mt3dmsExtractorBase:
                 for t in range(t0, t1):
                     chunk[t - t0] = ucn.get_data(totim=times[t]).reshape(nlay, n_cells)
                 store.write_field_stack(
-                    sim_id, "concentration", chunk, n_timesteps=n_timesteps, timestep_offset=t0
+                    sim_id,
+                    variable,
+                    chunk,
+                    n_timesteps=n_timesteps,
+                    timestep_offset=t0,
+                    subgroup="concentration",
                 )
         finally:
             ucn.close()

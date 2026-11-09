@@ -142,23 +142,25 @@ def layout(tmp_path: Path) -> tuple[Path, Path]:
     base = tmp_path / "project"
     data = tmp_path / "workspace" / "data"
     (data / "lakes").mkdir(parents=True)
-    base.mkdir()
+    (base / "inputs").mkdir(parents=True)
     for name in ("rain.csv", "release.csv", "inflow.csv", "seg.csv"):
         (data / "lakes" / name).write_text("date,v\n2020-01-01,1\n", encoding="utf-8")
+        (base / "inputs" / name).write_text("date,v\n2020-01-01,1\n", encoding="utf-8")
     return base, data
 
 
 @pytest.mark.unit
-def test_lake_outlet_and_sfr_csv_resolve_against_data(layout) -> None:
+def test_lake_outlet_and_sfr_csv_resolve_against_the_toml_folder_only(layout) -> None:
+    """A lake or SFR CSV is read where the TOML names it; data/<role>/ is never searched."""
     base, data = layout
     raw = {
         "lakes": {
             "lac0": {
-                "rainfall": _csv("rain.csv"),
-                "outlet": {"kind": "specified", "forcing": _csv("release.csv")},
+                "rainfall": _csv("inputs/rain.csv"),
+                "outlet": {"kind": "specified", "forcing": _csv("inputs/release.csv")},
                 "inflow": {
                     "kind": "piecewise",
-                    "segments": [{"start": "2020-01-01", "forcing": _csv("seg.csv")}],
+                    "segments": [{"start": "2020-01-01", "forcing": _csv("inputs/seg.csv")}],
                 },
             }
         },
@@ -166,12 +168,14 @@ def test_lake_outlet_and_sfr_csv_resolve_against_data(layout) -> None:
     }
     out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     lac = out["lakes"]["lac0"]
-    assert Path(lac["rainfall"]["path_file"]) == (data / "lakes" / "rain.csv").resolve()
-    assert Path(lac["outlet"]["forcing"]["path_file"]) == (data / "lakes" / "release.csv").resolve()
+    assert Path(lac["rainfall"]["path_file"]) == (base / "inputs" / "rain.csv").resolve()
+    assert (
+        Path(lac["outlet"]["forcing"]["path_file"]) == (base / "inputs" / "release.csv").resolve()
+    )
     seg = lac["inflow"]["segments"][0]["forcing"]
-    assert Path(seg["path_file"]) == (data / "lakes" / "seg.csv").resolve()
-    # SFR has no data/sfr folder here: the bare name falls back to data/ then stays beside the TOML.
-    assert Path(out["sfr"]["headwater_inflow"]["path_file"]).name == "inflow.csv"
+    assert Path(seg["path_file"]) == (base / "inputs" / "seg.csv").resolve()
+    # A file that sits only in data/lakes/ is not found by its bare name.
+    assert Path(out["sfr"]["headwater_inflow"]["path_file"]) == (base / "inflow.csv").resolve()
 
 
 @pytest.mark.unit

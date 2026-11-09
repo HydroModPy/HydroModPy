@@ -1,0 +1,14 @@
+case_id = "linear_reservoir"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+default_solver = "linear_reservoir"
+
+[time]
+step_seconds = 86400.0
+rain_days = 5
+dry_days = 20
+rain_rate_m_per_s = 5.0e-8
+
+[reference]
+tau_days = 30.0

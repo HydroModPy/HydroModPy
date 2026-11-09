@@ -24,7 +24,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 from pydantic import BaseModel
 
 from hydromodpy.results.storage.kept import Retention
-from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
 GEOMETRIES: tuple[str, ...] = ("cells", "raster")
 """The members of ``Model.geometry`` a backend can build its grid on.
@@ -39,6 +39,23 @@ CATEGORIES: tuple[str, ...] = ("distributed", "integrated", "lumped")
 
 NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step")
 """The two attributes a backend may set to ``None``. Their presence is checked on the class."""
+
+HANDOFF_PRODUCTS: tuple[str, ...] = ("face_flow",)
+"""The products a flow hands a transport that follows it, in the native files of the solver.
+
+``face_flow`` is the flow between two cells, at every time step, as the solver
+files of the flow carry it: ``FLOW-JA-FACE`` in the ``.cbc`` of MODFLOW 6, the
+face flows of the ``.cbc`` of MODFLOW-NWT, and its flow-transport link file
+when a transport of the plan reads ``face_flow`` of it. A transport of this
+build reads it through the ``SolverRun`` of its flow, which keeps those files
+and the live solver object.
+
+The name has no shape in the field registry yet: the stored form, an axis of
+connections unlike the ``face`` axis that is a UGRID cell, and the transport
+path that reads it from the store alone, come with ``keep_face_flows``. When
+that form exists, the name moves to ``results/field_registry.py`` and leaves
+this tuple, so it never stands in both (one name, one place).
+"""
 
 RERUN_MEMBERS: tuple[str, ...] = ("rerun",)
 """The members a backend carries if and only if its ``mutable`` is not empty.
@@ -84,10 +101,11 @@ class SolverAdapter(Protocol):
     and the :class:`~hydromodpy.solver.base.plan.RunSlot` the runner filled. It
     returns a :class:`~hydromodpy.solver.base.plan.SolverRun`. It never changes
     the ``Model``: a solve leaves it as it found it, and an auxiliary solve runs
-    on a variant that is a new object. A flow adapter reads nothing of the setup,
-    the configuration or the store. ``build`` also receives the ``RunContext``
-    of the run, which a transport reads for its setup and its upstream runs, and
-    a flow for the plan, until the transport port takes the ``Model``.
+    on a variant that is a new object. An adapter reads nothing of the setup,
+    the configuration or the store. ``build`` also receives the ``SolverRun``
+    objects the runs it depends on produced, ``upstream``: empty for a flow,
+    one run of the family its ``requires`` names for a transport, which reads
+    the ``Model`` and the folder of that flow and takes ``face_flow`` from it.
 
     The runner calls ``validate``, then ``build``, then ``run`` unless
     ``slot.stop_before_solve``. The extract step calls ``extract``, and the
@@ -125,7 +143,12 @@ class SolverAdapter(Protocol):
     """
 
     reads: ClassVar[tuple[str, ...]]
-    """The products of an earlier run the backend reads: ``face_flow`` for a transport, none for a flow."""
+    """The products of an earlier run the backend reads: ``face_flow`` for a transport, none for a flow.
+
+    Every name is one :data:`HANDOFF_PRODUCTS` holds, or one the field registry
+    describes, and no name is in both. Until the stored form exists a transport
+    reads its product from the ``SolverRun`` of its flow.
+    """
 
     supports: ClassVar[frozenset[str]]
     """The traits of the ``Model`` the backend honours, from the closed set of ``model/supports.py``.
@@ -156,12 +179,18 @@ class SolverAdapter(Protocol):
         """Refuse a run this backend cannot solve, before anything is built."""
 
     def build(
-        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+        self,
+        model: Any,
+        options: BaseModel | None,
+        slot: RunSlot,
+        upstream: tuple[SolverRun, ...] = (),
     ) -> SolverRun:
         """Build the solver model of ``model`` in memory, under ``slot``.
 
-        Nothing is written and nothing is solved: the result has ``written`` and
-        ``solved`` false and carries the solver model.
+        A flow follows no run, so ``upstream`` stays empty. A transport receives
+        exactly one run, of the family its ``requires`` names, and works in the
+        folder of that flow. Nothing is written and nothing is solved: the
+        result has ``written`` and ``solved`` false and carries the solver model.
         """
 
     def run(self, solver_run: SolverRun) -> SolverRun:
@@ -279,6 +308,7 @@ def extractor_members() -> tuple[str, ...]:
 __all__ = [
     "CATEGORIES",
     "GEOMETRIES",
+    "HANDOFF_PRODUCTS",
     "NULLABLE_ATTRIBUTES",
     "OPTIONAL_MEMBERS",
     "RERUN_MEMBERS",

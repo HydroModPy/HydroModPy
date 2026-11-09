@@ -180,12 +180,12 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
 def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, tmp_path) -> None:
     config = _write_toml(
         tmp_path / "calib.toml",
-        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
+        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy_nelder_mead"\n',
     )
 
     called = False
 
-    def fake_run(config_path):
+    def fake_run(config_path, environment=None):
         nonlocal called
         called = True
         return {"mode": "calibration"}
@@ -209,8 +209,9 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
 
     captured: dict = {}
 
-    def fake_run(config_path):
+    def fake_run(config_path, environment=None):
         captured["config_path"] = Path(config_path)
+        captured["environment"] = environment
         captured["run_called"] = True
         return SimpleNamespace(to_dict=lambda: {"mode": "data_overview"})
 
@@ -221,6 +222,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
 
     assert captured["config_path"] == config.resolve()
     assert captured["run_called"] is True
+    assert captured["environment"] is not None
 
 
 def test_hmp_run_rejects_removed_mesh_workflow(monkeypatch, tmp_path) -> None:
@@ -241,13 +243,14 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=calibration dispatches to run_calibration."""
     config = _write_toml(
         tmp_path / "calib.toml",
-        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
+        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy_nelder_mead"\n',
     )
 
     captured: dict = {}
 
-    def fake_run(config_path):
+    def fake_run(config_path, environment=None):
         captured["config_path"] = Path(config_path)
+        captured["environment"] = environment
         captured["run_called"] = True
         return {"mode": "calibration"}
 
@@ -258,6 +261,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
 
     assert captured["config_path"] == config.resolve()
     assert captured["run_called"] is True
+    assert captured["environment"] is not None
 
 
 def test_hmp_run_rejects_removed_batch_workflow(monkeypatch, tmp_path) -> None:
@@ -340,8 +344,6 @@ def test_overview_config_respects_project_root_env_override(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    dem_path = tmp_path / "dem.tif"
-    dem_path.write_text("dummy", encoding="utf-8")
     redirected_project_root = tmp_path / "redirected_project_root"
     monkeypatch.setenv(
         "HMP_PROJECT_ROOT",
@@ -360,7 +362,6 @@ name = "site_a"
 [geographic]
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 x_outlet = 1.0
 y_outlet = 2.0
 snap_dist = "150 m"
@@ -375,7 +376,6 @@ name = "Test"
     cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.workspace.project_root == redirected_project_root.resolve()
-    assert cfg.geographic.dem_init_path == dem_path.resolve()
     assert cfg.overview is not None
     assert cfg.overview.name == "Test"
 

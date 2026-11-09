@@ -61,7 +61,7 @@ Project.data_loaded	property	set[str]
 Project.domain	property	Domain | None
 Project.geographic	property	CatchmentDelineation | None
 Project.has_mesh	property	bool
-Project.launch	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None) -> LaunchReport
+Project.launch	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None, environment: Environment | None = None) -> LaunchReport
 Project.load_data	method	(self, *, types: list[str] | None = None) -> None
 Project.loaded_data	property	LoadedDataContext
 Project.plan	method	(self, *, set: Mapping[str, Any] | None = None, force: bool = False) -> PlanDraft

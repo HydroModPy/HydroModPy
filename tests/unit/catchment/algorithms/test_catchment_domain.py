@@ -60,7 +60,7 @@ def nancon_square(tmp_path_factory) -> Path:
 
 
 def _normalized(declared: object) -> object:
-    return GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif", buff_area=declared).buff_area
+    return GeographicConfig.from_outlet(x=1.0, y=2.0, buff_area=declared).buff_area
 
 
 def test_a_disk_is_solved_to_the_centimetre() -> None:
@@ -162,7 +162,7 @@ def test_the_config_writes_one_form_per_rule_and_reads_it_back(declared, normali
     assert once == normalized
     assert type(once) is type(normalized)
     assert _normalized(once) == once
-    config = GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif", buff_area=declared)
+    config = GeographicConfig.from_outlet(x=1.0, y=2.0, buff_area=declared)
     replayed = GeographicConfig.model_validate(config.model_dump(mode="json"))
     assert replayed.buff_area == config.buff_area
     assert type(replayed.buff_area) is type(config.buff_area)
@@ -175,7 +175,7 @@ def test_the_config_refuses_a_buffer_with_no_margin(declared: object) -> None:
 
 
 def test_the_factories_default_to_the_paper_rule() -> None:
-    assert GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif").buff_area == "10%"
+    assert GeographicConfig.from_outlet(x=1.0, y=2.0).buff_area == "10%"
 
 
 def _bounds(path: str) -> tuple[float, ...]:

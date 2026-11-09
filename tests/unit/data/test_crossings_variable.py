@@ -29,7 +29,7 @@ from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings
 from hydromodpy.data.variables.crossings.config import (
     BdtopoCrossingsSource,
     CrossingsConfig,
-    CustomCrossingsSource,
+    FileCrossingsSource,
     RoeCrossingsSource,
 )
 from hydromodpy.data.variables.crossings.manager import CrossingsManager, cache_file_name
@@ -109,7 +109,7 @@ def test_the_section_validates_the_three_sources() -> None:
                 "sources": [
                     {"source": "bdtopo"},
                     {"source": "roe", "page_size": 500},
-                    {"source": "custom", "path": "x.gpkg"},
+                    {"source": "file", "path": "inputs/x.gpkg"},
                 ]
             },
         },
@@ -117,12 +117,12 @@ def test_the_section_validates_the_three_sources() -> None:
     )
 
     kinds = [type(source) for source in cfg.crossings.sources]
-    assert kinds == [BdtopoCrossingsSource, RoeCrossingsSource, CustomCrossingsSource]
+    assert kinds == [BdtopoCrossingsSource, RoeCrossingsSource, FileCrossingsSource]
 
 
 def test_a_custom_source_without_a_path_is_refused() -> None:
     with pytest.raises(ValidationError, match="path"):
-        CrossingsConfig(sources=[{"source": "custom"}])
+        CrossingsConfig(sources=[{"source": "file"}])
 
 
 def test_a_source_nobody_serves_is_refused() -> None:
@@ -146,7 +146,7 @@ def test_the_section_needs_a_source() -> None:
 def test_a_custom_file_without_kind_is_refused_by_name(tmp_path: Path) -> None:
     path = _custom_file(tmp_path / "roads.gpkg", name=["a"])
     manager = CrossingsManager(
-        config=CrossingsConfig(sources=[CustomCrossingsSource(path=path)]),
+        config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
         catalog=None,
         data_dir=tmp_path / "data" / "crossings",
     )
@@ -158,7 +158,7 @@ def test_a_custom_file_without_kind_is_refused_by_name(tmp_path: Path) -> None:
 def test_a_custom_file_with_a_kind_outside_the_list_is_refused_by_name(tmp_path: Path) -> None:
     path = _custom_file(tmp_path / "roads.gpkg", kind=["road", "ford", "tunnel"])
     manager = CrossingsManager(
-        config=CrossingsConfig(sources=[CustomCrossingsSource(path=path)]),
+        config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
         catalog=None,
         data_dir=tmp_path / "data" / "crossings",
     )
@@ -173,7 +173,7 @@ def test_a_custom_file_is_normalised_and_indexed(tmp_path: Path) -> None:
     )
     catalog = DataCatalogDuckDB()
     manager = CrossingsManager(
-        config=CrossingsConfig(sources=[CustomCrossingsSource(path=path)]),
+        config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
         catalog=catalog,
         data_dir=tmp_path / "data" / "crossings",
     )
@@ -185,10 +185,10 @@ def test_a_custom_file_is_normalised_and_indexed(tmp_path: Path) -> None:
     assert frame["kind"].tolist() == ["road", "weir"]
     assert frame["name"].tolist() == ["a", ""]
     assert frame["drop_m"].isna().tolist() == [True, False]
-    assert set(frame["source"]) == {"custom"}
+    assert set(frame["source"]) == {"file"}
     assert "blobs" in record.data.parts
-    assert record.source == "custom"
-    assert catalog.find_cached(variable="crossings", source="custom", bbox=record.bbox) is not None
+    assert record.source == "file"
+    assert catalog.find_cached(variable="crossings", source="file", bbox=record.bbox) is not None
 
 
 @pytest.mark.filterwarnings("ignore:.crs. was not provided")
@@ -196,9 +196,7 @@ def test_a_custom_file_without_crs_takes_default_crs(tmp_path: Path) -> None:
     path = tmp_path / "bare.shp"
     gpd.GeoDataFrame({"kind": ["road"]}, geometry=[Point(1.0, 2.0)]).to_file(path)
     manager = CrossingsManager(
-        config=CrossingsConfig(
-            sources=[CustomCrossingsSource(path=path, default_crs="EPSG:27572")]
-        ),
+        config=CrossingsConfig(sources=[FileCrossingsSource(path=path, default_crs="EPSG:27572")]),
         catalog=None,
         data_dir=tmp_path / "data" / "crossings",
     )
@@ -306,14 +304,13 @@ def _write_raster(path: Path, left: float, top: float, size: float) -> Path:
     return path
 
 
-def _cfg(sources: list, *, dem_init_path: Path | None = None, x_outlet: float | None = 345000.0):
+def _cfg(sources: list, *, x_outlet: float | None = 345000.0):
     return SimpleNamespace(
         data=SimpleNamespace(crossings=SimpleNamespace(sources=sources)),
         geographic=SimpleNamespace(
             x_outlet=x_outlet,
             y_outlet=6805000.0,
             crs_project="EPSG:2154",
-            dem_init_path=dem_init_path,
         ),
     )
 
@@ -337,14 +334,14 @@ def test_without_a_section_the_resolver_answers_none(tmp_path: Path) -> None:
 
 def test_a_custom_source_is_resolved_against_the_toml_and_normalised(tmp_path: Path) -> None:
     _custom_file(tmp_path / "roads.gpkg", kind=["road", "bridge"], name=["a", "b"])
-    cfg = _cfg([CustomCrossingsSource(path=Path("roads.gpkg"))])
+    cfg = _cfg([FileCrossingsSource(path=Path("roads.gpkg"))])
 
     path = resolve_crossings_path_from_data_sources(
         cfg, config_path=tmp_path / "p.toml", cache_dir=tmp_path / "cache"
     )
 
     assert path is not None and path.parent == tmp_path / "cache"
-    assert path.name.startswith("crossings_ground_custom_")
+    assert path.name.startswith("crossings_ground_file_")
     frame = gpd.read_file(path)
     assert list(frame.columns) == [*records.ATTRIBUTES, "geometry"]
     assert frame["kind"].tolist() == ["road", "bridge"]
@@ -354,7 +351,7 @@ def test_a_folder_gives_its_first_vector_file(tmp_path: Path) -> None:
     folder = tmp_path / "structures"
     folder.mkdir()
     _custom_file(folder / "roads.gpkg", kind=["road"])
-    cfg = _cfg([CustomCrossingsSource(path=folder)])
+    cfg = _cfg([FileCrossingsSource(path=folder)])
 
     path = resolve_crossings_path_from_data_sources(
         cfg, config_path=tmp_path / "p.toml", cache_dir=tmp_path / "cache"
@@ -365,7 +362,7 @@ def test_a_folder_gives_its_first_vector_file(tmp_path: Path) -> None:
 
 def test_the_resolver_refuses_a_custom_file_without_kind(tmp_path: Path) -> None:
     _custom_file(tmp_path / "roads.gpkg", name=["a"])
-    cfg = _cfg([CustomCrossingsSource(path=Path("roads.gpkg"))])
+    cfg = _cfg([FileCrossingsSource(path=Path("roads.gpkg"))])
 
     with pytest.raises(ValueError, match="has no 'kind' column"):
         resolve_crossings_path_from_data_sources(
@@ -374,7 +371,7 @@ def test_the_resolver_refuses_a_custom_file_without_kind(tmp_path: Path) -> None
 
 
 def test_a_missing_custom_file_is_named(tmp_path: Path) -> None:
-    cfg = _cfg([CustomCrossingsSource(path=Path("gone.gpkg"))])
+    cfg = _cfg([FileCrossingsSource(path=Path("gone.gpkg"))])
 
     with pytest.raises(FileNotFoundError, match="gone.gpkg"):
         resolve_crossings_path_from_data_sources(cfg, config_path=tmp_path / "p.toml")
@@ -388,7 +385,7 @@ def test_the_merge_is_in_the_project_crs_and_keeps_every_source(
         [
             BdtopoCrossingsSource(),
             RoeCrossingsSource(),
-            CustomCrossingsSource(path=Path("roads.gpkg")),
+            FileCrossingsSource(path=Path("roads.gpkg")),
         ]
     )
     cfg.geographic.crs_project = "EPSG:27572"
@@ -399,7 +396,7 @@ def test_the_merge_is_in_the_project_crs_and_keeps_every_source(
 
     frame = gpd.read_file(path)
     assert frame.crs.to_epsg() == 27572
-    assert frame["source"].value_counts().to_dict() == {"bdtopo": 9, "roe": 5, "custom": 1}
+    assert frame["source"].value_counts().to_dict() == {"bdtopo": 9, "roe": 5, "file": 1}
 
 
 def test_an_api_source_is_asked_over_the_outlet_box_and_cached_under_its_prefix(
@@ -429,10 +426,10 @@ def test_force_refresh_asks_the_provider_again(tmp_path: Path, offline: list[tup
 
 def test_the_box_is_clipped_to_the_dem_footprint(tmp_path: Path, offline: list[tuple]) -> None:
     dem = _write_raster(tmp_path / "dem.tif", left=340000.0, top=6810000.0, size=10000.0)
-    cfg = _cfg([RoeCrossingsSource()], dem_init_path=dem)
+    cfg = _cfg([RoeCrossingsSource()])
 
     resolve_crossings_path_from_data_sources(
-        cfg, config_path=tmp_path / "p.toml", cache_dir=tmp_path / "cache"
+        cfg, config_path=tmp_path / "p.toml", cache_dir=tmp_path / "cache", dem_path=dem
     )
 
     assert offline[0] == pytest.approx((340000.0, 6800000.0, 350000.0, 6810000.0))
@@ -440,10 +437,10 @@ def test_the_box_is_clipped_to_the_dem_footprint(tmp_path: Path, offline: list[t
 
 def test_an_outlet_outside_the_dem_is_refused(tmp_path: Path, offline: list[tuple]) -> None:
     dem = _write_raster(tmp_path / "dem.tif", left=100000.0, top=6200000.0, size=10000.0)
-    cfg = _cfg([RoeCrossingsSource()], dem_init_path=dem)
+    cfg = _cfg([RoeCrossingsSource()])
 
     with pytest.raises(ValueError, match="does not meet the DEM footprint"):
-        resolve_crossings_path_from_data_sources(cfg, config_path=tmp_path / "p.toml")
+        resolve_crossings_path_from_data_sources(cfg, config_path=tmp_path / "p.toml", dem_path=dem)
 
 
 def test_an_api_source_without_an_outlet_is_refused(tmp_path: Path, offline: list[tuple]) -> None:
@@ -468,7 +465,7 @@ def test_a_box_without_any_crossing_is_refused(tmp_path: Path, monkeypatch) -> N
 
 def test_a_changed_custom_file_is_a_new_cache_file(tmp_path: Path) -> None:
     roads = _custom_file(tmp_path / "roads.gpkg", kind=["road"])
-    cfg = _cfg([CustomCrossingsSource(path=Path("roads.gpkg"))])
+    cfg = _cfg([FileCrossingsSource(path=Path("roads.gpkg"))])
     kwargs = {"config_path": tmp_path / "p.toml", "cache_dir": tmp_path / "cache"}
 
     before = resolve_crossings_path_from_data_sources(cfg, **kwargs)

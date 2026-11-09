@@ -52,7 +52,7 @@ class TestLoadCustomNc:
         rec = records[0]
         assert isinstance(rec, FieldRecord)
         assert rec.variable == "recharge"
-        assert rec.source == "custom"
+        assert rec.source == "file"
         assert rec.unit == "mm/day"
         assert rec.source_unit == "m/day"
         assert rec.date_start is not None

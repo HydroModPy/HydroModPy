@@ -207,7 +207,7 @@ def _snap(
 
     from hydromodpy.data.sites.outlet_snap import load_network, snap_outlet
 
-    source = "bdtopage" if str(network) == "bdtopage" else "custom"
+    source = "bdtopage" if str(network) == "bdtopage" else "file"
     outlets = [(float(row.x_outlet), float(row.y_outlet)) for row in rows]
     if source == "bdtopage" and output_dir is None:
         raise ValueError("snapping onto bdtopage needs a folder to cache the network in.")

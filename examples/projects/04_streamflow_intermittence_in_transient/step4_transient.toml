@@ -36,14 +36,14 @@ types = ["hydrography", "hydrometry", "recharge", "runoff"]
 
 # 36 monthly rates.
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["NANCON"]
 
 # The share of the gauged discharge the groundwater model does not produce.
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
+source = "file"
+path = "../../data/runoff"
 station_ids = ["NANCON"]
 
 # What enters and leaves, the gauge against the simulation, the seepage of

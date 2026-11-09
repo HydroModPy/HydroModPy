@@ -15,6 +15,7 @@ from hydromodpy.config.cross_checks import (
     check_against_the_solver,
     refuse_a_transport_its_flow_does_not_feed,
     refuse_the_contaminations,
+    refuse_the_reads_the_flow_does_not_write,
     refuse_the_traits_the_solver_ignores,
     traits_of,
     uses_of,
@@ -112,6 +113,7 @@ TRAIT_ROWS: dict[str, tuple[dict[str, Any], str]] = {
         "flow.sinks_sources.lakes.lac.cutoff_wall",
     ),
     "soil": (SOIL, "flow.sinks_sources.recharge.soil"),
+    "properties": ({"flow": {"param": {"K": {"field": K_FIELD}}}}, "flow.param"),
     "k_tensor": (
         {
             "flow": {
@@ -290,6 +292,113 @@ def test_a_transport_that_requires_no_flow_follows_any(tmp_path: Path, isolated_
     cfg = _with_transport(_under(_load(tmp_path, {}), "boussinesq"), "free_transport")
 
     refuse_a_transport_its_flow_does_not_feed(cfg, sealed=False)
+
+
+def _register_a_flow_and_a_greedy_transport(
+    isolated_solvers: object,
+    *,
+    writes: tuple[str, ...],
+    reads: tuple[str, ...],
+    flow_name: str = "writer",
+) -> str:
+    """Register a fake flow backend that writes *writes*, and a transport that reads *reads*."""
+    from tests._helpers.fake_solvers import fake_adapter
+
+    flow = fake_adapter(flow_name, process_type="flow", writes=writes, reads=())
+    transport = fake_adapter(
+        "greedy_transport",
+        process_type="transport",
+        reads=reads,
+        requires=(("flow", flow_name),),
+    )
+    isolated_solvers.solvers.register(flow)
+    isolated_solvers.solvers.register(transport)
+    return flow_name
+
+
+def test_a_transport_whose_read_the_flow_does_not_write_is_refused(
+    tmp_path: Path, isolated_solvers: object
+) -> None:
+    """The rule of the reads: a product the flow does not write is refused while the file is read."""
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers, writes=(), reads=("face_flow",)
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
+
+    message = str(excinfo.value)
+    assert "the transport solver 'greedy_transport' reads face_flow, and solver.backend" in message
+    assert "does not write it" in message
+
+
+def test_a_transport_that_reads_a_product_nobody_writes_names_no_flow(
+    tmp_path: Path, isolated_solvers: object
+) -> None:
+    """A product no flow solver writes is refused, and the message says so."""
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers,
+        writes=("face_flow",),
+        reads=("particle_pollock/exit_solve",),
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    with pytest.raises(IncompatibleCapabilitiesError, match="writes it"):
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
+
+
+def test_a_transport_whose_reads_the_flow_writes_passes_the_read(
+    tmp_path: Path, isolated_solvers: object
+) -> None:
+    """A flow that writes face_flow carries a transport that reads it."""
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers, writes=("face_flow",), reads=("face_flow",)
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
+
+
+def test_a_sealed_document_whose_read_is_not_written_warns_and_reads(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, isolated_solvers: object
+) -> None:
+    """The refusal of reads ways a sealed document as the other refusals do: a warning."""
+    flow_name = _register_a_flow_and_a_greedy_transport(
+        isolated_solvers, writes=(), reads=("face_flow",)
+    )
+    cfg = _with_transport(_under(_load(tmp_path, {}), flow_name), "greedy_transport")
+
+    with caplog.at_level(logging.WARNING):
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=True)
+
+    assert "reads face_flow" in caplog.text
+    assert "This sealed run is read as it ran." in caplog.text
+
+
+def test_a_shipped_transport_whose_reads_the_shipped_flow_does_not_write_is_refused(
+    tmp_path: Path,
+) -> None:
+    """MT3DMS behind Boussinesq is refused because Boussinesq does not write face_flow."""
+    cfg = _with_transport(_under(_load(tmp_path, {}), "boussinesq"), "mt3dms")
+
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
+
+    message = str(excinfo.value)
+    assert (
+        "the transport solver 'mt3dms' reads face_flow, and solver.backend = 'boussinesq' does not write it"
+        in message
+    )
+    assert "Run the flow with a solver that writes it (modflow6, modflow_nwt)." in message
+
+
+def test_a_shipped_transport_whose_reads_the_shipped_flow_writes_passes_the_read(
+    tmp_path: Path,
+) -> None:
+    """MT3DMS behind MODFLOW-NWT passes because MODFLOW-NWT writes face_flow."""
+    cfg = _with_transport(_under(_load(tmp_path, {}), "modflow_nwt"), "mt3dms")
+    refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
 
 
 @pytest.mark.parametrize(
@@ -475,3 +584,178 @@ def test_the_checks_run_in_order_and_the_solver_comes_first(tmp_path: Path) -> N
         IncompatibleCapabilitiesError, match="does not honor flow.sinks_sources.lakes"
     ):
         check_against_the_solver(cfg, sealed=False)
+
+
+class _ADocument:
+    """A document as the rules read it, built by hand and not by the loader.
+
+    The rules read a validated document through its attributes alone: the
+    solver the run builds, the flow regime, the families the mesh file wrote
+    and the time section. A document built here carries the same attributes
+    with the values the card of the test needs, so a rule is tested without
+    loading the sources a real file would name.
+    """
+
+    def __init__(
+        self,
+        *,
+        backend: str = "modflow6",
+        engine: str = "catchment",
+        families_written: tuple[str, ...] = (),
+        rivers: str = "cell",
+        county_point_method: str | None = None,
+    ) -> None:
+        from types import SimpleNamespace
+
+        solver = SimpleNamespace(backend_name=backend)
+        recharge = None
+        if county_point_method is not None:
+            recharge = SimpleNamespace(
+                model_fields_set={"interpolation_method"},
+                interpolation_method=county_point_method,
+            )
+        families = SimpleNamespace(
+            model_fields_set=set(families_written),
+            rivers=rivers,
+            geology="face",
+            lakes="face",
+            barriers="face",
+            watershed_boundary="none",
+        )
+        self.solver = solver
+        self.flow = SimpleNamespace(
+            flow_regime="transient",
+            first_period_steady=False,
+            sinks_sources=SimpleNamespace(recharge=recharge, etp=None),
+        )
+        self.mesh = SimpleNamespace(engine=engine, families=families, model_fields_set=set())
+        self.simulation = SimpleNamespace(
+            time=SimpleNamespace(
+                start_datetime="2015-01-01",
+                end_datetime="2015-03-01",
+                step_value="30 day",
+                step_unit="day",
+            ),
+        )
+
+
+class TestNativeStepOfTheFlowSolver:
+    def test_a_native_step_finer_than_a_transient_period_is_refused(self, isolated_solvers) -> None:
+        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from tests._helpers.fake_solvers import fake_adapter
+
+        isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
+        cfg = _ADocument(backend="snail")
+
+        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+            refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+
+        message = str(excinfo.value)
+        assert "snail" in message
+        assert "1 days 12:00:00" in message
+        assert "simulation.time.step_value" in message
+
+    def test_a_native_step_as_long_as_the_periods_loads(self, isolated_solvers) -> None:
+        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from tests._helpers.fake_solvers import fake_adapter
+
+        isolated_solvers.solvers.register(fake_adapter("steady", native_step="30D"))
+        refuse_a_native_step_finer_than_the_time_grid(_ADocument(backend="steady"), sealed=False)
+
+    def test_a_flow_without_a_native_step_is_never_refused(self, isolated_solvers) -> None:
+        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+
+        refuse_a_native_step_finer_than_the_time_grid(_ADocument(backend="modflow6"), sealed=False)
+
+    def test_a_native_step_on_a_steady_run_loads(self, isolated_solvers) -> None:
+        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from tests._helpers.fake_solvers import fake_adapter
+
+        isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
+        cfg = _ADocument(backend="snail")
+        cfg.flow.flow_regime = "steady"
+        refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+
+    def test_a_calendar_alias_native_step_is_refused(self, isolated_solvers) -> None:
+        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from tests._helpers.fake_solvers import fake_adapter
+
+        isolated_solvers.solvers.register(fake_adapter("calendar", native_step="MS"))
+        cfg = _ADocument(backend="calendar")
+
+        with pytest.raises(IncompatibleCapabilitiesError, match="fixed frequency"):
+            refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+
+
+class TestAnIgnoredFamilyWritten:
+    def test_a_family_the_engine_ignores_written_with_a_value_is_refused(self) -> None:
+        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+
+        cfg = _ADocument(families_written=("rivers",))
+
+        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+            refuse_an_ignored_family_written(cfg, sealed=False)
+
+        message = str(excinfo.value)
+        assert "[mesh.families] rivers" in message
+        assert "mesh engine 'catchment'" in message
+
+    def test_a_family_written_to_none_is_kept(self) -> None:
+        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+
+        cfg = _ADocument(families_written=("rivers",), rivers="none")
+
+        refuse_an_ignored_family_written(cfg, sealed=False)
+
+    def test_a_family_the_file_does_not_write_is_kept(self) -> None:
+        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+
+        refuse_an_ignored_family_written(_ADocument(), sealed=False)
+
+    def test_a_family_an_engine_that_meshes_it_reads(self) -> None:
+        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+
+        refuse_an_ignored_family_written(
+            _ADocument(engine="triangle", families_written=("rivers",)), sealed=False
+        )
+
+
+class TestAPointMethodUnderALumpedMesh:
+    def test_a_point_method_written_for_the_recharge_is_refused(self) -> None:
+        from hydromodpy.config.cross_checks import (
+            refuse_a_point_method_under_a_lumped_mesh,
+        )
+
+        cfg = _ADocument(county_point_method="nearest")
+
+        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+            refuse_a_point_method_under_a_lumped_mesh(cfg, sealed=False)
+
+        message = str(excinfo.value)
+        assert "flow.sinks_sources.recharge.interpolation_method" in message
+        assert "area" in message
+
+    def test_a_point_method_written_to_area_loads(self) -> None:
+        from hydromodpy.config.cross_checks import (
+            refuse_a_point_method_under_a_lumped_mesh,
+        )
+
+        refuse_a_point_method_under_a_lumped_mesh(
+            _ADocument(county_point_method="area"), sealed=False
+        )
+
+    def test_a_point_method_the_file_does_not_write_loads(self) -> None:
+        from hydromodpy.config.cross_checks import (
+            refuse_a_point_method_under_a_lumped_mesh,
+        )
+
+        refuse_a_point_method_under_a_lumped_mesh(_ADocument(), sealed=False)
+
+    def test_a_point_method_for_a_triangulated_mesh_loads(self) -> None:
+        from hydromodpy.config.cross_checks import (
+            refuse_a_point_method_under_a_lumped_mesh,
+        )
+
+        refuse_a_point_method_under_a_lumped_mesh(
+            _ADocument(engine="triangle", county_point_method="nearest"), sealed=False
+        )

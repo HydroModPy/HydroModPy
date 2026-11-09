@@ -52,7 +52,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--solver",
         default=None,
-        help="Filter by solver (exact match; aliases: mf6 -> modflow6, nwt -> modflow_nwt)",
+        help="Filter by solver (exact match on the name the run carries)",
     )
     parser.add_argument("--site", default=None, help="Filter by site name (exact match)")
     parser.add_argument(

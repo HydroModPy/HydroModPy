@@ -1,17 +1,20 @@
-"""Verbs of ``hmp data`` on the workspace cache: list, request, check, add, remove, prune.
+"""Verbs of ``hmp data`` on the workspace cache: list, request, add, remove, prune.
 
 A read (``ls``) opens the workspace cache read-only, so it never waits on, nor
 blocks, a launch that merges into the cache. Only the actions that change the
-cache (``add``, ``remove``, ``prune``, ``check --fix``) open it read-write.
+cache (``add``, ``remove``, ``prune``) open it read-write.
 Each function takes the root of a workspace that is already resolved.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.state.layout import data_cache_path_for
+
+if TYPE_CHECKING:
+    from hydromodpy.core.runtime.bounds import Bounds
 
 
 def list_data_cache(
@@ -42,12 +45,16 @@ def request_data(
     end: str | None = None,
     source: str | None = None,
     workspace_root: Path | None = None,
+    environment_bounds: Bounds | None = None,
 ) -> dict:
     """Serve a data request into ``out`` and return its report.
 
     ``target`` is a request document (a ``.json`` file) or a variable name, in
     which case the request is built from the options. The cache is the
-    workspace's when ``workspace_root`` is given, otherwise one in memory.
+    workspace's when ``workspace_root`` is given, otherwise one in
+    memory. ``environment_bounds`` are the bounds of the call that
+    asked for data, so the fetcher refuses the hosts they do not allow;
+    the object they come from never enters this package.
     """
     from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.request.engine import run_request
@@ -69,33 +76,17 @@ def request_data(
         )
     store = None
     if workspace_root is not None:
-        store = DataStore(workspace_root=workspace_root)
-    report = run_request(request, Path(out).expanduser(), store=store)
+        store = DataStore(
+            workspace_root=workspace_root,
+            bounds=environment_bounds,
+        )
+    report = run_request(
+        request,
+        Path(out).expanduser(),
+        store=store,
+        bounds=environment_bounds,
+    )
     return report.to_document()
-
-
-def check_data_cache(
-    workspace_root: Path,
-    *,
-    variable: str | None = None,
-    fix: bool = False,
-) -> dict:
-    """Validate custom files in ``data/<variable>/``. Returns issues + optional fix summary."""
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.data.workspace.custom_scan import check_custom
-
-    issues = check_custom(workspace_root, variable=variable)
-    fix_summary: dict | None = None
-    if fix:
-        db_path = data_cache_path_for(workspace_root / "data")
-        if db_path.exists():
-            with DataCatalogDuckDB(db_path) as catalog:
-                fix_summary = catalog.check_and_fix()
-    return {
-        "workspace": str(workspace_root),
-        "issues": [(str(path), str(msg)) for path, msg in issues],
-        "fix_summary": fix_summary,
-    }
 
 
 def add_data_entry(

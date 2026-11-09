@@ -53,6 +53,7 @@ def test_ign_geoplateforme_dem_explicit_departments_dispatch_to_dynamic_client(
         file_format,
         crs,
         force_refresh,
+        **_kw,
     ):
         captured.update(
             {
@@ -112,6 +113,7 @@ def test_ign_geoplateforme_dem_regions_dispatch_to_dynamic_client(tmp_path, monk
         file_format,
         crs,
         force_refresh,
+        **_kw,
     ):
         captured.update(
             {

@@ -2382,25 +2382,6 @@ def _registered_evaluator(value: str | None) -> str | None:
     )
 
 
-def _registered_forward_model(value: str | None) -> str | None:
-    """Refuse a model this installation cannot serve, while reading the document.
-
-    Same place and same reason as the evaluator: a file naming a model nobody
-    installed is a broken document, and finding out at the first trial costs
-    everything the search set up before it.
-    """
-    if value is None:
-        return value
-    import hydromodpy.calibration.evaluation.forward_registry as forward_registry
-
-    return check_registered_name(
-        value,
-        forward_registry.forward_models.names(),
-        key="calibration.forward_model",
-        group=forward_registry.ENTRY_POINT_GROUP,
-    )
-
-
 class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` section.
 
@@ -2486,24 +2467,6 @@ class CalibrationConfig(HydroModelBase):
             "whose minimum is the midpoint of each parameter's interval: it rehearses "
             "a whole search -- space, optimizer, stopping rule, report -- in "
             "milliseconds, against an answer known in advance."
-        ),
-    )
-    forward_model: Annotated[
-        str | None, Profile.USER, AfterValidator(_registered_forward_model)
-    ] = Field(
-        default=None,
-        description=(
-            "What produces the simulated observables when the evaluator is the one "
-            "that scores a model with the criteria of this file "
-            "('scored_forward_model'). The model answers the outputs declared under "
-            "[calibration.outputs] and the objective blocks weigh them, so changing a "
-            "metric or a weight is a change to this document and never a patch to the "
-            "model. A string and not an enumeration: what resolves depends on what is "
-            "installed beside HydroModPy, through the "
-            "'hydromodpy.calibration.forward_model' entry-point group. Unset runs "
-            "'linear_reservoir', the closed-form reservoir this build ships, which is "
-            "how a set of criteria is rehearsed before a model is installed. Read by "
-            "no other evaluator."
         ),
     )
     max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(

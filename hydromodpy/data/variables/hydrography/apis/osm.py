@@ -19,20 +19,24 @@ import json
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.core.io.fetch import HTTPClient
+    from hydromodpy.data.source.port import FetchRequest, FetchResult
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
 
 
 def fetch(
-    config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float, float]
+    config: HydrographySourceConfig,
+    bbox_wgs84: tuple[float, float, float, float],
+    *,
+    client: HTTPClient | None = None,
 ) -> gpd.GeoDataFrame:
     """Download OSM waterways inside *bbox_wgs84* ``(lon_min, lat_min, lon_max, lat_max)``.
 
@@ -54,12 +58,23 @@ def fetch(
     overpass_url = "https://overpass-api.de/api/interpreter"
     logger.info("Querying Overpass API for waterway types %s", waterway_types)
 
-    response = get_default_client().get(
-        overpass_url,
-        params={"data": overpass_query},
-        stream=True,
-        timeout=300,
-    )
+    if client is not None:
+        response = client.get(
+            overpass_url,
+            params={"data": overpass_query},
+            stream=True,
+            timeout=300,
+        )
+    else:
+        from hydromodpy.core.io.fetch import open_client
+
+        with open_client() as c:
+            response = c.get(
+                overpass_url,
+                params={"data": overpass_query},
+                stream=True,
+                timeout=300,
+            )
     response.raise_for_status()
 
     try:
@@ -122,11 +137,38 @@ class OsmSource(FeatureSource):
                 raise DataRequestError(f"OSM waterway type {waterway_type!r} is empty.")
         self.waterway_types = types
 
-    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient | None = None
+    ) -> gpd.GeoDataFrame:
         from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
         config = HydrographySourceConfig(source="osm", waterway_types=list(self.waterway_types))
-        return fetch(config, bbox)
+        return fetch(config, bbox, client=client)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        from hydromodpy.core.io.fetch import open_client
+        from hydromodpy.data.source.port import (
+            FetchResult,
+            extent_for,
+            require_period,
+            require_selectors,
+        )
+
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds) as client:
+            features = self.download(extent.bbox, client=client)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=None,
+            features=features,
+            metadata=self.metadata(),
+        )
 
     def metadata(self) -> dict[str, Any]:
         return {"waterway_types": list(self.waterway_types)}

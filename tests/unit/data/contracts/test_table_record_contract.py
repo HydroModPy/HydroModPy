@@ -26,7 +26,7 @@ def _abacus_frame() -> pd.DataFrame:
 def test_in_memory_table_record_is_not_a_file_reference() -> None:
     rec = TableRecord(
         variable="lake_abacus",
-        source="custom",
+        source="file",
         table_id="lac0",
         data=_abacus_frame(),
         unit="m|m3|m2",
@@ -41,7 +41,7 @@ def test_file_backed_table_record_reads_and_caches(tmp_path) -> None:
 
     rec = TableRecord(
         variable="lake_abacus",
-        source="custom",
+        source="file",
         table_id="lac0",
         data=parquet,
     )
@@ -57,7 +57,7 @@ def test_file_backed_table_record_reads_and_caches(tmp_path) -> None:
 def test_load_result_tables_participate_in_len_bool_and_records() -> None:
     rec = TableRecord(
         variable="lake_abacus",
-        source="custom",
+        source="file",
         table_id="lac0",
         data=_abacus_frame(),
     )

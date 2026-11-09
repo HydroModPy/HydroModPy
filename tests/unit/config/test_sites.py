@@ -22,6 +22,11 @@ from hydromodpy.project.launch.sites.tables import is_empty_cell, read_table
 from tests.unit.project.launch.test_sites_plan import write_sites_project
 
 
+def _validate(payload: dict[str, Any]) -> HydroModPyConfig:
+    """Validate a payload that declares its DEM under ``[[data.dem.sources]]``."""
+    return HydroModPyConfig.model_validate(payload, context={"allow_dem_bootstrap": True})
+
+
 def test_the_three_forms_of_a_recipe_are_read() -> None:
     sites = SitesConfig.model_validate(
         {
@@ -164,11 +169,11 @@ def _one_site_config(root, name: str, x: float, y: float):
         {
             "workspace": {"data_dir": "data"},
             "site": {"name": name},
+            "data": {"dem": {"sources": [{"source": "file", "path": "dem.tif"}]}},
             "geographic": {
                 "crs_project": "EPSG:2154",
                 "catchment": {
                     "kind": "from_outlet_coord",
-                    "dem_init_path": "dem.tif",
                     "x_outlet": x,
                     "y_outlet": y,
                     "snap_dist": "150 m",
@@ -225,11 +230,14 @@ def test_resolve_single_site_reads_the_catalog_of_the_workspace(tmp_path) -> Non
 SYNTHETIC: dict[str, Any] = {"geographic": {"source_mode": "synthetic"}}
 
 
-REAL: dict[str, Any] = {"geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}}}
+REAL: dict[str, Any] = {
+    "geographic": {"catchment": {"kind": "dem"}},
+    "data": {"dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]}},
+}
 
 
 def test_the_four_sections_are_root_sections() -> None:
-    cfg = HydroModPyConfig.model_validate(
+    cfg = _validate(
         {
             **SYNTHETIC,
             "metrics": {"window": {"start": "2001-01-01", "end": "2002-12-31"}},
@@ -246,16 +254,14 @@ def test_the_four_sections_are_root_sections() -> None:
 
 def test_a_reversed_metrics_window_is_refused() -> None:
     with pytest.raises(ValidationError, match="before it starts"):
-        HydroModPyConfig.model_validate(
+        _validate(
             {**SYNTHETIC, "metrics": {"window": {"start": "2002-01-01", "end": "2001-01-01"}}}
         )
 
 
 def test_site_and_sites_are_refused_together() -> None:
     with pytest.raises(ValidationError, match=r"\[site\] and \[sites\]"):
-        HydroModPyConfig.model_validate(
-            {**SYNTHETIC, "site": {"name": "nancon"}, "sites": {"table": "sites.csv"}}
-        )
+        _validate({**SYNTHETIC, "site": {"name": "nancon"}, "sites": {"table": "sites.csv"}})
 
 
 def test_a_real_catchment_without_a_site_is_refused_by_the_rule() -> None:
@@ -263,7 +269,7 @@ def test_a_real_catchment_without_a_site_is_refused_by_the_rule() -> None:
         site=None,
         sites=None,
         geographic=HydroModPyConfig.model_fields["geographic"].annotation.model_validate(
-            REAL["geographic"]
+            REAL["geographic"], context={"allow_dem_bootstrap": True}
         ),
     )
     with pytest.raises(ConfigError) as caught:
@@ -274,26 +280,26 @@ def test_a_real_catchment_without_a_site_is_refused_by_the_rule() -> None:
 
 
 def test_a_synthetic_domain_needs_no_site() -> None:
-    cfg = HydroModPyConfig.model_validate(SYNTHETIC)
+    cfg = _validate(SYNTHETIC)
     require_site_for_real_catchment(cfg)
     assert cfg.site is None
 
 
 def test_a_named_site_satisfies_the_rule() -> None:
-    cfg = HydroModPyConfig.model_validate({**REAL, "site": {"name": "nancon"}})
+    cfg = _validate({**REAL, "site": {"name": "nancon"}})
     require_site_for_real_catchment(cfg)
     assert cfg.site is not None and cfg.site.name == "nancon"
 
 
 def test_a_sites_project_takes_its_site_from_the_table() -> None:
-    cfg = HydroModPyConfig.model_validate({**REAL, "sites": {"table": "sites.csv"}})
+    cfg = _validate({**REAL, "sites": {"table": "sites.csv"}})
     require_site_for_real_catchment(cfg)
 
 
 def test_a_toml_real_catchment_without_a_site_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
-        '[geographic.catchment]\ncatch_def = "dem"\ndem_init_path = "dem.tif"\n',
+        '[geographic.catchment]\ncatch_def = "dem"\n[[data.dem.sources]]\nsource = "file"\npath = "inputs/dem.tif"\n',
         encoding="utf-8",
     )
     with pytest.raises(ConfigValidationError, match=r"no \[site\] names it"):
@@ -301,7 +307,7 @@ def test_a_toml_real_catchment_without_a_site_is_refused(tmp_path: Path) -> None
 
 
 def test_the_workflow_section_is_optional() -> None:
-    cfg = HydroModPyConfig.model_validate(SYNTHETIC)
+    cfg = _validate(SYNTHETIC)
     assert cfg.workflow.mode is None
 
 
@@ -322,6 +328,5 @@ def test_the_site_scoped_fields_are_listed() -> None:
     }
     assert expected <= paths
     # A regional input is shared by every site: not site scoped.
-    assert "geographic.catchment.dem_init_path" not in paths
     assert "data.dem.sources[].path" not in paths
     assert "data.geology.sources[].path" not in paths

@@ -145,7 +145,7 @@ class GeologyManager(SourceTable):
     # Custom
     # ------------------------------------------------------------------
 
-    def load_custom(self, source_cfg) -> list[FieldRecord]:
+    def load_file(self, source_cfg) -> list[FieldRecord]:
         """Load custom geology data (SHP, GPKG, TIF, CSV)."""
         from hydromodpy.data.variables.geology.custom import load_custom_geology
 
@@ -166,7 +166,7 @@ class GeologyManager(SourceTable):
                 if isinstance(rec, FieldRecord) and isinstance(rec.data, Path):
                     self.catalog.register(
                         variable="geology",
-                        source="custom",
+                        source="file",
                         file_path=str(rec.data),
                         bbox=rec.bbox,
                         crs=rec.crs,

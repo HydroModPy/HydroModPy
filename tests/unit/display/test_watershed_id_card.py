@@ -66,10 +66,18 @@ def test_the_card_prints_no_status_and_no_raw_id() -> None:
 def test_the_card_names_the_solver_the_period_the_steps_and_the_area() -> None:
     rows = dict(identity_rows(_run()))
 
-    assert rows["Solver"] == "MODFLOW 6"
+    # The raw name the run records: the card adds no label of its own.
+    assert rows["Solver"] == "modflow6"
     assert rows["Period"] == "2000-01-01 to 2002-12-31"
     assert rows["Time steps"] == "1,096 daily"
     assert rows["Catchment area"] == "64.0 km²"
+
+
+def test_the_card_prints_the_backend_name_a_run_recorded_as_it_stands() -> None:
+    run = _run()
+    run.solver = "my_custom_backend"
+
+    assert dict(identity_rows(run))["Solver"] == "my_custom_backend"
 
 
 def test_a_monthly_run_says_monthly() -> None:

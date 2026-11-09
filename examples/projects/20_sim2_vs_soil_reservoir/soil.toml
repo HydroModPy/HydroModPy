@@ -36,5 +36,5 @@ curve_number = 86
 # A capacity map spreads ru over classes inside each SAFRAN cell. Add "soil_capacity"
 # to the types above. There is no public service for it yet, so it is a local file.
 # [[data.soil_capacity.sources]]
-# source = "custom"
+# source = "file"
 # path = "soil_capacity.tif"

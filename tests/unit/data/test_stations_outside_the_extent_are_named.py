@@ -117,7 +117,7 @@ def _named_outside(caught: list[warnings.WarningMessage]) -> list[str]:
 @pytest.mark.parametrize("fmt", ["gpkg", "csv"])
 def test_a_custom_lambert93_folder_is_judged_in_wgs84(tmp_path: Path, fmt: str) -> None:
     folder = _custom_folder(tmp_path, fmt)
-    cfg = HydrometryConfig.model_validate({"sources": [{"source": "custom", "path": str(folder)}]})
+    cfg = HydrometryConfig.model_validate({"sources": [{"source": "file", "path": str(folder)}]})
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         result = DataStore(data_root=tmp_path / "data").load_variable(
@@ -139,7 +139,7 @@ def test_a_box_request_keeps_the_custom_lambert93_station_inside_its_box(tmp_pat
     folder = _custom_folder(tmp_path, "gpkg")
     request = DataRequest.model_validate(
         {
-            "data": {"hydrometry": {"sources": [{"source": "custom", "path": str(folder)}]}},
+            "data": {"hydrometry": {"sources": [{"source": "file", "path": str(folder)}]}},
             "extent": {"bbox": RENNES_L93, "crs": "EPSG:2154"},
             "period": {"start": "2020-01-01", "end": "2020-01-10"},
         }

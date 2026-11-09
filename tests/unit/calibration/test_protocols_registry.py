@@ -45,7 +45,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
@@ -55,12 +54,12 @@ buff_area = "10%"
 types = ["hydrography", "hydrometry"]
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "inputs/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "inputs/hydrometry"
 station_ids = ["NANCON"]
 
 [simulation.time]
@@ -97,7 +96,7 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.seepage_network]
 support = "network"
-map.complete = "nancon_stream_network.gpkg"
+map.complete = "inputs/nancon_stream_network.gpkg"
 
 [calibration.protocol]
 name = "matching_hydrographic_network"
@@ -105,15 +104,10 @@ name = "matching_hydrographic_network"
 
 
 def _project(root: Path, *, start: str, end: str) -> Path:
-    for relative in (
-        "data/dem/DEM_armorican_massif.tif",
-        "data/hydrography/nancon_stream_network.gpkg",
-    ):
-        (root / relative).parent.mkdir(parents=True, exist_ok=True)
-        (root / relative).write_bytes(b"x")
-    (root / "data" / "hydrometry").mkdir(parents=True)
     project = root / "projects" / "nancon"
-    project.mkdir(parents=True)
+    inputs = project / "inputs"
+    (inputs / "hydrometry").mkdir(parents=True)
+    (inputs / "nancon_stream_network.gpkg").write_bytes(b"x")
     text = PROJECT.format(start=start, end=end)
     (project / "project.toml").write_text(text, encoding="utf-8")
     return project

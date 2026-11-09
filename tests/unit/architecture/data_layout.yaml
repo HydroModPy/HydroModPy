@@ -11,10 +11,10 @@
 allowed:
   contracts:  []
   schemas:    []
-  source:     [contracts]
+  provenance: []
+  source:     [contracts, provenance]
   common:     [contracts, schemas, source]
   ingest:     [contracts, schemas, common]
-  provenance: []
   registry:   [provenance]
   managers:   [contracts, common, ingest, provenance, registry, source]
   variables:  [contracts, schemas, source, common, ingest, provenance, registry, managers]
@@ -53,3 +53,5 @@ public:
   - hydromodpy.data.variables.crossings.resolver
   - hydromodpy.data.variables.hydrography.apis.bdtopage
   - hydromodpy.data.variables.geology.io
+  - hydromodpy.data.variables.*.read
+  - hydromodpy.data.loading.inputs

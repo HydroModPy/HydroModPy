@@ -103,7 +103,7 @@ def test_a_family_with_only_station_points_is_refused() -> None:
     assert str(excinfo.value) == (
         "[data.precipitation] holds station series, and the soil reservoir reads a "
         'daily grid: use a gridded source such as source = "sim2", or a NetCDF grid '
-        'with source = "custom".'
+        'with source = "file".'
     )
 
 

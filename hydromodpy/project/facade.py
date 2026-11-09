@@ -100,6 +100,7 @@ if TYPE_CHECKING:
     )
     from hydromodpy.model.domain.domain import Domain
     from hydromodpy.model.initial_config import SpinupConfig
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch import LaunchReport, StatusReport
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths
@@ -154,12 +155,23 @@ class Project:
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
+        environment: Environment | None = None,
     ) -> None:
         """Validate ``config`` and build an empty runtime context (cheap).
 
         No heavy I/O: geographic delineation, data download and meshing are
         deferred to the first :meth:`simulate` (or :meth:`prepare`).
+
+        ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+        of the call: the credentials file it names is read once here, and its
+        bounds ride on the workflow context. ``None`` builds the default of
+        the machine, which reads the credentials file at its default place
+        when one is there and allows every host.
         """
+        if environment is None:
+            from hydromodpy.project.environment import Environment
+
+            environment = Environment.default()
         object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
@@ -167,9 +179,24 @@ class Project:
             solver=solver,
             headless=headless,
             no_display=no_display,
+            environment=environment,
         )
         object.__setattr__(self, "_runner", ProjectRunner(self))
         object.__setattr__(self, "_catalog", ProjectCatalog(self))
+        # The bounds and the credentials file refuse here, once the project
+        # root is known, before any step of any verb runs. The workspace root
+        # is the one that holds the project when one does, so a credentials
+        # file planted in the workspace outside the project is refused too.
+        from hydromodpy.core.workspace.resolve import find_data_workspace
+
+        project_root = Path(self._cfg.workspace.project_root).expanduser().resolve()
+        declared_root = getattr(self._cfg.workspace, "root", None)
+        workspace_root = (
+            Path(declared_root).expanduser().resolve()
+            if declared_root is not None
+            else find_data_workspace(project_root) or project_root
+        )
+        environment.check(project_root=project_root, workspace_root=workspace_root)
 
     def _ensure_model_built(self) -> None:
         """Build the model phase once, lazily, on first run or accessor use.
@@ -501,6 +528,7 @@ class Project:
         force: bool = False,
         resume: bool = False,
         prepare_parallel: int | None = None,
+        environment: Environment | None = None,
     ) -> LaunchReport:
         """Launch the cases of the plan, one process per case.
 
@@ -509,9 +537,16 @@ class Project:
         cases of one site, ``until="data"`` stops after the data phase.
         ``parallel`` is the budget of solves side by side; a calibration case
         counts its own ``[calibration] parallel``. :meth:`simulate` runs one simulation.
+        ``environment`` rides on every launched case: it reaches the children
+        of ``run_plan`` as options of their own command line, typed with the
+        words of :func:`~hydromodpy.cli.environment.environment_from_args`.
+        ``None`` reuses the environment the project was opened with.
         """
         from hydromodpy.project.launch import run_plan
 
+        if environment is None:
+            environment = self._environment
+        environment_flags = tuple(environment.flags()) if environment is not None else ()
         states = (only,) if isinstance(only, str) else tuple(only)
         report = run_plan(
             self.root,
@@ -523,6 +558,7 @@ class Project:
             fresh=fresh,
             force=force,
             resume=resume,
+            environment_flags=environment_flags,
         )
         self._index()
         return report
@@ -993,25 +1029,46 @@ def configure_opened(project: Project) -> None:
             "hmp.Project('plan/<hash>/<case>.toml')."
         )
     try:
-        project_phases.configure(project, marker, solver=None, headless=False, no_display=False)
+        project_phases.configure(
+            project,
+            marker,
+            solver=None,
+            headless=False,
+            no_display=False,
+            environment=project.__dict__["_state"].environment,
+        )
     except BaseException:
         # Leave the project unconfigured so the next read tries again, then let the error out.
         state.cfg = None
         raise
 
 
-def open_project(path: str | Path) -> Project:
+def open_project(path: str | Path, *, environment: Environment | None = None) -> Project:
     """Open the project a directory, or a file inside it, belongs to, read only.
 
     The project root is the folder of ``project.toml`` at or above *path*.
     Nothing is validated or built: the project reads its plan, its runs and
     its sessions from the disk, and reads ``project.toml`` only when a model
     verb (``simulate``, ``prepare``, ``config`` ...) needs a configuration.
+    ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+    the caller (the command line, or the server) built; ``None`` keeps the
+    default of the machine, which allows every host.
     """
+    from hydromodpy.core.workspace.resolve import find_data_workspace
+
+    if environment is None:
+        from hydromodpy.project.environment import Environment
+
+        environment = Environment.default()
     start = Path(path).expanduser().resolve()
     root = resolve_project_root(start.parent if start.is_file() else start).resolve()
+    # A refused root, or a named credentials file that cannot be read, stops
+    # the open, before anything is read from the index. The workspace root is
+    # the one that holds the project when one does, so a credentials file
+    # planted in the workspace outside the project is refused too.
+    environment.check(project_root=root, workspace_root=find_data_workspace(root) or root)
     project = object.__new__(Project)
-    object.__setattr__(project, "_state", ProjectState(root=root))
+    object.__setattr__(project, "_state", ProjectState(root=root, environment=environment))
     object.__setattr__(project, "_runner", ProjectRunner(project))
     object.__setattr__(project, "_catalog", ProjectCatalog(project))
     return project

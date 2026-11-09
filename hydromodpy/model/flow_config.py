@@ -248,9 +248,9 @@ def resolve_forcing_paths(
 ) -> dict[str, object]:
     """Resolve the relative CSV paths of each entry of ``flow.bc`` or ``flow.sinks_sources``.
 
-    A path resolves like every other ``InputFile`` field: against the TOML folder,
-    then ``<workspace>/data/<role>/`` and ``<workspace>/data/``. ``role`` names that
-    folder; without it each entry uses its own key (``wells``, ``lakes``, ``sfr``).
+    A path resolves like every other ``InputFile`` field: against the TOML folder
+    alone, with no search in ``<workspace>/data/``. ``role`` and
+    ``workspace_data_dir`` no longer steer the path and are kept for the callers.
     """
     return {
         key: _resolve_csv_paths_in(
@@ -347,23 +347,15 @@ def _resolve_forcing_path(
     *,
     base_dir: Path,
     role: str,
-    workspace_data_dir: Path | None,
+    workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
-    """Resolve one ``forcing.path_file`` against the TOML dir then the workspace data dir.
-
-    A bare filename falls back to ``<workspace>/data/<role>/`` and then
-    ``<workspace>/data/``, like every other ``InputFile`` config field.
-    """
+    """Resolve one ``forcing.path_file`` against the project root / TOML directory."""
     forcing_payload = dict(forcing)
     path_value = forcing_payload.get("path_file")
     if isinstance(path_value, str) and path_value.strip() != "":
-        fallback_dirs: list[Path] | None = None
-        if workspace_data_dir is not None:
-            fallback_dirs = [workspace_data_dir / role, workspace_data_dir]
         forcing_payload["path_file"] = resolve_declared_path(
             path_value,
             base_dir=base_dir,
-            fallback_dirs=fallback_dirs,
         )
     return forcing_payload
 
@@ -455,10 +447,7 @@ class FlowConfig(HydroModelBase):
             "[flow.sinks_sources.<name>], or enabled = false in a table to keep it and "
             "switch it off."
         ),
-        **{
-            old: f"it moved to [solver.boussinesq], as {new}."
-            for old, new in FLOW_RUNTIME_KEYS.items()
-        },
+        **{old: f"it moved under [solver], as {new}." for old, new in FLOW_RUNTIME_KEYS.items()},
     }
 
     flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
@@ -556,8 +545,8 @@ class FlowConfig(HydroModelBase):
             "**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n"
             "\n"
             "**The drain under each solver:** the MODFLOW solvers build a ``DRN`` "
-            "package. The Boussinesq solver takes its surface closure from "
-            "``solver.boussinesq.surface_interaction_model``."
+            "package. The Boussinesq solver takes its surface closure from the "
+            "surface-interaction settings under [solver]."
         ),
     )
     ic: Annotated[FlowInitialConditions, Profile.USER] = Field(

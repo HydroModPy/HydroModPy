@@ -31,7 +31,6 @@ reuse_existing_outputs = false
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -99,7 +98,7 @@ types = ["dem", "hydrography", "recharge"]
 inference_mode = "warn"
 
 [[data.dem.sources]]
-source = "custom"
+source = "file"
 path = "../../data/dem/DEM_armorican_massif.tif"
 
 [[data.hydrography.sources]]

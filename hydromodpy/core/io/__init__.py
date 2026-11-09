@@ -6,6 +6,7 @@ raster_io       GeoTIFF / NetCDF loading, masking, reprojection, export.
 vector_io       Shapefile / GeoPackage helpers.
 crs             pyproj CRS helpers (UTM detection, transform, bootstrap).
 canonical_json  Deterministic JSON dump (stable key ordering, sorted sets).
-http_client     HTTP client with retry / backoff / timeout / SHA-256 streaming.
-pinned_download Fetch a file whose SHA-256 the package pins, and refuse other bytes.
+fetch           The one HTTP client, made for each call with its bounds: an
+                allowed-host set, no private address unless the host is named,
+                a byte ceiling, redirects followed by hand, and sha256 pinning.
 """

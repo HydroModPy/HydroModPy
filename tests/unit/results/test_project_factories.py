@@ -32,18 +32,22 @@ source_mode = "synthetic"
 
 
 @pytest.fixture
-def stub_project_phases(monkeypatch):
+def stub_project_phases(monkeypatch, tmp_path):
     """Replace heavy model-phase verbs with no-ops that record the config."""
     from hydromodpy.project import phases as project_phases
 
     captured: dict[str, Any] = {}
 
-    def _fake_configure(project, config, *, solver, headless, no_display):
+    def _fake_configure(project, config, *, solver, headless, no_display, environment=None):
         captured["config"] = config
         captured["solver"] = solver
         captured["headless"] = headless
         captured["no_display"] = no_display
-        project._cfg = config if not isinstance(config, (str, Path)) else None
+        captured["environment"] = environment
+        # The constructor checks the Environment against the project root,
+        # so a config the stub does not build still names one.
+        stand_in = SimpleNamespace(workspace=SimpleNamespace(project_root=tmp_path, root=None))
+        project._cfg = config if hasattr(config, "workspace") else stand_in
         project._config_path = Path(config).resolve() if isinstance(config, (str, Path)) else None
         project._ctx = SimpleNamespace(parent_sim_id=None)
 

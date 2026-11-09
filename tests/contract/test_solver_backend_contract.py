@@ -11,7 +11,7 @@ the members a runner calls take the arguments the Protocol names: ``rerun`` if
 and only if the backend is ``mutable``, ``observables`` with
 ``declared_observables``, and the cell lookups of ``CellLocator`` on a flow.
 
-The supports of the three shipped flows are written here as the expected lists,
+The supports of the shipped flows are written here as the expected lists,
 because the configuration refuses from them every trait a document uses and its
 flow does not honour. Each trait has one small document that uses it, and every
 flow loads it if and only if it lists the trait. A transport is held to the flows
@@ -38,12 +38,12 @@ from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.mesh.registry import mesh_engines
 from hydromodpy.model.properties.property_table import OVERRIDE_PROPERTY_NAMES
 from hydromodpy.model.supports import SUPPORT_SOURCES, SUPPORTS
-from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.field_registry import BUDGET_GROUP, all_zarr_paths
 from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
 from hydromodpy.solver.base.adapter_protocol import (
     CATEGORIES,
     GEOMETRIES,
+    HANDOFF_PRODUCTS,
     OPTIONAL_MEMBERS,
     RERUN_MEMBERS,
     CellLocator,
@@ -71,25 +71,33 @@ SHIPPED_SUPPORTS: dict[str, frozenset[str]] = {
     | _OPTIONS
     | _HEAD_START
     | _RECHARGE_AND_WELLS
-    | {"etp", "layers"},
+    | {"etp", "layers", "properties"},
     "flow_boussinesq": frozenset(
         {"west_side", "east_side", "north_side", "south_side", "stream", "ocean", "drainage"}
     )
-    | {"drain_bed_thickness_m"}
+    | {"drain_bed_thickness_m", "properties"}
     | _HEAD_START
     | _RECHARGE_AND_WELLS,
+    "flow_linear_reservoir": frozenset({"recharge", "steady_start"}),
     "transport_modflow6": frozenset(),
     "transport_modflow6_prt": frozenset(),
     "transport_mt3dms": frozenset(),
     "transport_modpath": frozenset(),
 }
-"""What each shipped backend honours: MODFLOW 6 all 26 traits, NWT 16, Boussinesq 12.
+"""What each shipped backend honours: MODFLOW 6 all 27 traits, NWT 17, Boussinesq 13,
+the linear reservoir 2.
 
 Only MODFLOW 6 reads a prior run, starts cyclic, builds a lake, a stream network,
 a flow barrier or a cutoff wall, reads the soil reservoir and the K tensor, and
 has pass-through cells. Boussinesq solves one layer, builds no ETP, and reads one
-option of ``ModelOptions``, the drain bed thickness.
+option of ``ModelOptions``, the drain bed thickness. The linear reservoir reads
+only its recharge and starts from its steady state: it reads no aquifer property.
 """
+
+FLOW_SETTINGS: dict[str, dict[str, Any]] = {
+    "flow_linear_reservoir": {"time_constant": "30 days"},
+}
+"""The settings a flow refuses to run without, which its options class leaves without a default."""
 
 
 @pytest.fixture(params=solvers.names())
@@ -109,6 +117,9 @@ def _known_name(name: str) -> bool:
     known |= set(VIEW_SCHEMAS)
     if name.startswith(UNDESCRIBED_GROUPS) and name not in UNDESCRIBED_GROUPS:
         return True
+    if "/*" in name:
+        prefix = name.split("/*", 1)[0]
+        return any(candidate == prefix or candidate.startswith(prefix + "/") for candidate in known)
     if "*" in name:
         return any(fnmatchcase(candidate, name) for candidate in known)
     return name in known
@@ -130,18 +141,6 @@ def test_geometry_and_category_are_in_their_vocabulary(backend: type) -> None:
     assert backend.category in CATEGORIES
 
 
-def test_the_category_of_a_flow_agrees_with_the_index_table(backend: type) -> None:
-    """The index falls back on ``solver_category()`` when a manifest has no category.
-
-    That table in ``results/catalog/constants.py`` is a second copy of the
-    category of each flow, because ``results`` does not read ``solver``. It
-    leaves with the index seeds, and this case leaves with it.
-    """
-    if backend.process_type != "flow":
-        return
-    assert solver_category(backend.name) in (None, backend.category)
-
-
 def test_a_flow_reads_meshes_the_mesh_registry_serves_and_a_transport_none(backend: type) -> None:
     assert isinstance(backend.accepted_meshes, frozenset)
     if backend.process_type == "transport":
@@ -159,14 +158,37 @@ def test_each_required_key_is_a_backend_the_registry_serves(backend: type) -> No
 
 def test_each_written_name_is_known_to_the_store(backend: type) -> None:
     assert isinstance(backend.writes, tuple) and backend.writes
-    unknown = sorted(name for name in backend.writes if not _known_name(name))
+    unknown = sorted(
+        name for name in backend.writes if not (_known_name(name) or name in HANDOFF_PRODUCTS)
+    )
     assert unknown == []
 
 
 def test_a_flow_reads_nothing_and_a_transport_reads_the_face_flows(backend: type) -> None:
-    expected = {"flow": (), "transport": ("face_flow",)}.get(backend.process_type)
+    expected = {"flow": (), "transport": HANDOFF_PRODUCTS}.get(backend.process_type)
     if expected is not None:
         assert backend.reads == expected
+
+
+def test_a_transport_declares_reads_and_never_observables(backend: type) -> None:
+    """A transport names what it reads, in one place; observables stay flow members."""
+    if backend.process_type != "transport":
+        return
+    assert backend.reads, "a transport with no read has nothing to follow"
+    for name in backend.reads:
+        in_hand_off = name in HANDOFF_PRODUCTS
+        in_registry = _known_name(name)
+        assert in_hand_off ^ in_registry, name
+    for name in OPTIONAL_MEMBERS:
+        assert not callable(getattr(backend, name, None)), name
+
+
+def test_a_flow_declares_writes_the_store_or_the_hand_off_names(backend: type) -> None:
+    """A name a flow writes is one the registry describes, a table, or a hand-off product."""
+    if backend.process_type != "flow":
+        return
+    for name in backend.writes:
+        assert _known_name(name) or name in HANDOFF_PRODUCTS, name
 
 
 def test_each_supported_trait_belongs_to_the_closed_set(backend: type) -> None:
@@ -204,7 +226,8 @@ def _parameters(member: Callable[..., Any]) -> list[tuple[str, str]]:
         (parameter.name, parameter.kind.name)
         for parameter in inspect.signature(member).parameters.values()
     ]
-    return found[1:] if found and found[0][0] == "self" else found
+    params = found[1:] if found and found[0][0] == "self" else found
+    return [("upstream" if name == "ctx" else name, kind) for name, kind in params]
 
 
 def _protocol_methods(protocol: type) -> list[str]:
@@ -231,10 +254,8 @@ SIGNATURES: dict[str, list[tuple[str, str]]] = {
 """The parameters of the optional members, which the Protocol describes in words."""
 
 
-def test_each_member_the_runner_calls_takes_the_arguments_the_protocol_names(
-    backend: type,
-) -> None:
-    """A runner calls ``build(model, options, slot, ctx)``: a backend that renamed one breaks."""
+def test_each_member_the_runner_calls_takes_the_arguments_the_protocol_names(backend: type) -> None:
+    """A runner calls ``build(model, options, slot, upstream)``: a backend that renamed one breaks."""
     for name in _protocol_methods(SolverAdapter):
         member = getattr(backend, name)
         assert _parameters(member) == _parameters(getattr(SolverAdapter, name)), name
@@ -331,6 +352,7 @@ TRAIT_DOCUMENTS: dict[str, dict[str, Any]] = {
     "k_tensor": _flow(
         param_list=["K", "K22"], param={"K": {"field": K_FIELD}, "K22": {"field": K_FIELD}}
     ),
+    "properties": _flow(param={"K": {"field": K_FIELD}}),
     "layers": {"domain": {"layers": {"nlay": 3}}},
     "pass_through": {
         "domain": {
@@ -354,15 +376,45 @@ def _mesh_for(flow: type) -> dict[str, Any]:
     return {"mesh": {"engine": engine, "families": {"rivers": "none"}}}
 
 
+def _merged(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+    """*base* with *extra* written over it, table by table."""
+    merged = dict(base)
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merged(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _needs_of(flow: type) -> dict[str, Any]:
+    """What a flow reads in every document: its required settings and the start it honours.
+
+    A flow that lists no head rule starts from its steady state, so its
+    documents ask for it in place of the default head rule.
+    """
+    needs: dict[str, Any] = {}
+    settings = FLOW_SETTINGS.get(f"flow_{flow.name}")
+    if settings is not None:
+        needs["solver"] = {flow.name: settings}
+    if "head_rule" not in flow.supports and "steady_start" in flow.supports:
+        needs["flow"] = {"ic": {"kind": "steady_state"}}
+    return needs
+
+
 def _document(tmp_path: Path, flow: type, extra: dict[str, Any]) -> dict[str, Any]:
     (tmp_path / "weathered.tif").touch()
-    return {
-        "workflow": {"mode": "simulation"},
-        "geographic": {"source_mode": "synthetic"},
-        **_mesh_for(flow),
-        **extra,
-        "solver": {"backend": flow.name, **extra.get("solver", {})},
-    }
+    document = _merged(
+        {
+            "workflow": {"mode": "simulation"},
+            "geographic": {"source_mode": "synthetic"},
+            **_mesh_for(flow),
+            **_needs_of(flow),
+        },
+        extra,
+    )
+    document["solver"] = {**document.get("solver", {}), "backend": flow.name}
+    return document
 
 
 def _flows() -> list[str]:
@@ -387,7 +439,7 @@ def test_the_settings_of_a_flow_read_back_from_its_own_table(tmp_path: Path, flo
     flow = solvers.get(flow_key)
     if flow.options is None:
         return
-    written = flow.options().model_dump(mode="json")
+    written = flow.options(**FLOW_SETTINGS.get(flow_key, {})).model_dump(mode="json")
     document = _document(tmp_path, flow, {"solver": {flow.name: written}})
 
     cfg = HydroModPyConfig.from_dict(document, base_dir=tmp_path)
@@ -433,22 +485,34 @@ def test_a_document_that_uses_a_trait_loads_if_and_only_if_the_flow_lists_it(
     assert f"({', '.join(honoring)})" in message
 
 
-@pytest.mark.parametrize("transport", solvers.names("transport"))
+def _transports() -> tuple[str, ...]:
+    return tuple(solvers.names("transport"))
+
+
 @pytest.mark.parametrize("flow_key", _flows())
+@pytest.mark.parametrize("transport_name", _transports())
 def test_a_transport_loads_if_and_only_if_its_requires_names_the_flow(
-    tmp_path: Path, flow_key: str, transport: str
+    tmp_path: Path, flow_key: str, transport_name: str
 ) -> None:
     flow = solvers.get(flow_key)
+    transport = solvers.get("transport", transport_name)
     process = [
         {"id": "flow_main", "kind": "flow", "solvers": [flow.name]},
-        {"id": "transport_main", "kind": "transport", "solvers": [transport]},
+        {"id": "transport_main", "kind": "transport", "solvers": [transport_name]},
     ]
     document = _document(tmp_path, flow, {"simulation": {"process": process}})
-    followed = [
-        name for kind, name in solvers.get("transport", transport).requires if kind == "flow"
-    ]
-    if not followed or flow.name in followed:
-        HydroModPyConfig.from_dict(document, base_dir=tmp_path)
-        return
-    with pytest.raises(ConfigValidationError, match=f"the transport solver {transport!r} follows"):
+    missing = [product for product in transport.reads if product not in flow.writes]
+    followed = [name for kind, name in transport.requires if kind == "flow"]
+    if missing:
+        with pytest.raises(
+            IncompatibleCapabilitiesError,
+            match=f"the transport solver {transport_name!r} reads {missing[0]}",
+        ):
+            HydroModPyConfig.from_dict(document, base_dir=tmp_path)
+    elif followed and flow.name not in followed:
+        with pytest.raises(
+            ConfigValidationError, match=f"the transport solver {transport_name!r} follows"
+        ):
+            HydroModPyConfig.from_dict(document, base_dir=tmp_path)
+    else:
         HydroModPyConfig.from_dict(document, base_dir=tmp_path)

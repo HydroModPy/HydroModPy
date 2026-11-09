@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
+from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError, DataSourceError
 from hydromodpy.data.common import api_client
 from hydromodpy.data.source.port import (
     DataSource,
@@ -120,13 +120,19 @@ def _mod(name):
 
 
 class World:
-    """Canned stations and observations behind a fake ``get_json``."""
+    """Canned stations and observations behind a fake ``get_json``.
+
+    The client is the first argument when a caller owns one; a bare url is the
+    only argument while the three clients that still page themselves call it
+    directly.
+    """
 
     def __init__(self, spec, stations, obs):
         self.spec, self.stations, self.obs, self.calls = spec, stations, obs, []
 
-    def __call__(self, url, *, params=None, **_kw):
+    def __call__(self, *args, params=None, **_kw):
         spec, params = self.spec, dict(params or {})
+        url = str(args[-1])
         self.calls.append((url, params))
         if url.endswith(spec.stations):
             if "bbox" in params:
@@ -501,7 +507,8 @@ def test_intermittency_department_discovery_and_frozen_station(monkeypatch):
     mod = _mod("intermittency")
     seen = {}
 
-    def fake(url, *, params=None, **_kw):
+    def fake(*args, params=None, **_kw):
+        url = str(args[-1])
         seen.update(params)
         return {
             "data": [
@@ -528,7 +535,9 @@ def test_intermittency_only_impossible_observations_gives_no_record(install):
             "obs_row": lambda d, v: {"date_observation": d, "code_ecoulement": "4"},
         }
     )
-    assert _mod("intermittency").fetch(station_ids=["S1"], **_window({})) == []
+    # A named station is never dropped in silence (lot 4.3): no observation left is refused.
+    with pytest.raises(DataSourceError, match="every named station"):
+        _mod("intermittency").fetch(station_ids=["S1"], **_window({}))
     with pytest.raises(ValueError, match="code_departement"):
         _mod("intermittency").fetch(**_window({}))
 
@@ -604,7 +613,9 @@ def test_water_quality_parameters_filter_and_one_record_per_parameter(install):
     }
     only = mod.fetch(station_ids=["W1"], parameters=["NITRATES"], **_window({}))
     assert [r.variable for r in only] == ["Nitrates"]
-    assert mod.fetch(station_ids=["W1"], parameters=["absent"], **_window({})) == []
+    # A named station is never dropped in silence (lot 4.3): no analysis left is refused.
+    with pytest.raises(DataSourceError, match="every named station"):
+        mod.fetch(station_ids=["W1"], parameters=["absent"], **_window({}))
 
 
 @pytest.mark.fast
@@ -612,7 +623,8 @@ def test_water_quality_groundwater_uses_bss_params_and_data_coordinates(monkeypa
     mod = _mod("water_quality")
     calls = []
 
-    def fake(url, *, params=None, **_kw):
+    def fake(*args, params=None, **_kw):
+        url = str(args[-1])
         calls.append((url, params))
         if url == mod.API_PZ_STATIONS:
             return {"data": []}
@@ -652,3 +664,122 @@ def test_water_quality_discovery_dedupes_and_normalization_rejects_bad_columns(m
     assert mod._discover_stations(BBOX, is_river=False) == ["C"]
     assert mod._normalize_dataframe(pd.DataFrame({"resultat": [1]}), is_river=True).empty
     assert mod._normalize_dataframe(pd.DataFrame({"date": ["2020-01-01"]}), is_river=True).empty
+
+
+def test_hubeau_products_table():
+    from hydromodpy.data.variables.hydrometry.apis.hubeau import PRODUCTS
+
+    assert len(PRODUCTS) == 8
+    expected = {
+        "QmnJ": ("discharge", "l/s", "m3/s", 1000, "D"),
+        "QmM": ("discharge", "l/s", "m3/s", 1000, "ME"),
+        "QINnJ": ("discharge", "l/s", "m3/s", 1000, "D"),
+        "QINM": ("discharge", "l/s", "m3/s", 1000, "ME"),
+        "QIXnJ": ("discharge", "l/s", "m3/s", 1000, "D"),
+        "QIXM": ("discharge", "l/s", "m3/s", 1000, "ME"),
+        "HIXnJ": ("water_level", "mm", "m", 1000, "D"),
+        "HIXM": ("water_level", "mm", "m", 1000, "ME"),
+    }
+    for code, (var, served_u, u, divisor, freq) in expected.items():
+        assert code in PRODUCTS
+        p = PRODUCTS[code]
+        assert (p.variable, p.served_unit, p.unit, p.divisor, p.frequency) == (
+            var,
+            served_u,
+            u,
+            divisor,
+            freq,
+        )
+
+
+def test_hubeau_division_matches_the_old_bit_pattern():
+    """A division by the table divisor writes the exact float the old code wrote.
+
+    ``/ 1000.0`` and ``* 1e-3`` do not give the same float for about 13% of
+    the values Hub'Eau serves, so the seven products that already divided keep
+    their bits only through a division.
+    """
+    from hydromodpy.data.variables.hydrometry.apis.hubeau import PRODUCTS
+
+    divisor = next(iter(PRODUCTS.values())).divisor
+    for served in (1001.0, 5526.0, 0.1, 3.7, 12345.678):
+        assert served / divisor == served / 1000.0
+
+
+def test_hubeau_config_product_validation():
+    from pydantic import ValidationError
+
+    from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
+
+    # HmnJ is rejected
+    with pytest.raises(ValidationError, match="not supported"):
+        HydrometrySourceConfig(source="hubeau", product="HmnJ")
+
+    # QixM is migrated to QIXM
+    cfg = HydrometrySourceConfig(source="hubeau", product="QixM")
+    assert cfg.product == "QIXM"
+
+
+def test_hubeau_max_stations_does_not_cap_named_stations(monkeypatch):
+    import hydromodpy.data.variables.hydrometry.apis.hubeau as hb
+
+    def fake_get_json(*args, params=None, **kw):
+        url = str(args[-1])
+        if url.endswith("/obs_elab"):
+            return {
+                "data": [
+                    {
+                        "date_obs_elab": "2020-01-01",
+                        "resultat_obs_elab": 5000.0,
+                        "libelle_qualification": "Bonne",
+                    }
+                ]
+            }
+        return {
+            "data": [
+                {
+                    "code_station": "S",
+                    "longitude_station": -1.2,
+                    "latitude_station": 48.1,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(hb, "get_json", fake_get_json)
+    recs = hb.fetch(
+        product="QmnJ",
+        station_ids=["A1", "A2", "A3"],
+        date_start=START,
+        date_end=END,
+        max_stations=1,
+    )
+    assert len(recs) == 3
+
+
+def test_hubeau_hydrometry_all_named_dropped_raises_data_source_error(monkeypatch):
+    import hydromodpy.data.variables.hydrometry.apis.hubeau as hb
+    from hydromodpy.core.exceptions import DataSourceError
+
+    def fake_get_json(*args, params=None, **kw):
+        url = str(args[-1])
+        if url.endswith("/obs_elab"):
+            return {"data": []}
+        return {
+            "data": [
+                {
+                    "code_station": "S",
+                    "longitude_station": -1.2,
+                    "latitude_station": 48.1,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(hb, "get_json", fake_get_json)
+    with pytest.raises(DataSourceError, match="every named station of source 'hubeau' was dropped"):
+        hb.fetch(
+            product="QmnJ",
+            station_ids=["A1", "A2"],
+            date_start=START,
+            date_end=END,
+            raise_on_empty=True,
+        )

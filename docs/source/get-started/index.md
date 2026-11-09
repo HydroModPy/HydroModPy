@@ -96,7 +96,8 @@ run it, what you get.
 When the staircase is done, {doc}`staircase/next` leads to your own catchment, to the
 calibration files of example 04 and to the Python API. {doc}`many-catchments` runs the same
 model on a table of catchments, and {doc}`cluster` on a Slurm cluster. {doc}`share-a-simulation`
-hands a run or a project, with its data, to a colleague.
+hands a run or a project, with its data, to a colleague. {doc}`../how-to/use-your-own-files`
+explains how to bring your own local files or remote URLs into a project.
 
 Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
 
@@ -107,6 +108,7 @@ Install <install>
 Concepts <concepts>
 The staircase <staircase/index>
 After the staircase <staircase/next>
+Use your own files <../how-to/use-your-own-files>
 Calibrate on a network and a discharge <calibrate-k>
 Many catchments <many-catchments>
 On a cluster <cluster>

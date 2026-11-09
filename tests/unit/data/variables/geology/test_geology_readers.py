@@ -467,7 +467,7 @@ def test_brgm_50k_download_failure_returns_none(tmp_path, monkeypatch):
     def boom(*_args, **_kwargs):
         raise OSError("offline")
 
-    monkeypatch.setattr(brgm_50k.urllib.request, "urlretrieve", boom)
+    monkeypatch.setattr(brgm_50k, "download", boom)
     result = brgm_50k._build_department_gpkg(
         "http://invalid.test/x.zip",
         tmp_path / "z.zip",

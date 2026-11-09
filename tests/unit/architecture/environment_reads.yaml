@@ -1,0 +1,412 @@
+# One row per os.environ / os.getenv site in hydromodpy/, and one per network client.
+#
+# The scan is an AST walk of the working tree at gate time; the gate
+# test_environment_reads.py refuses a site the table does not carry and a row
+# no site matches, so rows leave only with the code that read them.
+#
+# Classes. machine, the one reader of an installation variable; process, once
+# per process at import or at the start of a launched case; cli, what only the
+# command layer composes; diagnostic, a switch of trace; child, the whole
+# environment handed to a started process; transitional, a row a later lot
+# lifts, with the lot in lifted_by.
+
+rows:
+- file: hydromodpy/calibration/runners/sandbox.py
+  variable: HMP_KEEP_TRIAL_SCRATCH
+  kind: read
+  lifted_by: 4.18
+  class: transitional
+  why: a trial scratch kept outside the closure of the trial
+- file: hydromodpy/catchment/delineation/whitebox_workflows_backend/raster.py
+  variable: HMP_WHITEBOX_REDIRECT_NATIVE_STDIO
+  kind: read
+  class: diagnostic
+  why: a switch of how the backend reports, never of what it computes
+- file: hydromodpy/catchment/delineation/whitebox_workflows_backend/raster.py
+  variable: HMP_WHITEBOX_VERBOSE
+  kind: read
+  class: diagnostic
+  why: a switch of how the backend reports, never of what it computes
+- file: hydromodpy/catchment/delineation/whitebox_workflows_backend/raster.py
+  variable: PYTEST_CURRENT_TEST
+  kind: read
+  class: diagnostic
+  why: a switch of how the backend reports, never of what it computes
+- file: hydromodpy/cli/auth.py
+  variable: <env>
+  kind: read
+  class: cli
+  why: the OS user fallback (USER, then USERNAME) behind the override
+- file: hydromodpy/cli/auth.py
+  variable: HMP_USER
+  kind: read
+  class: cli
+  why: the user of the session, named by the command line override
+- file: hydromodpy/cli/commands/catalog/ls.py
+  variable: HMP_WORKSPACE
+  kind: read
+  lifted_by: 4.19
+  class: transitional
+  why: a second resolution rule of the workspace beside the one of core
+- file: hydromodpy/cli/commands/project/plan.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the plan drafting composes the HMP_SET_* overrides of the environment
+- file: hydromodpy/cli/commands/run.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the sites helpers take the HMP_SET_* overrides from the environment at the command layer
+- file: hydromodpy/cli/commands/run.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the sites helpers take the HMP_SET_* overrides from the environment at the command layer
+- file: hydromodpy/cli/commands/run.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the sites helpers take the HMP_SET_* overrides from the environment at the command layer
+- file: hydromodpy/cli/commands/run.py
+  variable: <LAUNCHED_ENV>
+  kind: read
+  class: cli
+  why: the marker that says the launcher, not a user, started this process
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer reads back the project root it wrote for the loader
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer reads back the project root it wrote for the loader
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer reads back the project root it wrote for the loader
+- file: hydromodpy/cli/commands/run.py
+  variable: HMP_PROJECT_ROOT
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer reads back the project root it wrote for the loader
+- file: hydromodpy/cli/commands/run.py
+  variable: HMP_WORKSPACE
+  kind: read
+  lifted_by: 4.19
+  class: transitional
+  why: a second resolution rule of the workspace beside the one of core
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/cli/commands/run.py
+  variable: <PROJECT_ROOT_ENV>
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/cli/effective_toml.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the effective TOML composes the HMP_SET_* overrides of the environment
+- file: hydromodpy/cli/effective_toml.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the effective TOML composes the HMP_SET_* overrides of the environment
+- file: hydromodpy/cli/effective_toml.py
+  variable: <name>
+  kind: read
+  class: cli
+  why: one HMP_SET_* override, read back once the prefix list named it
+- file: hydromodpy/cli/helpers.py
+  variable: HMP_PROJECT_ROOT
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer reads back the project root it wrote for the loader
+- file: hydromodpy/cli/helpers.py
+  variable: HMP_WORKSPACE
+  kind: read
+  lifted_by: 4.19
+  class: transitional
+  why: a second resolution rule of the workspace beside the one of core
+- file: hydromodpy/cli/helpers.py
+  variable: HMP_PROJECT_ROOT
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/cli/helpers.py
+  variable: HMP_PROJECT_ROOT
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/cli/helpers.py
+  variable: HMP_PROJECT_ROOT
+  kind: write
+  lifted_by: 4.8
+  class: transitional
+  why: the command layer writes the project root for the loader to reread
+- file: hydromodpy/config/hydromodpy_config.py
+  variable: HMP_PROJECT_ROOT
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the base of the relative paths arrives by variable instead of an argument
+- file: hydromodpy/core/console/ndjson.py
+  variable: HMP_PROGRESS_FILE
+  kind: read
+  class: machine
+  why: the one reader of the progress file the launcher names
+- file: hydromodpy/core/console/progress.py
+  variable: HMP_NO_PROGRESS
+  kind: read
+  class: diagnostic
+  why: whether the progress bars run, never what a run writes
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_DATA
+  kind: read
+  class: process
+  why: the PROJ data path, read once at import before pyproj loads
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_DATA
+  kind: read
+  class: process
+  why: the PROJ data path, read once at import before pyproj loads
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_LIB
+  kind: read
+  class: process
+  why: the PROJ library path, read once at import before pyproj loads
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_DATA
+  kind: write
+  class: process
+  why: the PROJ data path, set once per process at import
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_DATA
+  kind: write
+  class: process
+  why: the PROJ data path, set once per process at import
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_LIB
+  kind: write
+  class: process
+  why: the PROJ library path, set once per process at import
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_LIB
+  kind: write
+  class: process
+  why: the PROJ library path, set once per process at import
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_LIB
+  kind: write
+  class: process
+  why: the PROJ library path, set once per process at import
+- file: hydromodpy/core/io/proj_bootstrap.py
+  variable: PROJ_LIB
+  kind: write
+  class: process
+  why: the PROJ library path, set once per process at import
+- file: hydromodpy/core/logging.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: verbosity_from_env reads the HMP_VERBOSITY the command layer set
+- file: hydromodpy/core/state/portable.py
+  variable: HMP_CACHE_HOME
+  kind: read
+  class: machine
+  why: cache_dir, the one reader of the cache root of the machine
+- file: hydromodpy/core/state/portable.py
+  variable: HMP_STATE_HOME
+  kind: read
+  class: machine
+  why: state_dir, the one reader of the state root of the machine
+- file: hydromodpy/core/state/scratch.py
+  variable: HMP_RUN_SCRATCH
+  kind: read
+  lifted_by: 4.18
+  class: transitional
+  why: a process discovers its run scratch by variable, which nests two runs
+- file: hydromodpy/core/state/scratch.py
+  variable: HMP_SCRATCH_ROOT
+  kind: read
+  class: machine
+  why: run_scratch_root, the reader kept for the scratch root of a compute node
+- file: hydromodpy/core/state/scratch.py
+  variable: HMP_RUN_SCRATCH
+  kind: write
+  lifted_by: 4.18
+  class: transitional
+  why: a process publishes its run scratch to siblings by variable
+- file: hydromodpy/core/state/scratch.py
+  variable: HMP_RUN_SCRATCH
+  kind: write
+  lifted_by: 4.18
+  class: transitional
+  why: a process publishes its run scratch to siblings by variable
+- file: hydromodpy/core/toml_io/loader.py
+  variable: HMP_PROJECT_ROOT
+  kind: read
+  lifted_by: 4.8
+  class: transitional
+  why: the base of the paths of the loader arrives by variable instead of an argument
+- file: hydromodpy/core/workspace/config.py
+  variable: HMP_WORKSPACE
+  kind: read
+  lifted_by: 4.4
+  class: transitional
+  why: a second resolution rule of the workspace beside the one of core
+- file: hydromodpy/core/workspace/resolve.py
+  variable: HMP_WORKSPACE
+  kind: read
+  class: machine
+  why: the workspace resolution rules of core
+- file: hydromodpy/core/workspace/resolve.py
+  variable: HMP_WORKSPACE
+  kind: read
+  class: machine
+  why: the workspace resolution rules of core
+- file: hydromodpy/core/workspace/workspace.py
+  variable: HMP_BIN
+  kind: read
+  class: machine
+  why: the one reader of the binaries folder of the machine
+- file: hydromodpy/data/provenance/sidecars.py
+  variable: HMP_DETERMINISTIC_FETCHED_AT
+  kind: read
+  lifted_by: 4.4
+  class: transitional
+  why: a test clock for the fetched-at stamp of a sidecar
+- file: hydromodpy/data/registry/catalog_duckdb.py
+  variable: HMP_DATA_CACHE_PRIVATE
+  kind: read
+  lifted_by: 4.4
+  class: transitional
+  why: a private cache base kept until the cache goes without it
+- file: hydromodpy/data/registry/migrations/auto_boot.py
+  variable: HMP_AUTO_MIGRATE
+  kind: read
+  lifted_by: 4.4
+  class: transitional
+  why: a migration the reader opts out of by variable
+- file: hydromodpy/data/schemas/validation.py
+  variable: HMP_PANDERA_STRICT
+  kind: read
+  lifted_by: 4.4
+  class: transitional
+  why: a development switch of the schema validation
+- file: hydromodpy/display/overview/location.py
+  variable: HMP_OVERVIEW_HTML_REVIEW_LEVELS
+  kind: read
+  class: diagnostic
+  why: which review levels the overview page shows, never what a run writes
+- file: hydromodpy/project/examples/blobs.py
+  variable: HMP_EXAMPLES_SOURCE
+  kind: read
+  class: machine
+  why: the one reader of the examples origin, an alternate mirror for tests and air-gapped machines
+- file: hydromodpy/project/launch/children.py
+  variable: <whole>
+  kind: pass
+  class: child
+  why: the environment of the parent becomes the environment of the launched case
+- file: hydromodpy/project/launch/env.py
+  variable: <whole>
+  kind: pass
+  class: child
+  why: the environment of the parent becomes the environment of the launched case
+- file: hydromodpy/project/launch/env.py
+  variable: <name>
+  kind: write
+  class: process
+  why: the thread-pool budget written in the process of a launched case, before any run
+- file: hydromodpy/project/launch/local.py
+  variable: <whole>
+  kind: pass
+  class: child
+  why: the environment of the parent becomes the environment of the launched case
+- file: hydromodpy/project/launch/sites/expansion.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the sites expansion composes the HMP_SET_* overrides of the environment
+- file: hydromodpy/results/run/environment.py
+  variable: LOGNAME
+  kind: read
+  class: machine
+  why: the operator of the session, recorded with the run
+- file: hydromodpy/results/run/environment.py
+  variable: USER
+  kind: read
+  class: machine
+  why: the operator of the session, recorded with the run
+- file: hydromodpy/results/storage/attempt.py
+  variable: <SCRATCH_ROOT_ENV>
+  kind: read
+  lifted_by: 4.19
+  class: transitional
+  why: a second resolution rule of the scratch root beside the one of core
+- file: hydromodpy/results/storage/attempt.py
+  variable: SLURM_ARRAY_JOB_ID
+  kind: read
+  class: machine
+  why: the Slurm job the attempt runs in, recorded with the attempt
+- file: hydromodpy/results/storage/attempt.py
+  variable: SLURM_ARRAY_TASK_ID
+  kind: read
+  class: machine
+  why: the Slurm job the attempt runs in, recorded with the attempt
+- file: hydromodpy/results/storage/attempt.py
+  variable: SLURM_JOB_ID
+  kind: read
+  class: machine
+  why: the Slurm job the attempt runs in, recorded with the attempt
+- file: hydromodpy/solver/boussinesq/runtimes/petsc_ts_vi_obstacle.py
+  variable: PETSC_OPTIONS
+  kind: read
+  class: diagnostic
+  why: the options PETSc reports with, recorded with the run facts
+- file: hydromodpy/solver/boussinesq/runtimes/petsc_vi/petsc.py
+  variable: PETSC_OPTIONS
+  kind: read
+  class: diagnostic
+  why: the options PETSc reports with, recorded with the run facts
+- file: hydromodpy/solver/boussinesq/runtimes/stationary_failure_diagnostics.py
+  variable: PETSC_OPTIONS
+  kind: read
+  class: diagnostic
+  why: the options PETSc reports with, recorded with the run facts
+- file: hydromodpy/solver/modflow_common/binaries.py
+  variable: HMP_SILENCE_MF6_VERSION_MISMATCH
+  kind: read
+  class: diagnostic
+  why: silences one mismatch warning, never a result
+
+# The one network client of the tree, counted by the arbiter: the
+# requests.Session() of core/io/fetch.py, made per call with trust_env off, so
+# that the netrc, the proxies and the CA bundle of the environment are never
+# read behind a download. A second site fails the gate.
+network:
+- file: hydromodpy/core/io/fetch.py
+  client: requests-session

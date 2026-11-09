@@ -64,7 +64,11 @@ def frozen_config_of(
         for zone in mesh.get("refinement_zone") or ():
             if isinstance(zone, dict) and zone.get("run") in zone_runs:
                 zone["run"] = zone_runs[zone["run"]]
-    return type(ctx.cfg).model_validate(snapshot)
+    # A catchment of kind "dem" reads its DEM from [[data.dem.sources]], which
+    # the geographic section validates only when the document declares one.
+    dem = (snapshot.get("data") or {}).get("dem") or {}
+    declares_dem = bool(isinstance(dem, dict) and dem.get("sources"))
+    return type(ctx.cfg).model_validate(snapshot, context={"allow_dem_bootstrap": declares_dem})
 
 
 def frozen_config_document(

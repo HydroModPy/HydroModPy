@@ -63,9 +63,28 @@ def _without_their_entry(rows: list[str], entry_of: Callable[[str], Any]) -> lis
     ]
 
 
+def _toml_row_of(path: str) -> Any | None:
+    """The form of ``config_migration`` a removed key carries, rewrite or refusal.
+
+    The ledger of removed keys is made by rewrites and by refusals: a rewrite
+    one call can carry across, a refusal the doctor reads and answers by name.
+    The rewritten shapes go through ``migration_for``, which keeps the promise
+    of the doctor; a refused shape holds its own row in ``old_forms``, so the
+    same lookup that serves the name ledger reads it.
+    """
+
+    from hydromodpy.config.config_migration import document_path, old_forms
+
+    for form in old_forms():
+        old = document_path(form.old)
+        if path == old or path.startswith(f"{old}."):
+            return form
+    return None
+
+
 def test_a_removed_toml_key_keeps_its_migration_until_its_delay_ends() -> None:
     ledger = surface.read_rows(surface.SNAPSHOT_DIR / surface.REMOVED_TOML_KEYS)
-    missing = _without_their_entry(ledger, surface.migration_for)
+    missing = _without_their_entry(ledger, _toml_row_of)
     assert missing == [], f"{missing} left the grammar and config_migration.py has no row for them."
 
 

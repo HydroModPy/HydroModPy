@@ -35,44 +35,91 @@ ENTRY_POINT_GROUP = "hydromodpy.data.source"
 """The out-of-tree plugin group. One entry point per source, named ``<section>_<source_id>``."""
 
 _BUILTIN_PATHS: dict[str, str] = {
-    "hydrography_bdtopage": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
-    "hydrography_euhydro": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
-    "hydrography_osm": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
-    "hydrometry_hubeau": "hydromodpy.data.variables.hydrometry.apis.hubeau:HubeauHydrometry",
-    "piezometry_hubeau": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometry",
-    "water_quality_hubeau": (
-        "hydromodpy.data.variables.water_quality.apis.hubeau:HubeauWaterQuality"
-    ),
-    "intermittency_hubeau": (
-        "hydromodpy.data.variables.intermittency.apis.hubeau:HubeauIntermittency"
-    ),
-    "precipitation_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Precipitation",
-    "etp_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Etp",
-    "temperature_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Temperature",
-    "wind_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Wind",
-    "humidity_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Humidity",
-    "radiation_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Radiation",
-    "soil_moisture_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2SoilMoisture",
-    "runoff_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Runoff",
-    "recharge_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Recharge",
-    "precipitation_explore2": (
-        "hydromodpy.data.common.clients.explore2_files:Explore2Precipitation"
-    ),
-    "etp_explore2": "hydromodpy.data.common.clients.explore2_files:Explore2Etp",
-    "recharge_synthetic": "hydromodpy.data.variables.recharge.synthetic:SyntheticRecharge",
-    "oceanic_shom": "hydromodpy.data.variables.oceanic.apis.shom:ShomSeaLevel",
-    "oceanic_constant": "hydromodpy.data.variables.oceanic.constant:ConstantSeaLevel",
+    "crossings_bdtopo": "hydromodpy.data.variables.crossings.apis.bdtopo:BdTopoCrossings",
+    "crossings_file": "hydromodpy.data.source.file:CrossingsFile",
+    "crossings_roe": "hydromodpy.data.variables.crossings.apis.roe:RoeCrossings",
+    "crossings_url": "hydromodpy.data.source.url:CrossingsUrl",
+    "dem_file": "hydromodpy.data.source.file:DemFile",
     "dem_ign_geoplateforme_dem": (
         "hydromodpy.data.variables.dem.apis.ign_dem_fr:IgnGeoplateformeDem"
     ),
+    "dem_url": "hydromodpy.data.source.url:DemUrl",
+    "etp_explore2": "hydromodpy.data.common.clients.explore2_files:Explore2Etp",
+    "etp_file": "hydromodpy.data.source.file:EtpFile",
+    "etp_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Etp",
+    "etp_url": "hydromodpy.data.source.url:EtpUrl",
     "geology_brgm_1m": "hydromodpy.data.variables.geology.apis.brgm_1m:Brgm1m",
     "geology_brgm_50k": "hydromodpy.data.variables.geology.apis.brgm_50k:Brgm50k",
-    "crossings_bdtopo": "hydromodpy.data.variables.crossings.apis.bdtopo:BdTopoCrossings",
-    "crossings_roe": "hydromodpy.data.variables.crossings.apis.roe:RoeCrossings",
+    "geology_file": "hydromodpy.data.source.file:GeologyFile",
+    "geology_url": "hydromodpy.data.source.url:GeologyUrl",
+    "humidity_file": "hydromodpy.data.source.file:HumidityFile",
+    "humidity_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Humidity",
+    "humidity_url": "hydromodpy.data.source.url:HumidityUrl",
+    "hydrography_bdtopage": "hydromodpy.data.variables.hydrography.apis.bdtopage:BdTopageSource",
+    "hydrography_euhydro": "hydromodpy.data.variables.hydrography.apis.euhydro:EuHydroSource",
+    "hydrography_file": "hydromodpy.data.source.file:HydrographyFile",
+    "hydrography_osm": "hydromodpy.data.variables.hydrography.apis.osm:OsmSource",
+    "hydrography_url": "hydromodpy.data.source.url:HydrographyUrl",
+    "hydrometry_file": "hydromodpy.data.source.file:HydrometryFile",
+    "hydrometry_hubeau": "hydromodpy.data.variables.hydrometry.apis.hubeau:HubeauHydrometry",
+    "intermittency_file": "hydromodpy.data.source.file:IntermittencyFile",
+    "intermittency_hubeau": (
+        "hydromodpy.data.variables.intermittency.apis.hubeau:HubeauIntermittency"
+    ),
+    "lake_abacus_file": "hydromodpy.data.source.file:LakeAbacusFile",
+    "lake_abacus_url": "hydromodpy.data.source.url:LakeAbacusUrl",
+    "lake_bathymetry_file": "hydromodpy.data.source.file:LakeBathymetryFile",
+    "lake_bathymetry_url": "hydromodpy.data.source.url:LakeBathymetryUrl",
+    "lake_geometry_file": "hydromodpy.data.source.file:LakeGeometryFile",
+    "lake_geometry_url": "hydromodpy.data.source.url:LakeGeometryUrl",
+    "lake_inflow_file": "hydromodpy.data.source.file:LakeInflowFile",
+    "lake_levels_file": "hydromodpy.data.source.file:LakeLevelsFile",
+    "lake_outflow_file": "hydromodpy.data.source.file:LakeOutflowFile",
+    "lake_withdrawal_file": "hydromodpy.data.source.file:LakeWithdrawalFile",
+    "layer_base_file": "hydromodpy.data.source.file:LayerBaseFile",
+    "layer_base_url": "hydromodpy.data.source.url:LayerBaseUrl",
+    "oceanic_constant": "hydromodpy.data.variables.oceanic.constant:ConstantSeaLevel",
+    "oceanic_file": "hydromodpy.data.source.file:OceanicFile",
+    "oceanic_shom": "hydromodpy.data.variables.oceanic.apis.shom:ShomSeaLevel",
+    "piezometry_file": "hydromodpy.data.source.file:PiezometryFile",
+    "piezometry_hubeau": "hydromodpy.data.variables.piezometry.apis.hubeau:HubeauPiezometry",
+    "precipitation_explore2": (
+        "hydromodpy.data.common.clients.explore2_files:Explore2Precipitation"
+    ),
+    "precipitation_file": "hydromodpy.data.source.file:PrecipitationFile",
+    "precipitation_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Precipitation",
+    "precipitation_url": "hydromodpy.data.source.url:PrecipitationUrl",
+    "radiation_file": "hydromodpy.data.source.file:RadiationFile",
+    "radiation_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Radiation",
+    "radiation_url": "hydromodpy.data.source.url:RadiationUrl",
+    "recharge_file": "hydromodpy.data.source.file:RechargeFile",
+    "recharge_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Recharge",
+    "recharge_synthetic": "hydromodpy.data.variables.recharge.synthetic:SyntheticRecharge",
+    "recharge_url": "hydromodpy.data.source.url:RechargeUrl",
+    "runoff_file": "hydromodpy.data.source.file:RunoffFile",
+    "runoff_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Runoff",
+    "runoff_url": "hydromodpy.data.source.url:RunoffUrl",
+    "soil_capacity_file": "hydromodpy.data.source.file:SoilCapacityFile",
+    "soil_capacity_url": "hydromodpy.data.source.url:SoilCapacityUrl",
+    "soil_moisture_file": "hydromodpy.data.source.file:SoilMoistureFile",
+    "soil_moisture_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2SoilMoisture",
+    "soil_moisture_url": "hydromodpy.data.source.url:SoilMoistureUrl",
+    "substratum_file": "hydromodpy.data.source.file:SubstratumFile",
+    "substratum_url": "hydromodpy.data.source.url:SubstratumUrl",
+    "temperature_file": "hydromodpy.data.source.file:TemperatureFile",
+    "temperature_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Temperature",
+    "temperature_url": "hydromodpy.data.source.url:TemperatureUrl",
+    "water_quality_file": "hydromodpy.data.source.file:WaterQualityFile",
+    "water_quality_hubeau": (
+        "hydromodpy.data.variables.water_quality.apis.hubeau:HubeauWaterQuality"
+    ),
+    "wind_file": "hydromodpy.data.source.file:WindFile",
+    "wind_sim2": "hydromodpy.data.common.clients.sim2_products:Sim2Wind",
+    "wind_url": "hydromodpy.data.source.url:WindUrl",
 }
 """Dotted paths to the in-tree source classes, imported on first lookup.
 
-The single declaration of what this build serves: 26 sources under 18 sections.
+The single declaration of what this build serves: 73 sources under 28 sections.
 Format ``"<module>:<class>"``, the one every registry of this repository uses.
 """
 

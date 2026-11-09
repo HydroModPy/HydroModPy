@@ -14,11 +14,12 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    UrlSourceFieldsMixin,
     registered_section_source,
 )
 
 
-class RadiationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class RadiationSourceConfig(UrlSourceFieldsMixin, TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     """Configuration for one radiation data source.
 
     Radiation sources load atmospheric and/or visible radiation from custom
@@ -59,10 +60,10 @@ class RadiationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> RadiationSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         return self
 

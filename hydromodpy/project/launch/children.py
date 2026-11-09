@@ -103,22 +103,37 @@ def planned_cases(stored: StoredPlan) -> list[PlannedCase]:
     return out
 
 
-def worker_command(case: PlannedCase, flags: Sequence[str] = ()) -> list[str]:
-    """Return the command line of the worker of *case*."""
-    return [sys.executable, "-m", "hydromodpy", "run", str(case.path), *flags]
+def worker_command(
+    case: PlannedCase,
+    flags: Sequence[str] = (),
+    environment_flags: Sequence[str] = (),
+) -> list[str]:
+    """Return the command line of the worker of *case*.
+
+    ``environment_flags`` are the three options of an Environment for one
+    launched case: the worker is ``hmp run`` again and builds the same
+    Environment from them, so the launcher passes both the flags and the
+    environment it runs its cases under.
+    """
+    return [sys.executable, "-m", "hydromodpy", "run", str(case.path), *flags, *environment_flags]
 
 
-def prepare_command(case: PlannedCase) -> list[str]:
+def prepare_command(
+    case: PlannedCase,
+    environment_flags: Sequence[str] = (),
+) -> list[str]:
     """Return the command line of the prepare phase of *case*: geography and data only.
 
     A calibration case is prepared as a simulation of the same file: the
     window stops before the model, so no run directory and no session are
-    claimed, and the data its trials read lands in the cache.
+    claimed, and the data its trials read lands in the cache. The flags of
+    the environment ride the line like they ride the worker's, so the prepare
+    fills the cache under the same bounds as the solve.
     """
     flags = ["--until", "load_data"]
     if case.workflow == "calibration":
         flags += ["--set", "workflow.mode=simulation"]
-    return worker_command(case, flags)
+    return worker_command(case, flags, environment_flags=environment_flags)
 
 
 @dataclass

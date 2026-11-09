@@ -74,10 +74,10 @@ class OceanicSourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> OceanicSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         if self.source == "constant":
             if self.value is None:

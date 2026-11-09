@@ -416,12 +416,20 @@ class MeshConfig(HydroModelBase):
         Never on a synthetic support and never for the ``regular`` engine. A
         generated mesh needs it when the river family is meshed, or when a
         refinement zone measures the height above the stream; a mesh read
-        from ``[mesh.triangle] path`` needs it when a stream boundary is active.
+        from ``[mesh.triangle] path`` needs it when a stream boundary is active,
+        and the engine a project declares under ``[mesh.engine]`` also reads
+        the families it ignores, read from ``[mesh.families]`` by a rule of
+        ``hydromodpy.mesh.registry``.
         """
         if synthetic or self.engine == "regular":
             return False
         if self.triangle is not None and self.triangle.path is not None:
             return "stream" in active_bc
+        from hydromodpy.mesh import registry as mesh_registry
+
+        engine = mesh_registry.mesh_engines.get(self.engine)
+        if "rivers" in engine.capabilities.ignored_families:
+            return False
         return self.families.rivers == "cell" or self.refines_above_stream()
 
     def refines_above_stream(self) -> bool:

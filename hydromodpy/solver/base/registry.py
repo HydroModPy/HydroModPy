@@ -39,14 +39,24 @@ ENTRY_POINT_GROUP = "hydromodpy.solver"
 EXTRACTOR_ENTRY_POINT_GROUP = "hydromodpy.solver.extractor"
 """The out-of-tree extractors. One entry point per backend, named like its adapter."""
 
+DEFAULT_FLOW_SOLVER = "modflow6"
+"""The flow backend a document or a factory reads when it names none.
+
+One write, here: the default of ``solver.backend``, the ``solvers`` entry of
+a flow process and the convenience builders of the simulation configuration
+all read this constant. A backend that cannot be the two-sided default (a
+transport, an extractor) has no entry here.
+"""
+
 _BUILTIN_PATHS: dict[str, str] = {
     "flow_modflow_nwt": "hydromodpy.solver.modflow_nwt.adapter:ModflowNwtFlowAdapter",
     "flow_modflow6": "hydromodpy.solver.modflow6.adapter:Modflow6FlowAdapter",
     "flow_boussinesq": "hydromodpy.solver.boussinesq.adapter:BoussinesqFlowAdapter",
-    "transport_modpath": "hydromodpy.solver.modflow_nwt.adapters.transport_modpath:ModpathTransportAdapter",
-    "transport_mt3dms": "hydromodpy.solver.modflow_nwt.adapters.transport_mt3dms:Mt3dmsTransportAdapter",
-    "transport_modflow6": "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
-    "transport_modflow6_prt": "hydromodpy.solver.modflow6.adapters.prt:Modflow6PrtTransportAdapter",
+    "flow_linear_reservoir": "hydromodpy.solver.linear_reservoir.adapter:LinearReservoirFlowAdapter",
+    "transport_modpath": "hydromodpy.solver.modflow_nwt.modpath.modpath:ModpathTransportAdapter",
+    "transport_mt3dms": "hydromodpy.solver.modflow_nwt.mt3dms.mt3dms:Mt3dmsTransportAdapter",
+    "transport_modflow6": "hydromodpy.solver.modflow6.transport:Modflow6GwtTransportAdapter",
+    "transport_modflow6_prt": "hydromodpy.solver.modflow6.prt:Modflow6PrtTransportAdapter",
 }
 """Dotted ``"<module>:<class>"`` paths to the in-tree adapters, imported on first lookup."""
 
@@ -54,6 +64,7 @@ _BUILTIN_EXTRACTOR_PATHS: dict[str, str] = {
     "flow_modflow_nwt": "hydromodpy.solver.modflow_nwt.extractors.flow:ModflowNwtOutputAdapter",
     "flow_modflow6": "hydromodpy.solver.modflow6.extractors.flow:Modflow6OutputAdapter",
     "flow_boussinesq": "hydromodpy.solver.boussinesq.extractors.flow:BoussinesqOutputAdapter",
+    "flow_linear_reservoir": "hydromodpy.solver.linear_reservoir.extractor:LinearReservoirExtractor",
     "transport_mt3dms": "hydromodpy.solver.modflow_nwt.extractors.mt3dms:Mt3dmsOutputAdapter",
     "transport_modflow6": "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
     "transport_modflow6_prt": "hydromodpy.solver.modflow6.extractors.prt:Modflow6PrtOutputAdapter",
@@ -145,9 +156,24 @@ extractors = PluginRegistry(
 """The output extractors, keyed like the adapter whose run they read."""
 
 
+def backends_honoring(trait: str) -> tuple[str, ...]:
+    """The flow backends of this installation that list *trait* in ``supports``.
+
+    One write of the question "which ones can do it": a refusal, a message or
+    an option card names the backends through this call instead of a written
+    list, so a backend that joins or leaves a trait never leaves a sentence
+    behind. In registry order, plugins included.
+    """
+    return tuple(
+        name for name in solvers.names("flow") if trait in solvers.get("flow", name).supports
+    )
+
+
 __all__ = [
+    "DEFAULT_FLOW_SOLVER",
     "ENTRY_POINT_GROUP",
     "EXTRACTOR_ENTRY_POINT_GROUP",
+    "backends_honoring",
     "extractors",
     "solvers",
 ]

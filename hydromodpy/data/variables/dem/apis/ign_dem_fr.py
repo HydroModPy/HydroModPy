@@ -14,10 +14,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
-import requests
 from filelock import FileLock
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
@@ -106,7 +108,7 @@ def discover_ign_dem_files(
     resolution_m: float | None = None,
     file_format: str = "ASC",
     crs: str | None = None,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 30.0,
     rate_limiter: RateLimiter | None = None,
     allow_static_bdalti_fallback: bool = True,
@@ -137,7 +139,7 @@ def discover_ign_dem_files(
                     resolution_m=resolution_m,
                     file_format=file_format,
                     filters=filters,
-                    session=session,
+                    client=client,
                     timeout=timeout,
                     rate_limiter=rate_limiter,
                 )
@@ -166,7 +168,7 @@ def download_ign_dem_departments(
     timeout: float = 120.0,
     requests_per_second: float = 8.0,
     overwrite: bool = False,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
 ) -> list[Path]:
     """Download or list IGN DEM department archives."""
 
@@ -177,7 +179,7 @@ def download_ign_dem_departments(
         resolution_m=resolution_m,
         file_format=file_format,
         crs=crs,
-        session=session,
+        client=client,
         timeout=min(timeout, 30.0),
         rate_limiter=limiter,
     )
@@ -200,7 +202,7 @@ def download_ign_dem_departments(
             download_file(
                 file,
                 destination,
-                session=session,
+                client=client,
                 timeout=timeout,
                 rate_limiter=limiter,
                 overwrite=overwrite,
@@ -221,7 +223,7 @@ def fetch_ign_dem(
     force_refresh: bool = False,
     timeout: float = 120.0,
     requests_per_second: float = 8.0,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
 ) -> Path:
     """Build one GeoTIFF of an IGN DEM product over ``bbox`` (EPSG:2154).
 
@@ -241,7 +243,7 @@ def fetch_ign_dem(
             force_refresh=force_refresh,
             timeout=timeout,
             requests_per_second=requests_per_second,
-            session=session,
+            client=client,
         )
     resolved_resolution = 25.0 if resolution_m is None else resolution_m
     if float(resolved_resolution) != 25.0 or normalized_format != "ASC":
@@ -306,7 +308,7 @@ def fetch_ign_dem(
         timeout=timeout,
         requests_per_second=requests_per_second,
         overwrite=force_refresh,
-        session=session,
+        client=client,
     )
     if not archive_paths:
         raise ValueError(f"No IGN DEM archive found for departments: {dept_codes}")
@@ -391,7 +393,7 @@ def fetch_rge_alti(
     force_refresh: bool = False,
     timeout: float = 120.0,
     requests_per_second: float = 8.0,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
 ) -> Path:
     """Assemble the RGE ALTI over ``bbox`` from Geoplateforme WMS-Raster tiles.
 
@@ -495,7 +497,7 @@ def fetch_rge_alti(
                 data = wms.fetch_tile(
                     RGE_ALTI_WMS_LAYER,
                     tile,
-                    session=session,
+                    client=client,
                     timeout=timeout,
                     rate_limiter=limiter,
                 )
@@ -658,7 +660,7 @@ def _discover_department_files(
     resolution_m: float | None,
     file_format: str,
     filters: DiscoveryFilters,
-    session: requests.Session | None,
+    client: HTTPClient | None = None,
     timeout: float,
     rate_limiter: RateLimiter | None,
 ) -> list[DownloadFile]:
@@ -666,7 +668,7 @@ def _discover_department_files(
     subresources = list_subresources(
         resource_name,
         filters,
-        session=session,
+        client=client,
         timeout=timeout,
         rate_limiter=rate_limiter,
     )
@@ -676,7 +678,7 @@ def _discover_department_files(
             resource_name,
             subresource_name,
             filters,
-            session=session,
+            client=client,
             timeout=timeout,
             rate_limiter=rate_limiter,
         ):
@@ -1038,19 +1040,24 @@ class IgnGeoplateformeDem:
 
     def fetch(self, request: FetchRequest) -> FetchResult:
         """Assemble the DEM of the request's extent and return it as a file."""
+        from hydromodpy.core.io.fetch import open_client
+
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
-        raster_path = fetch_ign_dem(
-            output_dir=request.out_dir,
-            bbox=extent.bbox,
-            departments=list(self.departments) or None,
-            dataset=self.dataset,
-            resolution_m=self.resolution_m,
-            file_format=self.file_format,
-            crs=self.crs,
-            force_refresh=self.force_refresh,
-        )
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds) as client:
+            raster_path = fetch_ign_dem(
+                output_dir=request.out_dir,
+                bbox=extent.bbox,
+                departments=list(self.departments) or None,
+                dataset=self.dataset,
+                resolution_m=self.resolution_m,
+                file_format=self.file_format,
+                crs=self.crs,
+                force_refresh=self.force_refresh,
+                client=client,
+            )
         from hydromodpy.data.contracts.file_record import FileRecord
 
         record = FileRecord.of(

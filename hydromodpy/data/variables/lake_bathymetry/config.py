@@ -12,9 +12,10 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomLakeBathymetrySource(HydroModelBase):
+class FileLakeBathymetrySource(HydroModelBase):
     """User-provided lake bathymetry raster (GeoTIFF/ASC).
 
     The bathymetry raster fixes the lake-bed elevation per cell - i.e. where
@@ -27,9 +28,9 @@ class CustomLakeBathymetrySource(HydroModelBase):
     relation).
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' lake-bathymetry provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' lake-bathymetry provider.",
     )
     path: Annotated[
         Path,
@@ -37,7 +38,7 @@ class CustomLakeBathymetrySource(HydroModelBase):
         InputFile(role="lake_bathymetry", category="data"),
     ] = Field(
         ...,
-        description="Path to a custom lake-bathymetry raster file (GeoTIFF, ASC).",
+        description="Path to a user lake-bathymetry raster file (GeoTIFF, ASC).",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     default_crs: Annotated[str, Profile.USER] = Field(
@@ -49,14 +50,23 @@ class CustomLakeBathymetrySource(HydroModelBase):
     )
 
 
+class UrlLakeBathymetrySource(UrlSourceOptions, HydroModelBase):
+    """Remote lake bathymetry raster, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' lake-bathymetry provider.",
+    )
+
+
 class LakeBathymetryConfig(HydroModelBase):
     """Top-level lake-bathymetry variable configuration.
 
     Example TOML::
 
         [[data.lake_bathymetry.sources]]
-        source = "custom"
-        path = "data/lake_bathymetry/lake_bathymetry_custom_lac0.tif"
+        source = "file"
+        path = "data/lake_bathymetry/lake_bathymetry_file_lac0.tif"
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
@@ -66,13 +76,15 @@ class LakeBathymetryConfig(HydroModelBase):
         ),
     }
 
-    sources: Annotated[list[CustomLakeBathymetrySource], Profile.USER] = Field(
-        ...,
-        min_length=1,
-        description="At least one lake-bathymetry data source.",
+    sources: Annotated[list[FileLakeBathymetrySource | UrlLakeBathymetrySource], Profile.USER] = (
+        Field(
+            ...,
+            min_length=1,
+            description="At least one lake-bathymetry data source.",
+        )
     )
 
     @classmethod
     def from_raster(cls, path: str | Path, **overrides) -> LakeBathymetryConfig:
-        """LakeBathymetryConfig from a custom bathymetry raster (GeoTIFF/ASC)."""
-        return cls(sources=[CustomLakeBathymetrySource(path=Path(path))], **overrides)
+        """LakeBathymetryConfig from a user bathymetry raster (GeoTIFF/ASC)."""
+        return cls(sources=[FileLakeBathymetrySource(path=Path(path))], **overrides)

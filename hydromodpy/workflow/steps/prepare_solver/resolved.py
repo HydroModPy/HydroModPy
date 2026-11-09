@@ -155,6 +155,7 @@ def config_drift(
     exempt = (
         *_NOT_THE_COMPUTATION,
         *_tables_of_other_solvers(config, sealed, current),
+        *_tables_of_other_transports(config, sealed, current),
         *intended,
     )
     return tuple(
@@ -180,6 +181,31 @@ def _tables_of_other_solvers(config: Any, *payloads: Mapping[str, Any]) -> tuple
     return tuple(
         f"solver.{name}" for name in sorted(names - set(fields)) if name != solver.backend_name
     )
+
+
+def _tables_of_other_transports(config: Any, *payloads: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return tables of ``[transport]`` for each transport solver the run did not use."""
+    from hydromodpy.model.transport.transport_config import TransportConfig
+
+    active_transports: set[str] = set()
+    simulation = getattr(config, "simulation", None)
+    if simulation is not None:
+        for process in getattr(simulation, "process", ()):
+            if getattr(process, "kind", None) == "transport":
+                active_transports.update(getattr(process, "solvers", ()))
+
+    if not active_transports:
+        return ("transport",)
+
+    known_tables = set(TransportConfig.named_tables(shipped_only=False).keys())
+    for payload in payloads:
+        section = payload.get("transport")
+        if isinstance(section, Mapping):
+            for key, value in section.items():
+                if isinstance(value, Mapping):
+                    known_tables.add(str(key))
+
+    return tuple(f"transport.{name}" for name in sorted(known_tables - active_transports))
 
 
 def build_drift(source_run: Path, replay_run: Path) -> tuple[KeyDrift, ...]:

@@ -156,11 +156,15 @@ def test_the_name_of_the_replay_is_no_drift(tmp_path: Path) -> None:
 
 def test_where_an_input_file_sits_is_no_drift_and_its_digest_answers_for_it(tmp_path: Path) -> None:
     def with_dem(path: str) -> HydroModPyConfig:
-        return HydroModPyConfig(
-            workflow={"mode": "simulation"},
-            workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
-            site={"name": "s"},
-            geographic={"catchment": {"kind": "dem", "dem_init_path": path}},
+        return HydroModPyConfig.from_dict(
+            {
+                "workflow": {"mode": "simulation"},
+                "workspace": {"project_root": str(tmp_path), "root": str(tmp_path)},
+                "site": {"name": "s"},
+                "geographic": {"catchment": {"kind": "dem"}},
+                "data": {"types": ["dem"], "dem": {"sources": [{"source": "file", "path": path}]}},
+            },
+            base_dir=tmp_path,
         )
 
     run_dir = _sealed(tmp_path / "runs" / "x", with_dem("dem/first.tif"), tmp_path)

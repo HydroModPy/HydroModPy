@@ -9,7 +9,7 @@ from hydromodpy.catchment.preprocess import pipeline
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain import registry
 from hydromodpy.config import HydroModPyConfig
-from tests._helpers.geographic_cases import BENCH_RIVER, outlet_document
+from tests._helpers.geographic_cases import BENCH_RIVER, OUTLET_CATCHMENT, outlet_document
 
 _RETIRED_LAKE_KEYS = (
     "slope",
@@ -33,7 +33,7 @@ def _project_toml(tmp_path, geographic: str) -> HydroModPyConfig:
 
 
 def _standard(**overrides: object) -> dict:
-    return {"catchment": {"kind": "dem", "dem_init_path": __file__}, **overrides}
+    return {"catchment": OUTLET_CATCHMENT, **overrides}
 
 
 def test_a_synthetic_support_needs_no_catchment_even_from_a_project_file(tmp_path) -> None:
@@ -45,7 +45,7 @@ def test_a_synthetic_support_needs_no_catchment_even_from_a_project_file(tmp_pat
     assert project.geographic.uses_synthetic_geographic() is True
 
 
-_TXT = {"kind": "txt", "dem_init_path": "dem.xyz"}
+_TXT = {"kind": "txt"}
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,6 @@ _TXT = {"kind": "txt", "dem_init_path": "dem.xyz"}
         pytest.param(
             {
                 "kind": "from_outlet_coord",
-                "dem_init_path": "d.tif",
                 "x_outlet": 1.0,
                 "y_outlet": 2.0,
             },
@@ -178,9 +177,9 @@ def test_an_outlet_document_with_a_correction_it_cannot_carry_is_refused(section
 @pytest.mark.parametrize(
     ("build", "match"),
     [
-        pytest.param(lambda: GeographicConfig.from_dem("dem.tif", **_ON), "kind", id="notch"),
+        pytest.param(lambda: GeographicConfig.from_dem(**_ON), "kind", id="notch"),
         pytest.param(
-            lambda: GeographicConfig.from_dem("dem.tif", river_network=BENCH_RIVER, **_BED),
+            lambda: GeographicConfig.from_dem(river_network=BENCH_RIVER, **_BED),
             "kind = dem",
             id="bed",
         ),
@@ -195,7 +194,7 @@ def test_a_correction_on_a_support_with_no_catchment_is_refused(build, match) ->
 def test_a_toml_declaring_the_stream_burn_is_refused_not_ignored(tmp_path) -> None:
     (tmp_path / "dem.tif").touch()
     burn = (
-        '[geographic.catchment]\ncatch_def = "dem"\ndem_init_path = "dem.tif"\n'
+        '[geographic.catchment]\ncatch_def = "dem"\n'
         "[geographic.enforce_streams]\nenabled = true\ndepth_m = 10.0\n"
     )
     with pytest.raises(Exception, match="enforce_streams"):

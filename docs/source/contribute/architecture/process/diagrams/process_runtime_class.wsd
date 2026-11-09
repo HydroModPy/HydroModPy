@@ -55,46 +55,17 @@ package "hydromodpy.model.model" {
   }
 }
 
-package "hydromodpy.model.transport" {
-  class Transport {
-    +config: TransportConfig | None
-    +modpath: _TransportComponent
-    +mt3dms: _TransportComponent
-    +modflow6gwt: _TransportComponent
-    +modflow6prt: _TransportComponent
-    +set_config(config)
-    +set_parameters(parameters)
-    +build_initial_conditions(initial_conditions)
-    +set_boundary_conditions(boundary_conditions)
-    +set_sinks_sources(sinks_sources)
-  }
-
-  class TransportConfig
-  class TransportInitialConditions {
-    +payload: dict[str, Any]
-  }
-  class _TransportComponent {
-    +parameters: dict[str, Any]
-    +set_parameters(parameters, kwargs)
-  }
-}
-
 ProcessSpatialT <|-- Flow
-ProcessSpatialT <|-- Transport
 
 Flow --> FlowConfig : consumes
 Flow ..> Model : model_from_flow
-Transport --> TransportConfig : consumes
 
 InitialCondition <|-- FlowInitialCondition
 FlowInitialConditions *-- FlowInitialCondition : h
 Flow --> FlowInitialConditions : initial_conditions
-Transport --> TransportInitialConditions : initial_conditions
 
 ProcessSpatialT --> BoundaryCondition : boundary_conditions values
 ProcessSpatialT ..> SinkSource : add_sink_source()
 
-Transport *-- _TransportComponent : particle
-Transport *-- _TransportComponent : conc
 Flow --> FlowSinksSourcesConfig : set_sinks_sources input
 @enduml

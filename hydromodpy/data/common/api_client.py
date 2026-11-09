@@ -1,73 +1,82 @@
-"""HTTP helpers for API adapters (retry, pagination, status check).
+"""HTTP helpers for API adapters (JSON GET, pagination).
 
-Thin wrappers over :class:`hydromodpy.core.io.http_client.HTTPClient`
-exposing the request idioms used by remote API providers.
+Exposes JSON request idioms with a caller-provided HTTPClient.
+Only HTTP 404 returns None; all other HTTP >= 400 errors and network failures
+raise DataSourceError so errors are never mistaken for empty observations.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import NetworkError
-from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.exceptions import DataSourceError, NetworkError
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
 DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 3
 
-STATUS_MESSAGES: dict[int, str] = {
-    200: "Success",
-    206: "Partial content",
-    400: "Bad request",
-    401: "Unauthorized",
-    403: "Forbidden",
-    404: "Not found",
-    500: "Internal server error",
-}
-
-
-def check_status(status_code: int) -> bool:
-    """True for 200/206, logs diagnostic otherwise."""
-    if status_code in (200, 206):
-        return True
-    msg = STATUS_MESSAGES.get(status_code, f"Unknown HTTP {status_code}")
-    logger.warning("HTTP %d: %s", status_code, msg)
-    return False
-
 
 def get_json(
+    client: HTTPClient | None,
     url: str,
     *,
     params: dict[str, Any] | None = None,
-    timeout: int = DEFAULT_TIMEOUT,
+    timeout: int | float = DEFAULT_TIMEOUT,
     retries: int = MAX_RETRIES,
 ) -> dict | None:
-    """GET with retry + backoff via the unified HTTPClient.
+    """GET a JSON payload using the given client.
 
-    Returns the parsed JSON payload, or ``None`` if the server responded
-    with a non-recoverable error (e.g. 404) or the client exhausted its
-    retries.
+    Returns the parsed JSON dict, or ``None`` on HTTP 404 only. Any other
+    failure (HTTP >= 400 or network failure) raises :class:`DataSourceError`.
+    With ``client=None`` a client is opened for this call under default
+    bounds; the hosts of the source were already checked by ``fetch_within``.
     """
-    client = get_default_client()
+    if client is None:
+        from hydromodpy.core.io.fetch import open_client
+        from hydromodpy.core.runtime.bounds import Bounds
+
+        with open_client(Bounds()) as opened:
+            return get_json(opened, url, params=params, timeout=timeout, retries=retries)
     try:
         return client.get_json(url, params=params, timeout=timeout)
     except NetworkError as exc:
-        logger.error("get_json failed for %s: %s", url, exc)
-        return None
+        # NetworkError keeps its context in exc.context; the status is there,
+        # not on the attribute.
+        if exc.context.get("status_code") == 404:
+            return None
+        raise DataSourceError(f"HTTP GET {url} failed: {exc}", url=url) from exc
+    except DataSourceError as exc:
+        if exc.context.get("status_code") == 404:
+            return None
+        raise
+    except Exception as exc:
+        exc_context = getattr(exc, "context", None)
+        status = None
+        if isinstance(exc_context, dict):
+            status = exc_context.get("status_code")
+        if status is None:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status == 404:
+            return None
+        raise DataSourceError(f"HTTP GET {url} failed: {exc}", url=url) from exc
 
 
 def paginate_json(
+    client: HTTPClient | None,
     url: str,
     *,
     params: dict[str, Any] | None = None,
     page_size: int = 1000,
     data_key: str = "data",
     count_key: str = "count",
-    timeout: int = DEFAULT_TIMEOUT,
+    timeout: int | float = DEFAULT_TIMEOUT,
 ) -> list[dict]:
-    """Iterate paginated JSON API and collect all records."""
+    """Iterate a paginated JSON API endpoint and collect all records."""
     params = dict(params or {})
     params["size"] = page_size
     params["page"] = 1
@@ -76,7 +85,7 @@ def paginate_json(
     max_pages = 1
 
     while params["page"] <= max_pages:
-        payload = get_json(url, params=params, timeout=timeout, retries=MAX_RETRIES)
+        payload = get_json(client, url, params=params, timeout=timeout, retries=MAX_RETRIES)
         if payload is None:
             break
 
@@ -90,3 +99,11 @@ def paginate_json(
         params["page"] += 1
 
     return all_records
+
+
+__all__ = [
+    "DEFAULT_TIMEOUT",
+    "MAX_RETRIES",
+    "get_json",
+    "paginate_json",
+]

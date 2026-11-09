@@ -35,13 +35,15 @@ def outlet(tmp_path, monkeypatch) -> CatchmentDelineation:
 
 def test_a_missing_dem_stops_the_delineation_early(tmp_path: Path) -> None:
     config = GeographicConfig(
-        catchment={**polygon_catchment(tmp_path), "dem_init_path": tmp_path / "missing_dem.tif"},
+        catchment=polygon_catchment(tmp_path),
         crs_project=LAMBERT,
         dem_correc_type="breach",
     )
     with pytest.raises(RasterioIOError):
         CatchmentDelineation(
-            config=config, initializing=SimpleNamespace(project_root=str(tmp_path))
+            config=config,
+            initializing=SimpleNamespace(project_root=str(tmp_path)),
+            dem_path=tmp_path / "missing_dem.tif",
         )
 
 
@@ -129,8 +131,7 @@ def test_the_runtime_object_carries_the_engine_the_document_named(tmp_path, monk
     """A solver reads the engine off the runtime object, which copies a list of attributes."""
     monkeypatch.setattr(CatchmentDelineation, "processing", lambda self: None)
     engine_id = registry.terrain_engines.names(shipped_only=True)[0]
-    catchment = {"kind": "dem", "dem_init_path": __file__}
-    config = GeographicConfig.model_validate({"catchment": catchment, "terrain_engine": engine_id})
+    config = GeographicConfig.from_dem(terrain_engine=engine_id)
     delineation = CatchmentDelineation(config, SimpleNamespace(project_root=str(tmp_path)))
     assert delineation.terrain_engine == engine_id
 

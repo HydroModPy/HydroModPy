@@ -27,11 +27,11 @@ class IntermittencyManager(BaseVariableManager):
     RECORD_VARIABLE = "flow_state"
     """Variable name the records are stored under."""
 
-    def load_custom(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
+    def load_file(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
         """Load observed flow states: codes 1 to 5, irregular dates, never expanded."""
-        from hydromodpy.data.ingest.custom_points import load_custom_points
+        from hydromodpy.data.ingest.custom_points import load_file_points
 
-        records = load_custom_points(
+        records = load_file_points(
             data_dir=Path(source_cfg.path),
             variable_name=self.VARIABLE_NAME,
             internal_unit=self.INTERNAL_UNIT,

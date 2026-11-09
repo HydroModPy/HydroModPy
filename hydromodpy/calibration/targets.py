@@ -36,7 +36,10 @@ from pydantic import BaseModel
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
+from hydromodpy.model.properties.property_table import PROPERTIES
+from hydromodpy.solver.base.registry import solvers
 
 WALKED_SECTIONS: tuple[str, ...] = ("flow", "domain.depth_model")
 """Configuration sections the catalog walks.
@@ -50,15 +53,16 @@ it is a map, not one number. Transport joins this list the day its solutes are
 calibrated the same way.
 """
 
-VKA_PATH = "solver.modflow6.process_specific.vka"
-
-NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model", "solver.modflow6.process_specific")
-"""Sections whose targets are named by their field alone.
+NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model",)
+"""Sections whose targets are named by their field alone, plus the options table
+of the backend that runs (``solver.<backend_name>``).
 
 A project has one depth model, and its fields already say the quantity:
 ``thickness`` reads better than ``depth_model.thickness`` and cannot mean
-anything else. A collision with another target still falls back to the long
-form, like any other shared spelling.
+anything else. An options table is expert by nature, and a field of it carries
+its own ``Calibrable``, so the walk keeps what it declares and names it by its
+field. A collision with another target still falls back to the long form, like
+any other shared spelling.
 """
 
 _REGISTRY_ID_BY_PATH: dict[str, str] = {
@@ -147,25 +151,76 @@ class CalibrationTarget:
 def calibration_targets(config: Any) -> list[CalibrationTarget]:
     """Return every value ``config`` exposes to a calibration, in path order."""
     found: list[_Found] = []
-    for section in WALKED_SECTIONS:
-        node = _section(config, section)
-        if node is None:
-            continue
-        _walk(node, prefix=section, instances=(), units=None, found=found)
-    # The one row the walk does not reach: an expert key of the solver section, yet a
-    # property of the aquifer. Only MODFLOW 6 reads it here, and a declared Kv sets the
-    # same conductivity, which the build refuses beside a non-unit ratio.
     solver = getattr(config, "solver", None)
-    engine = getattr(solver, "backend_name", None)
-    params = getattr(getattr(config, "flow", None), "param", None) or {}
-    process = None
-    if engine == "modflow6" and "Kv" not in params:
-        process = getattr(solver.options_of(engine), "process_specific", None)
-    if process is not None:
-        annotation = declared_calibrable(type(process).model_fields["vka"])
-        found.append(_Found(VKA_PATH, (), float(process.vka), "-", annotation))
+    backend = solver.backend_name if solver is not None else None
+    if _reads_a_property(backend):
+        for section in WALKED_SECTIONS:
+            node = _section(config, section)
+            if node is None:
+                continue
+            _walk(node, prefix=section, instances=(), units=None, found=found)
+    # The options table of the backend that runs, walked the same way: a field of it
+    # that carries a ``Calibrable`` is listed whatever its profile, because the table
+    # is expert by nature and the annotation is the backend author's explicit choice
+    # to calibrate one option of it.
+    if backend is not None:
+        try:
+            options = solver.options_of(backend)
+        except ValueError:
+            # A backend may declare no options table: the catalog keeps the
+            # property sections the walk above collected.
+            options = None
+        if options is not None:
+            _walk(
+                options,
+                prefix=f"solver.{backend}",
+                instances=(),
+                units=None,
+                found=found,
+                expert=True,
+            )
+    found = [item for item in found if not _excluded_by_a_declared_entry(config, item)]
     found.sort(key=lambda item: item.path)
     return _named(found)
+
+
+def _reads_a_property(backend: str | None) -> bool:
+    """Whether the flow backend that runs reads a property of the aquifer.
+
+    A backend lists the trait ``properties`` when ``[flow.param]`` and
+    ``[domain.depth_model]`` reach its solve. A global model that reads
+    neither offers none, so no target waits on a trial that would cost the
+    same whatever the property moved. A backend the registry does not hold,
+    which only the stubs a caller hands over can be, keeps the walk.
+    """
+    if backend is None:
+        return True
+    try:
+        return PROPERTIES in solvers.get("flow", backend).supports
+    except SolverInputError:
+        return True
+
+
+def _excluded_by_a_declared_entry(config: Any, item: _Found) -> bool:
+    """Whether the paths the field keeps itself out of name an entry this file declares."""
+    if item.calibrable is None:
+        return False
+    return any(_is_declared(config, path) for path in item.calibrable.excluded_by)
+
+
+def _is_declared(config: Any, dotted: str) -> bool:
+    """Whether the document itself declares the entry a path names.
+
+    The boundary is the document, not the schema: a section that carries the field
+    only as its default does not declare it, and a mapping key written by the file
+    does."""
+    *head, last = dotted.split(".")
+    node = _section(config, ".".join(head))
+    if isinstance(node, Mapping):
+        return last in node
+    if isinstance(node, BaseModel):
+        return last in node.model_fields_set
+    return False
 
 
 def targets_by_path(targets: list[CalibrationTarget]) -> dict[str, CalibrationTarget]:
@@ -211,14 +266,18 @@ def _walk(
     units: str | None,
     found: list[_Found],
     field_info: Any = None,
+    expert: bool = False,
 ) -> None:
     if isinstance(node, BaseModel):
         own_units = _declared_units(node)
         for field_name, sub_info in type(node).model_fields.items():
             # A field the user profile does not show is a knob of the numerical
             # scheme, not a property of the aquifer. Searching over a substep
-            # count would optimize the solver rather than the model.
-            if extract_profile(sub_info) is not Profile.USER:
+            # count would optimize the solver rather than the model. An options
+            # table of a backend is expert by nature, so there the ``expert``
+            # flag lifts the profile gate and the field's own ``Calibrable``
+            # decides what the catalog lists.
+            if not expert and extract_profile(sub_info) is not Profile.USER:
                 continue
             # A leaf's unit is its own Calibrable's, else its node's, else what
             # the walk inherited: 'soil.ru' must read 'mm' from its field, not
@@ -235,6 +294,7 @@ def _walk(
                 units=leaf_units or own_units or units,
                 found=found,
                 field_info=sub_info,
+                expert=expert,
             )
         return
     if isinstance(node, Mapping):
@@ -250,6 +310,7 @@ def _walk(
                 units=units,
                 found=found,
                 field_info=field_info,
+                expert=expert,
             )
         return
     calibrable = declared_calibrable(field_info)
@@ -278,6 +339,10 @@ def declared_calibrable(field_info: Any) -> Calibrable | None:
 def _base_name(item: _Found) -> str:
     """Return the spelling this target asks for, before collisions are settled."""
     leaf = item.path.rsplit(".", 1)[-1]
+    if item.path.startswith("solver."):
+        # An option of the backend that runs names its leaf alone: the second
+        # segment of the path is the backend itself, never a quantity.
+        return leaf
     if any(item.path.startswith(f"{section}.") for section in NAMED_BY_THEIR_FIELD):
         return leaf
     if not item.instances:

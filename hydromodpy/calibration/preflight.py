@@ -262,10 +262,12 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
         return [], []
     from hydromodpy.calibration.protocols import (
         deviations_in_force,
+        get_protocol,
         options_the_recipe_already_runs,
         protocol_record,
         why_the_spin_up_year_is_scored,
     )
+    from hydromodpy.calibration.protocols.base import protocol_support
 
     record = protocol_record(declared.name, declared)
     time = getattr(getattr(cfg, "simulation", None), "time", None)
@@ -326,12 +328,20 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
             )
     backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
     backend = str(getattr(backend, "value", backend) or "")
-    verdict = record["support"].get(backend)
-    if verdict is not None and verdict != "tested":
-        normal.append(
-            f"  on {backend}: {verdict.replace('_', ' ')} - no case in this repository "
-            "runs the protocol on that backend."
-        )
+    if backend:
+        # The registered protocol lists the observables its stages read; the
+        # declared section carries the options only.
+        verdict = protocol_support(get_protocol(declared.name), backend)
+        if verdict.verdict != "tested":
+            if verdict.reason:
+                normal.append(
+                    f"  on {backend}: {verdict.verdict} - the backend says: {verdict.reason}."
+                )
+            else:
+                normal.append(
+                    f"  on {backend}: {verdict.verdict.replace('_', ' ')} - no case in this "
+                    "repository runs the protocol on that backend."
+                )
     return normal, verbose
 
 

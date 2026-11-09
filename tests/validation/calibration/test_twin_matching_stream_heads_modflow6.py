@@ -167,7 +167,6 @@ crs_project = "{crs}"
 
 [geographic.catchment]
 kind = "dem"
-dem_init_path = "{dem}"
 """
 
 _LAYERS_TOML = """\

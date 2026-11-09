@@ -113,9 +113,9 @@ def test_a_declared_crossing_is_notched_delineated_again_and_reported(
 ) -> None:
     raw = _embanked()
     with caplog.at_level("INFO"):
-        config, terrain, context = _ground_run(tmp_path, monkeypatch, raw, **_crossings(tmp_path))
+        _, terrain, context = _ground_run(tmp_path, monkeypatch, raw, **_crossings(tmp_path))
     ground = str(correcflow_dir(tmp_path) / GROUND_FILENAME)
-    assert terrain.routing == [str(config.dem_init_path), ground]
+    assert terrain.routing == [str(tmp_path / "dem.tif"), ground]
     assert terrain.top == [ground]
     assert context.top_dem_path == ground
     notched = read_band(ground)
@@ -145,11 +145,9 @@ def test_a_notch_that_lowers_nothing_does_not_delineate_again_and_logs_once(
     tmp_path, monkeypatch, caplog
 ) -> None:
     with caplog.at_level("INFO"):
-        config, terrain, _ = _ground_run(
-            tmp_path, monkeypatch, bench.valley(), **_crossings(tmp_path)
-        )
+        _, terrain, _ = _ground_run(tmp_path, monkeypatch, bench.valley(), **_crossings(tmp_path))
     ground = str(correcflow_dir(tmp_path) / GROUND_FILENAME)
-    assert terrain.routing == [str(config.dem_init_path)]
+    assert terrain.routing == [str(tmp_path / "dem.tif")]
     assert terrain.top == [ground]
     assert (read_band(ground) == bench.valley()).all()
     report = _report(tmp_path)
@@ -162,8 +160,8 @@ def test_a_dem_domain_covers_the_valid_pixels_of_the_dem(tmp_path, monkeypatch) 
     raw = bench.valley()
     raw[:3, :3] = -9999.0
     tmp_path.mkdir(exist_ok=True)
-    dem = bench.write_raster(tmp_path / "dem.tif", raw)
-    config = GeographicConfig.from_dem(dem, crs_project=bench.CRS)
+    bench.write_raster(tmp_path / "dem.tif", raw)
+    config = GeographicConfig.from_dem(crs_project=bench.CRS)
     _, context = run_bench_pipeline(tmp_path, monkeypatch, config)
     valid_km2 = (bench.N * bench.N - 9) * bench.RES**2 / 1e6
     assert context.catchment_area_km2 == pytest.approx(valid_km2)
@@ -194,7 +192,7 @@ def test_the_flow_step_gets_the_limits_and_an_empty_catchment_is_not_retried_wit
     patch_pipeline(monkeypatch, flow=flow, catchment=empty_catchment)
     with pytest.raises(EmptyCatchmentError):
         runtime_pipeline.build_geographic_runtime_context(
-            config=config, out_dir_path=tmp_path / "results"
+            config=config, out_dir_path=tmp_path / "results", dem_path=tmp_path / "dem.tif"
         )
     assert [call["dem_correc_type"] for call in calls] == [method]
     assert calls[0]["capped_breach"] == limits
@@ -269,7 +267,7 @@ def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geogra
 def test_a_missing_custom_file_is_a_warning_in_the_resolver(tmp_path, caplog) -> None:
     from hydromodpy.data.variables.hydrography.resolver import resolve_network_map_path
 
-    source = SimpleNamespace(source="custom", path="absent.gpkg")
+    source = SimpleNamespace(source="file", path="absent.gpkg")
     cfg = SimpleNamespace(data=SimpleNamespace(hydrography=SimpleNamespace(sources=[source])))
     with caplog.at_level(logging.WARNING):
         resolved = resolve_network_map_path(cfg, config_path=tmp_path / "project.toml")
@@ -333,7 +331,7 @@ def test_on_the_top_reads_the_regularised_copy_and_off_the_clip_of_the_ground(
     with caplog.at_level("INFO"):
         on, top_path, top = _bed_run(on_root, monkeypatch, _bed_config(on_root, regularize=True))
     # Without a correction the raw DEM is routed and clipped untouched.
-    raw = str(off_config.dem_init_path)
+    raw = str(off_root / "dem.tif")
     assert (off.routing, off.top) == ([raw], [raw])
     assert not list(correcflow_dir(off_root).glob("dem_ground*"))
     assert Path(off_path) == _clip_path(off_root)
@@ -390,7 +388,10 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
     config = _bed_config(tmp_path, regularize=True)
     terrain, _, top = _bed_run(tmp_path, monkeypatch, config)
     cached = runtime_pipeline.build_geographic_runtime_context(
-        config=config, out_dir_path=tmp_path / "results", reuse_existing_outputs=True
+        config=config,
+        out_dir_path=tmp_path / "results",
+        dem_path=tmp_path / "dem.tif",
+        reuse_existing_outputs=True,
     )
     attributes = cached.runtime_attributes()
     names = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")

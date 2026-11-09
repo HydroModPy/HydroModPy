@@ -301,8 +301,8 @@ def test_the_validate_field_example_names_a_field_that_validates() -> None:
 
     result = CliRunner().invoke(["config", "validate-field", "--help"])
 
-    assert "hmp config validate-field solver.backend modflow6" in result.stdout
-    assert validate_field("solver.backend", "modflow6", root=ROOT_CONFIG).valid
-    absent = validate_field("solver.backend", "nope", root=ROOT_CONFIG)
+    assert "hmp config validate-field mesh.engine triangle" in result.stdout
+    assert validate_field("mesh.engine", "triangle", root=ROOT_CONFIG).valid
+    absent = validate_field("mesh.engine", "nope", root=ROOT_CONFIG)
     assert not absent.valid
     assert "this installation serves" in str(absent.error)

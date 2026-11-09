@@ -53,17 +53,20 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
 buff_area = "10%"
 
 [data]
-types = ["hydrometry"]
+types = ["dem", "hydrometry"]
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 
 [[data.hydrometry.sources]]
-source = "custom"
+source = "file"
 path = "hydrometry"
 station_ids = ["NANCON"]
 """
@@ -129,7 +132,8 @@ def test_a_declared_file_points_at_its_bytes_and_a_folder_is_rebuilt(tmp_path: P
 
     payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=workdir)
 
-    dem = Path(payload["geographic"]["catchment"]["dem_init_path"])
+    (dem_source,) = payload["data"]["dem"]["sources"]
+    dem = Path(dem_source["path"])
     assert dem.parent == copy / INPUTS_DIRNAME
     assert dem.read_bytes() == b"the dem bytes"
     (source,) = payload["data"]["hydrometry"]["sources"]

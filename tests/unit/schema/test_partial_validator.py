@@ -127,8 +127,8 @@ FIELD_CASES = (
         "solver.backend",
         "nope",
         False,
-        "solver.backend names 'nope', and this installation serves boussinesq, modflow6, "
-        "modflow_nwt",
+        "solver.backend names 'nope', and this installation serves boussinesq, "
+        "linear_reservoir, modflow6, modflow_nwt",
     ),
     ("mesh.engine", " triangle ", True, None),
     (
@@ -151,12 +151,11 @@ FIELD_CASES = (
         False,
         "calibration.evaluator names 'nope', and this installation serves analytic_bowl",
     ),
-    ("calibration.forward_model", "linear_reservoir", True, None),
     (
         "calibration.forward_model",
-        "nope",
+        "linear_reservoir",
         False,
-        "calibration.forward_model names 'nope', and this installation serves linear_reservoir",
+        "unknown leaf 'forward_model' in CalibrationConfig",
     ),
     ("solver.modflow6.runtime.mf6_ims_complexity", "SIMPLE", True, None),
     ("solver.modflow6.runtime.mf6_ims_complexity", "x", False, "Input should be"),

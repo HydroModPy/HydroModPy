@@ -57,7 +57,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -86,7 +86,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -103,7 +103,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -125,7 +125,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -142,7 +142,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -160,7 +160,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -174,7 +174,7 @@ class TestPointRecord:
         rec = PointRecord(
             station_id="S1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -374,7 +374,7 @@ class TestRechargeBridge:
         rec1 = PointRecord(
             station_id="A",
             variable="recharge",
-            source="custom",
+            source="file",
             unit="mm/d",
             frequency="D",
             data=pd.DataFrame({"datetime": dates, "value": [10.0, 20.0, 30.0]}),
@@ -384,7 +384,7 @@ class TestRechargeBridge:
         rec2 = PointRecord(
             station_id="B",
             variable="recharge",
-            source="custom",
+            source="file",
             unit="mm/d",
             frequency="D",
             data=pd.DataFrame({"datetime": dates, "value": [20.0, 40.0, 60.0]}),

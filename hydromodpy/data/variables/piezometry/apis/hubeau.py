@@ -109,10 +109,12 @@ def fetch(
     )
 
     records: list[PointRecord] = []
+    empty: list[str] = []
     for bss_id in progress.track(ids, "Fetching piezometers"):
         location = _fetch_piezometer_location(bss_id)
         obs_df = _download_chronicles(bss_id, product, date_start, date_end)
         if obs_df.empty:
+            empty.append(bss_id)
             continue
 
         records.append(
@@ -128,6 +130,23 @@ def fetch(
                 location=location,
             )
         )
+
+    if empty:
+        try:
+            from hydromodpy.data.common.stations import report_dropped
+
+            report_dropped(
+                "piezometry",
+                "hubeau",
+                named=station_ids,
+                dropped=empty,
+                kept=records,
+                reason=f"returned no {product} observation between {date_start.strftime('%Y-%m-%d')} and {date_end.strftime('%Y-%m-%d')}",
+                product=product,
+                window=(date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")),
+            )
+        except ImportError:
+            pass
 
     logger.debug(f"Hub'Eau piezo: {len(records)} records loaded")
     return records
@@ -208,6 +227,7 @@ def _discover_piezometers_in_bbox(
     """
     xmin, ymin, xmax, ymax = bbox
     payload = get_json(
+        None,
         f"{API_BASE}/stations",
         params={
             "bbox": f"{xmin},{ymin},{xmax},{ymax}",
@@ -240,6 +260,7 @@ def _fetch_piezometer_location(bss_id: str) -> StationLocation | None:
     from hydromodpy.data.contracts.location import StationLocation
 
     payload = get_json(
+        None,
         f"{API_BASE}/stations",
         params={"code_bss": bss_id, "size": 1, "format": "json"},
     )
@@ -298,6 +319,7 @@ def _download_chronicles(
         y_start = max(date_start, datetime(year, 1, 1))
         y_end = min(date_end, datetime(year, 12, 31))
         payload = get_json(
+            None,
             f"{API_BASE}/chroniques",
             params={
                 "code_bss": bss_id,

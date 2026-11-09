@@ -169,18 +169,16 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
 
     # The substratum raster is tracked by [data.substratum], not by [geographic].
     assert geographic_roles == {}
-    assert outlet_roles == {"dem_init_path": "dem"}
-    assert polygon_roles == {
-        "dem_init_path": "dem",
-        "polyg_shp_path": "watershed_polygon",
-    }
+    # The regional DEM is a [[data.dem.sources]] file, tracked by its source.
+    assert outlet_roles == {}
+    assert polygon_roles == {"polyg_shp_path": "watershed_polygon"}
 
 
 def test_walker_on_real_substratum_source_annotations() -> None:
     """The substratum raster is tracked as geometry under its own role."""
-    from hydromodpy.data.variables.substratum.config import CustomSubstratumSource
+    from hydromodpy.data.variables.substratum.config import FileSubstratumSource
 
-    field_info = CustomSubstratumSource.model_fields["path"]
+    field_info = FileSubstratumSource.model_fields["path"]
     markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
     assert len(markers) == 1
     assert markers[0].role == "substratum"
@@ -188,10 +186,10 @@ def test_walker_on_real_substratum_source_annotations() -> None:
 
 
 def test_walker_on_real_dem_source_annotations() -> None:
-    """DEM custom source config has InputFile on path."""
-    from hydromodpy.data.variables.dem.config import CustomDemSource
+    """DEM file source config has InputFile on path."""
+    from hydromodpy.data.variables.dem.config import FileDemSource
 
-    field_info = CustomDemSource.model_fields["path"]
+    field_info = FileDemSource.model_fields["path"]
     markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
     assert len(markers) == 1
     assert markers[0].role == "dem"

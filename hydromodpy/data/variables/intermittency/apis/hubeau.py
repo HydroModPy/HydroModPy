@@ -124,10 +124,12 @@ def fetch(
     from hydromodpy.data.contracts.timeseries import PointRecord
 
     records: list[PointRecord] = []
+    empty: list[str] = []
     for sid in progress.track(ids, "Fetching ONDE stations"):
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, date_start, date_end)
         if obs_df.empty:
+            empty.append(sid)
             continue
 
         records.append(
@@ -143,6 +145,22 @@ def fetch(
                 location=location,
             )
         )
+
+    if empty:
+        try:
+            from hydromodpy.data.common.stations import report_dropped
+
+            report_dropped(
+                "intermittency",
+                "hubeau",
+                named=station_ids,
+                dropped=empty,
+                kept=records,
+                reason=f"returned no observations between {date_start.strftime('%Y-%m-%d')} and {date_end.strftime('%Y-%m-%d')}",
+                window=(date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")),
+            )
+        except ImportError:
+            pass
 
     logger.debug(f"Hub'Eau ONDE: {len(records)} station records loaded")
     return records
@@ -222,7 +240,7 @@ def _discover_stations(
     if code_departement:
         params["code_departement"] = ",".join(code_departement)
 
-    payload = get_json(f"{API_BASE}/stations", params=params)
+    payload = get_json(None, f"{API_BASE}/stations", params=params)
     if payload is None:
         return []
 
@@ -246,6 +264,7 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
     """Fetch one station's reference info and return a ``StationLocation``."""
 
     payload = get_json(
+        None,
         f"{API_BASE}/stations",
         params={"code_station": station_id, "size": 1, "format": "json"},
     )
@@ -287,6 +306,7 @@ def _download_observations(
     }
 
     raw_records = paginate_json(
+        None,
         f"{API_BASE}/observations",
         params=params,
         page_size=1000,

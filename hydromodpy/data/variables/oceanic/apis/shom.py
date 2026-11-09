@@ -46,15 +46,16 @@ still a refusal.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
-import requests
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.io.fetch import HTTPClient, open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -90,6 +91,7 @@ def fetch(
     fallback_search_radius_km: float | None = None,
     cache_dir: Path | None = None,
     write: bool = True,
+    client: HTTPClient | None = None,
 ) -> list[PointRecord]:
     """Download sea-level data from one SHOM tide gauge.
 
@@ -110,6 +112,9 @@ def fetch(
         disables the cache in both directions.
     write
         If True, cache the downloaded chronicle.
+    client
+        HTTP client to use for remote requests. If None, an ephemeral client
+        is created and closed.
 
     Returns
     -------
@@ -131,9 +136,9 @@ def fetch(
             "near_lon to search for the nearest one. Not both, not neither."
         )
 
-    session = requests.Session()
-    try:
-        gauges = _discover_tide_gauges(session)
+    client_cm = contextlib.nullcontext(client) if client is not None else open_client()
+    with client_cm as active_client:
+        gauges = _discover_tide_gauges(active_client)
 
         if station_id is not None:
             tg_id, tg_name, tg_lat, tg_lon = _gauge_by_id(gauges, station_id)
@@ -149,12 +154,10 @@ def fetch(
         if cached_df is not None:
             df = cached_df
         else:
-            zh_ref = _get_vertical_reference(session, tg_id)
-            df = _download_sea_level(session, tg_id, date_start, date_end, zh_ref)
+            zh_ref = _get_vertical_reference(active_client, tg_id)
+            df = _download_sea_level(active_client, tg_id, date_start, date_end, zh_ref)
             if write:
                 _write_cache(cache_dir, tg_id, date_start, date_end, df)
-    finally:
-        session.close()
 
     if df.empty:
         logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)
@@ -240,29 +243,33 @@ class ShomSeaLevel:
         cache_dir = request.out_dir
         records: list[PointRecord] = []
         extent = extent_for(self, request) if request.extent is not None else None
-        if request.station_ids:
-            for station_id in request.station_ids:
-                records.extend(
-                    fetch(
-                        date_start=start,
-                        date_end=end,
-                        station_id=station_id,
-                        cache_dir=cache_dir,
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds=bounds) as client:
+            if request.station_ids:
+                for station_id in request.station_ids:
+                    records.extend(
+                        fetch(
+                            date_start=start,
+                            date_end=end,
+                            station_id=station_id,
+                            cache_dir=cache_dir,
+                            client=client,
+                        )
                     )
+            else:
+                assert extent is not None
+                near_lat = (extent.ymin + extent.ymax) / 2.0
+                near_lon = (extent.xmin + extent.xmax) / 2.0
+                records = fetch(
+                    date_start=start,
+                    date_end=end,
+                    near_lat=near_lat,
+                    near_lon=near_lon,
+                    bbox=extent.bbox,
+                    fallback_search_radius_km=self.fallback_search_radius_km,
+                    cache_dir=cache_dir,
+                    client=client,
                 )
-        else:
-            assert extent is not None
-            near_lat = (extent.ymin + extent.ymax) / 2.0
-            near_lon = (extent.xmin + extent.xmax) / 2.0
-            records = fetch(
-                date_start=start,
-                date_end=end,
-                near_lat=near_lat,
-                near_lon=near_lon,
-                bbox=extent.bbox,
-                fallback_search_radius_km=self.fallback_search_radius_km,
-                cache_dir=cache_dir,
-            )
 
         require_declared_variables(self, [r.variable for r in records])
         return FetchResult(
@@ -275,12 +282,12 @@ class ShomSeaLevel:
         )
 
 
-def _discover_tide_gauges(session: requests.Session) -> pd.DataFrame:
+def _discover_tide_gauges(client: HTTPClient) -> pd.DataFrame:
     """Fetch the list of SHOM tide gauge stations."""
     import pandas as pd
 
     url = f"{API_BASE}/service/tidegauges"
-    response = session.get(url, timeout=60)
+    response = client.get(url, timeout=60)
     response.raise_for_status()
     return pd.DataFrame(response.json())
 
@@ -326,17 +333,17 @@ def _find_nearest(
     return tg_id, tg_name, tg_lat, tg_lon
 
 
-def _get_vertical_reference(session: requests.Session, tg_id: str) -> float:
+def _get_vertical_reference(client: HTTPClient, tg_id: str) -> float:
     """Get the vertical reference (zh_ref) for a tide gauge."""
     url = f"{API_BASE}/service/completetidegauge/{tg_id}"
-    response = session.get(url, timeout=60)
+    response = client.get(url, timeout=60)
     response.raise_for_status()
     info = response.json()
     return float(info["verticalRef"]["zh_ref"])
 
 
 def _download_sea_level(
-    session: requests.Session,
+    client: HTTPClient,
     tg_id: str,
     date_start: datetime,
     date_end: datetime,
@@ -360,7 +367,7 @@ def _download_sea_level(
                 f"{API_BASE}/observation/json/{tg_id}"
                 f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
             )
-            response = session.get(url, timeout=60)
+            response = client.get(url, timeout=60)
             response.raise_for_status()
             data = response.json().get("data", [])
             if data:

@@ -150,11 +150,11 @@ def _config(**overrides: object) -> CalibrationConfig:
     """The document every evaluator of this suite is built from.
 
     It declares criteria as well as a space, because an evaluator that scores
-    through the document -- the one composing a forward model with the blocks of
-    F6 -- has nothing to ask for and nothing to weigh without them. Written in
-    the document's own vocabulary and naming no implementation: an output on a
-    boundary, compared to a value typed into the file. The evaluators that bring
-    their own cost bind ``cfg`` for nothing and are unaffected.
+    through the document -- criteria and weights it does not own -- has nothing
+    to ask for and nothing to weigh without them. Written in the document's own
+    vocabulary and naming no implementation: an output on a boundary, compared
+    to a value typed into the file. The evaluators that bring their own cost
+    bind ``cfg`` for nothing and are unaffected.
     """
     payload: dict[str, object] = {
         "method": "grid",
@@ -570,6 +570,7 @@ def _prepared_for_the_pool(tmp_path: Path) -> TrialContext:
             data_plan=None,
             loaded_data=None,
             execution=SimpleNamespace(rng=None),
+            bounds=None,
         ),
         earliest=0,
         downstream_steps=(),

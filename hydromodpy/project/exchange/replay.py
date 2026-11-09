@@ -43,7 +43,19 @@ from hydromodpy.core.tracking import rewrite_input_paths
 from hydromodpy.results.export.publish import INPUTS_DIRNAME
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
 
-_USER_PROVIDERS = frozenset({"custom", "constant", "synthetic"})
+_USER_PROVIDERS = frozenset({"file", "url", "constant", "synthetic"})
+
+
+def _provider_of(item: Any) -> str | None:
+    """The provider an install index entry names, read under today's name.
+
+    A copy sealed before 2.1.0 writes ``custom`` where the same file now seals
+    ``file``; the sidecar migration reads the old name as the new one, so the
+    replay refuses the same providers whatever sealed the copy.
+    """
+    if item.provider is None:
+        return None
+    return "file" if item.provider == "custom" else str(item.provider)
 
 
 class ReplayInputError(ConfigError):
@@ -162,9 +174,9 @@ def _refuse_delivered_inputs(copy: Path, index: InstallIndex) -> None:
     """Refuse a copy fed by a file a provider delivered: a replay from the copy reads user files."""
     delivered = sorted(
         {
-            str(item.provider)
-            for item in index.files
-            if item.provider not in (None, *_USER_PROVIDERS)
+            str(provider)
+            for provider in (_provider_of(item) for item in index.files)
+            if provider not in (None, *_USER_PROVIDERS)
         }
     )
     if delivered:

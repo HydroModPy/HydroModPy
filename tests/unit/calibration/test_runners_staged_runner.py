@@ -568,6 +568,7 @@ class ToyPipeline:
         steps=None,
         parameter_space=None,
         config_overrides=None,
+        bounds=None,
     ) -> TrialContext:
         self.phase += 1
         return TrialContext(

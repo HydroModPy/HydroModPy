@@ -3047,20 +3047,6 @@
           "title": "Evaluator",
           "x-hmp-profile": "user"
         },
-        "forward_model": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "What produces the simulated observables when the evaluator is the one that scores a model with the criteria of this file ('scored_forward_model'). The model answers the outputs declared under [calibration.outputs] and the objective blocks weigh them, so changing a metric or a weight is a change to this document and never a patch to the model. A string and not an enumeration: what resolves depends on what is installed beside HydroModPy, through the 'hydromodpy.calibration.forward_model' entry-point group. Unset runs 'linear_reservoir', the closed-form reservoir this build ships, which is how a set of criteria is rehearsed before a model is installed. Read by no other evaluator.",
-          "title": "Forward Model",
-          "x-hmp-profile": "user"
-        },
         "max_trials": {
           "anyOf": [
             {
@@ -3568,11 +3554,11 @@
     },
     "ConcentrationTransportParametersConfig": {
       "additionalProperties": false,
-      "description": "Configuration payload shared by concentration transport solvers.\n\nMODFLOW 6 GWT and MODFLOW-NWT MT3DMS keep their own time base, the SI second. Every\nrate here is per second, whatever the unit of the timestep of ``[simulation.time]``,\nand the ``unit`` of each field says it. Only ``[transport.modflow6prt]`` counts in\ndays, with the unit explicit in the key or in the text.",
+      "description": "Configuration payload shared by concentration transport solvers.\n\nMODFLOW 6 GWT and MODFLOW-NWT MT3DMS keep their own time base, the SI second. Every\nrate here is per second, whatever the unit of the timestep of ``[simulation.time]``,\nand the ``unit`` of each field says it. Only ``[transport.modflow6_prt]`` counts in\ndays, with the unit explicit in the key or in the text.",
       "properties": {
         "spc_name": {
           "default": "NO3",
-          "description": "Name of the transported solute, used in the output names.",
+          "description": "Name of the transported solute, written in the store under concentration/<spc_name>.",
           "examples": [
             "NO3"
           ],
@@ -3808,6 +3794,7 @@
           "calibrable": {
             "bounds": null,
             "description": "Aquifer thickness below the topography, one value everywhere.",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -3999,14 +3986,18 @@
             "discriminator": {
               "mapping": {
                 "bdtopo": "#/$defs/BdtopoCrossingsSource",
-                "custom": "#/$defs/CustomCrossingsSource",
-                "roe": "#/$defs/RoeCrossingsSource"
+                "file": "#/$defs/FileCrossingsSource",
+                "roe": "#/$defs/RoeCrossingsSource",
+                "url": "#/$defs/UrlCrossingsSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomCrossingsSource"
+                "$ref": "#/$defs/FileCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCrossingsSource"
               },
               {
                 "$ref": "#/$defs/BdtopoCrossingsSource"
@@ -4052,14 +4043,18 @@
             "discriminator": {
               "mapping": {
                 "bdtopo": "#/$defs/BdtopoCrossingsSource",
-                "custom": "#/$defs/CustomCrossingsSource",
-                "roe": "#/$defs/RoeCrossingsSource"
+                "file": "#/$defs/FileCrossingsSource",
+                "roe": "#/$defs/RoeCrossingsSource",
+                "url": "#/$defs/UrlCrossingsSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomCrossingsSource"
+                "$ref": "#/$defs/FileCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCrossingsSource"
               },
               {
                 "$ref": "#/$defs/BdtopoCrossingsSource"
@@ -4077,14 +4072,18 @@
             "discriminator": {
               "mapping": {
                 "bdtopo": "#/$defs/BdtopoCrossingsSource",
-                "custom": "#/$defs/CustomCrossingsSource",
-                "roe": "#/$defs/RoeCrossingsSource"
+                "file": "#/$defs/FileCrossingsSource",
+                "roe": "#/$defs/RoeCrossingsSource",
+                "url": "#/$defs/UrlCrossingsSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomCrossingsSource"
+                "$ref": "#/$defs/FileCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/UrlCrossingsSource"
               },
               {
                 "$ref": "#/$defs/BdtopoCrossingsSource"
@@ -4196,565 +4195,6 @@
         }
       },
       "title": "CsvForcing",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomCrossingsSource": {
-      "additionalProperties": false,
-      "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in meters) are read when present.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' crossings provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column.",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154).",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomCrossingsSource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomDemSource": {
-      "additionalProperties": false,
-      "description": "User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).",
-      "properties": {
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
-          "site_scoped": true,
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
-          "title": "Extent",
-          "x-hmp-profile": "dev"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Download this source again instead of reading the cache.",
-          "examples": [
-            false
-          ],
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' DEM provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to custom DEM file or directory (TIF, ASC, NC).",
-          "examples": [
-            "dem.tif"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomDemSource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomGeologySource": {
-      "additionalProperties": false,
-      "description": "User-provided geology file (SHP/GPKG/TIF/CSV).",
-      "properties": {
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
-          "site_scoped": true,
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
-          "title": "Extent",
-          "x-hmp-profile": "dev"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Download this source again instead of reading the cache.",
-          "examples": [
-            false
-          ],
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' geology provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "code_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources.",
-          "title": "Code Field",
-          "x-hmp-profile": "user"
-        },
-        "values_table_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional CSV linking geology codes to descriptions. Columns: geology_code, description.",
-          "title": "Values Table Path",
-          "x-hmp-profile": "user"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column for X coordinate in CSV.",
-          "examples": [
-            "x"
-          ],
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column for Y coordinate in CSV.",
-          "examples": [
-            "y"
-          ],
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_code": {
-          "default": "geology_code",
-          "description": "Column for geology code in CSV.",
-          "examples": [
-            "geology_code"
-          ],
-          "title": "Col Code",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "Default CRS for CSV points.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "CustomGeologySource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomLakeAbacusSource": {
-      "additionalProperties": false,
-      "description": "User-provided lake abacus file (CSV/Parquet).\n\nThe abacus is the stage-volume-area lookup table that drives\n``ModflowUtllaktab``. One source describes one lake; ``lake_id`` is\ninjected into the table when the file omits the column.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' lake-abacus provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a custom lake-abacus table file (CSV with stage,volume,sarea).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "site_scoped": true,
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "lake_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Lake identifier injected into the table when the file omits a lake_id column.",
-          "title": "Lake Id",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomLakeAbacusSource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomLakeBathymetrySource": {
-      "additionalProperties": false,
-      "description": "User-provided lake bathymetry raster (GeoTIFF/ASC).\n\nThe bathymetry raster fixes the lake-bed elevation per cell - i.e. where\nand at what depth the lake exchanges with the aquifer (the LAK interface).\nIt is consumed only when a lake enables\n``flow.sinks_sources.lakes.<id>.bed_reconstruction``: the raster is then\nresampled onto the lake cells, reconciled to the abacus, and carved into\n``top``/``botm`` so the bed follows the real basin. Without that flag the\nraster is loaded but unused (the abacus alone drives the stage-storage\nrelation).",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' lake-bathymetry provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a custom lake-bathymetry raster file (GeoTIFF, ASC).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "site_scoped": true,
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomLakeBathymetrySource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomLakeGeometrySource": {
-      "additionalProperties": false,
-      "description": "User-provided lake geometry file (SHP/GPKG/GeoJSON).\n\nThe vector file holds the lake/reservoir footprint polygon(s) - and, where\nrelevant, the dam line and outlet points - that the LAK builder intersects\nwith the DISV mesh to resolve the lake cells.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' lake-geometry provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "site_scoped": true,
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "CRS to use for a file that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomLakeGeometrySource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomLayerBaseSource": {
-      "additionalProperties": false,
-      "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in meters.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' layer base provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "name": {
-          "description": "Name a layer of [[domain.layers.layer]] gives as its surface to end on this base.",
-          "examples": [
-            "example"
-          ],
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Name",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a raster of the base elevation of a layer in m (GeoTIFF, ASC).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomLayerBaseSource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomSoilCapacitySource": {
-      "additionalProperties": false,
-      "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' soil capacity provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a raster of soil available water capacity in mm (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomSoilCapacitySource",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "CustomSubstratumSource": {
-      "additionalProperties": false,
-      "description": "User-provided substratum raster (GeoTIFF/ASC).\n\nThe raster places the bottom of the aquifer. It is read only when\n``[domain.depth_model] kind`` is ``\"raster_substratum\"`` (its values are the\nelevation of the substratum) or ``\"raster_thickness\"`` (its values are the\naquifer thickness below the top). With any other kind it is loaded but unused.",
-      "properties": {
-        "source": {
-          "const": "custom",
-          "default": "custom",
-          "description": "Discriminator tag selecting the 'custom' substratum provider.",
-          "examples": [
-            "custom"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Path to a custom substratum raster file (GeoTIFF, ASC).",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "default_crs": {
-          "default": "EPSG:2154",
-          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
-          "examples": [
-            "EPSG:2154"
-          ],
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CustomSubstratumSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -4891,6 +4331,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -4925,6 +4366,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -5455,23 +4897,6 @@
       "additionalProperties": false,
       "description": "Model domain defined directly from a DEM raster.",
       "properties": {
-        "dem_init_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Path to the DEM raster that is the model domain. A relative path is read from the project root (the folder of project.toml); a bare file name is also looked up in the dem folder of the workspace data. May be left out only when [[data.dem.sources]] declares the DEM.",
-          "examples": [
-            "dem.tif"
-          ],
-          "title": "Dem Init Path",
-          "x-hmp-profile": "user"
-        },
         "dem_resolution": {
           "anyOf": [
             {
@@ -5518,22 +4943,26 @@
     },
     "DemConfig": {
       "additionalProperties": false,
-      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"rge-alti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
+      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"rge-alti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"file\"\n    path = \"data/my_dem.tif\"",
       "properties": {
         "sources": {
           "description": "At least one DEM data source.",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
             "discriminator": {
               "mapping": {
-                "custom": "#/$defs/CustomDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
+                "file": "#/$defs/FileDemSource",
+                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomDemSource"
+                "$ref": "#/$defs/FileDemSource"
+              },
+              {
+                "$ref": "#/$defs/UrlDemSource"
               },
               {
                 "$ref": "#/$defs/IgnGeoplateformeDemSource"
@@ -5556,17 +4985,21 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
             "discriminator": {
               "mapping": {
-                "custom": "#/$defs/CustomDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
+                "file": "#/$defs/FileDemSource",
+                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomDemSource"
+                "$ref": "#/$defs/FileDemSource"
+              },
+              {
+                "$ref": "#/$defs/UrlDemSource"
               },
               {
                 "$ref": "#/$defs/IgnGeoplateformeDemSource"
@@ -5577,17 +5010,21 @@
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
             "discriminator": {
               "mapping": {
-                "custom": "#/$defs/CustomDemSource",
-                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
+                "file": "#/$defs/FileDemSource",
+                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource",
+                "url": "#/$defs/UrlDemSource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomDemSource"
+                "$ref": "#/$defs/FileDemSource"
+              },
+              {
+                "$ref": "#/$defs/UrlDemSource"
               },
               {
                 "$ref": "#/$defs/IgnGeoplateformeDemSource"
@@ -6132,6 +5569,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -6173,7 +5611,7 @@
           "title": "Kind",
           "type": "string",
           "value_docs": {
-            "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its closure from solver.boussinesq.surface_interaction_model."
+            "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its closure from the surface-interaction settings under [solver]."
           },
           "x-hmp-profile": "user"
         },
@@ -6463,6 +5901,48 @@
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
         },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the ETP section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
@@ -6928,6 +6408,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -7054,6 +6535,7 @@
           "calibrable": {
             "bounds": null,
             "description": "Scalar value of a homogeneous field parameter. The target every calibration in the repository writes to.",
+            "excluded_by": [],
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -7122,6 +6604,7 @@
           "calibrable": {
             "bounds": null,
             "description": "Decay length of the exponential vertical profile.",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -7148,6 +6631,7 @@
           "calibrable": {
             "bounds": null,
             "description": "Floor factor of the exponential vertical profile.",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -7245,6 +6729,565 @@
         }
       }
     },
+    "FileCrossingsSource": {
+      "additionalProperties": false,
+      "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in meters) are read when present.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' crossings provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154).",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileCrossingsSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileDemSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' DEM provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to user DEM file or directory (TIF, ASC, NC).",
+          "examples": [
+            "dem.tif"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileDemSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileGeologySource": {
+      "additionalProperties": false,
+      "description": "User-provided geology file (SHP/GPKG/TIF/CSV).",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' geology provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "code_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources.",
+          "title": "Code Field",
+          "x-hmp-profile": "user"
+        },
+        "values_table_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional CSV linking geology codes to descriptions. Columns: geology_code, description.",
+          "title": "Values Table Path",
+          "x-hmp-profile": "user"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column for X coordinate in CSV.",
+          "examples": [
+            "x"
+          ],
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column for Y coordinate in CSV.",
+          "examples": [
+            "y"
+          ],
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_code": {
+          "default": "geology_code",
+          "description": "Column for geology code in CSV.",
+          "examples": [
+            "geology_code"
+          ],
+          "title": "Col Code",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "Default CRS for CSV points.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "FileGeologySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileLakeAbacusSource": {
+      "additionalProperties": false,
+      "description": "User-provided lake abacus file (CSV/Parquet).\n\nThe abacus is the stage-volume-area lookup table that drives\n``ModflowUtllaktab``. One source describes one lake; ``lake_id`` is\ninjected into the table when the file omits the column.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' lake-abacus provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a user lake-abacus table file (CSV with stage,volume,sarea).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "site_scoped": true,
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "lake_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake identifier injected into the table when the file omits a lake_id column.",
+          "title": "Lake Id",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileLakeAbacusSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileLakeBathymetrySource": {
+      "additionalProperties": false,
+      "description": "User-provided lake bathymetry raster (GeoTIFF/ASC).\n\nThe bathymetry raster fixes the lake-bed elevation per cell - i.e. where\nand at what depth the lake exchanges with the aquifer (the LAK interface).\nIt is consumed only when a lake enables\n``flow.sinks_sources.lakes.<id>.bed_reconstruction``: the raster is then\nresampled onto the lake cells, reconciled to the abacus, and carved into\n``top``/``botm`` so the bed follows the real basin. Without that flag the\nraster is loaded but unused (the abacus alone drives the stage-storage\nrelation).",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' lake-bathymetry provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a user lake-bathymetry raster file (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "site_scoped": true,
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileLakeBathymetrySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileLakeGeometrySource": {
+      "additionalProperties": false,
+      "description": "User-provided lake geometry file (SHP/GPKG/GeoJSON).\n\nThe vector file holds the lake/reservoir footprint polygon(s) - and, where\nrelevant, the dam line and outlet points - that the LAK builder intersects\nwith the DISV mesh to resolve the lake cells.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' lake-geometry provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a user lake-geometry vector file (SHP, GPKG, GeoJSON).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "site_scoped": true,
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a file that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileLakeGeometrySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileLayerBaseSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in meters.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' layer base provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Name a layer of [[domain.layers.layer]] gives as its surface to end on this base.",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a raster of the base elevation of a layer in m (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileLayerBaseSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileSoilCapacitySource": {
+      "additionalProperties": false,
+      "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' soil capacity provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a raster of soil available water capacity in mm (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileSoilCapacitySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FileSubstratumSource": {
+      "additionalProperties": false,
+      "description": "User-provided substratum raster (GeoTIFF/ASC).\n\nThe raster places the bottom of the aquifer. It is read only when\n``[domain.depth_model] kind`` is ``\"raster_substratum\"`` (its values are the\nelevation of the substratum) or ``\"raster_thickness\"`` (its values are the\naquifer thickness below the top). With any other kind it is loaded but unused.",
+      "properties": {
+        "source": {
+          "const": "file",
+          "default": "file",
+          "description": "Discriminator tag selecting the 'file' substratum provider.",
+          "examples": [
+            "file"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a user substratum raster file (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FileSubstratumSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "FlatSubstratumDepthModel": {
       "additionalProperties": false,
       "description": "Vertical model using one flat (constant-elevation) substratum.\n\nBottom elevation is constant over the whole domain:\n``bottom = substratum_elevation``.",
@@ -7274,6 +7317,7 @@
           "calibrable": {
             "bounds": null,
             "description": "Elevation of the flat substratum, one value everywhere.",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -7462,6 +7506,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -7496,6 +7541,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -7708,7 +7754,7 @@
               }
             ]
           },
-          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- declaring a block is what activates the boundary, and ``enabled = false`` switches it off. An empty block is enough for a boundary the registry describes entirely, such as a drainage\n\n**Common keys**\n\n- ``kind``: optional, the registry supplies it: ``dirichlet`` for an imposed head, ``drain`` for the linear drain ``q = C (h - h_ref)``\n- ``value``: optional on a drainage, where leaving it out derives the conductance from K; a head boundary with no value and no forcing builds no constant head\n- ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n\n**The drain under each solver:** the MODFLOW solvers build a ``DRN`` package. The Boussinesq solver takes its surface closure from ``solver.boussinesq.surface_interaction_model``.",
+          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- declaring a block is what activates the boundary, and ``enabled = false`` switches it off. An empty block is enough for a boundary the registry describes entirely, such as a drainage\n\n**Common keys**\n\n- ``kind``: optional, the registry supplies it: ``dirichlet`` for an imposed head, ``drain`` for the linear drain ``q = C (h - h_ref)``\n- ``value``: optional on a drainage, where leaving it out derives the conductance from K; a head boundary with no value and no forcing builds no constant head\n- ``application_domain``: optional, the registry supplies it, and a value contradicting it is refused\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n\n**The drain under each solver:** the MODFLOW solvers build a ``DRN`` package. The Boussinesq solver takes its surface closure from the surface-interaction settings under [solver].",
           "propertyNames": {
             "enum": [
               "west_side",
@@ -7918,6 +7964,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -8682,6 +8729,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -10259,6 +10307,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -10279,6 +10328,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -11170,6 +11220,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -11192,6 +11243,7 @@
               2.0
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -11380,7 +11432,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/FlowBarrierConfig"
           },
-          "description": "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 backend only). A lake's dam cutoff wall is declared on the lake instead.",
+          "description": "Mapping of flow-barrier ids to typed HFB payloads (a backend that honors flow_barriers only). A lake's dam cutoff wall is declared on the lake instead.",
           "stability": "experimental",
           "title": "Flow Barriers",
           "type": "object",
@@ -11490,6 +11542,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -12294,7 +12347,7 @@
     },
     "GeologyConfig": {
       "additionalProperties": false,
-      "description": "Top-level geology variable configuration.\n\nThe section defines one or more geology sources and the sampling density\nused when categorical geology is projected onto mesh cells. By default,\nHydroModPy uses the BRGM 1:1M source so geology can be activated by\nplanner inference without a long user section.\n\nExample TOML::\n\n    [data.geology]\n    cell_samples_per_axis = 8\n\n    [[data.geology.sources]]\n    source = \"brgm_1m\"\n\n    [[data.geology.sources]]\n    source = \"custom\"\n    path = \"data/my_geology.gpkg\"\n    code_field = \"LITHOLOGY\"",
+      "description": "Top-level geology variable configuration.\n\nThe section defines one or more geology sources and the sampling density\nused when categorical geology is projected onto mesh cells. By default,\nHydroModPy uses the BRGM 1:1M source so geology can be activated by\nplanner inference without a long user section.\n\nExample TOML::\n\n    [data.geology]\n    cell_samples_per_axis = 8\n\n    [[data.geology.sources]]\n    source = \"brgm_1m\"\n\n    [[data.geology.sources]]\n    source = \"file\"\n    path = \"data/my_geology.gpkg\"\n    code_field = \"LITHOLOGY\"",
       "properties": {
         "sources": {
           "description": "At least one geology data source. Defaults to BRGM 1:1M.",
@@ -12304,13 +12357,17 @@
               "mapping": {
                 "brgm_1m": "#/$defs/BrgmGeology1mSource",
                 "brgm_50k": "#/$defs/BrgmGeology50kSource",
-                "custom": "#/$defs/CustomGeologySource"
+                "file": "#/$defs/FileGeologySource",
+                "url": "#/$defs/UrlGeologySource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomGeologySource"
+                "$ref": "#/$defs/FileGeologySource"
+              },
+              {
+                "$ref": "#/$defs/UrlGeologySource"
               },
               {
                 "$ref": "#/$defs/BrgmGeology1mSource"
@@ -12364,13 +12421,17 @@
               "mapping": {
                 "brgm_1m": "#/$defs/BrgmGeology1mSource",
                 "brgm_50k": "#/$defs/BrgmGeology50kSource",
-                "custom": "#/$defs/CustomGeologySource"
+                "file": "#/$defs/FileGeologySource",
+                "url": "#/$defs/UrlGeologySource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomGeologySource"
+                "$ref": "#/$defs/FileGeologySource"
+              },
+              {
+                "$ref": "#/$defs/UrlGeologySource"
               },
               {
                 "$ref": "#/$defs/BrgmGeology1mSource"
@@ -12389,13 +12450,17 @@
               "mapping": {
                 "brgm_1m": "#/$defs/BrgmGeology1mSource",
                 "brgm_50k": "#/$defs/BrgmGeology50kSource",
-                "custom": "#/$defs/CustomGeologySource"
+                "file": "#/$defs/FileGeologySource",
+                "url": "#/$defs/UrlGeologySource"
               },
               "propertyName": "source"
             },
             "anyOf": [
               {
-                "$ref": "#/$defs/CustomGeologySource"
+                "$ref": "#/$defs/FileGeologySource"
+              },
+              {
+                "$ref": "#/$defs/UrlGeologySource"
               },
               {
                 "$ref": "#/$defs/BrgmGeology1mSource"
@@ -12653,12 +12718,54 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
+          "description": "Data provider: 'file' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
             "example"
           ],
           "title": "Source",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
           "x-hmp-profile": "user"
         },
         "path": {
@@ -12753,19 +12860,61 @@
     },
     "HydrographySourceConfig": {
       "additionalProperties": false,
-      "description": "Configuration for one hydrography data source.\n\nHydrography sources describe river-network vector or raster data. Use\n``custom`` for local files, and otherwise the id of a source that serves\nriver linework -- ``osm``, ``bdtopage`` and ``euhydro`` ship here, and a\nthird party adds one by registering it on the\n``hydromodpy.data.source`` entry-point group.\n\n**The name is not a closed list, and that is the point.** It used to be a\n``Literal`` of four words, which was the fourth copy of a list the registry\nnow owns and the one place a plugin could not reach: a source installed\nbeside HydroModPy was resolvable by every caller and nameable by no\ndocument. It is validated against the registry instead, so the exported\nJSON Schema stays a plain string and does not describe what happens to be\ninstalled next to the build that exported it.",
+      "description": "Configuration for one hydrography data source.\n\nHydrography sources describe river-network vector or raster data. Use\n``file`` for local files, and otherwise the id of a source that serves\nriver linework -- ``osm``, ``bdtopage`` and ``euhydro`` ship here, and a\nthird party adds one by registering it on the\n``hydromodpy.data.source`` entry-point group.\n\n**The name is not a closed list, and that is the point.** It used to be a\n``Literal`` of four words, which was the fourth copy of a list the registry\nnow owns and the one place a plugin could not reach: a source installed\nbeside HydroModPy was resolvable by every caller and nameable by no\ndocument. It is validated against the registry instead, so the exported\nJSON Schema stays a plain string and does not describe what happens to be\ninstalled next to the build that exported it.",
       "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
         "source": {
           "description": "Data provider. Any source id this installation resolves and that serves river linework is accepted, so a third-party source registered on the 'hydromodpy.data.source' entry-point group is named here by its id.",
           "examples": [
-            "custom"
+            "file"
           ],
           "title": "Source",
           "type": "string",
           "value_docs": {
             "bdtopage": "Downloads every reach of the French BD Topage network from the Sandre WFS, each with its permanence, and writes the permanent network too.",
-            "custom": "Loads a river network from a local vector or raster file you provide.",
             "euhydro": "Downloads the EEA EU-Hydro continental-scale river network.",
+            "file": "Loads a river network from a local vector or raster file you provide.",
             "osm": "Downloads waterway geometries from OpenStreetMap."
           },
           "x-hmp-profile": "user"
@@ -12940,7 +13089,7 @@
     },
     "HydrometrySourceConfig": {
       "additionalProperties": false,
-      "description": "Configuration for one hydrometry data source.\n\nHydrometry sources load river discharge or stage time series. Use\n``custom`` for local station files and ``hubeau`` for the French Hub'Eau\nhydrometry API. Station filters, spatial masks, and units are declared at\nsource level.",
+      "description": "Configuration for one hydrometry data source.\n\nHydrometry sources load river discharge or stage time series. Use\n``file`` for local station files and ``hubeau`` for the French Hub'Eau\nhydrometry API. Station filters, spatial masks, and units are declared at\nsource level.",
       "properties": {
         "fallback_search_radius_km": {
           "anyOf": [
@@ -13105,7 +13254,7 @@
         },
         "source": {
           "default": "hubeau",
-          "description": "Data provider: 'custom' for user files, or the id of a source registered for the hydrometry section, such as 'hubeau' for the Hub'Eau API.",
+          "description": "Data provider: 'file' for user files, or the id of a source registered for the hydrometry section, such as 'hubeau' for the Hub'Eau API.",
           "examples": [
             "hubeau"
           ],
@@ -13305,7 +13454,7 @@
             }
           ],
           "default": null,
-          "description": "DEM pixel size in metres, the size a provider serves. It comes first of three: geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size defaults to the result. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m.",
+          "description": "DEM pixel size in metres, the size a provider serves. It comes first of three: geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size defaults to the result. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: declare the DEM as a [[data.dem.sources]] row with source = \"file\", or use 5 m.",
           "title": "Resolution M",
           "x-hmp-profile": "user"
         },
@@ -13690,12 +13839,19 @@
     },
     "LakeAbacusConfig": {
       "additionalProperties": false,
-      "description": "Top-level lake-abacus variable configuration.\n\nExample TOML::\n\n    [[data.lake_abacus.sources]]\n    source = \"custom\"\n    path = \"data/lake_abacus/lake_abacus_custom_lac0.csv\"\n    lake_id = \"lac0\"",
+      "description": "Top-level lake-abacus variable configuration.\n\nExample TOML::\n\n    [[data.lake_abacus.sources]]\n    source = \"file\"\n    path = \"data/lake_abacus/lake_abacus_file_lac0.csv\"\n    lake_id = \"lac0\"",
       "properties": {
         "sources": {
           "description": "At least one lake-abacus data source.",
           "items": {
-            "$ref": "#/$defs/CustomLakeAbacusSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeAbacusSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeAbacusSource"
+              }
+            ]
           },
           "minItems": 1,
           "title": "Sources",
@@ -13713,25 +13869,46 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeAbacusSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeAbacusSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeAbacusSource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeAbacusSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeAbacusSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeAbacusSource"
+              }
+            ]
           }
         }
       }
     },
     "LakeBathymetryConfig": {
       "additionalProperties": false,
-      "description": "Top-level lake-bathymetry variable configuration.\n\nExample TOML::\n\n    [[data.lake_bathymetry.sources]]\n    source = \"custom\"\n    path = \"data/lake_bathymetry/lake_bathymetry_custom_lac0.tif\"",
+      "description": "Top-level lake-bathymetry variable configuration.\n\nExample TOML::\n\n    [[data.lake_bathymetry.sources]]\n    source = \"file\"\n    path = \"data/lake_bathymetry/lake_bathymetry_file_lac0.tif\"",
       "properties": {
         "sources": {
           "description": "At least one lake-bathymetry data source.",
           "items": {
-            "$ref": "#/$defs/CustomLakeBathymetrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeBathymetrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeBathymetrySource"
+              }
+            ]
           },
           "minItems": 1,
           "title": "Sources",
@@ -13749,13 +13926,27 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeBathymetrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeBathymetrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeBathymetrySource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeBathymetrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeBathymetrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeBathymetrySource"
+              }
+            ]
           }
         }
       }
@@ -13801,12 +13992,19 @@
     },
     "LakeGeometryConfig": {
       "additionalProperties": false,
-      "description": "Top-level lake-geometry variable configuration.\n\nExample TOML::\n\n    [[data.lake_geometry.sources]]\n    source = \"custom\"\n    path = \"data/lake_geometry/lake_geometry_custom_lac0.gpkg\"",
+      "description": "Top-level lake-geometry variable configuration.\n\nExample TOML::\n\n    [[data.lake_geometry.sources]]\n    source = \"file\"\n    path = \"data/lake_geometry/lake_geometry_file_lac0.gpkg\"",
       "properties": {
         "sources": {
           "description": "At least one lake-geometry data source.",
           "items": {
-            "$ref": "#/$defs/CustomLakeGeometrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeGeometrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeGeometrySource"
+              }
+            ]
           },
           "minItems": 1,
           "title": "Sources",
@@ -13824,13 +14022,27 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeGeometrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeGeometrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeGeometrySource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLakeGeometrySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLakeGeometrySource"
+              },
+              {
+                "$ref": "#/$defs/UrlLakeGeometrySource"
+              }
+            ]
           }
         }
       }
@@ -14056,10 +14268,10 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "const": "custom",
-          "description": "Data provider: 'custom' for user files.",
+          "const": "file",
+          "description": "Data provider: 'file' for user files.",
           "examples": [
-            "custom"
+            "file"
           ],
           "title": "Source",
           "type": "string",
@@ -14324,10 +14536,10 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "const": "custom",
-          "description": "Data provider: 'custom' for user files.",
+          "const": "file",
+          "description": "Data provider: 'file' for user files.",
           "examples": [
-            "custom"
+            "file"
           ],
           "title": "Source",
           "type": "string",
@@ -14592,10 +14804,10 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "const": "custom",
-          "description": "Data provider: 'custom' for user files.",
+          "const": "file",
+          "description": "Data provider: 'file' for user files.",
           "examples": [
-            "custom"
+            "file"
           ],
           "title": "Source",
           "type": "string",
@@ -14984,10 +15196,10 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "const": "custom",
-          "description": "Data provider: 'custom' for user files.",
+          "const": "file",
+          "description": "Data provider: 'file' for user files.",
           "examples": [
-            "custom"
+            "file"
           ],
           "title": "Source",
           "type": "string",
@@ -15033,12 +15245,19 @@
     },
     "LayerBaseConfig": {
       "additionalProperties": false,
-      "description": "Top-level layer base variable configuration: one named raster per base.\n\nExample TOML::\n\n    [[data.layer_base.sources]]\n    source = \"custom\"\n    name = \"weathered_base\"\n    path = \"data/layer_base/weathered_base.tif\"",
+      "description": "Top-level layer base variable configuration: one named raster per base.\n\nExample TOML::\n\n    [[data.layer_base.sources]]\n    source = \"file\"\n    name = \"weathered_base\"\n    path = \"data/layer_base/weathered_base.tif\"",
       "properties": {
         "sources": {
           "description": "One raster per layer base, each under its own name.",
           "items": {
-            "$ref": "#/$defs/CustomLayerBaseSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLayerBaseSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLayerBaseSource"
+              }
+            ]
           },
           "minItems": 1,
           "title": "Sources",
@@ -15056,14 +15275,71 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLayerBaseSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLayerBaseSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLayerBaseSource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomLayerBaseSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileLayerBaseSource"
+              },
+              {
+                "$ref": "#/$defs/UrlLayerBaseSource"
+              }
+            ]
           }
+        }
+      }
+    },
+    "LinearReservoirOptions": {
+      "additionalProperties": false,
+      "description": "What ``[solver.linear_reservoir]`` holds.\n\n``time_constant`` sets how much of the recharge the state still holds one\ntime constant after it fell. A bare number reads in days, ``\"30 days\"``\nreads too. The search walks it in the log space (QA A1), so the class\ndeclares no bounds: the calibration of one site states them.",
+      "properties": {
+        "time_constant": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            }
+          ],
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "excluded_by": [],
+            "is_the_value_of_its_instance": false,
+            "sampling": "log_uniform",
+            "search_space": "log",
+            "unit_field": null,
+            "units": "day"
+          },
+          "description": "Time constant of the reservoir, in days: how much of the water the state holds falls back in one time constant. A bare number reads in days; \"30 days\" also reads. Refused when omitted.",
+          "examples": [
+            1.0
+          ],
+          "gt": 0.0,
+          "title": "Time Constant",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "LinearReservoirOptions",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -16118,6 +16394,9 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [
+              "flow.param.Kv"
+            ],
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
@@ -17915,21 +18194,6 @@
       "additionalProperties": false,
       "description": "Watershed delineated from an outlet coordinate.",
       "properties": {
-        "dem_init_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
-          "title": "Dem Init Path",
-          "x-hmp-profile": "user"
-        },
         "dem_resolution": {
           "anyOf": [
             {
@@ -18628,7 +18892,7 @@
           "title": "Source",
           "type": "string",
           "value_docs": {
-            "custom": "Loads groundwater-level records from local station and chronicle files.",
+            "file": "Loads groundwater-level records from local station and chronicle files.",
             "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API."
           },
           "x-hmp-profile": "user"
@@ -18713,21 +18977,6 @@
       "additionalProperties": false,
       "description": "Watershed delineated from a polygon shapefile.",
       "properties": {
-        "dem_init_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
-          "title": "Dem Init Path",
-          "x-hmp-profile": "user"
-        },
         "dem_resolution": {
           "anyOf": [
             {
@@ -19018,6 +19267,48 @@
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
         },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the precipitation section, such as 'sim2' for the SIM2 EDR API and 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
@@ -19508,6 +19799,48 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the radiation section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
@@ -19958,6 +20291,48 @@
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
         },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for the recharge section, such as 'sim2' for the SIM2 EDR API and 'synthetic' for generated series.",
@@ -20777,12 +21152,54 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
+          "description": "Data provider: 'file' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
             "example"
           ],
           "title": "Source",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
           "x-hmp-profile": "user"
         },
         "path": {
@@ -21939,12 +22356,19 @@
     },
     "SoilCapacityConfig": {
       "additionalProperties": false,
-      "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"custom\"\n    path = \"soil/ru_mm.tif\"",
+      "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"file\"\n    path = \"soil/ru_mm.tif\"",
       "properties": {
         "sources": {
           "description": "Exactly one soil capacity raster. It spreads the ru of [flow.sinks_sources.recharge.soil] over classes inside each SAFRAN cell; ru stays the mean capacity of the cells.",
           "items": {
-            "$ref": "#/$defs/CustomSoilCapacitySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSoilCapacitySource"
+              },
+              {
+                "$ref": "#/$defs/UrlSoilCapacitySource"
+              }
+            ]
           },
           "maxItems": 1,
           "minItems": 1,
@@ -21963,13 +22387,27 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomSoilCapacitySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSoilCapacitySource"
+              },
+              {
+                "$ref": "#/$defs/UrlSoilCapacitySource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomSoilCapacitySource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSoilCapacitySource"
+              },
+              {
+                "$ref": "#/$defs/UrlSoilCapacitySource"
+              }
+            ]
           }
         }
       }
@@ -22195,12 +22633,54 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
+          "description": "Data provider: 'file' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
             "example"
           ],
           "title": "Source",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
           "x-hmp-profile": "user"
         },
         "path": {
@@ -22261,6 +22741,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22281,6 +22762,7 @@
               1.0
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22306,6 +22788,7 @@
               1.3
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22328,6 +22811,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22353,6 +22837,7 @@
               0.3
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22390,6 +22875,7 @@
               30.0
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22419,6 +22905,7 @@
           "calibrable": {
             "bounds": null,
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22450,6 +22937,7 @@
               10.0
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22484,6 +22972,7 @@
               5.0
             ],
             "description": "",
+            "excluded_by": [],
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
@@ -22539,6 +23028,7 @@
           "description": "Flow solver of the run, by its registered name: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin. A name this installation does not serve is refused with the names it serves.",
           "examples": [
             "boussinesq",
+            "linear_reservoir",
             "modflow6",
             "modflow_nwt"
           ],
@@ -22594,6 +23084,10 @@
         },
         "boussinesq": {
           "$ref": "#/$defs/BoussinesqOptions",
+          "x-hmp-profile": "user"
+        },
+        "linear_reservoir": {
+          "$ref": "#/$defs/LinearReservoirOptions",
           "x-hmp-profile": "user"
         },
         "modflow6": {
@@ -22713,12 +23207,19 @@
     },
     "SubstratumConfig": {
       "additionalProperties": false,
-      "description": "Top-level substratum variable configuration.\n\nExample TOML::\n\n    [[data.substratum.sources]]\n    source = \"custom\"\n    path = \"data/substratum/substratum_custom_bottom.tif\"",
+      "description": "Top-level substratum variable configuration.\n\nExample TOML::\n\n    [[data.substratum.sources]]\n    source = \"file\"\n    path = \"data/substratum/substratum_file_bottom.tif\"",
       "properties": {
         "sources": {
           "description": "Exactly one substratum data source: one bottom surface per model.",
           "items": {
-            "$ref": "#/$defs/CustomSubstratumSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSubstratumSource"
+              },
+              {
+                "$ref": "#/$defs/UrlSubstratumSource"
+              }
+            ]
           },
           "maxItems": 1,
           "minItems": 1,
@@ -22737,13 +23238,27 @@
         "^sources__append$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomSubstratumSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSubstratumSource"
+              },
+              {
+                "$ref": "#/$defs/UrlSubstratumSource"
+              }
+            ]
           }
         },
         "^sources__merge$": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CustomSubstratumSource"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FileSubstratumSource"
+              },
+              {
+                "$ref": "#/$defs/UrlSubstratumSource"
+              }
+            ]
           }
         }
       }
@@ -23279,12 +23794,54 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
+          "description": "Data provider: 'file' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
             "example"
           ],
           "title": "Source",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
           "x-hmp-profile": "user"
         },
         "path": {
@@ -23464,109 +24021,29 @@
       }
     },
     "TransportConfig": {
-      "additionalProperties": false,
-      "description": "Transport-process configuration.",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "The ``[transport]`` section: one table per transport solver the document names.\n\nEvery key of the section is the registry name of a transport of this\ninstallation, ``[transport.modflow6]`` for instance, and holds its\nparameters without a ``parameters`` level. A name nothing serves is refused\nwith the names served. A table of a transport that does not run is accepted\nand checked too, because a run sealed by an earlier version wrote all four,\nand the drift of a replay reads them as it ran.",
       "properties": {
-        "modpath": {
-          "$ref": "#/$defs/TransportModpathConfig",
-          "description": "Modpath solver configuration block.",
-          "stability": "experimental",
+        "modflow6": {
+          "$ref": "#/$defs/ConcentrationTransportParametersConfig",
+          "x-hmp-profile": "user"
+        },
+        "modflow6_prt": {
+          "$ref": "#/$defs/Modflow6PrtParametersConfig",
           "x-hmp-profile": "user"
         },
         "mt3dms": {
-          "$ref": "#/$defs/TransportMt3dmsConfig",
-          "description": "MT3DMS solver configuration block.",
+          "$ref": "#/$defs/ConcentrationTransportParametersConfig",
           "x-hmp-profile": "user"
         },
-        "modflow6gwt": {
-          "$ref": "#/$defs/TransportModflow6GwtConfig",
-          "description": "MODFLOW 6 GWT solver configuration block.",
-          "x-hmp-profile": "user"
-        },
-        "modflow6prt": {
-          "$ref": "#/$defs/TransportModflow6PrtConfig",
-          "description": "MODFLOW 6 PRT particle-tracking solver configuration block.",
-          "stability": "experimental",
+        "modpath": {
+          "$ref": "#/$defs/ModpathParametersConfig",
           "x-hmp-profile": "user"
         }
       },
       "title": "TransportConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TransportModflow6GwtConfig": {
-      "additionalProperties": false,
-      "description": "Container for MODFLOW 6 GWT solver settings.",
-      "properties": {
-        "parameters": {
-          "$ref": "#/$defs/ConcentrationTransportParametersConfig",
-          "description": "Solver parameter block used by Modflow6Transport.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TransportModflow6GwtConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TransportModflow6PrtConfig": {
-      "additionalProperties": false,
-      "description": "Container for MODFLOW 6 PRT particle-tracking settings.",
-      "properties": {
-        "parameters": {
-          "$ref": "#/$defs/Modflow6PrtParametersConfig",
-          "description": "Solver parameter block used by Modflow6Prt.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TransportModflow6PrtConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TransportModpathConfig": {
-      "additionalProperties": false,
-      "description": "Container for Modpath solver settings.",
-      "properties": {
-        "parameters": {
-          "$ref": "#/$defs/ModpathParametersConfig",
-          "description": "Solver parameter block used by Modpath.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TransportModpathConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TransportMt3dmsConfig": {
-      "additionalProperties": false,
-      "description": "Container for MT3DMS solver settings.",
-      "properties": {
-        "parameters": {
-          "$ref": "#/$defs/ConcentrationTransportParametersConfig",
-          "description": "Solver parameter block used by Mt3dms.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TransportMt3dmsConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -23640,21 +24117,6 @@
       "additionalProperties": false,
       "description": "Model domain defined from an XYZ text grid plus a cell size.",
       "properties": {
-        "dem_init_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
-          "title": "Dem Init Path",
-          "x-hmp-profile": "user"
-        },
         "dem_resolution": {
           "anyOf": [
             {
@@ -23756,6 +24218,734 @@
         }
       },
       "title": "UpwConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlCrossingsSource": {
+      "additionalProperties": false,
+      "description": "Remote crossings file, pinned by its sha256 when ``https`` is not used.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' crossings provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "Fallback CRS when the file carries none of its own.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlCrossingsSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlDemSource": {
+      "additionalProperties": false,
+      "description": "Remote DEM file, pinned by its sha256 when ``https`` is not used.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' DEM provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlDemSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlGeologySource": {
+      "additionalProperties": false,
+      "description": "Remote geology file, pinned by its sha256 when ``https`` is not used.",
+      "properties": {
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.",
+          "title": "Extent",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Download this source again instead of reading the cache.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' geology provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "code_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attribute column for geology codes in vector files (SHP/GPKG).",
+          "title": "Code Field",
+          "x-hmp-profile": "user"
+        },
+        "values_table_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional CSV linking geology codes to descriptions.",
+          "title": "Values Table Path",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlGeologySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlLakeAbacusSource": {
+      "additionalProperties": false,
+      "description": "Remote lake abacus table, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' lake-abacus provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "lake_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake identifier injected into the table when the file omits a lake_id column.",
+          "title": "Lake Id",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlLakeAbacusSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlLakeBathymetrySource": {
+      "additionalProperties": false,
+      "description": "Remote lake bathymetry raster, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' lake-bathymetry provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlLakeBathymetrySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlLakeGeometrySource": {
+      "additionalProperties": false,
+      "description": "Remote lake geometry file, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' lake-geometry provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlLakeGeometrySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlLayerBaseSource": {
+      "additionalProperties": false,
+      "description": "Remote layer base raster, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' layer-base provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Name a layer of [[domain.layers.layer]] gives as its surface to end on this base.",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlLayerBaseSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlSoilCapacitySource": {
+      "additionalProperties": false,
+      "description": "Remote soil capacity raster, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' soil-capacity provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlSoilCapacitySource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "UrlSubstratumSource": {
+      "additionalProperties": false,
+      "description": "Remote substratum raster, downloaded into the data cache by the ``url`` source.",
+      "properties": {
+        "url": {
+          "description": "Remote URL of the one file this source reads.",
+          "examples": [
+            "example"
+          ],
+          "title": "Url",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "const": "url",
+          "default": "url",
+          "description": "Discriminator tag selecting the 'url' substratum provider.",
+          "examples": [
+            "url"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "UrlSubstratumSource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -24511,12 +25701,54 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
+          "description": "Data provider: 'file' for user CSV files, or the id of a source registered for this variable's section, such as 'sim2' for the SIM2 EDR API.",
           "examples": [
             "example"
           ],
           "title": "Source",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remote URL of the one file this source reads.",
+          "title": "Url",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the downloaded file, written to its sidecar. Unset means undetermined.",
+          "title": "License",
           "x-hmp-profile": "user"
         },
         "path": {
@@ -24905,7 +26137,7 @@
     },
     "solver": {
       "$ref": "#/$defs/SolverConfig",
-      "description": "Global solver block loaded from [solver]: the flow solver in solver.backend, the settings of each flow solver under its name ([solver.modflow6], [solver.modflow_nwt], [solver.boussinesq]), and the backend-agnostic preprocessing switches (solver.sink_fill, solver.drain_band_depth_m).",
+      "description": "Global solver block loaded from [solver]: the flow solver in solver.backend, the settings of each flow solver under its name, and the backend-agnostic preprocessing switches (solver.sink_fill, solver.drain_band_depth_m).",
       "x-hmp-profile": "user"
     },
     "display": {

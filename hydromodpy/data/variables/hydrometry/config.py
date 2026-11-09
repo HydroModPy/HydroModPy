@@ -25,7 +25,7 @@ class HydrometrySourceConfig(
     """Configuration for one hydrometry data source.
 
     Hydrometry sources load river discharge or stage time series. Use
-    ``custom`` for local station files and ``hubeau`` for the French Hub'Eau
+    ``file`` for local station files and ``hubeau`` for the French Hub'Eau
     hydrometry API. Station filters, spatial masks, and units are declared at
     source level.
     """
@@ -33,7 +33,7 @@ class HydrometrySourceConfig(
     source: Annotated[str, Profile.USER] = Field(
         default="hubeau",
         description=(
-            "Data provider: 'custom' for user files, or the id of a source registered for "
+            "Data provider: 'file' for user files, or the id of a source registered for "
             "the hydrometry section, such as 'hubeau' for the Hub'Eau API."
         ),
     )
@@ -43,7 +43,7 @@ class HydrometrySourceConfig(
     def _check_the_source_is_served_for_hydrometry(cls, source: str) -> str:
         return registered_section_source(source, "hydrometry")
 
-    # --- Custom source fields ---
+    # --- File source fields ---
     path: Annotated[
         Path | None,
         Profile.USER,
@@ -59,6 +59,22 @@ class HydrometrySourceConfig(
         default="QmnJ",
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HIXnJ').",
     )
+
+    @field_validator("product")
+    @classmethod
+    def _validate_product(cls, product: str | None) -> str | None:
+        if product is not None:
+            if product == "QixM":
+                product = "QIXM"
+            from hydromodpy.data.variables.hydrometry.apis.hubeau import PRODUCTS
+
+            if product not in PRODUCTS:
+                allowed = ", ".join(f"'{p}'" for p in sorted(PRODUCTS))
+                raise ValueError(
+                    f"Hub'Eau product {product!r} is not supported. Use one of {allowed}."
+                )
+        return product
+
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description=(
@@ -81,10 +97,10 @@ class HydrometrySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> HydrometrySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         if self.source == "hubeau":
             if self.product is None:
@@ -150,7 +166,7 @@ class HydrometryConfig(BaseVariableConfig):
             date_end=end,
             sources=[
                 HydrometrySourceConfig(
-                    source="custom",
+                    source="file",
                     path=Path(path),
                     col_id=col_id,
                     col_x=col_x,

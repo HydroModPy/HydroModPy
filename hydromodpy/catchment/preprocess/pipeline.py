@@ -328,6 +328,7 @@ def _build_geographic_products(
         catchment_area_km2=delineation.catchment_area_km2,
         catchment_products=catchment_products,
         flow_products=delineation.flow_products,
+        dem_path=setup.dem_init_path,
     )
     # Only the outlet branch snaps; a dem or a polygon domain has no snap to report.
     return GeographicProducts(
@@ -346,6 +347,7 @@ def build_geographic_runtime_context(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
+    dem_path: str | Path | None = None,
     backend: object | None = None,
     reuse_existing_outputs: bool | None = None,
     network_map_path: str | Path | None = None,
@@ -363,6 +365,7 @@ def build_geographic_runtime_context(
     setup = prepare_geographic_run(
         config=config,
         out_dir_path=out_dir_path,
+        dem_path=dem_path,
     )
 
     tool = resolve_delineation_backend(backend)
@@ -371,6 +374,7 @@ def build_geographic_runtime_context(
         paths=setup.paths,
         crs_project=setup.crs_project,
         reuse_existing_outputs=reuse_existing_outputs,
+        dem_path=setup.dem_init_path,
     )
     if products is None:
         products = _build_geographic_products(config=config, setup=setup, tool=tool)

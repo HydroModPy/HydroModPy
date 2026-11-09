@@ -183,6 +183,26 @@ class FrozenConfigError(ConfigError):
     code = "HMPY.E106"
 
 
+class BoundsError(ConfigError):
+    """A call stepped outside the hosts or roots its ``Bounds`` allow.
+
+    A refusal of the settings of the call, not of the data: the message names
+    the host or the path, the list that was honoured, and the option that widens it.
+    """
+
+    code = "HMPY.E107"
+
+
+class CredentialsError(ConfigError):
+    """A credentials file is read and refuses: absent, misplaced, or carrying a bad block.
+
+    A file named and absent raises this and not :class:`FileNotFoundError`, so
+    the exit code stays the one of a configuration the caller has to fix.
+    """
+
+    code = "HMPY.E108"
+
+
 # -- Data ----------------------------------------------------------------------
 
 
@@ -773,6 +793,8 @@ __all__ = [
     "SchemaVersionTooNewError",
     "UnitAliasConflict",
     "FrozenConfigError",
+    "BoundsError",
+    "CredentialsError",
     # Data
     "DataError",
     "DataContractViolation",

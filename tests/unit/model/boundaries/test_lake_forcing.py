@@ -138,7 +138,7 @@ def _inflow_result(values: list[float]) -> SimpleNamespace:
     record = PointRecord(
         station_id="lac0",
         variable="lake_inflow",
-        source="custom",
+        source="file",
         unit="m3/s",
         frequency="D",
         data=pd.DataFrame({"datetime": pd.to_datetime(_WINDOW_DATES), "value": values}),
@@ -228,7 +228,7 @@ def _meteo_result(values_mm_day: list[float]) -> object:
     rec = PointRecord(
         station_id="grid_mean",
         variable="climatic",
-        source="custom",
+        source="file",
         unit="mm/day",
         frequency="D",
         data=pd.DataFrame({"datetime": pd.to_datetime(_WINDOW_DATES), "value": values_mm_day}),
@@ -459,7 +459,7 @@ def _runoff(values_mm_day: list[float]) -> object:
     rec = PointRecord(
         station_id="grid_mean",
         variable="climatic",
-        source="custom",
+        source="file",
         unit="mm/day",
         frequency="D",
         data=pd.DataFrame({"datetime": pd.to_datetime(_DATES), "value": values_mm_day}),

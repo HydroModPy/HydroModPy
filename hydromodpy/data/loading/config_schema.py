@@ -540,27 +540,32 @@ def _resolve_section_paths(
     Recurses into ``list[BaseModel]`` fields to resolve paths in nested
     sub-models (e.g. ``sources`` lists containing ``path`` fields).
 
-    When the field carries an ``InputFile`` annotation and the path is a
-    bare filename, the lookup also tries ``<workspace>/data/<role>/<file>``
-    so users can write ``path = "etp_sim2.nc"`` instead of the verbose
-    ``path = "../../data/etp/etp_sim2.nc"``.
+    A bare file name is refused when the file is not at the project root,
+    naming where the former workspace fallback would have found it, so the
+    user writes one path from the root and runs again.
     """
-    from hydromodpy.core.toml_io.paths import resolve_declared_path
+    from hydromodpy.core.toml_io.paths import (
+        BareInputNameError,
+        bare_name_refusal,
+        former_bare_name_location,
+        is_bare_filename,
+        resolve_declared_path,
+    )
 
     for field_name, field_info in model_cls.model_fields.items():
         value = data.get(field_name)
         if _is_path_field(field_info.annotation):
             if isinstance(value, str) and value:
-                role = _input_file_role_local(field_info) or role_hint
-                fallback_dirs: list[Path] | None = None
-                if workspace_data_dir is not None:
-                    fallback_dirs = []
-                    if role:
-                        fallback_dirs.append(workspace_data_dir / role)
-                    fallback_dirs.append(workspace_data_dir)
-                data[field_name] = str(
-                    resolve_declared_path(value, base_dir=base, fallback_dirs=fallback_dirs)
-                )
+                resolved = resolve_declared_path(value, base_dir=base)
+                if is_bare_filename(value) and not resolved.exists():
+                    role = _input_file_role_local(field_info) or role_hint
+                    raise BareInputNameError(
+                        bare_name_refusal(
+                            value,
+                            former=former_bare_name_location(value, workspace_data_dir, role=role),
+                        )
+                    )
+                data[field_name] = str(resolved)
             continue
 
         # Recurse into list[BaseModel] fields (e.g. sources). Supports

@@ -17,7 +17,7 @@ project root: the folder that holds ``project.toml`` above the file, or,
 outside a project, the folder of the root file of the chain.
 :func:`config_base_dir` returns it. A file two folders down (``plan/<hash>/
 <case>.toml``, ``runs/<case>/config.toml``) therefore names the same
-``dem_init_path`` as ``project.toml`` does.
+relative paths as ``project.toml`` does.
 """
 
 from __future__ import annotations

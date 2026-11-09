@@ -29,7 +29,7 @@ class _Launcher:
         self.executed = executed
         self.calls: list[dict[str, Any]] = []
 
-    def execute(self, plan: Any, ctx: Any, *, callbacks: Any, store: Any = None) -> Any:
+    def execute(self, plan: Any, ctx: Any, *, callbacks: Any = None, store: Any = None) -> Any:
         self.calls.append({"plan": plan, "ctx": ctx, "callbacks": callbacks, "store": store})
         return self.executed
 
@@ -113,7 +113,7 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
     launcher = _Launcher([(run_a, res_a), (run_b, res_b)])
     ctx = _ctx(persisted=True)
     RunSolverStep(launcher=launcher).run(_state(ctx=ctx))
-    assert launcher.calls[0]["store"] is store
+    assert launcher.calls[0]["store"] is None
     assert metrics == [(run_a, "sim-1", res_a), (run_b, "sim-1", res_b)]
     assert says == [(run_a, "sim-1"), (run_b, "sim-1")]
     assert store.facts.solver_output_dirs == {"7": "/out/a"}

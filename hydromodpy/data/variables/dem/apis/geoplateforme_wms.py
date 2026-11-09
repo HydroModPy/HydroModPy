@@ -12,16 +12,17 @@ from __future__ import annotations
 import math
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-import requests
 
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     GeoPlateformeDownloadError,
     RateLimiter,
-    default_session,
-    request_with_retries,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 WMS_URL = "https://data.geopf.fr/wms-r/wms"
 MAX_IMAGE_PX = 5010
@@ -98,7 +99,7 @@ def fetch_tile(
     layer: str,
     tile: WmsTile,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 120.0,
     rate_limiter: RateLimiter | None = None,
 ) -> np.ndarray:
@@ -125,13 +126,20 @@ def fetch_tile(
     }
     unreadable: _UnreadableAnswer | None = None
     for _ in range(_TILE_ATTEMPTS):
-        response = request_with_retries(
-            session or default_session(),
-            WMS_URL,
-            params=params,
-            timeout=timeout,
-            rate_limiter=rate_limiter,
-        )
+        if rate_limiter is not None:
+            rate_limiter.wait()
+        if client is not None:
+            response = client.request("GET", WMS_URL, params=params, timeout=timeout)
+        else:
+            from hydromodpy.core.io.fetch import open_client
+
+            with open_client(timeout=timeout) as c:
+                response = c.request("GET", WMS_URL, params=params, timeout=timeout)
+        status_code = getattr(response, "status_code", 200)
+        if status_code >= 400:
+            raise GeoPlateformeDownloadError(
+                f"Geoplateforme WMS request failed ({status_code}) for {WMS_URL}"
+            )
         try:
             return _read_answer(response.content, layer, tile)
         except _UnreadableAnswer as exc:

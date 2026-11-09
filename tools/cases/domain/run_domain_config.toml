@@ -19,18 +19,17 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 # Catchment definition mode.
-# 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
-# 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
+# 'dem' = model domain defined directly from a DEM raster (DEM source required).
+# 'txt' = model domain from an XYZ text file (DEM source, cell_size required).
 # 'from_outlet_coord' = watershed from outlet coordinates
-# (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
+# (x_outlet, y_outlet, snap_dist, buff_area required).
 # 'from_polyg_shp' = watershed from a polygon shapefile
-# (dem_init_path, polyg_shp_path, buff_area required).
+# (polyg_shp_path, buff_area required).
 kind = "from_outlet_coord"
 
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
-dem_init_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 
 # Base/example12 outlet kept for reference:
 # x_outlet = 265611.933
@@ -75,7 +74,12 @@ substratum_elevation = 0.0
 # (for example domain.zone_ids, flow.bc.<name>).
 # Allowed values: 'geology', 'hydrography', 'hydrometry',
 # 'intermittency', 'oceanic', 'piezometry'.
-types = ["geology"]
+types = ["dem", "geology"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+
 
 [data.geology]
 # Identifier of the geology spatial field.
@@ -89,6 +93,6 @@ cell_samples_per_axis = 8
 # Current config uses a reduced/custom shapefile for domain case testing.
 
 [[data.geology.sources]]
-source = "custom"
+source = "file"
 path = "../../../examples/data/geology/GEO1M_4x.shp"
 code_field = "CODE_LEG"

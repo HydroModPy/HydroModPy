@@ -46,6 +46,7 @@ period, and the solvers call it.
 | `dated_forcing.py` | The dated forcing of a boundary or a sink (`TimeSeriesForcing` and its readings) |
 | `forcing_bridge.py` | Turns a loaded record into a forcing (`resolve_forcing`) |
 | `interpolation.py` | Shared spatial interpolation utilities for structured grids |
+| `native.py` | The forcing at the step of its source, beside the period view (`NativeSeries`, `native_series`) |
 | `rasters.py` | Xarray and file-based fields on cell centers, and their spatial mean |
 | `recharge_rates.py` | The mean recharge the stream-network criterion divides by |
 | `sources.py` | Readers of a gridded or located source, shared by the forcing discretizers |

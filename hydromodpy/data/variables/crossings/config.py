@@ -17,12 +17,13 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 KINDS: tuple[str, ...] = ("road", "railway", "bridge", "weir", "dam", "other")
 """The values of the ``kind`` column, for every source."""
 
 
-class CustomCrossingsSource(HydroModelBase):
+class FileCrossingsSource(HydroModelBase):
     """User-provided crossings file (SHP/GPKG/GeoJSON).
 
     The file needs a ``kind`` column holding one of ``road``, ``railway``,
@@ -30,9 +31,9 @@ class CustomCrossingsSource(HydroModelBase):
     drop of a weir or a dam, in meters) are read when present.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' crossings provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' crossings provider.",
     )
     path: Annotated[
         Path,
@@ -51,6 +52,19 @@ class CustomCrossingsSource(HydroModelBase):
             "Fallback CRS used only when the file carries none of its own. Defaults to "
             "RGF93/Lambert-93 (EPSG:2154)."
         ),
+    )
+
+
+class UrlCrossingsSource(UrlSourceOptions, HydroModelBase):
+    """Remote crossings file, pinned by its sha256 when ``https`` is not used."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' crossings provider.",
+    )
+    default_crs: Annotated[str, Profile.USER] = Field(
+        default="EPSG:2154",
+        description="Fallback CRS when the file carries none of its own.",
     )
 
 
@@ -94,7 +108,7 @@ class RoeCrossingsSource(_ApiCrossingsSource):
 
 
 CrossingsSourceConfig: TypeAlias = Annotated[
-    CustomCrossingsSource | BdtopoCrossingsSource | RoeCrossingsSource,
+    FileCrossingsSource | UrlCrossingsSource | BdtopoCrossingsSource | RoeCrossingsSource,
     Field(
         discriminator="source",
         description=(

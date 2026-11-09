@@ -47,9 +47,9 @@ allowed:
     [criteria, metrics, observations, optim, parameter_resolution, protocols, runners, targets]
   "<init>": [config, optim, report, runners]
 
-# Rule 5: evaluation/registry.py names two of its built-in evaluators
-# (hydromodpy_pipeline -> runners.pipeline_evaluator, scored_forward_model ->
-# metrics.scored_forward) by a dotted path written as text, imported on the
+# Rule 5: evaluation/registry.py names its two built-in evaluators
+# (hydromodpy_pipeline -> runners.pipeline_evaluator, analytic_bowl ->
+# evaluation.analytic_bowl) by a dotted path written as text, imported on the
 # first lookup that asks for it. Both live below evaluation in the table
 # above; the text path is how they join it without evaluation importing them
 # at the top. Only this file may name a module of calibration that way.

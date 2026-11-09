@@ -10,32 +10,32 @@ from hydromodpy.data.variables.water_quality.config import WaterQualitySourceCon
 from hydromodpy.data.variables.water_quality.manager import WaterQualityManager
 
 
-def _load_custom(cfg, *, project_period=None):
+def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the water_quality manager does."""
-    return WaterQualityManager(
-        config=None, catalog=None, project_period=project_period
-    ).load_custom(cfg)
+    return WaterQualityManager(config=None, catalog=None, project_period=project_period).load_file(
+        cfg
+    )
 
 
 class TestWaterQualityCustomCSV:
     def test_load_two_sites(self, sample_wq_dir, project_period):
-        cfg = WaterQualitySourceConfig(source="custom", path=sample_wq_dir)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = WaterQualitySourceConfig(source="file", path=sample_wq_dir)
+        records = _load_file(cfg, project_period=project_period)
 
         assert len(records) == 2
         for r in records:
             assert r.variable == "water_quality"
-            assert r.source == "custom"
+            assert r.source == "file"
             assert r.unit == "mg/L"
             assert r.has_data
 
     def test_filter_ids(self, sample_wq_dir, project_period):
         cfg = WaterQualitySourceConfig(
-            source="custom",
+            source="file",
             path=sample_wq_dir,
             station_ids=["SITE02"],
         )
-        records = _load_custom(cfg, project_period=project_period)
+        records = _load_file(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "SITE02"
 
@@ -59,8 +59,8 @@ class TestWaterQualityCustomConstant:
             d / "waterquality_custom_S1_20200101_20200331_D.csv", index=False
         )
 
-        cfg = WaterQualitySourceConfig(source="custom", path=d)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = WaterQualitySourceConfig(source="file", path=d)
+        records = _load_file(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].is_constant
         assert records[0].data["value"].iloc[0] == pytest.approx(7.0)
@@ -83,8 +83,8 @@ class TestWaterQualityCustomConstant:
             d / "waterquality_custom_S_UG_20200101_20200331_D.csv", index=False
         )
 
-        cfg = WaterQualitySourceConfig(source="custom", path=d)
-        records = _load_custom(cfg, project_period=project_period)
+        cfg = WaterQualitySourceConfig(source="file", path=d)
+        records = _load_file(cfg, project_period=project_period)
 
         assert len(records) == 1
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)

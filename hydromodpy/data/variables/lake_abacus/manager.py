@@ -13,7 +13,7 @@ class LakeAbacusManager(BaseFileManager):
     VARIABLE_NAME = "lake_abacus"
     RECORD_KIND = "tables"
 
-    def read_custom(self, source_cfg: Any, *, derived_dir: Path | None) -> list[TableRecord]:
+    def read_file_source(self, source_cfg: Any, *, derived_dir: Path | None) -> list[TableRecord]:
         """Read a CSV or Parquet abacus."""
         from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
 

@@ -57,7 +57,10 @@ name = "nancon"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 """
 
 

@@ -11,10 +11,13 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import Sim2GridSourceConfig
+from hydromodpy.data.managers.timeseries_config import (
+    Sim2GridSourceConfig,
+    UrlSourceFieldsMixin,
+)
 
 
-class WindSourceConfig(Sim2GridSourceConfig):
+class WindSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
     """Configuration for one wind-speed data source.
 
     Wind sources load station or gridded wind-speed time series from custom

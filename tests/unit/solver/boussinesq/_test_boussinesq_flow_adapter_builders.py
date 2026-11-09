@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, Model, ModelTime, model_from_flow
@@ -31,7 +32,12 @@ class AdapterCall:
 
     def solve(self) -> SolverRun:
         """Validate, build and run, through the same function the runner calls."""
-        return solve_one(BoussinesqFlowAdapter(), self.model, self.options, self.slot, self.ctx)
+        try:
+            return solve_one(BoussinesqFlowAdapter(), self.model, self.options, self.slot, self.ctx)
+        except SolverError as exc:
+            if exc.run_id is None:
+                exc.run_id = self.ctx.run.id
+            raise
 
 
 def adapter_call(

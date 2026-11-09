@@ -93,9 +93,9 @@ def vector_geology_field(folder: Path):
     boxes = [box(350_000, 6_780_000, CONTACT_X, 6_784_000), box(CONTACT_X, 6_780_000, 354_000, 6_784_000)]  # fmt: skip
     path = folder / "units.gpkg"
     gpd.GeoDataFrame({"CODE": ["A", "B"]}, geometry=boxes, crs="EPSG:2154").to_crs("EPSG:4326").to_file(str(path), driver="GPKG")  # fmt: skip
-    sources = [SimpleNamespace(source="custom", code_field="CODE")]
+    sources = [SimpleNamespace(source="file", code_field="CODE")]
     return build_geology_field(
-        SimpleNamespace(data=str(path), source="custom"),
+        SimpleNamespace(data=str(path), source="file"),
         geology_cfg=SimpleNamespace(id="geology", cell_samples_per_axis=8, sources=sources),
         raster_support=vector_geology_support(),
     )

@@ -28,7 +28,13 @@ class _DummyWorkspace:
 
 class _DummyGeographic:
     def __init__(
-        self, config, workspace, *, reuse_existing_outputs=None, network_map_path=None
+        self,
+        config,
+        workspace,
+        *,
+        dem_path=None,
+        reuse_existing_outputs=None,
+        network_map_path=None,
     ) -> None:
         self.config = config
         self.workspace = workspace
@@ -65,7 +71,7 @@ class _DummyDomain:
 
 
 def _noop_ensure(state):
-    """No-op replacement for ensure_flow / ensure_transport in tests."""
+    """No-op replacement for ensure_flow in tests."""
 
 
 def _standard_geographic_cfg() -> SimpleNamespace:
@@ -84,4 +90,3 @@ def _patch_launcher_deps(monkeypatch):
     # tests are about. Stubbing it whole would stub what they assert.
     monkeypatch.setattr("hydromodpy.model.domain.build.Domain", _DummyDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", _noop_ensure)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_transport", _noop_ensure)

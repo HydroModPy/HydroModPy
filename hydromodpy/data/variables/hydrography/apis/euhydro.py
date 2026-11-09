@@ -19,13 +19,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.core.io.fetch import HTTPClient
+    from hydromodpy.data.source.port import FetchRequest, FetchResult
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -38,9 +39,20 @@ _TIMEOUT = 300
 _PAGING_GUARD = 2_000_000
 
 
-def _mapserver_pjson() -> dict:
-    r = get_default_client().get(BASE_URL, params={"f": "pjson"}, timeout=_TIMEOUT)
+def _get(url: str, params: dict[str, Any], *, client: HTTPClient | None = None) -> Any:
+    if client is not None:
+        r = client.get(url, params=params, timeout=_TIMEOUT)
+    else:
+        from hydromodpy.core.io.fetch import open_client
+
+        with open_client() as c:
+            r = c.get(url, params=params, timeout=_TIMEOUT)
     r.raise_for_status()
+    return r
+
+
+def _mapserver_pjson(*, client: HTTPClient | None = None) -> dict:
+    r = _get(BASE_URL, {"f": "pjson"}, client=client)
     return r.json()
 
 
@@ -65,13 +77,12 @@ def _feature_layer_ids_in_group(ms: dict, group_name: str) -> list[int]:
     return sorted(set(ids))
 
 
-def _layer_name(layer_id: int) -> str:
-    r = get_default_client().get(
+def _layer_name(layer_id: int, *, client: HTTPClient | None = None) -> str:
+    r = _get(
         f"{BASE_URL}/{layer_id}",
-        params={"f": "pjson"},
-        timeout=_TIMEOUT,
+        {"f": "pjson"},
+        client=client,
     )
-    r.raise_for_status()
     return r.json().get("name", str(layer_id))
 
 
@@ -80,6 +91,8 @@ def _query_page_geojson(
     bbox_wgs84: tuple[float, float, float, float],
     offset: int,
     limit: int,
+    *,
+    client: HTTPClient | None = None,
 ) -> dict:
     lon_min, lat_min, lon_max, lat_max = bbox_wgs84
     url = f"{BASE_URL}/{layer_id}/query"
@@ -97,8 +110,7 @@ def _query_page_geojson(
         "resultRecordCount": limit,
         "orderByFields": "OBJECTID",
     }
-    r = get_default_client().get(url, params=params, timeout=_TIMEOUT)
-    r.raise_for_status()
+    r = _get(url, params, client=client)
     data = r.json()
     if isinstance(data, dict) and "error" in data:
         raise RuntimeError(f"ArcGIS error for layer {layer_id}: {data['error']}")
@@ -110,6 +122,8 @@ def _fetch_layer(
     bbox_wgs84: tuple[float, float, float, float],
     page_size: int,
     label: str,
+    *,
+    client: HTTPClient | None = None,
 ) -> gpd.GeoDataFrame:
     """Download features for a single layer with pagination."""
     import geopandas as gpd
@@ -118,7 +132,7 @@ def _fetch_layer(
     offset = 0
 
     while True:
-        data = _query_page_geojson(layer_id, bbox_wgs84, offset, page_size)
+        data = _query_page_geojson(layer_id, bbox_wgs84, offset, page_size, client=client)
         batch = data.get("features", [])
         features.extend(batch)
         got = len(batch)
@@ -138,6 +152,8 @@ def _fetch_layer(
 def fetch(
     config: HydrographySourceConfig,
     bbox_wgs84: tuple[float, float, float, float],
+    *,
+    client: HTTPClient | None = None,
 ) -> gpd.GeoDataFrame:
     """Download EU-Hydro features inside *bbox_wgs84*.
 
@@ -149,7 +165,7 @@ def fetch(
     group_name = config.group_name
     page_size = config.euhydro_page_size
 
-    ms = _mapserver_pjson()
+    ms = _mapserver_pjson(client=client)
     layer_ids = _feature_layer_ids_in_group(ms, group_name)
     logger.info("[EU-Hydro] feature layers under '%s': %s", group_name, layer_ids)
 
@@ -157,12 +173,12 @@ def fetch(
         logger.warning("No EU-Hydro feature layers found for group '%s'.", group_name)
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
-    names = {lid: _layer_name(lid) for lid in layer_ids}
+    names = {lid: _layer_name(lid, client=client) for lid in layer_ids}
 
     gdfs: list[gpd.GeoDataFrame] = []
     for lid in layer_ids:
         lname = names.get(lid, str(lid))
-        gdf = _fetch_layer(lid, bbox_wgs84, page_size, label=lname)
+        gdf = _fetch_layer(lid, bbox_wgs84, page_size, label=lname, client=client)
         if not gdf.empty:
             gdf["layer_id"] = lid
             gdf["layer_name"] = lname
@@ -213,7 +229,9 @@ class EuHydroSource(FeatureSource):
         self.group_name = group_name
         self.euhydro_page_size = euhydro_page_size
 
-    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient | None = None
+    ) -> gpd.GeoDataFrame:
         from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
         config = HydrographySourceConfig(
@@ -221,7 +239,32 @@ class EuHydroSource(FeatureSource):
             group_name=self.group_name,
             euhydro_page_size=self.euhydro_page_size,
         )
-        return fetch(config, bbox)
+        return fetch(config, bbox, client=client)
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        from hydromodpy.core.io.fetch import open_client
+        from hydromodpy.data.source.port import (
+            FetchResult,
+            extent_for,
+            require_period,
+            require_selectors,
+        )
+
+        require_selectors(self, request)
+        require_period(self, request)
+        extent = extent_for(self, request)
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds) as client:
+            features = self.download(extent.bbox, client=client)
+        return FetchResult(
+            source_id=self.source_id,
+            kind=self.payload_kind,
+            variables=self.variables,
+            extent=extent,
+            period=None,
+            features=features,
+            metadata=self.metadata(),
+        )
 
     def metadata(self) -> dict[str, Any]:
         return {"group_name": self.group_name}

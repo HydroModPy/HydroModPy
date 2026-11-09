@@ -22,6 +22,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
 logger = get_logger(__name__)
@@ -50,8 +51,14 @@ def configure(
     solver: str | None,
     headless: bool,
     no_display: bool,
+    environment: Environment | None = None,
 ) -> None:
-    """Resolve the config, time grid and data plan, then build an empty ctx."""
+    """Resolve the config, time grid and data plan, then build an empty ctx.
+
+    ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+    of the call that opened the project. Only its bounds cross here: they ride
+    on the workflow context, and the object itself stays on the project state.
+    """
     from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -103,10 +110,12 @@ def configure(
         cfg=project._cfg,
         config_path=project._config_path or Path.cwd(),
         raw_toml=raw_toml,
+        bounds=environment.bounds if environment is not None else None,
     )
     project._ctx.data_plan = data_plan
     project._ctx.setup.time_grid = project._time_grid
 
+    project._environment = environment
     project._headless = headless
     project._no_display = no_display
 

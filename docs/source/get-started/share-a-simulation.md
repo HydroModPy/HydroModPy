@@ -35,7 +35,7 @@ Every file the run read, as `inputs.json` names it, and nothing else:
 | What the run read | Where it lands in the other workspace |
 |---|---|
 | A station series of your own (`hydrometry_custom_NANCON_..._D.csv`) | `data/hydrometry/`, with its row in `hydrometry_custom_LOC.csv` |
-| The DEM of `dem_init_path`, a GeoPackage of `[[data.hydrography.sources]]` | `data/dem/`, `data/hydrography/` |
+| The DEM of `[[data.dem.sources]]` (`source = "file"`), a GeoPackage of `[[data.hydrography.sources]]` | `data/dem/`, `data/hydrography/` |
 | A file Hub'Eau, SIM2 or BD Topage delivered | the same folder, with its sidecar `<file>.json`, its station row, and its row in `data/cache.duckdb` |
 | The `[site]` of the run | a row of `data/sites/catalog.csv` |
 
@@ -70,7 +70,7 @@ Topage. A file of your own is `LicenseRef-undetermined` until you declare its li
 `license` key of its sidecar:
 
 ```json
-{"source": "custom", "license": "CC-BY-4.0"}
+{"source": "file", "license": "CC-BY-4.0"}
 ```
 
 `hmp publish --public --with inputs` refuses an archive that would carry an input whose licence
@@ -78,11 +78,10 @@ does not allow redistribution, and names each one.
 
 ## The configuration travels without your paths
 
-The frozen `config.toml` of a run names each input in the form that finds it again in any
-workspace: a bare name looked up in `data/` (`DEM_armorican_massif.tif`, `hydrometry`), or a
-path relative to the project. The record of the run, `manifest.json` and `inputs.json`, names
-them relative to the workspace (`data/dem/DEM_armorican_massif.tif`). No path of your machine
-leaves with the archive.
+The frozen `config.toml` of a run names each input with a path relative to the project root,
+typically under `inputs/`. Bare file names are no longer looked up in fallback workspace data
+folders. The record of the run, `manifest.json` and `inputs.json`, names them relative to the
+workspace (`data/dem/DEM_armorican_massif.tif`). No path of your machine leaves with the archive.
 
 ## A whole project
 

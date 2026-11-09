@@ -127,6 +127,8 @@ class ToyCtx:
     cfg: Any
     config_path: Path
     raw_toml: dict[str, Any]
+    # The bounds of the call, as WorkflowContext carries them now.
+    bounds: Any = None
     data_plan: Any = None
     setup: Setup = field(default_factory=Setup)
     loaded_data: Any = None
@@ -146,6 +148,8 @@ class FakeCtx:
         )
         self.loaded_data = SimpleNamespace()
         self.data_plan = None
+        # The bounds of the call, as WorkflowContext carries them now.
+        self.bounds = None
         self.execution = ExecutionRegistry()
         self.store = None
 
@@ -219,7 +223,7 @@ def fake_pipeline(monkeypatch, tmp_path):
     """
     promoted: list[dict] = []
 
-    def prepare(cfg_path, *, override_paths, steps=None, parameter_space=None):
+    def prepare(cfg_path, *, override_paths, steps=None, parameter_space=None, bounds=None):
         raw = tomllib.loads(Path(cfg_path).read_text(encoding="utf-8"))
         cfg = _Cfg()
         paths = (
@@ -303,7 +307,14 @@ class FakeRunner:
             )
 
     def prepare_trials(
-        self, cfg_path, *, override_paths, steps=None, parameter_space=None, config_overrides=None
+        self,
+        cfg_path,
+        *,
+        override_paths,
+        steps=None,
+        parameter_space=None,
+        config_overrides=None,
+        bounds=None,
     ) -> TrialContext:
         self.prepared.append(dict(override_paths))
         self.overridden.append(dict(config_overrides or {}))

@@ -170,11 +170,11 @@ def _domain(
         ncols=50,
     )
     geology = build_geology_field(
-        SimpleNamespace(data=str(path), source="custom"),
+        SimpleNamespace(data=str(path), source="file"),
         geology_cfg=SimpleNamespace(
             id="geology",
             cell_samples_per_axis=8,
-            sources=[SimpleNamespace(source="custom", code_field="CODE")],
+            sources=[SimpleNamespace(source="file", code_field="CODE")],
         ),
         raster_support=support,
     )

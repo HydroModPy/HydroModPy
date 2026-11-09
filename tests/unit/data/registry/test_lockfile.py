@@ -234,11 +234,13 @@ def _run_cli_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setitem(
         project_workflow.DISPATCH,
         "overview",
-        lambda path: SimpleNamespace(to_dict=lambda: {"sim_id": "stub", "name": "stub"}),
+        lambda path, **_: SimpleNamespace(to_dict=lambda: {"sim_id": "stub", "name": "stub"}),
     )
     monkeypatch.chdir(workspace)
 
-    args = argparse.Namespace(config=str(config_path))
+    args = argparse.Namespace(
+        config=str(config_path), credentials=None, allow_host=None, max_download_bytes=None
+    )
     run_cmd.run(args)
     return workspace
 
@@ -311,7 +313,7 @@ def _seed_catalog(tmp: Path) -> tuple[DataCatalogDuckDB, Path]:
     src = tmp / "x.csv"
     src.write_text("a,b\n1,2\n")
     cat = DataCatalogDuckDB(cache)
-    cat.register(variable="hydrometry", source="custom", station_id="A", file_path=src)
+    cat.register(variable="hydrometry", source="file", station_id="A", file_path=src)
     return cat, src
 
 
@@ -668,7 +670,7 @@ def test_project_runner_binds_the_project_root_it_runs(
             domain=None,
             flow=None,
             run_id=None,
-            flow_runtime_overrides=None,
+            slot_request=None,
         ),
         data_plan=SimpleNamespace(types=()),
         raw_toml={},

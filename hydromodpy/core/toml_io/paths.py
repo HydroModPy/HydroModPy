@@ -59,6 +59,20 @@ def source_of_effective_copy(path: Path) -> Path:
     return path
 
 
+_SCHEME_PATTERN = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.\-]*):")
+
+
+def has_url_scheme(value: str) -> bool:
+    """Return True when value starts with a URL scheme of two letters or more.
+
+    A single-letter prefix before a colon is a Windows drive letter, not a scheme.
+    """
+    match = _SCHEME_PATTERN.match(str(value))
+    if match is None:
+        return False
+    return len(match.group("scheme")) > 1
+
+
 def is_declared_absolute_path(path: Path) -> bool:
     """Return True for absolute paths, including drive-less rooted paths."""
     if path.is_absolute():
@@ -66,9 +80,9 @@ def is_declared_absolute_path(path: Path) -> bool:
     return path.drive == "" and path.root in {"/", "\\"}
 
 
-def _is_bare_filename(path: Path) -> bool:
+def is_bare_filename(path: Path | str) -> bool:
     """True when ``path`` has no separator and no ``..`` traversal."""
-    parts = path.parts
+    parts = Path(path).parts
     if len(parts) != 1:
         return False
     if parts[0] in ("", ".", ".."):
@@ -76,42 +90,62 @@ def _is_bare_filename(path: Path) -> bool:
     return True
 
 
+def former_bare_name_location(
+    raw: str | Path,
+    workspace_data_dir: Path | None,
+    role: str | None = None,
+) -> Path | None:
+    """Return where the former bare-name fallback would have found the file."""
+    if workspace_data_dir is None:
+        return None
+    data_dir = Path(workspace_data_dir).resolve()
+    candidates = [data_dir / role, data_dir] if role else [data_dir]
+    path = Path(raw)
+    for candidate_dir in candidates:
+        candidate = (candidate_dir / path).resolve()
+        if candidate.exists():
+            return candidate
+    return None
+
+
+class BareInputNameError(ConfigError):
+    """A config path is a bare file name and no file of that name is at the root.
+
+    Typed apart because a loader that forgives a project whose data is absent
+    from the machine must not forgive a path in a form 2.1.0 refuses.
+    """
+
+
+def bare_name_refusal(name: str, *, former: Path | None) -> str:
+    """The refusal a config path that is a bare file name carries.
+
+    Same text at the refusal the loader raises and in the doctor, so a user
+    reads one message whatever read the name. *former*, when the file exists
+    where the former workspace fallback would have found it, names the path
+    to write from the project root.
+    """
+    exists = f"for example '{former}'" if former is not None else f"for example 'inputs/{name}'"
+    return (
+        f"inputs '{name}' is a bare name. HydroModPy no longer looks it up in the "
+        f"workspace data folder. Write the path from the project root, {exists}, "
+        "or move the file under inputs/."
+    )
+
+
 def resolve_declared_path(
     raw_value: str | Path,
     *,
     base_dir: Path,
-    fallback_dirs: Iterable[Path] | None = None,
 ) -> Path:
-    """Resolve one config path against ``base_dir`` (or a fallback dir).
+    """Resolve one config path against ``base_dir``.
 
-    Resolution order:
-
-    1. Absolute paths (including ``~``) are returned as-is.
-    2. Paths that contain a separator or a ``..`` segment are resolved
-       against ``base_dir`` (legacy behavior).
-    3. Bare filenames (e.g. ``"etp_sim2.nc"``) are looked up against
-       ``base_dir`` first, then each ``fallback_dirs`` entry. The first
-       existing match wins. If nothing exists yet (the file may be
-       generated later), the ``base_dir`` resolution is returned so the
-       error message stays predictable.
+    Absolute paths (including ``~``) are returned as-is. Relative paths are
+    resolved against ``base_dir`` and nowhere else.
     """
     path = Path(raw_value).expanduser()
     if is_declared_absolute_path(path):
         return path
-
-    primary = (base_dir / path).resolve()
-    if not _is_bare_filename(path) or fallback_dirs is None:
-        return primary
-
-    if primary.exists():
-        return primary
-    for candidate_dir in fallback_dirs:
-        if candidate_dir is None:
-            continue
-        candidate = (Path(candidate_dir) / path).resolve()
-        if candidate.exists():
-            return candidate
-    return primary
+    return (base_dir / path).resolve()
 
 
 def get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
@@ -146,13 +180,10 @@ def portable_declared_path(
     The inverse of :func:`resolve_declared_path` for a configuration read
     from the project root, in this order:
 
-    1. a bare name, when the bare name resolves to the same file through the
-       ``<data_dir>/<role>/`` and ``<data_dir>/`` fallbacks
-       (``DEM_armorican_massif.tif``, ``hydrometry``);
-    2. a path under the project root, relative to it (``inputs/zones.shp``);
-    3. a path under the workspace that holds *data_dir*, relative to the
+    1. a path under the project root, relative to it (``inputs/zones.shp``);
+    2. a path under the workspace that holds *data_dir*, relative to the
        project root (``../../data/geology/map.gpkg``);
-    4. any other path, absolute as it is: it names a place outside the
+    3. any other path, absolute as it is: it names a place outside the
        workspace, which no copy of the workspace carries.
     """
     target = Path(path).expanduser()
@@ -160,24 +191,12 @@ def portable_declared_path(
         return str(path)
     target = target.resolve()
     root = Path(project_root).resolve()
-    data = None if data_dir is None else Path(data_dir).resolve()
-    if data is not None:
-        fallback = [data / role, data] if role else [data]
-        if resolve_declared_path(target.name, base_dir=root, fallback_dirs=fallback) == target:
-            return target.name
     if target.is_relative_to(root):
         return target.relative_to(root).as_posix()
-    if data is not None and target.is_relative_to(data.parent):
-        return Path(os.path.relpath(target, root)).as_posix()
-    return str(target)
-    data = Path(data_dir).resolve()
-    fallback = [data / role, data] if role else [data]
-    bare = target.name
-    if resolve_declared_path(bare, base_dir=root, fallback_dirs=fallback) == target:
-        return bare
-    workspace = data.parent
-    if target.is_relative_to(workspace):
-        return Path(os.path.relpath(target, root)).as_posix()
+    if data_dir is not None:
+        data = Path(data_dir).resolve()
+        if target.is_relative_to(data.parent):
+            return Path(os.path.relpath(target, root)).as_posix()
     return str(target)
 
 

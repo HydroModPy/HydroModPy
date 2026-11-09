@@ -20,6 +20,7 @@ from typing import Annotated, Any, TypeGuard, Union, get_args, get_origin
 from pydantic import BaseModel, Field
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 
 #: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
@@ -85,8 +86,14 @@ def _table_field(table: type[BaseModel]) -> FieldInfo:
     """Return a field that stands for a named table of model *table*, described by its docstring."""
     doc = (table.__doc__ or "").strip().split("\n\n", 1)[0]
     description = " ".join(line.strip() for line in doc.splitlines())
+    required = any(field.is_required() for field in table.model_fields.values())
+    default: dict[str, Any] = {} if required else {"default_factory": table}
+    # A table class marks itself with the ClassVar ``stability``, as a field does.
+    stability = getattr(table, "stability", None)
+    if isinstance(stability, str):
+        default["json_schema_extra"] = field_metadata(stability=stability)
     return FieldInfo.from_annotated_attribute(
-        Annotated[table, Profile.USER], Field(default_factory=table, description=description)
+        Annotated[table, Profile.USER], Field(description=description, **default)
     )
 
 

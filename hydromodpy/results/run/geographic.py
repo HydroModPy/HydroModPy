@@ -151,9 +151,10 @@ class RunGeographicMixin:
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for lumped simulations (``solver_category``
-        ``"lumped"``) which have no spatial discretization, or when
-        geographic metadata has not been ingested.
+        A global model on the one-cell mesh answers like any run, from the one
+        pixel its DEM stores.
+
+        Raises ``RuntimeError`` when geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
 

@@ -15,7 +15,7 @@ import pytest
 from shapely.geometry import box
 
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.variables.geology.config import CustomGeologySource, GeologyConfig
+from hydromodpy.data.variables.geology.config import FileGeologySource, GeologyConfig
 from hydromodpy.data.variables.geology.custom import load_custom_geology
 from hydromodpy.data.variables.geology.manager import GeologyManager
 
@@ -45,8 +45,8 @@ def test_the_manager_clips_a_wgs84_file_with_a_lambert_mask(tmp_path: Path) -> N
         manager = GeologyManager(
             config=GeologyConfig(
                 sources=[
-                    CustomGeologySource(
-                        source="custom", path=user_file, code_field="CODE", mask_path=mask
+                    FileGeologySource(
+                        source="file", path=user_file, code_field="CODE", mask_path=mask
                     )
                 ]
             ),
@@ -70,7 +70,7 @@ def test_the_manager_clips_a_wgs84_file_with_a_lambert_mask(tmp_path: Path) -> N
 
 def test_a_box_that_misses_the_file_names_the_file_and_its_crs(tmp_path: Path) -> None:
     user_file = _write_units_in_wgs84(tmp_path / "units.gpkg")
-    source = CustomGeologySource(source="custom", path=user_file, code_field="CODE")
+    source = FileGeologySource(source="file", path=user_file, code_field="CODE")
     with pytest.raises(ValueError, match=r"No geology feature of units\.gpkg intersects"):
         load_custom_geology(
             source,

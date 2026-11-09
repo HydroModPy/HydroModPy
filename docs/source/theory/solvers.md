@@ -294,7 +294,7 @@ stress packages.
 | DRN | if the `drainage` boundary is active |
 | WEL | if a well exists |
 | OC: head and budget at every step | always |
-| LMT: the link file for MT3DMS | only when an MT3DMS process follows |
+| LMT: the link file of MT3DMS | when a transport follows |
 
 The static ocean and side boundaries are not CHD rows. They are cells with a negative
 `ibound` in BAS, which imposes the starting head on them. Four things differ from
@@ -405,6 +405,15 @@ two cell centers only: on triangles far from equilateral it is not consistent, a
 patch test of {doc}`validation` shows the error that refinement does not remove. Its
 equations and closures are on {doc}`boussinesq`.
 
+## The linear reservoir
+
+The sixth solver replaces the grid of the aquifer with one state: the depth of water on
+the cell. It integrates `ds/dt = R - s/tau` exactly on every piece of constant rate the
+run carries, where `R` is the recharge of the run and `tau` the time constant of
+`[solver.linear_reservoir]`. One discharge and one reservoir storage leave the solve for
+every period, at the station of the whole catchment, and the budget rows of the terms
+recharge, drain and storage close it on the mass by construction.
+
 (solvers-transport-coupling)=
 ## Transport coupling
 
@@ -420,23 +429,43 @@ The pairs are declared by each adapter as its `requires` attribute.
 | `modpath` | `modflow_nwt` | particle tracking, MODPATH 6 |
 | `mt3dms` | `modflow_nwt` | concentration, MT3DMS |
 
+The adapter of a transport receives four objects from the runner. `model` is the frozen
+`Model` the flow was built from, the only `Model` a transport works from. `options` is the
+validated table of its solver, `[transport.modflow6]` for the GWT of MODFLOW 6. The folder
+it works in is the folder of the flow run itself, and `upstream[0]` is the `SolverRun` of
+that flow.
+
+What a transport declares as its `reads` is `face_flow`: the flux across each connection
+between two cells, at every time step, in the format the solver files of the flow carry.
+MODFLOW 6 writes it as `FLOW-JA-FACE` in the cell-by-cell budget file of every step;
+MODFLOW-NWT writes its face flows in the same file, and the link file of MT3DMS reads
+from it. The flow solver writes what `reads` needs: a file that pairs a transport with a
+flow solver that writes none of it is refused when the file is read, with the flow
+solvers that write it. A transport of the family of its flow reaches what it reads
+through that flow run, and none of them reads the run store during the solve. A
+concentration transport stores its answer under the name of the solute,
+`concentration/<spc_name>` in the run store, and a store written by a 2.0.0 run still
+reads from the bare path.
+
 ### MODFLOW 6 GWT
 
 `Modflow6Transport` adds a [GWT](https://modflow6.readthedocs.io/en/latest/_mf6io/gwt-nam.html)
 model to the MODFLOW 6 simulation of the flow run {cite:p}`langevin2022gwt`. It reuses the
 DISV grid and the `idomain` of the flow model, couples the two models with a `GWF6-GWT6`
-exchange, and gives GWT its own IMS with `BICGSTAB`, because advection makes the matrix
+exchange, writes the whole simulation again and solves it: the flow is then solved twice,
+in the same folder. It gives GWT its own IMS with
+`BICGSTAB`, because advection makes the matrix
 non-symmetric. The transport solve is linear, so it uses the configured complexity and no
 Newton promotion. What HydroModPy sets in the GWT model:
 
-- advection with the scheme of {toml}`transport.modflow6gwt.parameters.scheme`;
-- dispersion only when {toml}`transport.modflow6gwt.parameters.disp_long` or
-  {toml}`transport.modflow6gwt.parameters.diffu_coeff` is above zero;
-- the mobile storage with {toml}`transport.modflow6gwt.parameters.porosity`. Without it,
+- advection with the scheme of {toml}`transport.modflow6.scheme`;
+- dispersion only when {toml}`transport.modflow6.disp_long` or
+  {toml}`transport.modflow6.diffu_coeff` is above zero;
+- the mobile storage with {toml}`transport.modflow6.porosity`. Without it,
   the code falls back on the specific yield and warns that this underestimates the pore
   volume, because the pore velocity is the Darcy flux divided by the porosity;
-- decay of order zero or one, from {toml}`transport.modflow6gwt.parameters.react_order`
-  and {toml}`transport.modflow6gwt.parameters.rate_decay`.
+- decay of order zero or one, from {toml}`transport.modflow6.react_order`
+  and {toml}`transport.modflow6.rate_decay`.
 
 Recharge is the only source of solute. Its concentration travels as the `CONCENTRATION`
 auxiliary variable of RCHA, and the source and sink mixing package reads it. Constant-head
@@ -452,9 +481,17 @@ model on the same flow model. It needs the cell-by-cell velocity that
 ### MODFLOW-NWT: MODPATH and MT3DMS
 
 MODPATH builds a MODPATH 6 input from the NWT run and stops if the flow model is not
-MODFLOW-NWT. MT3DMS needs the link file that the LMT package writes. NWT adds LMT only when
-an MT3DMS process is planned after it. The file name is
-{toml}`solver.modflow_nwt.runtime.lmt.output_file_name`. In the code: `_requires_mt3dms_link`.
+MODFLOW-NWT. MT3DMS reads the link file that the LMT package writes, and NWT adds LMT
+when a transport run follows it: the run declares `face_flow` through its `reads`, which
+the runner collects into the `hand_off` member of the slot of the flow run. The file name is
+{toml}`solver.modflow_nwt.runtime.lmt.output_file_name`. In the code: `hand_off`, filled
+by `slot_for` of the runner.
+
+MODPATH releases its particles from the seepage areas of the flow run when
+{toml}`transport.modpath.zone_partic` is `"seepage_clip"`. The mask is built from the
+heads of the flow run itself, the water table of the first stored step against the
+topography at half a drain band depth, exactly the rule the run store derives for its
+`seepage_mask`, and the store is never read during the solve.
 
 ## Assumptions
 
@@ -502,6 +539,8 @@ warning instead of a refusal. The refusals are these.
   that a figure derives from the stored band.
 - **Transport.** A transport solver follows the flow solvers its `requires` names. It is refused
   when {toml}`solver.backend` names another flow solver, with the flow solvers it follows.
+  It is refused too when the flow solver of the file writes none of what the transport
+  reads, `face_flow`, with the flow solvers that write it.
 - **Hotstart and cyclic spin-up.** {toml}`flow.restart_from` and a cyclic spin-up need
   MODFLOW 6, the only solver that lists the two traits in `supports`. A restart beside a
   steady or a cyclic start is refused for every solver, because the computed start would
@@ -583,8 +622,8 @@ hydromodpy.solver.boussinesq
 | Budget discrepancy | `hydromodpy/solver/modflow_common/flow_adapter_helpers.py` (`model_percent_discrepancies`), `hydromodpy/calibration/runners/verdict.py` (`water_budget_verdict`) |
 | MODFLOW-NWT: solver and packages | `hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py` (`_build_dis_package`, `_initialize_solver_packages`), `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` (`assemble_flopy_packages`) |
 | Boussinesq: time loop and size limit | `hydromodpy/solver/boussinesq/drivers/transient.py`, `hydromodpy/solver/boussinesq/boussinesq.py` |
-| Transport solvers | `hydromodpy/solver/modflow6/transport.py`, `hydromodpy/solver/modflow6/prt.py`, `hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py`, `hydromodpy/solver/modflow_nwt/modpath/modpath.py` |
-| Which transport follows which flow | `requires` of each adapter in `hydromodpy/solver/*/adapters/`, `hydromodpy/solver/base/planner.py` |
+| Transport solvers | the four files that each hold an engine model and its adapter: `hydromodpy/solver/modflow6/transport.py`, `hydromodpy/solver/modflow6/prt.py`, `hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py`, `hydromodpy/solver/modflow_nwt/modpath/modpath.py` |
+| Which transport follows which flow | the `requires` of each adapter, in the file of its engine under `hydromodpy/solver/<backend>/`, and `hydromodpy/solver/base/planner.py` |
 | Solver names, what each backend declares, refusals at read time | `hydromodpy/solver/base/registry.py`, `hydromodpy/model/supports.py`, `hydromodpy/config/hydromodpy_config.py`, `hydromodpy/model/boundaries/boundary_condition_registry.py` |
 
 ## See also

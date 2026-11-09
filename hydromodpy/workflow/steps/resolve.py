@@ -32,6 +32,7 @@ class ResolveStep:
 
     name = "resolve"
     reads: ClassVar[tuple[str, ...]] = (
+        "bounds",
         "cfg",
         "config_path",
         "ctx",
@@ -66,6 +67,7 @@ class ResolveStep:
         from hydromodpy.workflow.steps.data import log_data_plan
 
         ctx = state.get("ctx")
+        bounds = state.get("bounds")
         if ctx is None:
             cfg = state.get("cfg")
             if cfg is None:
@@ -82,7 +84,16 @@ class ResolveStep:
 
                 raw_toml = load_toml_with_base_config(config_path, root=ROOT_CONFIG)
 
-            ctx = WorkflowContext(cfg=cfg, config_path=config_path, raw_toml=raw_toml)
+            ctx = WorkflowContext(
+                cfg=cfg,
+                config_path=config_path,
+                raw_toml=raw_toml,
+                bounds=bounds,
+            )
+        elif bounds is not None:
+            # A context built by an earlier phase carries the bounds of the
+            # call that built it; a resolve that names one hands it over.
+            ctx.bounds = bounds
         else:
             cfg = ctx.cfg
             raw_toml = state.get("raw_toml") or ctx.raw_toml

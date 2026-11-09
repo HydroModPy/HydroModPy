@@ -145,7 +145,9 @@ def run_domain_case_from_toml(
             workspace=workspace,
         )
     else:
-        geographic = CatchmentDelineation(cfg.geographic, workspace)
+        geographic = CatchmentDelineation(
+            cfg.geographic, workspace, dem_path=Path(cfg.data.dem.sources[0].path)
+        )
     geographic_context = geographic.get_domain_geographic_context()
     try:
         (

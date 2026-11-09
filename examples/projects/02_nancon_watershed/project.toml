@@ -63,7 +63,6 @@ kind = "from_outlet_coord"
 # Regional DEM used for flow analysis. The bare filename is
 # auto-resolved against `<workspace>/data/dem/` (convention over
 # configuration); absolute or `../`-paths are accepted too.
-dem_init_path = "DEM_armorican_massif.tif"
 
 # Outlet coordinates of the Nançon gauging station, in EPSG:2154.
 x_outlet = 389285.91
@@ -114,8 +113,8 @@ types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 # `../`-prefixed paths still work and override the lookup.
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 
 # Geology source. BRGM 1:1M is the national French geological map.
@@ -140,9 +139,9 @@ date_start = "2000-01-01"
 date_end = "2002-12-31"
 
 [[data.hydrometry.sources]]
-source = "custom"
+source = "file"
 # Bare folder name resolved under `<workspace>/data/hydrometry`.
-path = "hydrometry"
+path = "../../data/hydrometry"
 # `extent = "watershed"` filters stations with the catchment polygon.
 extent = "watershed"
 station_ids = []
@@ -155,9 +154,9 @@ date_start = "2000-01-01"
 date_end = "2002-12-31"
 
 [[data.recharge.sources]]
-source = "custom"
+source = "file"
 # Bare folder name resolved under `<workspace>/data/recharge`.
-path = "recharge"
+path = "../../data/recharge"
 # `EX04` is the Nançon-area sample station shipped with the examples.
 station_ids = ["EX04"]
 
@@ -172,9 +171,9 @@ date_start = "2000-01-01"
 date_end = "2002-12-31"
 
 [[data.runoff.sources]]
-source = "custom"
+source = "file"
 # Bare folder name resolved under `<workspace>/data/runoff`.
-path = "runoff"
+path = "../../data/runoff"
 station_ids = ["EX04"]
 
 

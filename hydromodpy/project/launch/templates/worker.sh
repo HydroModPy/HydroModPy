@@ -19,6 +19,9 @@ while IFS= read -r flag; do
         RUN_FLAGS+=("$flag")
     fi
 done <<< "$FLAGS_TEXT"
+# The environment flags were written quoted for bash where they were rendered,
+# so the array assignment reads each one as exactly one flag, whatever it holds.
+ENVIRONMENT_FLAGS=({{ENVIRONMENT_FLAGS}})
 TASK_JOB_ID="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 TASK_LOG="$JOB_DIR/logs/{{LOG_PREFIX}}-$TASK_JOB_ID.out"
 
@@ -31,7 +34,7 @@ forward_term() {
 }
 trap forward_term TERM
 
-"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML" ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"} &
+"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML" ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"} ${ENVIRONMENT_FLAGS[@]+"${ENVIRONMENT_FLAGS[@]}"} &
 worker=$!
 wait "$worker"
 status=$?

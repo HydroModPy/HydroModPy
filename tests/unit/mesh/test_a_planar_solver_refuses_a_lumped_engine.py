@@ -3,7 +3,8 @@
 MODFLOW 6 accepts ``*planar``, and the ``catchment`` engine gives one polygon
 cell, so the type of its cells alone would let it through. One cell is no grid for
 MODFLOW 6, so the file is refused while it loads, and the message says that the
-token leaves lumped engines out. A solver reads a lumped engine only by naming it.
+token leaves lumped engines out. A solver reads a lumped engine only by naming it,
+as the linear reservoir names ``catchment``, and the message names that solver.
 """
 
 from __future__ import annotations
@@ -42,14 +43,14 @@ def lumped_engine():
         ("boussinesq", "triangle"),
     ],
 )
-def test_no_shipped_solver_reads_the_catchment_engine(solver: str, named: str) -> None:
+def test_a_meshed_solver_refuses_the_catchment_engine(solver: str, named: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         HydroModPyConfig.model_validate(_synthetic(solver, "catchment"))
     message = str(excinfo.value)
 
     assert f"solver {solver!r} reads the meshes of the engines {named}" in message
     assert "mesh.engine is 'catchment'" in message
-    assert "run a solver that reads 'catchment'." in message
+    assert "run a solver that reads 'catchment' (linear_reservoir)." in message
 
 
 def test_the_planar_token_says_it_leaves_lumped_engines_out() -> None:

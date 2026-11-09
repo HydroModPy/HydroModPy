@@ -158,18 +158,13 @@ class MatchingHydrographicNetwork:
         ),
     )
 
-    support: Mapping[str, str] = {
-        # A case in this repository runs the two stages on MODFLOW 6, DIS and DISV.
-        "modflow6": "tested",
-        # The twin of the stream-network criterion runs stage one on NWT, on the
-        # hillslope it runs on MODFLOW 6. Stage two reads a discharge, which NWT
-        # serves as MODFLOW 6 does.
-        "modflow_nwt": "tested",
-        # Its adapter declares the per-cell release flux unavailable, so the
-        # stream-network criterion of stage one cannot score a trial. The twin
-        # leaves it out for that reason.
-        "boussinesq": "unsupported",
-    }
+    declared_observables = ("release_flux", "discharge")
+    """What the stages of this method read.
+
+    Stage one scores a trial on the release flux of the cells it calls seepage
+    faces, stage two on the discharge of the outlet, and this declaration says
+    both instead of a verdict per backend.
+    """
 
     deviations = (
         Deviation(

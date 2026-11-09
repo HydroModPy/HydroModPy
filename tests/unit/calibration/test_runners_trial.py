@@ -362,6 +362,8 @@ class _Ctx__saved_trial:
     cfg: _Cfg__saved_trial
     config_path: Path
     raw_toml: dict[str, Any]
+    # The bounds of the call, as WorkflowContext carries them now.
+    bounds: Any = None
     data_plan: Any = None
     setup: Setup = field(default_factory=Setup)
     loaded_data: Any = None
@@ -602,7 +604,12 @@ def _trial(
 ) -> TrialContext:
     setup = SimpleNamespace(flow=None, transport=None, slot_request=None)
     ctx = SimpleNamespace(
-        setup=setup, data_plan=None, loaded_data=SimpleNamespace(), execution=ExecutionRegistry()
+        setup=setup,
+        data_plan=None,
+        # The bounds of the call, as WorkflowContext carries them now.
+        bounds=None,
+        loaded_data=SimpleNamespace(),
+        execution=ExecutionRegistry(),
     )
     base = TrialContext(
         base_cfg=cfg__trial_moves,
@@ -770,6 +777,8 @@ class _FakeCtx:
     cfg: _FakeCfg
     config_path: Path
     raw_toml: dict[str, Any]
+    # The bounds of the call, as WorkflowContext carries them now.
+    bounds: Any = None
     data_plan: Any = None
     setup: _FakeSetup = field(default_factory=_FakeSetup)
     loaded_data: _FakeLoadedData = field(default_factory=_FakeLoadedData)

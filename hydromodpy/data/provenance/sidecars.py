@@ -38,12 +38,13 @@ DETERMINISTIC_FETCHED_AT_ENV = "HMP_DETERMINISTIC_FETCHED_AT"
 #: Fields a downloaded station chronicle adds to its sidecar. Written only when
 #: set, so the sidecar of any other file keeps the bytes it always had.
 CHRONICLE_FIELDS = ("variable", "unit", "source_unit", "frequency", "date_start", "date_end")
+DOWNLOAD_FIELDS = ("origin", "etag", "last_modified", "product_version", "state")
 
 
 class Sidecar(BaseModel):
     """Provenance metadata stored next to a ``data/<var>/raw/`` input file.
 
-    ``fetched_at`` is omitted (``None``) for local ``source == "custom"`` inputs
+    ``fetched_at`` is omitted (``None``) for local ``source in ('custom', 'file')`` inputs
     that have no network fetch event, so the sidecar stays byte-identical across
     test runs and never appears in ``git status``. Real remote fetches keep a
     real ISO timestamp.
@@ -54,6 +55,11 @@ class Sidecar(BaseModel):
     source: str
     fetched_at: datetime | None = None
     sha256: str
+    origin: str | None = None
+    etag: str | None = None
+    last_modified: str | None = None
+    product_version: str | None = None
+    state: str | None = None
     license: str | None = None
     crs: str | None = None
     bbox: tuple[float, float, float, float] | None = None
@@ -71,13 +77,13 @@ class Sidecar(BaseModel):
 def resolve_fetched_at(source: str, *, now: datetime | None = None) -> datetime | None:
     """Return the ``fetched_at`` value for a sidecar.
 
-    Local ``source == "custom"`` inputs have no network fetch event and always
+    Local ``custom`` and ``file`` inputs have no network fetch event and always
     return ``None``. Remote sources (``hubeau``, ``ign``, ``brgm``, ``meteo``,
     ...) return a UTC timestamp unless the env var
     :data:`DETERMINISTIC_FETCHED_AT_ENV` is set to ``"1"``, in which case
     ``None`` is returned so the JSON stays byte-identical across runs.
     """
-    if str(source).lower() == "custom":
+    if str(source).lower() in ("custom", "file"):
         return None
     if os.environ.get(DETERMINISTIC_FETCHED_AT_ENV) == "1":
         return None
@@ -124,7 +130,7 @@ def write_sidecar(file_path: Path, sidecar: Sidecar) -> Path:
     target = sidecar_path_for(file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = sidecar.model_dump(mode="json")
-    for key in CHRONICLE_FIELDS:
+    for key in CHRONICLE_FIELDS + DOWNLOAD_FIELDS:
         if payload[key] is None:
             del payload[key]
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -137,11 +143,14 @@ def load_sidecar(file_path: Path) -> Sidecar:
     target = sidecar_path_for(file_path)
     raw = target.read_text(encoding="utf-8")
     payload = json.loads(raw)
+    if payload.get("source") == "custom":
+        payload["source"] = "file"
     return read_stored(Sidecar, payload)
 
 
 __all__ = [
     "CHRONICLE_FIELDS",
+    "DOWNLOAD_FIELDS",
     "DETERMINISTIC_FETCHED_AT_ENV",
     "SIDECAR_DATA_SUFFIXES",
     "SIDECAR_SUFFIX",

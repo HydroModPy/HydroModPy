@@ -170,7 +170,7 @@ def _load_custom_vector(
     return [
         FieldRecord(
             variable="geology",
-            source="custom",
+            source="file",
             unit="category",
             data=data,
             bbox=actual_bbox,
@@ -191,7 +191,7 @@ def _load_custom_raster(path: Path) -> list[FieldRecord]:
     return [
         FieldRecord(
             variable="geology",
-            source="custom",
+            source="file",
             unit="category",
             data=path,
             bbox=actual_bbox,
@@ -294,7 +294,7 @@ def _load_custom_csv(
     return [
         FieldRecord(
             variable="geology",
-            source="custom",
+            source="file",
             unit="category",
             data=data,
             bbox=actual_bbox,

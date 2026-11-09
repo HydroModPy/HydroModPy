@@ -44,7 +44,7 @@ def worker(monkeypatch: pytest.MonkeyPatch) -> dict:
 
 def test_an_overview_gives_its_result(monkeypatch, tmp_path: Path) -> None:
     config = _toml(tmp_path, "overview")
-    monkeypatch.setattr(f"{WORKFLOW}.run_overview", lambda path: RESULT)
+    monkeypatch.setattr(f"{WORKFLOW}.run_overview", lambda path, environment=None: RESULT)
 
     assert hmp.run(config) is RESULT
     assert hmp.run(str(config)) is RESULT

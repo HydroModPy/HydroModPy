@@ -26,7 +26,7 @@ def _make_point_record(station_id: str = "ST01", n: int = 5) -> PointRecord:
     return PointRecord(
         station_id=station_id,
         variable="recharge",
-        source="custom",
+        source="file",
         unit="mm/d",
         frequency="D",
         data=df,

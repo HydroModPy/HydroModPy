@@ -103,6 +103,7 @@ def fetch(
     from hydromodpy.data.contracts.timeseries import PointRecord
 
     records: list[PointRecord] = []
+    empty: list[str] = []
 
     for sid in progress.track(station_ids, "Fetching water quality stations"):
         location = _fetch_station_location(sid, is_river=is_river)
@@ -110,6 +111,7 @@ def fetch(
             sid, date_start=date_start, date_end=date_end, is_river=is_river
         )
         if raw_df.empty:
+            empty.append(sid)
             logger.debug("  %s: no data", sid)
             continue
 
@@ -118,6 +120,7 @@ def fetch(
 
         df = _normalize_dataframe(raw_df, is_river=is_river)
         if df.empty:
+            empty.append(sid)
             continue
 
         # Filter to requested parameters
@@ -125,6 +128,7 @@ def fetch(
             lower_params = [p.lower() for p in parameters]
             df = df[df["parameter"].str.lower().isin(lower_params)]
             if df.empty:
+                empty.append(sid)
                 continue
 
         # One PointRecord per parameter
@@ -149,6 +153,22 @@ def fetch(
 
         n_params = len(set(df["parameter"]))
         logger.debug("  %s: %d analyses, %d parameters", sid, len(df), n_params)
+
+    if empty:
+        try:
+            from hydromodpy.data.common.stations import report_dropped
+
+            report_dropped(
+                "water_quality",
+                "hubeau",
+                named=station_ids,
+                dropped=empty,
+                kept=records,
+                reason=f"returned no analyses between {date_start.strftime('%Y-%m-%d')} and {date_end.strftime('%Y-%m-%d')}",
+                window=(date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")),
+            )
+        except ImportError:
+            pass
 
     logger.debug(f"Hub'Eau WQ: {len(records)} total records")
     return records
@@ -220,7 +240,7 @@ def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -
         "size": min(max_stations, 10000),
         "format": "json",
     }
-    payload = get_json(url, params=params)
+    payload = get_json(None, url, params=params)
     if payload is None:
         return []
 
@@ -248,7 +268,7 @@ def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocati
     else:
         params = {"bss_id": station_id, "size": 1, "format": "json"}
 
-    payload = get_json(url, params=params)
+    payload = get_json(None, url, params=params)
     if not payload or not payload.get("data"):
         return None
 
@@ -316,7 +336,7 @@ def _download_analyses(
         params["date_debut_prelevement"] = year_start.strftime("%Y-%m-%d")
         params["date_fin_prelevement"] = year_end.strftime("%Y-%m-%d")
 
-        payload = get_json(url, params=params)
+        payload = get_json(None, url, params=params)
         if payload is not None:
             all_records.extend(payload.get("data", []))
 

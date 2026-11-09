@@ -19,7 +19,12 @@ from hydromodpy.core.time import (
     resolve_simulation_time_window,
 )
 from hydromodpy.data.sites.gauge import check_run_gauge_area
+from hydromodpy.data.variables.lake_abacus.read import lake_abacus
+from hydromodpy.data.variables.lake_bathymetry.read import lake_bathymetry
+from hydromodpy.data.variables.lake_geometry.read import lake_polygons
+from hydromodpy.mesh import registry as mesh_registry
 from hydromodpy.model.boundaries.barriers import apply_flow_barriers_to_flow
+from hydromodpy.model.boundaries.binder_payloads import payloads_as_mappings
 from hydromodpy.model.boundaries.climate import (
     apply_etp_load_result_to_flow,
     apply_oceanic_to_flow,
@@ -119,6 +124,7 @@ def step_data_loading(ctx: WorkflowContext) -> None:
     loader = _build_data_runtime_loader(
         config_path=ctx.config_path,
         data_plan=data_plan,
+        bounds=ctx.bounds,
     )
     loader.load_all(ctx)
     check_run_gauge_area(
@@ -189,6 +195,25 @@ def _resolved_window(run_state: WorkflowContext):
     return resolve_simulation_time_window(run_state.cfg)
 
 
+def _lumped_catchment_polygon(run_state: WorkflowContext):
+    """The catchment as one polygon in the model CRS under a lumped mesh engine, else None.
+
+    A spatial forcing is averaged over the one cell of a lumped mesh. A meshed backend
+    keeps the period view, so it gets no polygon.
+    """
+    engine = getattr(getattr(run_state.cfg, "mesh", None), "engine", None)
+    if engine is None or not mesh_registry.mesh_engines.get(engine).capabilities.lumped:
+        return None
+    geographic = run_state.setup.geographic
+    outline = catchment_outline(geographic)
+    if outline is None:
+        return None
+    crs = getattr(geographic, "crs_proj", None)
+    if outline.crs is not None and crs:
+        outline = outline.to_crs(str(crs))
+    return outline.geometry.union_all()
+
+
 def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
     """Compute the soil forcings (when configured) and bind recharge and ETP; return the soil."""
     setup_state = run_state.setup
@@ -219,6 +244,7 @@ def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
         flow=setup_state.flow,
         recharge_result=data_state.recharge if soil is None else soil.recharge,
         simulation_window=window,
+        cell_polygon=_lumped_catchment_polygon(run_state),
     )
     apply_etp_load_result_to_flow(
         flow=setup_state.flow,
@@ -229,14 +255,57 @@ def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
     return soil
 
 
+def _line_traces(
+    run_state: WorkflowContext,
+    declarations: dict,
+    *,
+    table: str,
+    suffix: str,
+    project_crs: object,
+) -> dict:
+    """Read the ``line_path`` trace of each declaration, keyed by its id.
+
+    A ``line_path`` is written from the project root, as every user file since
+    lot 4.3. A declaration with inline ``line`` coordinates, ``auto`` or no
+    path reads nothing here, and its binder resolves it.
+    """
+    from hydromodpy.core.toml_io.paths import resolve_declared_path
+    from hydromodpy.data.ingest.line_trace import read_line_trace
+
+    traces: dict = {}
+    if not declarations:
+        return traces
+    root = getattr(getattr(run_state.cfg, "workspace", None), "project_root", None)
+    config_path = getattr(run_state, "config_path", None)
+    if root is None and config_path is not None:
+        root = Path(config_path).parent
+    for key, cfg in declarations.items():
+        if cfg is None or (isinstance(cfg, dict) and "line" in cfg and "barrier" in cfg):
+            continue
+        line_path = getattr(cfg, "line_path", None)
+        if not line_path or getattr(cfg, "line", None) or bool(getattr(cfg, "auto", False)):
+            continue
+        path = resolve_declared_path(str(line_path), base_dir=Path(root) if root else Path.cwd())
+        traces[str(key)] = read_line_trace(
+            path,
+            where=f"flow.sinks_sources.{table}.{key}{suffix}",
+            project_crs=project_crs,
+        )
+    return traces
+
+
 def _bind_lakes_and_structures(run_state: WorkflowContext, window) -> None:
     """Bind the lake geometry and flux forcings, the cutoff wall and the flow barriers."""
     setup_state = run_state.setup
     data_state = run_state.loaded_data
-    apply_lake_geometry_to_flow(
-        flow=setup_state.flow,
-        lake_geometry=getattr(data_state, "lake_geometry", None),
-    )
+    # The lake readers match each loaded record to a lake id, and the binders
+    # attach what they return, so a lake without a record keeps its payload.
+    lake_ids = list(payloads_as_mappings(setup_state.flow, "lakes"))
+    if lake_ids:
+        apply_lake_geometry_to_flow(
+            flow=setup_state.flow,
+            polygons=lake_polygons(getattr(data_state, "lake_geometry", None), lake_ids),
+        )
     project_crs = getattr(getattr(setup_state, "geographic", None), "crs_proj", None)
     geo = getattr(run_state.cfg, "geographic", None)
     x_outlet = getattr(geo, "x_outlet", None)
@@ -251,16 +320,38 @@ def _bind_lakes_and_structures(run_state: WorkflowContext, window) -> None:
         project_crs=project_crs,
         outlet_xy=outlet_xy,
         data_dir=getattr(getattr(run_state.cfg, "workspace", None), "data_dir", None),
+        cutoff_wall_traces=_line_traces(
+            run_state,
+            {
+                lake_id: payload.get("cutoff_wall")
+                for lake_id, payload in payloads_as_mappings(setup_state.flow, "lakes").items()
+            },
+            table="lakes",
+            suffix=".cutoff_wall",
+            project_crs=project_crs,
+        ),
     )
-    apply_flow_barriers_to_flow(flow=setup_state.flow, project_crs=project_crs)
-    apply_lake_abacus_to_flow(
+    sinks_sources = getattr(setup_state.flow, "sinks_sources", None) or {}
+    apply_flow_barriers_to_flow(
         flow=setup_state.flow,
-        lake_abacus=getattr(data_state, "lake_abacus", None),
+        project_crs=project_crs,
+        barrier_traces=_line_traces(
+            run_state,
+            dict(sinks_sources.get("flow_barriers") or {}),
+            table="flow_barriers",
+            suffix="",
+            project_crs=project_crs,
+        ),
     )
-    apply_lake_bathymetry_to_flow(
-        flow=setup_state.flow,
-        lake_bathymetry=getattr(data_state, "lake_bathymetry", None),
-    )
+    if lake_ids:
+        apply_lake_abacus_to_flow(
+            flow=setup_state.flow,
+            abacus=lake_abacus(getattr(data_state, "lake_abacus", None), lake_ids),
+        )
+        apply_lake_bathymetry_to_flow(
+            flow=setup_state.flow,
+            bathymetry=lake_bathymetry(getattr(data_state, "lake_bathymetry", None), lake_ids),
+        )
     apply_lake_flux_forcings_to_flow(
         flow=setup_state.flow,
         lake_inflow=getattr(data_state, "lake_inflow", None),

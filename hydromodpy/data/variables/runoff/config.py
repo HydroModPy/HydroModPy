@@ -11,10 +11,13 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import Sim2GridSourceConfig
+from hydromodpy.data.managers.timeseries_config import (
+    Sim2GridSourceConfig,
+    UrlSourceFieldsMixin,
+)
 
 
-class RunoffSourceConfig(Sim2GridSourceConfig):
+class RunoffSourceConfig(UrlSourceFieldsMixin, Sim2GridSourceConfig):
     """Configuration for one runoff data source.
 
     Runoff sources load station or gridded surface-runoff time series from

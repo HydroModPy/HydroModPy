@@ -12,7 +12,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../../../../examples/data/dem/regional_dem_naizin.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -25,13 +24,18 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = []
+types = ["dem", ]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/regional_dem_naizin.tif"
+
 
 [data.oceanic]
 
 [[data.oceanic.sources]]
-source = "custom"
-path = "../../../../../examples/data/oceanic"
+source = "file"
+path = "../../data/oceanic"
 col_datetime = "timestamp"
 
 [data.hydrometry]

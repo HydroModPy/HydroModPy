@@ -87,7 +87,7 @@ def _load_raster(
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=path,
             bbox=actual_bbox,
@@ -120,7 +120,7 @@ def _load_asc(path: Path, *, derived_dir: Path | None = None) -> list[FieldRecor
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=data,
             bbox=actual_bbox,
@@ -181,7 +181,7 @@ def _load_netcdf(
     return [
         FieldRecord(
             variable="dem",
-            source="custom",
+            source="file",
             unit="m",
             data=path,
             bbox=actual_bbox,

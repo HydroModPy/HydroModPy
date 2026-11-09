@@ -20,6 +20,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- source = "url" for the data variables read from one file. https, or http with a sha256. The URL only fills the data cache, and the run reads the file.
 - `hydromodpy.model.supports` holds the closed set of traits a solver backend lists in `supports`: the boundary kinds,
   the fields of `ModelOptions` and the initial states `head_rule`, `steady_start`, `cyclic_start` and `prior_state`.
 - `solver.sink_fill = true`, `solver.drain_band_depth_m` and `solver.drain_conductance_floor_m2_s` away from their
@@ -46,9 +47,36 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `ConditionedDem.provided(path)` wraps a DEM that another tool conditioned. Both engines route
   it like any conditioned DEM, and `condition_dem` refuses it with `TerrainRequestError`. The
   port does not check that the DEM has no depression.
+- `hmp run`, `hmp calibrate`, `hmp spinup`, `hmp export`, `hmp data get` and `hmp campaign array`
+  take `--credentials PATH`, `--allow-host HOST` (repeatable) and `--max-download-bytes N`, and
+  the command builds the `Environment` of the call out of them.
+- The Python verbs `run`, `calibrate`, `spinup` and `export`, and `Project`, `open_project` and
+  `Project.launch`, take `environment=`, an `Environment` from `hydromodpy.project.environment`;
+  `None` keeps the default, so a run with it does exactly what it did before.
+- A `credentials.toml` file outside any project, with one `[[host]]` block per address prefix
+  and a password written in clear or read from a file, chosen for a destination by its longest
+  matching prefix.
+- A source whose declared host is not allowed by the bounds of the call is refused before any
+  connection, with the refusal naming the option or argument that widens the list.
+
+- `Model.native_recharge` carries the forcing at the step of its source, in m/s, cut to the window of the run, beside the period view the meshed backends read.
+- The field registry holds the station series of `timeseries.parquet` as descriptors of shape `time`: the catchment series, the lake and reach states, and the rates that land in m3 s-1; `VARIABLE_UNITS` is read there no more.
+- A solver backend can read the recharge at the step of its source, not only the mean of each period.
+- A solver backend whose native step is shorter than a period of the time grid is refused when the document is read.
+- The linear_reservoir solver backend, a global model on the one-cell catchment mesh, solved exactly on every piece of constant recharge. It starts from the steady state of its recharge, and a negative recharge is refused.
+- A document that writes [flow.param] or [domain.depth_model], or calibrates one of their entries, is refused under a solver backend that reads no aquifer property, such as linear_reservoir.
+- A calibration protocol states the observables its stages read. A backend that declares one of them unavailable is reported as unsupported, and a backend that no case of the repository runs is reported as expected to work but untested.
+- The export vocabulary lists the simulated series `lak_connection` and `reservoir_storage`, which the time-series registry now holds.
 
 ### Changed
+- The setup step resolves every [data] file and url source under the bounds of the call before the run is named, so allowed_roots holds for every section and not only for the DEM.
+- Lake geometry, abacus and bathymetry are read by their data readers and bound by lake id again, and a cutoff wall or flow barrier line_path is read from the project root.
+- GeographicConfig.from_outlet, from_dem and from_polygon lose their ignored dem argument.
 
+- Every download goes through hydromodpy.core.io.fetch, with a client made for each call and the bounds of the call: allowed hosts, a byte cap of 2 GiB by default, and no private address unless the host is allowed by name. Redirections are followed by hand and checked at each hop.
+- source = "custom" is now source = "file" in every [[data.<variable>.sources]]. hmp doctor --fix-config rewrites it, and a sealed run reads it.
+- A relative path is read from the project root only. A bare file name is no longer looked up in the workspace data folder, and a path that starts with a URL scheme is refused.
+- The lake and wall files are read by hydromodpy.data, and the binders of hydromodpy.model receive geometries and tables.
 - `hydromodpy.analysis.compare` is now `hydromodpy.project.compare`, and `hydromodpy.examples` is now
   `hydromodpy.project.examples`. The rows behind `hmp example list` and `show` are `hydromodpy.project.examples.rows`.
 - `masstransfer` of MODFLOW-NWT moved to `hydromodpy.solver.modflow_nwt.mt3dms.masstransfer`.
@@ -335,8 +363,31 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `calibration.method`, the method of a phase, `steady_method` and `transient_method` are checked
   when the file is read. An unknown name is refused with the names this installation serves.
 
+- A mesh engine declares the line families it ignores. With the catchment engine, [mesh.families] carries the five, the river trace is not asked for it, and the planner names the skip in the mesh notes. A family an ignored engine writes with a value other than `none` is refused at read, so is a point method for the recharge or the ETP under a lumped mesh, and a mesh engine deduction of the run is written in the resolved config when every engine the backend accepts meshes a lumped catchment.
+- Without `[mesh] engine`, a global backend that accepts only lumped engines takes that engine, and the resolved config writes it.
+- The wall-clock limit of a trial is now the optional property `wall_clock_limit_s` of the backend's options table, read beside the options the backend declares.
+- A flow process entry without solvers reads the default of solver.backend, and the run template of a scaffolded project names no backend.
+- The index takes the category of a solver from the run manifest. The index schema goes to 11, so an older index is rebuilt.
+- `Run.grid` answers for a global model, from its one-cell mesh.
+- The watershed identity card writes the backend name as the run recorded it.
+- The four transport tables lose their `parameters` level: `[transport.modflow6gwt.parameters]`, `[transport.modflow6prt.parameters]`, `[transport.mt3dms.parameters]` and `[transport.modpath.parameters]` become `[transport.modflow6]`, `[transport.modflow6_prt]`, `[transport.mt3dms]` and `[transport.modpath]`. `hmp doctor --fix-config` and a sealed read lift them, with the `_days` particle times. `[transport.modflow6_prt]` and `[transport.modpath]` stay experimental.
+- The catchment preprocessing takes the DEM as a `dem_path` argument: `prepare_geographic_run`, `build_geographic_runtime_context`, `CatchmentDelineation`, the geographic cache fingerprint and the cache manifest. The fingerprint of a cache written before changes, so a cached tree is rebuilt once.
+- The data overview takes its DEM from `[[data.dem.sources]]`. Without a DEM source it is refused with "No [data.dem] source configured".
+- `HydroModPyConfig.model_validate` of a mapping that declares `[[data.dem.sources]]` accepts `kind = "dem"` with no validation context, as the file loader does.
+- `hmp run` on a calibration or an overview file passes the `Environment` of the call (credentials, `--allow-host`, `--max-download-bytes`) through the dispatcher. `run_calibration` and `run_overview` check it against the folder of the file before they run, and `None` means `Environment.default()`.
+- The data variables serve `source = "file"` and `source = "url"` through one dispatch of `SourceTable`. The hydrography `file` source no longer reaches the network fetch.
+- The generic `file` and `url` sources refuse a selector they do not declare, or a period they cannot serve, before they read anything.
+- The Geoplateforme download goes through `hydromodpy.core.io.fetch`, which owns the retries. It no longer resumes a stale `.part` file.
+- `get_json` and `paginate_json` of the Hub'Eau client take a client. With `client=None` they open one for the call under the default bounds.
+- `NativeSeries` carries one more edge than values, and the last edge is the end of the run. A step that starts before the run is cut at its start, so no water from before the run is counted.
+- The linear reservoir declares `writes = ("timeseries", "budgets")`, the two tables it fills. Its `locate_cell` and `top_active_layer` follow the `CellLocator` port.
+- The old names `CustomCrossingsSource`, `CustomDemSource`, `CustomGeologySource`, `CustomLakeAbacusSource`, `CustomLakeBathymetrySource`, `CustomLakeGeometrySource`, `CustomLayerBaseSource`, `CustomSoilCapacitySource` and `CustomSubstratumSource` of `hydromodpy` are refused with their `File...Source` replacement.
+
 ### Removed
 
+- geographic.catchment.dem_init_path. Declare the DEM as [[data.dem.sources]] with source = "file". A file that still writes it is refused, `hmp doctor --fix-config` writes the `[[data.dem.sources]]` row, and a sealed run config still reads it.
+- hmp data check and hydromodpy.data.workspace.custom_scan.
+- hydromodpy.core.io.http_client and hydromodpy.core.io.pinned_download. Use hydromodpy.core.io.fetch.
 - PyHELP, the Picard solver of Boussinesq, the TIFF maps of MODFLOW-NWT, the MODPATH post-processing and the job
   chain moved to `hydromodpy_annex/`, which is not in the wheel. `ModflowNwt.post_processing`,
   `Modpath.post_processing` and `Modpath.filt_processing` are gone; call `run_post_processing`, `write_shapefiles` and
@@ -416,12 +467,18 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `geology_lines` of `hydromodpy/mesh/planning` takes `read_vector`, the reader of one vector
   geology map, as an argument passed by the caller.
 
+- `[calibration].forward_model` and the `ForwardModel` port are removed. A global model is a solver backend: name it by `solver.backend` and calibrate it with the pipeline evaluator.
+- The solver aliases mf6 and nwt of `hmp catalog ls --solver` are gone. Write the full backend name.
 ### Fixed
 
+- Hub'Eau clients report dropped stations via report_dropped instead of silently ignoring empty chronicles.
+- Hub'Eau product QIXM discharge conversion (l/s to m3/s).
 - The steady start of a transient Boussinesq run with the `petsc` backend and `ts_vi_obstacle` stopped with
   `AttributeError` in 2.0.0. It runs again, with `regularized_partition` for the auxiliary solve, as in 2.0.0a5.
 - A `flow.restart_from` given as a run name or a sim_id is now read on a resume and in a calibration trial, as it is on
   a first run. Before, only a path worked there.
+- The frozen config of a run whose catchment reads its DEM from `[[data.dem.sources]]` validates again.
+- MODPATH and MT3DMS build their deck again, and the `seepage_clip` release raster reads the water table cell by cell.
 
 ## [v2.0.0] - 2026-11-07
 

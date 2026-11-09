@@ -39,8 +39,7 @@ crs_project = "EPSG:2056"
 
 [geographic.catchment]
 kind = "from_polyg_shp"
-dem_init_path = "DEM_urse_25m.tif"
-polyg_shp_path = "urse_watershed.gpkg"
+polyg_shp_path = "../../data/watershed_polygon/urse_watershed.gpkg"
 buff_area = "20%"
 
 [geographic.river_network]
@@ -57,19 +56,19 @@ thickness = "50.0 m"
 types = ["dem", "hydrography", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_urse_25m.tif"
+source = "file"
+path = "../../data/dem/DEM_urse_25m.tif"
 
 # The observed network, what the calibration compares the seepage against.
 [[data.hydrography.sources]]
-source = "custom"
-path = "urse_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/urse_stream_network.gpkg"
 
 # The PyHELP output: a daily recharge grid at 250 m over the run window. The
 # steady solve uses its mean, around 800 mm/year.
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge_pyhelp_urse.nc"
+source = "file"
+path = "../../data/recharge/recharge_pyhelp_urse.nc"
 source_unit = "mm/day"
 
 

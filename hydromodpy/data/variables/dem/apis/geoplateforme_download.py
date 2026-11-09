@@ -12,15 +12,15 @@ import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote, urlparse
 
-import requests
 from filelock import FileLock
 
-from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import DataSourceError
-from hydromodpy.core.io.atomic_replace import rename_over_open_file
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 CAPABILITIES_URL = "https://data.geopf.fr/telechargement/capabilities"
 RESOURCE_URL = "https://data.geopf.fr/telechargement/resource"
@@ -102,15 +102,15 @@ def fetch_atom_entries(
     url: str,
     params: dict[str, str | int | float | None] | None = None,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 30.0,
     rate_limiter: RateLimiter | None = None,
     max_pages: int | None = None,
     max_entries: int | None = None,
 ) -> list[AtomEntry]:
     """Fetch all Atom entries from a paginated Geoplateforme endpoint."""
+    from hydromodpy.core.io.fetch import open_client
 
-    http = session or default_session()
     clean_params = {key: value for key, value in (params or {}).items() if value not in (None, "")}
     page = int(clean_params.pop("page", 1) or 1)
     limit = int(clean_params.get("limit", 50) or 50)
@@ -121,13 +121,18 @@ def fetch_atom_entries(
     total_entries: int | None = None
     while True:
         request_params = {**clean_params, "page": page}
-        response = request_with_retries(
-            http,
-            url,
-            params=request_params,
-            timeout=timeout,
-            rate_limiter=rate_limiter,
-        )
+        if rate_limiter is not None:
+            rate_limiter.wait()
+        if client is not None:
+            response = client.request("GET", url, params=request_params, timeout=timeout)
+        else:
+            with open_client(timeout=timeout) as c:
+                response = c.request("GET", url, params=request_params, timeout=timeout)
+        status_code = getattr(response, "status_code", 200)
+        if status_code >= 400:
+            raise GeoPlateformeDownloadError(
+                f"Geoplateforme request failed ({status_code}) for {url}"
+            )
         page_entries, page_total = _parse_atom_feed(response.text)
         if page_total is not None:
             total_entries = page_total
@@ -147,7 +152,6 @@ def fetch_atom_entries(
 
 def parse_atom_entries(xml_text: str) -> list[AtomEntry]:
     """Parse Atom entries from an XML text payload."""
-
     entries, _ = _parse_atom_feed(xml_text)
     return entries
 
@@ -156,17 +160,16 @@ def find_resources(
     dataset: str,
     filters: DiscoveryFilters | None = None,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 30.0,
     rate_limiter: RateLimiter | None = None,
 ) -> list[AtomEntry]:
     """Find resource entries matching a dataset token such as ``BDALTI``."""
-
     token = _normalized_token(dataset)
     entries = fetch_atom_entries(
         CAPABILITIES_URL,
         (filters or DiscoveryFilters()).params(),
-        session=session,
+        client=client,
         timeout=timeout,
         rate_limiter=rate_limiter,
     )
@@ -181,16 +184,15 @@ def list_subresources(
     resource_name: str,
     filters: DiscoveryFilters | None = None,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 30.0,
     rate_limiter: RateLimiter | None = None,
 ) -> list[AtomEntry]:
     """List subresources for one Geoplateforme resource."""
-
     return fetch_atom_entries(
         f"{RESOURCE_URL}/{quote(resource_name.strip())}",
         (filters or DiscoveryFilters()).params(),
-        session=session,
+        client=client,
         timeout=timeout,
         rate_limiter=rate_limiter,
     )
@@ -201,16 +203,15 @@ def list_files(
     subresource_name: str,
     filters: DiscoveryFilters | None = None,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 30.0,
     rate_limiter: RateLimiter | None = None,
 ) -> list[DownloadFile]:
     """List downloadable files for one resource/subresource pair."""
-
     entries = fetch_atom_entries(
         f"{RESOURCE_URL}/{quote(resource_name.strip())}/{quote(subresource_name.strip())}",
         (filters or DiscoveryFilters()).params(),
-        session=session,
+        client=client,
         timeout=timeout,
         rate_limiter=rate_limiter,
     )
@@ -228,18 +229,13 @@ def download_file(
     file: DownloadFile,
     destination: str | Path,
     *,
-    session: requests.Session | None = None,
+    client: HTTPClient | None = None,
     timeout: float = 120.0,
     rate_limiter: RateLimiter | None = None,
     overwrite: bool = False,
     chunk_size: int = 1024 * 1024,
 ) -> Path:
-    """Download one file, skipping non-empty files already available locally.
-
-    A lock beside the target serializes the processes that download the same
-    file, so a resumed ``.part`` file only ever has one writer.
-    """
-
+    """Download one file, skipping non-empty files already available locally."""
     target = _target_path(destination, file.file_name)
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() and target.stat().st_size > 0 and not overwrite:
@@ -248,87 +244,24 @@ def download_file(
     with FileLock(f"{target}.lock"):
         if target.exists() and target.stat().st_size > 0 and not overwrite:
             return target
-        partial = target.with_name(f"{target.name}.part")
-        existing_size = partial.stat().st_size if partial.exists() and not overwrite else 0
-        headers = {"Range": f"bytes={existing_size}-"} if existing_size else None
-        http = session or default_session()
-        response = request_with_retries(
-            http,
-            file.url,
-            timeout=timeout,
-            rate_limiter=rate_limiter,
-            stream=True,
-            headers=headers,
-        )
-        mode = "ab" if existing_size and getattr(response, "status_code", 200) == 206 else "wb"
-        with (
-            progress.task(f"Downloading {file.file_name}", total=file.size, unit="bytes") as bar,
-            partial.open(mode) as handle,
-        ):
-            if mode == "ab":
-                bar.update(completed=existing_size)
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                if chunk:
-                    handle.write(chunk)
-                    bar.advance(len(chunk))
-        rename_over_open_file(partial, target)
+        if rate_limiter is not None:
+            rate_limiter.wait()
+        from hydromodpy.core.io.fetch import download, open_client
+
+        if client is not None:
+            download(file.url, target, client=client)
+        else:
+            with open_client(timeout=timeout) as c:
+                download(file.url, target, client=c)
     return target
 
 
 def build_download_url(resource_name: str, subresource_name: str, file_name: str) -> str:
     """Build a canonical Geoplateforme download URL."""
-
     return (
         f"{DOWNLOAD_URL}/{_quote_path_component(resource_name)}/"
         f"{_quote_path_component(subresource_name)}/{_quote_path_component(file_name)}"
     )
-
-
-def default_session() -> requests.Session:
-    session = requests.Session()
-    session.headers.update({"User-Agent": DEFAULT_USER_AGENT})
-    return session
-
-
-def request_with_retries(
-    session: requests.Session,
-    url: str,
-    *,
-    params: dict[str, Any] | None = None,
-    timeout: float,
-    rate_limiter: RateLimiter | None,
-    stream: bool = False,
-    headers: dict[str, str] | None = None,
-    attempts: int = 3,
-) -> requests.Response:
-    last_error: Exception | None = None
-    for attempt in range(1, attempts + 1):
-        if rate_limiter is not None:
-            rate_limiter.wait()
-        try:
-            response = session.get(
-                url,
-                params=params,
-                timeout=timeout,
-                stream=stream,
-                headers=headers,
-            )
-        except requests.RequestException as exc:
-            last_error = exc
-            if attempt == attempts:
-                break
-            time.sleep(min(2.0**attempt, 8.0))
-            continue
-        status_code = int(getattr(response, "status_code", 0))
-        if status_code in TRANSIENT_STATUS_CODES and attempt < attempts:
-            time.sleep(min(2.0**attempt, 8.0))
-            continue
-        if status_code >= 400:
-            raise GeoPlateformeDownloadError(
-                f"Geoplateforme request failed ({status_code}) for {url}"
-            )
-        return response
-    raise GeoPlateformeDownloadError(f"Geoplateforme request failed for {url}") from last_error
 
 
 def _parse_atom_feed(xml_text: str) -> tuple[list[AtomEntry], int | None]:
@@ -459,12 +392,10 @@ __all__ = [
     "GeoPlateformeDownloadError",
     "RateLimiter",
     "build_download_url",
-    "default_session",
     "download_file",
     "fetch_atom_entries",
     "find_resources",
     "list_files",
     "list_subresources",
     "parse_atom_entries",
-    "request_with_retries",
 ]

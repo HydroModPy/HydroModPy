@@ -63,7 +63,7 @@ def test_only_the_sources_the_user_owns_stay_undetermined() -> None:
     undetermined = {
         slug for slug, entry in SOURCES.items() if entry.licence.spdx == UNDETERMINED_LICENSE
     }
-    assert undetermined == {"custom", "constant", "synthetic"}
+    assert undetermined == {"file", "url", "constant", "synthetic"}
 
 
 @pytest.mark.parametrize("slug", sorted(SOURCES))
@@ -118,7 +118,7 @@ def test_the_publishers_group_their_sources() -> None:
     groups = sources_by_publisher()
     assert [entry.slug for entry in groups["IGN"]] == ["ign_geoplateforme_dem", "bdtopo"]
     assert [entry.slug for entry in groups["Sandre / OFB"]] == ["bdtopage", "roe"]
-    assert "custom" not in {entry.slug for entries in groups.values() for entry in entries}
+    assert "file" not in {entry.slug for entries in groups.values() for entry in entries}
 
 
 def test_the_code_slugs_are_all_known() -> None:
@@ -128,8 +128,8 @@ def test_the_code_slugs_are_all_known() -> None:
         "brgm_1m",
         "brgm_50k",
         "constant",
-        "custom",
         "euhydro",
+        "file",
         "hubeau",
         "ign_geoplateforme_dem",
         "osm",
@@ -155,14 +155,14 @@ def test_the_sidecar_suffix_is_the_data_one() -> None:
 
 
 def test_a_declared_sidecar_licence_wins_over_the_registry() -> None:
-    licence = licence_from_sidecar({"source": "custom", "license": "CC0-1.0"})
+    licence = licence_from_sidecar({"source": "file", "license": "CC0-1.0"})
     assert licence.spdx == "CC0-1.0"
     assert licence.confidence == "declared"
 
 
 def test_a_sidecar_written_before_the_registry_uses_its_source() -> None:
     assert licence_from_sidecar({"source": "brgm_1m", "license": None}).spdx == "etalab-2.0"
-    assert licence_from_sidecar({"source": "custom", "license": UNDETERMINED_LICENSE}) == (
+    assert licence_from_sidecar({"source": "file", "license": UNDETERMINED_LICENSE}) == (
         UNDETERMINED
     )
 
@@ -180,7 +180,7 @@ def test_a_directory_needs_a_sidecar_on_every_file(tmp_path: Path) -> None:
     second.write_text("2")
     _sidecar(first, source="brgm_1m", license="etalab-2.0")
     assert input_licence(tmp_path) == UNDETERMINED
-    _sidecar(second, source="custom", license="etalab-2.0")
+    _sidecar(second, source="file", license="etalab-2.0")
     assert input_licence(tmp_path).spdx == "etalab-2.0"
 
 

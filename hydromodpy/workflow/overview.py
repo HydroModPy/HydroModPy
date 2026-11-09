@@ -24,6 +24,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.run_state import SetupContext, WorkflowContext
 from hydromodpy.results.storage.attempt import RunClaim
 from hydromodpy.workflow.steps.setup import resolve_geographic_inputs
@@ -59,9 +60,13 @@ class OverviewResult:
 class DataOverviewLauncher:
     """Generate a "watershed identity card" from a TOML configuration file."""
 
-    def __init__(self, config_path: str | Path) -> None:
+    def __init__(self, config_path: str | Path, bounds: Bounds | None = None) -> None:
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
+        # The bounds of the call that asked for the overview, or the
+        # default of the machine: every context this launcher builds
+        # carries them.
+        self.bounds = bounds if bounds is not None else Bounds()
 
     # ------------------------------------------------------------------
     # Public API
@@ -82,11 +87,11 @@ class DataOverviewLauncher:
 
         # Phase 1b: the DEM, the crossings and the network map, as files on disk
         with progress.phase("Resolving the DEM and the crossings"):
-            network_map_path = self._resolve_geographic_inputs(state)
+            network_map_path, dem_path = self._resolve_geographic_inputs(state)
 
         # Phase 2: Geographic (watershed delineation)
         with progress.phase("Delineating the catchment"):
-            self._setup_geographic(state, network_map_path)
+            self._setup_geographic(state, network_map_path, dem_path)
 
         # Phase 3: Data loading
         with progress.phase("Loading data"):
@@ -186,42 +191,50 @@ class DataOverviewLauncher:
             raw_toml={},
             setup=SetupContext(workspace=state.workspace, geographic=state.geographic),
             loaded_data=state.loaded_data,
+            bounds=self.bounds,
         )
 
-    def _resolve_geographic_inputs(self, state: DataOverviewState) -> Path | None:
-        """Fill the DEM and crossings paths like a simulation run, return the network map.
+    def _resolve_geographic_inputs(self, state: DataOverviewState) -> tuple[Path | None, Path]:
+        """Resolve the crossings and the DEM like a simulation run.
 
         Delegates to :func:`resolve_geographic_inputs`, so the overview and the
         simulation pipeline apply one rule. One difference is kept: an overview
         with no DEM at all raises :class:`ConfigMissingError` and says how to
         declare one, where a simulation lets the geographic step fail later.
+        Returns the network map of alpha and the DEM raster.
         """
-        network_map_path = resolve_geographic_inputs(state.cfg, self._context(state))
-        if state.cfg.geographic.dem_init_path is None:
+        context = self._context(state)
+        network_map_path = resolve_geographic_inputs(state.cfg, context)
+        dem_record = getattr(context.setup, "dem_record", None)
+        if dem_record is None:
             raise ConfigMissingError(
-                "No dem_init_path and no [data.dem] source configured. "
-                "Either set geographic.catchment.dem_init_path or add:\n"
+                "No [data.dem] source configured. Add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
                 '  [[data.dem.sources]]\n  source = "ign_geoplateforme_dem"\n'
                 '  dataset = "bd-alti"\n  resolution_m = 25.0\n'
                 "or:\n"
-                '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
+                '  [[data.dem.sources]]\n  source = "file"\n  path = "inputs/dem.tif"'
             )
-        return network_map_path
+        return network_map_path, Path(dem_record.path)
 
     # ------------------------------------------------------------------
     # Phase 2 - Geographic
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _setup_geographic(state: DataOverviewState, network_map_path: Path | None) -> None:
+    def _setup_geographic(
+        state: DataOverviewState, network_map_path: Path | None, dem_path: Path | None = None
+    ) -> None:
         from hydromodpy.catchment.algorithms.derived_features import (
             coerce_geographic_derived_features,
         )
         from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
 
         geographic = CatchmentDelineation(
-            state.cfg.geographic, state.workspace, network_map_path=network_map_path
+            state.cfg.geographic,
+            state.workspace,
+            dem_path=dem_path,
+            network_map_path=network_map_path,
         )
         state.geographic = geographic
 
@@ -271,6 +284,7 @@ class DataOverviewLauncher:
         loader = DataManagersRuntimeLoader(
             config_path=self.config_path,
             data_plan=data_plan,
+            bounds=self.bounds,
         )
         loader.load_all(context)
         if state.geographic_features is not None:

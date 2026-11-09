@@ -164,7 +164,13 @@ def _refusal_of(file: Path) -> Exception | None:
     except Exception as exc:  # noqa: BLE001 - the message is what the user needs
         # A partial file fails to load for reasons that are not a retired key; only
         # the keys the loader no longer accepts are the doctor's business.
-        return exc if "not accepted any more" in str(exc) else None
+        msg = str(exc)
+        if any(
+            phrase in msg
+            for phrase in ("not accepted any more", "was removed in", "is a bare name")
+        ):
+            return exc
+        return None
     return None
 
 

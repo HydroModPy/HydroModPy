@@ -63,6 +63,7 @@ package "hydromodpy.solver.base" {
     +stop_before_solve
     +bin_dir
     +shared_forcing_dir
+    +hand_off
   }
 
   class SolverRun {
@@ -75,23 +76,31 @@ package "hydromodpy.solver.base" {
     +written
     +solved
     +metrics
+    +initial_state_converged
   }
 }
 
 package "hydromodpy.model" {
   class ProcessSpatial
   class Flow
-  class Transport
+  class Model <<frozen>> {
+    +geometry
+    +properties
+    +initial
+    +time
+    +options
+  }
 }
 
 package "hydromodpy.solver" {
   interface SolverAdapter {
+    +name
     +process_type
-    +solver_name
+    +reads
     +requires
     +mutable
     +validate(model, options, slot)
-    +build(model, options, slot, ctx)
+    +build(model, options, slot, upstream)
     +run(solver_run)
     +rerun(previous, model, slot)
     +extract(solver_run, store, retention)
@@ -110,6 +119,7 @@ package "hydromodpy.solver" {
 Project --> Pipeline : simulate() runs
 Pipeline o-- "12" Step
 Pipeline ..> PipelineState : threads
+Flow ..> Model : prepare_solver\nbuilds the frozen model
 
 SimulationPlanner ..> SimulationPlan : returns
 SimulationPlan *-- "0..*" ProcessRun : runs
@@ -118,12 +128,9 @@ SimulationRunner ..> SimulationPlan : consumes ordered runs
 SimulationRunner ..> RunContext : builds one per run
 SimulationRunner ..> RunSlot : fills one per run
 SolverRun *-- RunSlot
-SimulationRunner ..> Flow : ensure_flow
-SimulationRunner ..> Transport : ensure_transport
-SimulationRunner ..> SolverAdapter : resolves from run.solver
+SolverRun ..> Model : the Model of its run,\nthe flow's own for a transport
 
 Flow --|> ProcessSpatial
-Transport --|> ProcessSpatial
 
 SolverAdapter <|.. ModflowNwtFlowAdapter
 SolverAdapter <|.. Modflow6FlowAdapter

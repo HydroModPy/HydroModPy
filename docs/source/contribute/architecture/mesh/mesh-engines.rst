@@ -148,7 +148,7 @@ table gives them for the built-in engines, with the flow solvers that read each 
      - yes
      - no
      - yes
-     - none yet
+     - ``linear_reservoir``
 
 ``graded`` means that the engine follows the size field, and ``exact_faces`` that a face line
 lies exactly on cell faces. ``cell_families`` says how a river becomes a
@@ -178,10 +178,11 @@ what the engine left out.
    note of the mesh gives how many and their area, because the water that falls in a hole of a
    delineated catchment still reaches its outlet. The center is the point that shapely's
    ``point_on_surface`` gives (``center_kind = "interior_point"``), so it lies in the cell even when
-   the vertex mean of a concave catchment does not. The engine refuses lines, a size field and an
-   input triangulation, which one cell cannot hold. So a real catchment needs
-   ``[mesh.families] rivers = "none"`` with this engine, since ``"cell"`` is the default, and the
-   other families set to ``"none"`` when the project has such lines.
+   the vertex mean of a concave catchment does not. The engine declares every line family in
+   ``ignored_families``, and the planner drops what those families would have asked with a named
+   note in the mesh report, so the default ``rivers = "cell"`` does not refuse the engine. A family
+   an engine ignores, written with a value other than ``none``, is refused when the file is read.
+   The engine refuses a size field and an input triangulation, which one cell cannot hold.
 
 Which solver reads which engine
 -------------------------------
@@ -191,9 +192,12 @@ the engine ids the solver reads, or ``*planar`` for any engine whose cells are t
 quadrilaterals or polygons and that is not lumped. A solver that reads one cell names the lumped
 engine, so MODFLOW 6 never computes on the single cell of ``catchment``. The rule is
 ``engine_accepted`` of ``mesh/registry.py``, which loads the engine class only when its capabilities
-decide. ``HydroModPyConfig`` checks the pair while it reads the file, before any step runs. Its message names the engines the solver reads and the solvers that read the engine
+decide. ``HydroModPyConfig`` checks the pair while it reads the file, before any step runs. Its
+message names the engines the solver reads and the solvers that read the engine
 asked for. In the same place it refuses a cell addressed by ``[lay, row, col]`` (a well, an SFR
-reach) on every engine but ``regular``.
+reach) on every engine but ``regular``. Without ``[mesh] engine``, when the only engines the
+flow backend accepts are lumped ones, the engine of the run is that lumped engine, and the
+seal writes it among the mesh facts.
 
 The cache
 ---------

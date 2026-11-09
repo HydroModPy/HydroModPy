@@ -36,12 +36,13 @@ import zipfile
 from typing import TYPE_CHECKING, Final
 
 from hydromodpy.core.exceptions import DataRequestError, DataSourceError
-from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     import geopandas as gpd
     import requests
+
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
@@ -95,10 +96,15 @@ def bbox_params(typename: str, bbox: tuple[float, float, float, float]) -> dict[
     }
 
 
-def count_features(typename: str, bbox: tuple[float, float, float, float]) -> int:
+def count_features(
+    typename: str,
+    bbox: tuple[float, float, float, float],
+    *,
+    client: HTTPClient | None = None,
+) -> int:
     """How many features of *typename* touch *bbox*, as the server counts them."""
     params = {**bbox_params(typename, bbox), "RESULTTYPE": "hits"}
-    body = checked_body(_get(params), typename=typename)
+    body = checked_body(_get(params, client=client), typename=typename)
     match = _NUMBER_MATCHED.search(body[:4096])
     if match is None:
         raise DataSourceError(
@@ -113,6 +119,7 @@ def get_features(
     bbox: tuple[float, float, float, float],
     *,
     page_size: int,
+    client: HTTPClient | None = None,
 ) -> gpd.GeoDataFrame:
     """Every feature of *typename* touching *bbox*, in EPSG:2154.
 
@@ -129,7 +136,7 @@ def get_features(
     import geopandas as gpd
     import pandas as pd
 
-    expected = count_features(typename, bbox)
+    expected = count_features(typename, bbox, client=client)
     logger.info("[WFS] Sandre %s: %d features in the box", typename, expected)
     if expected == 0:
         return gpd.GeoDataFrame(geometry=[], crs=QUERY_CRS)
@@ -139,7 +146,7 @@ def get_features(
     start = 0
     empty_run = 0
     while received < expected:
-        page = _get_page(typename, bbox, start=start, count=page_size)
+        page = _get_page(typename, bbox, start=start, count=page_size, client=client)
         logger.debug("[WFS] %s STARTINDEX=%d: %d features", typename, start, len(page))
         if len(page):
             frames.append(page)
@@ -157,27 +164,38 @@ def get_features(
             f"{received} arrived over {start // page_size} pages of {page_size}. The layer "
             "may have been republished between the count and the pages; ask again."
         )
+    if not frames:
+        return gpd.GeoDataFrame(geometry=[], crs=QUERY_CRS)
     frame = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
-    if "gid" in frame.columns and frame["gid"].duplicated().any():
-        raise DataSourceError(
-            f"Sandre WFS repeated {int(frame['gid'].duplicated().sum())} features of "
-            f"{typename!r} across pages; the paging was not stable, ask again."
-        )
-    if frame.crs is None:
-        frame = frame.set_crs(QUERY_CRS)
-    return empty_text_as_missing(frame)
-
-
-def empty_text_as_missing(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Replace the ``''`` the server writes for a missing string by ``None``."""
-    for column in frame.columns:
-        if column == frame.geometry.name or frame[column].dtype != object:
-            continue
-        values = frame[column]
-        blank = values.map(lambda value: isinstance(value, str) and value == "")
-        if blank.any():
-            frame[column] = values.astype(object).where(~blank, None)
+    _refuse_repeated_features(frame, typename)
+    _empty_text_is_missing(frame)
     return frame
+
+
+def _refuse_repeated_features(frame, typename):
+    """Raise when a feature id arrives twice, across pages included."""
+    if "gid" not in frame.columns:
+        return
+    seen: set[object] = set()
+    repeated: list[object] = []
+    for value in frame["gid"]:
+        key = value.item() if hasattr(value, "item") else value
+        if key in seen:
+            repeated.append(key)
+        seen.add(key)
+    if repeated:
+        raise DataSourceError(
+            f"Sandre WFS returned the feature id {repeated[0]!r} more than once "
+            f"({len(repeated)} repeated) for {typename!r}. The pages do not tile the "
+            f"box: ask {typename!r} again."
+        )
+
+
+def _empty_text_is_missing(frame) -> None:
+    """The server sends a missing string as '', and the frame reads None."""
+    text_columns = [c for c in frame.columns if c != "geometry" and frame[c].dtype == object]
+    for column in text_columns:
+        frame[column] = frame[column].where(lambda s: s != "", None)
 
 
 def _get_page(
@@ -186,17 +204,19 @@ def _get_page(
     *,
     start: int,
     count: int,
+    client: HTTPClient | None = None,
 ) -> gpd.GeoDataFrame:
+    """Download one page of features and parse the GPKG payload."""
     import geopandas as gpd
 
     params = {
         **bbox_params(typename, bbox),
-        "COUNT": str(count),
         "STARTINDEX": str(start),
+        "COUNT": str(count),
         "SORTBY": "gid",
-        "OUTPUTFORMAT": "GPKG",
+        "OUTPUTFORMAT": "application/x-gpkg",
     }
-    body = checked_body(_get(params), typename=typename)
+    body = checked_body(_get(params, client=client), typename=typename)
     if not body.startswith(b"PK"):
         raise DataSourceError(
             f"Sandre WFS answered a GPKG page of {typename!r} with something that is not "
@@ -214,8 +234,13 @@ def _get_page(
         return gpd.read_file(io.BytesIO(payload))
 
 
-def _get(params: dict[str, str]) -> requests.Response:
-    return get_default_client().get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
+def _get(params: dict[str, str], *, client: HTTPClient | None = None) -> requests.Response:
+    if client is not None:
+        return client.get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
+    from hydromodpy.core.io.fetch import open_client
+
+    with open_client() as c:
+        return c.get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
 
 
 def checked_body(response: requests.Response, *, typename: str, label: str = "Sandre WFS") -> bytes:
@@ -245,7 +270,6 @@ __all__ = [
     "bbox_params",
     "checked_body",
     "count_features",
-    "empty_text_as_missing",
     "excerpt",
     "get_features",
     "require_metropolitan",

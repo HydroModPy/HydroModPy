@@ -9,11 +9,13 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.model.transport.transport import Transport
-from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.model.transport.transport_config import (
+    ConcentrationTransportParametersConfig,
+)
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
-from hydromodpy.solver.modflow6.transport import Modflow6Transport
+from hydromodpy.solver.modflow6.transport import _MT_S1, Modflow6Transport
 from hydromodpy.solver.modflow_common.runtime_arrays import _normalize_sconc_input
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 
 
@@ -65,8 +67,15 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
         exe="mf6",
         modflow_config=_coerce_modflow6_config({"runtime": {"mf6_ims_complexity": complexity}}),
     )
-    transport = Transport({"modflow6gwt": {"parameters": params}})
-    solver = Modflow6Transport(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
+    options = ConcentrationTransportParametersConfig.model_validate(params)
+    solver = Modflow6Transport(
+        make_model(),
+        flow_model,
+        model_folder=str(tmp_path),
+        model_name="flow",
+        suffix_name=_MT_S1,
+        options=options.model_dump(),
+    )
     solver.pre_processing()
     return solver
 

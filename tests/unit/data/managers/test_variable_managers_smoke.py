@@ -23,8 +23,8 @@ import pytest
 
 # ── Config imports ────────────────────────────────────────────────────
 from hydromodpy.data.variables.dem.config import (
-    CustomDemSource,
     DemConfig,
+    FileDemSource,
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
@@ -59,9 +59,7 @@ def _custom_loader(manager_cls: type) -> Callable:
     """The custom loader of one manager, called like a loader function."""
 
     def load(cfg, *, project_period=None):
-        return manager_cls(config=None, catalog=None, project_period=project_period).load_custom(
-            cfg
-        )
+        return manager_cls(config=None, catalog=None, project_period=project_period).load_file(cfg)
 
     return load
 
@@ -201,8 +199,8 @@ def var_case(request) -> VarCase:
 @pytest.mark.fast
 class TestVariableConfigContract:
     def test_valid_custom_source(self, var_case, tmp_path):
-        cfg = var_case.source_cls(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
+        cfg = var_case.source_cls(source="file", path=tmp_path)
+        assert cfg.source == "file"
 
     def test_valid_sim2_config(self, var_case):
         cfg = var_case.source_cls(source="sim2")
@@ -210,14 +208,14 @@ class TestVariableConfigContract:
 
     def test_custom_requires_path(self, var_case):
         with pytest.raises(ValueError, match="path"):
-            var_case.source_cls(source="custom")
+            var_case.source_cls(source="file")
 
     def test_invalid_source_rejected(self, var_case):
         with pytest.raises(ValueError):
             var_case.source_cls(source=var_case.invalid_source)
 
     def test_top_level_config(self, var_case, tmp_path):
-        cfg = var_case.config_cls(sources=[var_case.source_cls(source="custom", path=tmp_path)])
+        cfg = var_case.config_cls(sources=[var_case.source_cls(source="file", path=tmp_path)])
         assert len(cfg.sources) == 1
 
     def test_empty_sources_rejected(self, var_case):
@@ -229,7 +227,7 @@ class TestVariableConfigContract:
 class TestVariableCustomLoaderContract:
     def test_load_one_station(self, var_case, tmp_path):
         d = _make_custom_csv_dir(tmp_path, var_case.name, unit=var_case.unit, value=var_case.value)
-        cfg = var_case.source_cls(source="custom", path=d)
+        cfg = var_case.source_cls(source="file", path=d)
         records = var_case.loader(cfg, project_period=PROJECT_PERIOD)
         assert len(records) == 1
         assert records[0].station_id == "ST01"
@@ -241,7 +239,7 @@ class TestVariableCustomLoaderContract:
     def test_missing_loc_file_raises(self, var_case, tmp_path):
         d = tmp_path / f"{var_case.name}_empty"
         d.mkdir()
-        cfg = var_case.source_cls(source="custom", path=d)
+        cfg = var_case.source_cls(source="file", path=d)
         with pytest.raises(FileNotFoundError, match=f"{var_case.name}_custom_LOC"):
             var_case.loader(cfg, project_period=PROJECT_PERIOD)
 
@@ -254,8 +252,8 @@ class TestVariableCustomLoaderContract:
 @pytest.mark.fast
 class TestDemConfig:
     def test_valid_custom_source(self, tmp_path):
-        cfg = CustomDemSource(path=tmp_path)
-        assert cfg.source == "custom"
+        cfg = FileDemSource(path=tmp_path)
+        assert cfg.source == "file"
         assert cfg.path == tmp_path
 
     def test_valid_ign_geoplateforme_source(self):
@@ -266,7 +264,7 @@ class TestDemConfig:
 
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):
-            CustomDemSource()
+            FileDemSource()
 
     def test_invalid_source_rejected(self):
         with pytest.raises(ValueError):
@@ -280,7 +278,7 @@ class TestDemConfig:
         assert IgnGeoplateformeDemSource(dataset="rge-alti").dataset == "rge-alti"
 
     def test_top_level_config(self, tmp_path):
-        cfg = DemConfig(sources=[CustomDemSource(path=tmp_path)])
+        cfg = DemConfig(sources=[FileDemSource(path=tmp_path)])
         assert len(cfg.sources) == 1
 
     def test_empty_sources_rejected(self):
@@ -289,7 +287,7 @@ class TestDemConfig:
 
     def test_extra_fields_forbidden(self, tmp_path):
         with pytest.raises(ValueError):
-            CustomDemSource(path=tmp_path, bogus=True)
+            FileDemSource(path=tmp_path, bogus=True)
 
 
 # =====================================================================
@@ -300,12 +298,12 @@ class TestDemConfig:
 @pytest.mark.fast
 class TestEtpSpecific:
     def test_custom_source_defaults_col_id(self, tmp_path):
-        cfg = EtpSourceConfig(source="custom", path=tmp_path)
+        cfg = EtpSourceConfig(source="file", path=tmp_path)
         assert cfg.col_id == "id"
 
     def test_top_level_with_dates(self, tmp_path):
         cfg = EtpConfig(
-            sources=[EtpSourceConfig(source="custom", path=tmp_path)],
+            sources=[EtpSourceConfig(source="file", path=tmp_path)],
             date_start="2020-01-01",
             date_end="2020-12-31",
         )
@@ -314,14 +312,14 @@ class TestEtpSpecific:
     def test_bad_date_format_rejected(self, tmp_path):
         with pytest.raises(ValueError, match="Invalid ISO date"):
             EtpConfig(
-                sources=[EtpSourceConfig(source="custom", path=tmp_path)],
+                sources=[EtpSourceConfig(source="file", path=tmp_path)],
                 date_start="01-01-2020",
             )
 
     def test_date_order_rejected(self, tmp_path):
         with pytest.raises(ValueError, match="date_start must be before date_end"):
             EtpConfig(
-                sources=[EtpSourceConfig(source="custom", path=tmp_path)],
+                sources=[EtpSourceConfig(source="file", path=tmp_path)],
                 date_start="2021-01-01",
                 date_end="2020-01-01",
             )
@@ -330,12 +328,12 @@ class TestEtpSpecific:
 @pytest.mark.fast
 class TestPrecipitationSpecific:
     def test_custom_source_defaults_components_total(self, tmp_path):
-        cfg = PrecipitationSourceConfig(source="custom", path=tmp_path)
+        cfg = PrecipitationSourceConfig(source="file", path=tmp_path)
         assert cfg.components == ["total"]
 
     def test_components_liquid_solid(self, tmp_path):
         cfg = PrecipitationSourceConfig(
-            source="custom",
+            source="file",
             path=tmp_path,
             components=["liquid", "solid"],
         )
@@ -343,26 +341,26 @@ class TestPrecipitationSpecific:
 
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            PrecipitationSourceConfig(source="custom", path=tmp_path, components=["hail"])
+            PrecipitationSourceConfig(source="file", path=tmp_path, components=["hail"])
 
     def test_empty_components_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            PrecipitationSourceConfig(source="custom", path=tmp_path, components=[])
+            PrecipitationSourceConfig(source="file", path=tmp_path, components=[])
 
 
 @pytest.mark.fast
 class TestRadiationSpecific:
     def test_custom_source_defaults_components(self, tmp_path):
-        cfg = RadiationSourceConfig(source="custom", path=tmp_path)
+        cfg = RadiationSourceConfig(source="file", path=tmp_path)
         assert cfg.components == ["atmospheric", "visible"]
 
     def test_components_atmospheric_only(self, tmp_path):
-        cfg = RadiationSourceConfig(source="custom", path=tmp_path, components=["atmospheric"])
+        cfg = RadiationSourceConfig(source="file", path=tmp_path, components=["atmospheric"])
         assert cfg.components == ["atmospheric"]
 
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            RadiationSourceConfig(source="custom", path=tmp_path, components=["infrared"])
+            RadiationSourceConfig(source="file", path=tmp_path, components=["infrared"])
 
 
 @pytest.mark.fast
@@ -375,7 +373,7 @@ class TestRunoffSpecific:
             unit="mm/day",
             value=1.0,
         )
-        cfg = RunoffSourceConfig(source="custom", path=d)
+        cfg = RunoffSourceConfig(source="file", path=d)
         records = _custom_loader(RunoffManager)(cfg, project_period=PROJECT_PERIOD)
         assert len(records) == 2
         assert {r.station_id for r in records} == {"R01", "R02"}
@@ -384,12 +382,12 @@ class TestRunoffSpecific:
 @pytest.mark.fast
 class TestTemperatureSpecific:
     def test_station_ids_filtering(self, tmp_path):
-        cfg = TemperatureSourceConfig(source="custom", path=tmp_path, station_ids=["T01", "T02"])
+        cfg = TemperatureSourceConfig(source="file", path=tmp_path, station_ids=["T01", "T02"])
         assert cfg.station_ids == ["T01", "T02"]
 
 
 @pytest.mark.fast
 class TestWindSpecific:
     def test_source_unit_override(self, tmp_path):
-        cfg = WindSourceConfig(source="custom", path=tmp_path, source_unit="km/h")
+        cfg = WindSourceConfig(source="file", path=tmp_path, source_unit="km/h")
         assert cfg.source_unit == "km/h"

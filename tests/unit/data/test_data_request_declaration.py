@@ -28,7 +28,7 @@ def _served_slugs() -> set[str]:
     """Every source a [data] section reaches: the words the shipped keys are made of."""
     from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 
-    slugs = {"custom"}
+    slugs: set[str] = set()
     for key in registry.data_sources.names(shipped_only=True):
         for variable in VARIABLE_SPECS:
             if key.startswith(f"{variable}_"):

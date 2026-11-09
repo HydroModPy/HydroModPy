@@ -24,6 +24,7 @@ from hydromodpy.core.exceptions import UnknownFieldError
 # remember the exact strings. These are CF / UGRID shape signatures.
 SHAPE_TIME_LAYER_FACE = "time_layer_face"
 SHAPE_TIME_FACE = "time_face"
+SHAPE_TIME = "time"
 SHAPE_LAYER_FACE = "layer_face"
 SHAPE_FACE = "face"
 SHAPE_PARTICLES = "particles"
@@ -137,6 +138,25 @@ class FieldDescriptor:
         return " ".join(self.dimensions)
 
 
+@dataclass(frozen=True, slots=True)
+class TimeSeriesDescriptor:
+    """CF-1.11 descriptor of a station series written in ``timeseries.parquet``.
+
+    A series of shape :data:`SHAPE_TIME` holds one value per time step of one
+    station, so it has no Zarr array: ``zarr_dimension_names`` and
+    ``cf_coordinates`` describe fields and do not apply here. A series that
+    samples a registered field at one point, ``head`` of an observation point
+    for example, is described by that field and carries no entry.
+    """
+
+    public_name: str
+    long_name: str
+    units: str
+    shape: str = SHAPE_TIME
+    standard_name: str = ""
+    description: str = ""
+
+
 BUDGET_SIGN_RULE = "positive enters the aquifer, negative leaves it"
 """The sign of every field under ``budget/``, the one MODFLOW gives a budget, for every solver."""
 
@@ -167,7 +187,11 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="concentration",
         standard_name="",
         csdms_standard_name="subsurface_water__mass_concentration",
-        long_name="Solute mass concentration in groundwater",
+        long_name=(
+            "Solute mass concentration in groundwater, one solute per run, "
+            "read under concentration/<spc_name> or, for a run written by 2.0.0, "
+            "under the flat concentration array"
+        ),
         units="kg m-3",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: point area: mean",
@@ -691,6 +715,135 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
 }
 
 
+TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
+    # Station series of ``timeseries.parquet``, one value per time step of one
+    # station. They are what the catchment aggregation writes (in m3 s-1), the
+    # state quantities the LAK and SFR extractors store, and the rates they
+    # scale to m3 s-1. The ``storage`` of a lake is not a series name here: it
+    # would collide with the budget field ``storage`` of the aquifer, and that
+    # conflict is settled where it can be refused at write time.
+    "discharge": TimeSeriesDescriptor(
+        public_name="discharge",
+        long_name="Water leaving the aquifer, summed over the catchment",
+        units="m3 s-1",
+        standard_name="water_volume_transport_in_river_channel",
+    ),
+    "well_pumping": TimeSeriesDescriptor(
+        public_name="well_pumping",
+        long_name="Well pumping, summed over the catchment",
+        units="m3 s-1",
+    ),
+    "reservoir_storage": TimeSeriesDescriptor(
+        public_name="reservoir_storage",
+        long_name="Water stored in the lumped reservoir of the catchment",
+        units="m3",
+    ),
+    # Lake states (the lake station is ``lake:<id>``).
+    "stage": TimeSeriesDescriptor(
+        public_name="stage",
+        long_name="Water level of a lake or a stream reach",
+        units="m",
+    ),
+    "volume": TimeSeriesDescriptor(
+        public_name="volume",
+        long_name="Water volume held by the lake",
+        units="m3",
+    ),
+    "surface_area": TimeSeriesDescriptor(
+        public_name="surface_area",
+        long_name="Surface of the free water of the lake",
+        units="m2",
+    ),
+    # Lake rates, positive into the lake, an outflow positive out of it.
+    "gwf_exchange": TimeSeriesDescriptor(
+        public_name="gwf_exchange",
+        long_name="Water the aquifer gives the lake through its bed",
+        units="m3 s-1",
+    ),
+    "lake_bed_vertical_exchange": TimeSeriesDescriptor(
+        public_name="lake_bed_vertical_exchange",
+        long_name="Vertical exchange through the lake bed",
+        units="m3 s-1",
+    ),
+    "rainfall": TimeSeriesDescriptor(
+        public_name="rainfall",
+        long_name="Rainfall on the free water of the lake",
+        units="m3 s-1",
+    ),
+    "evaporation": TimeSeriesDescriptor(
+        public_name="evaporation",
+        long_name="Evaporation from the free water of the lake",
+        units="m3 s-1",
+    ),
+    "runoff": TimeSeriesDescriptor(
+        public_name="runoff",
+        long_name="Inland runoff the lake or the reach receives",
+        units="m3 s-1",
+    ),
+    "inflow": TimeSeriesDescriptor(
+        public_name="inflow",
+        long_name="Inflow declared for the lake",
+        units="m3 s-1",
+    ),
+    "withdrawal": TimeSeriesDescriptor(
+        public_name="withdrawal",
+        long_name="Water withdrawn from the lake",
+        units="m3 s-1",
+    ),
+    "ext_outflow": TimeSeriesDescriptor(
+        public_name="ext_outflow",
+        long_name="Outflow the lake or the reach gives outside the model",
+        units="m3 s-1",
+    ),
+    "outlet": TimeSeriesDescriptor(
+        public_name="outlet",
+        long_name="Outflow routed through the lake outlet",
+        units="m3 s-1",
+    ),
+    "outlet_inflow": TimeSeriesDescriptor(
+        public_name="outlet_inflow",
+        long_name="Water the outlet of the lake receives from it",
+        units="m3 s-1",
+    ),
+    "to_mvr": TimeSeriesDescriptor(
+        public_name="to_mvr",
+        long_name="Water forwarded to a mover by the lake or the reach",
+        units="m3 s-1",
+    ),
+    "from_mvr": TimeSeriesDescriptor(
+        public_name="from_mvr",
+        long_name="Water received from a mover by the lake or the reach",
+        units="m3 s-1",
+    ),
+    "lak_connection": TimeSeriesDescriptor(
+        public_name="lak_connection",
+        long_name="Exchange between two connected lakes",
+        units="m3 s-1",
+    ),
+    # Stream reach states and rates (the reach station is ``<network>:<number>``).
+    "depth": TimeSeriesDescriptor(
+        public_name="depth",
+        long_name="Water depth of a stream reach",
+        units="m",
+    ),
+    "downstream_flow": TimeSeriesDescriptor(
+        public_name="downstream_flow",
+        long_name="Flow a downstream reach receives from this one",
+        units="m3 s-1",
+    ),
+    "ext_inflow": TimeSeriesDescriptor(
+        public_name="ext_inflow",
+        long_name="Inflow the reach reads from outside the model",
+        units="m3 s-1",
+    ),
+    "gw_exchange": TimeSeriesDescriptor(
+        public_name="gw_exchange",
+        long_name="Water exchanged between the aquifer and the reach",
+        units="m3 s-1",
+    ),
+}
+
+
 def get(name: str) -> FieldDescriptor:
     """Return the :class:`FieldDescriptor` registered under ``name``.
 
@@ -726,6 +879,22 @@ def all_names() -> list[str]:
 def all_zarr_paths() -> list[str]:
     """Return the sorted list of registered Zarr paths."""
     return sorted(desc.zarr_path for desc in FIELD_REGISTRY.values())
+
+
+def series_names() -> list[str]:
+    """Return the sorted list of registered station series."""
+    return sorted(TIME_SERIES_REGISTRY)
+
+
+def series_unit(name: str) -> str:
+    """Return the unit of the station series ``name``, ``""`` when unregistered.
+
+    The writers of ``timeseries.parquet`` read the unit here, so a series and
+    its unit live in one place; a variable the registry does not hold is
+    written with an empty unit until its writer names it.
+    """
+    descriptor = TIME_SERIES_REGISTRY.get(name)
+    return descriptor.units if descriptor is not None else ""
 
 
 def timed_field_dimensions(ndim: int) -> tuple[str, ...]:
@@ -798,6 +967,7 @@ def cf_attrs(name: str) -> dict[str, object]:
 __all__ = [
     "SHAPE_TIME_LAYER_FACE",
     "SHAPE_TIME_FACE",
+    "SHAPE_TIME",
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
@@ -820,6 +990,8 @@ __all__ = [
     "AXIS_TRACK_STEP",
     "AXIS_TWO",
     "FieldDescriptor",
+    "TIME_SERIES_REGISTRY",
+    "TimeSeriesDescriptor",
     "FIELD_REGISTRY",
     "get",
     "per_array_dimensions",
@@ -830,4 +1002,6 @@ __all__ = [
     "all_names",
     "all_zarr_paths",
     "cf_attrs",
+    "series_names",
+    "series_unit",
 ]

@@ -67,7 +67,6 @@ kind = "from_outlet_coord"
 # Regional DEM used only for flow accumulation / outlet snapping. There
 # is no API alternative for this step in the current pipeline; the
 # watershed cannot be delineated without a local DEM here.
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -108,7 +107,7 @@ types = [
 # `ign_geoplateforme_dem` block once IGN access is restored.
 
 [[data.dem.sources]]
-source = "custom"
+source = "file"
 path = "../../data/dem/DEM_armorican_massif.tif"
 
 # [[data.dem.sources]]

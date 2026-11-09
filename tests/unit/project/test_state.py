@@ -38,6 +38,7 @@ def test_project_state_mapping_covers_all_known_attrs() -> None:
     expected = {
         "_config_path",
         "_cfg",
+        "_environment",
         "_solver",
         "_time_grid",
         "_headless",
@@ -105,6 +106,7 @@ def test_project_state_defaults_match_phases_configure_defaults() -> None:
     state = ProjectState()
     assert state.config_path is None
     assert state.cfg is None
+    assert state.environment is None
     assert state.solver is None
     assert state.time_grid is None
     assert state.headless is False

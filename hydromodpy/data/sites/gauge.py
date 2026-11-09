@@ -80,14 +80,14 @@ def check_run_gauge_area(
 
 
 def _selects_by_station(source_name: Any, variable: str) -> bool:
-    """True when ``source_name`` is ``custom`` or selects stations by id.
+    """True when ``source_name`` is ``file``/``custom`` or selects stations by id.
 
     The declaration is read on the registered class, so no list of source
     names lives here. A name the registry does not know is not keyed: the
     section validator is the one that refuses it, and a source that cannot
     be served cannot take a gauge either.
     """
-    if source_name == "custom":
+    if source_name in ("file", "custom"):
         return True
     try:
         source_cls = data_sources.get(variable, source_name)

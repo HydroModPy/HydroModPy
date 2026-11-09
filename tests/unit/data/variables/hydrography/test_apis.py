@@ -148,7 +148,7 @@ class TestEuHydroApi:
             )
         return {"type": "FeatureCollection", "features": features}
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_fetch_two_layers(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -180,7 +180,7 @@ class TestEuHydroApi:
         assert "layer_id" in gdf.columns
         assert "layer_name" in gdf.columns
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_no_layers_found(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -193,7 +193,7 @@ class TestEuHydroApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_strahler_fallback(self, mock_get):
         """When group_name doesn't match, fallback finds layers with 'Strahler' in name."""
         from hydromodpy.data.variables.hydrography.apis.euhydro import (
@@ -214,7 +214,7 @@ class TestEuHydroApi:
         ids = _feature_layer_ids_in_group(ms, "River_Net_lines")
         assert 10 in ids
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_custom_group_and_page_size(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -259,7 +259,7 @@ class TestOsmApi:
             )
         return {"elements": elements}
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_fetch_parses_features(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -276,7 +276,7 @@ class TestOsmApi:
         assert "waterway" in gdf.columns
         assert "intermit" in gdf.columns
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_fetch_empty_response(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -290,7 +290,7 @@ class TestOsmApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_custom_waterway_types_in_query(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -310,7 +310,7 @@ class TestOsmApi:
         )
         assert "canal" in str(call_params)
 
-    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
+    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
     def test_intermittent_flag(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 

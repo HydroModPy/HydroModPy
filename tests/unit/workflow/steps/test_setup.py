@@ -11,6 +11,7 @@ import pytest
 
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.workflow.steps.dependencies import earliest_affected_step
 from hydromodpy.workflow.steps.sequence import standard_steps
 from hydromodpy.workflow.steps.setup import resolve_geographic_inputs
@@ -23,6 +24,7 @@ def _run_state(tmp_path: Path, *, config_path: Path | None = None) -> Any:
     return SimpleNamespace(
         config_path=config_path or tmp_path / "project.toml",
         setup=SimpleNamespace(workspace=None),
+        bounds=Bounds(),
     )
 
 
@@ -34,7 +36,7 @@ def _cfg(*, sources=(), synthetic=False) -> Any:
 
 
 def _custom(path):
-    return SimpleNamespace(source="custom", path=str(path), force_refresh=False)
+    return SimpleNamespace(source="file", path=str(path), force_refresh=False)
 
 
 def test_the_network_declared_by_the_data_family_is_the_map_of_alpha(tmp_path, monkeypatch):

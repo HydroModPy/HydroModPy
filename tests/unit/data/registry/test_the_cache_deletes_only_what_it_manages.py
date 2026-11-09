@@ -28,7 +28,7 @@ def _write(path: Path) -> Path:
 def _register(catalog: DataCatalogDuckDB, path: Path, *, is_custom: bool = False) -> None:
     catalog.register(
         variable="geology",
-        source="custom" if is_custom else "brgm_1m",
+        source="file" if is_custom else "brgm_1m",
         file_path=str(path),
         bbox=(0.0, 0.0, 1.0, 1.0),
         crs="EPSG:2154",
@@ -54,7 +54,7 @@ def test_invalidating_a_user_file_forgets_it_and_leaves_it_on_disk(tmp_path: Pat
     catalog = _catalog(tmp_path / "ws")
     try:
         _register(catalog, user_file, is_custom=True)
-        removed = catalog.invalidate(variable="geology", source="custom", delete_files=True)
+        removed = catalog.invalidate(variable="geology", source="file", delete_files=True)
     finally:
         catalog.close()
     assert removed == 1
@@ -66,7 +66,7 @@ def test_invalidating_a_derived_copy_deletes_it(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path / "ws")
     try:
         _register(catalog, copy, is_custom=True)
-        catalog.invalidate(variable="geology", source="custom", delete_files=True)
+        catalog.invalidate(variable="geology", source="file", delete_files=True)
     finally:
         catalog.close()
     assert not copy.exists()

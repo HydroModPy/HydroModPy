@@ -16,7 +16,11 @@ from pydantic.fields import FieldInfo
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.core.config_kit.introspect import named_tables_of
-from hydromodpy.core.toml_io.paths import resolve_declared_path
+from hydromodpy.core.toml_io.paths import (
+    has_url_scheme,
+    is_bare_filename,
+    resolve_declared_path,
+)
 from hydromodpy.mesh.mesh_config import MeshConfig
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -42,26 +46,11 @@ def _input_file_role(field_info: FieldInfo) -> str | None:
     return None
 
 
-def _build_path_fallback_dirs(
-    role: str | None,
-    workspace_data_dir: Path | None,
-) -> list[Path] | None:
-    """Build the search path used when a config field is a bare filename.
+def _is_an_input_file(field_info: FieldInfo) -> bool:
+    """Return True when the field names a file of the user, as ``InputFile`` marks it."""
+    from hydromodpy.core.tracking.input_file import InputFile
 
-    Order of fallbacks (each tried only when the bare filename does not
-    resolve under the TOML directory):
-
-    1. ``<workspace>/data/<role>/`` - convention-over-configuration:
-       data files for variable ``<role>`` live here.
-    2. ``<workspace>/data/`` - flat fallback for cross-cutting files.
-    """
-    if workspace_data_dir is None:
-        return None
-    fallback: list[Path] = []
-    if role:
-        fallback.append(workspace_data_dir / role)
-    fallback.append(workspace_data_dir)
-    return fallback
+    return any(isinstance(meta, InputFile) for meta in field_info.metadata or ())
 
 
 def _resolve_section_paths(
@@ -71,14 +60,11 @@ def _resolve_section_paths(
     *,
     workspace_data_dir: Path | None = None,
 ) -> None:
-    """
-    Resolve relative paths and ``~`` in a config section dict (in-place).
+    """Resolve relative paths and ``~`` in a config section dict (in-place).
 
-    Bare filenames (no separator, no ``..``) get the convention-driven
-    lookup under ``<workspace>/data/<role>/`` when the field carries an
-    ``InputFile`` annotation, so users can write
-    ``path = "etp_sim2.nc"`` instead of ``../../data/etp/etp_sim2.nc``. The
-    paths of a named table, ``[solver.<name>]``, are read the same way.
+    Paths are resolved against ``base`` (the project root / TOML directory)
+    without fallback directories. A path starting with a URL scheme is refused
+    with ``use source = "url"``.
     """
     for name, table_cls in named_tables_of(model_cls, shipped_only=False).items():
         table = data.get(name)
@@ -92,15 +78,31 @@ def _resolve_section_paths(
             continue
         value = data.get(field_name)
         if isinstance(value, str) and value:
-            role = _input_file_role(field_info)
-            fallback_dirs = _build_path_fallback_dirs(role, workspace_data_dir)
-            data[field_name] = str(
-                resolve_declared_path(
-                    value,
-                    base_dir=base,
-                    fallback_dirs=fallback_dirs,
+            if has_url_scheme(value):
+                from hydromodpy.core.exceptions import ConfigError
+
+                raise ConfigError(f"{field_name} '{value}': use source = \"url\"")
+            resolved = resolve_declared_path(value, base_dir=base)
+            if is_bare_filename(value) and not resolved.exists() and _is_an_input_file(field_info):
+                # A bare name used to be looked up in the workspace data
+                # folder, under the role of the field then under ``data``.
+                # The refusal names where the old fallback had the file, so
+                # the user writes one path and runs again.
+                from hydromodpy.core.toml_io.paths import (
+                    BareInputNameError,
+                    bare_name_refusal,
+                    former_bare_name_location,
                 )
-            )
+
+                raise BareInputNameError(
+                    bare_name_refusal(
+                        value,
+                        former=former_bare_name_location(
+                            value, workspace_data_dir, role=_input_file_role(field_info)
+                        ),
+                    )
+                )
+            data[field_name] = str(resolved)
 
 
 def load_standard_section(

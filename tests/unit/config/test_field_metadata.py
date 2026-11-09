@@ -161,9 +161,9 @@ def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None
     [
         "calibration",
         "calibration.method",
-        "transport.modflow6prt",
-        "transport.modflow6prt.parameters",
-        "transport.modpath.parameters.track_dir",
+        "transport.modflow6_prt",
+        "transport.modflow6_prt.write_track_binary",
+        "transport.modpath.track_dir",
         "flow.sinks_sources.flow_barriers",
         "flow.sinks_sources.flow_barriers.<name>.hydchr",
         "flow.sinks_sources.lakes.<name>.cutoff_wall",
@@ -186,7 +186,7 @@ def test_the_docs_show_the_mark_on_a_key_and_below_a_marked_section(
     [
         "flow.first_period_steady",
         "flow.sinks_sources.recharge.soil.ru",
-        "transport.mt3dms.parameters",
+        "transport.mt3dms",
         "solver.backend",
     ],
 )

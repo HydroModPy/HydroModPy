@@ -24,8 +24,8 @@ from hydromodpy.solver.base.observables import (
     servable,
     unavailable,
 )
-from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
-from hydromodpy.solver.base.registry import extractors
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.registry import backends_honoring, extractors
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_flow_model,
     build_preprocess_options,
@@ -51,6 +51,7 @@ class ModflowNwtFlowAdapter:
     geometry: ClassVar[str] = "raster"
     writes: ClassVar[tuple[str, ...]] = (
         "head",
+        "face_flow",
         "budget/constant_head",
         "budget/drain",
         "budget/evapotranspiration",
@@ -81,6 +82,7 @@ class ModflowNwtFlowAdapter:
             "recharge",
             "wells",
             "etp",
+            "properties",
             "layers",
         }
     )
@@ -94,30 +96,40 @@ class ModflowNwtFlowAdapter:
         """No precondition checks for MODFLOW-NWT flow runs."""
 
     def build(
-        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+        self,
+        model: Any,
+        options: BaseModel | None,
+        slot: RunSlot,
+        upstream: tuple[SolverRun, ...] = (),
     ) -> SolverRun:
         """Build the MODFLOW-NWT model of ``model`` in memory, under ``slot``.
 
-        The method is intentionally thin:
+        A flow run follows no run of the plan, so ``upstream`` stays empty and
+        the build reads nothing of it. The method is intentionally thin:
 
         - resolve the shared preprocessing options from the ``Model``,
         - build the concrete ``ModflowNwt`` object in the folder and under the
           name the slot gives, with the binary of the slot,
-        - delegate the rest to ``build_flow_model``, which hands the ``Model`` to
-          ``ModflowNwt.pre_processing``.
+        - say on the solver object that a downstream transport may read the
+          flow output: ``slot.hand_off`` carries ``face_flow`` when a run that
+          follows the flow reads it, and the LMT package is then built with
+          the run,
+        - delegate the rest to ``build_flow_model``, which hands the ``Model``
+          to ``ModflowNwt.pre_processing``.
 
         MODFLOW-NWT truncates a NAME-file path at the first space, so the name
         is made safe before it reaches the solver files (mirrors MF6).
         """
+        del upstream  # a flow run follows no run of the plan
         preprocess_options = build_preprocess_options(model)
         solver_model = ModflowNwt(
             model_folder=slot.folder,
             model_name=nwt_safe_name(slot.name),
             bin_path=slot.bin_dir,
             modflow_config=options,
-            preprocess_options=preprocess_options,
         )
-        return build_flow_model(solver_model, model, options, slot, ctx, preprocess_options)
+        solver_model.link_mt3dms = "face_flow" in slot.hand_off
+        return build_flow_model(solver_model, model, options, slot, preprocess_options)
 
     def run(self, solver_run: SolverRun) -> SolverRun:
         """Write the NWT input files, solve, and return the solved run."""
@@ -143,7 +155,8 @@ class ModflowNwtFlowAdapter:
             unavailable(
                 "stage",
                 "MODFLOW-NWT builds no LAK package, so there is no lake state to read. "
-                "Use the modflow6 backend for a lake.",
+                "Backends that honor the lake boundary, this installation "
+                f"serves: {', '.join(backends_honoring('lake')) or 'none'}.",
             ),
             unavailable(
                 "routed_discharge",

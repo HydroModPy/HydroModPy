@@ -40,7 +40,9 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 "",
                 "[geographic.catchment]",
                 'kind = "dem"',
-                'dem_init_path = "dem.tif"',
+                "[[data.dem.sources]]",
+                'source = "file"',
+                'path = "inputs/dem.tif"',
             ]
         ),
         encoding="utf-8",
@@ -54,7 +56,7 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
 def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
     tmp_path: Path,
 ) -> None:
-    dem_path = tmp_path / "data" / "dem" / "dem.tif"
+    dem_path = tmp_path / "inputs" / "dem.tif"
     dem_path.parent.mkdir(parents=True)
     dem_path.touch()
     config_path = tmp_path / "data_dem.toml"
@@ -77,8 +79,8 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 "[data.dem]",
                 "",
                 "[[data.dem.sources]]",
-                'source = "custom"',
-                'path = "dem.tif"',
+                'source = "file"',
+                'path = "inputs/dem.tif"',
             ]
         ),
         encoding="utf-8",
@@ -86,7 +88,6 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
 
     cfg = HydroModPyConfig.from_toml(config_path)
 
-    assert cfg.geographic.dem_init_path is None
     assert cfg.data.dem is not None
     assert cfg.data.dem.sources[0].path == dem_path.resolve()
 
@@ -164,11 +165,9 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
             "workspace": {"root": str(tmp_path), "project_root": ""},
             "site": {"name": "site_a"},
             "geographic": {
-                "catchment": {
-                    "kind": "dem",
-                    "dem_init_path": "dem.tif",
-                }
+                "catchment": {"kind": "dem"},
             },
+            "data": {"dem": {"sources": [{"source": "file", "path": "dem.tif"}]}},
             "flow": {
                 "param": {
                     "K": {
@@ -181,7 +180,7 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
     )
 
     assert cfg.workspace.project_root == tmp_path.resolve()
-    assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.data.dem.sources[0].path == dem_path.resolve()
     assert cfg.flow.param_list == ["K"]
     assert cfg.flow.param["K"].resolved_payload(param_id="K") == {
         "id": "K",
@@ -200,14 +199,10 @@ def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
         "workflow": {"mode": "simulation"},
         "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
         "site": {"name": "site_a"},
-        "geographic": {
-            "catchment": {
-                "kind": "dem",
-                "dem_init_path": "dem.tif",
-            }
-        },
+        "geographic": {"catchment": {"kind": "dem"}},
+        "data": {"dem": {"sources": [{"source": "file", "path": "dem.tif"}]}},
     }
 
     cfg = HydroModPyConfig.from_json(json.dumps(payload), base_dir=tmp_path)
 
-    assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.data.dem.sources[0].path == dem_path.resolve()

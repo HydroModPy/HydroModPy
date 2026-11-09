@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
-import geopandas as gpd
 import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
@@ -10,12 +10,16 @@ from shapely.geometry import LineString, Point, Polygon
 from hydromodpy.calibration.targets import declared_calibrable
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.boundaries.barriers import (
-    _read_barrier_csv,
     apply_flow_barriers_to_flow,
     resolve_barrier_line,
 )
 from hydromodpy.model.boundaries.cutoff_wall_shore import auto_dam_axis, snap_wall_to_shore
-from hydromodpy.model.boundaries.lakes import apply_cutoff_wall_to_flow
+from hydromodpy.model.boundaries.lakes import (
+    apply_cutoff_wall_to_flow,
+    apply_lake_abacus_to_flow,
+    apply_lake_bathymetry_to_flow,
+    apply_lake_geometry_to_flow,
+)
 from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig, FlowBarrierConfig
 from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig as FlowBarrierConfig_2
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
@@ -34,30 +38,44 @@ def test_auto_dam_axis_is_perpendicular_to_the_outlet_flow() -> None:
     assert axis.length >= 10.0  # the reservoir width, plus the abutment extension
 
 
-def test_read_barrier_csv_builds_a_multi_vertex_polyline(tmp_path) -> None:
-    path = tmp_path / "dam.csv"
-    path.write_text("x,y\n0,0\n5,1\n10,0\n")
-    line = _read_barrier_csv(path, "test")
-    assert list(line.coords) == [(0.0, 0.0), (5.0, 1.0), (10.0, 0.0)]
+def test_resolve_barrier_line_accepts_preloaded_trace() -> None:
+    trace_geom = LineString([(0, 0), (10, 10)])
+    cfg = SimpleNamespace(line=None, line_path="wall.geojson")
+    line = resolve_barrier_line(cfg, where="test", line_trace=trace_geom)
+    assert line.equals(trace_geom)
 
 
-def test_read_barrier_csv_accepts_lon_lat_headers(tmp_path) -> None:
-    path = tmp_path / "dam.csv"
-    path.write_text("lon,lat\n0,0\n10,10\n")
-    assert list(_read_barrier_csv(path, "test").coords) == [(0.0, 0.0), (10.0, 10.0)]
-
-
-def test_resolve_barrier_line_reads_a_single_linestring_file(tmp_path) -> None:
-    # A vector file holding one LineString must resolve cleanly: linemerge rejects a
-    # lone LineString, so the resolver must not call it on a single-part geometry.
-    path = tmp_path / "wall.geojson"
-    gpd.GeoDataFrame(geometry=[LineString([(0, 0), (10, 10)])], crs="EPSG:2154").to_file(
-        path, driver="GeoJSON"
-    )
-    cfg = SimpleNamespace(line=None, line_path=str(path))
+def test_resolve_barrier_line_builds_inline_line() -> None:
+    cfg = SimpleNamespace(line=[[0.0, 0.0], [5.0, 1.0]], line_path=None)
     line = resolve_barrier_line(cfg, where="test")
-    assert line.geom_type == "LineString"
-    assert len(line.coords) == 2
+    assert list(line.coords) == [(0.0, 0.0), (5.0, 1.0)]
+
+
+def test_resolve_barrier_line_refuses_line_path_without_trace() -> None:
+    cfg = SimpleNamespace(line=None, line_path="wall.geojson")
+    with pytest.raises(ValueError, match="must be loaded"):
+        resolve_barrier_line(cfg, where="test")
+
+
+def test_apply_lake_geometry_attaches_polygons() -> None:
+    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
+    poly = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+    assert apply_lake_geometry_to_flow(flow=flow, polygons={"reservoir": poly}) is True
+    assert flow.sinks_sources["lakes"]["reservoir"]["polygon"].equals(poly)
+
+
+def test_apply_lake_abacus_attaches_curves() -> None:
+    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
+    abacus_data = {"stage": [1.0, 2.0], "volume": [10.0, 20.0], "sarea": [5.0, 5.0]}
+    assert apply_lake_abacus_to_flow(flow=flow, abacus={"reservoir": abacus_data}) is True
+    assert flow.sinks_sources["lakes"]["reservoir"]["abacus"] == abacus_data
+
+
+def test_apply_lake_bathymetry_attaches_path() -> None:
+    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
+    path = Path("/path/to/lake_bathymetry.tif")
+    assert apply_lake_bathymetry_to_flow(flow=flow, bathymetry={"reservoir": path}) is True
+    assert flow.sinks_sources["lakes"]["reservoir"]["bathymetry"] == path
 
 
 # The flow-barrier binders resolve traces onto the runtime payloads.

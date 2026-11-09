@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
 from hydromodpy.model.forcing.steady_periods import apply_first_clim, first_clim_sets_a_deficit
 from hydromodpy.model.forcing.validation import ensure_non_negative_numeric_payload
+from hydromodpy.solver.base.registry import backends_honoring
 
 if TYPE_CHECKING:
     from hydromodpy.model.model import Model
@@ -32,10 +33,14 @@ class RechargeResolutionMixin:
 
         first_clim = getattr(recharge_cfg, "first_clim", "mean")
         if first_clim_sets_a_deficit(first_clim, self.boussinesq_steady_flags(int(nper))):
+            honoring = backends_honoring("etp")
             raise ValueError(
                 f"flow.sinks_sources.recharge.first_clim = {first_clim} is a negative rate, "
                 "and the Boussinesq solver has no EVT to route a deficit to: give a rate "
-                "of zero or more, or run the deficit under modflow6 or modflow_nwt."
+                "of zero or more, or run the deficit under a backend with an "
+                "evapotranspiration, this installation serves: "
+                + (", ".join(honoring) or "none")
+                + "."
             )
 
         heterogeneous_source = getattr(recharge_cfg, "heterogeneous_source", None)

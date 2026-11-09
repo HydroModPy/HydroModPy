@@ -13,7 +13,7 @@ from pathlib import Path
 
 from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.variables.geology.config import CustomGeologySource, GeologyConfig
+from hydromodpy.data.variables.geology.config import FileGeologySource, GeologyConfig
 from hydromodpy.data.variables.geology.custom import load_custom_geology
 from hydromodpy.data.variables.geology.manager import GeologyManager
 
@@ -40,8 +40,8 @@ def _write_mask(path: Path, bounds: tuple[float, float, float, float]) -> Path:
     return path
 
 
-def _source(path: Path, **kwargs) -> CustomGeologySource:
-    return CustomGeologySource(source="custom", path=path, code_field="CODE", **kwargs)
+def _source(path: Path, **kwargs) -> FileGeologySource:
+    return FileGeologySource(source="file", path=path, code_field="CODE", **kwargs)
 
 
 def test_the_manager_writes_the_clip_under_blobs_with_its_sidecar(tmp_path: Path) -> None:
@@ -66,7 +66,7 @@ def test_the_manager_writes_the_clip_under_blobs_with_its_sidecar(tmp_path: Path
     assert clip.parent == data_root / "blobs" / "geology" / "custom"
     assert clip.name.startswith("GEO1M_clip_")
     assert sorted(p.name for p in geology_dir.iterdir()) == before
-    assert load_sidecar(clip).source == "custom"
+    assert load_sidecar(clip).source == "file"
     assert sidecar_path_for(clip).parent == clip.parent
 
 

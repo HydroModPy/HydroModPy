@@ -48,7 +48,6 @@ reuse_existing_outputs = true
 write_intermediates = false
 
 [geographic.catchment] # Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.
-dem_init_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/dem/DEM_nancon_25m.tif" # Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
 kind = "from_outlet_coord" # Watershed delineated from outlet coordinates on a regional DEM.
 x_outlet = 389285.91 # X coordinate of the watershed outlet in the projected CRS.
 y_outlet = 6816518.749 # Y coordinate of the watershed outlet in the projected CRS.
@@ -98,8 +97,8 @@ inference_mode = "warn" # Policy applied when the planner infers types not expli
 
 [[data.dem.sources]]
 force_refresh = false
-source = "custom" # Discriminator tag selecting the 'custom' DEM provider.
-path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/dem/DEM_nancon_25m.tif" # Path to custom DEM file or directory (TIF, ASC, NC).
+source = "file" # Discriminator tag selecting the 'custom' DEM provider.
+path = "../../data/dem/DEM_nancon_25m.tif" # Path to custom DEM file or directory (TIF, ASC, NC).
 
 [data.geology] # Geology configuration used when 'geology' is listed in data.types.
 id = "field_geology" # Identifier of the geology spatial field.
@@ -109,8 +108,8 @@ force_refresh = false
 source = "brgm_1m" # Discriminator tag selecting the BRGM 1:1M geology provider.
 
 [[data.hydrography.sources]]
-source = "custom" # Data provider.
-path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrography/nancon_stream_network.gpkg" # Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
+source = "file" # Data provider.
+path = "../../data/hydrography/nancon_stream_network.gpkg" # Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 rasterize_field = "FID" # Attribute field used when rasterizing the vector layer.
 page_size = 2000 # WFS pagination page size (BD Topage).
 group_name = "River_Net_lines" # MapServer group name for EU-Hydro layer discovery.
@@ -133,8 +132,8 @@ col_crs = "crs" # Column name for the CRS in location files.
 col_datetime = "datetime" # Column name for timestamps in chronicle CSVs.
 col_value = "value" # Column name for numeric values in chronicle CSVs.
 default_crs = "EPSG:4326" # Default CRS used when a location file omits the CRS column.
-source = "custom" # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
-path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrometry" # Directory containing location file and chronicle CSVs.
+source = "file" # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+path = "../../data/hydrometry" # Directory containing location file and chronicle CSVs.
 require_observations = true
 
 [data.recharge] # Recharge configuration (drainage / soil infiltration time series).
@@ -151,8 +150,8 @@ col_crs = "crs" # Column name for the CRS in location files.
 col_datetime = "datetime" # Column name for timestamps in chronicle CSVs.
 col_value = "value" # Column name for numeric values in chronicle CSVs.
 default_crs = "EPSG:4326" # Default CRS used when a location file omits the CRS column.
-source = "custom" # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
-path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/recharge" # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
+source = "file" # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
+path = "../../data/recharge" # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 [data.runoff] # Runoff configuration (surface runoff time series).
 date_start = "2000-01-01" # Project start date (ISO format, e.g. '2019-01-01').
@@ -168,8 +167,8 @@ col_crs = "crs" # Column name for the CRS in location files.
 col_datetime = "datetime" # Column name for timestamps in chronicle CSVs.
 col_value = "value" # Column name for numeric values in chronicle CSVs.
 default_crs = "EPSG:4326" # Default CRS used when a location file omits the CRS column.
-source = "custom" # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/runoff" # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
+source = "file" # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+path = "../../data/runoff" # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 [flow]
 param_list = ["K", "Sy", "Ss"] # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).

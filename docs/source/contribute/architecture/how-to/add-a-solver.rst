@@ -2,16 +2,17 @@ Add a solver
 ============
 
 A solver in HydroModPy is one ``<process_type>_<name>`` key
-bound to a concrete backend class. Today three backends ship: ``modflow6``,
-``modflow_nwt``, and ``boussinesq``. This page documents how to add a
-fourth flow backend or, equivalently, a new ``transport`` /
+bound to a concrete backend class. Today four backends ship: ``modflow6``,
+``modflow_nwt``, ``boussinesq`` and the global ``linear_reservoir``, which
+meshes the catchment as one cell of the ``catchment`` engine and declares
+``category`` ``lumped``. This page documents how to add another flow
+backend or, equivalently, a new ``transport`` /
 ``postprocess`` solver.
 
 The ``hydromodpy.solver`` and ``hydromodpy.solver.extractor`` ports are
 experimental (:doc:`../contracts`), so they can change in any minor version.
-They also have one limit today. The run index knows a closed list of solver
-codes, so the index leaves out a run of a backend outside the tree, and says so
-(``results/catalog/index_schema.py``).
+The run index takes the solver of a run from its manifest, so the run of a
+backend outside the tree is listed and filtered like the others.
 
 Contract
 --------
@@ -37,7 +38,7 @@ twelve attributes and five methods:
        requires: ClassVar[tuple[tuple[str, str], ...]]
 
        def validate(self, model, options, slot: RunSlot) -> None: ...
-       def build(self, model, options, slot: RunSlot, ctx: RunContext) -> SolverRun: ...
+       def build(self, model, options, slot: RunSlot, upstream=()) -> SolverRun: ...
        def run(self, solver_run: SolverRun) -> SolverRun: ...
        def cleanup(self, solver_run: SolverRun) -> None: ...
        def extract(self, solver_run: SolverRun, store, retention: Retention) -> None: ...
@@ -125,11 +126,11 @@ stay. The extractor writes the terms it names and no other.
 A flow adapter reads nothing of the setup, the configuration or the store: the
 ``Model``, the options and the slot are all it needs, and a static gate in
 ``tests/unit/architecture/`` says so before the solver ever runs. ``build`` also
-receives the ``RunContext`` of the run. A transport adapter reads ``ctx.state``
-(``setup``, ``cfg`` and ``sim_id``) through it until the transport port takes the
-``Model``, and finds the ``SolverRun`` of the flow it follows in ``ctx.upstream``.
-The catalog handle of the enclosing run arrives as ``ctx.store``, borrowed for the
-span of the call, and an adapter keeps no reference to it.
+takes ``upstream``, the ``SolverRun`` objects the plan ran before it. A flow
+backend receives none, a transport receives exactly one, the flow of the family
+its ``requires`` names, and reads ``face_flow`` from the files and the solver
+object of that run. A backend reads nothing of the setup, the configuration or
+the store, and keeps no reference to the store's handle.
 
 ``extract`` calls a separate **extractor**, which ingests the persisted outputs
 into the catalog. It is registered under the same ``<process_type>_<name>`` key
@@ -160,8 +161,9 @@ For a new flow backend called ``mysolver``:
    |   `-- flow.py                   # MysolverOutputAdapter (extract())
    `-- README.md                     # short rationale and code map
 
-A transport backend keeps its adapters in an ``adapters/`` folder, one module per
-adapter.
+A transport adapter is filed beside its engine, in the module of
+``hydromodpy/solver/<backend>/`` that holds the engine model, the way
+``Modflow6GwtTransportAdapter`` is in ``modflow6/transport.py``.
 
 If your backend shares MODFLOW-family lifecycle helpers, reuse
 ``solver/modflow_common/flow_adapter_helpers.py`` (``build_flow_model``,

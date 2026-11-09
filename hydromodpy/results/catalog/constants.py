@@ -1,6 +1,6 @@
 """Catalog constants and small solver helpers.
 
-Hosts the Parquet view names, the solver vocabulary and the metric helpers that read the direction table. The DDL of the index lives in
+Hosts the Parquet view names, the SQL of the dimension joins and the metric helpers that read the direction table. The DDL of the index lives in
 :mod:`hydromodpy.results.catalog.index_schema`.
 """
 
@@ -40,67 +40,6 @@ column, so a run whose configuration has no ``[mesh]`` section shows the
 default engine it ran on. The expression reads the ``simulations`` table
 under the alias ``s``.
 """
-
-
-# Canonical solver codes, the ``solvers.code`` rows of the index schema.
-VALID_SOLVER_CODES: frozenset[str] = frozenset(
-    {
-        "boussinesq",
-        "gr4j",
-        "modflow6",
-        "modflow_nwt",
-        "modpath",
-        "mt3dms",
-    }
-)
-
-# Short aliases users may type on the CLI mapped to canonical solver codes.
-SOLVER_ALIASES: dict[str, str] = {
-    "mf6": "modflow6",
-    "nwt": "modflow_nwt",
-}
-
-
-def canonical_solver_code(name: str) -> str:
-    """Return the canonical solver code for a user-typed name or alias."""
-    key = str(name).strip().lower()
-    return SOLVER_ALIASES.get(key, key)
-
-
-def solver_category(solver_name: str) -> str | None:
-    """Return the category for in-tree solvers without importing solver layers."""
-    known = {
-        "boussinesq": "integrated",
-        "gr4j": "lumped",
-        "modflow6": "distributed",
-        "modflow_nwt": "distributed",
-        "modpath": "distributed",
-        "mt3dms": "distributed",
-    }
-    parts = [part.strip() for part in str(solver_name).split(",") if part.strip()]
-    if not parts:
-        return None
-    categories = {known[part] for part in parts if part in known}
-    if len(categories) == 1 and len(categories) == len(parts):
-        return categories.pop()
-    return None
-
-
-def validate_solver_code(solver_name: str) -> str:
-    """Validate a solver code against the canonical v2 vocabulary.
-
-    Returns the trimmed lower-case code on success.
-
-    Raises
-    ------
-    ValueError
-        When *solver_name* is not a known ``solvers.code`` value.
-    """
-    key = str(solver_name).strip().lower()
-    if key not in VALID_SOLVER_CODES:
-        known = ", ".join(sorted(VALID_SOLVER_CODES))
-        raise ValueError(f"Unknown solver code {solver_name!r}. Expected one of: {known}.")
-    return key
 
 
 RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
@@ -200,14 +139,9 @@ __all__ = [
     "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",
     "RETIRED_METRIC_NAMES",
-    "SOLVER_ALIASES",
     "UnrankedMetricError",
-    "VALID_SOLVER_CODES",
-    "canonical_solver_code",
     "cost_of",
     "metric_rank_sql",
     "metric_sense",
     "score_of",
-    "solver_category",
-    "validate_solver_code",
 ]

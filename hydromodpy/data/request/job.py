@@ -84,7 +84,7 @@ from hydromodpy.schema.sources import SOURCES
 CAPABILITY_ID = "data-request"
 CAPABILITY_VERSION = "1.0.0"
 REPORT_PATH = "outputs/request.json"
-CUSTOM_SOURCE = "custom"
+FILE_SOURCE = "file"
 
 MEDIA_TYPES: dict[str, str] = {
     ".parquet": PARQUET_MEDIA_TYPE,
@@ -203,7 +203,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
     )
     request = cast(DataRequest, validate_inputs(document, decl))
     requested_outputs(document, decl)
-    _refuse_custom_sources(request)
+    _refuse_file_sources(request)
 
     mask_resource = None
     if request.extent.mask is not None:
@@ -225,15 +225,15 @@ def _resolve(job: JobDirectory) -> _Resolved:
     )
 
 
-def _refuse_custom_sources(request: DataRequest) -> None:
+def _refuse_file_sources(request: DataRequest) -> None:
     for variable, section in request.sections().items():
         for index, src in enumerate(getattr(section, "sources", ())):
-            if src.source == CUSTOM_SOURCE:
+            if src.source == FILE_SOURCE:
                 raise refuse_request(
-                    f"[data.{variable}] names a custom source; a job has no user files "
+                    f"[data.{variable}] names a file source; a job has no user files "
                     "to read, so it serves only the sources that download",
                     loc=("inputs", "data", variable, "sources", str(index), "source"),
-                    msg="custom source in a job",
+                    msg="file source in a job",
                 )
 
 

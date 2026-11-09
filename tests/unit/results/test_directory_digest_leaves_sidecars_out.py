@@ -24,7 +24,7 @@ def test_a_sidecar_written_beside_a_file_leaves_the_digest_alone(tmp_path: Path)
     folder = _folder(tmp_path)
     before = sha256_directory(folder)
 
-    (folder / "hydrometry_custom_NANCON_D.csv.json").write_text('{"source": "custom"}')
+    (folder / "hydrometry_custom_NANCON_D.csv.json").write_text('{"source": "file"}')
 
     assert sha256_directory(folder) == before
 

@@ -20,12 +20,13 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.calibration.metrics import solver_extract
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.runners.trial import built_model, prepare_trials
-from hydromodpy.solver.base.plan import RunContext, SolverRun
+from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.base.runner import options_for, slot_for, solve_one
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd
@@ -144,9 +145,8 @@ def _solve(ctx: Any, model: Any, *, solve: bool = False) -> SolverRun:
     adapter, run_ctx = solver_extract.resolve_flow_adapter(ctx)
     ctx.setup.model = model
     slot = replace(slot_for(run_ctx.plan, run_ctx.run, ctx.setup), stop_before_solve=not solve)
-    fresh = RunContext.of(ctx, plan=run_ctx.plan, run=run_ctx.run)
     options = options_for(adapter, run_ctx.run, ctx.cfg)
-    return solve_one(adapter, model, options, slot, fresh)
+    return solve_one(adapter, model, options, slot)
 
 
 def _execute(ctx: Any, model: Any, *, solve: bool = False) -> Any:
@@ -257,3 +257,47 @@ def test_a_solve_writes_into_the_folder_of_its_slot(
         assert (solved.written, solved.solved) == (True, True)
         assert solved.output_dir is not None
         assert solved.output_dir.resolve() == solved.slot.directory.resolve()
+
+
+def test_the_linear_reservoir_reads_one_model(tmp_path: Path) -> None:
+    """The global backend runs the factory's one-cell Model, and the common asserts hold.
+
+    The doc of an island names properties no global model reads, so this line
+    does not walk the island path: the ``Model`` comes from the factory, on the
+    one polygon cell the catchment engine meshes, at the steps of its own
+    forcing. The recharge the run reads is the one the ``Model`` carries, in
+    m/s, one rate per piece, and the build leaves the ``Model`` as it found it.
+    """
+    from hydromodpy.model.model import ModelTime
+    from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
+    from hydromodpy.solver.base.plan import RunSlot
+    from hydromodpy.solver.linear_reservoir.adapter import (
+        SERIES_FILE,
+        LinearReservoirFlowAdapter,
+    )
+    from hydromodpy.solver.linear_reservoir.options import LinearReservoirOptions
+    from tests._helpers.model_factory import make_model, one_cell_geometry, time_grid
+
+    rates = [1.5e-8, 3.0e-8]
+    model = make_model(
+        geometry=one_cell_geometry(),
+        time=ModelTime(grid=time_grid(5.0, 5.0), regime="transient", first_period_steady=False),
+        recharge=FlowRechargeConfig(units="m/s", values=rates),
+    )
+    before = _digest(model)
+
+    adapter = LinearReservoirFlowAdapter()
+    slot = RunSlot(folder=tmp_path / "runs", name="port_linear_reservoir")
+    built = adapter.build(model, LinearReservoirOptions(time_constant="30 days"), slot)
+
+    assert (built.written, built.solved) == (False, False)
+    assert built.solver_model is not None
+    solved = adapter.run(built)
+    assert (solved.written, solved.solved) == (True, True)
+    assert solved.output_dir is not None
+    assert solved.output_dir.resolve() == solved.slot.directory.resolve()
+    assert _digest(model) == before
+
+    frame = pd.read_csv(solved.output_dir / SERIES_FILE, index_col="time", parse_dates=True)
+    expected = np.asarray(rates) * 1.0
+    np.testing.assert_allclose(frame["recharge_m_s"].to_numpy(), expected, rtol=1e-12)

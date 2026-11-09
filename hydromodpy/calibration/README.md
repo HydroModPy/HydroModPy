@@ -22,11 +22,11 @@ root of the package.
 | `optim/adapters/` | the search methods themselves: grid, random, scipy, CMA-ES, Optuna, bisection, GP mapping, DA-MH-GP |
 | `persistence.py` | how a session is written: `sessions/<case>/` and its journal, nothing else |
 | `report.py` | how a finished session is read back for the report, from its directory |
-| `evaluation/` | what one trial must answer: the evaluator port and the forward-model port, their registries, and the two evaluators that need nothing from the calibration document |
+| `evaluation/` | what one trial must answer: the evaluator port, its registry, and `analytic_bowl`, the evaluator that needs nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
 | `observations/` | what is observed: the observed stream network and its geometry |
-| `metrics/` | how the outputs of one trial are extracted and paired with observations, and the evaluator that scores a forward model |
+| `metrics/` | how the outputs of one trial are extracted and paired with observations |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
 
@@ -73,8 +73,8 @@ Five more rules:
    dotted path written as text, and imports one only when a run asks for it.
    Checking that a document names a known evaluator does not import it. So the
    evaluators that read the calibration document can live above `config`
-   (`runners/pipeline_evaluator.py`, `metrics/scored_forward.py`), and a
-   third-party evaluator joins the same table.
+   (`runners/pipeline_evaluator.py`), and a third-party evaluator joins the
+   same table.
 
 ## Tree
 
@@ -90,13 +90,13 @@ hydromodpy/calibration/
                 method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
                 fosm.py  cost_margin.py  diagnostics.py
     adapters/   one module per search method
-  evaluation/   port.py  forward.py  registry.py  forward_registry.py
-                analytic_bowl.py  linear_reservoir.py
+  evaluation/   port.py  registry.py
+                analytic_bowl.py
   protocols/    base.py  registry.py  boilerplate.py  matching_hydrographic_network.py
   observations/ network_source.py  observed_network.py  network_geometry.py
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
-                downslope_network.py  scored_forward.py
+                downslope_network.py
   runners/      cli_runner.py (entry)  document.py (read the TOML)  search.py (one search)
                 session_scope.py (open, close, promote)  staged_runner.py  programmatic_runner.py
                 trial.py (prepare once, evaluate many, TrialPipeline)  sandbox.py  verdict.py  materialize.py
@@ -111,9 +111,9 @@ hydromodpy/calibration/
 
 ## Template of a search method
 
-One module per method in `optim/adapters/`. No list to edit:
-`optim/optimizer.py` walks that folder on the first lookup and imports every
-module whose name does not start with `_`.
+One module per method in `optim/adapters/`, declared in `_BUILTIN_PATHS` of
+`optim/optimizer.py` and imported on first lookup. A third-party method joins
+`optimizers` on the same engine, as the template below shows.
 
 ```python
 from hydromodpy.calibration.optim.optimizer import (
@@ -141,9 +141,9 @@ optimizers.register(MyMethod)
 ```
 
 No decorator, and no list to edit: the class joins the registry through
-```optimizers.register(MyMethod)```, read off the ``name`` attribute of the
+`optimizers.register(MyMethod)`, read off the `name` attribute of the
 class, or in another distribution through one entry point of the
-```hydromodpy.calibration.optimizer`` group, named on the same id.
+`hydromodpy.calibration.optimizer` group, named on the same id.
 
 Its options are a Pydantic model in `optim/method_config.py`, one member of the
 `CalibrationMethodConfig` union, so an unknown option is refused when the file
@@ -155,7 +155,7 @@ is read rather than inside the adapter.
    `CalibrationConfig`. A named protocol is expanded first
    (`protocols.expand_calibration_protocol`), and each parameter name is
    resolved to a config path (`parameter_resolution.resolve_parameter_targets`).
-   Validators refuse an unknown criterion, evaluator or forward model here.
+   Validators refuse an unknown criterion or evaluator here.
    An unknown search method loads, and is refused by the preflight below,
    before anything is prepared. `CalibrationConfig.validate_registry` refuses
    it again when the search starts, and resolves a method left unwritten,
@@ -546,21 +546,16 @@ declared share when the blocks have different units.
    `hydromodpy.calibration.evaluator` entry-point group. Inside, put it in
    `evaluation/` if it reads nothing from `config.py`, otherwise beside what it
    uses, and add its dotted path to `_BUILTIN_PATHS`.
-4. **A forward model.** A class with `model_id` and
-   `simulate(ForwardRequest) -> ForwardOutcome` (`evaluation/forward.py`),
-   published in `hydromodpy.calibration.forward_model` or listed in
-   `evaluation/forward_registry.py`. A document selects it with
-   `evaluator = "scored_forward_model"` and `forward_model = "<id>"`.
-5. **A calibration protocol.** A module in `protocols/` with a class that
+4. **A calibration protocol.** A module in `protocols/` with a class that
    satisfies `CalibrationProtocol` (`protocols/base.py`: references,
    deviations, `expand`), an instance in `_PROTOCOLS` of
    `protocols/registry.py`, and its options model in `config.py`.
    `CalibrationProtocolDecl` then becomes a union discriminated on `name`.
-6. **A phase option.** The field on `CalibPhaseDecl` in `config.py`, and its
+5. **A phase option.** The field on `CalibPhaseDecl` in `config.py`, and its
    effect in `runners/staged_runner.py` (`_phase_config`) or, for a model
    setting, in `runners/phase_regime.py`. A protocol that needs it writes it
    into the phases it expands; it never reaches around the phase.
-7. **A `[calibration]` field.** The field on its model in `config.py`, with a
+6. **A `[calibration]` field.** The field on its model in `config.py`, with a
    profile and a description. The parameter reference is computed from the
    model at the next documentation build (`tools/docs/field_registry.py`).
    The committed JSON Schema, `docs/source/_static/hydromodpy-schema.json`, is
@@ -609,9 +604,8 @@ Only these modules, listed under `public` in `calibration_layout.yaml`:
 
 A plugin outside HydroModPy joins through entry-point groups: an
 optimizer (`hydromodpy.calibration.optimizer`, written against
-`optim.optimizer.Optimizer`), an evaluator (`hydromodpy.calibration.evaluator`,
-written against `evaluation.port`) or a forward model
-(`hydromodpy.calibration.forward_model`, against `evaluation.forward`).
+`optim.optimizer.Optimizer`) or an evaluator (`hydromodpy.calibration.evaluator`,
+written against `evaluation.port`).
 In-tree optimizers are declared under `_BUILTIN_PATHS` in `optim/optimizer.py`.
 
 ## Vocabulary
@@ -621,8 +615,6 @@ In-tree optimizers are declared under `_BUILTIN_PATHS` in `optim/optimizer.py`.
   trial of a search.
 - **evaluator**: turns a trial request into a cost; the unit a document can
   swap (`evaluator = ...`).
-- **forward model**: returns simulated outputs only; `scored_forward_model`
-  scores them with the document's objective.
 - **criterion**, **kernel**: the function that scores one simulated series
   against one observed series; a TOML names it with `metric`.
 - **objective block**: one `[[calibration.objective_blocks]]` entry, an output,

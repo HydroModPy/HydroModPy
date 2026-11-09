@@ -1,6 +1,6 @@
 """Download and cache BRGM 1:50K departmental geological maps.
 
-Source: http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip
+Source: https://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip
 License: ETALAB Open Licence v2.0 (open data, attribution required)
 
 Workflow:
@@ -14,15 +14,15 @@ Workflow:
 
 from __future__ import annotations
 
-import urllib.request
 import zipfile
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from filelock import FileLock
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.io.fetch import HTTPClient, download, open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -37,11 +37,16 @@ from hydromodpy.data.source.port import (
 )
 from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash, find_fgeol_shp
 
+if TYPE_CHECKING:
+    from hydromodpy.core.runtime.bounds import Bounds
+
 logger = get_logger(__name__)
 
-BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
+BRGM_50K_URL_TEMPLATE = (
+    "https://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
+)
 
-BRGM_50K_ORIGIN = "http://infoterre.brgm.fr/telechargements/BDCharm50"
+BRGM_50K_ORIGIN = "https://infoterre.brgm.fr/telechargements/BDCharm50"
 """The service ``fetch`` answers of, for the :class:`FileRecord` it returns."""
 
 
@@ -49,6 +54,8 @@ def _download_department(
     dept_code: str,
     *,
     cache_dir: Path,
+    bounds: Bounds | None = None,
+    client: HTTPClient | None = None,
 ) -> Path | None:
     """Download and extract one department's geology ZIP.
 
@@ -71,7 +78,15 @@ def _download_department(
     with FileLock(f"{zip_path}.lock"):
         if dept_gpkg.exists():
             return dept_gpkg
-        return _build_department_gpkg(url, zip_path, dept_dir, dept_gpkg, brgm_code)
+        return _build_department_gpkg(
+            url,
+            zip_path,
+            dept_dir,
+            dept_gpkg,
+            brgm_code,
+            bounds=bounds,
+            client=client,
+        )
 
 
 def _build_department_gpkg(
@@ -80,16 +95,15 @@ def _build_department_gpkg(
     dept_dir: Path,
     dept_gpkg: Path,
     brgm_code: str,
+    *,
+    bounds: Bounds | None = None,
+    client: HTTPClient | None = None,
 ) -> Path | None:
     """Download, extract and convert one department archive to GeoPackage."""
     if not zip_path.exists():
         logger.debug("[geology] Downloading 50K map for department %s...", brgm_code)
         try:
-            with staged_path(zip_path) as staged:
-                urllib.request.urlretrieve(url, str(staged))
-        except urllib.error.HTTPError as exc:
-            logger.warning("[geology] Department %s not available: %s", brgm_code, exc)
-            return None
+            download(url, zip_path, bounds=bounds, client=client)
         except Exception as exc:
             logger.warning("[geology] Failed to download %s: %s", brgm_code, exc)
             return None
@@ -149,11 +163,15 @@ class Brgm50k:
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
-        gpkg_path = fetch_brgm_50k(
-            output_dir=request.out_dir,
-            bbox=extent.bbox,
-            code_field=self.code_field,
-        )
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds=bounds) as client:
+            gpkg_path = fetch_brgm_50k(
+                output_dir=request.out_dir,
+                bbox=extent.bbox,
+                code_field=self.code_field,
+                bounds=bounds,
+                client=client,
+            )
         from hydromodpy.data.contracts.file_record import FileRecord
 
         record = FileRecord.of(gpkg_path, state="raw", nodata=None, origin=BRGM_50K_ORIGIN)
@@ -172,6 +190,8 @@ def fetch_brgm_50k(
     output_dir: Path,
     bbox: tuple[float, float, float, float],
     code_field: str = "CODE_LEG",
+    bounds: Bounds | None = None,
+    client: HTTPClient | None = None,
 ) -> Path:
     """Download, merge, and crop 1:50K departmental geological maps.
 
@@ -214,7 +234,12 @@ def fetch_brgm_50k(
 
     gdfs = []
     for code in progress.track(dept_codes, "Downloading BRGM 50K departments"):
-        dept_path = _download_department(code, cache_dir=dept_cache)
+        dept_path = _download_department(
+            code,
+            cache_dir=dept_cache,
+            bounds=bounds,
+            client=client,
+        )
         if dept_path is not None:
             gdf = gpd.read_file(str(dept_path))
             gdfs.append(gdf)

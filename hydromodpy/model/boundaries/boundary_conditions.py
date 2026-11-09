@@ -449,7 +449,7 @@ class DrainBC(FlowBoundaryConditionConfig):
         json_schema_extra=field_metadata(
             value_docs={
                 "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its "
-                "closure from solver.boussinesq.surface_interaction_model.",
+                "closure from the surface-interaction settings under [solver].",
             }
         ),
     )

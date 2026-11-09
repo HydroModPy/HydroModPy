@@ -1,4 +1,4 @@
-"""Flow barrier traces read from the TOML or a file, and put on a Flow."""
+"""Flow barrier traces read from config or preloaded objects, and put on a Flow."""
 
 from __future__ import annotations
 
@@ -8,89 +8,57 @@ from typing import TYPE_CHECKING
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from shapely.geometry import LineString
+
     from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)
 
 
-def _read_barrier_csv(path, where):
-    """Read a bare x,y (optionally z) CSV of ordered polyline vertices."""
-    import pandas as pd
-    from shapely.geometry import LineString
-
-    df = pd.read_csv(path)
-    cols = {c.strip().lower(): c for c in df.columns}
-    xcol = cols.get("x") or cols.get("lon") or cols.get("easting") or df.columns[0]
-    ycol = cols.get("y") or cols.get("lat") or cols.get("northing") or df.columns[1]
-    coords = [(float(x), float(y)) for x, y in zip(df[xcol], df[ycol], strict=False)]
-    if len(coords) < 2:
-        raise ValueError(f"{where} CSV '{path}' needs at least two (x, y) rows.")
-    return LineString(coords)
-
-
-def resolve_barrier_line(cfg: object, *, where: str, project_crs: object = None, data_dir=None):
+def resolve_barrier_line(
+    cfg: object,
+    *,
+    where: str,
+    project_crs: object = None,
+    line_trace: LineString | None = None,
+    data_dir: object = None,
+) -> LineString:
     """Build the shapely barrier trace from a FlowBarrierConfig.
 
-    Four input formats, so the user can pick whatever they have:
-    * inline ``line`` coordinates (a list of (x, y) vertices, multi-segment OK);
-    * ``line_path`` to a vector file (.gpkg / .shp / .geojson), reprojected to the
-      project CRS and line-merged into a single (possibly multi-vertex) LineString;
-    * ``line_path`` to a bare ``.csv`` of ordered x,y (or lon,lat) vertices, taken
-      in the project CRS;
+    The trace is either:
+    * inline ``line`` coordinates (a list of (x, y) vertices);
+    * a pre-read ``line_trace`` LineString (passed as an object);
     * (``auto`` is handled by the caller, not here).
-
-    A bare ``line_path`` filename resolves against ``<workspace>/data/cutoff_wall/``.
-    A genuinely multi-part or non-line geometry raises a typed error naming the file.
     """
-    from pathlib import Path
-
     from shapely.geometry import LineString
-    from shapely.ops import linemerge
 
     line = cfg.get("line") if isinstance(cfg, Mapping) else getattr(cfg, "line", None)
+    if line:
+        return LineString([(float(x), float(y)) for x, y in line])
+
+    if line_trace is not None:
+        if isinstance(line_trace, LineString) and not line_trace.is_empty:
+            return line_trace
+        raise ValueError(f"{where} line_trace must be a non-empty LineString.")
+
     line_path = (
         cfg.get("line_path") if isinstance(cfg, Mapping) else getattr(cfg, "line_path", None)
     )
-    if line:
-        return LineString([(float(x), float(y)) for x, y in line])
     if line_path:
-        resolved = Path(str(line_path)).expanduser()
-        if not resolved.is_absolute() and data_dir is not None:
-            from hydromodpy.core.toml_io.paths import resolve_declared_path
-
-            resolved = resolve_declared_path(
-                line_path, base_dir=Path(data_dir) / "cutoff_wall", fallback_dirs=[Path(data_dir)]
-            )
-        if str(resolved).lower().endswith(".csv"):
-            return _read_barrier_csv(resolved, where)
-
-        import geopandas as gpd
-
-        gdf = gpd.read_file(str(resolved))
-        if gdf.empty:
-            raise ValueError(f"{where} line_path '{resolved}' has no geometry.")
-        if gdf.crs is None:
-            logger.warning(
-                "%s line_path '%s' has no CRS; assuming it is already in the project CRS.",
-                where,
-                resolved,
-            )
-        elif project_crs is not None:
-            gdf = gdf.to_crs(project_crs)
-        unioned = gdf.union_all()
-        # linemerge stitches a MultiLineString into one; a lone LineString it rejects.
-        merged = linemerge(unioned) if unioned.geom_type == "MultiLineString" else unioned
-        if isinstance(merged, LineString) and not merged.is_empty:
-            return merged
         raise ValueError(
-            f"{where} line_path '{resolved}' resolves to a {merged.geom_type}, not a single "
-            "LineString; provide one contiguous polyline (a branching or multi-part trace is "
-            "not supported)."
+            f"{where} line_path '{line_path}' must be loaded into a line trace before binding."
         )
+
     raise ValueError(f"{where} has neither auto, line, nor line_path.")
 
 
-def apply_flow_barriers_to_flow(*, flow: Flow, project_crs: object = None) -> bool:
+def apply_flow_barriers_to_flow(
+    *,
+    flow: Flow,
+    project_crs: object = None,
+    traces: Mapping[str, LineString] | None = None,
+    barrier_traces: Mapping[str, LineString] | None = None,
+) -> bool:
     """Resolve the general ``[flow.sinks_sources.flow_barriers]`` traces.
 
     Each barrier is a :class:`FlowBarrierConfig`. This normalizes the mapping to
@@ -103,6 +71,7 @@ def apply_flow_barriers_to_flow(*, flow: Flow, project_crs: object = None) -> bo
     if not isinstance(barriers, Mapping) or not barriers:
         return False
 
+    resolved_traces = barrier_traces or traces or {}
     out: dict[str, dict[str, object]] = {}
     attached = False
     for barrier_id, cfg in barriers.items():
@@ -110,8 +79,12 @@ def apply_flow_barriers_to_flow(*, flow: Flow, project_crs: object = None) -> bo
         if isinstance(cfg, Mapping) and "line" in cfg and "barrier" in cfg:
             out[bid] = dict(cfg)
             continue
+        line_trace = resolved_traces.get(bid)
         line = resolve_barrier_line(
-            cfg, where=f"flow.sinks_sources.flow_barriers.{bid}", project_crs=project_crs
+            cfg,
+            where=f"flow.sinks_sources.flow_barriers.{bid}",
+            project_crs=project_crs,
+            line_trace=line_trace,
         )
         out[bid] = {"barrier": cfg, "line": line}
         attached = True

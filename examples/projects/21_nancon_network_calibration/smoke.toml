@@ -37,7 +37,6 @@ reuse_existing_outputs = true
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_nancon_25m.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -78,23 +77,23 @@ thickness = 30.0
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_nancon_25m.tif"
+source = "file"
+path = "../../data/dem/DEM_nancon_25m.tif"
 
 [[data.geology.sources]]
 source = "brgm_1m"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 [data.hydrometry]
 date_start = "2000-01-01"
 date_end = "2009-12-31"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 extent = "watershed"
 station_ids = ["NANCON"]
 
@@ -103,8 +102,8 @@ date_start = "2000-01-01"
 date_end = "2009-12-31"
 
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["NANCON_REA"]
 
 [data.runoff]
@@ -112,8 +111,8 @@ date_start = "2000-01-01"
 date_end = "2009-12-31"
 
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
+source = "file"
+path = "../../data/runoff"
 station_ids = ["NANCON_REA"]
 
 

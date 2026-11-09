@@ -43,7 +43,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_naizin_25m.tif"
 x_outlet = 265545.208
 y_outlet = 6783317.640
 snap_dist = "50 m"
@@ -69,14 +68,14 @@ lay_decay = 1.2
 types = ["dem", "hydrography", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_naizin_25m.tif"
+source = "file"
+path = "../../data/dem/DEM_naizin_25m.tif"
 
 # BD Topage 2024, with the perennial / intermittent attribute the catchment is
 # studied for.
 [[data.hydrography.sources]]
-source = "custom"
-path = "naizin_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/naizin_stream_network.gpkg"
 
 # A drought year: recharge only from November to February, mm/day. A tenth of
 # it is routed to runoff rather than to the aquifer.

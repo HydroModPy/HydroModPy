@@ -4,7 +4,8 @@ The moves are declared once, in ``config_migration.MOVED_TABLES``. The migration
 makes them and the docs list them, so the page cannot name a path the loader does
 not move. Today the moves are the solver layering tables, which now are
 ``[domain.layers]``, the keys of the Boussinesq solve, and the settings table of
-each flow solver, now under ``[solver]``. A key of a pre-release that moved twice
+each flow solver, now under ``[solver]``, and the transport tables, which lost
+their ``parameters`` level. A key of a pre-release that moved twice
 ends where the last row leads.
 """
 
@@ -30,8 +31,26 @@ LAYERING_MOVES = {
     "modflow6.sgrid.vertical": "domain.layers",
     "modflownwt.sgrid.vertical": "domain.layers",
 }
+TRANSPORT_MOVES = {
+    "transport.modflow6gwt.parameters": "transport.modflow6",
+    "transport.modflow6prt.parameters": "transport.modflow6_prt",
+    "transport.mt3dms.parameters": "transport.mt3dms",
+    "transport.modpath.parameters": "transport.modpath",
+    **{
+        f"transport.modflow6prt.parameters.{old}": f"transport.modflow6prt.parameters.{new}"
+        for old, new in (
+            ("release_times_days", "release_times"),
+            ("track_times_days", "track_times"),
+            ("track_time_step_days", "track_time_step"),
+            ("stop_time_days", "stop_time"),
+            ("stop_travel_time_days", "stop_travel_time"),
+        )
+    },
+}
+
 MOVES = {
     **LAYERING_MOVES,
+    **TRANSPORT_MOVES,
     **{f"flow.{old}": f"flow.runtime.{new}" for old, new in FLOW_RUNTIME_KEYS.items()},
     "modflow6": "solver.modflow6",
     "modflownwt": "solver.modflow_nwt",

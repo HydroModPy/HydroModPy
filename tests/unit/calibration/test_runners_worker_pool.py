@@ -40,6 +40,7 @@ from hydromodpy.calibration.runners.worker_pool import (
 )
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
@@ -105,13 +106,15 @@ class _Scripted:
 
 
 class _SolverWithTimeout:
-    """The ``[solver]`` section of a run whose MODFLOW 6 table sets the trial timeout."""
+    """The ``[solver]`` section of a run whose backend options set the wall clock limit."""
 
-    def __init__(self, runtime: SimpleNamespace) -> None:
-        self._runtime = runtime
+    backend_name: ClassVar[str] = "modflow6"
 
-    def options_of(self, _name: str) -> SimpleNamespace:
-        return SimpleNamespace(runtime=self._runtime)
+    def __init__(self, options: SimpleNamespace) -> None:
+        self._options = options
+
+    def options_of(self, name: str) -> SimpleNamespace:
+        return self._options
 
 
 def _folder(trial_ctx: TrialContext, trial_id: int) -> Path:
@@ -127,6 +130,7 @@ def _trial_ctx(tmp_path: Path, **context) -> TrialContext:
             data_plan=None,
             loaded_data=None,
             execution=SimpleNamespace(rng=None),
+            bounds=Bounds(),
         ),
         earliest=0,
         downstream_steps=(),
@@ -332,8 +336,8 @@ def test_workers_do_not_outlive_a_parent_killed_hard(tmp_path: Path) -> None:
 
 def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path)
-    runtime = SimpleNamespace(mf6_api_timeout_s=30.0)
-    trial_ctx.base_cfg = SimpleNamespace(solver=_SolverWithTimeout(runtime))
+    options = SimpleNamespace(wall_clock_limit_s=30.0)
+    trial_ctx.base_cfg = SimpleNamespace(solver=_SolverWithTimeout(options))
     with _pool(trial_ctx) as pool:
         assert pool._limit_s == 30.0
         before = _ask(pool, 1, 0.5)
@@ -344,13 +348,13 @@ def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: P
 
     assert stuck.status == "crashed" and math.isnan(stuck.cost)
     assert "wall-clock limit of 2 s" in stuck.error
-    assert "[solver.modflow6.runtime] mf6_api_timeout_s" in stuck.error
+    assert "wall_clock_limit_s property of the options of the backend that runs" in stuck.error
     assert not _folder(trial_ctx, 2).exists()
     assert _child_of_the_hanging_trial_is_dead(tmp_path)
     assert after.status == "completed" and after.components != before.components
 
 
-def test_the_limit_is_the_default_without_a_modflow6_table(tmp_path: Path) -> None:
+def test_the_limit_is_the_default_without_an_options_table(tmp_path: Path) -> None:
     with _pool(_trial_ctx(tmp_path)) as pool:
         assert pool._limit_s == DEFAULT_TRIAL_LIMIT_S == 14400.0
 

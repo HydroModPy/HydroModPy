@@ -17,7 +17,7 @@ from rasterio.transform import from_origin
 
 from hydromodpy.data.contracts import FieldRecord
 from hydromodpy.data.loading.config_schema import DataManagersConfig
-from hydromodpy.data.variables.substratum.config import CustomSubstratumSource, SubstratumConfig
+from hydromodpy.data.variables.substratum.config import FileSubstratumSource, SubstratumConfig
 from hydromodpy.data.variables.substratum.manager import SubstratumManager
 
 
@@ -41,7 +41,7 @@ def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 
 
 def test_custom_source_without_path_is_refused() -> None:
     with pytest.raises(ValidationError):
-        CustomSubstratumSource.model_validate({"source": "custom"})
+        FileSubstratumSource.model_validate({"source": "file"})
 
 
 def test_config_refuses_two_sources(tmp_path: Path) -> None:
@@ -51,8 +51,8 @@ def test_config_refuses_two_sources(tmp_path: Path) -> None:
         SubstratumConfig.model_validate(
             {
                 "sources": [
-                    {"source": "custom", "path": str(a)},
-                    {"source": "custom", "path": str(b)},
+                    {"source": "file", "path": str(a)},
+                    {"source": "file", "path": str(b)},
                 ]
             }
         )
@@ -82,7 +82,7 @@ def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_pat
         refused.load()
 
     written = SubstratumConfig.model_validate(
-        {"sources": [{"source": "custom", "path": str(src), "default_crs": "EPSG:4326"}]}
+        {"sources": [{"source": "file", "path": str(src), "default_crs": "EPSG:4326"}]}
     )
     record = SubstratumManager(config=written, catalog=None, data_dir=tmp_path).load().fields[0]
     assert record.crs == "EPSG:4326"
@@ -92,7 +92,7 @@ def test_from_toml_section_builds_substratum_even_when_not_in_types(tmp_path: Pa
     src = _write_geotiff(tmp_path / "bottom.tif")
     section = {
         "types": [],
-        "substratum": {"sources": [{"source": "custom", "path": str(src)}]},
+        "substratum": {"sources": [{"source": "file", "path": str(src)}]},
     }
 
     cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
@@ -101,7 +101,10 @@ def test_from_toml_section_builds_substratum_even_when_not_in_types(tmp_path: Pa
     assert cfg.substratum.sources[0].path == src
 
 
-def test_a_bare_filename_resolves_under_the_workspace_substratum_folder(tmp_path: Path) -> None:
+def test_a_bare_filename_is_refused_and_names_where_the_file_used_to_live(tmp_path: Path) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.toml_io.paths import former_bare_name_location
+
     workspace_data_dir = tmp_path / "data"
     substratum_dir = workspace_data_dir / "substratum"
     substratum_dir.mkdir(parents=True)
@@ -109,11 +112,12 @@ def test_a_bare_filename_resolves_under_the_workspace_substratum_folder(tmp_path
 
     section = {
         "types": ["substratum"],
-        "substratum": {"sources": [{"source": "custom", "path": src.name}]},
+        "substratum": {"sources": [{"source": "file", "path": src.name}]},
     }
 
-    cfg = DataManagersConfig.from_toml_section(
-        section, base_dir=tmp_path, workspace_data_dir=workspace_data_dir
-    )
-
-    assert Path(cfg.substratum.sources[0].path) == src
+    with pytest.raises(ConfigError, match="is a bare name"):
+        DataManagersConfig.from_toml_section(
+            section, base_dir=tmp_path, workspace_data_dir=workspace_data_dir
+        )
+    former = former_bare_name_location(src.name, workspace_data_dir, role="substratum")
+    assert former is not None

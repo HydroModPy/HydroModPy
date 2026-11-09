@@ -18,13 +18,13 @@ class TestOceanicSourceConfig:
             OceanicSourceConfig(source="constant")
 
     def test_custom_source_valid(self, tmp_path):
-        cfg = OceanicSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
+        cfg = OceanicSourceConfig(source="file", path=tmp_path)
+        assert cfg.source == "file"
         assert cfg.path == tmp_path
 
     def test_custom_source_requires_path(self):
-        with pytest.raises(ValidationError, match="Custom source requires 'path'"):
-            OceanicSourceConfig(source="custom")
+        with pytest.raises(ValidationError, match="File source requires 'path'"):
+            OceanicSourceConfig(source="file")
 
     def test_shom_source_valid(self):
         cfg = OceanicSourceConfig(source="shom")
@@ -61,7 +61,7 @@ class TestOceanicConfig:
         cfg = OceanicConfig(
             sources=[
                 {"source": "constant", "value": 0.0},
-                {"source": "custom", "path": str(tmp_path)},
+                {"source": "file", "path": str(tmp_path)},
             ]
         )
         assert len(cfg.sources) == 2

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.toml_io.writer import dumps as dump_toml
 from tests._helpers.api_doubles import make_capturing_project
 
@@ -38,6 +39,7 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
     assert result == {"report": "ok"}
     assert captured["config_path"] == config.resolve()
     assert captured["kwargs"] == {
+        "bounds": Bounds(),
         "project": "my_label",
         "workspace": None,
         "metric_fn": None,
@@ -457,7 +459,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "naizin_dem.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -470,7 +471,11 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = []
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "inputs/naizin_dem.tif"
 
 [flow]
 flow_regime = "steady"
@@ -516,13 +521,15 @@ enabled = false
 
 
 def _write_real_project(tmp_path: Path) -> Path:
-    """A minimal, real, loadable project: relative dem_init_path and
+    """A minimal, real, loadable project: a relative DEM path and
     a [site], the idiom every example uses. Also declares Sy and
     a network output the two tests below never mention in their Python
     call, to prove neither leaks into the written document.
     """
     path = tmp_path / "project.toml"
     path.write_text(MINIMAL_REAL_PROJECT_TOML, encoding="utf-8")
+    (tmp_path / "inputs").mkdir(exist_ok=True)
+    (tmp_path / "inputs" / "naizin_dem.tif").write_bytes(b"")
     return path
 
 
@@ -596,7 +603,8 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
         mode="json", exclude=excluded, exclude_none=True
     ) == expected.model_dump(mode="json", exclude=excluded, exclude_none=True)
     assert written.workspace.project_root == expected.workspace.project_root
-    assert written.geographic.catchment.dem_init_path == expected.geographic.catchment.dem_init_path
+    assert written.data.dem.sources[0].path == expected.data.dem.sources[0].path
+    assert expected.data.dem.sources[0].path == (tmp_path / "inputs" / "naizin_dem.tif").resolve()
 
     # The relative map.complete is meant relative to the project, as
     # in TOML mode: the document must carry it resolved, not relative to
@@ -971,6 +979,7 @@ def test_project_calibrate_forwards_resume_and_the_label_on_the_file_routes(
     Project.calibrate(project, config_path=config, resume=True, project="mine")
 
     assert calls["staged_kwargs"] == {
+        "bounds": Bounds(),
         "project": "mine",
         "workspace": None,
         "metric_fn": None,

@@ -20,6 +20,7 @@ from hydromodpy.core.budget.flux import (
     drain_band_depth,
     drain_stack_with_mover,
     find_drain_budget_key,
+    first_finite_layer,
     has_release_budget,
     networks_route_drainage,
     release_flux_stack,
@@ -318,3 +319,36 @@ class _Root:
 )
 def test_the_drain_band_is_read_back_from_the_store_and_zero_when_unusable(root, depth):
     assert drain_band_depth(root) == depth
+
+
+# ------------------------------------------------------------------ water table
+
+
+def test_first_finite_layer_of_a_head_without_layers_is_the_head() -> None:
+    """A one-layer, (time, n_cells) head is the water table as it is."""
+    head = np.array([[1.0, np.nan], [2.0, 3.0]])
+
+    np.testing.assert_array_equal(first_finite_layer(head), head)
+
+
+def test_first_finite_layer_takes_the_topmost_finite_layer_of_each_column() -> None:
+    """A dry cell of the top layer reads the first layer below that is finite."""
+    head = np.array(
+        [
+            [
+                [np.nan, 5.0, np.nan],  # layer 0: the first column dry, 5.0, the last dry
+                [1.5, 6.0, np.nan],  # layer 1: 1.5, dry already answered, and dry again
+                [9.0, 7.0, np.nan],  # layer 2: never read, a finite layer is above
+            ]
+        ]
+    )
+
+    np.testing.assert_allclose(first_finite_layer(head), [[1.5, 5.0, np.nan]])
+
+
+def test_a_column_of_no_finite_layer_is_nan_head() -> None:
+    head = np.array([[[np.nan], [np.nan]]])
+
+    water_table = first_finite_layer(head)
+
+    assert np.isnan(water_table).tolist() == [[True]]

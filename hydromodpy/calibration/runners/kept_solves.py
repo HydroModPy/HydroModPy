@@ -94,12 +94,11 @@ class RecordingLauncher:
         state: Any,
         *,
         callbacks: Any | None = None,
-        store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, SolverRun], ...]:
         """Execute ``plan`` like :class:`SimulationRunner` and keep its results."""
         from hydromodpy.solver.base.runner import SimulationRunner
 
-        executed = SimulationRunner().execute(plan, state, callbacks=callbacks, store=store)
+        executed = SimulationRunner().execute(plan, state, callbacks=callbacks)
         for run, result in executed or ():
             self.results[str(run.id)] = result
         return tuple(executed or ())
@@ -124,19 +123,14 @@ class KeptSolveLauncher:
         state: Any,
         *,
         callbacks: Any | None = None,
-        store: Any | None = None,
     ) -> tuple[tuple[ProcessRun, SolverRun], ...]:
         """Record the kept solve of every run of ``plan`` in ``state``."""
-        from hydromodpy.solver.base.runner import ensure_process_context
-
-        del store
         executed: list[tuple[ProcessRun, SolverRun]] = []
         current: str | None = None
         for run in plan.runs:
             if run.process_type != current:
                 if current is not None:
                     _fire(callbacks, "after_process", current)
-                ensure_process_context(state, run.process_type)
                 _fire(callbacks, "before_process", run.process_type)
                 current = run.process_type
             result = self.kept.results.get(str(run.id))

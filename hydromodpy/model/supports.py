@@ -17,7 +17,7 @@ from hydromodpy.model.domain.layers_config import LAYERS, PASS_THROUGH
 from hydromodpy.model.forcing.soil_config import SOIL
 from hydromodpy.model.initial.state import CyclicStart, HeadRule, PriorState, SteadyStart
 from hydromodpy.model.model import ModelOptions
-from hydromodpy.model.properties.property_table import K_TENSOR
+from hydromodpy.model.properties.property_table import K_TENSOR, PROPERTIES
 from hydromodpy.model.sinks_sources.container import SINK_SOURCE_TRAITS
 
 INITIAL_STATE_TRAITS: dict[type, str] = {
@@ -38,6 +38,7 @@ SUPPORT_SOURCES: dict[str, frozenset[str]] = {
     "sink_source": SINK_SOURCE_TRAITS,
     "soil": frozenset({SOIL}),
     "property": frozenset({K_TENSOR}),
+    "properties": frozenset({PROPERTIES}),
     "layering": frozenset({LAYERS, PASS_THROUGH}),
 }
 """The names of each source of traits. A new kind of trait is one more line here."""

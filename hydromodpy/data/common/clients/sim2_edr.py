@@ -14,9 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import NetworkError
-from hydromodpy.core.io.http_client import HTTPClient, get_default_client
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.api_client import check_status
 
 logger = get_logger(__name__)
 
@@ -40,6 +39,8 @@ class Sim2EDRClient:
         ISO date interval (e.g. "2020-01-01/2020-12-31").
     output_format : str
         Response format: "CoverageJSON", "Netcdf4", "CSV", "parquet".
+    http_client : HTTPClient
+        HTTP client instance used to execute queries.
     """
 
     def __init__(
@@ -49,13 +50,13 @@ class Sim2EDRClient:
         crs: str = "EPSG:2154",
         date_range: str,
         output_format: str = "CoverageJSON",
-        http_client: HTTPClient | None = None,
+        http_client: HTTPClient,
     ):
         self.bbox = bbox
         self.crs = crs
         self.date_range = date_range
         self.output_format = output_format
-        self._http = http_client or get_default_client()
+        self._http = http_client
 
     def fetch_cube(self, *, parameters: list[str]) -> Any:
         """Fetch gridded data for the bounding box.
@@ -73,7 +74,7 @@ class Sim2EDRClient:
         url = f"{BASE_URL}/cube"
         with progress.status("Fetching SIM2 climate cube"):
             resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
-        if not check_status(resp.status_code):
+        if resp.status_code >= 400:
             raise NetworkError(
                 f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
                 url=url,
@@ -103,7 +104,7 @@ class Sim2EDRClient:
         }
         url = f"{BASE_URL}/position"
         resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
-        if not check_status(resp.status_code):
+        if resp.status_code >= 400:
             raise NetworkError(
                 f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
                 url=url,
@@ -167,8 +168,15 @@ class Sim2EDRClient:
         return pd.Series(values, index=times, dtype=float, name=parameter)
 
     @staticmethod
-    def metadata() -> dict | None:
+    def metadata(client: HTTPClient) -> dict | None:
         """Fetch collection metadata from the API."""
         from hydromodpy.data.common.api_client import get_json
 
-        return get_json(f"{BASE_URL}/")
+        return get_json(client, f"{BASE_URL}/")
+
+
+__all__ = [
+    "BASE_URL",
+    "DEFAULT_TIMEOUT",
+    "Sim2EDRClient",
+]

@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args, runtime_checkable
 
 from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.request import FAMILY_NAMES
 
 if TYPE_CHECKING:
     from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -67,6 +68,15 @@ class MeshEngineCapabilities:
     deterministic: bool
     needs_cache: bool
     lumped: bool = False
+    ignored_families: frozenset[str] = frozenset()
+    """The line families the engine never meshes, so a caller reads one of them
+    without building it. The names are the five of ``[mesh.families]``. It stays
+    outside :meth:`declarations`, which reports the QA of a mesh, not what the
+    engine skips.
+
+    It defaults to the empty set, so an engine written before it treats every
+    family as a built one.
+    """
 
     def __post_init__(self) -> None:
         """Refuse a cell type outside the planar ones and an unknown family rule."""
@@ -90,6 +100,16 @@ class MeshEngineCapabilities:
         ):
             if not isinstance(getattr(self, name), bool):
                 raise ValueError(f"MeshEngineCapabilities.{name} must be a bool")
+        if not isinstance(self.ignored_families, frozenset) or not all(
+            isinstance(name, str) for name in self.ignored_families
+        ):
+            raise ValueError("MeshEngineCapabilities.ignored_families must be a frozenset of str")
+        unknown = sorted(set(self.ignored_families) - FAMILY_NAMES)
+        if unknown:
+            raise ValueError(
+                f"MeshEngineCapabilities.ignored_families names {', '.join(unknown)}, "
+                f"outside the families of [mesh.families] ({', '.join(sorted(FAMILY_NAMES))})"
+            )
 
     def declarations(self) -> dict[str, bool]:
         """The four claims the QA of every mesh of this engine reports."""

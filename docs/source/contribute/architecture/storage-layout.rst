@@ -859,7 +859,10 @@ the TOML does),
 ``mesh_cell_families`` and ``mesh_face_families`` (the line families of the mesh, see the cell
 mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
 :doc:`generated/storage-tree`. ``timeseries`` keys a series on its ``source``, ``simulated`` or
-``observed``, so a series and its gauge carry one variable name. A run also stores the series it
+``observed``, so a series and its gauge carry one variable name. A series of a backend
+(``discharge``, ``reservoir_storage`` of the ``linear_reservoir`` backend) carries the shape
+``time`` of the field registry: one value per period of the time grid, stored at the
+``catchment`` station. A run also stores the series it
 simulates at each observed gauge, piezometer or lake, under the id of the station. A read with no
 station means ``catchment`` when it has the variable. A table says ``catchment`` for the
 whole catchment and ``domain`` for the whole model (:doc:`/understand/conventions`), and writes every

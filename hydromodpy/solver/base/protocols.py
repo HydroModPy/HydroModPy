@@ -29,15 +29,6 @@ class FlowModelLike(Protocol):
     def sy(self) -> Any: ...
 
 
-class TransportLike(Protocol):
-    """Container exposing per-backend transport parameter blocks."""
-
-    modpath: Any
-    mt3dms: Any
-    modflow6gwt: Any
-    modflow6prt: Any
-
-
 class DomainLike(Protocol):
     """Catchment domain object passed through solver constructors."""
 
@@ -47,4 +38,4 @@ class DomainLike(Protocol):
     zones: Any
 
 
-__all__ = ["DomainLike", "FlowModelLike", "TransportLike"]
+__all__ = ["DomainLike", "FlowModelLike"]

@@ -22,6 +22,54 @@ logger = get_logger(__name__)
 
 _DASK_FALLBACK_WARNED = False
 
+CONCENTRATION_FIELD = "concentration"
+"""The public name of the solute concentration, whatever its stored form."""
+
+
+def has_concentration(root: Any) -> bool:
+    """Say whether a store root holds a concentration in one of its two forms.
+
+    The stored form of today holds one solute per run, named by its ``spc_name``,
+    under ``concentration/<spc_name>``. A store written before that held the array
+    at the root of the fields, without a name. Both answer True.
+    """
+    try:
+        concentration_array(root)
+    except KeyError:
+        return False
+    return True
+
+
+def concentration_array(root: Any) -> Any:
+    """Return the stored concentration array of a run, at the path it holds.
+
+    The extractor writes one solute, named by ``spc_name``, under the
+    ``concentration`` subgroup, and a store written by 2.0.0 wrote the array
+    straight under ``concentration``. Every reader of the public name goes
+    through here, so both forms read the same way, and a group that carries
+    more than one solute is refused with their names, because one run holds
+    one solute.
+
+    Raises
+    ------
+    KeyError
+        When the store holds no concentration, or several named ones.
+    """
+    node = root.get(CONCENTRATION_FIELD)
+    if node is None:
+        raise KeyError("No concentration stored: a concentration field needs a transport run.")
+    if hasattr(node, "shape"):
+        return node
+    species = sorted(key for key in node.keys() if not key.startswith("."))
+    if not species:
+        raise KeyError("The group 'concentration' of the store holds no solute.")
+    if len(species) > 1:
+        raise KeyError(
+            "The store holds several solutes under concentration ("
+            f"{', '.join(species)}) and one run carries one: read concentration/<spc>."
+        )
+    return node[species[0]]
+
 
 def _optional_dask_array():
     """Return ``dask.array`` when installed, otherwise ``None``.
@@ -199,6 +247,8 @@ def _stored_array(store_obj: SimulationZarr, variable: str, subgroup: str | None
         if variable not in target:
             raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
         return target[variable]
+    if variable == CONCENTRATION_FIELD and has_concentration(store_obj._root):
+        return concentration_array(store_obj._root)
     for loc_name in (None, "state", "derived", "budget", "mesh"):
         loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
         if loc is not None and variable in loc:
@@ -290,7 +340,11 @@ def to_xarray(store_obj: SimulationZarr):
 
     for name, desc in field_registry.FIELD_REGISTRY.items():
         path = desc.zarr_path
-        if "/" in path:
+        if name == CONCENTRATION_FIELD:
+            if not has_concentration(store_obj._root):
+                continue
+            arr = concentration_array(store_obj._root)
+        elif "/" in path:
             group_name, var_name = path.split("/", 1)
             group = store_obj._root.get(group_name)
             if group is None or var_name not in group:
@@ -330,8 +384,12 @@ def to_xarray(store_obj: SimulationZarr):
 
 
 __all__ = [
+    "CONCENTRATION_FIELD",
+    "concentration_array",
     "field_array_view",
     "get_geographic_fingerprint",
+    "get_drain_band_depth",
+    "has_concentration",
     "read_field",
     "read_field_range",
     "lake_abacus_lakes",
@@ -339,7 +397,6 @@ __all__ = [
     "read_geographic_raster",
     "read_lake_abacus",
     "read_time",
-    "get_drain_band_depth",
     "set_drain_band_depth",
     "set_geographic_fingerprint",
     "step_range_bounds",

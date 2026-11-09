@@ -12,7 +12,6 @@ from __future__ import annotations
 import multiprocessing
 import time
 import traceback
-import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -74,36 +73,31 @@ def _leftovers(root: Path) -> list[Path]:
     ]
 
 
-class _SlowResponse:
-    status_code = 200
-
-    def iter_content(self, chunk_size: int):
-        del chunk_size
-        step = len(_PAYLOAD) // _CHUNKS
-        for index in range(_CHUNKS):
+def _slow_write(payload: bytes, target: str | Path, calls: Path) -> None:
+    """Write ``payload`` in chunks through a partial file, as the fetch layer does."""
+    _count_call(calls)
+    target = Path(target)
+    partial = target.with_name(f".{target.name}.part")
+    step = max(1, len(payload) // _CHUNKS)
+    with open(partial, "wb") as handle:
+        for start in range(0, len(payload), step):
             time.sleep(0.02)
-            yield _PAYLOAD[index * step : (index + 1) * step]
-
-
-class _SlowSession:
-    def __init__(self, calls: Path) -> None:
-        self.calls = calls
-
-    def get(self, url: str, **kwargs):
-        del url, kwargs
-        _count_call(self.calls)
-        return _SlowResponse()
+            handle.write(payload[start : start + step])
+    partial.replace(target)
 
 
 def _download_worker(arguments: tuple) -> str:
+    from hydromodpy.core.io import fetch
+
     destination, calls = arguments
+    fetch.download = lambda url, dest, **kwargs: _slow_write(_PAYLOAD, dest, calls)
     file = DownloadFile(
         resource_name="BDALTI",
         subresource_name="sub",
         file_name="archive.7z",
         url="https://data.geopf.fr/telechargement/download/BDALTI/sub/archive.7z",
     )
-    return str(download_file(file, destination, session=_SlowSession(calls)))
+    return str(download_file(file, destination, client=object()))
 
 
 def test_two_processes_download_one_archive_once(tmp_path: Path) -> None:
@@ -200,19 +194,13 @@ def _write_geology_zip(zip_path: Path) -> None:
             archive.write(member, arcname=f"GEO050K_HARM_029/{member.name}")
 
 
-def _slow_copy(source: Path, target: str, calls: Path) -> None:
-    _count_call(calls)
-    data = source.read_bytes()
-    step = max(1, len(data) // _CHUNKS)
-    with open(target, "wb") as handle:
-        for start in range(0, len(data), step):
-            time.sleep(0.02)
-            handle.write(data[start : start + step])
+def _slow_copy(source: Path, target: str | Path, calls: Path) -> None:
+    _slow_write(source.read_bytes(), target, calls)
 
 
 def _brgm_50k_worker(arguments: tuple) -> str | None:
     cache_dir, source_zip, calls = arguments
-    urllib.request.urlretrieve = lambda url, target: _slow_copy(Path(source_zip), target, calls)
+    brgm_50k.download = lambda url, target, **kwargs: _slow_copy(Path(source_zip), target, calls)
     path = brgm_50k._download_department("29", cache_dir=Path(cache_dir))
     return None if path is None else str(path)
 
@@ -238,9 +226,7 @@ def test_two_processes_convert_one_brgm_department(tmp_path: Path) -> None:
 
 def _brgm_1m_worker(arguments: tuple) -> str:
     output_dir, source_zip, calls = arguments
-    urllib.request.urlretrieve = lambda url, target, reporthook=None: _slow_copy(
-        Path(source_zip), target, calls
-    )
+    brgm_1m.download = lambda url, target, **kwargs: _slow_copy(Path(source_zip), target, calls)
     return str(brgm_1m.fetch_brgm_1m(output_dir=Path(output_dir)))
 
 

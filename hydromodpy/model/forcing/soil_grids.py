@@ -208,7 +208,7 @@ def load_forcing_grid(
         raise DataContractViolation(
             f"{section} holds station series, and the soil reservoir reads a daily "
             'grid: use a gridded source such as source = "sim2", or a NetCDF grid '
-            'with source = "custom".'
+            'with source = "file".'
         )
     if len(result.fields) != 1:
         raise DataContractViolation(

@@ -217,7 +217,7 @@ def test_the_session_and_metric_tables_hold_one_row_per_case_and_period(connecti
 
 
 def test_the_schema_version_is_stamped_and_read_back(connection):
-    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION == "10"
+    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION == "11"
 
 
 def test_a_file_without_the_stamp_has_no_version():

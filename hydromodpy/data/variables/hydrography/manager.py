@@ -279,11 +279,11 @@ class HydrographyManager(SourceTable):
     # Source resolution
     # ------------------------------------------------------------------
 
-    def load_custom(self, source_cfg: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
+    def load_file(self, source_cfg: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
         """Load the user's own network file."""
         from hydromodpy.data.variables.hydrography import custom
 
-        return custom.load_custom(source_cfg)
+        return custom.load_file(source_cfg)
 
     def _fetch_listed_source(
         self,

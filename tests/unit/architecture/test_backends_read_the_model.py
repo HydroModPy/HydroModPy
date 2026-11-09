@@ -7,17 +7,16 @@ say, and two backends could read two different things. So under the solver
 folders this gate refuses a read of ``setup.flow``, ``setup.domain``,
 ``setup.cell_mesh``, ``setup.geographic``, ``setup.time_grid``, ``cfg.solver``,
 ``cfg.domain``, ``cfg.geographic`` and ``cfg.flow``, an import of
-``hydromodpy.model.flow``, and any write of an attribute or an item below an
-expression that ends in ``inputs``, the attribute a solver object keeps its
-``Model`` in.
+``hydromodpy.model.flow`` or of the transport runtime the port replaced, and any
+write of an attribute or an item below an expression that ends in ``inputs``.
 
 A flow backend also reads nothing of the run around it: the runner hands it the
 folder, the name and the binaries in its ``RunSlot``, and its options. So the
 gate refuses a read of ``setup.workspace``, ``setup.run_id``,
-``setup.mesh_bundle``, ``setup.mesh_summary`` and ``setup.slot_request``, and of
-``ctx.state``, ``ctx.store`` and ``ctx.plan`` on a run context, everywhere but
-in the transport adapters, which read their setup until the transport port takes
-the ``Model``.
+``setup.mesh_bundle``, ``setup.mesh_summary``, ``setup.slot_request``,
+``setup.transport`` and of ``ctx.state``, ``ctx.store`` and ``ctx.plan`` on a
+run context, everywhere under ``solver/``. A transport reads the ``Model`` of
+its flow, the ``SolverRun`` of that flow and the slot of it: nothing else.
 
 A read through a local alias counts, ``setup = ctx.state.setup`` then
 ``setup.flow``, and so does ``getattr``. An exemption names its file, the reads
@@ -36,9 +35,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 SOLVER_FOLDERS = ("modflow6", "modflow_nwt", "boussinesq", "modflow_common", "modflow_grid")
 
 RUN_SETUP_MEMBERS = frozenset(
-    {"workspace", "run_id", "mesh_bundle", "mesh_summary", "slot_request"}
+    {"workspace", "run_id", "mesh_bundle", "mesh_summary", "slot_request", "transport"}
 )
-"""What the runner hands a backend in its ``RunSlot``: forbidden to a flow, not yet to a transport."""
+"""What the runner hands a backend in its ``RunSlot``: forbidden to a flow and to a transport."""
 
 SETUP_MEMBERS = (
     frozenset({"flow", "domain", "cell_mesh", "geographic", "time_grid"}) | RUN_SETUP_MEMBERS
@@ -48,65 +47,16 @@ CONTEXT_MEMBERS = frozenset({"state", "store", "plan"})
 SETUP_NAMES = frozenset({"setup", "setup_state"})
 CONFIG_NAMES = frozenset({"cfg"})
 CONTEXT_NAMES = frozenset({"ctx", "run_ctx", "context"})
-FORBIDDEN_MODULE = "hydromodpy.model.flow"
+FORBIDDEN_MODULES = ("hydromodpy.model.flow", "hydromodpy.model.transport.transport")
 
 RUN_LABELS = frozenset(
     {f"setup.{member}" for member in RUN_SETUP_MEMBERS}
     | {f"ctx.{member}" for member in CONTEXT_MEMBERS}
 )
-"""The reads of the run around a backend, refused everywhere but in ``TRANSPORT_ADAPTERS``."""
+"""The reads of the run around a backend, refused everywhere under ``solver/``."""
 
-TRANSPORT_ADAPTERS: dict[str, dict[str, str]] = {
-    path: {
-        "why": (
-            "A transport adapter reads its setup, its folder and the plan on the run "
-            "context until the transport port hands it the Model of its flow and a slot."
-        ),
-        "lifted_by": "3.5",
-    }
-    for path in (
-        "hydromodpy/solver/modflow6/adapters/transport.py",
-        "hydromodpy/solver/modflow6/adapters/prt.py",
-        "hydromodpy/solver/modflow_nwt/adapters/transport_modpath.py",
-        "hydromodpy/solver/modflow_nwt/adapters/transport_mt3dms.py",
-    )
-}
-"""The files allowed the reads of ``RUN_LABELS``. Each one must still exist."""
-
-_TRANSPORT_WHY = (
-    "A transport adapter still reads the domain of the setup until the transport "
-    "port takes the Model."
-)
-EXEMPTIONS: dict[str, dict[str, object]] = {
-    "hydromodpy/solver/modflow6/adapters/transport.py": {
-        "reads": frozenset({"setup.domain"}),
-        "why": _TRANSPORT_WHY,
-        "lifted_by": "3.5",
-    },
-    "hydromodpy/solver/modflow6/adapters/prt.py": {
-        "reads": frozenset({"setup.domain"}),
-        "why": _TRANSPORT_WHY,
-        "lifted_by": "3.5",
-    },
-    "hydromodpy/solver/modflow_nwt/adapters/transport_modpath.py": {
-        "reads": frozenset({"setup.domain"}),
-        "why": _TRANSPORT_WHY,
-        "lifted_by": "3.5",
-    },
-    "hydromodpy/solver/modflow_nwt/adapters/transport_mt3dms.py": {
-        "reads": frozenset({"setup.domain"}),
-        "why": _TRANSPORT_WHY,
-        "lifted_by": "3.5",
-    },
-    "hydromodpy/solver/modflow_common/flow_adapter_helpers.py": {
-        "reads": frozenset({"ctx.plan"}),
-        "why": (
-            "build asks the plan whether an MT3DMS run follows the flow, to link "
-            "its output, until the transport port hands that over."
-        ),
-        "lifted_by": "3.5",
-    },
-}
+EXEMPTIONS: dict[str, dict[str, object]] = {}
+"""Every read the gate refused is served by the ``Model``, the slot or the options now."""
 
 
 def _getattr_call(node: ast.AST) -> tuple[ast.expr, str] | None:
@@ -190,22 +140,27 @@ def forbidden_reads(source: str) -> list[tuple[int, str]]:
     return found
 
 
-def _is_the_flow_module(module: str) -> bool:
-    return module == FORBIDDEN_MODULE or module.startswith(FORBIDDEN_MODULE + ".")
+def _is_a_forbidden_module(module: str) -> bool:
+    return any(module == one or module.startswith(one + ".") for one in FORBIDDEN_MODULES)
 
 
 def forbidden_imports(source: str) -> list[tuple[int, str]]:
-    """Every ``(line, label)`` the source imports of ``hydromodpy.model.flow``."""
+    """Every ``(line, label)`` the source imports of a module the solver folders refuse."""
     found: list[tuple[int, str]] = []
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
-            hits = [a.name for a in node.names if _is_the_flow_module(a.name)]
+            hits = [a.name for a in node.names if _is_a_forbidden_module(a.name)]
         elif isinstance(node, ast.ImportFrom) and node.module:
-            hits = [
-                f"{node.module}.{a.name}"
-                for a in node.names
-                if _is_the_flow_module(node.module) or f"{node.module}.{a.name}" == FORBIDDEN_MODULE
-            ]
+            if not any(
+                node.module == one or node.module.startswith(one + ".") for one in FORBIDDEN_MODULES
+            ):
+                hits = [
+                    f"{node.module}.{a.name}"
+                    for a in node.names
+                    if _is_a_forbidden_module(f"{node.module}.{a.name}")
+                ]
+            else:
+                hits = [f"{node.module}.{a.name}" for a in node.names]
         else:
             continue
         found.extend((node.lineno, f"import {hit}") for hit in hits)
@@ -283,7 +238,6 @@ def test_no_backend_reads_the_setup_objects_the_model_replaces(solver_findings) 
         for rel, found in solver_findings.items()
         for line, label in found
         if label not in EXEMPTIONS.get(rel, {}).get("reads", frozenset())
-        and not (label in RUN_LABELS and rel in TRANSPORT_ADAPTERS)
     ]
 
     assert not offenders, (
@@ -292,24 +246,14 @@ def test_no_backend_reads_the_setup_objects_the_model_replaces(solver_findings) 
     )
 
 
-@pytest.mark.parametrize("rel", sorted(TRANSPORT_ADAPTERS))
-def test_every_transport_adapter_allowed_the_run_reads_still_exists(rel: str) -> None:
-    allowance = TRANSPORT_ADAPTERS[rel]
-    assert allowance.get("why") and allowance.get("lifted_by"), rel
-    assert (REPO_ROOT / rel).is_file(), f"{rel} is gone: drop it from TRANSPORT_ADAPTERS."
+def test_every_exemption_still_serves() -> None:
+    """The exemptions of the lot that merged the transports left: the map is empty.
 
-
-@pytest.mark.parametrize("rel", sorted(EXEMPTIONS))
-def test_every_exemption_still_serves(rel: str, solver_findings) -> None:
-    exemption = EXEMPTIONS[rel]
-    assert {"reads", "why", "lifted_by"} <= set(exemption)
-    used = {label for _, label in solver_findings.get(rel, [])}
-    unused = sorted(set(exemption["reads"]) - used)
-
-    assert not unused, (
-        f"{rel} no longer reads {', '.join(unused)}; remove it from the exemptions "
-        f"(lifted by {exemption['lifted_by']})."
-    )
+    The table only shrinks, so an empty table is a gate of its own: a file that
+    needs an allowance again reopens one, with its file, its reads, why and the
+    lot that lifts it.
+    """
+    assert EXEMPTIONS == {}
 
 
 READ_CASES = (
@@ -350,7 +294,7 @@ READ_CASES = (
     ),
     (
         "allowed members",
-        "def f(state, ctx):\n    return state.setup.transport, state.cfg.simulation, ctx.run.id\n",
+        "def f(state, ctx):\n    return state.setup.model, state.cfg.simulation, ctx.run.id\n",
         [],
     ),
     ("workspace", "def f(state):\n    return state.setup.workspace\n", ["setup.workspace"]),
@@ -362,6 +306,7 @@ READ_CASES = (
     ),
     ("mesh bundle", "def f(setup):\n    return setup.mesh_bundle\n", ["setup.mesh_bundle"]),
     ("slot request", "def f(setup):\n    return setup.slot_request\n", ["setup.slot_request"]),
+    ("the transport object", "def f(setup):\n    return setup.transport\n", ["setup.transport"]),
     ("context state", "def f(ctx):\n    return ctx.state.cfg\n", ["ctx.state"]),
     (
         "context store",
@@ -392,6 +337,8 @@ IMPORT_CASES = (
     ("from package", "from hydromodpy.model import flow\n", 1),
     ("the model module", "from hydromodpy.model.model import Model\n", 0),
     ("flow_config", "from hydromodpy.model.flow_config import FlowConfig\n", 0),
+    ("the transport runtime", "from hydromodpy.model.transport.transport import Transport\n", 1),
+    ("the transport config", "from hydromodpy.model.transport.transport_config import X\n", 0),
 )
 
 

@@ -98,11 +98,11 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
     )
 
     outflow_drain = {0: np.array([[1.0, 0.0], [2.0, 3.0]], dtype=np.float32)}
-    model.model_modflow = SimpleNamespace(
+    geographic = SimpleNamespace(
         inactive_mask=np.array([[False, False], [False, False]], dtype=bool),
         dem_watershed_path=str(dem_path),
         nper=1,
-        _ensure_solver_routing_context=lambda: routing_ctx,
+        routing_ctx=routing_ctx,
         dict_outflow_drain=outflow_drain,
     )
     model.raster = SimpleNamespace()
@@ -154,6 +154,7 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
 
     model.post_processing(
         model_mt3dms=model,
+        geographic=geographic,
         concentration_seepage=True,
         mass_seepage=True,
         mass_accumulated=True,
@@ -162,7 +163,7 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
 
     assert len(captured) == 1
     call = captured[0]
-    assert call["geographic"] is model.raster
+    assert call["geographic"] is geographic
     assert call["raw_rast_name"] == "mass_seepage_t(1).tif"
     assert call["trace_shp_name"] == "tracept_conc_t(1).shp"
     assert call["mass_rast_name"] == "mass_accumulated_t(1).tif"

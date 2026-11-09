@@ -73,10 +73,10 @@ class WaterQualitySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> WaterQualitySourceConfig:
-        if self.source == "custom":
+        if self.source in ("file", "custom"):
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         return self
 

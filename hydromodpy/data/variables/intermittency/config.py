@@ -64,10 +64,10 @@ class IntermittencySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> IntermittencySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         return self
 

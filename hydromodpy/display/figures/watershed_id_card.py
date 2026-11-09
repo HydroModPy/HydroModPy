@@ -46,16 +46,6 @@ VALUE_WIDTH = 26
 VALUE_LINES = 2
 """Lines a value may take; a longer one is cut with an ellipsis."""
 
-_SOLVER_NAMES: dict[str, str] = {
-    "modflow6": "MODFLOW 6",
-    "modflow_nwt": "MODFLOW-NWT",
-    "boussinesq": "Boussinesq",
-    "gr4j": "GR4J",
-}
-"""How the card names a solver backend."""
-
-"""What a run raises when it never wrote the feature a row reads."""
-
 
 class WatershedIdCardFigure(BaseFigure):
     """Compact summary: topography and metadata table."""
@@ -269,7 +259,7 @@ def identity_rows(sim: Run) -> list[tuple[str, str]]:
     rows: list[tuple[str, str | None]] = [
         ("Run", _text(run_label(sim))),
         ("Project", _text(sim.project)),
-        ("Solver", _solver_name(sim.solver)),
+        ("Solver", _text(sim.solver)),
         ("Regime", _text(sim.flow_regime)),
         ("Period", _period_text(sim)),
         ("Time steps", _steps_text(sim)),
@@ -317,14 +307,6 @@ def _text(value) -> str | None:
         return None
     text = str(value).strip()
     return text or None
-
-
-def _solver_name(solver) -> str | None:
-    """Return how the card names a solver backend."""
-    text = _text(solver)
-    if text is None:
-        return None
-    return _SOLVER_NAMES.get(text.lower(), text)
 
 
 def _period_text(sim: Run) -> str | None:

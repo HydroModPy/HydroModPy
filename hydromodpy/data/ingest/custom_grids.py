@@ -102,7 +102,7 @@ def load_custom_nc(
     return [
         FieldRecord(
             variable=variable,
-            source="custom",
+            source="file",
             unit=unit,
             data=ds,
             bbox=bbox,
@@ -152,7 +152,7 @@ def load_custom_tif(
     return [
         FieldRecord(
             variable=variable,
-            source="custom",
+            source="file",
             unit=unit,
             data=ds,
             bbox=bbox,
@@ -367,3 +367,7 @@ def _find_time_dim(ds) -> str | None:
         if hasattr(ds[dim], "dtype") and "datetime" in str(ds[dim].dtype):
             return dim
     return None
+
+
+load_file_nc = load_custom_nc
+load_file_tif = load_custom_tif

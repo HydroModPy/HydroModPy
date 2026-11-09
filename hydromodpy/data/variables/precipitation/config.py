@@ -14,11 +14,14 @@ from hydromodpy.data.managers.base_config import BaseVariableConfig
 from hydromodpy.data.managers.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
+    UrlSourceFieldsMixin,
     registered_section_source,
 )
 
 
-class PrecipitationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class PrecipitationSourceConfig(
+    UrlSourceFieldsMixin, TimeseriesColumnsMixin, TimeseriesSelectionMixin
+):
     """Configuration for one precipitation data source.
 
     Precipitation sources provide rainfall, snowfall, or total precipitation
@@ -63,10 +66,10 @@ class PrecipitationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> PrecipitationSourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                    "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
                 )
         if self.source == "explore2":
             if self.path is None:

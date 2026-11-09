@@ -36,7 +36,7 @@ def test_a_site_code_is_returned_unchanged():
 def test_the_published_area_is_read_from_the_site_endpoint(monkeypatch):
     seen: dict = {}
 
-    def _get_json(url, params=None, **kwargs):
+    def _get_json(_client, url, params=None, **kwargs):
         del kwargs
         seen["url"] = url
         seen["params"] = params
@@ -71,7 +71,7 @@ def test_an_unreachable_service_yields_nothing_rather_than_failing(monkeypatch):
 
 def test_an_agreeing_area_does_not_warn(monkeypatch, caplog):
     """The measured Nancon case: 64.61 km2 delineated against 64.45 published."""
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: _NANCON_AREA_KM2)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: _NANCON_AREA_KM2)
 
     with caplog.at_level("WARNING"):
         comparison = compare_catchment_area(_NANCON_STATION, 64.61)
@@ -82,7 +82,7 @@ def test_an_agreeing_area_does_not_warn(monkeypatch, caplog):
 
 
 def test_a_catchment_on_the_wrong_branch_warns(monkeypatch, caplog):
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: _NANCON_AREA_KM2)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: _NANCON_AREA_KM2)
 
     with caplog.at_level("WARNING"):
         comparison = compare_catchment_area(_NANCON_STATION, 6.0)
@@ -93,7 +93,7 @@ def test_a_catchment_on_the_wrong_branch_warns(monkeypatch, caplog):
 
 
 def test_the_warning_threshold_is_the_caller_s_to_set(monkeypatch, caplog):
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: 100.0)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 100.0)
 
     with caplog.at_level("WARNING"):
         compare_catchment_area(_NANCON_STATION, 105.0, warn_relative_gap=0.20)
@@ -102,7 +102,7 @@ def test_the_warning_threshold_is_the_caller_s_to_set(monkeypatch, caplog):
 
 
 def test_no_published_area_is_not_a_failure(monkeypatch):
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid: None)
+    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: None)
 
     assert compare_catchment_area(_NANCON_STATION, 64.61) is None
 

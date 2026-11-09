@@ -29,6 +29,7 @@ from hydromodpy.cli.effective_toml import (
     profile_output_of,
     toml_target,
 )
+from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
 from hydromodpy.cli.helpers import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
@@ -51,7 +52,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser(), profile_parser(), verbosity_parser()],
+        parents=[
+            workspace_parser(),
+            format_parser(),
+            profile_parser(),
+            verbosity_parser(),
+        ],
         epilog=(
             "Examples:\n  hmp calibrate calibration.toml\n"
             "  hmp calibrate calibration.toml --dry-run\n"
@@ -114,6 +120,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     add_override_arguments(parser)
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
@@ -351,7 +358,12 @@ def _calibrate(
             emit(args, "calibrate plan", plan, table=lambda: _print_dry_run(plan))
             return
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(run_path, phase=args.phase, resume=resume)
+            result = hmp.calibrate(
+                run_path,
+                phase=args.phase,
+                resume=resume,
+                environment=environment_from_args(args),
+            )
     except (ConfigError, ValidationError) as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

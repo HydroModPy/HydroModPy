@@ -29,7 +29,6 @@ from hydromodpy.model.domain.spatial_support import (
 )
 from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
-from hydromodpy.solver.base.runner import ensure_transport
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.data import ensure_flow
 
@@ -48,10 +47,15 @@ def build_geographic_runtime(
     cfg: object,
     workspace: object,
     *,
+    dem_path: Path | None = None,
     reuse_existing_outputs: bool | None = None,
     network_map_path: Path | None = None,
 ) -> object:
-    """Build the geographic runtime selected by the validated TOML config."""
+    """Build the geographic runtime selected by the validated TOML config.
+
+    The DEM arrives resolved through ``dem_path``, read from the
+    ``[[data.dem.sources]]`` sources before the step runs.
+    """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
     if callable(uses_synthetic) and uses_synthetic():
@@ -63,34 +67,42 @@ def build_geographic_runtime(
     return CatchmentDelineation(
         geographic_cfg,
         workspace,
+        dem_path=dem_path,
         reuse_existing_outputs=reuse_existing_outputs,
         network_map_path=network_map_path,
     )
 
 
 def resolve_geographic_inputs(cfg: object, run_state: WorkflowContext) -> Path | None:
-    """Turn the ``[data]`` files the geographic step reads into paths, before it runs.
+    """Resolve the ``[data]`` files the geographic step reads without mutating the config.
 
-    The geographic step runs before any data manager, so the DEM, the crossings
-    and the network map of the alpha diagnostic have to be files on disk. The
-    DEM and the crossings path are written into the geographic config when it
-    names none; the network map is returned and never enters the configuration,
-    since an observation is not a model input (``None``: alpha does not run).
-    A synthetic geographic reads none of them.
+    A synthetic geographic reads no ``[data]`` file, so it resolves nothing.
+    Otherwise every file and url source of ``[data]`` is resolved under the
+    bounds of the call, before the run is named. The DEM resolution returns a :class:`FileRecord` without writing the
+    configuration and ``None`` when the config declares no DEM source; the
+    catchment reads its raster through the ``dem_path`` the caller passes on.
     """
     import hydromodpy.data.variables.crossings.resolver as crossings_resolver
-    import hydromodpy.data.variables.dem.resolver as dem_resolver
     import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
+    from hydromodpy.data.loading.inputs import resolve_inputs
 
-    uses_synthetic = getattr(cfg.geographic, "uses_synthetic_geographic", None)
-    if callable(uses_synthetic) and uses_synthetic():
-        return None
-    config_path = run_state.config_path
     paths = getattr(run_state.setup.workspace, "paths", None)
     data_path = getattr(paths, "data_path", None)
-    dem_resolver.fill_dem_init_path(cfg, config_path=config_path, data_path=data_path)
-    crossings_resolver.fill_crossings_path(cfg, config_path=config_path, data_path=data_path)
-    return hydrography_resolver.resolve_network_map_path(cfg, config_path=config_path)
+    uses_synthetic = getattr(cfg.geographic, "uses_synthetic_geographic", None)
+    if callable(uses_synthetic) and uses_synthetic():
+        run_state.setup.dem_record = None
+        return None
+    # Every declared file and url source is resolved here, under the bounds of
+    # the call, before the step names the run (review 4.3, finding 12).
+    dem_record = resolve_inputs(cfg, bounds=run_state.bounds, data_dir=data_path).dem
+    run_state.setup.dem_record = dem_record
+    crossings_resolver.fill_crossings_path(
+        cfg,
+        config_path=run_state.config_path,
+        data_path=data_path,
+        dem_path=None if dem_record is None else Path(dem_record.path),
+    )
+    return hydrography_resolver.resolve_network_map_path(cfg, config_path=run_state.config_path)
 
 
 def step_spatial_supports(
@@ -155,9 +167,12 @@ def step_setup(
             setup_state.workspace.project_root, ctx.run_dir, ctx.attempt
         )
     network_map_path = resolve_geographic_inputs(cfg, ctx)
+    dem_record = getattr(setup_state, "dem_record", None)
+    dem_path = Path(dem_record.path) if dem_record is not None else None
     setup_state.geographic = build_geographic_runtime(
         cfg,
         setup_state.workspace,
+        dem_path=dem_path,
         reuse_existing_outputs=reuse_existing_outputs,
         network_map_path=network_map_path,
     )
@@ -201,9 +216,9 @@ def step_setup(
     rng_seed = getattr(cfg.simulation, "rng_seed", None)
     ctx.execution.rng = RngManager(master_seed=int(rng_seed)) if rng_seed is not None else None
 
-    # Eagerly create Flow/Transport so data binders can reference them.
+    # Eagerly create Flow so data binders can reference it. Transport has no
+    # model object to materialize: its adapter reads the configuration itself.
     ensure_flow(ctx)
-    ensure_transport(ctx)
     validate_domain_support_contract(setup_state.flow, requested_domain_supports or {})
 
 
@@ -426,8 +441,6 @@ class SetupProcessStep:
             rebuild_substratum_if_depth_model_moved(ctx)
             if getattr(ctx.cfg, "flow", None) is not None:
                 ensure_flow(ctx)
-            if getattr(ctx.cfg, "transport", None) is not None:
-                ensure_transport(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

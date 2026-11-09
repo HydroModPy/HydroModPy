@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from hydromodpy.calibration.protocols.base import protocol_support
 from hydromodpy.calibration.protocols.registry import get_protocol
 
 
@@ -182,14 +183,19 @@ def methods_paragraph(
         parts.append(f"No parameter uncertainty was built for: {listed}.")
 
     if backend:
-        verdict = protocol.support.get(str(backend))
-        if verdict == "expected_untested":
+        verdict = protocol_support(get_protocol(protocol.name), backend)
+        if verdict.verdict == "expected_untested":
             parts.append(
                 f"The protocol was run on the {backend} backend, on which it is expected "
                 "to work but is not covered by a test case."
             )
-        elif verdict == "unsupported":
-            parts.append(f"The protocol is not supported on the {backend} backend.")
+        elif verdict.verdict == "unsupported":
+            read = ", ".join(str(name) for name in protocol.declared_observables)
+            handed = f" The backend says: {verdict.reason}." if verdict.reason else "."
+            parts.append(
+                f"The protocol is not supported on the {backend} backend, which does "
+                f"not serve every observable it reads ({read}).{handed}"
+            )
 
     parts.append(
         "Full citations: " + " ".join(reference.cite() for reference in protocol.references)

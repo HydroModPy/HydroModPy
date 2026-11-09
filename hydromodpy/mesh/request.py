@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "BARRIER_FAMILY",
+    "FAMILY_NAMES",
     "InputTriangulation",
     "LineFamilySpec",
     "LineIntent",
@@ -54,6 +55,14 @@ LineIntent = Literal["cell", "face"]
 BARRIER_FAMILY = "barriers"
 """The face family of the flow barriers: an engine follows its corners and free ends,
 and a staircase engine bars the faces its lines cross."""
+
+FAMILY_NAMES: frozenset[str] = frozenset(
+    {"rivers", "geology", "lakes", "barriers", "watershed_boundary"}
+)
+"""The line families ``[mesh.families]`` names, the only ones an engine may ignore.
+
+The keys of ``MeshFamiliesConfig`` are these names, and a test holds the two equal.
+"""
 
 _EMPTY_OPTIONS: Mapping[str, object] = MappingProxyType({})
 

@@ -33,8 +33,12 @@ from hydromodpy._lazy import OLD_NAMES as _OLD_NAMES
 from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env
 from hydromodpy.core.version import __version__
 
-# A calibration fills its own trial pipeline at session start, so ``import
-# hydromodpy`` and ``hmp --help`` stay cheap.
+# ``bootstrap()`` is deferred to first real use (config validation, a verb,
+# Project, or the CLI handler) via ``core.runtime.bootstrap_hook``. A
+# calibration fills its own trial pipeline at session start, so ``import
+# hydromodpy`` and ``hmp --help`` stay cheap. The symbol ``hydromodpy.bootstrap``
+# is gone: the module carried a start-up hook, and a hook the library calls
+# itself is a provider, not a capability of the package.
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (

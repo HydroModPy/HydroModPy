@@ -77,11 +77,11 @@ thickness = "20 m"
 types = ["precipitation", "etp"]
 
 [[data.precipitation.sources]]
-source = "custom"
+source = "file"
 path = "{precip_path}"
 
 [[data.etp.sources]]
-source = "custom"
+source = "file"
 path = "{etp_path}"
 
 [flow]

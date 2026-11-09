@@ -12,8 +12,8 @@ user provides, ``<variable>_<api>_*`` for files HydroModPy downloads from an
 API. Both live side by side.
 The runtime data loaders read these folders directly
 (``hydromodpy.data.loading.store.DataStore``). A run indexes in
-``data/cache.duckdb`` the custom files that a ``[data.<name>]`` source with
-``source = "custom"`` reads. A file dropped in a folder is not indexed on its own,
+``data/cache.duckdb`` the files that a ``[data.<name>]`` source with
+``source = "file"`` reads. A file dropped in a folder is not indexed on its own,
 and ``hmp data add`` indexes one file by hand.
 """
 
@@ -237,7 +237,7 @@ _README_POINT_BODY = """\
 ## Wire it in your run TOML
 
     [[data.{name}.sources]]
-    source = "custom"
+    source = "file"
     path = "data/{name}"
 
 ## Example files in this folder
@@ -261,7 +261,7 @@ nodata in the file.
 ## Wire it in your run TOML
 
     [[data.{name}.sources]]
-    source = "custom"
+    source = "file"
     path = "data/{name}"                                 # directory of station CSVs
     # path = "data/{name}/{prefix}_custom_my_grid.nc"    # or a single grid file
 
@@ -286,7 +286,7 @@ Each file must carry its CRS: GeoTIFF tags, a `.prj` sidecar for `.asc`, or a
 ## Wire it in your run TOML
 
     [[data.dem.sources]]
-    source = "custom"
+    source = "file"
     path = "data/dem/dem_custom_my_dem.tif"   # a file, or "data/dem" for a directory
 
 ## Example files in this folder
@@ -309,7 +309,7 @@ sidecar for `.asc`. A file without one is read in `default_crs` of its source
 ## Wire it in your run TOML
 
     [[data.{name}.sources]]
-    source = "custom"
+    source = "file"
     path = "data/{name}/{prefix}_custom_my_file.tif"
 
 ## Example files in this folder
@@ -329,7 +329,7 @@ _README_GEOLOGY_BODY = """\
 ## Wire it in your run TOML
 
     [[data.geology.sources]]
-    source = "custom"
+    source = "file"
     path = "data/geology/geology_custom_my_map.gpkg"
     code_field = "CODE"                       # vector sources only
 
@@ -350,7 +350,7 @@ _README_HYDROGRAPHY_BODY = """\
 ## Wire it in your run TOML
 
     [[data.hydrography.sources]]
-    source = "custom"
+    source = "file"
     path = "data/hydrography/hydrography_custom_my_network.gpkg"
 
 ## Example files in this folder
@@ -372,7 +372,7 @@ _README_CROSSINGS_BODY = """\
 ## Wire it in your run TOML
 
     [[data.crossings.sources]]
-    source = "custom"
+    source = "file"
     path = "data/crossings/crossings_custom_my_roads.gpkg"
 
 ## Example files in this folder
@@ -395,7 +395,7 @@ taken from the file name.
 ## Wire it in your run TOML
 
     [[data.{name}.sources]]
-    source = "custom"
+    source = "file"
     path = "data/{name}/{prefix}_custom_lac0.csv"
     lake_id = "lac0"
 
@@ -405,9 +405,8 @@ taken from the file name.
 """
 
 _README_FOOTER = """\
-## Validate without running a simulation
+## Cache listing
 
-- `hmp data check --variable {name}` - validate dropped files, no ingestion.
 - `hmp data ls --variable {name}` - list what is indexed in the cache.
 """
 
@@ -535,7 +534,7 @@ step_value = "1 year"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 """
 

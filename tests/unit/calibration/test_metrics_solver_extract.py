@@ -1026,7 +1026,7 @@ def _record(station_id: str, *, located: bool) -> PointRecord:
     return PointRecord(
         station_id=station_id,
         variable="discharge",
-        source="custom",
+        source="file",
         unit="m3/s",
         frequency="D",
         data=pd.DataFrame(

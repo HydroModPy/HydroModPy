@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Hashable, Iterator
-from typing import Final, TypeVar
+from typing import TYPE_CHECKING, Final, TypeVar
 
 from hydromodpy.core.exceptions import DataSourceError
-from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.clients.sandre_topage import checked_body, excerpt
+
+if TYPE_CHECKING:
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
@@ -64,6 +66,7 @@ def iter_pages(
     identify: Callable[[Feature], Hashable],
     output_format: str | None = None,
     properties: tuple[str, ...] | None = None,
+    client: HTTPClient | None = None,
 ) -> Iterator[list[Feature]]:
     """The features of *typename* touching *bbox*, one page at a time, as *parse_page* reads them.
 
@@ -77,7 +80,7 @@ def iter_pages(
         the pages do not add up to the total it announced (raised once the last
         page has been handed out).
     """
-    expected = _count(url, typename, bbox)
+    expected = _count(url, typename, bbox, client=client)
     logger.info("[WFS] %s: %d features in the box", typename, expected)
     if expected == 0:
         return
@@ -91,7 +94,9 @@ def iter_pages(
             extra["outputFormat"] = output_format
         if properties is not None:
             extra["PROPERTYNAME"] = ",".join(properties)
-        page = parse_page(_get(url, {**box_params(typename, bbox), **extra}, typename))
+        page = parse_page(
+            _get(url, {**box_params(typename, bbox), **extra}, typename, client=client)
+        )
         logger.debug("[WFS] %s STARTINDEX=%d: %d features", typename, start, len(page))
         if page:
             keys = [identify(feature) for feature in page]
@@ -118,8 +123,14 @@ def iter_pages(
         )
 
 
-def _count(url: str, typename: str, bbox: tuple[float, float, float, float]) -> int:
-    body = _get(url, {**box_params(typename, bbox), "RESULTTYPE": "hits"}, typename)
+def _count(
+    url: str,
+    typename: str,
+    bbox: tuple[float, float, float, float],
+    *,
+    client: HTTPClient | None = None,
+) -> int:
+    body = _get(url, {**box_params(typename, bbox), "RESULTTYPE": "hits"}, typename, client=client)
     match = _NUMBER_MATCHED.search(body[:4096])
     if match is None:
         raise DataSourceError(
@@ -128,7 +139,26 @@ def _count(url: str, typename: str, bbox: tuple[float, float, float, float]) -> 
     return int(match.group(1))
 
 
-def _get(url: str, params: dict[str, str], typename: str) -> bytes:
+def _get(
+    url: str,
+    params: dict[str, str],
+    typename: str,
+    *,
+    client: HTTPClient | None = None,
+) -> bytes:
     """The body of one answer, or the refusal it carries raised by name."""
-    response = get_default_client().get(url, params=params, timeout=_TIMEOUT_S)
+    if client is not None:
+        response = client.get(url, params=params, timeout=_TIMEOUT_S)
+    else:
+        from hydromodpy.core.io.fetch import open_client
+
+        with open_client() as c:
+            response = c.get(url, params=params, timeout=_TIMEOUT_S)
     return checked_body(response, typename=typename, label="WFS")
+
+
+__all__ = [
+    "QUERY_CRS",
+    "box_params",
+    "iter_pages",
+]

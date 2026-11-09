@@ -246,14 +246,14 @@ def _untouched(job: JobDirectory) -> bool:
 
 
 def test_a_custom_source_is_refused_before_the_job_is_touched(tmp_path):
-    data = {"dem": {"sources": [{"source": "custom", "path": str(tmp_path / "dem.tif")}]}}
+    data = {"dem": {"sources": [{"source": "file", "path": str(tmp_path / "dem.tif")}]}}
     (tmp_path / "dem.tif").write_bytes(b"")
     job = _staged(tmp_path, _request(data))
 
     outcome = run(job, exit_code_for=exit_code_for)
 
     assert outcome.exit_code == EXIT_CONFIG
-    assert "custom" in json.dumps(outcome.errors)
+    assert "file source" in json.dumps(outcome.errors)
     assert _untouched(job)
 
 

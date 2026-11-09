@@ -68,6 +68,8 @@ LITERAL_PATTERN = re.compile(r"""(["'])(?:application|image|text|video|audio)/[^
 ALLOWLIST: tuple[tuple[str, str], ...] = (
     # The FORMAT name the Geoplateforme WMS-Raster GetMap request takes.
     ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
+    # The OUTPUTFORMAT name the Sandre WFS GetFeature request takes for a GeoPackage.
+    ("data/common/clients/sandre_topage.py", "application/x-gpkg"),
     # The column default the GeoPackage standard imposes in the gpkg_metadata DDL.
     ("results/identity.py", "text/xml"),
 )

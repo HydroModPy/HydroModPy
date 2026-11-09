@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.environment import add_environment_arguments
 from hydromodpy.cli.helpers import exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
@@ -67,10 +68,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Cases prepared side by side (default: [sites.run] prepare_parallel)",
     )
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.cli.environment import environment_flags_of
     from hydromodpy.project.launch.journal import job_stamp
     from hydromodpy.project.launch.slurm import write_slurm_array
 
@@ -84,6 +87,7 @@ def run(args: argparse.Namespace) -> None:
             walltime=args.walltime,
             threads_per_case=args.threads_per_case,
             prepare_parallel=args.prepare_parallel,
+            environment_flags=environment_flags_of(args),
         )
     except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below
         refuse(f"hmp campaign array: {exc}", exit_code_for(exc), cause=exc)

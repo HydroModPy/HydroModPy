@@ -30,9 +30,9 @@ def _data(**sources: list[dict]) -> DataManagersConfig:
 @pytest.mark.fast
 def test_a_station_source_without_station_ids_reads_the_gauge():
     data = _data(
-        hydrometry=[{"source": "custom", "path": "hydrometry"}],
-        recharge=[{"source": "custom", "path": "recharge"}],
-        runoff=[{"source": "custom", "path": "runoff"}],
+        hydrometry=[{"source": "file", "path": "hydrometry"}],
+        recharge=[{"source": "file", "path": "recharge"}],
+        runoff=[{"source": "file", "path": "runoff"}],
     )
 
     apply_site_gauge(data, NANCON)
@@ -54,8 +54,8 @@ def test_a_hubeau_source_without_station_ids_fetches_the_gauge():
 @pytest.mark.fast
 def test_a_station_list_that_leaves_the_gauge_out_is_refused_by_name():
     data = _data(
-        hydrometry=[{"source": "custom", "path": "hydrometry"}],
-        recharge=[{"source": "custom", "path": "recharge", "station_ids": ["NANCON_REA"]}],
+        hydrometry=[{"source": "file", "path": "hydrometry"}],
+        recharge=[{"source": "file", "path": "recharge", "station_ids": ["NANCON_REA"]}],
     )
 
     with pytest.raises(GaugeConflictError) as refused:
@@ -69,7 +69,7 @@ def test_a_station_list_that_leaves_the_gauge_out_is_refused_by_name():
 @pytest.mark.fast
 def test_a_station_list_that_holds_the_gauge_is_kept_whole():
     data = _data(
-        hydrometry=[{"source": "custom", "path": "hydrometry", "station_ids": ["UP", "NANCON"]}]
+        hydrometry=[{"source": "file", "path": "hydrometry", "station_ids": ["UP", "NANCON"]}]
     )
 
     apply_site_gauge(data, NANCON)
@@ -80,9 +80,9 @@ def test_a_station_list_that_holds_the_gauge_is_kept_whole():
 @pytest.mark.fast
 def test_a_grid_source_and_a_variable_outside_the_list_are_left_alone():
     data = _data(
-        recharge=[{"source": "custom", "path": "recharge.nc"}],
+        recharge=[{"source": "file", "path": "recharge.nc"}],
         runoff=[{"source": "sim2"}],
-        piezometry=[{"source": "custom", "path": "piezometry"}],
+        piezometry=[{"source": "file", "path": "piezometry"}],
     )
 
     apply_site_gauge(data, NANCON)
@@ -95,8 +95,8 @@ def test_a_grid_source_and_a_variable_outside_the_list_are_left_alone():
 @pytest.mark.fast
 def test_without_a_gauge_the_declared_stations_stay_as_written():
     data = _data(
-        hydrometry=[{"source": "custom", "path": "hydrometry"}],
-        recharge=[{"source": "custom", "path": "recharge", "station_ids": ["A", "B"]}],
+        hydrometry=[{"source": "file", "path": "hydrometry"}],
+        recharge=[{"source": "file", "path": "recharge", "station_ids": ["A", "B"]}],
     )
 
     apply_site_gauge(data, SiteConfig(name="nancon"))
@@ -127,7 +127,7 @@ def test_the_project_config_takes_the_gauge_and_refuses_a_conflict():
     }
 
     config = HydroModPyConfig.model_validate(
-        {**base, "data": {"hydrometry": {"sources": [{"source": "custom", "path": "h"}]}}}
+        {**base, "data": {"hydrometry": {"sources": [{"source": "file", "path": "h"}]}}}
     )
     assert config.data.hydrometry.sources[0].station_ids == ["NANCON"]
 
@@ -137,7 +137,7 @@ def test_the_project_config_takes_the_gauge_and_refuses_a_conflict():
                 **base,
                 "data": {
                     "hydrometry": {
-                        "sources": [{"source": "custom", "path": "h", "station_ids": ["X"]}]
+                        "sources": [{"source": "file", "path": "h", "station_ids": ["X"]}]
                     }
                 },
             }

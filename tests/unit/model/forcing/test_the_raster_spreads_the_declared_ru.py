@@ -62,7 +62,7 @@ def _write_capacity_raster(path: Path) -> LoadResult:
         dst.write(data, 1)
     record = FieldRecord(
         variable="soil_capacity",
-        source="custom",
+        source="file",
         unit="mm",
         data=path,
         bbox=(-500.0, -500.0, 2500.0, 1500.0),
