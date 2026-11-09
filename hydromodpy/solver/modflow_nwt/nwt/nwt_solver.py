@@ -123,7 +123,9 @@ class ModflowNwt:
         self.inputs: Model | None = None
         self.flow_regime: str | None = None
         self.last_flow_solve_time_seconds: float | None = None
-        # Set by ``build_flow_model``: a downstream MT3DMS run reads this output.
+        # Set by the flow adapter from ``slot.hand_off``: when a transport
+        # that follows the flow reads ``face_flow``, the LMT package is
+        # built with the run.
         self.link_mt3dms = False
         # The input files ``processing`` wrote, relative to ``full_path``.
         self.input_files: tuple[str, ...] = ()

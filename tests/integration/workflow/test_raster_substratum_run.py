@@ -53,7 +53,7 @@ right_to_left_amplitude = 5.0
 kind = "raster_thickness"
 
 [[data.substratum.sources]]
-source = "custom"
+source = "file"
 path = "{raster}"
 
 [flow]

@@ -30,6 +30,7 @@ from tests.scenarios.factory import (
     TRANSPORT_PARAMETERS,
     TRANSPORT_PROCESS,
     TRIANGLE_MESH,
+    basin_files,
     transient_island,
 )
 from tests.scenarios.launcher import Scenario, play
@@ -91,7 +92,7 @@ def run_backends(run_dir: Path) -> list[tuple[str, str]]:
     ]
 
 
-def undeclared_names(run_dir: Path) -> list[str]:
+def undeclared_names(run_dir: Path, *, hold_a_head: bool = True) -> list[str]:
     """Return what a run stored outside the pipeline and outside ``writes`` of its backends."""
     backends = run_backends(run_dir)
     patterns = [
@@ -113,7 +114,7 @@ def undeclared_names(run_dir: Path) -> list[str]:
         for name in names
         if not any(regex.match(name) for regex in patterns)
     ]
-    if any(kind == "flow" for kind, _ in backends) and "head" not in arrays:
+    if hold_a_head and any(kind == "flow" for kind, _ in backends) and "head" not in arrays:
         faults.append(f"the flow of {backends} left no head array")
     return faults
 
@@ -137,6 +138,36 @@ def test_a_run_stores_only_what_its_backends_declare(
     runs = [played.root / path for kind, path in played.targets if kind == "run"]
     assert len(runs) == 1
     assert undeclared_names(runs[0]) == []
+
+
+def test_the_basin_stores_only_what_its_backend_declares(
+    tmp_path: Path, scenario_env: dict[str, str], scenario_cache: Path
+) -> None:
+    """The global backend of the basin declares the series it leaves, and no head.
+
+    A global model carries no aquifer, so no head array exists: the hold on a
+    flow backend would be wrong for it. Every other name of the store comes
+    from the pipeline prefix, the same names any run carries.
+    """
+    scenario = Scenario(
+        name="writes_basin",
+        covers="the store of a global run against the writes of its one backend",
+        files=basin_files(),
+        argv=("run", "project.toml"),
+        needs=(),
+        timeout_s=300.0,
+    )
+
+    played = play(scenario, tmp_path / "play", scenario_env, scenario_cache)
+
+    assert played.returncode == 0, played.log.read_text(encoding="utf-8")[-2000:]
+    runs = [played.root / path for kind, path in played.targets if kind == "run"]
+    assert len(runs) == 1
+    # The rule of the store is the one of the islands, without the head: a
+    # global model writes none, and its series carries the whole catchment.
+    assert undeclared_names(runs[0], hold_a_head=False) == []
+    tables = stored_tables(runs[0] / "tables.parquet")
+    assert "timeseries" in tables
 
 
 @pytest.mark.parametrize(

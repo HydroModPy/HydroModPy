@@ -369,7 +369,6 @@ OUTPUTS: tuple[Output, ...] = (
     # Data
     _rows("data ls", "variable", "source", "station_id", "file_path", open_fields=True),
     _object("data get", "files", "failures", "report"),
-    _object("data check", "workspace", "issues", "fix_summary"),
     _object("data add", "variable", "provider", "station_id", "dest"),
     _object("data remove", "applied", "removed"),
     _object("data prune", "applied", "older_than_days", "removed"),

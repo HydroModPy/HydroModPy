@@ -11,13 +11,13 @@ import zarr
 
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.model.transport.transport import Transport
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.run.particles import read_particle_tracks
 from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
@@ -42,38 +42,26 @@ class _Store:
 def test_transport_config_accepts_modflow6prt_parameters() -> None:
     cfg = TransportConfig.model_validate(
         {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "upstream_nonriver",
-                    "upstream_top_quantile": 0.85,
-                    "max_particles": 12,
-                    "release_times": [0.0, 10.0],
-                    "track_times": [1.0, 2.0, 3.0],
-                    "track_time_step": 10.0,
-                }
+            "modflow6_prt": {
+                "release_zone": "upstream_nonriver",
+                "upstream_top_quantile": 0.85,
+                "max_particles": 12,
+                "release_times": [0.0, 10.0],
+                "track_times": [1.0, 2.0, 3.0],
+                "track_time_step": 10.0,
             }
         }
     )
-    transport = Transport(cfg)
+    table = cfg.options_of("modflow6_prt")
 
-    assert transport.modflow6prt.parameters["release_zone"] == "upstream_nonriver"
-    assert transport.modflow6prt.parameters["upstream_top_quantile"] == 0.85
-    assert transport.modflow6prt.parameters["max_particles"] == 12
-    assert transport.parameters["modflow6prt"]["release_times"] == [0.0, 10.0]
-    assert transport.modflow6prt.parameters["track_time_step"] == 10.0
+    assert table.release_zone == "upstream_nonriver"
+    assert table.upstream_top_quantile == 0.85
+    assert table.max_particles == 12
+    assert table.model_dump()["release_times"] == [0.0, 10.0]
+    assert table.track_times == [1.0, 2.0, 3.0] and table.track_time_step == 10.0
 
 
 def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "upstream_nonriver",
-                    "upstream_top_quantile": 0.5,
-                }
-            }
-        }
-    )
     flow_model = SimpleNamespace(
         solver_mesh=SimpleNamespace(
             top=np.array([1.0, 5.0, 10.0, 9.0, 8.0, 7.0]),
@@ -83,22 +71,16 @@ def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
         _stream_support_mask=np.array([False, False, True, False, True, False]),
     )
 
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model)
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        options={"release_zone": "upstream_nonriver", "upstream_top_quantile": 0.5},
+    )
 
     assert prt._select_release_cells().tolist() == [3]
 
 
 def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "domain_nonriver",
-                    "max_particles": 3,
-                }
-            }
-        }
-    )
     flow_model = SimpleNamespace(
         solver_mesh=SimpleNamespace(
             top=np.ones(7, dtype=float),
@@ -119,7 +101,9 @@ def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
         _stream_support_mask=np.array([False, True, False, False, True, False, False]),
     )
 
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model)
+    prt = Modflow6Prt(
+        make_model(), flow_model, options={"release_zone": "domain_nonriver", "max_particles": 3}
+    )
     selected = prt._select_release_cells()
 
     assert selected.size == 3
@@ -247,20 +231,18 @@ def test_modflow6_prt_can_write_minimal_disv_package(tmp_path: Path) -> None:
         model_name="flow",
         exe="mf6",
     )
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "domain",
-                    "max_particles": 1,
-                    "release_times": [0.0],
-                    "track_times": [0.5],
-                }
-            }
-        }
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        str(tmp_path),
+        "flow",
+        options={
+            "release_zone": "domain",
+            "max_particles": 1,
+            "release_times": [0.0],
+            "track_times": [0.5],
+        },
     )
-
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
     prt.pre_processing()
     assert prt.processing(write_model=True, run_model=False, verbose=False) is False
 
@@ -318,22 +300,20 @@ def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> 
         model_name="flow",
         exe="mf6",
     )
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "domain",
-                    "max_particles": 1,
-                    "release_times": [1.0],
-                    "track_times": [2.0],
-                    "stop_time": 3.0,
-                    "stop_travel_time": 4.0,
-                }
-            }
-        }
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        str(tmp_path),
+        "flow",
+        options={
+            "release_zone": "domain",
+            "max_particles": 1,
+            "release_times": [1.0],
+            "track_times": [2.0],
+            "stop_time": 3.0,
+            "stop_travel_time": 4.0,
+        },
     )
-
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
     prt.pre_processing()
     prt.processing(write_model=True, run_model=False, verbose=False)
 
@@ -387,21 +367,19 @@ def test_modflow6_prt_generates_regular_track_times(tmp_path: Path) -> None:
         model_name="flow",
         exe="mf6",
     )
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "domain",
-                    "max_particles": 1,
-                    "release_times": [0.0],
-                    "track_time_step": 10.0,
-                    "stop_time": 30.0,
-                }
-            }
-        }
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        str(tmp_path),
+        "flow",
+        options={
+            "release_zone": "domain",
+            "max_particles": 1,
+            "release_times": [0.0],
+            "track_time_step": 10.0,
+            "stop_time": 30.0,
+        },
     )
-
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
     prt.pre_processing()
     prt.processing(write_model=True, run_model=False, verbose=False)
 

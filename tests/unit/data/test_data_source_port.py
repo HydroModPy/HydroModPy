@@ -4,8 +4,10 @@ What the port refuses before any provider is contacted: an extent that says no
 CRS, a period that ends before it starts, a request that names stations twice,
 a result whose payload contradicts its kind. And the two rules this phase added:
 a request that selects nothing is accepted by the type and refused by
-:func:`require_selectors` unless the source declares ``selectors = ()``, and a
-``files`` payload carries :class:`FileRecord`, sealed by digest.
+:func:`require_selectors` unless the source declares ``selectors = ()``, a
+``files`` payload carries :class:`FileRecord`, sealed by digest, and the
+request carries the :class:`Bounds` of the call, which :func:`fetch_within`
+applies to the hosts a source declares before it contacts anyone.
 """
 
 from __future__ import annotations
@@ -17,7 +19,13 @@ import pytest
 
 pyproj = pytest.importorskip("pyproj")
 
-from hydromodpy.core.exceptions import DataCapabilityError, DataProductError, DataRequestError
+from hydromodpy.core.exceptions import (
+    BoundsError,
+    DataCapabilityError,
+    DataProductError,
+    DataRequestError,
+)
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.source.port import (
     Extent,
@@ -25,6 +33,7 @@ from hydromodpy.data.source.port import (
     FetchResult,
     Period,
     Selector,
+    fetch_within,
     require_declared_variables,
     require_period,
     require_selectors,
@@ -400,3 +409,74 @@ def test_shipped_hosts_reads_the_licence_table() -> None:
 def test_an_id_without_a_licence_entry_is_refused() -> None:
     with pytest.raises(DataRequestError, match="licence entry"):
         shipped_hosts("not-a-source-of-this-build")
+
+
+# --------------------------------------------------------------------------- #
+# The bounds of a request, and the one gate before a provider is contacted
+# --------------------------------------------------------------------------- #
+
+
+class _CountingNetworkSource(_SelectingSource):
+    """The minimum a network source is, with hosts, and the fetches it saw."""
+
+    source_id = "counting-network"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hosts: tuple[str, ...] = ("api.geosas.fr",)
+        self.calls: list[FetchRequest] = []
+
+    def fetch(self, request: FetchRequest) -> FetchResult:
+        self.calls.append(request)
+        return FetchResult(source_id=self.source_id, kind="points", variables=("double",))
+
+
+def test_a_request_carries_the_default_bounds_and_refuses_another_form(
+    tmp_path: Path,
+) -> None:
+    assert FetchRequest(out_dir=tmp_path).bounds == Bounds()
+    with pytest.raises(DataRequestError, match="is not a Bounds"):
+        FetchRequest(out_dir=tmp_path, bounds="api.geosas.fr")  # type: ignore[arg-type]
+
+
+def test_the_request_of_a_source_refuses_a_host_the_bounds_do_not_allow(
+    tmp_path: Path,
+) -> None:
+    source = _CountingNetworkSource()
+    request = FetchRequest(
+        out_dir=tmp_path, bounds=Bounds(allowed_hosts=frozenset({"data.geopf.fr"}))
+    )
+    with pytest.raises(BoundsError) as raised:
+        fetch_within(source, request)
+    message = str(raised.value)
+    assert "api.geosas.fr" in message and "--allow-host" in message
+    assert source.calls == [], "the refusal happens before any provider is contacted"
+
+
+def test_the_request_of_a_source_whose_hosts_are_allowed_reaches_the_provider(
+    tmp_path: Path,
+) -> None:
+    source = _CountingNetworkSource()
+    request = FetchRequest(
+        out_dir=tmp_path,
+        bounds=Bounds(allowed_hosts=frozenset({"api.geosas.fr", "data.geopf.fr"})),
+    )
+    result = fetch_within(source, request)
+    assert source.calls == [request]
+    assert result is not None and result.source_id == source.source_id
+
+
+def test_an_offline_call_still_serves_the_sources_that_touch_no_network(
+    tmp_path: Path,
+) -> None:
+    """``constant``, ``synthetic`` and ``custom`` declare hosts of none."""
+
+    class _ComputedSource(_SelectingSource):
+        def fetch(self, request: FetchRequest) -> FetchResult:
+            return FetchResult(source_id=self.source_id, kind="points", variables=self.variables)
+
+    offline = Bounds(allowed_hosts=frozenset())
+    for source_id in ("constant-double", "synthetic-double", "custom-double"):
+        source = _ComputedSource()
+        source.source_id = source_id  # type: ignore[misc]  (read by the why of the refusal)
+        fetch_within(source, FetchRequest(out_dir=tmp_path, bounds=offline))

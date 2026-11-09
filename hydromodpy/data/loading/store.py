@@ -28,6 +28,7 @@ from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
@@ -59,6 +60,7 @@ class DataStore:
         catalog: DataCatalogDuckDB | None = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
+        bounds: Bounds | None = None,
     ):
         if data_root is not None:
             self.data_root = Path(data_root).expanduser().resolve()
@@ -89,6 +91,10 @@ class DataStore:
 
         self.project_extent = project_extent
         self.project_period = project_period
+        # The bounds of the call this store serves: every manager it builds
+        # puts them into each request, so the fetcher refuses a host the
+        # caller did not allow. ``None`` keeps the all-allowing default.
+        self.bounds = bounds if bounds is not None else Bounds()
 
     def _data_dir(self, variable_name: str) -> Path | None:
         """Return ``data/<variable>/`` or None."""
@@ -123,6 +129,7 @@ class DataStore:
             project_period=self.project_period if project_period is None else project_period,
             data_dir=self._data_dir(variable_name),
         )
+        mgr.bounds = self.bounds
         result = mgr.load()
         if export_dir is not None:
             mgr.export(result, Path(export_dir))
@@ -150,6 +157,7 @@ class DataStore:
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("dem"),
         )
+        manager.bounds = self.bounds
         return manager.load()
 
     def load_geology(
@@ -167,21 +175,32 @@ class DataStore:
             project_extent=self.project_extent if project_extent is None else project_extent,
             data_dir=self._data_dir("geology"),
         )
+        manager.bounds = self.bounds
         return manager.load()
 
-    def fetch_network(self, source_cfg: Any, mask_path: str | Path) -> Any:
+    def fetch_network(
+        self, source_cfg: Any, mask_path: str | Path, *, bounds: Bounds | None = None
+    ) -> Any:
         """Return the network one listed source answers over the box of *mask_path*.
 
         Read from this store's cache and stored in it, as a run stores it: a
         workspace store keeps the answer under ``data/hydrography/``.
+        *bounds* is the :class:`Bounds` of the call that asked for the
+        network; unset, the bounds of this store. The source is built under
+        them, so a host they do not allow is refused before anything connects.
         """
+        from hydromodpy.data.managers.base_manager_common import source_within_bounds
+        from hydromodpy.data.variables.hydrography.api_source import source_from_section
         from hydromodpy.data.variables.hydrography.manager import fetch_network_through_cache
 
+        call_bounds = self.bounds if bounds is None else bounds
+        source = source_within_bounds(source_from_section(source_cfg), call_bounds)
         return fetch_network_through_cache(
             source_cfg,
             Path(mask_path),
             catalog=self.catalog,
             data_dir=self._data_dir("hydrography"),
+            source=source,
         )
 
     def load_hydrography(
@@ -207,6 +226,7 @@ class DataStore:
             data_dir=self._data_dir("hydrography"),
             stable_folder=stable_folder,
         )
+        manager.bounds = self.bounds
         return manager.load()
 
     def load_oceanic(

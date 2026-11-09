@@ -157,3 +157,116 @@ since = "2.1.0"
 effect = "refusal"
 quantities = []
 text = "A transport run is refused with SolverDivergedError when the flow it follows started from a steady solve that did not converge. MODFLOW 6 accepted such a solve when its final water budget was closed, and the transport went on with a warning only. The replay of a sealed run warns instead of refusing. A steady start that converges, a cyclic spin-up and every run without a transport are unchanged."
+
+
+[[bug]]
+id = "hubeau_qixm_discharge"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["metrics"]
+text = "Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM."
+
+[[migration]]
+document = "config"
+key = "data.hydrometry.sources[*].product"
+old_value = "QixM"
+new_value = "QIXM"
+since = "2.1.0"
+
+[[bug]]
+id = "hubeau_named_stations_capped"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["metrics"]
+text = "With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded."
+
+[[bug]]
+id = "hubeau_cache_ignores_product"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["metrics"]
+text = "Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway."
+
+[[recipe]]
+id = "named_station_without_data"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "When every named station returns no observation, the variable is refused with DataSourceError."
+
+[[recipe]]
+id = "bare_input_names_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "Bare file names are no longer looked up in the workspace data folder."
+
+[[recipe]]
+id = "input_path_scheme_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "Input paths starting with a URL scheme are refused with a message directing users to source = 'url'."
+
+[[recipe]]
+id = "url_source"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "URL sources download into the data cache as data/<variable>/<variable>_url_<host>_<sha8><suffix>."
+
+[[migration]]
+document = "config"
+old = "geographic.catchment.dem_init_path"
+instead = "geographic.catchment.dem_init_path was removed in 2.1.0. Declare the DEM as [[data.dem.sources]] with source = \"file\" and path = \"<the same path>\". `hmp doctor --fix-config` rewrites it."
+since = "2.1.0"
+rule = "_move_the_dem_init_path"
+
+[[migration]]
+document = "config"
+key = "data.{*}.sources[*].source"
+old_value = "custom"
+new_value = "file"
+since = "2.1.0"
+
+[[migration]]
+document = "sidecar"
+key = "source"
+old_value = "custom"
+new_value = "file"
+since = "2.1.0"
+
+# The [transport] tables of the 2.0.0 grammar sat one level deeper: the
+# parameters of each transport rise under [transport.<name>], the registry name
+# of that solver (E34), and the emptied parent table goes. Four moves, same
+# since as the solver tables.
+
+[[migration]]
+document = "config"
+old = "transport.modflow6gwt.parameters"
+new = "transport.modflow6"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "transport.modflow6prt.parameters"
+new = "transport.modflow6_prt"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "transport.mt3dms.parameters"
+new = "transport.mt3dms"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "transport.modpath.parameters"
+new = "transport.modpath"
+since = "2.1.0"
+
+[[migration]]
+document = "fields"
+old = "concentration"
+new = "concentration.{*}"
+since = "2.1.0"

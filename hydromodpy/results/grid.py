@@ -3,10 +3,8 @@
 Exposed as :attr:`hydromodpy.results.run.Run.grid`. It describes the DEM
 raster, never the cells of the model: a mesh is not obliged to follow the
 pixels. The cells of a run, their centers and their areas are read from
-:attr:`hydromodpy.results.run.Run.mesh`.
-
-Lumped simulations (e.g. GR4J, ``solver_category == "lumped"``) raise
-``RuntimeError`` because they have no spatial discretization.
+:attr:`hydromodpy.results.run.Run.mesh`. A global model on the one-cell mesh
+gets the same answer, for the one pixel its DEM stores.
 """
 
 from __future__ import annotations
@@ -60,16 +58,15 @@ class Grid:
 def build_grid(run: Run) -> Grid:
     """Read scalar grid metadata for ``run`` from the catalog + DEM transform.
 
+    A global model on the one-cell mesh answers like any run, from the one
+    pixel its DEM stores.
+
     Raises
     ------
     RuntimeError
-        If the simulation is lumped (no spatial grid), or if the required
-        entries (``dem_res``, ``nrow``, ``ncol``) are missing from
-        ``geographic_metadata``.
+        If the required entries (``dem_res``, ``nrow``, ``ncol``) are missing
+        from ``geographic_metadata``.
     """
-    if run._load_row().get("solver_category") == "lumped":
-        raise RuntimeError("lumped simulation has no spatial grid")
-
     meta = run._catalog.read_geographic_metadata(run._sim_id)
     missing = [k for k in ("dem_res", "nrow", "ncol") if k not in meta]
     if missing:

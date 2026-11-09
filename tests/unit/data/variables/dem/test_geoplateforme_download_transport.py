@@ -66,22 +66,39 @@ class FakeResponse:
         self.text = text
         self._content = content
         self.status_code = status_code
+        self.headers: dict[str, str] = {}
 
     def iter_content(self, chunk_size: int):
         del chunk_size
         yield self._content
 
+    def close(self) -> None:
+        pass
 
-class FakeSession:
+
+class FakeClient:
+    """Stands for the HTTP client of ``core/io/fetch``: answers GETs in order, HEADs with 200."""
+
     def __init__(self, responses: list[FakeResponse]):
         self.responses = responses
         self.calls: list[dict[str, object]] = []
 
-    def get(self, url: str, **kwargs):
+    def request(self, method: str, url: str, **kwargs):
+        if method == "HEAD":
+            return FakeResponse()
         self.calls.append({"url": url, **kwargs})
         if not self.responses:
             raise AssertionError("No fake response left.")
         return self.responses.pop(0)
+
+
+@pytest.fixture
+def public_dns(monkeypatch):
+    """The URL guard resolves the host; a test answers a public address without the network."""
+    monkeypatch.setattr(
+        "hydromodpy.core.io.fetch.socket.getaddrinfo",
+        lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))],
+    )
 
 
 @pytest.mark.fast
@@ -97,60 +114,32 @@ def test_parse_atom_entries_extracts_links_and_properties():
 
 @pytest.mark.fast
 def test_fetch_atom_entries_follows_pagination():
-    session = FakeSession([FakeResponse(ATOM_PAGE_1), FakeResponse(ATOM_PAGE_2)])
+    client = FakeClient([FakeResponse(ATOM_PAGE_1), FakeResponse(ATOM_PAGE_2)])
 
     entries = fetch_atom_entries(
         "https://example.test/feed",
         {"limit": 1},
-        session=session,  # type: ignore[arg-type]
+        client=client,  # type: ignore[arg-type]
     )
 
     assert [entry.identifier for entry in entries] == ["BDALTI", "RGEALTI"]
-    assert [call["params"]["page"] for call in session.calls] == [1, 2]
+    assert [call["params"]["page"] for call in client.calls] == [1, 2]
 
 
 @pytest.mark.fast
-def test_fetch_atom_entries_retries_transient_status(monkeypatch):
-    session = FakeSession([FakeResponse(status_code=429), FakeResponse(ATOM_SINGLE)])
-    sleeps: list[float] = []
-    monkeypatch.setattr(
-        "hydromodpy.data.variables.dem.apis.geoplateforme_download.time.sleep",
-        lambda seconds: sleeps.append(seconds),
-    )
+@pytest.mark.parametrize("status", [429, 503])
+def test_a_status_the_client_gives_up_on_is_an_error_naming_it(status):
+    """The retries live in the client of ``core/io/fetch``; what it hands back failed."""
+    client = FakeClient([FakeResponse(status_code=status)])
 
-    entries = fetch_atom_entries(
-        "https://example.test/feed",
-        {"limit": 1},
-        session=session,  # type: ignore[arg-type]
-    )
-
-    assert [entry.identifier for entry in entries] == ["BDALTI"]
-    assert len(session.calls) == 2
-    assert sleeps == [2.0]
-
-
-@pytest.mark.fast
-def test_fetch_atom_entries_raises_after_transient_retries(monkeypatch):
-    session = FakeSession(
-        [
-            FakeResponse(status_code=503),
-            FakeResponse(status_code=503),
-            FakeResponse(status_code=503),
-        ]
-    )
-    monkeypatch.setattr(
-        "hydromodpy.data.variables.dem.apis.geoplateforme_download.time.sleep",
-        lambda seconds: None,
-    )
-
-    with pytest.raises(GeoPlateformeDownloadError, match="503"):
+    with pytest.raises(GeoPlateformeDownloadError, match=str(status)):
         fetch_atom_entries(
             "https://example.test/feed",
             {"limit": 1},
-            session=session,  # type: ignore[arg-type]
+            client=client,  # type: ignore[arg-type]
         )
 
-    assert len(session.calls) == 3
+    assert len(client.calls) == 1
 
 
 @pytest.mark.fast
@@ -170,12 +159,12 @@ def test_build_download_url_quotes_each_path_component():
 
 @pytest.mark.fast
 def test_list_files_converts_atom_entries_to_download_files():
-    session = FakeSession([FakeResponse(ATOM_FILES)])
+    client = FakeClient([FakeResponse(ATOM_FILES)])
 
     files = list_files(
         "BDALTI",
         "sub",
-        session=session,  # type: ignore[arg-type]
+        client=client,  # type: ignore[arg-type]
     )
 
     assert files == [
@@ -194,61 +183,44 @@ def test_list_files_converts_atom_entries_to_download_files():
 def test_download_file_reuses_existing_non_empty_file(tmp_path):
     target = tmp_path / "archive.7z"
     target.write_bytes(b"cached")
-    session = FakeSession([])
+    client = FakeClient([])
 
     path = download_file(
         DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
         tmp_path,
-        session=session,  # type: ignore[arg-type]
+        client=client,  # type: ignore[arg-type]
     )
 
     assert path == target
     assert target.read_bytes() == b"cached"
-    assert session.calls == []
+    assert client.calls == []
 
 
 @pytest.mark.fast
-def test_download_file_writes_part_then_final(tmp_path):
-    session = FakeSession([FakeResponse(content=b"payload")])
+def test_download_file_writes_part_then_final(tmp_path, public_dns):
+    client = FakeClient([FakeResponse(content=b"payload")])
 
     path = download_file(
         DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
         tmp_path,
-        session=session,  # type: ignore[arg-type]
+        client=client,  # type: ignore[arg-type]
     )
 
     assert path == tmp_path / "archive.7z"
     assert path.read_bytes() == b"payload"
-    assert not Path(f"{path}.part").exists()
+    assert [p.name for p in tmp_path.iterdir() if p.name.endswith(".part")] == []
 
 
 @pytest.mark.fast
-def test_download_file_resumes_existing_partial_file(tmp_path):
-    partial = tmp_path / "archive.7z.part"
-    partial.write_bytes(b"abc")
-    session = FakeSession([FakeResponse(content=b"def", status_code=206)])
+def test_a_stale_partial_file_never_reaches_the_answer(tmp_path, public_dns):
+    """The fetch writes a fresh partial of its own, so a stale one is never read back."""
+    (tmp_path / "archive.7z.part").write_bytes(b"stale")
+    client = FakeClient([FakeResponse(content=b"fresh", status_code=200)])
 
     path = download_file(
         DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
         tmp_path,
-        session=session,  # type: ignore[arg-type]
-    )
-
-    assert path.read_bytes() == b"abcdef"
-    assert session.calls[0]["headers"] == {"Range": "bytes=3-"}
-
-
-@pytest.mark.fast
-def test_download_file_restarts_partial_when_server_ignores_range(tmp_path):
-    partial = tmp_path / "archive.7z.part"
-    partial.write_bytes(b"stale")
-    session = FakeSession([FakeResponse(content=b"fresh", status_code=200)])
-
-    path = download_file(
-        DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
-        tmp_path,
-        session=session,  # type: ignore[arg-type]
+        client=client,  # type: ignore[arg-type]
     )
 
     assert path.read_bytes() == b"fresh"
-    assert session.calls[0]["headers"] == {"Range": "bytes=5-"}

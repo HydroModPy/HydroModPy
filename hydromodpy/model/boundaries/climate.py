@@ -10,11 +10,14 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
 )
 from hydromodpy.model.contracts import LoadResultProto
 from hydromodpy.model.forcing.cells import spatial_mean_from_fields
+from hydromodpy.model.forcing.native import native_series
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
 
 if TYPE_CHECKING:
+    from shapely.geometry import Polygon
+
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
     from hydromodpy.model.flow import Flow
 
@@ -62,6 +65,7 @@ def apply_recharge_load_result_to_flow(
     flow: Flow,
     recharge_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
+    cell_polygon: Polygon | None = None,
 ) -> bool:
     """Inject recharge from a data-manager LoadResult into flow.
 
@@ -70,6 +74,13 @@ def apply_recharge_load_result_to_flow(
 
     Preserves solver-side recharge policy (first_clim, negative_to_evt,
     spatial_mode, interpolation_method) from the existing flow configuration.
+
+    The same call reads ``flow.native_recharge``, the forcing at the step of
+    its source: the series of a point source, or the mean over
+    ``cell_polygon`` weighted by the shared area for a spatial source read on
+    a lumped mesh, in m/s, cut to the window of the run. ``cell_polygon`` is
+    ``None`` outside a lumped mesh, and the meshed backends keep reading the
+    period view, so no existing run moves a number.
 
     Returns True if recharge was successfully injected, False otherwise.
     """
@@ -132,6 +143,18 @@ def apply_recharge_load_result_to_flow(
             negative_to_evt=negative_to_evt,
         )
     )
+    # The same call reads the forcing at the step of its source: a point
+    # source series as it ran, the mean over the cell for a spatial source
+    # read on a lumped mesh, and the period view untouched for the meshed
+    # backends, which keeps no number of a run moving.
+    native = native_series(
+        recharge_result,
+        simulation_window,
+        factor=unit_conversion_factor,
+        cell_polygon=cell_polygon,
+    )
+    if native is not None:
+        flow.native_recharge = native
     return True
 
 

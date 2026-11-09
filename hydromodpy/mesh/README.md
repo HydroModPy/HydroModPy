@@ -14,6 +14,10 @@ A mesh is made in four steps, and each step has its own place in the package.
    point. It returns a `MeshRequest` (`request.py`), plain frozen data that holds everything
    an engine needs. For a lumped engine, which meshes the catchment as one cell, the request
    also carries the catchment outline, and for no other engine.
+   Every engine declares in `MeshEngineCapabilities.ignored_families` the line families its
+   mesh cannot follow. The `catchment` engine ignores them all, so the planner drops such a
+   family with a named note instead of failing on the default `rivers = "cell"`, and a family
+   an engine ignores, written with a value other than `none`, is refused when the file is read.
 2. The registry (`registry.py`) finds the engine that `[mesh] engine` names.
 3. The engine in `engines/<name>/` builds the cells from the request. It reads no file and
    no config.

@@ -55,7 +55,7 @@ def load_custom_abacus(
     return [
         TableRecord(
             variable="lake_abacus",
-            source="custom",
+            source="file",
             table_id=str(lake_id),
             data=data,
             unit="m|m3|m2",

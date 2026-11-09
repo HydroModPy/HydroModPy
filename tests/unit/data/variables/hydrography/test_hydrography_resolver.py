@@ -60,7 +60,7 @@ def _cfg(
 
 
 def _custom(path):
-    return SimpleNamespace(source="custom", path=path, force_refresh=False)
+    return SimpleNamespace(source="file", path=path, force_refresh=False)
 
 
 def test_a_relative_custom_path_anchors_on_the_toml_directory(tmp_path):
@@ -146,7 +146,7 @@ def test_a_custom_path_pointing_at_nothing_is_a_warning(tmp_path, caplog):
         )
 
     assert resolved is None
-    assert "custom source path not found" in caplog.text
+    assert "file source path not found" in caplog.text
 
 
 def test_no_hydrography_section_resolves_to_nothing(tmp_path):
@@ -169,7 +169,7 @@ def test_an_api_source_is_never_downloaded_and_says_so(tmp_path, monkeypatch, ca
         resolved = resolve_network_map_path(cfg, config_path=tmp_path / "project.toml")
 
     assert resolved is None
-    assert "needs a custom vector source" in caplog.text
+    assert "needs a file vector source" in caplog.text
 
 
 def test_a_custom_source_after_an_api_source_still_wins(tmp_path):
@@ -197,22 +197,28 @@ name = "site_a"
 
 [geographic.catchment]
 kind = "dem"
-dem_init_path = "dem.tif"
+
+[[data.dem.sources]]
+source = "file"
+path = "inputs/dem.tif"
 
 [[data.hydrography.sources]]
-source = "custom"
+source = "file"
 path = "{declared}"
 """
 
 
-@pytest.mark.parametrize("declared", ["streams.gpkg", "data/hydrography/streams.gpkg"])
+@pytest.mark.parametrize(
+    "declared", ["data/hydrography/streams.gpkg", "./data/hydrography/streams.gpkg"]
+)
 def test_the_map_is_the_same_file_from_any_working_directory(tmp_path, monkeypatch, declared):
     """The path is anchored once at load, so the cwd never picks another file."""
     from hydromodpy.config import HydroModPyConfig
 
     project = tmp_path / "project"
     (project / "data" / "hydrography").mkdir(parents=True)
-    (project / "dem.tif").touch()
+    (project / "inputs").mkdir()
+    (project / "inputs" / "dem.tif").touch()
     _write_network(project / "data" / "hydrography" / "streams.gpkg")
     decoy = tmp_path / "elsewhere"
     decoy.mkdir()

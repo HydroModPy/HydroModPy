@@ -25,7 +25,7 @@ move a finished study. For a new one, start from {doc}`index`.
 |---|---|
 | `Watershed(from_xyv=[x, y, snap, buffer, crs])` | `[geographic.catchment]` with `kind = "from_outlet_coord"`, `x_outlet`, `y_outlet`, `snap_dist`, `buff_area`, and `crs_project` in `[geographic]` |
 | `from_dem`, `from_shp` | `kind = "dem"` and `cell_size`, or `kind = "from_polyg_shp"` and `polyg_shp_path` |
-| `dem_path` | `dem_init_path` in `[geographic.catchment]`, and `[[data.dem.sources]]` |
+| `dem_path` | `[[data.dem.sources]]` with `source = "file"` |
 | `BV.add_hydrography`, `add_hydrometry`, `add_geology` | `types = [...]` and `[[data.<variable>.sources]]` in `[data]` |
 | `update_simulation_state('transient')` | `flow_regime` in `[flow]`, and `[simulation.time]` for the dates |
 | `update_nlay`, `update_lay_decay` | `nlay` and `lay_decay` in `[domain.layers]` |

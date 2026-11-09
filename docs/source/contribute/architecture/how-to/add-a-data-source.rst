@@ -2,9 +2,9 @@ Add a data source
 =================
 
 A *source* is one value a user may write in ``source =`` for an existing
-variable: a public API, the user's own files (``custom``), or a generator
-(``constant``, ``synthetic``). For a brand-new variable family, see
-:doc:`add-a-data-variable` first.
+variable: a public API, the user's own files (``file``), a remote file
+(``url``), or a generator (``constant``, ``synthetic``). For a brand-new
+variable family, see :doc:`add-a-data-variable` first.
 
 One form, in tree or out
 ------------------------
@@ -108,18 +108,18 @@ stations from the station list or the extent, a family of grids from the
 project extent) and owns the cache: ``BaseFieldManager`` keeps grids,
 ``BaseVariableManager`` keeps chronicles per station and asks only for the
 missing periods. Use ``get_json`` (``hydromodpy/data/common/api_client.py``)
-or ``HTTPClient`` (``hydromodpy/core/io/http_client.py``) rather than raw
-``requests``: they handle retry, backoff and timeout.
+or ``open_client`` / ``HTTPClient`` (``hydromodpy/core/io/fetch.py``) rather
+than raw ``requests``: they handle retry, backoff, host guards, byte caps and
+timeout.
 
-The section is still **one flat model**: the fields of every source sit side
+The section is usually **one flat model**: the fields of every source sit side
 by side and ``source`` selects which are read, so a field name is never
 reused across two sources of one variable. ``dem``, ``geology`` and
-``crossings`` keep a discriminated union for now, because each of their
-sources carries its own model of options; the test of the variable families
-holds the labels of each union equal to ``data_sources.names(section)``,
-and the flat model comes with the ``file`` source. A module that holds a
-``DataSource`` class imports geopandas, pandas, rasterio or requests inside
-its functions, so looking a source up loads nothing heavy.
+``crossings`` keep a discriminated union, each source carrying its own
+model of options, with labels strictly matching ``data_sources.names(section)``
+including ``file`` and ``url``. A module that holds a ``DataSource`` class
+imports geopandas, pandas, rasterio or requests inside its functions, so
+looking a source up loads nothing heavy.
 
 ``tests/unit/data/test_the_variable_families_agree.py`` checks that the
 ``source`` values of each variable match what the registry serves, and that
@@ -127,19 +127,24 @@ each has an entry in ``schema/sources.py``; a missing edit fails there with
 the file to complete. ``value_docs`` renders the explanation of each value
 on the card of the key, at the next documentation build.
 
-Custom files and generators
----------------------------
+User files, URLs and generators
+-------------------------------
 
-``source = "custom"`` is never resolved by the registry: the base class of
-the manager loads the user's files with ``load_custom``, from the manager's
-``VARIABLE_NAME`` and ``INTERNAL_UNIT``. A variable whose files need real
-work overrides it, or keeps a ``custom.py`` beside its manager. A generator
-is a source like any other, in the module named after its value
+``source = "file"`` reads the user's files from disk. It is implemented by
+``FileSource`` in ``hydromodpy/data/source/file.py`` and registered under
+each section. It declares ``payload_kind = "files"`` and ``selectors = ()``,
+reads files from paths relative to the project root (preferably under
+``inputs/``), computes their SHA-256 for run identity, and writes nothing to
+the cache.
+
+``source = "url"`` downloads a single remote file to fill the local data
+cache through ``hydromodpy.core.io.fetch``, recording origin, SHA-256,
+and HTTP headers in a sidecar. It supports HTTPS, or HTTP with a pinned
+``sha256`` checksum.
+
+A generator is a source like any other, in the module named after its value
 (``recharge/synthetic.py``, ``oceanic/constant.py``), and declares
 ``selectors = ()``, because it asks for neither an extent nor stations.
-Until the ``file`` source closes the story, ``dem``, ``geology`` and
-``crossings`` keep a discriminated union whose labels the test of the
-variable families holds against ``data_sources.names(section)``.
 
 A plugin source
 ---------------

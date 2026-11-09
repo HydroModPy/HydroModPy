@@ -16,10 +16,10 @@ def test_hubeau_fetch_limits_discovered_stations_before_downloading(monkeypatch)
     def fake_discover(_bbox, **_kwargs):
         return ["J000000001", "J000000002", "J000000003"]
 
-    def fake_location(station_id):
+    def fake_location(station_id, **_kwargs):
         return StationLocation(id=station_id, x=-1.0, y=48.0, crs="EPSG:4326")
 
-    def fake_download(station_id, _product, _date_start, _date_end):
+    def fake_download(station_id, _product, _date_start, _date_end, **_kwargs):
         downloaded.append(station_id)
         return pd.DataFrame(
             {
@@ -46,7 +46,7 @@ def test_hubeau_fetch_limits_discovered_stations_before_downloading(monkeypatch)
 
 @pytest.mark.fast
 def test_hubeau_station_location_keeps_influence_metadata(monkeypatch):
-    def fake_get_json(_url, params):
+    def fake_get_json(_client, _url, params, **_kw):
         assert params["code_station"] == "J000000001"
         return {
             "data": [

@@ -25,7 +25,7 @@ from hydromodpy.data.common.source_extent import (
 )
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.managers.base_manager_common import CUSTOM_SOURCE, SourceTable
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir, derived_path
 from hydromodpy.data.source.port import Extent, FetchRequest
 from hydromodpy.data.variables.crossings import custom
@@ -147,9 +147,9 @@ class CrossingsManager(SourceTable):
     # Custom
     # ------------------------------------------------------------------
 
-    def load_custom(self, source_cfg: Any) -> list[FieldRecord]:
+    def load_file(self, source_cfg: Any) -> list[FieldRecord]:
         """Normalize the user's file into a GeoParquet copy and index it."""
-        frame = custom.load_custom(source_cfg)
+        frame = custom.load_file(source_cfg)
         origin = custom.vector_file(source_cfg.path).resolve()
         stat = origin.stat()
         derived_dir = custom_derived_dir(self.data_dir, VARIABLE) or (
@@ -170,13 +170,13 @@ class CrossingsManager(SourceTable):
         if self.catalog is not None:
             self.catalog.register(
                 variable=VARIABLE,
-                source=CUSTOM_SOURCE,
+                source="file",
                 file_path=str(out_path),
                 bbox=bbox,
                 crs=crs,
                 is_custom=True,
             )
-        return [self._record("custom", out_path, bbox, crs)]
+        return [self._record("file", out_path, bbox, crs)]
 
 
 def cache_file_name(source: str, bbox: tuple[float, float, float, float]) -> str:

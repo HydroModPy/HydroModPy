@@ -8,8 +8,9 @@ has to walk out of a region it cannot score. The port stops at the cost because
 the scoring path reads the live workflow context of a trial, which only the
 pipeline produces today; a port around simulated outputs would have the shape of
 the one implementation that can produce them. The registry is `evaluators` in
-`registry.py`, on the shared plugin registry: three evaluators ship through
-`_BUILTIN_PATHS`, a third party adds one through the entry-point group
+`registry.py`, on the shared plugin registry: two evaluators ship through
+`_BUILTIN_PATHS`, `hydromodpy_pipeline` and `analytic_bowl`, a third party adds
+one through the entry-point group
 `hydromodpy.calibration.evaluator`, and `hydromodpy_pipeline` is the default a
 document that names none gets. `needs_prepared_model` is read off the class
 before anything is built, because a `True` answer sends the caller through

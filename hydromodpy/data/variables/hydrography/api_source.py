@@ -29,8 +29,9 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import DataCapabilityError, DataProductError
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.source import registry
-from hydromodpy.data.source.port import DataSource, Extent, FetchRequest
+from hydromodpy.data.source.port import DataSource, Extent, FetchRequest, fetch_within
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -76,12 +77,19 @@ def source_from_section(source_cfg: object) -> DataSource:
     return registry.build_from_section(source_cls, source_cfg)
 
 
-def fetch_network(source: DataSource, extent: Extent) -> gpd.GeoDataFrame:
+def fetch_network(
+    source: DataSource, extent: Extent, *, bounds: Bounds | None = None
+) -> gpd.GeoDataFrame:
     """Return the linework *source* answers with over *extent*.
 
     *extent* may be in any CRS: the port converts it into the one the source
     declares, which is what removed the hardcoded WGS84 both callers used to
-    pass.
+    pass. *bounds* is the :class:`~hydromodpy.core.runtime.bounds.Bounds` of
+    the call: the hosts the source declares are refused, through
+    :func:`fetch_within`, before anything connects. Unset, the bounds are
+    read off *source* itself when it carries any: the manager hands the
+    source built under the bounds of the call down its cache seam, the only
+    object that seam receives.
 
     The scratch a ``FetchRequest`` always carries is made here and owned here,
     on D124's rule, rather than taken from the caller. Both callers used to be
@@ -93,7 +101,14 @@ def fetch_network(source: DataSource, extent: Extent) -> gpd.GeoDataFrame:
     right answer for a payload this function refuses.
     """
     with TemporaryDirectory(prefix="hmp-hydrography-") as scratch:
-        result = source.fetch(FetchRequest(out_dir=Path(scratch), extent=extent))
+        if bounds is None:
+            bounds = getattr(source, "bounds", None)
+        request = FetchRequest(
+            out_dir=Path(scratch),
+            extent=extent,
+            bounds=Bounds() if not isinstance(bounds, Bounds) else bounds,
+        )
+        result = fetch_within(source, request)
     if result.kind != NETWORK_PAYLOAD_KIND or result.features is None:
         raise DataProductError(
             f"Source {result.source_id!r} declares a {NETWORK_PAYLOAD_KIND!r} payload and "

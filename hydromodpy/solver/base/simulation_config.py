@@ -20,7 +20,10 @@ from hydromodpy.core.config_kit.types import (
 from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.time.window import reject_invalid_step_value_spec
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
-from hydromodpy.solver.base.registry import ENTRY_POINT_GROUP, solvers
+from hydromodpy.solver.base.registry import (
+    ENTRY_POINT_GROUP,
+    solvers,
+)
 from hydromodpy.solver.base.results_config import ResultsConfig
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")

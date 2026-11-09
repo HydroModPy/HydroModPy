@@ -100,7 +100,7 @@ def test_stations_of_a_user_file_all_outside_are_refused(tmp_path):
     from hydromodpy.core.exceptions import DataSourceError
 
     manager = PiezometryManager(config=None, catalog=None)
-    source = SimpleNamespace(source="custom", station_ids=None, mask_path=_mask(tmp_path))
+    source = SimpleNamespace(source="file", station_ids=None, mask_path=_mask(tmp_path))
 
     with pytest.raises(DataSourceError, match="No station is left to load"):
         manager._apply_mask([_record("FAR", -1.2, 48.5)], source)

@@ -17,19 +17,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.overview import OverviewResult
 
 
-def run_overview(config_path: str | Path) -> OverviewResult:
+def run_overview(config_path: str | Path, environment: Environment | None = None) -> OverviewResult:
     """Generate a watershed identity card from a TOML file, as a run of the project.
 
     The overview claims ``runs/<name>/`` through the attempt protocol like any
     run (``<name>`` is ``[site] name``, else ``[overview] name``): outcome,
     pulse and run log from the first act, its panels and pages in the run
     directory, a seal without solver tables, and a completed outcome. A run
-    of the same name already sealed takes the next version.
+    of the same name already sealed takes the next version. ``environment`` is the
+    Environment of the call, ``None`` the default of the machine: it is checked
+    against the folder of the file, and its bounds reach the launcher.
     """
     from hydromodpy.core.config_kit.written import log_experimental_keys
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
@@ -38,7 +41,8 @@ def run_overview(config_path: str | Path) -> OverviewResult:
     from hydromodpy.workflow.overview import DataOverviewLauncher
     from hydromodpy.workflow.record.attempt import run_attempt
 
-    launcher = DataOverviewLauncher(config_path)
+    environment = _checked_environment(environment, Path(config_path).expanduser().resolve().parent)
+    launcher = DataOverviewLauncher(config_path, bounds=environment.bounds)
     cfg = launcher.cfg
     site = cfg.site.name if getattr(cfg, "site", None) is not None else None
     overview = getattr(cfg, "overview", None)
@@ -103,13 +107,35 @@ def no_such_phase(source: str, phase: str) -> str:
     return f"{source} declares no [[calibration.phases]], so there is no phase {phase!r} to run."
 
 
-def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dict[str, Any]:
+def _checked_environment(environment: Environment | None, project_root: Path) -> Environment:
+    """Return the Environment of a file verb, checked once before it runs."""
+    from hydromodpy.core.workspace.resolve import find_data_workspace
+    from hydromodpy.project.environment import Environment
+
+    if environment is None:
+        environment = Environment.default()
+    environment.check(
+        project_root=project_root,
+        workspace_root=find_data_workspace(project_root) or project_root,
+    )
+    return environment
+
+
+def run_calibration(
+    config_path: str | Path,
+    *,
+    phase: str | None = None,
+    environment: Environment | None = None,
+) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file.
 
     Routes to the staged runner when the file declares
     ``[[calibration.phases]]``, so a phased configuration is never flattened
     into a single calibration over the union of its parameters. The report is
     summarized as a mapping, because every caller of this dispatcher expects one.
+    ``environment`` is the Environment of the call, ``None`` the default of the
+    machine: it is checked against the folder of the file before anything runs,
+    and its bounds reach the trials.
     """
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
@@ -119,6 +145,8 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
     fill_trial_pipeline()
 
     target = Path(config_path).expanduser().resolve()
+    environment = _checked_environment(environment, target.parent)
+    runner_options: dict[str, Any] = {"bounds": environment.bounds}
     # A caller naming a phase gets the reading that raises: answering "declares
     # no phases" for a file that declares them but fails to validate sends the
     # user to a block that is present and correct while the real error is lost.
@@ -133,12 +161,12 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
     if declared:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        return run_staged_calibration(target, phase=phase).to_dict()
+        return run_staged_calibration(target, phase=phase, **runner_options).to_dict()
     if phase is not None:
         raise CalibrationError(no_such_phase(target.name, phase))
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-    return run_calibration_cli(target).to_dict()
+    return run_calibration_cli(target, **runner_options).to_dict()
 
 
 def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str] | None:
@@ -204,6 +232,7 @@ def run_simulation(
     overrides: Mapping[str, Any] | None = None,
     headless: bool = False,
     replay_of: Path | None = None,
+    environment: Environment | None = None,
 ) -> dict[str, Any]:
     """Execute one attempt of a case, the worker verb.
 
@@ -221,13 +250,20 @@ def run_simulation(
     that run and not from a lockfile (:mod:`hydromodpy.workflow.replay_checks`): other
     bytes or another configuration are refused before anything runs, and what the
     replay did otherwise is said once it has run. ``replay_of`` names a published copy,
-    which replays the same way, its inputs checked already.
+    which replays the same way, its inputs checked already. ``environment`` is the
+    Environment of the call: only its bounds cross into the setup context,
+    and ``None`` keeps the default of the machine.
     """
     from hydromodpy.project import Project
     from hydromodpy.results.lineage import Lineage
 
     config_path = Path(config) if isinstance(config, (str, Path)) else None
-    with Project(config, no_display=no_display, headless=headless) as project:
+    with Project(
+        config,
+        no_display=no_display,
+        headless=headless,
+        environment=environment,
+    ) as project:
         cfg = project._cfg
         run_name = name or cfg.simulation.name or (config_path.stem if config_path else None)
         project_root = str(Path(cfg.workspace.project_root))

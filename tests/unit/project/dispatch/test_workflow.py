@@ -34,8 +34,16 @@ class _FakeProject:
     result: Any = None
     cfg_of_a_file: Any = None
 
-    def __init__(self, config: Any, *, no_display: bool = False, headless: bool = False) -> None:
+    def __init__(
+        self,
+        config: Any,
+        *,
+        no_display: bool = False,
+        headless: bool = False,
+        environment: Any = None,
+    ) -> None:
         self.args = (config, no_display, headless)
+        self.environment = environment
         self._cfg = config if not isinstance(config, (str, Path)) else _FakeProject.cfg_of_a_file
         self._ctx = None
         self.executed: list[dict[str, Any]] = []
@@ -356,14 +364,16 @@ def calibration_runners(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr(
         staged,
         "run_staged_calibration",
-        lambda target, *, phase: (
+        lambda target, *, phase, bounds: (
             called.append(f"staged:{phase}") or SimpleNamespace(to_dict=lambda: {"kind": "staged"})
         ),
     )
     monkeypatch.setattr(
         cli,
         "run_calibration_cli",
-        lambda target: called.append("flat") or SimpleNamespace(to_dict=lambda: {"kind": "flat"}),
+        lambda target, *, bounds: (
+            called.append("flat") or SimpleNamespace(to_dict=lambda: {"kind": "flat"})
+        ),
     )
     return called
 
@@ -442,6 +452,33 @@ def test_an_overview_configuration_drafts_one_case_without_steps(
         "steps": (),
         "kind": "overview",
     }
+
+
+def test_run_overview_hands_the_bounds_of_the_call_to_its_launcher(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``run_overview`` builds its launcher once, with the bounds of the call."""
+    from hydromodpy.core.runtime.bounds import Bounds
+    from hydromodpy.project.environment import Environment
+    from hydromodpy.workflow import overview as overview_module
+
+    seen: dict[str, Any] = {}
+
+    class _Spy:
+        def __init__(self, config_path: Any, bounds: Any = None) -> None:
+            seen["config_path"] = config_path
+            seen["bounds"] = bounds
+            raise ConfigError("captured")
+
+    monkeypatch.setattr(overview_module, "DataOverviewLauncher", _Spy)
+    config_path = tmp_path / "overview.toml"
+    environment = Environment(bounds=Bounds(allowed_hosts=frozenset({"data.geopf.fr"})))
+
+    with pytest.raises(ConfigError):
+        wf.run_overview(config_path, environment=environment)
+
+    assert seen["config_path"] == config_path
+    assert seen["bounds"] == environment.bounds
 
 
 def test_a_simulation_configuration_drafts_through_a_dry_run_of_the_project(
@@ -763,7 +800,7 @@ def test_two_identical_hmp_run_calls_give_the_same_run(monkeypatch, tmp_path: Pa
         recharge=Path("data/recharge"),
     )
     sid = _seal_as_a_run(config)  # hashed before the run, as the run does
-    station.with_name(station.name + ".json").write_text('{"source": "custom"}', encoding="utf-8")
+    station.with_name(station.name + ".json").write_text('{"source": "file"}', encoding="utf-8")
 
     captured: dict = {}
     monkeypatch.setattr(

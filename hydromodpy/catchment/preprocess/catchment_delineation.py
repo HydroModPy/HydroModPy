@@ -134,6 +134,7 @@ class CatchmentDelineation:
         config: GeographicConfig,
         initializing: object,
         *,
+        dem_path: str | Path | None = None,
         reuse_existing_outputs: bool | None = None,
         network_map_path: str | Path | None = None,
     ):
@@ -148,6 +149,8 @@ class CatchmentDelineation:
         initializing
             Workspace-like object exposing ``project_root``. Generated
             geographic artifacts are written below this project root.
+        dem_path
+            Concrete DEM raster path, resolved from ``[[data.dem.sources]]``.
         reuse_existing_outputs
             Overrides ``config.reuse_existing_outputs`` when not None. A
             pipeline rebuilding a step it already completed passes True so the
@@ -161,7 +164,7 @@ class CatchmentDelineation:
         self._network_map_path = network_map_path
         self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
-        self.dem_init_path = str(config.dem_init_path)
+        self.dem_init_path = str(dem_path) if dem_path is not None else None
         self.x_outlet = config.x_outlet
         self.y_outlet = config.y_outlet
         self.snap_dist = config.snap_dist
@@ -325,6 +328,7 @@ class CatchmentDelineation:
         context = build_geographic_runtime_context(
             config=self._config,
             out_dir_path=self.out_dir_path,
+            dem_path=self.dem_init_path,
             backend=tool,
             reuse_existing_outputs=self._reuse_existing_outputs,
             network_map_path=self._network_map_path,

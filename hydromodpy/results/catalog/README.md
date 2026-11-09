@@ -29,7 +29,7 @@ catalog/
 ├── discovery.py       references, Run and RunSet discovery
 ├── reads.py           queries of the index and reads of a run
 ├── schema.py          tables, columns and describe
-├── constants.py       solver codes, metric order, SIMULATIONS_FROM
+├── constants.py       metric direction, SIMULATIONS_FROM
 ├── indexer.py         the only writer of the index, and the reindex calls
 ├── index_schema.py    DDL and schema version
 ├── views.py           summary views written with the tables

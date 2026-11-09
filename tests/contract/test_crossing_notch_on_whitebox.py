@@ -78,7 +78,6 @@ def _run(tmp_path: Path):
     config = GeographicConfig.from_outlet(
         x=(AXIS + 0.5) * RES,
         y=_y(ROWS - 3),
-        dem=dem,
         snap_dist="100 m",
         buff_area="10%",
         crs_project="EPSG:2154",
@@ -86,7 +85,9 @@ def _run(tmp_path: Path):
         crossings={"enabled": True, "path": _the_road(tmp_path), "bed_reach": 75.0},
     )
     workspace = SimpleNamespace(project_root=tmp_path / "results")
-    features = CatchmentDelineation(config, workspace).get_geographic_derived_features()
+    features = CatchmentDelineation(
+        config, workspace, dem_path=dem
+    ).get_geographic_derived_features()
     return features, surface, tmp_path / "results"
 
 

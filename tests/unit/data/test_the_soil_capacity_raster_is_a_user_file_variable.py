@@ -19,7 +19,7 @@ from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.contracts import FieldRecord
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.variables.soil_capacity.config import (
-    CustomSoilCapacitySource,
+    FileSoilCapacitySource,
     SoilCapacityConfig,
 )
 from hydromodpy.data.variables.soil_capacity.manager import SoilCapacityManager
@@ -50,8 +50,8 @@ def test_config_refuses_two_sources(tmp_path: Path) -> None:
         SoilCapacityConfig.model_validate(
             {
                 "sources": [
-                    {"source": "custom", "path": str(a)},
-                    {"source": "custom", "path": str(b)},
+                    {"source": "file", "path": str(a)},
+                    {"source": "file", "path": str(b)},
                 ]
             }
         )
@@ -59,7 +59,7 @@ def test_config_refuses_two_sources(tmp_path: Path) -> None:
 
 def test_the_path_field_carries_the_soil_capacity_role() -> None:
     role = None
-    for meta in CustomSoilCapacitySource.model_fields["path"].metadata:
+    for meta in FileSoilCapacitySource.model_fields["path"].metadata:
         if isinstance(meta, InputFile):
             role = meta.role
     assert role == "soil_capacity"
@@ -67,7 +67,7 @@ def test_the_path_field_carries_the_soil_capacity_role() -> None:
 
 def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
-    config = SoilCapacityConfig(sources=[CustomSoilCapacitySource(path=src)])
+    config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
     manager = SoilCapacityManager(config=config, catalog=None, data_dir=tmp_path)
 
     result = manager.load()
@@ -84,7 +84,7 @@ def test_manager_internal_unit_is_millimetres() -> None:
 
 def test_manager_labels_the_record_in_millimetres(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
-    config = SoilCapacityConfig(sources=[CustomSoilCapacitySource(path=src)])
+    config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
     manager = SoilCapacityManager(config=config, catalog=None, data_dir=tmp_path)
 
     record = manager.load().fields[0]
@@ -96,6 +96,6 @@ def test_the_variable_spec_never_applies_the_simulation_window() -> None:
     assert VARIABLE_SPECS["soil_capacity"].apply_simulation_window is False
 
 
-def test_the_source_literal_only_accepts_custom() -> None:
-    annotation = CustomSoilCapacitySource.model_fields["source"].annotation
-    assert typing.get_args(annotation) == ("custom",)
+def test_the_source_literal_only_accepts_file() -> None:
+    annotation = FileSoilCapacitySource.model_fields["source"].annotation
+    assert typing.get_args(annotation) == ("file",)

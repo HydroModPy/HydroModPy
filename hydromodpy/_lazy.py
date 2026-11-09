@@ -32,15 +32,15 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
     "BrgmGeology50kSource": "hydromodpy.data.variables.geology.config.BrgmGeology50kSource",
     "CatchmentDelineation": "hydromodpy.catchment.preprocess.catchment_delineation.CatchmentDelineation",
     "CrossingsConfig": "hydromodpy.data.variables.crossings.config.CrossingsConfig",
-    "CustomCrossingsSource": "hydromodpy.data.variables.crossings.config.CustomCrossingsSource",
-    "CustomDemSource": "hydromodpy.data.variables.dem.config.CustomDemSource",
-    "CustomGeologySource": "hydromodpy.data.variables.geology.config.CustomGeologySource",
-    "CustomLakeAbacusSource": "hydromodpy.data.variables.lake_abacus.config.CustomLakeAbacusSource",
-    "CustomLakeBathymetrySource": "hydromodpy.data.variables.lake_bathymetry.config.CustomLakeBathymetrySource",
-    "CustomLakeGeometrySource": "hydromodpy.data.variables.lake_geometry.config.CustomLakeGeometrySource",
-    "CustomLayerBaseSource": "hydromodpy.data.variables.layer_base.config.CustomLayerBaseSource",
-    "CustomSoilCapacitySource": "hydromodpy.data.variables.soil_capacity.config.CustomSoilCapacitySource",
-    "CustomSubstratumSource": "hydromodpy.data.variables.substratum.config.CustomSubstratumSource",
+    "CustomCrossingsSource": "hydromodpy.data.variables.crossings.config.FileCrossingsSource",
+    "CustomDemSource": "hydromodpy.data.variables.dem.config.FileDemSource",
+    "CustomGeologySource": "hydromodpy.data.variables.geology.config.FileGeologySource",
+    "CustomLakeAbacusSource": "hydromodpy.data.variables.lake_abacus.config.FileLakeAbacusSource",
+    "CustomLakeBathymetrySource": "hydromodpy.data.variables.lake_bathymetry.config.FileLakeBathymetrySource",
+    "CustomLakeGeometrySource": "hydromodpy.data.variables.lake_geometry.config.FileLakeGeometrySource",
+    "CustomLayerBaseSource": "hydromodpy.data.variables.layer_base.config.FileLayerBaseSource",
+    "CustomSoilCapacitySource": "hydromodpy.data.variables.soil_capacity.config.FileSoilCapacitySource",
+    "CustomSubstratumSource": "hydromodpy.data.variables.substratum.config.FileSubstratumSource",
     "DataManagersConfig": "hydromodpy.data.DataManagersConfig",
     "DemConfig": "hydromodpy.data.variables.dem.config.DemConfig",
     "DirichletBC": "hydromodpy.model.boundaries.boundary_conditions.DirichletBC",
@@ -109,7 +109,7 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
     "TemperatureConfig": "hydromodpy.data.variables.temperature.config.TemperatureConfig",
     "TemperatureSourceConfig": "hydromodpy.data.variables.temperature.config.TemperatureSourceConfig",
     "TransportConfig": "hydromodpy.model.transport.transport_config.TransportConfig",
-    "TransportProcess": "hydromodpy.model.transport.transport.Transport",
+    "TransportProcess": "hydromodpy.model.transport.transport_config.TransportConfig",
     "TransportProcessConfig": "hydromodpy.solver.base.simulation_config.TransportProcessConfig",
     "WaterQualityConfig": "hydromodpy.data.variables.water_quality.config.WaterQualityConfig",
     "WaterQualitySourceConfig": "hydromodpy.data.variables.water_quality.config.WaterQualitySourceConfig",
@@ -193,10 +193,20 @@ _LEAF_EXCEPTIONS: dict[str, str] = {
     name: f"{home}.{name}" for name, home in _EXCEPTION_HOMES.items() if name not in KEPT_EXCEPTIONS
 }
 
+# The modules retired by the 2.1.0 fetch rework, with what answers in their place.
+_REFUSED_IN_2_1_0: dict[str, str] = {
+    "hydromodpy.core.io.http_client": "hydromodpy.core.io.fetch",
+    "hydromodpy.core.io.pinned_download": "hydromodpy.core.io.fetch",
+    "hydromodpy.data.workspace.custom_scan": "hydromodpy.data.source.file",
+}
+
 OLD_NAMES: dict[str, OldName] = {
     name: OldName(path, "2.0.0", refused=True)
     for name, path in {**_LEFT_BEFORE_2_0, **OLD_MEMBERS, **_LEAF_EXCEPTIONS}.items()
 }
+OLD_NAMES.update(
+    {name: OldName(path, "2.1.0", refused=True) for name, path in _REFUSED_IN_2_1_0.items()}
+)
 """The old names ``hydromodpy.__getattr__`` answers: it refuses them or forwards them.
 
 A dotted name is a member of a public object, and that object refuses it. At 2.0.0 this

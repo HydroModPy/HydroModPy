@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.report import CalibrationReport
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.layout import catalog_path_for
 
 from ._hmp import run_main as _run
@@ -68,7 +69,9 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert code == 0
     assert captured["path"] == config.resolve()
     assert captured["phase"] is None
+    environment = captured["kwargs"].pop("environment")
     assert captured["kwargs"] == {"resume": False}
+    assert environment.bounds == Bounds()
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "K = 0.00021" in err

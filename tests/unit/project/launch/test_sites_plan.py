@@ -41,7 +41,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
 

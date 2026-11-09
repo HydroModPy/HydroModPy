@@ -8,7 +8,6 @@ not_modules:
   # Entry-point groups, read by the registries. None is a module.
   groups:
     - hydromodpy.calibration.evaluator
-    - hydromodpy.calibration.forward_model
     - hydromodpy.calibration.optimizer
     - hydromodpy.export.format
     - hydromodpy.mesh.engine
@@ -23,6 +22,9 @@ not_modules:
     - {text: hydromodpy.lock, why: the lockfile name}
     - {text: hydromodpy.identity, why: the PNG text key of the identity block}
     - {text: hydromodpy.github.io, why: the documentation host in the Pages workflow}
+    - {text: hydromodpy.core.io.http_client, why: a module retired by the fetch rework, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.core.io.pinned_download, why: a module retired by the fetch rework, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.data.workspace.custom_scan, why: a module retired by the fetch rework, kept as a refused name of hydromodpy._lazy}
     - {text: hydromodpy.display.figures.cohort_, why: the start of the cohort figure module names, prefix: true}
 
 # Strings that point at nothing today. Each one stays until the lot named in

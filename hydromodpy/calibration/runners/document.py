@@ -107,6 +107,7 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
         UnresolvedParameterName,
         resolve_parameter_targets,
     )
+    from hydromodpy.core.toml_io.paths import BareInputNameError
 
     if not getattr(cfg, "parameters", None):
         return
@@ -114,11 +115,11 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
     try:
         project_cfg = trial_pipeline().load_config(config_path)
-    except UnresolvedParameterName:
-        # The names are the file's own business and the message already says which
-        # one is wrong. Swallowing it here left the run to fail three steps later
-        # on "must declare a 'path'", which accuses the form this file no longer
-        # has to write.
+    except (UnresolvedParameterName, BareInputNameError):
+        # The names and the paths are the file's own business and the message
+        # already says which one is wrong. Swallowing it here left the run to fail
+        # three steps later on "must declare a 'path'", which accuses the form this
+        # file no longer has to write.
         raise
     except Exception:
         # A file that is not a runnable project has nothing to resolve against.

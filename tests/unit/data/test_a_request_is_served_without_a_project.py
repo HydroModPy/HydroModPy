@@ -215,7 +215,7 @@ def test_a_raster_larger_than_the_request_is_cut(tmp_path: Path) -> None:
     dem = _region_dem(tmp_path / "dem_custom_region.tif")
     request = DataRequest.model_validate(
         {
-            "data": {"dem": {"sources": [{"source": "custom", "path": str(dem)}]}},
+            "data": {"dem": {"sources": [{"source": "file", "path": str(dem)}]}},
             "extent": {"bbox": BOX_2154, "crs": "EPSG:2154"},
         }
     )
@@ -457,7 +457,7 @@ class _TwoSourceStore:
 
         return LoadResult(
             fields=[
-                raster("custom", self.good),
+                raster("file", self.good),
                 raster("mirror", self.good),
                 raster("mirror", self.good.with_name("absent.tif")),
             ]
@@ -467,10 +467,10 @@ class _TwoSourceStore:
 def test_a_failed_source_leaves_no_file_and_the_other_source_keeps_its_own(
     tmp_path: Path,
 ) -> None:
-    dem = _region_dem(tmp_path / "dem_custom_region.tif")
+    dem = _region_dem(tmp_path / "dem_file_region.tif")
     request = DataRequest.model_validate(
         {
-            "data": {"dem": {"sources": [{"source": "custom", "path": str(dem)}]}},
+            "data": {"dem": {"sources": [{"source": "file", "path": str(dem)}]}},
             "extent": {"bbox": BOX_2154, "crs": "EPSG:2154"},
         }
     )
@@ -479,9 +479,9 @@ def test_a_failed_source_leaves_no_file_and_the_other_source_keeps_its_own(
 
     document = _report(tmp_path / "out")
     assert [(f["variable"], f["source"]) for f in document["failures"]] == [("dem", "mirror")]
-    assert [f["path"] for f in document["files"]] == ["dem_custom.tif"]
+    assert [f["path"] for f in document["files"]] == ["dem_file.tif"]
     assert sorted(p.name for p in (tmp_path / "out").iterdir()) == [
-        "dem_custom.tif",
+        "dem_file.tif",
         "request.json",
     ]
 

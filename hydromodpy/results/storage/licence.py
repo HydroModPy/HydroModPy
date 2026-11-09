@@ -28,7 +28,7 @@ class LicenceMember:
     """One input that contributes to the licence of a run."""
 
     source: str
-    """Provider slug of a loaded record, or ``custom`` for a user file."""
+    """Provider slug of a loaded record, or ``file`` for a user file."""
 
     sha256: str | None
     """Digest of the bytes, when known."""
@@ -78,7 +78,7 @@ def run_licence(
     from hydromodpy.schema.sources import derived_licence, input_licence, licence_for_source
 
     records = list(members)
-    licences = [licence_for_source(m.source) for m in records if m.source != "custom"]
+    licences = [licence_for_source(m.source) for m in records if m.source not in ("file", "custom")]
     held: set[str] = set()
     directories: list[Path] = []
     for entry in tracked:
@@ -91,11 +91,11 @@ def run_licence(
             directories.append(path)
         elif entry.sha256:
             held.add(entry.sha256)
-    custom = [m.sha256 for m in records if m.source == "custom"]
-    if any(digest is None or digest not in held for digest in custom):
+    user_files = [m.sha256 for m in records if m.source in ("file", "custom")]
+    if any(digest is None or digest not in held for digest in user_files):
         for directory in directories:
             held |= _sidecar_digests(directory)
-    for digest in custom:
+    for digest in user_files:
         if digest is None or digest not in held:
             licences.append(UNDETERMINED)
     if not licences:

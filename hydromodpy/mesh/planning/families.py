@@ -76,11 +76,22 @@ def with_shore_rings(
 
 def requested_families(
     mesh_cfg: MeshConfig, inputs: PlanningInputs, domain: Polygon, *, pixel: float
-) -> tuple[LineFamilySpec, ...]:
-    """The line families ``[mesh.families]`` asks for, clipped to *domain*."""
+) -> tuple[tuple[LineFamilySpec, ...], tuple[str, ...]]:
+    """The line families ``[mesh.families]`` asks for, clipped to *domain*.
+
+    A family the engine of the run ignores is skipped, and the skip says so in
+    the notes of the mesh, with the family and the engine: a family the mesh
+    would ignore is not built in silence.
+    """
+    from hydromodpy.mesh import registry as mesh_registry
+
+    ignored = mesh_registry.mesh_engines.get(mesh_cfg.engine).capabilities.ignored_families
     wanted = mesh_cfg.families
+    notes: list[str] = []
     families: list[LineFamilySpec] = []
-    if wanted.rivers == "cell" and inputs.river_trace is not None:
+    if _skip_an_ignored_family("rivers", wanted.rivers, ignored, notes, mesh_cfg.engine):
+        pass
+    elif wanted.rivers == "cell" and inputs.river_trace is not None:
         if follows_shores_by_pairs(mesh_cfg, inputs):
             margin = river_margin(mesh_cfg, pixel)
             lines = _rivers_off_lakes(inputs.river_trace.lines, inputs.lakes, domain, margin)
@@ -88,7 +99,9 @@ def requested_families(
             lines, _ = _clipped(inputs.river_trace.lines, domain)
         if lines:
             families.append(LineFamilySpec("rivers", "cell", lines))
-    if wanted.geology == "face" and inputs.geology is not None:
+    if _skip_an_ignored_family("geology", wanted.geology, ignored, notes, mesh_cfg.engine):
+        pass
+    elif wanted.geology == "face" and inputs.geology is not None:
         lines, zones = _clipped(
             inputs.geology.lines,
             domain,
@@ -104,19 +117,48 @@ def requested_families(
                     zone_right=tuple(right for _, right in zones),
                 )
             )
-    if wanted.lakes == "face" and inputs.lakes:
+    if _skip_an_ignored_family("lakes", wanted.lakes, ignored, notes, mesh_cfg.engine):
+        pass
+    elif wanted.lakes == "face" and inputs.lakes:
         lines, _ = _clipped(_rings(inputs.lakes), domain)
         if lines:
             families.append(LineFamilySpec("lakes", "face", lines, closed=True))
-    if wanted.barriers == "face" and inputs.barriers:
+    if _skip_an_ignored_family("barriers", wanted.barriers, ignored, notes, mesh_cfg.engine):
+        pass
+    elif wanted.barriers == "face" and inputs.barriers:
         lines, _ = _clipped(inputs.barriers, domain)
         if lines:
             families.append(LineFamilySpec(BARRIER_FAMILY, "face", lines))
-    if wanted.watershed_boundary == "face" and inputs.watershed is not None:
+    if _skip_an_ignored_family(
+        "watershed_boundary", wanted.watershed_boundary, ignored, notes, mesh_cfg.engine
+    ):
+        pass
+    elif wanted.watershed_boundary == "face" and inputs.watershed is not None:
         lines, _ = _clipped(_rings((inputs.watershed,)), domain)
         if lines:
             families.append(LineFamilySpec("watershed_boundary", "face", lines, closed=True))
-    return tuple(families)
+    return tuple(families), tuple(notes)
+
+
+def _skip_an_ignored_family(
+    name: str,
+    value: str,
+    ignored: frozenset[str],
+    notes: list[str],
+    engine: str,
+) -> bool:
+    """Whether the engine ignores the family and the file builds it anyway.
+
+    The skip says so in the notes of the mesh, with the family and the engine.
+    A family the file leaves at ``none`` asks for nothing, so it names no skip.
+    """
+    if value == "none" or name not in ignored:
+        return False
+    notes.append(
+        f"[mesh.families] {name} = '{value}' is skipped: the mesh engine "
+        f"'{engine}' ignores the {name.replace('_', ' ')}."
+    )
+    return True
 
 
 def river_margin(mesh_cfg: MeshConfig, pixel: float) -> float:

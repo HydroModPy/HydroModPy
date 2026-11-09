@@ -8,40 +8,124 @@ source resolution, and the spatial helpers that both manager families share.
 
 A manager resolves the source a section names on the source registry, within
 its own section: ``data_sources.get(self.VARIABLE_NAME, cfg.source)``, built
-with :func:`~hydromodpy.data.source.registry.build_from_section`. ``custom`` is
-always the user's own files, loaded by ``load_custom``, and stays outside the
-registry until the lot that makes it a source.
+with :func:`~hydromodpy.data.source.registry.build_from_section`. ``file`` is
+always the user's own files, read by ``load_file``, and ``url`` fills the data
+cache from its URL, then reads the cached file the same way.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, ClassVar
 
 from hydromodpy.core.exceptions import DataProductError, DataSourceError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.source.port import FetchResult
+from hydromodpy.data.source.port import FetchRequest, FetchResult, fetch_within
 from hydromodpy.data.source.registry import build_from_section, data_sources
 
 logger = get_logger(__name__)
 
-CUSTOM_SOURCE = "custom"
+FILE_SOURCE = "file"
 """The ``source =`` value that names the user's own files."""
+
+URL_SOURCE = "url"
+"""The ``source =`` value that fills the data cache from one URL."""
+
+
+@dataclass(frozen=True)
+class SourceWithinBounds:
+    """The source a manager serves, under the :class:`Bounds` of its call.
+
+    The base of the manager families hands its fetchers this wrapper instead of
+    the bare source, so that every request they build that carries no bounds of
+    its own rides on the bounds of the call, and every fetch goes through
+    :func:`~hydromodpy.data.source.port.fetch_within`, which refuses the hosts
+    the source declares before anything connects. The hydrography network
+    seam reads ``bounds`` off the source it is handed, the only object the
+    caller of that seam passes down. Every other attribute reads through to
+    the wrapped source.
+    """
+
+    source: Any
+    bounds: Bounds
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.source, name)
+
+    def fetch(self, request: Any) -> FetchResult:
+        if request.bounds == Bounds():
+            request = replace(request, bounds=self.bounds)
+        return fetch_within(self.source, request)
+
+
+def source_within_bounds(source: Any, bounds: Bounds) -> SourceWithinBounds:
+    """The source a call hands its fetchers, under the given bounds."""
+    return SourceWithinBounds(source=source, bounds=bounds)
 
 
 class SourceTable:
-    """Dispatch a source config to ``load_custom`` or to the port it registers on."""
+    """Dispatch a source config to ``load_file``, the ``url`` cache, or its port."""
 
     VARIABLE_NAME: ClassVar[str] = ""
 
+    # The bounds of the call this manager serves: the hosts it may reach and the
+    # roots it may use. The construction path that knows them (the runtime
+    # loader, or the request engine) sets them; left alone, the default allows
+    # every host, which is the behaviour of a machine call.
+    bounds: Bounds = Bounds()
+
     def _fetch_from_source(self, source_cfg: Any) -> Any:
-        if source_cfg.source == CUSTOM_SOURCE:
-            return self.load_custom(source_cfg)
+        """Serve the user's file entry, the ``url`` cache, or the registered source.
+
+        The user's own entries never reach a provider: ``file`` is read by
+        ``load_file``, and ``url`` fills the data cache from its URL then reads
+        the cached file exactly as ``load_file`` reads a user file. A URL only
+        fills the cache; the run reads the file.
+        """
+        source_kind = str(getattr(source_cfg, "source", ""))
+        if source_kind == FILE_SOURCE:
+            return self.load_file(source_cfg)
+        if source_kind == URL_SOURCE:
+            return self._load_url_source(source_cfg)
         source = self._build_configured_source(source_cfg)
-        return self._fetch_listed_source(source, source_cfg)
+        return self._fetch_listed_source(self._within_bounds(source), source_cfg)
+
+    def _load_url_source(self, source_cfg: Any) -> Any:
+        """Fill the data cache from the URL the entry names, then read the file."""
+        source_cls = data_sources.get(self.VARIABLE_NAME, URL_SOURCE)
+        source = build_from_section(source_cls, source_cfg)
+        data_dir = getattr(self, "data_dir", None)
+        with TemporaryDirectory(prefix="hmp-url-") as scratch:
+            out_dir = Path(data_dir) if data_dir is not None else Path(scratch)
+            result = fetch_within(source, FetchRequest(out_dir=out_dir, bounds=self.bounds))
+        loaded_files = [
+            self.load_file(
+                source_cfg.model_copy(update={"source": FILE_SOURCE, "path": Path(record.path)})
+            )
+            for record in result.files
+        ]
+        if len(loaded_files) == 1 and not isinstance(loaded_files[0], list):
+            return loaded_files[0]
+        records: list[Any] = []
+        for loaded in loaded_files:
+            records.extend(loaded if isinstance(loaded, list) else [loaded])
+        return records
+
+    def _within_bounds(self, source: Any) -> SourceWithinBounds:
+        """The source this manager hands its fetchers, under its own bounds.
+
+        Every request the manager families build flows through the ``fetch``
+        of that wrapper, which stamps the bounds of the call on a request that
+        carries none of its own and refuses, through :func:`fetch_within`, the
+        hosts the source declares before anything connects.
+        """
+        return source_within_bounds(source, self.bounds)
 
     def _build_configured_source(self, source_cfg: Any) -> Any:
         """The source the section names, built from that section.
@@ -67,7 +151,7 @@ class SourceTable:
         del source_cfg
         return {}
 
-    def load_custom(self, source_cfg: Any) -> Any:
+    def load_file(self, source_cfg: Any) -> Any:
         """Load the user's own files for one source config."""
         raise NotImplementedError
 
@@ -104,12 +188,16 @@ class BaseManagerCommon(SourceTable, ABC):
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         data_dir: Path | None = None,
+        bounds: Bounds | None = None,
     ) -> None:
         self.config = config
         self.catalog = catalog
         self.project_extent = project_extent
         self.project_period = project_period
         self.data_dir = Path(data_dir) if data_dir else None
+        # The bounds of the call this manager serves, or the all-allowing
+        # default of a machine call: every request it builds carries them.
+        self.bounds = bounds if bounds is not None else Bounds()
 
     def _config_period(self) -> tuple[datetime, datetime] | None:
         start = getattr(self.config, "date_start", None)
@@ -175,7 +263,7 @@ class BaseManagerCommon(SourceTable, ABC):
         named = set(getattr(source_cfg, "station_ids", None) or ())
         named_dropped = [sid for sid in dropped if sid in named]
         mask = Path(str(source_cfg.mask_path)).name
-        listed = bool(named) or str(getattr(source_cfg, "source", "")) == "custom"
+        listed = bool(named) or str(getattr(source_cfg, "source", "")) == FILE_SOURCE
         if not kept and listed:
             raise DataSourceError(
                 f"{self.VARIABLE_NAME}: every station of source "

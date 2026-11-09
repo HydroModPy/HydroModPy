@@ -35,7 +35,7 @@ _VAR_FILE_PREFIX = {
 }
 
 
-def load_custom_points(
+def load_file_points(
     *,
     data_dir: Path,
     variable_name: str,
@@ -173,7 +173,7 @@ def load_custom_points(
             PointRecord(
                 station_id=loc.id,
                 variable=var_label,
-                source="custom",
+                source="file",
                 unit=internal_unit,
                 frequency=freq,
                 data=df,
@@ -190,7 +190,7 @@ def load_custom_points(
     return records
 
 
-def load_custom_multiformat(
+def load_file_multiformat(
     path: Path,
     *,
     variable_name: str,
@@ -217,7 +217,7 @@ def load_custom_multiformat(
     """
     path = Path(path)
     if path.is_dir():
-        return load_custom_points(
+        return load_file_points(
             data_dir=path,
             variable_name=variable_name,
             internal_unit=internal_unit,
@@ -296,11 +296,14 @@ def _file_prefixes(variable_name: str) -> list[str]:
 
 def _find_location_file(data_dir: Path, variable_name: str) -> Path:
     for prefix in _file_prefixes(variable_name):
-        for ext in ("csv", "shp", "gpkg", "geojson"):
-            candidate = data_dir / f"{prefix}_custom_LOC.{ext}"
-            if candidate.exists():
-                return candidate
-    raise FileNotFoundError(f"No {variable_name}_custom_LOC.* in {data_dir}")
+        for kind in ("file", "custom"):
+            for ext in ("csv", "shp", "gpkg", "geojson"):
+                candidate = data_dir / f"{prefix}_{kind}_LOC.{ext}"
+                if candidate.exists():
+                    return candidate
+    raise FileNotFoundError(
+        f"No {variable_name}_file_LOC.* (or {variable_name}_custom_LOC.*) in {data_dir}"
+    )
 
 
 def _find_chronicle_file(
@@ -310,14 +313,15 @@ def _find_chronicle_file(
 ) -> Path | None:
     safe_id = safe_file_token(station_id)
     for prefix in _file_prefixes(variable_name):
-        for pattern in (
-            f"{prefix}_custom_{safe_id}_*.csv",
-            f"{prefix}_custom_{station_id}_*.csv",
-        ):
-            matches = sorted(data_dir.glob(pattern))
-            if matches:
-                return matches[0]
-        exact = data_dir / f"{prefix}_custom_{safe_id}.csv"
-        if exact.exists():
-            return exact
+        for kind in ("file", "custom"):
+            for pattern in (
+                f"{prefix}_{kind}_{safe_id}_*.csv",
+                f"{prefix}_{kind}_{station_id}_*.csv",
+            ):
+                matches = sorted(data_dir.glob(pattern))
+                if matches:
+                    return matches[0]
+            exact = data_dir / f"{prefix}_{kind}_{safe_id}.csv"
+            if exact.exists():
+                return exact
     return None

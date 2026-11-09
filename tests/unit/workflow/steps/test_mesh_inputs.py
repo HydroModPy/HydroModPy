@@ -65,9 +65,7 @@ _RIVER = {"enabled": True, "threshold_mode": "cells", "threshold_cells": 50}
 
 
 def _geographic(**bed) -> GeographicConfig:
-    return GeographicConfig.from_outlet(
-        x=1.0, y=2.0, dem="dem.tif", river_network=_RIVER, bed_regularization=bed
-    )
+    return GeographicConfig.from_outlet(x=1.0, y=2.0, river_network=_RIVER, bed_regularization=bed)
 
 
 def _ctx(geographic: GeographicConfig, *, cells: int = 10) -> SimpleNamespace:
@@ -313,7 +311,7 @@ def _outlet_ctx(geographic: GeographicConfig, cells: int = 10) -> SimpleNamespac
 
 
 def test_the_declared_outlet_reaches_the_planning_inputs() -> None:
-    geographic = GeographicConfig.from_outlet(x=389285.91, y=6816518.749, dem="dem.tif")
+    geographic = GeographicConfig.from_outlet(x=389285.91, y=6816518.749)
 
     outlet = planning_inputs(_outlet_ctx(geographic), _MESH).outlet
 
@@ -321,7 +319,7 @@ def test_the_declared_outlet_reaches_the_planning_inputs() -> None:
 
 
 def test_a_catchment_without_a_declared_outlet_has_none() -> None:
-    geographic = GeographicConfig.from_dem("dem.tif")
+    geographic = GeographicConfig.from_dem()
 
     assert planning_inputs(_outlet_ctx(geographic), _MESH).outlet is None
 

@@ -20,7 +20,7 @@ from hydromodpy.calibration.config import (
     apply_project_defaults,
     fold_a_legacy_regime,
 )
-from hydromodpy.calibration.protocols.base import CalibrationProtocol
+from hydromodpy.calibration.protocols.base import CalibrationProtocol, support_by_backend
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
 )
@@ -328,7 +328,9 @@ def protocol_options_away_from_the_recipe(
     return tuple(changed)
 
 
-def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]:
+def protocol_record(
+    name: str, declared: object | None = None, backend: str | None = None
+) -> dict[str, Any]:
     """Return what a run persists about the protocol it followed.
 
     A calibrated value that came out of a published method carries the method
@@ -346,7 +348,7 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
         "summary": protocol.summary,
         "stages": list(protocol.stages),
         "references": [reference.cite() for reference in protocol.references],
-        "support": dict(protocol.support),
+        "support": support_by_backend(protocol, [backend] if backend else None),
         "deviations": [
             {
                 "key": deviation.key,

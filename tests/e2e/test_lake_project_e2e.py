@@ -124,6 +124,12 @@ values = [2.0]
 freq = "MS"
 """
 
+_DEM_DATA_TOML = f"""
+[[data.dem.sources]]
+source = "file"
+path = "{_DEM_PATH}"
+"""
+
 
 def _config_body(*, active_bc: list[str], flow_extra: str, data_toml: str) -> str:
     """Return the self-contained project TOML for the given lake declaration.
@@ -151,7 +157,6 @@ crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{_DEM_PATH}"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
 snap_dist = "50 m"
@@ -247,13 +252,14 @@ lakeout = 0
 """
     data_toml = (
         _RECHARGE_DATA_TOML
+        + _DEM_DATA_TOML
         + f"""
 [[data.lake_geometry.sources]]
-source = "custom"
+source = "file"
 path = "{geometry_path}"
 
 [[data.lake_abacus.sources]]
-source = "custom"
+source = "file"
 path = "{abacus_path}"
 lake_id = "{_LAKE_ID}"
 """
@@ -274,7 +280,7 @@ def _write_no_lake_config(config_path: Path) -> None:
         _config_body(
             active_bc=["drainage"],
             flow_extra="",
-            data_toml=_RECHARGE_DATA_TOML,
+            data_toml=_RECHARGE_DATA_TOML + _DEM_DATA_TOML,
         ),
         encoding="utf-8",
     )

@@ -22,6 +22,7 @@ from hydromodpy.cli.conventions import (
     workspace_parser,
 )
 from hydromodpy.cli.effective_toml import profile_output_of, toml_target
+from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
@@ -57,6 +58,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="After convergence, run the full production chronicle from the converged state",
     )
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
@@ -82,7 +84,11 @@ def run(args: argparse.Namespace) -> None:
     try:
         with profile_run(profile_output, description=f"hmp spinup {target.name}"):
             with project_named_by_w(args.workspace):
-                result = hmp.spinup(target, then_run=args.then_run)
+                result = hmp.spinup(
+                    target,
+                    then_run=args.then_run,
+                    environment=environment_from_args(args),
+                )
     except ValidationError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

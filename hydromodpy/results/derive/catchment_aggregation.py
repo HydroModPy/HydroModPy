@@ -12,6 +12,7 @@ from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps, runoff_m3_s_on_index
+from hydromodpy.results.field_registry import series_unit
 
 logger = get_logger(__name__)
 
@@ -47,11 +48,6 @@ def _stored_basin(mesh: Any) -> _StoredBasin | None:
         rule=str(attrs["basin_rule"]),
     )
 
-
-VARIABLE_UNITS: dict[str, str] = {
-    "discharge": "m3 s-1",
-    "well_pumping": "m3 s-1",
-}
 
 # (source_variables, output_variable, reducer)
 # Each source variable is looked up in derived/ then budget/ then root, and the
@@ -178,7 +174,7 @@ def aggregate_catchment_timeseries(
         # re-reads and rewrites the whole timeseries.parquet each call (O(K^2)).
         records: list[dict[str, Any]] = []
         for output_var, ts in series_by_var.items():
-            unit = VARIABLE_UNITS.get(output_var, "")
+            unit = series_unit(output_var)
             index = pd.DatetimeIndex(ts.index)
             index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
             for step, (when, value) in enumerate(

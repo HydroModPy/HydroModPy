@@ -29,18 +29,18 @@ step_value = "1 day"
 gauge__delete = true
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 station_ids = ["NANCON"]
 
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["NANCON_REA"]
 
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
+source = "file"
+path = "../../data/runoff"
 station_ids = ["NANCON_REA"]
 
 # 36 monthly points were too few to read a duration curve or a recession off,

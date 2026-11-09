@@ -34,7 +34,7 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
 )
 from hydromodpy.data.variables.dem.config import IgnGeoplateformeDemSource
 from hydromodpy.data.variables.dem.manager import _resolution_for_ign_geoplateforme
-from hydromodpy.data.variables.dem.resolver import resolve_dem_path_from_data_sources
+from hydromodpy.data.variables.dem.resolver import resolve_dem
 
 SAMPLES = Path(__file__).resolve().parents[2] / "samples" / "rge_alti_wms"
 FLUME = (344000.0, 6806000.0, 344200.0, 6806200.0)
@@ -57,7 +57,7 @@ class _Session:
         self.serve = serve
         self.requests: list[dict] = []
 
-    def get(self, url, params=None, **_kwargs):
+    def request(self, method, url, params=None, **_kwargs):
         self.requests.append(dict(params))
         bbox = tuple(float(v) for v in params["BBOX"].split(","))
         return _Answer(self.serve(bbox, int(params["WIDTH"]), int(params["HEIGHT"])))
@@ -141,7 +141,7 @@ def test_a_recorded_tile_is_read_as_the_server_answered(tmp_path) -> None:
     tile = next(wms.plan_tiles(FLUME, 5.0))
     session = _Session(_recorded_server("flume_5m_40px.tif"))
 
-    data = wms.fetch_tile("LAYER", tile, session=session)
+    data = wms.fetch_tile("LAYER", tile, client=session)
 
     assert data.shape == (40, 40) and data.dtype == np.float32
     assert 110.0 < np.nanmin(data) < np.nanmax(data) < 116.0
@@ -155,14 +155,14 @@ def test_an_xml_exception_answered_with_200_is_an_error() -> None:
     session = _Session(lambda *a: b'<?xml version="1.0"?><ServiceExceptionReport/>')
 
     with pytest.raises(GeoPlateformeDownloadError, match="did not answer a GeoTIFF"):
-        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), session=session)
+        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), client=session)
 
 
 def test_a_grid_that_is_not_the_one_asked_is_an_error() -> None:
     session = _Session(lambda bbox, w, h: _geotiff(np.ones((h - 1, w)), bbox))
 
     with pytest.raises(GeoPlateformeDownloadError, match="pixels"):
-        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), session=session)
+        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), client=session)
 
 
 def _truncated(payload: bytes, share: float) -> bytes:
@@ -174,7 +174,7 @@ def test_a_truncated_body_is_asked_again_once(tmp_path) -> None:
     bodies = [_truncated(good, 0.5), good]
     session = _Session(lambda *a: bodies.pop(0))
 
-    data = wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), session=session)
+    data = wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), client=session)
 
     assert len(session.requests) == 2 and (data == 111.0).all()
 
@@ -184,7 +184,7 @@ def test_a_body_that_stays_truncated_is_a_download_error() -> None:
     session = _Session(lambda *a: _truncated(good, 0.5))
 
     with pytest.raises(GeoPlateformeDownloadError, match="cannot be read"):
-        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), session=session)
+        wms.fetch_tile("LAYER", next(wms.plan_tiles(FLUME, 5.0)), client=session)
     assert len(session.requests) == 2
 
 
@@ -196,7 +196,7 @@ def test_the_tiles_make_the_raster_the_server_would_draw_in_one_piece(tmp_path) 
     session = _Session(_synthetic_server)
 
     path = fetch_rge_alti(
-        output_dir=tmp_path, bbox=box, resolution_m=5.0, tile_px=30, session=session
+        output_dir=tmp_path, bbox=box, resolution_m=5.0, tile_px=30, client=session
     )
 
     with rasterio.open(path) as raster:
@@ -214,7 +214,7 @@ def test_the_tiles_make_the_raster_the_server_would_draw_in_one_piece(tmp_path) 
 
 def test_the_second_request_is_served_from_the_cache_and_a_refresh_is_not(tmp_path) -> None:
     session = _Session(_synthetic_server)
-    args = {"output_dir": tmp_path, "bbox": FLUME, "resolution_m": 5.0, "session": session}
+    args = {"output_dir": tmp_path, "bbox": FLUME, "resolution_m": 5.0, "client": session}
 
     first = fetch_rge_alti(**args)
     fetched = len(session.requests)
@@ -232,8 +232,8 @@ def test_the_second_request_is_served_from_the_cache_and_a_refresh_is_not(tmp_pa
 
 def test_the_resolution_is_part_of_the_cache_name(tmp_path) -> None:
     session = _Session(_synthetic_server)
-    five = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, session=session)
-    one = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=1.0, session=session)
+    five = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
+    one = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=1.0, client=session)
 
     assert five != one and "_1m_" in one.name
     with rasterio.open(one) as raster:
@@ -242,7 +242,7 @@ def test_the_resolution_is_part_of_the_cache_name(tmp_path) -> None:
 
 def test_the_default_resolution_is_5_m(tmp_path) -> None:
     session = _Session(_synthetic_server)
-    path = fetch_ign_dem(output_dir=tmp_path, bbox=FLUME, dataset="rge-alti", session=session)
+    path = fetch_ign_dem(output_dir=tmp_path, bbox=FLUME, dataset="rge-alti", client=session)
 
     with rasterio.open(path) as raster:
         assert raster.res == (5.0, 5.0)
@@ -266,7 +266,7 @@ def test_water_and_the_nodata_blend_next_to_it_are_nodata(tmp_path, monkeypatch)
     blend = (server > -99990) & (server < -5.01)
     assert nodata.any() and plateau.any() and blend.any()
 
-    path = fetch_rge_alti(output_dir=tmp_path, bbox=COAST, resolution_m=5.0, session=session)
+    path = fetch_rge_alti(output_dir=tmp_path, bbox=COAST, resolution_m=5.0, client=session)
 
     with rasterio.open(path) as raster:
         data = raster.read(1)
@@ -298,7 +298,7 @@ def _quarry_server(bbox: tuple, width: int, height: int) -> bytes:
 def test_land_below_minus_5_m_far_from_water_is_kept(tmp_path) -> None:
     session = _Session(_quarry_server)
 
-    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, session=session)
+    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
 
     with rasterio.open(path) as raster:
         data = raster.read(1)
@@ -344,7 +344,7 @@ def test_the_rule_does_not_see_tile_or_strip_edges(tmp_path, monkeypatch) -> Non
             bbox=COAST,
             resolution_m=5.0,
             tile_px=tile_px,
-            session=session,
+            client=session,
         )
         with rasterio.open(path) as raster:
             return raster.read(1)
@@ -369,7 +369,7 @@ def test_the_outside_france_share_is_counted_and_warned(tmp_path, monkeypatch, c
     session = _Session(_synthetic_server)
 
     with caplog.at_level("WARNING"):
-        path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, session=session)
+        path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
 
     wms_block = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["wms"]
     assert wms_block["valid_pixels"] == 40 * 40
@@ -384,7 +384,7 @@ def test_the_outside_france_share_is_counted_and_warned(tmp_path, monkeypatch, c
 def test_a_box_inside_france_has_no_outside_pixels(tmp_path) -> None:
     session = _Session(_synthetic_server)
 
-    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, session=session)
+    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
 
     wms_block = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["wms"]
     assert wms_block["outside_france_pixels"] == 0
@@ -392,7 +392,7 @@ def test_a_box_inside_france_has_no_outside_pixels(tmp_path) -> None:
 
 def test_a_raster_cached_with_an_older_masking_rule_is_not_reused(tmp_path) -> None:
     session = _Session(_synthetic_server)
-    args = {"output_dir": tmp_path, "bbox": FLUME, "resolution_m": 5.0, "session": session}
+    args = {"output_dir": tmp_path, "bbox": FLUME, "resolution_m": 5.0, "client": session}
     path = fetch_rge_alti(**args)
     sidecar = path.with_suffix(".json")
     metadata = json.loads(sidecar.read_text(encoding="utf-8"))
@@ -410,7 +410,7 @@ def test_a_box_with_no_elevation_is_an_error_and_leaves_no_file(tmp_path) -> Non
     session = _Session(lambda bbox, w, h: _geotiff(np.full((h, w), -99999.0), bbox))
 
     with pytest.raises(ValueError, match="no elevation"):
-        fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, session=session)
+        fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
     assert not list((tmp_path / "processed").glob("*.tif"))
 
 
@@ -422,7 +422,7 @@ def test_a_1_m_box_of_30_km_is_refused_before_any_request(tmp_path) -> None:
     box = (340000.0, 6800000.0, 370000.0, 6830000.0)
 
     with pytest.raises(ValueError, match=r"30000 x 30000 pixels \(900 million, 3.6 GB") as info:
-        fetch_rge_alti(output_dir=tmp_path, bbox=box, resolution_m=1.0, session=session)
+        fetch_rge_alti(output_dir=tmp_path, bbox=box, resolution_m=1.0, client=session)
     assert session.requests == []
     assert "resolution_m = 5" in str(info.value)
 
@@ -432,7 +432,7 @@ def test_a_5_m_box_over_the_limit_is_not_told_to_use_5_m(tmp_path) -> None:
     box = (300000.0, 6780000.0, 370000.0, 6850000.0)
 
     with pytest.raises(ValueError, match="above the limit") as info:
-        fetch_rge_alti(output_dir=tmp_path, bbox=box, resolution_m=5.0, session=session)
+        fetch_rge_alti(output_dir=tmp_path, bbox=box, resolution_m=5.0, client=session)
     assert "resolution_m" not in str(info.value)
 
 
@@ -452,15 +452,11 @@ def test_the_project_path_refuses_1_m_before_any_request(tmp_path, monkeypatch) 
     monkeypatch.setattr(ign_dem_fr, "fetch_rge_alti", lambda **kw: calls.append(kw))
 
     with pytest.raises(ValueError, match="billions of pixels") as info:
-        resolve_dem_path_from_data_sources(
-            _project(1.0), config_path=tmp_path / "run.toml", cache_dir=tmp_path
-        )
+        resolve_dem(_project(1.0), data_dir=tmp_path)
 
     assert calls == []
     message = str(info.value)
-    assert (
-        "hmp data get" in message and "resolution_m = 5" in message and "dem_init_path" in message
-    )
+    assert "hmp data get" in message and "resolution_m = 5" in message and "file source" in message
     assert "Reduce the extent" not in message
 
 
@@ -489,11 +485,9 @@ def test_the_project_path_passes_5_m_to_the_fetch(tmp_path, monkeypatch) -> None
 
     monkeypatch.setattr(ign_dem_fr, "fetch_rge_alti", fake)
 
-    path = resolve_dem_path_from_data_sources(
-        _project(5.0), config_path=tmp_path / "run.toml", cache_dir=tmp_path
-    )
+    record = resolve_dem(_project(5.0), data_dir=tmp_path)
 
-    assert path == tmp_path / "dem.tif"
+    assert Path(record.path) == tmp_path / "dem.tif"
     assert calls[0]["resolution_m"] == 5.0
     assert calls[0]["bbox"] == (314100.0, 6776100.0, 374100.0, 6836100.0)
 
@@ -504,7 +498,7 @@ def test_the_60_km_bootstrap_box_is_inside_the_default_limit_at_5_m(tmp_path) ->
 
     with pytest.raises(ValueError, match="above the limit"):
         fetch_rge_alti(
-            output_dir=tmp_path, bbox=box, resolution_m=5.0, max_pixels=100_000_000, session=session
+            output_dir=tmp_path, bbox=box, resolution_m=5.0, max_pixels=100_000_000, client=session
         )
     assert session.requests == []
     # An outlet off the 5 m grid snaps outward to one more pixel a side.
@@ -520,7 +514,7 @@ def test_a_resolution_the_server_would_resample_is_refused(tmp_path, resolution)
     session = _Session(_synthetic_server)
 
     with pytest.raises(ValueError, match="1, 5 m only"):
-        fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=resolution, session=session)
+        fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=resolution, client=session)
     assert session.requests == []
 
 
@@ -532,7 +526,7 @@ def test_a_box_that_touches_no_department_is_refused(tmp_path) -> None:
             output_dir=tmp_path,
             bbox=(100000.0, 6800000.0, 100500.0, 6800500.0),
             resolution_m=5.0,
-            session=session,
+            client=session,
         )
     assert session.requests == []
 

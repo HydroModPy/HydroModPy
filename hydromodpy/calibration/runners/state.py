@@ -179,16 +179,15 @@ _COST_KEYS = (
     "validation_window",
     "aggregate",
     "reject_water_budget_above",
-    "forward_model",
 )
 """The keys of ``[calibration]`` that change the cost of a trial at given values.
 
 What a trial is scored on (the outputs, the blocks, the single series), over
 which samples (the window, the warm-up, the fewest paired samples), what makes
-it count (the water-balance rejection) and what produces the series (the forward
-model). The validation window moves no cost and is here all the same: a trial cached
-under another one carries the score of those other dates. The evaluator is added on its
-own, resolved, when it is not the default."""
+it count (the water-balance rejection). The validation window moves no cost and is
+here all the same: a trial cached under another one carries the score of those
+other dates. The evaluator is added on its own, resolved, when it is not the
+default."""
 
 
 def build_cache_context(

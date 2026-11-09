@@ -362,6 +362,8 @@ class _Ctx__saved_trial:
     cfg: _Cfg__saved_trial
     config_path: Path
     raw_toml: dict[str, Any]
+    # The bounds of the call, as WorkflowContext carries them now.
+    bounds: Any = None
     data_plan: Any = None
     setup: Setup = field(default_factory=Setup)
     loaded_data: Any = None
@@ -602,7 +604,12 @@ def _trial(
 ) -> TrialContext:
     setup = SimpleNamespace(flow=None, transport=None, slot_request=None)
     ctx = SimpleNamespace(
-        setup=setup, data_plan=None, loaded_data=SimpleNamespace(), execution=ExecutionRegistry()
+        setup=setup,
+        data_plan=None,
+        # The bounds of the call, as WorkflowContext carries them now.
+        bounds=None,
+        loaded_data=SimpleNamespace(),
+        execution=ExecutionRegistry(),
     )
     base = TrialContext(
         base_cfg=cfg__trial_moves,
@@ -770,6 +777,8 @@ class _FakeCtx:
     cfg: _FakeCfg
     config_path: Path
     raw_toml: dict[str, Any]
+    # The bounds of the call, as WorkflowContext carries them now.
+    bounds: Any = None
     data_plan: Any = None
     setup: _FakeSetup = field(default_factory=_FakeSetup)
     loaded_data: _FakeLoadedData = field(default_factory=_FakeLoadedData)
@@ -857,7 +866,7 @@ class TestTheTrialForcingFolder:
 #
 # - :class:`TrialContext.fork` deep-copies the config, injects values
 #   through the declared dotted paths, shares the expensive setup
-#   objects by reference, and resets ``setup.flow`` / ``setup.transport``
+#   objects by reference, and resets ``setup.flow`` and ``setup.model``
 #   so the downstream steps rebuild them from the trial's config.
 # - :func:`run_trial_light` never creates disk artifacts in the CWD and
 #   returns a ``TrialResult`` even when the default metric extractor
@@ -955,7 +964,6 @@ class TestFork:
         # flow is reset so step 05 / SimulationRunner will rebuild it from
         # the trial's cfg.flow.
         assert forked.ctx.setup.flow is None
-        assert forked.ctx.setup.transport is None
         assert forked.ctx.setup.slot_request is None
 
     def test_fork_is_lightweight(self, tmp_path: Path) -> None:

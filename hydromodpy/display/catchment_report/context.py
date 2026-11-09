@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -154,6 +154,30 @@ def _observed_series(path: Path | None) -> pd.DataFrame | None:
     return _read_series(path)
 
 
+def _resolve_dem_summary_path(
+    config: Mapping[str, Any],
+    inputs: CatchmentReportInputs,
+) -> str:
+    run_dir = inputs.transient_config.parent
+    inputs_json = run_dir / "inputs.json"
+    if inputs_json.is_file():
+        try:
+            payload = json.loads(inputs_json.read_text(encoding="utf-8"))
+            for entry in payload.get("inputs", ()):
+                if entry.get("variable") == "dem" or entry.get("role") == "dem":
+                    return str(entry.get("path") or "")
+        except Exception:
+            pass
+    data = _mapping(config.get("data"))
+    dem_cfg = _mapping(data.get("dem"))
+    sources = dem_cfg.get("sources")
+    if isinstance(sources, Sequence) and sources:
+        first = _mapping(sources[0])
+        return str(first.get("path") or "")
+    catchment = _mapping(_mapping(config.get("geographic")).get("catchment"))
+    return str(catchment.get("dem_init_path") or "")
+
+
 def _configuration_summary(
     config: Mapping[str, Any],
     inputs: CatchmentReportInputs,
@@ -168,7 +192,7 @@ def _configuration_summary(
     data = _mapping(config.get("data"))
     return {
         "base_config": _rel(inputs.transient_config),
-        "dem": str(catchment.get("dem_init_path") or ""),
+        "dem": _resolve_dem_summary_path(config, inputs),
         "x_outlet": catchment.get("x_outlet"),
         "y_outlet": catchment.get("y_outlet"),
         "crs": geographic.get("crs_project"),

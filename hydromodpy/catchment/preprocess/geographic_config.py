@@ -245,11 +245,6 @@ class GeographicConfig(HydroModelBase):
         return None if self.catchment is None else self.catchment.kind
 
     @property
-    def dem_init_path(self) -> Path | None:
-        """DEM input path from the active catchment variant, or None."""
-        return None if self.catchment is None else self.catchment.dem_init_path
-
-    @property
     def cell_size(self) -> float | None:
         """Cell size for 'txt' variant, or None otherwise."""
         return getattr(self.catchment, "cell_size", None) if self.catchment is not None else None
@@ -297,19 +292,17 @@ class GeographicConfig(HydroModelBase):
         *,
         x: float,
         y: float,
-        dem: str | Path,
         snap_dist: float | str = 150.0,
         snap_method: Literal["window", "jenson"] = "window",
         buff_area: float | str = "10%",
         crs_project: str | None = None,
         **overrides,
     ) -> GeographicConfig:
-        """Watershed delineated from an outlet coordinate and a DEM raster."""
+        """Watershed delineated from an outlet coordinate."""
         return cls(
             source_mode="standard",
             catchment={
                 "kind": "from_outlet_coord",
-                "dem_init_path": Path(dem) if dem is not None else None,
                 "x_outlet": float(x),
                 "y_outlet": float(y),
                 "snap_dist": snap_dist,
@@ -323,17 +316,19 @@ class GeographicConfig(HydroModelBase):
     @classmethod
     def from_dem(
         cls,
-        dem: str | Path,
         *,
         crs_project: str | None = None,
         **overrides,
     ) -> GeographicConfig:
-        """Model domain driven entirely by a DEM raster."""
-        return cls(
-            source_mode="standard",
-            catchment={"kind": "dem", "dem_init_path": Path(dem)},
-            crs_project=crs_project,
-            **overrides,
+        """Model domain driven entirely by a DEM raster, which a [[data.dem.sources]] entry gives."""
+        return cls.model_validate(
+            {
+                "source_mode": "standard",
+                "catchment": {"kind": "dem"},
+                "crs_project": crs_project,
+                **overrides,
+            },
+            context={"allow_dem_bootstrap": True},
         )
 
     @classmethod
@@ -341,17 +336,15 @@ class GeographicConfig(HydroModelBase):
         cls,
         polygon: str | Path,
         *,
-        dem: str | Path,
         buff_area: float | str = "10%",
         crs_project: str | None = None,
         **overrides,
     ) -> GeographicConfig:
-        """Watershed delineated from a polygon shapefile plus a DEM."""
+        """Watershed delineated from a polygon shapefile."""
         return cls(
             source_mode="standard",
             catchment={
                 "kind": "from_polyg_shp",
-                "dem_init_path": Path(dem),
                 "polyg_shp_path": Path(polygon),
                 "buff_area": buff_area,
             },
@@ -454,22 +447,17 @@ class GeographicConfig(HydroModelBase):
     @model_validator(mode="before")
     @classmethod
     def _catchment_follows_source_mode(cls, data: Any) -> Any:
-        """Let a document leave the catchment, or its DEM, out.
+        """Let a document leave the catchment out.
 
-        Neither field has a default, so the reference shows both as required. A
-        synthetic support carries no catchment, and a [data.dem] source may give
-        the DEM. What is still missing is refused by ``_check_source_mode_payload``
-        after the other keys are checked, with a message that names the key.
+        The field has no default, so the reference shows it as required. A
+        synthetic support carries no catchment. What is still missing is refused by
+        ``_check_source_mode_payload`` after the other keys are checked, with a
+        message that names the key.
         """
         if not isinstance(data, Mapping):
             return data
-        catchment = data.get("catchment")
         if "catchment" not in data:
             return {**data, "catchment": None}
-        if isinstance(catchment, Mapping) and "dem_init_path" not in catchment:
-            # Same rule one level down: the dem shape shows its DEM as required,
-            # and a [data.dem] source may still supply it.
-            return {**data, "catchment": {**catchment, "dem_init_path": None}}
         return data
 
     @model_validator(mode="after")
@@ -482,11 +470,8 @@ class GeographicConfig(HydroModelBase):
         context = info.context or {}
         if context.get("allow_dem_bootstrap"):
             self._dem_from_data = True
-        if self.catchment.dem_init_path is None and not self._dem_from_data:
-            raise ValueError(
-                f"kind='{self.catchment.kind}' requires 'dem_init_path' "
-                "(path to the DEM raster or XYZ text file)."
-            )
+        if self.catchment.kind == "dem" and not self._dem_from_data:
+            raise ValueError("kind = 'dem' requires a [[data.dem.sources]] entry.")
         return self
 
 

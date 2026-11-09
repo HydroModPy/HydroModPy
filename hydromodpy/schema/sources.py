@@ -712,10 +712,16 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         ),
     ),
     _undetermined(
-        "custom",
+        "file",
         None,
         "A file the user supplied. Its licence is the user's to declare, in the "
         "'license' key of its sidecar.",
+    ),
+    _undetermined(
+        "url",
+        None,
+        "A remote file downloaded by URL. Its licence is declared by the user in "
+        "the 'license' key of the section or sidecar.",
     ),
     _undetermined(
         "constant",
@@ -808,7 +814,13 @@ def _read_sidecar(path: Path) -> Licence:
 
 
 def sidecar_source(path: Path | str) -> str | None:
-    """Return the source slug the sidecar of a file names, or None without a readable one."""
+    """Return the source slug the sidecar of a file names, or None without a readable one.
+
+    A sidecar written before 2.1.0 names the user provider ``custom``; the
+    ``sidecar`` migration reads it as ``file``, the same way
+    :func:`hydromodpy.data.provenance.sidecars.load_sidecar` does, so a
+    sealed copy of 2.0.0 replays as the run that wrote it.
+    """
     target = sidecar_path(Path(path))
     if not target.is_file():
         return None
@@ -817,6 +829,8 @@ def sidecar_source(path: Path | str) -> str | None:
     except (OSError, ValueError):
         return None
     source = payload.get("source") if isinstance(payload, dict) else None
+    if source == "custom":
+        source = "file"
     return str(source) if source else None
 
 

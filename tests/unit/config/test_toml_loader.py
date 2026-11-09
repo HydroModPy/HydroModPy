@@ -42,7 +42,7 @@ def test_simulation_regression_example_config_inheritance_keeps_only_relevant_da
     assert list(payload["flow"]["bc"]) == ["ocean", "drainage"]
     assert payload["data"]["types"] == ["recharge"]
     assert "hydrography" not in payload["data"]
-    assert payload["data"]["oceanic"]["sources"][0]["source"] == "custom"
+    assert payload["data"]["oceanic"]["sources"][0]["source"] == "file"
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 

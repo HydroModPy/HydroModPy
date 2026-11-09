@@ -20,7 +20,7 @@ SOURCE_PATH_ATTR = "source_path"
 """Key of ``GeoDataFrame.attrs`` naming the file a network was read from."""
 
 
-def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
+def load_file(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     """Read a local file pointed to by *config.path*.
 
     Returns a ``GeoDataFrame`` for vector files (SHP/GPKG/GeoJSON) or a

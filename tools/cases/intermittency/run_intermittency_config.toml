@@ -1,5 +1,5 @@
 [intermittency_case]
-source = "custom"
+source = "file"
 data_path = "../../../tests/unit/data/variables/intermittency/data"
 date_start = "2018-01-01"
 date_end = "2023-12-31"

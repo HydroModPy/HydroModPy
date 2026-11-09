@@ -151,9 +151,11 @@ def test_sidecar(corpus: Path, sidecar: str) -> None:
     data_file = corpus / sidecar.removesuffix(".json")
     read = load_sidecar(data_file).model_dump(mode="json")
     raw = EXPECTED["sidecar"][sidecar]
-    assert {key: value for key, value in read.items() if value is not None} == {
-        key: value for key, value in raw.items() if value is not None
-    }
+    expected = {key: value for key, value in raw.items() if value is not None}
+    # 2.1.0 renamed the local source: a sidecar of 2.0.0 that says "custom" reads as "file".
+    if expected.get("source") == "custom":
+        expected["source"] = "file"
+    assert {key: value for key, value in read.items() if value is not None} == expected
 
 
 @pytest.mark.parametrize("cache", sorted(EXPECTED["data_cache"]))

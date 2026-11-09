@@ -23,7 +23,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES, DataManagersConfig
-from hydromodpy.data.variables.lake_abacus.config import CustomLakeAbacusSource, LakeAbacusConfig
+from hydromodpy.data.variables.lake_abacus.config import FileLakeAbacusSource, LakeAbacusConfig
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
@@ -72,6 +72,11 @@ name = "hydrograph"
 metric = "nse"
 uses_outputs = ["hydrograph"]
 """
+
+
+def _validate(payload: dict[str, Any]) -> HydroModPyConfig:
+    """Validate a payload that declares its DEM under ``[[data.dem.sources]]``."""
+    return HydroModPyConfig.model_validate(payload, context={"allow_dem_bootstrap": True})
 
 
 def _write(tmp_path: Path, observes: str = "") -> Path:
@@ -204,11 +209,11 @@ def test_a_root_persistence_table_in_a_file_is_refused(tmp_path: Path) -> None:
 
 def test_a_root_persistence_key_in_python_is_refused() -> None:
     with pytest.raises(ValueError, match=r"\[simulation\.results\.persistence\]"):
-        HydroModPyConfig.model_validate({"persistence": {"save_zarr": False}})
+        _validate({"persistence": {"save_zarr": False}})
 
 
 def test_the_run_persistence_table_is_the_one_read() -> None:
-    cfg = HydroModPyConfig.model_validate(
+    cfg = _validate(
         {
             "workflow": {"mode": "simulation"},
             "geographic": {"source_mode": "synthetic"},
@@ -239,7 +244,7 @@ def test_a_fill_method_is_refused_with_what_decides_instead(fill_method) -> None
 @pytest.mark.parametrize("model", [LakeBathymetryConfig, LakeGeometryConfig])
 def test_a_lake_data_name_is_refused(model) -> None:
     with pytest.raises(ValidationError, match="lake_id"):
-        model.model_validate({"sources": [{"source": "custom", "path": "x"}], "id": "lake"})
+        model.model_validate({"sources": [{"source": "file", "path": "x"}], "id": "lake"})
 
 
 _HEAD = '[workspace]\n\n[workflow]\nmode = "simulation"\n\n'
@@ -290,7 +295,7 @@ def test_a_retired_key_in_a_file_is_refused_with_its_replacement(
 )
 def test_a_retired_section_in_python_is_refused(payload: dict, fragment: str) -> None:
     with pytest.raises(ValueError, match=r"\[mesh") as excinfo:
-        HydroModPyConfig.model_validate(payload)
+        _validate(payload)
     assert fragment in str(excinfo.value)
 
 
@@ -299,7 +304,7 @@ def test_a_retired_section_in_python_is_refused(payload: dict, fragment: str) ->
 def test_a_retired_sgrid_key_in_python_is_refused(solver: str, key: str) -> None:
     value = {} if key == "planar" else "voronoi"
     with pytest.raises(ValueError, match=rf"sgrid\.{key} is replaced by \[mesh\]"):
-        HydroModPyConfig.model_validate({"solver": {solver: {"sgrid": {key: value}}}})
+        _validate({"solver": {solver: {"sgrid": {key: value}}}})
 
 
 def test_the_mesh_section_replaces_them_and_resolves_its_file(tmp_path: Path) -> None:
@@ -655,7 +660,8 @@ def _payload(**sections: Any) -> dict[str, Any]:
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
         "site": {"name": "site_a"},
-        "geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}},
+        "geographic": {"catchment": {"kind": "dem"}},
+        "data": {"dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]}},
         "mesh": {"engine": "voronoi"},
     }
     payload.update(sections)
@@ -664,7 +670,7 @@ def _payload(**sections: Any) -> dict[str, Any]:
 
 def test_a_river_mesh_without_a_threshold_is_refused_with_the_key() -> None:
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload())
+        _validate(_payload())
     message = str(excinfo.value)
     assert "[mesh] engine = 'voronoi' with families.rivers = 'cell'" in message
     assert "Set threshold_area_km2 under [geographic.river_network]" in message
@@ -673,7 +679,7 @@ def test_a_river_mesh_without_a_threshold_is_refused_with_the_key() -> None:
 def test_a_river_mesh_with_a_threshold_loads() -> None:
     payload = _payload()
     payload["geographic"]["river_network"] = {"threshold_area_km2": 0.5}
-    cfg = HydroModPyConfig.model_validate(payload)
+    cfg = _validate(payload)
     assert cfg.mesh.engine == "voronoi"
     assert cfg.mesh.families.rivers == "cell"
 
@@ -682,17 +688,17 @@ def test_a_cells_threshold_is_named_in_cells_mode() -> None:
     payload = _payload()
     payload["geographic"]["river_network"] = {"threshold_mode": "cells"}
     with pytest.raises(ValueError, match="Set threshold_cells under"):
-        HydroModPyConfig.model_validate(payload)
+        _validate(payload)
 
 
 def test_a_mesh_that_ignores_the_rivers_needs_no_threshold() -> None:
     payload = _payload(mesh={"engine": "voronoi", "families": {"rivers": "none"}})
-    cfg = HydroModPyConfig.model_validate(payload)
+    cfg = _validate(payload)
     assert cfg.mesh.families.rivers == "none"
 
 
 def test_the_regular_engine_needs_no_threshold() -> None:
-    cfg = HydroModPyConfig.model_validate(_payload(mesh={"engine": "regular"}))
+    cfg = _validate(_payload(mesh={"engine": "regular"}))
     assert cfg.mesh.engine == "regular"
 
 
@@ -709,7 +715,7 @@ def test_a_height_zone_without_a_threshold_names_the_zone_and_not_the_river_fami
         }
     )
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(payload)
+        _validate(payload)
     message = str(excinfo.value)
     assert "[[mesh.refinement_zone]] where = 'height_above_stream'" in message
     assert "families.rivers" not in message
@@ -725,14 +731,14 @@ def test_a_height_zone_with_a_threshold_loads() -> None:
         }
     )
     payload["geographic"]["river_network"] = {"threshold_area_km2": 0.5}
-    cfg = HydroModPyConfig.model_validate(payload)
+    cfg = _validate(payload)
     assert cfg.mesh.refines_above_stream()
 
 
 def test_the_river_family_is_named_first_when_both_ask_for_the_network() -> None:
     payload = _payload(mesh={"engine": "voronoi", "refinement_zone": [_above_stream_zone()]})
     with pytest.raises(ValueError, match="families.rivers = 'cell'"):
-        HydroModPyConfig.model_validate(payload)
+        _validate(payload)
 
 
 def test_a_zone_that_reads_a_run_needs_no_network() -> None:
@@ -740,14 +746,14 @@ def test_a_zone_that_reads_a_run_needs_no_network() -> None:
     payload = _payload(
         mesh={"engine": "voronoi", "families": {"rivers": "none"}, "refinement_zone": [zone]}
     )
-    cfg = HydroModPyConfig.model_validate(payload)
+    cfg = _validate(payload)
     assert not cfg.mesh.refines_above_stream()
 
 
 def test_a_stream_boundary_on_a_mesh_read_from_a_file_names_the_file() -> None:
     mesh = {"engine": "triangle", "triangle": {"path": "mesh/catchment.msh"}}
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload(mesh=mesh, flow={"bc": {"stream": {}}}))
+        _validate(_payload(mesh=mesh, flow={"bc": {"stream": {}}}))
     message = str(excinfo.value)
     assert "The 'stream' boundary on a [mesh.triangle] path mesh" in message
     assert "Set threshold_area_km2 under [geographic.river_network]" in message
@@ -755,7 +761,7 @@ def test_a_stream_boundary_on_a_mesh_read_from_a_file_names_the_file() -> None:
 
 def test_a_mesh_read_from_a_file_without_a_stream_boundary_needs_no_threshold() -> None:
     mesh = {"engine": "triangle", "triangle": {"path": "mesh/catchment.msh"}}
-    cfg = HydroModPyConfig.model_validate(_payload(mesh=mesh))
+    cfg = _validate(_payload(mesh=mesh))
     assert cfg.mesh.triangle.path is not None
 
 
@@ -900,7 +906,7 @@ def _payload_2(solver: str, mesh: dict[str, Any] | None) -> dict[str, Any]:
 @pytest.mark.parametrize("engine", ["triangle", "voronoi"])
 def test_nwt_refuses_an_unstructured_engine_and_names_both(engine: str) -> None:
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload_2("modflow_nwt", {"engine": engine}))
+        _validate(_payload_2("modflow_nwt", {"engine": engine}))
     message = str(excinfo.value)
     assert "'modflow_nwt'" in message
     assert f"mesh.engine is '{engine}'" in message
@@ -911,7 +917,7 @@ def test_nwt_refuses_an_unstructured_engine_and_names_both(engine: str) -> None:
 @pytest.mark.parametrize("mesh", [None, {"engine": "regular"}, {"engine": "voronoi"}])
 def test_boussinesq_reads_the_triangle_engine_only(mesh: dict[str, Any] | None) -> None:
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload_2("boussinesq", mesh))
+        _validate(_payload_2("boussinesq", mesh))
     message = str(excinfo.value)
     assert "'boussinesq'" in message
     assert "engines triangle" in message
@@ -921,7 +927,7 @@ def test_boussinesq_reads_the_triangle_engine_only(mesh: dict[str, Any] | None) 
 
 def test_the_default_engine_is_named_as_the_default() -> None:
     with pytest.raises(ValueError, match=r"mesh\.engine is 'regular' \(the default\)"):
-        HydroModPyConfig.model_validate(_payload_2("boussinesq", None))
+        _validate(_payload_2("boussinesq", None))
 
 
 @pytest.mark.parametrize(
@@ -935,12 +941,12 @@ def test_the_default_engine_is_named_as_the_default() -> None:
     ],
 )
 def test_a_pair_the_solver_reads_loads(solver: str, engine: str) -> None:
-    cfg = HydroModPyConfig.model_validate(_payload_2(solver, {"engine": engine}))
+    cfg = _validate(_payload_2(solver, {"engine": engine}))
     assert cfg.mesh is not None and cfg.mesh.engine == engine
 
 
 def test_no_mesh_section_is_the_regular_engine() -> None:
-    cfg = HydroModPyConfig.model_validate(_payload_2("modflow_nwt", None))
+    cfg = _validate(_payload_2("modflow_nwt", None))
     assert cfg.mesh is None
 
 
@@ -952,7 +958,7 @@ def polygon_engine():
 
 
 def test_modflow6_reads_a_third_party_engine_of_polygon_cells(polygon_engine: type) -> None:
-    cfg = HydroModPyConfig.model_validate(_payload_2("modflow6", {"engine": "fake_polygon"}))
+    cfg = _validate(_payload_2("modflow6", {"engine": "fake_polygon"}))
     assert cfg.mesh is not None and cfg.mesh.engine == "fake_polygon"
 
 
@@ -961,7 +967,7 @@ def test_a_solver_that_lists_engine_ids_refuses_a_third_party_engine(
     polygon_engine: type, solver: str
 ) -> None:
     with pytest.raises(ValueError, match="mesh.engine is 'fake_polygon'") as excinfo:
-        HydroModPyConfig.model_validate(_payload_2(solver, {"engine": "fake_polygon"}))
+        _validate(_payload_2(solver, {"engine": "fake_polygon"}))
     assert "modflow6" in str(excinfo.value)
 
 
@@ -1393,13 +1399,13 @@ def test_lake_sections_validate_into_typed_configs(tmp_path) -> None:
         "lake_abacus": {
             "sources": [
                 {
-                    "source": "custom",
+                    "source": "file",
                     "path": "lake_abacus_custom_lac0.csv",
                     "lake_id": "lac0",
                 }
             ]
         },
-        "lake_geometry": {"sources": [{"source": "custom", "path": "lac0.gpkg"}]},
+        "lake_geometry": {"sources": [{"source": "file", "path": "lac0.gpkg"}]},
     }
 
     cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
@@ -1408,7 +1414,7 @@ def test_lake_sections_validate_into_typed_configs(tmp_path) -> None:
     assert isinstance(cfg.lake_geometry, LakeGeometryConfig)
 
     abacus_src = cfg.lake_abacus.sources[0]
-    assert isinstance(abacus_src, CustomLakeAbacusSource)
+    assert isinstance(abacus_src, FileLakeAbacusSource)
     assert abacus_src.lake_id == "lac0"
     # InputFile path resolved to an absolute path under the TOML directory.
     assert Path(abacus_src.path).is_absolute()
@@ -1425,5 +1431,28 @@ def test_extra_field_is_forbidden_in_lake_source() -> None:
 
     with pytest.raises(ValidationError):
         LakeAbacusConfig.model_validate(
-            {"sources": [{"source": "custom", "path": "a.csv", "unexpected": 1}]}
+            {"sources": [{"source": "file", "path": "a.csv", "unexpected": 1}]}
         )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("declares", [True, False], ids=["with-a-dem-source", "without"])
+def test_a_mapping_reads_a_dem_catchment_from_its_dem_source(tmp_path, declares) -> None:
+    # A Python caller passes no validation context: the root reads the rule from
+    # the mapping, as the file loader does.
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "dem.tif").write_bytes(b"")
+    payload: dict[str, Any] = {
+        "workspace": {"project_root": str(tmp_path)},
+        "site": {"name": "probe"},
+        "geographic": {"catchment": {"kind": "dem"}},
+    }
+    if declares:
+        payload["data"] = {
+            "types": ["dem"],
+            "dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]},
+        }
+        assert HydroModPyConfig.model_validate(payload).geographic.catchment.kind == "dem"
+    else:
+        with pytest.raises(ValidationError, match=r"\[\[data\.dem\.sources\]\]"):
+            HydroModPyConfig.model_validate(payload)

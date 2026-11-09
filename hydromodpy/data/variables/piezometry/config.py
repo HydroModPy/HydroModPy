@@ -37,9 +37,7 @@ class PiezometrySourceConfig(
         ),
         json_schema_extra={
             "value_docs": {
-                "custom": (
-                    "Loads groundwater-level records from local station and chronicle files."
-                ),
+                "file": ("Loads groundwater-level records from local station and chronicle files."),
                 "hubeau": "Downloads public groundwater-level observations from the Hub'Eau API.",
             }
         },
@@ -75,10 +73,10 @@ class PiezometrySourceConfig(
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> PiezometrySourceConfig:
-        if self.source == "custom":
+        if self.source == "file":
             if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles)."
+                    "File source requires 'path' (directory with location + chronicles)."
                 )
         if self.source == "hubeau":
             if self.product is None:

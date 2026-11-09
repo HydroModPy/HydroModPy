@@ -112,7 +112,7 @@ def test_sidecar_accepts_omitted_fetched_at(tmp_path: Path):
     """``fetched_at`` is optional so custom-source sidecars stay deterministic."""
     target = tmp_path / "custom.csv"
     target.write_bytes(b"a,b\n1,2\n")
-    sc = Sidecar(source="custom", sha256="0" * 64)
+    sc = Sidecar(source="file", sha256="0" * 64)
     assert sc.fetched_at is None
     sidecar_path = write_sidecar(target, sc)
     payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
@@ -125,8 +125,10 @@ def test_resolve_fetched_at_custom_source_is_none(monkeypatch: pytest.MonkeyPatc
     """Custom local inputs always return ``None`` regardless of env var."""
     monkeypatch.delenv(DETERMINISTIC_FETCHED_AT_ENV, raising=False)
     assert resolve_fetched_at("custom") is None
+    assert resolve_fetched_at("file") is None
     monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "1")
     assert resolve_fetched_at("custom") is None
+    assert resolve_fetched_at("file") is None
 
 
 def test_resolve_fetched_at_remote_source_returns_timestamp(monkeypatch: pytest.MonkeyPatch):
@@ -165,3 +167,63 @@ def test_resolve_fetched_at_explicit_now_is_passed_through(
     assert resolve_fetched_at("ign", now=fixed) == fixed
     monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "1")
     assert resolve_fetched_at("ign", now=fixed) is None
+
+
+def test_sidecar_new_optional_fields():
+    sc = Sidecar(
+        source="url",
+        origin="https://example.com/data.tif",
+        sha256="a" * 64,
+        etag='"etag123"',
+        last_modified="Mon, 01 Jan 2024 00:00:00 GMT",
+        product_version="v1.0",
+        state="clean",
+    )
+    assert sc.origin == "https://example.com/data.tif"
+    assert sc.etag == '"etag123"'
+    assert sc.last_modified == "Mon, 01 Jan 2024 00:00:00 GMT"
+    assert sc.product_version == "v1.0"
+    assert sc.state == "clean"
+
+
+def test_sidecar_sha256_is_required():
+    with pytest.raises(ValidationError):
+        Sidecar(source="url", origin="https://example.com/data.tif")
+    sc = Sidecar(source="url", sha256="0" * 64, origin="https://example.com/data.tif")
+    assert sc.sha256 == "0" * 64
+
+
+def test_load_sidecar_migrates_custom_to_file(tmp_path: Path):
+    target = tmp_path / "legacy.csv"
+    target.write_bytes(b"1,2,3")
+    sidecar_path = target.with_name(target.name + SIDECAR_SUFFIX)
+    sidecar_path.write_text(
+        json.dumps(
+            {
+                "source": "custom",
+                "sha256": "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3",
+                "license": "LicenseRef-undetermined",
+            }
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_sidecar(target)
+    assert loaded.source == "file"
+    assert loaded.sha256 == "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+
+
+def test_load_sidecar_from_v2_corpus_read_only():
+    corpus_root = Path(__file__).resolve().parents[3] / "regression" / "frozen_documents" / "v2.0.0"
+    piezo = (
+        corpus_root / "current" / "island" / "data" / "piezometry" / "piezometry_custom_W1_D.csv"
+    )
+    if not piezo.is_file():
+        pytest.skip("Corpus file not found")
+    loaded = load_sidecar(piezo)
+    assert loaded.source == "file"
+    assert loaded.sha256 == "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+
+    dem = corpus_root / "current" / "island" / "data" / "dem" / "dem_ign.tif"
+    if dem.is_file():
+        loaded_dem = load_sidecar(dem)
+        assert loaded_dem.source == "ign"

@@ -35,7 +35,6 @@ write_intermediates = true
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -48,7 +47,11 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = []
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
 
 [flow]
 flow_regime = "steady"
@@ -216,15 +219,13 @@ def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Pa
             crs="EPSG:2154",
         ).to_file(lakes, driver="GPKG")
 
-    payload = {
-        "source_mode": "standard",
-        "catchment": {"kind": "dem", "dem_init_path": str(DEM)},
-        "enforce_lakes": {"enabled": True, "lake_geometry_path": str(lakes)},
-    }
+    config = GeographicConfig.from_dem(
+        enforce_lakes={"enabled": True, "lake_geometry_path": str(lakes)}
+    )
 
     _write(0.0)
-    before = geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+    before = geographic_cache_fingerprint(config, dem_path=DEM)
     _write(500.0)
-    after = geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+    after = geographic_cache_fingerprint(config, dem_path=DEM)
 
     assert before != after

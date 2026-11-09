@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -161,6 +161,19 @@ def select_time_indices(n_times: int, selector: TimeSelector) -> np.ndarray:
     return resolved
 
 
+def time_selector_of(time: Any) -> TimeSelector:
+    """Return the selector an observable request carries for a declared ``time``.
+
+    A series output reads ``"all"``, ``"first"`` or ``"last"``. Any other value,
+    a network output's date or a list of explicit dates, comes back as ``"all"``:
+    the adapter then serves the whole run and the selection happens on values,
+    because an undated answer has no timestamp to match a date against (D224).
+    Kept identical rather than fixed, because fixing it changes numbers that
+    already exist.
+    """
+    return time if time in ("all", "first", "last") else "all"
+
+
 __all__ = (
     "ObservableRequest",
     "ObservableResult",
@@ -168,4 +181,5 @@ __all__ = (
     "TimeSelector",
     "require_unique_request_ids",
     "select_time_indices",
+    "time_selector_of",
 )

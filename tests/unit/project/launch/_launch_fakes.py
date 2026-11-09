@@ -44,9 +44,15 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 
 [simulation.time]
 start_datetime = "2000-01-01"
@@ -259,11 +265,18 @@ def fake_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         FAKE_WORKER.replace("@MANIFEST@", repr(json.dumps(manifest_document()))), encoding="utf-8"
     )
 
-    def worker(case, flags=()):
-        return [sys.executable, str(script), str(case.path), *flags]
+    def worker(case, flags=(), environment_flags=()):
+        return [sys.executable, str(script), str(case.path), *flags, *environment_flags]
 
-    def preparer(case):
-        return [sys.executable, str(script), str(case.path), "--until", "load_data"]
+    def preparer(case, environment_flags=()):
+        return [
+            sys.executable,
+            str(script),
+            str(case.path),
+            "--until",
+            "load_data",
+            *environment_flags,
+        ]
 
     monkeypatch.setattr(launch_local, "worker_command", worker)
     monkeypatch.setattr(launch_prepare, "prepare_command", preparer)

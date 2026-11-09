@@ -273,7 +273,12 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "grid axes, turns XT3D on."
         ),
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="-"),
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                units="-",
+                excluded_by=("flow.param.Kv",),
+            ),
             unit="-",
         ),
     )
@@ -325,6 +330,27 @@ class Modflow6Config(HydroModelBase):
             "[mesh] and the layering is [domain.layers]."
         ),
     )
+
+    @property
+    def runner(self) -> str:
+        """How MODFLOW 6 is started, read by the dispatcher before any solve is built.
+
+        ``'subprocess'`` runs the mf6 executable, ``'api'`` drives libmf6 through
+        the optional modflowapi package. Read here so the generic pre-solve step
+        names no backend: a backend that states no ``runner`` is started as a
+        subprocess.
+        """
+        return self.runtime.mf6_runner
+
+    @property
+    def wall_clock_limit_s(self) -> float | None:
+        """Wall-clock budget of one trial of a parallel calibration, in seconds.
+
+        ``None`` keeps the built-in default of the calibration workers. A test
+        worker reading the options of the backend that runs takes this, so one
+        stuck trial cannot wedge a whole search, whichever backend it runs.
+        """
+        return self.runtime.mf6_api_timeout_s
 
 
 def _coerce_modflow6_config(

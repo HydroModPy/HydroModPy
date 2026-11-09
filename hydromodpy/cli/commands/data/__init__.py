@@ -6,7 +6,6 @@ Cache management:
 
 - ``hmp data ls``: list artifacts indexed in the workspace cache.
 - ``hmp data get <request.json | variable>``: serve a data request into a folder.
-- ``hmp data check``: validate ``<variable>_custom/`` folders.
 - ``hmp data add <file>``: ingest a single file with explicit metadata.
 - ``hmp data remove``: drop cache entries by variable/provider/station.
 - ``hmp data prune --older-than N``: drop cache entries older than N days.
@@ -23,7 +22,6 @@ import argparse
 from hydromodpy.cli.commands.data import (
     add,
     archive,
-    check,
     get,
     ls,
     prune,
@@ -38,7 +36,6 @@ HELP: str = "Workspace data cache management"
 ACTIONS = (
     ls,
     get,
-    check,
     add,
     remove,
     prune,

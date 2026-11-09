@@ -7,8 +7,8 @@ stays for the bundles that are written by hand and committed:
 
 - the Boussinesq validation cases, which write them with
   ``validation_cases/shared`` and keep 16 of them in ``mesh_bundles/``;
-- ``Boussinesq`` itself, which reads one from ``output_exchange_bundle_dir`` of
-  the mesh summary (``flow_to_boussinesq_adapter.resolve_mesh_bundle``);
+- ``Boussinesq`` itself, which reads one from the ``exchange_mesh`` option of
+  ``[solver.boussinesq]`` (``flow_to_boussinesq_adapter.resolve_solver_mesh``);
 - :func:`cell_mesh_from_bundle`, which turns a bundle into a ``PlanarCellMesh``
   for the mesh tests.
 

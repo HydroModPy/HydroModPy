@@ -1,186 +1,218 @@
-"""Bridge between ``[[data.dem.sources]]`` and ``[geographic].dem_init_path``.
+"""Resolve the DEM raster file from ``[[data.dem.sources]]``.
 
 The geographic delineation pipeline needs a concrete DEM file path before any
-data manager runs. Historically users had to provide it via
-``[geographic].dem_init_path`` even when their DEM was already declared under
-``[[data.dem.sources]]``. This resolver removes that duplication by populating
-``dem_init_path`` from the data-manager declaration when the geographic field
-is left empty.
+data manager runs. A user declares the DEM under ``[[data.dem.sources]]``
+(with source = "file", source = "url", or an API provider such as
+"ign_geoplateforme_dem").
 
-Resolution order for a single source:
-
-- ``source = "custom"`` resolves ``path`` against the TOML directory.
-- ``source = "ign_geoplateforme_dem"`` uses the IGN Geoplateforme DEM client
-  with an outlet-buffer bootstrap bbox. The box is 60 km wide, which is 144 million
-  pixels for ``rge-alti`` at 5 m (just under the size guard). ``rge-alti`` at 1 m is
-  refused here, before any request: that box would be billions of pixels.
-
-The first source that yields a usable path wins.
+Resolution order:
+- The first source in ``[[data.dem.sources]]`` that yields a valid DEM file wins.
+- A ``file`` source resolves ``path`` against the project root.
+- A ``url`` source downloads and caches the remote raster.
+- An API source (e.g. ``ign_geoplateforme_dem``) uses an outlet-buffer bootstrap
+  bounding box (60 km wide around the outlet).
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
-from hydromodpy.data.common.io_helpers import declared_source_path
-from hydromodpy.data.source.port import Extent, FetchRequest
+from hydromodpy.data.contracts.file_record import FileRecord
+from hydromodpy.data.source.port import Extent, FetchRequest, fetch_within
 from hydromodpy.data.source.registry import build_from_section, data_sources
 
 _BOOTSTRAP_BUFFER_M = 30_000
 
 
-def fill_dem_init_path(
+def resolve_dem(
     cfg: Any,
     *,
-    config_path: Path | None,
-    data_path: Path | None,
-) -> None:
-    """Populate ``geographic.catchment.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
+    data_dir: Path | str | None = None,
+    bounds: Bounds | None = None,
+) -> FileRecord | None:
+    """Resolve a concrete DEM raster as a :class:`FileRecord` from ``[[data.dem.sources]]``.
 
-    Keeps DEM declarations symmetrical with other data managers: a user
-    can either set ``geographic.catchment.dem_init_path`` directly (shortcut) or
-    declare ``[[data.dem.sources]] source = "custom" path = ...`` (same
-    pattern as geology, hydrometry, etc.). The geographic pipeline only
-    ever sees a resolved path. ``data_path`` is the workspace data folder,
-    whose ``dem`` subfolder caches a download.
+    The first declared DEM source that yields a usable raster is returned.
+    ``None`` when the configuration declares no source at all: the caller then
+    resolves the DEM through the geographic runtime instead. Does not mutate
+    the configuration.
     """
-    geographic_cfg = cfg.geographic
-    existing = getattr(geographic_cfg, "dem_init_path", None)
-    if existing is not None:
-        require_dem_crs(Path(str(existing)))
-        return
-    dem_cfg = getattr(getattr(cfg, "data", None), "dem", None)
-    if not getattr(dem_cfg, "sources", None):
-        return
-    if config_path is None:
-        raise ConfigError(
-            "geographic.catchment.dem_init_path is missing and no config path is available "
-            "to resolve [[data.dem.sources]]."
-        )
-    resolved = resolve_dem_path_from_data_sources(
-        cfg,
-        config_path=Path(config_path),
-        cache_dir=None if data_path is None else Path(data_path) / "dem",
-    )
-    if resolved is None:
-        raise ConfigError(
-            "geographic.catchment.dem_init_path is missing and [[data.dem.sources]] did not "
-            "resolve."
-        )
-    catchment = getattr(geographic_cfg, "catchment", None)
-    if catchment is None:
-        raise ConfigError(
-            "geographic.catchment.kind is required when [[data.dem.sources]] is "
-            "the DEM source. Add a [geographic.catchment] table with catch_def."
-        )
-    require_dem_crs(Path(str(resolved)))
-    catchment.dem_init_path = resolved
-
-
-def resolve_dem_path_from_data_sources(
-    cfg: Any,
-    *,
-    config_path: Path,
-    cache_dir: Path | None = None,
-) -> Path | None:
-    """Return a concrete DEM path derived from ``[[data.dem.sources]]``."""
-
-    data_cfg = getattr(cfg, "data", None)
+    data_cfg = getattr(cfg, "data", None) if not isinstance(cfg, Mapping) else cfg.get("data")
     if data_cfg is None:
         return None
-    dem_cfg = getattr(data_cfg, "dem", None)
+    dem_cfg = (
+        getattr(data_cfg, "dem", None) if not isinstance(data_cfg, Mapping) else data_cfg.get("dem")
+    )
     if dem_cfg is None:
         return None
 
-    sources = getattr(dem_cfg, "sources", None) or ()
-    config_dir = Path(config_path).resolve().parent
+    sources = (
+        getattr(dem_cfg, "sources", None)
+        if not isinstance(dem_cfg, Mapping)
+        else dem_cfg.get("sources")
+    )
+    if not sources:
+        return None
+
+    config_dir: Path | None = None
+    if hasattr(cfg, "workspace") and getattr(cfg.workspace, "project_root", None):
+        config_dir = Path(cfg.workspace.project_root)
+    elif isinstance(cfg, Mapping) and cfg.get("workspace", {}).get("project_root"):
+        config_dir = Path(cfg["workspace"]["project_root"])
+    elif hasattr(cfg, "source_path") and cfg.source_path:
+        config_dir = Path(cfg.source_path).resolve().parent
+    else:
+        config_dir = Path.cwd()
+
+    output_dir = Path(data_dir) / "dem" if data_dir is not None else (_hmp_cache_dir() / "dem")
 
     for source_cfg in sources:
-        source_kind = str(getattr(source_cfg, "source", "")).strip()
-        if source_kind == "custom":
-            resolved = _resolve_custom_path(source_cfg, config_dir)
-            if resolved is not None:
-                return resolved
+        source_kind = str(
+            getattr(source_cfg, "source", "")
+            or (source_cfg.get("source", "") if isinstance(source_cfg, Mapping) else "")
+        ).strip()
+
+        if source_kind == "file":
+            record = _resolve_file_source(source_cfg, config_dir=config_dir, bounds=bounds)
+            if record is not None:
+                require_dem_crs(record.path)
+                return record
         elif source_kind in data_sources.names("dem"):
-            return _bootstrap_api_source(
+            record = _resolve_registered_source(
                 source_cfg,
+                source_kind=source_kind,
                 cfg=cfg,
-                cache_dir=cache_dir,
+                output_dir=output_dir,
+                bounds=bounds,
             )
-    return None
+            if record is not None:
+                require_dem_crs(record.path)
+                return record
+
+    raise ConfigError("[data.dem.sources] did not resolve to a DEM file.")
 
 
-def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
-    candidate = declared_source_path(source_cfg, config_dir)
-    if candidate is None:
+def _resolve_file_source(
+    source_cfg: Any,
+    *,
+    config_dir: Path,
+    bounds: Bounds | None,
+) -> FileRecord | None:
+    raw_path = (
+        getattr(source_cfg, "path", None)
+        if not isinstance(source_cfg, Mapping)
+        else source_cfg.get("path")
+    )
+    if not raw_path:
         return None
+    candidate = Path(raw_path)
+    if not candidate.is_absolute():
+        candidate = (config_dir / candidate).resolve()
     if not candidate.exists():
-        raise FileNotFoundError(f"[data.dem] custom source path not found: {candidate}")
+        raise FileNotFoundError(f"[data.dem] file source path not found: {candidate}")
     if candidate.is_dir():
         from hydromodpy.data.variables.dem.custom import _find_dem_file_in_dir
 
         candidate = _find_dem_file_in_dir(candidate)
-    return candidate
+    if bounds is not None:
+        bounds.require_path(candidate, why="the DEM the [data.dem.sources] entry names")
+    return FileRecord.of(candidate, origin="file")
 
 
-def _bootstrap_api_source(
+def _resolve_registered_source(
     source_cfg: Any,
     *,
+    source_kind: str,
     cfg: Any,
-    cache_dir: Path | None,
-) -> Path:
-    geo_cfg = cfg.geographic
-    x_out = getattr(geo_cfg, "x_outlet", None)
-    y_out = getattr(geo_cfg, "y_outlet", None)
-    if x_out is None or y_out is None:
-        raise ValueError(
-            "DEM API source requires geographic.catchment.x_outlet / y_outlet to build the "
-            "download bbox."
-        )
-
-    bbox = (
-        x_out - _BOOTSTRAP_BUFFER_M,
-        y_out - _BOOTSTRAP_BUFFER_M,
-        x_out + _BOOTSTRAP_BUFFER_M,
-        y_out + _BOOTSTRAP_BUFFER_M,
-    )
-
-    output_dir = cache_dir or (_hmp_cache_dir() / "dem")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    dataset = getattr(source_cfg, "dataset", "bd-alti")
-    resolution_m = getattr(source_cfg, "resolution_m", None)
-    if dataset == "rge-alti" and resolution_m is not None and float(resolution_m) == 1.0:
-        raise ValueError(
-            "[data.dem] rge-alti at resolution_m = 1 cannot bootstrap the project: the "
-            f"{2 * _BOOTSTRAP_BUFFER_M / 1000:.0f} km box around the outlet would need "
-            "billions of pixels. The 1 m grid is for an explicit extent (the "
-            "fetch_rge_alti helper or `hmp data get`). Use resolution_m = 5, or give "
-            "[geographic].dem_init_path a file."
-        )
-
-    source_cls = data_sources.get("dem", str(getattr(source_cfg, "source", "")).strip())
+    output_dir: Path,
+    bounds: Bounds | None,
+) -> FileRecord:
+    source_cls = data_sources.get("dem", source_kind)
     source = build_from_section(source_cls, source_cfg)
-    result = source.fetch(
-        FetchRequest(
-            out_dir=Path(output_dir),
-            extent=Extent(xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:2154"),
+
+    selectors = getattr(source, "selectors", ())
+    extent: Extent | None = None
+    if (
+        "extent" in selectors
+        or getattr(source, "requires_extent", False)
+        or source_kind == "ign_geoplateforme_dem"
+    ):
+        geo_cfg = (
+            getattr(cfg, "geographic", None)
+            if not isinstance(cfg, Mapping)
+            else cfg.get("geographic")
         )
+        catchment = (
+            getattr(geo_cfg, "catchment", None)
+            if not isinstance(geo_cfg, Mapping)
+            else (geo_cfg.get("catchment") if geo_cfg else None)
+        )
+        x_out = getattr(geo_cfg, "x_outlet", None) or (
+            getattr(catchment, "x_outlet", None) if catchment else None
+        )
+        y_out = getattr(geo_cfg, "y_outlet", None) or (
+            getattr(catchment, "y_outlet", None) if catchment else None
+        )
+        if isinstance(catchment, Mapping):
+            x_out = x_out or catchment.get("x_outlet")
+            y_out = y_out or catchment.get("y_outlet")
+        if x_out is None or y_out is None:
+            raise ValueError(
+                "DEM API source requires geographic.catchment.x_outlet / y_outlet to build the "
+                "download bbox."
+            )
+
+        bbox = (
+            float(x_out) - _BOOTSTRAP_BUFFER_M,
+            float(y_out) - _BOOTSTRAP_BUFFER_M,
+            float(x_out) + _BOOTSTRAP_BUFFER_M,
+            float(y_out) + _BOOTSTRAP_BUFFER_M,
+        )
+        dataset = (
+            getattr(source_cfg, "dataset", "bd-alti")
+            if not isinstance(source_cfg, Mapping)
+            else source_cfg.get("dataset", "bd-alti")
+        )
+        resolution_m = (
+            getattr(source_cfg, "resolution_m", None)
+            if not isinstance(source_cfg, Mapping)
+            else source_cfg.get("resolution_m")
+        )
+        if dataset == "rge-alti" and resolution_m is not None and float(resolution_m) == 1.0:
+            raise ValueError(
+                "[data.dem] rge-alti at resolution_m = 1 cannot bootstrap the project: the "
+                f"{2 * _BOOTSTRAP_BUFFER_M / 1000:.0f} km box around the outlet would need "
+                "billions of pixels. The 1 m grid is for an explicit extent (the "
+                "fetch_rge_alti helper or `hmp data get`). Use resolution_m = 5, or give "
+                "a file source."
+            )
+        extent = Extent(xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3], crs="EPSG:2154")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    request = FetchRequest(
+        out_dir=Path(output_dir),
+        extent=extent,
+        bounds=bounds if bounds is not None else Bounds(),
     )
-    return result.files[0].path
+    result = fetch_within(source, request)
+    if not result.files:
+        raise ConfigError(f"[data.dem] source {source_kind!r} did not produce any DEM file.")
+    return result.files[0]
 
 
 def require_dem_crs(path: Path | str) -> None:
     """Refuse a DEM raster that declares no CRS, before the terrain tools read it.
 
-    The catchment is cut out of the file named by ``dem_init_path`` before any
-    data manager runs, and the terrain engine stops on such a file with no word on
-    the cause. Only the formats rasterio opens as a georeferenced grid are looked
-    at; any other file is left to the step that reads it.
+    The catchment is cut out of the DEM file before any data manager runs,
+    and the terrain engine stops on such a file with no word on the cause.
+    Only the formats rasterio opens as a georeferenced grid are looked at;
+    any other file is left to the step that reads it.
     """
     path = Path(path)
     if path.suffix.strip().lower() not in (".tif", ".tiff", ".asc") or not path.is_file():

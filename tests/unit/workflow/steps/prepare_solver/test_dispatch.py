@@ -61,11 +61,12 @@ def test_a_project_without_a_plan_gives_no_recipe(tmp_path: Path) -> None:
 
 
 def _solver_section(runner: str) -> SimpleNamespace:
-    """A ``[solver]`` section whose only settings table is the one of MODFLOW 6."""
+    """A ``[solver]`` section: the runner choice the backend declares, alone."""
 
-    def options_of(name: str) -> SimpleNamespace:
-        assert name == "modflow6"
-        return SimpleNamespace(runtime=SimpleNamespace(mf6_runner=runner))
+    def options_of(name: str) -> SimpleNamespace | None:
+        if name != "modflow6":
+            return None
+        return SimpleNamespace(runner=runner)
 
     return SimpleNamespace(options_of=options_of)
 

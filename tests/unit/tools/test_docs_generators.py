@@ -93,7 +93,7 @@ def test_the_catalogs_read_the_solver_figure_and_source_registries(registry: dic
     assert ("flow", "modflow6") in pairs
     assert len(result["figures"]) > 20
     dem = next(row for row in result["data_sources"] if row["variable"] == "dem")
-    assert {"custom", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
+    assert {"file", "url", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
 
 
 @pytest.fixture()

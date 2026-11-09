@@ -30,6 +30,7 @@ def test_a_slot_names_the_folder_its_run_writes_into() -> None:
 
     assert slot.directory == Path("scratch") / "island"
     assert (slot.stop_before_solve, slot.bin_dir, slot.shared_forcing_dir) == (False, None, None)
+    assert slot.hand_off == frozenset()
 
 
 def test_a_slot_holds_paths_whatever_it_was_given() -> None:
@@ -38,6 +39,14 @@ def test_a_slot_holds_paths_whatever_it_was_given() -> None:
     assert slot.folder == Path("scratch")
     assert slot.bin_dir == Path("bin")
     assert slot.shared_forcing_dir == Path("shared")
+
+
+def test_a_slot_holds_the_names_a_later_run_reads_of_it() -> None:
+    """hand_off lists the products a run after this one reads, held as a frozenset of names."""
+    slot = RunSlot(Path("scratch"), "island", hand_off=("face_flow", "particles/x", "face_flow"))
+
+    assert slot.hand_off == frozenset({"face_flow", "particles/x"})
+    assert isinstance(slot.hand_off, frozenset)
 
 
 @pytest.mark.parametrize("name", ["", "   "])

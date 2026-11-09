@@ -103,11 +103,7 @@ def test_ten_distinct_catchments_compute_each_routing_product_once(
         catchment = {"x_outlet": x_outlet, "y_outlet": y_outlet, "snap_dist": 1, "buff_area": 10}
         config = GeographicConfig.model_validate(
             {
-                "catchment": {
-                    **OUTLET,
-                    "dem_init_path": flow_request["dem_init_path"],
-                    **catchment,
-                },
+                "catchment": {**OUTLET, **catchment},
                 "dem_correc_type": "fill",
                 "terrain_engine": "numpy_d8",
                 "reg_fold": results[0].job_dir,
@@ -116,7 +112,7 @@ def test_ten_distinct_catchments_compute_each_routing_product_once(
         paths = build_geographic_paths(tmp_path / f"site_{site}")
         flow = copy_regional_flow_from_job(
             config=config,
-            routing_dem_path=config.dem_init_path,
+            routing_dem_path=flow_request["dem_init_path"],
             output_dir=paths.correcflow_path,
             crs_project=LAMBERT,
         )

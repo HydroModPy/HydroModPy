@@ -27,6 +27,7 @@ import pytest
 from shapely.geometry import Polygon
 
 from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
 from hydromodpy.data.variables.oceanic.apis import shom
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
@@ -170,13 +171,13 @@ def test_the_cache_lives_in_the_variable_data_directory(tmp_path, monkeypatch):
 def test_fetch_itself_refuses_an_ambiguous_or_empty_selector(kwargs):
     """The port-level rule stays a refusal: both arguments come from the caller."""
     with pytest.raises(ValueError, match="Not both, not neither"):
-        shom.fetch(date_start=PERIOD[0], date_end=PERIOD[1], **kwargs)
+        shom.fetch(date_start=PERIOD[0], date_end=PERIOD[1], client=HTTPClient(), **kwargs)
 
 
 @pytest.mark.fast
 def test_fetch_refuses_half_a_point():
     with pytest.raises(ValueError, match="near_lat and near_lon"):
-        shom.fetch(date_start=PERIOD[0], date_end=PERIOD[1], near_lat=48.0)
+        shom.fetch(date_start=PERIOD[0], date_end=PERIOD[1], near_lat=48.0, client=HTTPClient())
 
 
 @pytest.mark.fast

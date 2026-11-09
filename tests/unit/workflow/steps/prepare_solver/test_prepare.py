@@ -95,16 +95,16 @@ def _ctx(sim_id: str, loaded: _Loaded, workspace_root: Path) -> SimpleNamespace:
 def test_a_loaded_record_lands_in_the_inputs_with_its_provider_and_licence(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     csv = _series_file(workspace / "data" / "hydrometry" / "hubeau_J0014010.csv")
-    custom = _series_file(workspace / "data" / "custom" / "recharge.csv")
-    custom.with_name(custom.name + ".json").write_text(
-        json.dumps({"source": "custom", "license": "CC-BY-4.0"}), encoding="utf-8"
+    own = _series_file(workspace / "data" / "file" / "recharge.csv")
+    own.with_name(own.name + ".json").write_text(
+        json.dumps({"source": "file", "license": "CC-BY-4.0"}), encoding="utf-8"
     )
     loaded = _Loaded(
         hydrometry=LoadResult(
             points=[_record(csv, source="hubeau", station="J0014010", variable="discharge")]
         ),
         recharge=LoadResult(
-            points=[_record(custom, source="custom", station="basin", variable="recharge")]
+            points=[_record(own, source="file", station="basin", variable="recharge")]
         ),
     )
 
@@ -112,7 +112,7 @@ def test_a_loaded_record_lands_in_the_inputs_with_its_provider_and_licence(tmp_p
         step_write_provenance(_ctx(store.sim_id, loaded, workspace), store=store)
         inputs = {entry.provider: entry for entry in store.facts.inputs}
 
-    assert set(inputs) == {"hubeau", "custom"}
+    assert set(inputs) == {"hubeau", "file"}
     gauge = inputs["hubeau"]
     assert gauge.variable == "hydrometry:discharge"
     assert gauge.path == "data/hydrometry/hubeau_J0014010.csv"
@@ -122,8 +122,8 @@ def test_a_loaded_record_lands_in_the_inputs_with_its_provider_and_licence(tmp_p
     assert gauge.fetched_at is not None
     assert gauge.request["station"] == "J0014010"
     assert gauge.request["period"] == ["2020-01-01T00:00:00", "2020-01-03T00:00:00"]
-    assert inputs["custom"].license == "CC-BY-4.0"
-    assert inputs["custom"].path == "data/custom/recharge.csv"
+    assert inputs["file"].license == "CC-BY-4.0"
+    assert inputs["file"].path == "data/file/recharge.csv"
 
 
 def test_the_inputs_reach_the_seal(tmp_path: Path) -> None:

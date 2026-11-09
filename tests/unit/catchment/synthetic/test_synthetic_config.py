@@ -49,6 +49,6 @@ def test_a_synthetic_section_reads_from_its_toml_table(tmp_path) -> None:
         '[synthetic_geographic.grid]\nlength_x = "40 m"\nlength_y = "20 m"\nnx = 4\nny = 2\n',
         encoding="utf-8",
     )
-    config = SyntheticGeographicConfig.from_toml(path)
+    config = SyntheticGeographicConfig.from_toml(path, root=None)
     assert config.case_id == "island"
     assert (config.grid.ncol, config.grid.dx) == (4, 10.0)

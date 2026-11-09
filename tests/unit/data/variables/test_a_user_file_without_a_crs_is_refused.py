@@ -21,7 +21,7 @@ from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.variables.dem.custom import load_custom_dem
 from hydromodpy.data.variables.geology.custom import load_custom_geology
-from hydromodpy.data.variables.hydrography.custom import load_custom
+from hydromodpy.data.variables.hydrography.custom import load_file
 
 
 def _raster(path: Path, *, crs: str | None) -> Path:
@@ -83,7 +83,7 @@ def test_a_river_network_without_a_crs_is_refused(tmp_path: Path) -> None:
     gpd.GeoDataFrame(geometry=[LineString([(0, 0), (10, 10)])]).to_file(path)
 
     with pytest.raises(DataContractViolation, match="hydrography: .*declares no CRS"):
-        load_custom(SimpleNamespace(path=path))
+        load_file(SimpleNamespace(path=path))
 
 
 @pytest.mark.fast
@@ -91,7 +91,7 @@ def test_a_river_raster_without_a_crs_is_refused(tmp_path: Path) -> None:
     path = _raster(tmp_path / "rivers.tif", crs=None)
 
     with pytest.raises(DataContractViolation, match="hydrography: .*declares no CRS"):
-        load_custom(SimpleNamespace(path=path))
+        load_file(SimpleNamespace(path=path))
 
 
 @pytest.mark.fast
@@ -123,11 +123,13 @@ def test_a_dem_that_rasterio_does_not_open_is_left_to_the_step_that_reads_it(
 
 
 @pytest.mark.fast
-def test_the_resolve_step_refuses_a_dem_init_path_without_a_crs(tmp_path: Path) -> None:
-    from hydromodpy.data.variables.dem.resolver import fill_dem_init_path
+def test_the_resolve_step_refuses_a_file_dem_without_a_crs(tmp_path: Path) -> None:
+    """``dem_init_path`` is gone; the DEM a ``file`` source names meets the same refusal."""
+    from hydromodpy.data.variables.dem.resolver import resolve_dem
 
     path = _raster(tmp_path / "regional.tif", crs=None)
-    cfg = SimpleNamespace(geographic=SimpleNamespace(dem_init_path=path))
+    source = SimpleNamespace(source="file", path=path)
+    cfg = SimpleNamespace(data=SimpleNamespace(dem=SimpleNamespace(sources=[source])))
 
     with pytest.raises(DataContractViolation, match=r"declares no CRS"):
-        fill_dem_init_path(cfg, config_path=None, data_path=None)
+        resolve_dem(cfg, data_dir=tmp_path)

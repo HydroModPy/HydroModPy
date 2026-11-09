@@ -76,7 +76,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{_CHEZE / "dem_valley.tif"}"
 x_outlet = 300037.5
 y_outlet = 6701262.5
 snap_dist = "60 m"
@@ -175,12 +174,16 @@ units = "m3/s"
 kind = "constant"
 value = "2 m"
 
+[[data.dem.sources]]
+source = "file"
+path = "{_CHEZE / "dem_valley.tif"}"
+
 [[data.lake_geometry.sources]]
-source = "custom"
+source = "file"
 path = "{_CHEZE / "lake_geometry.gpkg"}"
 
 [[data.lake_abacus.sources]]
-source = "custom"
+source = "file"
 path = "{_CHEZE / "lake_abacus.csv"}"
 lake_id = "res0"
 

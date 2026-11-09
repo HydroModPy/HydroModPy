@@ -64,6 +64,7 @@ import shutil
 import socket
 import sys
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -166,6 +167,7 @@ def write_slurm_array(
     walltime: str | None = None,
     threads_per_case: int | None = None,
     prepare_parallel: int | None = None,
+    environment_flags: Sequence[str] = (),
 ) -> SlurmJob:
     """Write ``jobs/<stamp>-slurm/`` for the current plan and return what it holds.
 
@@ -218,13 +220,13 @@ def write_slurm_array(
         PREPARE_SCRIPT: {
             "JOB_NAME": f"hmp-prepare-{project}-{stamp}",
             "PREPARE_PARALLEL": str(prepare),
-            "WORKER": worker_block("prepare"),
+            "WORKER": worker_block("prepare", environment_flags=environment_flags),
         },
         ARRAY_SCRIPT: {
             "CPUS_PER_TASK": str(threads * max_solves),
             "JOB_NAME": job_name,
             "MAX_SOLVES": str(max_solves),
-            "WORKER": worker_block("solve"),
+            "WORKER": worker_block("solve", environment_flags=environment_flags),
         },
     }
     texts = {script: render(script, {**common, **fields}) for script, fields in scripts.items()}

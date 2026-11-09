@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 82 loadable TOLERANCES.md rows.
+# W5 classification of the 87 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -56,6 +56,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "theis_confined_pumping_2d__nse_vs_analytical_9_probes",
         "theis_confined_pumping_2d__max_pointwise_relative_drawdown_error",
         "direct_solver_outputs__rtol",
+        "the_linear_reservoir_on_the_one_cell_mesh_discharge_depth_series_and_released_volume__state_max_abs_error",
         "reservoir_calibration_validation__recovered_log10_k_and_n_drift_from_truth",
         "regression_goldens_arrays__rtol",
         "regression_goldens_arrays__atol",
@@ -260,7 +261,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 86, sorted(loadable)
+    assert len(loadable) == 87, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

@@ -247,7 +247,10 @@ def _path_signature(path: str | Path | None) -> dict[str, object] | None:
     }
 
 
-def geographic_cache_fingerprint(config: GeographicConfig) -> str:
+def geographic_cache_fingerprint(
+    config: GeographicConfig,
+    dem_path: str | Path | None = None,
+) -> str:
     """Build a deterministic fingerprint for geographic preprocessing inputs."""
     config_payload = config.model_dump(mode="json")
     # This flag controls cache use; it should not invalidate the underlying
@@ -280,7 +283,7 @@ def geographic_cache_fingerprint(config: GeographicConfig) -> str:
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "config": config_payload,
         "inputs": {
-            "dem_init_path": _path_signature(config.dem_init_path),
+            "dem_init_path": _path_signature(dem_path),
             "polyg_shp_path": _path_signature(config.polyg_shp_path),
             # The vectors that condition the routing DEM and the model
             # top. Editing one in place changes every product below without
@@ -491,6 +494,7 @@ def load_cached_geographic_products(
     paths: GeographicPaths,
     crs_project: str | None,
     reuse_existing_outputs: bool | None = None,
+    dem_path: str | Path | None = None,
 ) -> GeographicProducts | None:
     """Return cached products when enabled, fingerprinted, and complete.
 
@@ -515,7 +519,7 @@ def load_cached_geographic_products(
         return None
     if manifest.get("schema") != _GEOGRAPHIC_CACHE_SCHEMA_VERSION:
         return None
-    if manifest.get("fingerprint") != geographic_cache_fingerprint(config):
+    if manifest.get("fingerprint") != geographic_cache_fingerprint(config, dem_path=dem_path):
         return None
 
     raster_products = _raster_products_from_paths(paths)
@@ -525,7 +529,7 @@ def load_cached_geographic_products(
     # The model top is read from the ground. A tree written before the ground had
     # its own file lacks it and is rebuilt.
     ground = ground_dem_path_from_config(
-        config, SimpleNamespace(dem_init_path=str(config.dem_init_path), paths=paths)
+        config, SimpleNamespace(dem_init_path=str(dem_path) if dem_path else "", paths=paths)
     )
     if not Path(ground).exists():
         return None
@@ -618,6 +622,7 @@ def write_geographic_cache_manifest(
     catchment_area_km2: float,
     catchment_products: object | None,
     flow_products: FlowProducts | None = None,
+    dem_path: str | Path | None = None,
 ) -> None:
     """Describe the geographic tree just written, next to the tree itself.
 
@@ -629,7 +634,7 @@ def write_geographic_cache_manifest(
     """
     manifest = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
-        "fingerprint": geographic_cache_fingerprint(config),
+        "fingerprint": geographic_cache_fingerprint(config, dem_path=dem_path),
         "catchment_area_km2": float(catchment_area_km2),
         "buffer_distance_m": float(domain_products.buffer_distance_m),
         "buffer_rule": domain_products.buffer_rule,

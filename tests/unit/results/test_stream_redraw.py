@@ -1048,10 +1048,11 @@ def test_a_watershed_with_nothing_in_it_gives_no_outline(watershed) -> None:
 
 # A figure redraws what a trial scored, so it reads the settings of the network
 # output the run sealed under ``[calibration.outputs]``, and the defaults when
-# the run sealed none. The snapshot is the plain mapping a run stores: the
-# results layer never imports the calibration schema.
+# the run sealed none. The seal is the plain mapping a run stores, which the
+# reader reads as it is written, at the names today's writer holds.
 def _network(**fields) -> dict:
-    return {"support": "network", "observed_network": "data.hydrography", **fields}
+    """Return the seal of a network output, at the names of today."""
+    return {"support": "network", "map": {"complete": "data.hydrography"}, **fields}
 
 
 def _run_4(outputs: dict | None = None, *, window: dict | None = None, **sections):
@@ -1084,19 +1085,23 @@ def test_every_setting_the_output_sealed_is_read() -> None:
     run = _run_4(
         {
             "streams": _network(
-                tau_specific_ratio=0.0,
-                diagonal_neighbors=False,
-                observed_rasterization="touch",
-                weighting="area",
-                observed_position_accuracy=25.0,
-                time="first",
-                extent={
-                    "maximal_flowing_duration": "3 months",
-                    "minimal_dry_duration": "2 months",
-                    "year_quorum": 0.75,
-                    "visible_flow": "2%",
-                    "weights": {"minimal": 0.5, "maximal": 0.5},
+                model={
+                    "seepage_threshold": 0.0,
+                    "neighbours": "D4",
+                    "weighting": "area",
+                    "extent": {
+                        "flowing_at_least": "3 months",
+                        "dry_at_most": "2 months",
+                        "year_quorum": 0.75,
+                        "visible_flow": "2%",
+                    },
                 },
+                map={
+                    "drawn_by": "touch",
+                    "position_accuracy": 25.0,
+                    "calibrate_on": {"permanent": 0.5, "complete": 0.5},
+                },
+                time="first",
             )
         }
     )
@@ -1119,7 +1124,7 @@ def test_every_setting_the_output_sealed_is_read() -> None:
 
 
 def test_a_key_the_output_left_out_takes_the_default() -> None:
-    settings = network_criterion_settings(_run_4({"streams": _network(extent={})}))
+    settings = network_criterion_settings(_run_4({"streams": _network(model={"extent": {}})}))
 
     assert settings.tau_specific_ratio == STREAM_CRITERION_DEFAULTS.tau_specific_ratio
     assert settings.observed_rasterization == STREAM_CRITERION_DEFAULTS.observed_rasterization
@@ -1136,7 +1141,7 @@ def test_a_single_state_output_carries_no_extent_rules() -> None:
 
 
 def test_a_positional_accuracy_with_its_unit_is_read_in_metres() -> None:
-    run = _run_4({"streams": _network(observed_position_accuracy="0.05 km")})
+    run = _run_4({"streams": _network(map={"position_accuracy": "0.05 km"})})
 
     assert network_criterion_settings(run).observed_position_accuracy_m == pytest.approx(50.0)
 
@@ -1144,9 +1149,9 @@ def test_a_positional_accuracy_with_its_unit_is_read_in_metres() -> None:
 def test_several_network_outputs_read_the_first_and_say_so() -> None:
     run = _run_4(
         {
-            "first": _network(tau_specific_ratio=0.0),
+            "first": _network(model={"seepage_threshold": 0.0}),
             "head": {"support": "point", "variable": "head"},
-            "second": _network(tau_specific_ratio=1.0e-2),
+            "second": _network(model={"seepage_threshold": 1.0e-2}),
         }
     )
 
@@ -1165,9 +1170,11 @@ def test_an_output_the_run_did_not_seal_is_refused() -> None:
 
 def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
     with pytest.raises(ValueError, match="unknown map.drawn_by"):
-        network_criterion_settings(_run_4({"streams": _network(observed_rasterization="all")}))
+        network_criterion_settings(_run_4({"streams": _network(map={"drawn_by": "all"})}))
     with pytest.raises(ValueError, match="carries no unit"):
-        network_criterion_settings(_run_4({"streams": _network(extent={"visible_flow": "1"})}))
+        network_criterion_settings(
+            _run_4({"streams": _network(model={"extent": {"visible_flow": "1"}})})
+        )
 
 
 def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:
@@ -1262,14 +1269,12 @@ def test_the_outlet_is_placed_from_the_snapped_pour_point() -> None:
 #
 # On the 5 x 3 valley of cells of 1 ha, the mapped axis starts 40 m north of the
 # center of its head cell, which drains 5 ha; the cell below drains 10 ha.
-def _sealed_run(**heads):
+def _sealed_run(**map_knobs):
     run = comparison_run()
     output = {
         "support": "network",
-        "observed_network": "data.hydrography",
-        "tau_specific_ratio": 0.0,
-        "observed_rasterization": "heads",
-        **heads,
+        "model": {"seepage_threshold": 0.0},
+        "map": {"complete": "data.hydrography", "drawn_by": "heads", **map_knobs},
     }
     run.dir = sealed_search({"outputs": {"streams": output}})
     return run
@@ -1298,7 +1303,9 @@ def test_a_key_left_out_takes_the_default() -> None:
 
 
 def test_the_sealed_area_moves_the_landing_cell() -> None:
-    comparison = _redraw(_sealed_run(heads_snap_radius=150.0, heads_min_drained_area_km2=0.06))
+    comparison = _redraw(
+        _sealed_run(heads={"radius": 150.0, "min_drained_area": 0.06}),
+    )
 
     trace = comparison.geometry.heads
     assert trace is not None
@@ -1308,20 +1315,20 @@ def test_the_sealed_area_moves_the_landing_cell() -> None:
 
 
 def test_the_sealed_radius_loses_a_head_the_default_would_keep() -> None:
-    kept = _redraw(_sealed_run(heads_snap_radius=50.0, heads_min_drained_area_km2=0.04))
+    kept = _redraw(_sealed_run(heads={"radius": 50.0, "min_drained_area": 0.04}))
     assert kept.geometry.heads is not None
     assert kept.geometry.heads.head_cell.tolist() == [cell(AXIS_COLUMN, 2)]
 
     with pytest.raises(ValueError, match="snap radius 30 m"):
-        _redraw(_sealed_run(heads_snap_radius="30 m", heads_min_drained_area_km2=0.04))
+        _redraw(_sealed_run(heads={"radius": "30 m", "min_drained_area": 0.04}))
 
 
 @pytest.mark.parametrize(
     ("sealed", "cut"),
     [
         ({}, True),
-        ({"clip_map_to_catchment": True}, True),
-        ({"clip_map_to_catchment": False}, False),
+        ({"clip_to_catchment": True}, True),
+        ({"clip_to_catchment": False}, False),
     ],
 )
 def test_the_redraw_takes_no_end_of_the_cut_for_a_head_unless_the_run_did(
@@ -1336,7 +1343,7 @@ def test_the_redraw_takes_no_end_of_the_cut_for_a_head_unless_the_run_did(
 
     monkeypatch.setattr(network_heads, "network_head_candidates", spy)
 
-    _redraw(_sealed_run(heads_snap_radius=50.0, heads_min_drained_area_km2=0.04, **sealed))
+    _redraw(_sealed_run(heads={"radius": 50.0, "min_drained_area": 0.04}, **sealed))
 
     assert (outlines[0] is not None) is cut
 
@@ -1521,9 +1528,11 @@ def test_the_sealed_visible_flow_cuts_the_summer_outlet() -> None:
             "outputs": {
                 "streams": {
                     "support": "network",
-                    "observed_network": "data.hydrography",
-                    "tau_specific_ratio": 1.0e-4,
-                    "extent": {"visible_flow": "5 L/s"},
+                    "map": {"complete": "data.hydrography"},
+                    "model": {
+                        "seepage_threshold": 1.0e-4,
+                        "extent": {"visible_flow": "5 L/s"},
+                    },
                 }
             }
         }

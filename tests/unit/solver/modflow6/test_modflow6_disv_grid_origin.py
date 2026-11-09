@@ -17,10 +17,10 @@ import pytest
 
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 
 
@@ -148,10 +148,13 @@ def test_modflow6_prt_end_to_end_produces_tracks(tmp_path: Path) -> None:
         model_name="flow",
         exe=exe,
     )
-    transport = Transport(
-        {"modflow6prt": {"parameters": {"release_zone": "domain", "porosity": 0.25}}}
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        str(tmp_path),
+        "flow",
+        options={"release_zone": "domain", "porosity": 0.25},
     )
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
     prt.pre_processing()
     success = prt.processing(write_model=True, run_model=True, verbose=False)
 
@@ -189,19 +192,13 @@ def test_mf6_prt_release_point_uses_absolute_centroid(tmp_path: Path) -> None:
         model_name="flow",
         exe="mf6",
     )
-    transport = Transport(
-        {
-            "modflow6prt": {
-                "parameters": {
-                    "release_zone": "domain",
-                    "release_times": [0.0],
-                    "track_times": [0.5],
-                }
-            }
-        }
+    prt = Modflow6Prt(
+        make_model(),
+        flow_model,
+        str(tmp_path),
+        "flow",
+        options={"release_zone": "domain", "release_times": [0.0], "track_times": [0.5]},
     )
-
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
     prt.pre_processing()
     prt.processing(write_model=True, run_model=False, verbose=False)
 
@@ -246,8 +243,9 @@ def test_mf6_gwf_prt_gwt_grids_agree_on_absolute_coords(tmp_path: Path) -> None:
         model_name="flow",
         exe="mf6",
     )
-    transport = Transport({"modflow6prt": {"parameters": {"release_zone": "domain"}}})
-    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
+    prt = Modflow6Prt(
+        make_model(), flow_model, str(tmp_path), "flow", options={"release_zone": "domain"}
+    )
     prt.pre_processing()
 
     gwf_centers = np.asarray(gwf.modelgrid.xcellcenters).ravel()

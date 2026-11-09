@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.common.clients.hubeau import station_location
 from hydromodpy.data.common.clients.sim2_edr import BASE_URL, Sim2EDRClient
 from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash, find_fgeol_shp
@@ -17,7 +18,7 @@ def test_sim2_endpoint_is_geosas():
     assert "meteo.data.gouv.fr" not in BASE_URL
 
 
-@patch("hydromodpy.core.io.http_client.HTTPClient.get")
+@patch("hydromodpy.core.io.fetch.HTTPClient.get")
 def test_sim2_cube_request_names_the_parameters(mock_get):
     mock_get.return_value = MagicMock(status_code=200, json=lambda: {"ranges": {}})
     client = Sim2EDRClient(
@@ -25,6 +26,7 @@ def test_sim2_cube_request_names_the_parameters(mock_get):
         crs="EPSG:2154",
         date_range="2020-01-01/2020-12-31",
         output_format="CoverageJSON",
+        http_client=HTTPClient(),
     )
     client.fetch_cube(parameters=["DRAINC_Q", "T_Q"])
 
@@ -34,10 +36,14 @@ def test_sim2_cube_request_names_the_parameters(mock_get):
     assert params["crs"] == "EPSG:2154"
 
 
-@patch("hydromodpy.core.io.http_client.HTTPClient.get")
+@patch("hydromodpy.core.io.fetch.HTTPClient.get")
 def test_sim2_point_request_names_the_parameter(mock_get):
     mock_get.return_value = MagicMock(status_code=200, json=lambda: {"ranges": {}})
-    client = Sim2EDRClient(bbox=(0, 0, 1, 1), date_range="2020-01-01/2020-01-02")
+    client = Sim2EDRClient(
+        bbox=(0, 0, 1, 1),
+        date_range="2020-01-01/2020-01-02",
+        http_client=HTTPClient(),
+    )
     client.fetch_point(x=350000.0, y=6780000.0, parameters=["FF_Q"])
 
     assert mock_get.call_args.kwargs["params"]["parameter-name"] == "FF_Q"

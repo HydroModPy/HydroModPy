@@ -332,13 +332,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "Scratch folder of one test session. Set by the test conftest and by "
         "``python -m tools.dev test``, inherited by the subprocesses.",
     ),
-    EnvVar(
-        "HMP_WHEEL_SITE",
-        "unset",
-        "test",
-        "Set in the environment of the installed-wheel proof. The forward-model "
-        "contract test then requires a model found through its entry point.",
-    ),
     # -- docs -----------------------------------------------------------------
     EnvVar(
         "HMP_DOC_VERSION",

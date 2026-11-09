@@ -64,7 +64,7 @@ class SetupContext:
 
     Most field types are ``Any`` because ``core`` cannot import from
     sibling layers (``catchment``, ``mesh``, ``model``). Concrete classes live in
-    ``model.flow``, ``model.model``, ``model.transport``, ``model.domain``,
+    ``model.flow``, ``model.model``, ``model.domain``,
     ``catchment.preprocess`` and ``mesh.io``.
     """
 
@@ -84,7 +84,6 @@ class SetupContext:
     # The frozen Model of the run (model.model.Model), built from ``flow`` by the
     # prepare_solver step and the only thing a flow adapter reads. None until then.
     model: Any = None
-    transport: Any = None
     mesh_summary: dict[str, Any] | None = None
     # The planar cell mesh the solvers read (mesh.planar PlanarCellMesh).
     cell_mesh: Any = None
@@ -92,6 +91,9 @@ class SetupContext:
     slot_request: SlotRequest | None = None
     run_id: str = "default"
     time_grid: Any = None
+    # The DEM file record of the run (data.records FileRecord), set by the setup
+    # step from [[data.dem.sources]]. None for a synthetic domain.
+    dem_record: Any = None
     # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
     # Computed once by the data step and re-bound onto every per-run Flow.
     sfr_reach_traces: dict[str, Any] | None = None
@@ -201,11 +203,19 @@ class WorkflowContext:
     ``cfg`` and ``data_plan`` are typed as ``Any`` because ``core`` cannot
     import from sibling layers. Concrete types are
     ``config.hydromodpy_config.HydroModPyConfig`` and ``data.plan.DataLoadPlan``.
+    ``bounds`` carries the :class:`~hydromodpy.core.runtime.bounds.Bounds` of the
+    call, set by whoever started the project; left ``None``, a context built
+    without one keeps the all-allowing bounds it holds by itself.
     """
 
     cfg: Any
     config_path: Path
     raw_toml: dict[str, Any]
+    # What this call may reach and read, said by the ``Environment`` its caller
+    # received (the credentials file, the hosts and roots it permits). When no
+    # environment was given, the field keeps the all-allowing default its type
+    # holds by itself.
+    bounds: Any = None
     data_plan: Any = None
     setup: SetupContext = field(default_factory=SetupContext)
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

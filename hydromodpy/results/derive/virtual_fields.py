@@ -27,6 +27,7 @@ from hydromodpy.core.budget.flux import (
     drain_band_depth,
     drain_stack_with_mover,
     find_drain_budget_key,
+    first_finite_layer,
     has_release_budget,
     release_flux_stack,
     seepage_mask,
@@ -47,7 +48,11 @@ from hydromodpy.results.derive.mesh_quality import (
     mesh_quality_values,
 )
 from hydromodpy.results.field_registry import SHAPE_TIME_FACE, FieldDescriptor
-from hydromodpy.results.zarr_store.zarr_reader import step_range_bounds
+from hydromodpy.results.zarr_store.zarr_reader import (
+    concentration_array,
+    has_concentration,
+    step_range_bounds,
+)
 
 logger = get_logger(__name__)
 
@@ -57,9 +62,10 @@ RowsOf = Callable[[int, int], np.ndarray]
 
 def _cell_count(root: Any, fallback: Any = None) -> int:
     """Number of cells along the face axis of the head, else of the concentration."""
-    for name in ("head", "concentration"):
-        if name in root:
-            return int(root[name].shape[-1])
+    if "head" in root:
+        return int(root["head"].shape[-1])
+    if has_concentration(root):
+        return int(concentration_array(root).shape[-1])
     if fallback is not None:
         return int(fallback.shape[-1])
     raise KeyError("The store holds neither a head nor a concentration to size the field on")
@@ -67,9 +73,10 @@ def _cell_count(root: Any, fallback: Any = None) -> int:
 
 def _time_axis_length(root: Any) -> int | None:
     """Number of steps of the head, else of the concentration; None when the store has neither."""
-    for name in ("head", "concentration"):
-        if name in root:
-            return int(root[name].shape[0])
+    if "head" in root:
+        return int(root["head"].shape[0])
+    if has_concentration(root):
+        return int(concentration_array(root).shape[0])
     return None
 
 
@@ -160,17 +167,6 @@ def _has_surface_elevation(root: Any) -> bool:
     return mesh is not None and ("topography" in mesh or "z_interfaces" in mesh)
 
 
-def _first_finite_layer(head: np.ndarray) -> np.ndarray:
-    """Head of the uppermost layer that is finite, per step and cell; NaN when none is."""
-    if head.ndim == 2:
-        return head
-    wt = np.where(np.isfinite(head[:, 0]), head[:, 0], np.nan)
-    for layer in range(1, head.shape[1]):
-        below = head[:, layer]
-        wt = np.where(np.isnan(wt) & np.isfinite(below), below, wt)
-    return wt
-
-
 def _watertable_plan(root: Any) -> RowsOf:
     """Rows of the water table, the stored array first."""
     if _has_stored(root, "watertable_elevation"):
@@ -178,7 +174,7 @@ def _watertable_plan(root: Any) -> RowsOf:
     head = root["head"]
 
     def rows(first: int, last: int) -> np.ndarray:
-        return _first_finite_layer(np.asarray(head[first:last], dtype="float64"))
+        return first_finite_layer(np.asarray(head[first:last], dtype="float64"))
 
     return rows
 
@@ -307,11 +303,11 @@ def _concentration_seepage_plan(root: Any) -> RowsOf:
     """
     if _has_stored(root, "concentration_seepage"):
         return _stored_rows(root, "concentration_seepage")
-    if "concentration" not in root:
+    if not has_concentration(root):
         raise KeyError("No concentration stored: concentration_seepage needs a transport run")
     if not _seepage_available(root):
         raise KeyError("concentration_seepage needs a seepage mask")
-    concentration = root["concentration"]
+    concentration = concentration_array(root)
     seepage = _stored_or(root, "seepage_mask", lambda: _seepage_plan(root, _cell_count(root)))
 
     def rows(first: int, last: int) -> np.ndarray:
@@ -751,7 +747,7 @@ def available_virtual_fields(root: Any) -> list[str]:
 def _solute_fields_available(root: Any, budget: Any | None) -> list[str]:
     """The solute chain fields this store can serve, each needing the one before it."""
     names: list[str] = []
-    rebuildable = "concentration" in root and _seepage_available(root)
+    rebuildable = has_concentration(root) and _seepage_available(root)
     if rebuildable:
         names.append("concentration_seepage")
     if budget is not None and (rebuildable or _has_stored(root, "concentration_seepage")):

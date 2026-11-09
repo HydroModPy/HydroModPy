@@ -12,9 +12,10 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomLakeGeometrySource(HydroModelBase):
+class FileLakeGeometrySource(HydroModelBase):
     """User-provided lake geometry file (SHP/GPKG/GeoJSON).
 
     The vector file holds the lake/reservoir footprint polygon(s) - and, where
@@ -22,9 +23,9 @@ class CustomLakeGeometrySource(HydroModelBase):
     with the DISV mesh to resolve the lake cells.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' lake-geometry provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' lake-geometry provider.",
     )
     path: Annotated[
         Path,
@@ -32,7 +33,7 @@ class CustomLakeGeometrySource(HydroModelBase):
         InputFile(role="lake_geometry", category="data"),
     ] = Field(
         ...,
-        description="Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
+        description="Path to a user lake-geometry vector file (SHP, GPKG, GeoJSON).",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     default_crs: Annotated[str, Profile.USER] = Field(
@@ -44,14 +45,23 @@ class CustomLakeGeometrySource(HydroModelBase):
     )
 
 
+class UrlLakeGeometrySource(UrlSourceOptions, HydroModelBase):
+    """Remote lake geometry file, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' lake-geometry provider.",
+    )
+
+
 class LakeGeometryConfig(HydroModelBase):
     """Top-level lake-geometry variable configuration.
 
     Example TOML::
 
         [[data.lake_geometry.sources]]
-        source = "custom"
-        path = "data/lake_geometry/lake_geometry_custom_lac0.gpkg"
+        source = "file"
+        path = "data/lake_geometry/lake_geometry_file_lac0.gpkg"
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
@@ -61,7 +71,7 @@ class LakeGeometryConfig(HydroModelBase):
         ),
     }
 
-    sources: Annotated[list[CustomLakeGeometrySource], Profile.USER] = Field(
+    sources: Annotated[list[FileLakeGeometrySource | UrlLakeGeometrySource], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one lake-geometry data source.",
@@ -69,5 +79,5 @@ class LakeGeometryConfig(HydroModelBase):
 
     @classmethod
     def from_vector(cls, path: str | Path, **overrides) -> LakeGeometryConfig:
-        """LakeGeometryConfig from a custom polygon vector file (SHP/GPKG/GeoJSON)."""
-        return cls(sources=[CustomLakeGeometrySource(path=Path(path))], **overrides)
+        """LakeGeometryConfig from a user polygon vector file (SHP/GPKG/GeoJSON)."""
+        return cls(sources=[FileLakeGeometrySource(path=Path(path))], **overrides)

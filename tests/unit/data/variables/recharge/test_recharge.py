@@ -21,7 +21,7 @@ class TestRechargeSourceConfigValidation:
     @pytest.mark.parametrize(
         ("source", "match"),
         [
-            ("custom", "path"),
+            ("file", "path"),
             ("synthetic", "values"),
         ],
         ids=["custom_requires_path", "synthetic_requires_values"],
@@ -31,12 +31,12 @@ class TestRechargeSourceConfigValidation:
             RechargeSourceConfig(source=source)
 
     def test_custom_with_path_ok(self, tmp_path):
-        cfg = RechargeSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
+        cfg = RechargeSourceConfig(source="file", path=tmp_path)
+        assert cfg.source == "file"
         assert cfg.path == tmp_path
 
     def test_custom_with_source_unit_ok(self, tmp_path):
-        cfg = RechargeSourceConfig(source="custom", path=tmp_path, source_unit="m/day")
+        cfg = RechargeSourceConfig(source="file", path=tmp_path, source_unit="m/day")
         assert cfg.source_unit == "m/day"
 
     def test_sim2_without_path_ok(self):
@@ -69,7 +69,7 @@ class TestRechargeSourceConfigValidation:
         # Verify each valid source is accepted (sim2 needs no extras,
         # custom needs path, synthetic needs values).
         RechargeSourceConfig(source="sim2")
-        RechargeSourceConfig(source="custom", path=Path("/tmp"))
+        RechargeSourceConfig(source="file", path=Path("/tmp"))
         RechargeSourceConfig(source="synthetic", values=[1.0])
 
         # Anything else is rejected

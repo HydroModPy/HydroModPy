@@ -34,7 +34,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     build_planar_cell_mesh,
 )
 from hydromodpy.mesh.port import MeshEngineCapabilities
-from hydromodpy.mesh.request import MeshRequest
+from hydromodpy.mesh.request import FAMILY_NAMES, MeshRequest
 
 __all__ = ["CatchmentMeshEngine"]
 
@@ -53,6 +53,7 @@ class CatchmentMeshEngine:
         deterministic=True,
         needs_cache=False,
         lumped=True,
+        ignored_families=FAMILY_NAMES,
     )
 
     def build(self, request: MeshRequest) -> PlanarCellMesh:

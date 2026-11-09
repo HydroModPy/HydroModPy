@@ -1,9 +1,10 @@
 """Every class a solver adapter hands back satisfies the contract that types it.
 
 ``SolverRun.solver_model`` is typed ``SolverModel``, a three-member
-protocol. The type is only worth its annotation if the seven classes that reach
+protocol. The type is only worth its annotation if the eight classes that reach
 that field really carry the three members, and if an eighth producer cannot
-appear without this test noticing.
+appear without this test noticing. A dataclass declares its members as
+fields, so the scan reads the annotated names of the class body too.
 
 The check is static rather than by instantiation: constructing a MODFLOW 6
 model means a grid, a domain and a config, and the question here is about what
@@ -37,14 +38,19 @@ PRODUCED_MODELS = {
     "Modflow6Prt": "solver/modflow6/prt.py",
     "Mt3dms": "solver/modflow_nwt/mt3dms/mt3dms.py",
     "Modpath": "solver/modflow_nwt/modpath/modpath.py",
+    "LinearReservoir": "solver/linear_reservoir/adapter.py",
 }
 
 CONTRACT_MEMBERS = frozenset(SolverModel.__annotations__)
 
 
 def _self_assignments(class_node: ast.ClassDef) -> set[str]:
-    """Every ``self.<name>`` this class assigns, anywhere in its body."""
-    assigned: set[str] = set()
+    """Every ``self.<name>`` this class assigns, and every field a dataclass declares."""
+    assigned: set[str] = {
+        node.target.id
+        for node in class_node.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+    }
     for node in ast.walk(class_node):
         targets: list[ast.expr]
         if isinstance(node, ast.Assign):
@@ -95,10 +101,11 @@ RESULT_BUILDERS = {
     "solver/boussinesq/adapter.py": "Boussinesq",
     "solver/modflow_common/flow_adapter_helpers.py": "Modflow6 or ModflowNwt",
     "solver/modflow6/rerun.py": "Modflow6",
-    "solver/modflow6/adapters/transport.py": "Modflow6Transport",
-    "solver/modflow6/adapters/prt.py": "Modflow6Prt",
-    "solver/modflow_nwt/adapters/transport_mt3dms.py": "Mt3dms",
-    "solver/modflow_nwt/adapters/transport_modpath.py": "Modpath",
+    "solver/modflow6/transport.py": "Modflow6Transport",
+    "solver/modflow6/prt.py": "Modflow6Prt",
+    "solver/modflow_nwt/mt3dms/mt3dms.py": "Mt3dms",
+    "solver/modflow_nwt/modpath/modpath.py": "Modpath",
+    "solver/linear_reservoir/adapter.py": "LinearReservoir",
     # A mesh run produces no model, and a run put back by a resume has lost its own.
     # The sites are listed with nothing beside them so that a producer without a
     # class is a statement and not an omission.

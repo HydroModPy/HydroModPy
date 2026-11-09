@@ -99,7 +99,7 @@ def _config(project: Path, body: str, name: str = "run.toml") -> None:
 SOURCE = """
 [data.{variable}]
 [[data.{variable}.sources]]
-source = "custom"
+source = "file"
 path = "{path}"
 {extra}
 """
@@ -173,7 +173,7 @@ def test_a_file_source_is_found_in_the_project_first_then_in_the_variable_folder
         "[data]\nfoo = 1\n",
         "[[data.recharge.sources]]\n",
         '[data.recharge]\n[[data.recharge.sources]]\nsource = "api"\npath = "x.csv"\n',
-        '[data.recharge]\n[[data.recharge.sources]]\nsource = "custom"\n',
+        '[data.recharge]\n[[data.recharge.sources]]\nsource = "file"\n',
         '[data.recharge]\nsources = ["not a table"]\n',
     ],
     ids=["scalar-variable", "no-data-table", "other-provider", "no-path", "non-table-source"],
@@ -185,12 +185,12 @@ def test_what_is_not_a_custom_file_source_ships_nothing(tmp_path: Path, body: st
     assert project_data(project, tmp_path / "data", root=ROOT_CONFIG) == ([], ())
 
 
-def test_the_regional_dem_is_located_by_name_under_the_data_root(tmp_path: Path) -> None:
+def test_a_dem_file_source_is_found_in_the_dem_folder_of_the_data_root(tmp_path: Path) -> None:
     data = tmp_path / "data"
     (data / "dem").mkdir(parents=True)
     (data / "dem" / "regional.tif").write_bytes(b"")
     project = tmp_path / "project"
-    _config(project, '[geographic.catchment]\ndem_init_path = "elsewhere/regional.tif"\n')
+    _config(project, SOURCE.format(variable="dem", path="elsewhere/regional.tif", extra=""))
 
     files, _ = project_data(project, data, root=ROOT_CONFIG)
 
@@ -245,8 +245,8 @@ _FOLDER = SOURCE.format(variable="discharge", path="discharge", extra='station_i
         (
             [],
             [{"id": "A1"}],
-            '[geographic.catchment]\ndem_init_path = "ghost.tif"\n',
-            r"names 'ghost.tif': 0 file\(s\) carry that name",
+            SOURCE.format(variable="dem", path="ghost.tif", extra=""),
+            r"names 'ghost.tif', which is not at",
         ),
     ],
     ids=[
@@ -256,7 +256,7 @@ _FOLDER = SOURCE.format(variable="discharge", path="discharge", extra='station_i
         "station-not-in-registry",
         "folder-without-station",
         "file-not-in-folder",
-        "dem-not-found",
+        "dem-file-not-in-folder",
     ],
 )
 def test_a_reference_that_does_not_resolve_to_exactly_one_file_is_an_error_not_a_pick(
@@ -270,13 +270,13 @@ def test_a_reference_that_does_not_resolve_to_exactly_one_file_is_an_error_not_a
         project_data(project, data, root=ROOT_CONFIG)
 
 
-def test_a_dem_name_carried_by_two_folders_is_ambiguous(tmp_path: Path) -> None:
+def test_a_map_name_carried_by_two_folders_is_ambiguous(tmp_path: Path) -> None:
     data = tmp_path / "data"
-    for folder in ("dem", "other"):
+    for folder in ("hydrography", "other"):
         (data / folder).mkdir(parents=True)
-        (data / folder / "regional.tif").write_bytes(b"")
+        (data / folder / "streams.gpkg").write_bytes(b"")
     project = tmp_path / "project"
-    _config(project, '[geographic.catchment]\ndem_init_path = "regional.tif"\n')
+    _config(project, CALIBRATION.format(maps='map.complete = "streams.gpkg"'))
 
     with pytest.raises(ConfigError, match="2 file"):
         project_data(project, data, root=ROOT_CONFIG)

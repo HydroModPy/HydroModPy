@@ -22,6 +22,9 @@ Created on Thu Apr  3 13:06:53 2025
 import os
 import shutil
 from collections.abc import Mapping
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import flopy.utils.binaryfile as bf
@@ -29,11 +32,20 @@ import numpy as np
 import rasterio
 
 # HydroModPy
+from pydantic import BaseModel
+
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow_common import ensure_solver_binary
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import nwt_safe_name
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
@@ -55,7 +67,7 @@ class Mt3dms:
     def __init__(
         self,
         domain: DomainLike,
-        transport: TransportLike,
+        params: Mapping[str, object] | None = None,
         model_modflow: FlowModelLike | None = None,
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
@@ -81,8 +93,11 @@ class Mt3dms:
         ----------
         domain : object
             Domain object build by HydroModPy.
-        transport : object
-            Process Transport object holding concentration parameters.
+        params : Mapping, optional
+            The validated concentration parameters of the run, flattened to
+            scalar values (``options.model_dump()["parameters"]`` of the
+            ``[transport.mt3dms]`` table). Empty means every default of the
+            engine, and the explicit parameters below override it.
         """
 
         # %% Initialization
@@ -91,7 +106,7 @@ class Mt3dms:
             raise ValueError("model_modflow must be provided to initialize Mt3dms")
 
         self.domain = domain
-        self.transport = transport
+        self.params = dict(params or {})
         self.model_modflow = model_modflow
         self.raster = get_raster(model_modflow)
 
@@ -105,10 +120,7 @@ class Mt3dms:
             raise FileNotFoundError(f"Directory not found: {self.full_path}")
         self.exe = str(ensure_solver_binary("mt3dusgs", bin_path))
 
-        conc_params = {}
-        raw_params = getattr(transport.mt3dms, "parameters", None)
-        if isinstance(raw_params, Mapping):
-            conc_params = dict(raw_params)
+        conc_params = dict(self.params)
 
         explicit_params = {
             "spc_name": spc_name,
@@ -325,6 +337,7 @@ class Mt3dms:
     def post_processing(
         self,
         model_mt3dms: object,
+        geographic: object | None = None,
         concentration_seepage: bool = True,
         mass_seepage: bool = True,
         mass_accumulated: bool = False,
@@ -333,10 +346,18 @@ class Mt3dms:
         """
         Create outputs files.
 
+        An MT3DMS post-processing reads nothing on the flow model itself: the
+        geographic context of its flow (the DEM raster, the routing grid, the
+        masks and the reference raster) comes in as one argument and is read
+        here instead. ``model_mt3dms`` is accepted for signature parity with
+        the plain MT3DMS workflow and never read.
+
         Parameters
         ----------
-        model_mt3dms : object
-            MT3DMS python object.
+        geographic : object
+            The geographic context of the flow run this transport follows,
+            read off ``Model.geometry`` (its DEM raster, routing grid and
+            masks). It carries everything the outputs are built on.
         """
         # Create folders
         self.save_file = os.path.join(self.full_path, "_postprocess")
@@ -354,19 +375,22 @@ class Mt3dms:
         self.save_fig = os.path.join(self.model_folder, "_figures")
         create_folder(self.save_fig)
 
+        # %% Load what the post-processing derives, off the geographic
+
+        self.inactive_mask = np.asarray(getattr(geographic, "inactive_mask", None), dtype=bool)
+        self.outflow_drain = dict(getattr(geographic, "dict_outflow_drain", None) or {})
+        self.nper = int(getattr(geographic, "nper", 0) or 0)
+
+        # The reference raster and the routing paths of the flow run
+        self.dem_watershed_path = getattr(geographic, "dem_watershed_path", None)
+        routing_ctx = getattr(geographic, "routing_ctx", None)
+        self.routing_fill_path = getattr(routing_ctx, "correc_path", None)
+        self.routing_direc_path = getattr(routing_ctx, "direc_path", None)
+
         # %% Load essential data
 
         # Modflow specific files (written in the processing phase)
         self.path_file = os.path.join(self.full_path, self.model_name_mt + ".UCN")
-
-        # Files have been output in the processing phase and are re-read here
-        inactive_mask = getattr(self.model_modflow, "inactive_mask", None)
-        if inactive_mask is None:
-            raise ValueError("model_modflow.inactive_mask is required for MT3DMS post-processing.")
-        self.inactive_mask = np.asarray(inactive_mask, dtype=bool)
-
-        # Drain outflow from flow model (in-memory, computed during flow postprocessing)
-        self.outflow_drain = getattr(self.model_modflow, "dict_outflow_drain", {})
 
         self.ucnobj = bf.UcnFile(self.path_file)
         ucn_all_data = None
@@ -394,9 +418,9 @@ class Mt3dms:
 
         # Boucle sur chaque pas de temps
         # for i in range(len(concobj_1c_fil)):
-        for i in range(model_mt3dms.model_modflow.nper):
+        for i in range(self.nper):
             the_time = str(i + 1)
-            logger.info("Processing MT3DMS timestep %d/%d", i + 1, model_mt3dms.model_modflow.nper)
+            logger.info("Processing MT3DMS timestep %d/%d", i + 1, self.nper)
 
             do_export_tif = True
             if not export_all_tif:
@@ -414,7 +438,7 @@ class Mt3dms:
                 output_path = self.tifs_file + "/concentration_seepage_t(" + the_time + ").tif"
                 if do_export_tif:
                     export_tif(
-                        self.model_modflow.dem_watershed_path,
+                        self.dem_watershed_path,
                         concobj_1c_fil_surf,
                         output_path,
                         -9999,
@@ -436,7 +460,7 @@ class Mt3dms:
                 output_path = self.tifs_file + "/mass_seepage_t(" + the_time + ").tif"
                 if do_export_tif:
                     export_tif(
-                        self.model_modflow.dem_watershed_path,
+                        self.dem_watershed_path,
                         massobj_1c_fil_surf,
                         output_path,
                         -9999,
@@ -444,16 +468,14 @@ class Mt3dms:
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
             if mass_accumulated:
-                routing_ctx = self.model_modflow._ensure_solver_routing_context()
-
                 accumulated_mass = masstransfer.Masstransfer(
-                    self.raster,
+                    geographic,
                     "mass_seepage_t(" + the_time + ").tif",
                     "tracept_conc_t(" + the_time + ").shp",
                     "mass_accumulated_t(" + the_time + ").tif",
                     extraction_folder=self.save_file,
-                    routing_fill_path=routing_ctx.correc_path,
-                    routing_direc_path=routing_ctx.direc_path,
+                    routing_fill_path=self.routing_fill_path,
+                    routing_direc_path=self.routing_direc_path,
                 )
                 accumulated_mass.trace_cumulated()
                 output_path = self.tifs_file + "/mass_accumulated_t(" + the_time + ").tif"
@@ -480,3 +502,159 @@ class Mt3dms:
 
 # %% ---- NOTES
 logger = get_logger(__name__)
+
+
+# The river drops its vertical grille: an MT3DMS deck never reads one.
+def _only_upstream(upstream: tuple[SolverRun, ...], adapter_name: str) -> SolverRun:
+    """Return the one upstream run the adapter follows, or say what the plan declared."""
+    if len(upstream) != 1:
+        names = ", ".join(
+            sorted(
+                {
+                    str(
+                        getattr(run, "slot", None)
+                        and getattr(run.slot, "name", None)
+                        or getattr(run, "id", run)
+                    )
+                    for run in upstream
+                }
+            )
+        )
+        raise SolverInputError(
+            f"Transport '{adapter_name}' follows exactly one flow run, and the plan "
+            f"declares {len(upstream)} of them ({names or 'none'})."
+        )
+    return upstream[0]
+
+
+def _concentration_parameters(options: BaseModel | None) -> dict[str, object]:
+    """Flatten the validated ``[transport.mt3dms]`` table to its parameter values."""
+    if options is None:
+        return {}
+    return dict(options.model_dump())
+
+
+def _with_maybe_slot(slot: RunSlot | None, default_folder: str, default_name: str) -> RunSlot:
+    """Return ``slot`` unchanged, or a slot that names a folder of its own."""
+    return slot if slot is not None else RunSlot(folder=default_folder, name=default_name)
+
+
+class Mt3dmsTransportAdapter:
+    """Adapter for ``transport/mt3dms`` runs, beside its engine class.
+
+    A transport run follows one flow run through its ``requires`` edge and
+    reads the validated ``[transport.mt3dms]`` table through ``options``. Its
+    build takes the ``Model`` of that flow from ``upstream[0]``, and no setup,
+    no plan and no store is read during a solve: the solute name, the
+    parameter values, the working folder and the solver binary are the facts
+    the arguments give.
+
+    The stored concentration keeps one path per solute, under
+    ``concentration/``, with the species name the run carries. The suffix of
+    the deck is a constant of the adapter, ``_mt_s1``, so a resumed plan
+    rebuilds the same files without reading an index anywhere.
+    """
+
+    name: ClassVar[str] = "mt3dms"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "raster"
+    writes: ClassVar[tuple[str, ...]] = ("concentration/*",)
+    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow_nwt"),)
+    SUFFIX: ClassVar[str] = "_mt_s1"
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Refuse a solute name that an output name cannot carry.
+
+        ``spc_name`` names the solute stored under ``concentration/``. An
+        empty name points at a group without a variable, and a name with a
+        separator escapes the group into other variables of the run, so the
+        refusal says both rules in one sentence.
+        """
+        if options is not None:
+            name = getattr(options, "spc_name", None)
+            if name is None or not str(name).strip() or "/" in str(name):
+                raise SolverInputError(
+                    f"[transport.mt3dms] spc_name = {name!r} is not a solute name: "
+                    "write the name of one solute, without a separator, and the "
+                    f"concentration is stored at concentration/{name!s}/ otherwise."
+                )
+
+    def build(
+        self,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the MT3DMS deck of the flow run it follows, in memory.
+
+        The solver object is the one of ``upstream[0]``, a finished
+        :class:`~hydromodpy.solver.modflow_nwt.nwt.nwt_solver.ModflowNwt`.
+        The folder and the base name are the slot's, and the suffix is the
+        constant of this adapter, so a resumed plan rebuilds the same deck.
+        The parameters of the deck come from the validated table the runner
+        holds: one solute, and the scalar rates of its block.
+        """
+        flow_run = _only_upstream(upstream, self.name)
+        if flow_run.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "MT3DMS reads the NWT objects of the flow, and none was built."
+            )
+        suffix = str(self.SUFFIX)
+        parameters = _concentration_parameters(options)
+        solver_model = Mt3dms(
+            domain=model.geometry.domain,
+            params=parameters,
+            model_modflow=flow_run.solver_model,
+            model_folder=str(slot.folder) if slot is not None else "HydroModPy_outputs",
+            model_name=nwt_safe_name(str(flow_run.slot.name)),
+            suffix_name=suffix,
+            bin_path=slot.bin_dir if slot is not None else None,
+            spc_name=parameters.get("spc_name", "NO3"),
+        )
+        solver_model.raster = get_raster(model)
+        solver_model.pre_processing()
+        return SolverRun(
+            slot=_with_maybe_slot(
+                slot, str(solver_model.model_folder), nwt_safe_name(str(flow_run.slot.name))
+            ),
+            model=flow_run.model,
+            options=options,
+            solver_model=solver_model,
+        )
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the MT3DMS input files, solve, and return the solved run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
+        if not success:
+            raise SolverDivergedError(
+                f"[HMPY.E401] Transport solver '{self.name}' failed for run "
+                f"'{solver_run.slot.name}'. "
+                f"See {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the ``concentration/<spc_name>`` fields of a solved run."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)

@@ -13,13 +13,13 @@ types = ["hydrography", "hydrometry"]
 
 # The permanent reaches of BD TOPO, under examples/data/hydrography/.
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 # The gauge at the outlet, daily 1982-2022. Step 4 scores against it.
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 station_ids = ["NANCON"]
 
 # The mapped network alone, then against the simulated seepage cells: the

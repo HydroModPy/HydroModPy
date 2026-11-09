@@ -25,8 +25,8 @@ def _dem(tmp_path: Path) -> Path:
     return write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=-9999.0)
 
 
-def _config(dem: Path, **catchment) -> GeographicConfig:
-    return outlet_config(dem, x=450.0, y=550.0, catchment={"snap_dist": "150 m", **catchment})
+def _config(**catchment) -> GeographicConfig:
+    return outlet_config(x=450.0, y=550.0, catchment={"snap_dist": "150 m", **catchment})
 
 
 def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Path) -> None:
@@ -34,7 +34,7 @@ def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Pa
 
     def prepared(name: str, **catchment):
         return prepare_geographic_run(
-            config=_config(dem, **catchment), out_dir_path=tmp_path / name
+            config=_config(**catchment), out_dir_path=tmp_path / name, dem_path=dem
         )
 
     native, same = prepared("a"), prepared("c", dem_resolution=100.0)
@@ -52,8 +52,8 @@ def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Pa
 def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(tmp_path) -> None:
     dem = _dem(tmp_path)
     polygon = write_features(tmp_path / "given.shp", [box(200.0, 200.0, 800.0, 800.0)])
-    config = GeographicConfig.from_polygon(polygon, dem=dem, buff_area="100 m")
-    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run")
+    config = GeographicConfig.from_polygon(polygon, buff_area="100 m")
+    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run", dem_path=dem)
     options = dict(config=config, paths=run.paths, crs_project=run.crs_project)
     watershed = build_standard_catchment(
         **options, accumulation=fake_accumulation(), backend=object()
@@ -68,8 +68,8 @@ def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(t
 
 def test_a_dem_driven_domain_has_no_catchment_to_build(tmp_path) -> None:
     dem = _dem(tmp_path)
-    config = GeographicConfig.from_dem(dem)
-    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run")
+    config = GeographicConfig.from_dem()
+    run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run", dem_path=dem)
     options = dict(config=config, paths=run.paths, accumulation=None, crs_project=None)
     assert build_standard_catchment(**options, backend=object(), unsupported_mode="ignore") is None
     with pytest.raises(ValueError, match="Unsupported catch_def"):

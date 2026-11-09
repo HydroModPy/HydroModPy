@@ -14,14 +14,21 @@ allowed:
   modflow_grid: [base]
   modflow_common: [base, modflow_grid]
   boussinesq: [base]
+  linear_reservoir: [base]
   modflow6: [base, modflow_common, modflow_grid]
   modflow_nwt: [base, modflow_common, modflow_grid]
   "<init>": [base]
 
+# The folders of the two MODFLOW families, which the folder gate reads beside
+# the backends list: a family folder belongs to every backend that names it.
+families:
+  modflow6: [modflow_common, modflow_grid]
+  modflow_nwt: [modflow_common, modflow_grid]
+
 # The flow backends. No backend reads another one, whatever the order of the
 # rows above (test_a_backend_never_imports_another_backend). What two MODFLOW
 # backends share lives in modflow_common and modflow_grid.
-backends: [boussinesq, modflow6, modflow_nwt]
+backends: [boussinesq, linear_reservoir, modflow6, modflow_nwt]
 
 # base/registry.py names the built-in adapters and extractors by a dotted path
 # written as text, imported on the first lookup that asks for one. Only this

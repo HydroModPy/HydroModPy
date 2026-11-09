@@ -32,6 +32,7 @@ from hydromodpy.core.exceptions import (
     DataProductError,
     DataRequestError,
 )
+from hydromodpy.core.runtime.bounds import Bounds
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -203,12 +204,18 @@ class FetchRequest:
     the type**, because a source that selects nothing (a file content, a
     computed constant) is asked exactly that. :func:`require_selectors` refuses
     it for every source that selects, which is the source's first line.
+
+    ``bounds`` carries the hosts and roots the call runs under, the byte
+    ceiling and the delay of one download; a caller that passes none gets the
+    default of :class:`~hydromodpy.core.runtime.bounds.Bounds`. The fetch
+    client applies it, the port only carries and refuses it by name.
     """
 
     out_dir: Path
     extent: Extent | None = None
     station_ids: tuple[str, ...] = ()
     period: Period | None = None
+    bounds: Bounds = field(default_factory=Bounds)
 
     def __post_init__(self) -> None:
         if not isinstance(self.out_dir, (str, Path)):
@@ -221,6 +228,12 @@ class FetchRequest:
             )
         if self.period is not None and not isinstance(self.period, Period):
             raise DataRequestError(f"period={self.period!r} is not a Period.")
+        if not isinstance(self.bounds, Bounds):
+            raise DataRequestError(
+                f"bounds={self.bounds!r} is not a Bounds. Build one from "
+                "hydromodpy.core.runtime.bounds; a request that carries none "
+                "would have to invent what its download may reach."
+            )
         if isinstance(self.station_ids, str):
             raise DataRequestError(
                 f"station_ids={self.station_ids!r} is a single string, which would be read "
@@ -618,6 +631,22 @@ def shipped_hosts(source_id: str) -> tuple[str, ...]:
     return tuple(entry.hosts)
 
 
+def fetch_within(source: DataSource, request: FetchRequest) -> FetchResult:
+    """Refuse a source whose hosts the bounds do not allow, then serve the request.
+
+    The one way a call reaches the provider of a source: every caller of a
+    ``source.fetch`` goes through here, so the hosts a source declares are
+    checked against ``request.bounds`` before any connection. The checks of
+    each redirect and of a resolved address live in the fetch client, which
+    owns the download.
+    """
+    request.bounds.require_hosts(
+        tuple(source.hosts or ()),
+        why=f"asking {getattr(source, 'section', '?')}_{getattr(source, 'source_id', '?')}",
+    )
+    return source.fetch(request)
+
+
 __all__ = [
     "ALL_PAYLOAD_KINDS",
     "ALL_PERIOD_NEEDS",
@@ -634,6 +663,7 @@ __all__ = [
     "PeriodNeed",
     "Selector",
     "extent_for",
+    "fetch_within",
     "missing_source_members",
     "require_declared_variables",
     "require_period",

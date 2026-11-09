@@ -89,8 +89,8 @@ class FlowSinksSourcesConfig(HydroModelBase):
     flow_barriers: Annotated[dict[str, FlowBarrierConfig], Profile.USER] = Field(
         default_factory=dict,
         description=(
-            "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 "
-            "backend only). A lake's dam cutoff wall is declared on the lake instead."
+            "Mapping of flow-barrier ids to typed HFB payloads (a backend that honors "
+            "flow_barriers only). A lake's dam cutoff wall is declared on the lake instead."
         ),
         json_schema_extra=field_metadata(stability="experimental"),
     )

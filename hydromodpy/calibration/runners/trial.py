@@ -315,13 +315,13 @@ class TrialContext:
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
         new_setup.model = None
-        new_setup.transport = None
         new_setup.slot_request = slot_request
 
         new_ctx = WorkflowContext(
             cfg=new_cfg,
             config_path=self.cfg_path,
             raw_toml=dict(self.raw_toml),
+            bounds=self.ctx.bounds,
         )
         new_ctx.data_plan = self.ctx.data_plan
         new_ctx.setup = new_setup
@@ -331,7 +331,7 @@ class TrialContext:
             rng=getattr(self.ctx.execution, "rng", None),
         )
 
-        # Rebuild flow / transport from the patched cfg and re-bind the
+        # Rebuild the flow from the patched cfg and re-bind the
         # loaded forcings (recharge, oceanic) to the fresh objects. Without
         # this, the trial solver runs on a Flow with zero recharge. The
         # rebuild is skipped when ``loaded_data`` has no real forcings
@@ -370,6 +370,7 @@ def prepare_trials(
     steps: Sequence[TrialStep] | None = None,
     parameter_space: Any = None,
     config_overrides: Mapping[str, Any] | None = None,
+    bounds: Any = None,
 ) -> TrialContext:
     """Load TOML, run steps ``[0..earliest)`` once, return a fork-able context.
 
@@ -403,6 +404,11 @@ def prepare_trials(
         therefore decides how much of the pipeline re-runs. An entry there
         cuts the prepared prefix; an entry here changes what the prefix is
         prepared from.
+    bounds
+        The :class:`~hydromodpy.core.runtime.bounds.Bounds` of the call that
+        launched the calibration. The resolve step puts them on the context
+        the preparation builds, so a trial loads its data under the hosts the
+        call allows. ``None`` keeps the all-allowing default.
     """
     cfg_path = Path(cfg_path).expanduser().resolve()
     pipeline = trial_pipeline()
@@ -456,6 +462,7 @@ def prepare_trials(
             "cfg": cfg,
             "config_path": cfg_path,
             "raw_toml": raw_toml,
+            "bounds": bounds,
             "skip_display": True,
             "requested_spatial_support_ids": requested_support_ids,
             "requested_domain_supports": requested_domain_supports,
@@ -523,12 +530,12 @@ def _phase_samples_the_recharge(trial_ctx: TrialContext) -> bool:
 class _FlowBuildLauncher:
     """Execute the flow runs of a plan alone, for a setup that stops before their solve."""
 
-    def execute(self, plan: Any, state: Any, *, callbacks: Any = None, store: Any = None) -> Any:
+    def execute(self, plan: Any, state: Any, *, callbacks: Any = None) -> Any:
         from hydromodpy.solver.base.runner import SimulationRunner
 
         del callbacks
         runs = tuple(run for run in plan.runs if run.process_type == "flow")
-        return SimulationRunner().execute(replace(plan, runs=runs), state, store=store)
+        return SimulationRunner().execute(replace(plan, runs=runs), state)
 
 
 @contextmanager

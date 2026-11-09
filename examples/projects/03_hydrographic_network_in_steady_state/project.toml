@@ -28,7 +28,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
@@ -54,13 +53,13 @@ nlay = 5
 types = ["dem", "recharge", "geology", "hydrography"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 # BRGM 1:1 000 000 geology, context only: no parameter is zoned on it.
 [[data.geology.sources]]
-source = "custom"
-path = "GEO1M.shp"
+source = "file"
+path = "../../data/geology/GEO1M.shp"
 code_field = "CODE_LEG"
 
 # The observed network. This is what gives the run its reference hydrographic

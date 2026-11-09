@@ -10,7 +10,8 @@ work (a partition and a walltime checked, a template rendered) lives here.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+import shlex
+from collections.abc import Mapping, Sequence
 from importlib import resources
 from typing import Final
 
@@ -74,11 +75,22 @@ def render(name: str, values: Mapping[str, str]) -> str:
     return text
 
 
-def worker_block(phase: str) -> str:
+def worker_block(phase: str, environment_flags: Sequence[str] = ()) -> str:
+    """Return the worker script of one phase with *environment_flags* on its line.
+
+    Each flag is written quoted for bash inside the array assignment the
+    template carries, so a value holding a dollar, a quote or a space crosses
+    the render as one flag and nothing the shell would read.
+    """
     log_prefix = "prepare" if phase == "prepare" else "array"
     return render(
         "worker.sh",
-        {"LOG_PREFIX": log_prefix, "PHASE": phase, "TERM_GRACE_S": str(TERM_GRACE_S)},
+        {
+            "LOG_PREFIX": log_prefix,
+            "PHASE": phase,
+            "TERM_GRACE_S": str(TERM_GRACE_S),
+            "ENVIRONMENT_FLAGS": " ".join(shlex.quote(str(flag)) for flag in environment_flags),
+        },
     )
 
 

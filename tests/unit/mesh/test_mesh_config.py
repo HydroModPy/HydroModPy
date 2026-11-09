@@ -281,3 +281,43 @@ def test_every_key_is_documented_for_the_generated_reference(model: type[BaseMod
             if typing.get_origin(leaf) is typing.Literal:
                 values = set(typing.get_args(leaf))
                 assert set(extra.get("value_docs", {})) == values, f"{model.__name__}.{name}"
+
+
+def test_a_mesh_engine_that_ignores_rivers_needs_no_river_trace():
+    from hydromodpy.mesh.mesh_config import MeshConfig
+
+    catchment = MeshConfig(engine="catchment")
+    triangle = MeshConfig(engine="triangle")
+    regular = MeshConfig(engine="regular")
+    # The catchment engine ignores the rivers, so the trace is not needed.
+    assert not catchment.requires_river_trace(active_bc=[], synthetic=False)
+    # The triangulated engines read the river networks, so the trace is needed.
+    assert triangle.requires_river_trace(active_bc=[], synthetic=False)
+    # The regular engine reads the rivers by another way, so it needs none.
+    assert not regular.requires_river_trace(active_bc=[], synthetic=False)
+
+
+def _engine_for(engine_id):
+    from hydromodpy.mesh.registry import mesh_engines
+
+    return mesh_engines.get(engine_id)
+
+
+def test_the_catchment_engine_ignores_the_five_families():
+    capabilities = _engine_for("catchment").capabilities
+    assert capabilities.ignored_families == frozenset(
+        {"rivers", "geology", "lakes", "barriers", "watershed_boundary"}
+    )
+
+
+def test_the_family_names_are_the_keys_of_mesh_families():
+    from hydromodpy.mesh.mesh_config import MeshFamiliesConfig
+    from hydromodpy.mesh.request import FAMILY_NAMES
+
+    assert frozenset(MeshFamiliesConfig.model_fields) == FAMILY_NAMES
+
+
+def test_the_three_engines_ignore_no_family():
+    for engine_id in ("regular", "triangle", "voronoi"):
+        capabilities = _engine_for(engine_id).capabilities
+        assert capabilities.ignored_families == frozenset()

@@ -58,5 +58,5 @@ class LakeWithdrawalConfig(BaseVariableConfig):
         return cls(
             date_start=start,
             date_end=end,
-            sources=[LakeWithdrawalSourceConfig(source="custom", path=Path(path), **overrides)],
+            sources=[LakeWithdrawalSourceConfig(source="file", path=Path(path), **overrides)],
         )

@@ -33,7 +33,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.plugin_registry import check_registered_name
-from hydromodpy.solver.base.registry import ENTRY_POINT_GROUP, solvers
+from hydromodpy.solver.base.registry import DEFAULT_FLOW_SOLVER, ENTRY_POINT_GROUP, solvers
 
 
 class FlowSolverOfTheProcess(str):
@@ -118,7 +118,7 @@ class SolverConfig(HydroModelBase):
     """
 
     backend: Annotated[str, Profile.USER, AfterValidator(_registered_flow_solver)] = Field(
-        default="modflow6",
+        default=DEFAULT_FLOW_SOLVER,
         description=(
             "Flow solver of the run, by its registered name: MODFLOW 6, MODFLOW-NWT, "
             "Boussinesq or a plugin. A name this installation does not serve is refused "

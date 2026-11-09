@@ -494,15 +494,14 @@ class TestTheModelIsBuiltAndNotSolved:
         )
         adapter = SimpleNamespace(
             validate=lambda *args: None,
-            build=lambda model, options, slot, ctx: build_flow_model(
-                solver_model, model, options, slot, ctx, build_preprocess_options(model)
+            build=lambda model, options, slot, upstream=(): build_flow_model(
+                solver_model, model, options, slot, build_preprocess_options(model)
             ),
             run=lambda solver_run: run_flow_model(solver_run, solver_name="modflow6"),
         )
         slot = RunSlot(Path("unused"), "island", stop_before_solve=True)
-        ctx = SimpleNamespace(plan=SimpleNamespace(runs=()), run=SimpleNamespace(id="flow"))
 
-        result = solve_one(adapter, make_model(), None, slot, ctx)
+        result = solve_one(adapter, make_model(), None, slot, upstream=())
 
         assert calls == ["pre"]
         assert result.solver_model is solver_model

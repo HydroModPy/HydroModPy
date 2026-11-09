@@ -100,7 +100,7 @@ def stub_bdtopage(monkeypatch):
     calls: list[dict] = []
     payload = {"frame": _network()}
 
-    def _record(bbox, *, page_size):
+    def _record(bbox, *, page_size, client):
         calls.append({"bbox": bbox, "page_size": page_size})
         return payload["frame"]
 
@@ -246,14 +246,14 @@ def _untouched(job: JobDirectory) -> bool:
 
 
 def test_a_custom_source_is_refused_before_the_job_is_touched(tmp_path):
-    data = {"dem": {"sources": [{"source": "custom", "path": str(tmp_path / "dem.tif")}]}}
+    data = {"dem": {"sources": [{"source": "file", "path": str(tmp_path / "dem.tif")}]}}
     (tmp_path / "dem.tif").write_bytes(b"")
     job = _staged(tmp_path, _request(data))
 
     outcome = run(job, exit_code_for=exit_code_for)
 
     assert outcome.exit_code == EXIT_CONFIG
-    assert "custom" in json.dumps(outcome.errors)
+    assert "file source" in json.dumps(outcome.errors)
     assert _untouched(job)
 
 
@@ -487,7 +487,7 @@ _STUB_PROVIDER = (
     "import hydromodpy.data.variables.hydrography.apis.bdtopage as provider\n"
     "import geopandas as gpd\n"
     "from shapely.geometry import LineString\n"
-    "provider.fetch_projected = lambda bbox, *, page_size: gpd.GeoDataFrame(\n"
+    "provider.fetch_projected = lambda bbox, *, page_size, client: gpd.GeoDataFrame(\n"
     "    {'name': ['a']},\n"
     "    geometry=[LineString([(-1.8, 48.1), (-1.7, 48.2)])],\n"
     "    crs='EPSG:4326',\n"

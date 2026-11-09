@@ -16,17 +16,22 @@ from typing import Any
 BRGM_CODE_FIELD = "CODE_LEG"
 
 
+USER_SOURCES = ("file", "url")
+"""The ``source =`` values that name a user's own map, read with its ``code_field``."""
+
+
 def brgm_sources() -> frozenset[str]:
     """The sources of the ``geology`` section the registry serves.
 
-    Every registered geology source is a BRGM map carrying the
-    ``CODE_LEG`` legend column, which is what the encoding reads on the file
-    it returned. The user's own files stay outside this set: their code column
-    comes from the ``code_field`` of their source section.
+    Every registered geology source but the generic ``file`` and ``url`` ones
+    is a BRGM map carrying the ``CODE_LEG`` legend column, which is what the
+    encoding reads on the file it returned. The user's own files stay outside
+    this set: their code column comes from the ``code_field`` of their source
+    section.
     """
     from hydromodpy.data.source.registry import data_sources
 
-    return frozenset(data_sources.names("geology"))
+    return frozenset(name for name in data_sources.names("geology") if name not in USER_SOURCES)
 
 
 def build_geology_field(field_record: Any, *, geology_cfg: Any, raster_support: Any) -> Any:
@@ -123,7 +128,7 @@ def _code_field(field_record: Any, geology_cfg: Any) -> str:
     if getattr(field_record, "source", "") in brgm_sources():
         return BRGM_CODE_FIELD
     for src in getattr(geology_cfg, "sources", []):
-        if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
+        if getattr(src, "source", "") in USER_SOURCES and getattr(src, "code_field", None):
             return src.code_field
     return BRGM_CODE_FIELD
 

@@ -27,7 +27,7 @@ This file is the map of the package. Each folder has its own `README.md`, except
 |---|---|
 | `domain/` | where the aquifer lies: the `Domain`, its depth models and layers, the supports a parameter can be zoned by, the lake bed and the `domain-build` worker |
 | `properties/` | what value a parameter takes in each cell: `FieldParam`, zones, depth profile, geology, and `property_table.py` that maps K, Sy and Ss onto the cells for every solver |
-| `forcing/` | how a series or a grid becomes the rate a solver reads: `resolve_forcing`, alignment to the stress periods, the steady-period rule, and grids and stations on cells, and the run of the soil reservoir on the loaded grids (`soil_*.py`) |
+| `forcing/` | how a series or a grid becomes the rate a solver reads: `resolve_forcing`, alignment to the stress periods, the steady-period rule, the series of a source at its own step (`native.py`), and grids and stations on cells, and the run of the soil reservoir on the loaded grids (`soil_*.py`) |
 | `boundaries/` | the boundary ids and their Dirichlet and drain payloads, and the binders that put loaded data on a built `Flow` |
 | `sinks_sources/` | one payload per sink or source of `[flow.sinks_sources]` |
 | `initial/` | the head a run starts from: the five initial states of `state.py` and the head arrays of `heads.py`, in numpy |
@@ -73,7 +73,9 @@ Who imports the model: `solver` (most of it), `workflow`, `calibration`, `config
    read into a `PriorState` there, so no adapter opens a Zarr, and the river network A is read on the cells
    there (`Geometry.channel_exits`, `None` for a run without A), so no adapter projects A itself.
 5. Solve. A solver adapter reads the `Model` and never the `Flow`. It resolves each dated forcing to one
-   value per stress period with `forcing/time_forcing.resolve_period_values_from_forcing`. Boundary support
+   value per stress period with `forcing/time_forcing.resolve_period_values_from_forcing`, and a
+   spatialized source gives its series at the step of the source in `Model.native_recharge`
+   (`forcing/native.py`), read by area on a one-cell mesh. Boundary support
    per backend comes from `FLOW_BOUNDARY_DEFINITIONS`. A change to the model is a new object, made by
    `with_properties`, `with_initial`, `steady_variant` or `cycle_variant`, and the `Model` of the run stays
    as it was.

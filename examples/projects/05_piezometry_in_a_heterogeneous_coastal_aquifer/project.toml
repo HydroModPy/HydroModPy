@@ -38,8 +38,7 @@ crs_project = "EPSG:2154"
 # The domain is a polygon, the coastal model area, not an outlet catchment.
 [geographic.catchment]
 kind = "from_polyg_shp"
-dem_init_path = "DEM_gouville_25m.tif"
-polyg_shp_path = "gouville_model_area.shp"
+polyg_shp_path = "../../data/watershed_polygon/gouville_model_area.shp"
 buff_area = "10 m"
 
 
@@ -59,27 +58,27 @@ substratum_elevation = "-20.0 m"
 types = ["dem", "geology", "piezometry", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_gouville_25m.tif"
+source = "file"
+path = "../../data/dem/DEM_gouville_25m.tif"
 
 [data.geology]
 id = "param_zones"
 
 [[data.geology.sources]]
-source = "custom"
+source = "file"
 path = "../../data/masks/gouville_param_zones.gpkg"
 code_field = "zone"
 
 # The BSS piezometer 01423X0044/F4, daily water-table elevation in m NGF.
 [[data.piezometry.sources]]
-source = "custom"
-path = "piezometry"
+source = "file"
+path = "../../data/piezometry"
 station_ids = ["GOUVILLE_F4"]
 
 # Daily recharge of the 2016 reanalysis, mm/day.
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["GOUVILLE"]
 
 

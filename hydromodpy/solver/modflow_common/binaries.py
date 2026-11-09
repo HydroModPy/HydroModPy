@@ -58,7 +58,7 @@ from typing import Literal
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import NetworkError, SolverBinaryError
-from hydromodpy.core.io.pinned_download import fetch_pinned
+from hydromodpy.core.io.fetch import fetch_pinned
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir
 

@@ -76,6 +76,7 @@ def fill_crossings_path(
     *,
     config_path: Path | None,
     data_path: Path | None,
+    dem_path: Path | None = None,
 ) -> None:
     """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
 
@@ -110,6 +111,7 @@ def fill_crossings_path(
         cfg,
         config_path=Path(config_path),
         cache_dir=None if data_path is None else Path(data_path) / "crossings",
+        dem_path=dem_path,
     )
 
 
@@ -119,6 +121,7 @@ def resolve_crossings_path_from_data_sources(
     config_path: Path,
     cache_dir: Path | None = None,
     domain_bounds: tuple[float, float, float, float] | None = None,
+    dem_path: Path | None = None,
 ) -> Path | None:
     """Return the merged crossings file derived from ``[[data.crossings.sources]]``.
 
@@ -140,14 +143,18 @@ def resolve_crossings_path_from_data_sources(
         raise ValueError("geographic.crs_project is required to place the crossings.")
     config_dir = Path(config_path).resolve().parent
 
-    api_sources = [source for source in sources if str(source.source) != "custom"]
+    api_sources = [source for source in sources if str(source.source) not in ("file", "custom")]
     if api_sources and domain_bounds is None:
         domain_bounds = polygon_bounds(cfg, crs_project)
-    bbox = _bootstrap_bbox(cfg, crs_project, domain_bounds=domain_bounds) if api_sources else None
+    bbox = (
+        _bootstrap_bbox(cfg, crs_project, domain_bounds=domain_bounds, dem_path=dem_path)
+        if api_sources
+        else None
+    )
     custom_files = {
         index: _custom_file(source, config_dir)
         for index, source in enumerate(sources)
-        if str(source.source) == "custom"
+        if str(source.source) in ("file", "custom")
     }
 
     output_dir = Path(cache_dir) if cache_dir is not None else Path(_hmp_cache_dir()) / "crossings"
@@ -191,8 +198,8 @@ def _write_merged(
         for index, source in enumerate(sources):
             name = str(source.source)
             started = time.perf_counter()
-            if name == "custom":
-                pages = [custom.load_custom(source, path=custom_files[index])]
+            if name in ("file", "custom"):
+                pages = [custom.load_file(source, path=custom_files[index])]
                 written = records.append_pages(staged, pages, crs)
             elif name in data_sources.names("crossings"):
                 # The source writes its own GeoPackage, page by page inside a
@@ -223,13 +230,16 @@ def _write_merged(
 
 
 def _custom_file(source: Any, config_dir: Path) -> Path:
-    """The vector file a custom source declares, ``path`` being relative to the TOML."""
+    """The vector file a file or custom source declares, ``path`` being relative to the TOML."""
     from hydromodpy.data.variables.crossings import custom
 
     candidate = Path(str(source.path)).expanduser()
     if not candidate.is_absolute():
         candidate = (config_dir / candidate).resolve()
     return custom.vector_file(candidate)
+
+
+_file_source_file = _custom_file
 
 
 def _file_name(
@@ -307,6 +317,7 @@ def _bootstrap_bbox(
     crs_project: Any,
     *,
     domain_bounds: tuple[float, float, float, float] | None = None,
+    dem_path: Path | None = None,
 ) -> tuple[float, float, float, float]:
     """The box the API sources are asked over, in EPSG:2154.
 
@@ -326,7 +337,7 @@ def _bootstrap_bbox(
             xmax + DOMAIN_MARGIN_M,
             ymax + DOMAIN_MARGIN_M,
         )
-        bounds = _intersect_with_dem(bounds, geo_cfg=geo_cfg, crs_project=crs_project)
+        bounds = _intersect_with_dem(bounds, dem_path=dem_path, crs_project=crs_project)
         return tuple(transform_bounds(str(crs_project), _QUERY_CRS, *bounds))
     x_outlet = getattr(geo_cfg, "x_outlet", None)
     y_outlet = getattr(geo_cfg, "y_outlet", None)
@@ -343,14 +354,14 @@ def _bootstrap_bbox(
         x_outlet + _BOOTSTRAP_BUFFER_M,
         y_outlet + _BOOTSTRAP_BUFFER_M,
     )
-    bounds = _intersect_with_dem(bounds, geo_cfg=geo_cfg, crs_project=crs_project)
+    bounds = _intersect_with_dem(bounds, dem_path=dem_path, crs_project=crs_project)
     return tuple(transform_bounds(str(crs_project), _QUERY_CRS, *bounds))
 
 
 def _intersect_with_dem(
     bounds: tuple[float, float, float, float],
     *,
-    geo_cfg: Any,
+    dem_path: Path | None,
     crs_project: Any,
 ) -> tuple[float, float, float, float]:
     """Clip *bounds* to the DEM footprint, or return them unchanged when unknown."""
@@ -358,7 +369,6 @@ def _intersect_with_dem(
     from rasterio.errors import RasterioIOError
     from rasterio.warp import transform_bounds
 
-    dem_path = getattr(geo_cfg, "dem_init_path", None)
     if dem_path is None or not Path(dem_path).exists():
         return bounds
     try:

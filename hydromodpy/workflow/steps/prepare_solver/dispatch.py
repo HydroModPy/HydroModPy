@@ -47,22 +47,26 @@ logger = get_logger(__name__)
 def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
     """Return the solve dispatch this run uses: 'subprocess' or 'api'.
 
-    Only MODFLOW 6 offers a second dispatch (``libmf6`` through the BMI
-    wrappers); every other backend runs its executable.
+    The built flow model, once it exists, states the dispatch that really
+    ran: a coupling of the build can force the in-process runner. Before the
+    build, the backend's own options decide: a backend that declares a
+    ``runner`` reads it, and every other backend runs its executable.
 
-    The declared ``mf6_runner`` is the fallback, not the answer: the build
-    forces the in-process runner whenever a lake carries exposed-band
-    (marnage) runoff, so a configuration that says ``subprocess`` can still
-    solve through the shared library. Once the model exists, it - not the
-    configuration - states the dispatch.
+    The declared ``runner`` is the fallback, not the answer, so no layer
+    outside the backend names the one that has the choice.
     """
-    if str(solver_name or "") != "modflow6":
-        return "subprocess"
     executed = _built_model_runner(ctx, solver_name)
     if executed is not None:
         return executed
-    runtime = ctx.cfg.solver.options_of(solver_name).runtime
-    return "api" if getattr(runtime, "mf6_runner", "subprocess") == "api" else "subprocess"
+    if not solver_name:
+        return "subprocess"
+    try:
+        options = ctx.cfg.solver.options_of(solver_name)
+    except ValueError:
+        # An unregistered solver is refused later, by the plan itself.
+        return "subprocess"
+    runner = getattr(options, "runner", None)
+    return "subprocess" if runner is None else str(runner)
 
 
 def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:

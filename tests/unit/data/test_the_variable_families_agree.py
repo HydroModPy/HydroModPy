@@ -34,8 +34,8 @@ _LOAD_STATE_FIELDS = {"loaded_plan_types"}
 # Their tags are held equal to the registry by the test below, and the lot that
 # makes ``custom`` a source of the port lifts the exception.
 _UNION_SECTIONS = {"dem", "geology", "crossings"}
-# Sections whose only source is the user's own files. The registry holds nothing
-# for them until ``custom`` becomes a source of the port.
+# Sections whose only sources are the user's own: ``file``, and ``url`` where the
+# section registers it. Their ``Literal`` tags are the registry's, like any other.
 _CUSTOM_ONLY_SECTIONS = {
     "lake_abacus",
     "lake_bathymetry",
@@ -50,7 +50,7 @@ _CUSTOM_ONLY_SECTIONS = {
 }
 # Sources computed from the section alone or read from a local file.
 # They contact no host.
-_LOCAL_SOURCES = {"explore2", "synthetic", "constant"}
+_LOCAL_SOURCES = {"explore2", "synthetic", "constant", "file", "url"}
 
 
 def _families() -> dict[str, set[str]]:
@@ -149,7 +149,7 @@ def test_the_shipped_keys_cut_into_one_section_each() -> None:
     """Every shipped key matches exactly one section; a second match would hide a collision."""
     pairs = _shipped_pairs()
     assert len(pairs) == len(data_sources.names(shipped_only=True))
-    assert len({section for section, _id in pairs}) == 18
+    assert len({section for section, _id in pairs}) == 28
 
 
 @pytest.mark.parametrize("variable", sorted(VARIABLE_SPECS))
@@ -157,8 +157,8 @@ def test_the_source_values_of_a_section_are_the_sources_of_its_registry(variable
     """What a section may name and what its manager can serve are one list now.
 
     An open ``source`` field is checked on the registry at read time, so the
-    agreement is by construction: the values are the section's served ids plus
-    ``custom``. The sections that still choose a model of options by the value
+    agreement is by construction: the values are the section's served ids,
+    ``file`` and ``url`` included where the section registers them. The sections that still choose a model of options by the value
     of ``source`` keep their ``Literal``, and its tags are held equal to the
     registry below until the lot that lifts it.
     """
@@ -170,12 +170,10 @@ def test_the_source_values_of_a_section_are_the_sources_of_its_registry(variable
         )
         return
     if variable in _CUSTOM_ONLY_SECTIONS:
-        # ``custom`` becomes a source of the port with the file-content lot.
-        assert values == {"custom"}, variable
-        return
-    assert values - {"custom"} == served, (
+        assert values <= {"file", "url"} and "file" in values, variable
+    assert values == served, (
         f"The `source` values of {variable} and the sources registered for its section "
-        f"disagree: config {sorted(values - {'custom'})}, registry {sorted(served)}"
+        f"disagree: config {sorted(values)}, registry {sorted(served)}"
     )
 
 

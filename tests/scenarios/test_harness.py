@@ -31,7 +31,7 @@ ISLAND_DIGESTS = {
     "nwt": "d93022dea0dacf8c57f1838d15f321f7b1950303127bb47ad02185c0baae4c63",
     "boussinesq": "c0fd06b0f86b1bdf39064ae0348afd6efaa5bbdd00c816d8320c088f74deb1ae",
     "spinup": "b3af4af7302006e817dd40a458fdd92c9e6d605ef805325a4a2cb81cbb7beb07",
-    "calage": "04db3c90b65016138016ea638106e800fe13831eccf1879317368d3073663463",
+    "calage": "9967c5f156d6f803522c07b2095966eabe21c254f9aeb22892aac38a1d6886e4",
 }
 
 
@@ -120,7 +120,7 @@ def test_a_scenario_that_outlives_its_timeout_is_killed(tmp_path, scenario_env, 
     assert played.seconds < 30
 
 
-def test_a_scenario_that_fetches_a_binary_is_refused(tmp_path, scenario_env, scenario_cache):
+def test_a_scenario_that_fetches_a_binary_is_refused(tmp_path):
     code = "import os, pathlib; pathlib.Path(os.environ['HMP_CACHE_HOME'], 'bin', 'mf6').touch()"
     scenario = Scenario(
         name="fetch",
@@ -129,8 +129,12 @@ def test_a_scenario_that_fetches_a_binary_is_refused(tmp_path, scenario_env, sce
         python=code,
         needs=(),
     )
+    # Its own cache and environment: the scenario writes a file in the cache, and the
+    # shared one, which links the real binaries, must stay clean.
+    cache = tmp_path / "cache"
+    env = isolated_env(tmp_path / "home", cache, tmp_path / "state", tmp_path / "tmp")
     with pytest.raises(AssertionError, match="fetch a solver binary"):
-        play(scenario, tmp_path / "play", scenario_env, scenario_cache)
+        play(scenario, tmp_path / "play", env, cache)
 
 
 def test_a_scenario_needs_one_way_to_run():

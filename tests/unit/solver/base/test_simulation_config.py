@@ -29,8 +29,8 @@ def test_a_registered_solver_of_the_kind_is_kept_stripped(
 
 
 REFUSED = (
-    ("flow", ["nope"], "boussinesq, modflow6, modflow_nwt"),
-    ("flow", ["modpath"], "boussinesq, modflow6, modflow_nwt"),
+    ("flow", ["nope"], "boussinesq, linear_reservoir, modflow6, modflow_nwt"),
+    ("flow", ["modpath"], "boussinesq, linear_reservoir, modflow6, modflow_nwt"),
     ("transport", ["nope"], "modflow6, modflow6_prt, modpath, mt3dms"),
     ("transport", ["boussinesq"], "modflow6, modflow6_prt, modpath, mt3dms"),
 )
@@ -68,3 +68,14 @@ def test_a_process_without_a_solver_is_refused() -> None:
         SimulationConfig.model_validate(
             {"process": [{"id": "flow_main", "kind": "flow", "solvers": [" "]}]}
         )
+
+
+def test_a_flow_process_without_solvers_is_refused_whatever_the_backend() -> None:
+    """solver.backend does not fill the names a process solves.
+
+    The two keys are read against each other once both exist: a process that
+    writes no ``solvers`` is refused rather than holding the default backend
+    of ``[solver]``, so a run never solves another model than its file names.
+    """
+    with pytest.raises(ValidationError, match="solvers"):
+        SimulationConfig.model_validate({"process": [{"id": "flow_main", "kind": "flow"}]})

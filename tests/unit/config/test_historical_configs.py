@@ -10,6 +10,7 @@ as a reason this table does not hold, or as a file that stops validating.
 from __future__ import annotations
 
 import shutil
+import tomllib
 import warnings
 from fnmatch import fnmatch
 from pathlib import Path
@@ -19,6 +20,7 @@ import pytest
 from hydromodpy.config.config_migration import fix_config_chain
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.toml_io.paths import is_bare_filename
 from hydromodpy.project.check import check_project
 
 CORPUS = Path(__file__).parent / "corpus"
@@ -37,7 +39,7 @@ REASONS = {
     "the drains replaced stream enforcement": "'enforce_streams' is not accepted any more",
     "the figure takes its window from the run": "has no option 'scoring_window'",
     "a list replaces, it no longer merges by position": "sources[0].source: Field required",
-    "a source names its path": "sources[0].path: Field required",
+    "a source names its path": "].path: Field required",
     "a recharge series replaces the constant": "would be replaced by the series [data.recharge]",
     "an archive is written by hmp publish": 'format = "package" is retired',
     "the runoff ratio left the recharge source": "'runoff_ratio' is not accepted any more",
@@ -76,10 +78,38 @@ def _expected_reason(relative: Path) -> str | None:
     return next(reason for pattern, reason in EXPECTED if fnmatch(str(relative), pattern))
 
 
-def _copy_of(relative: Path, tmp_path: Path) -> Path:
-    """Copy the example of *relative* aside, so nothing rewrites the corpus."""
+PATH_KEYS = ("path", "dem_init_path", "mask_path", "complete")
+"""The keys that name a file the loader looks for."""
+
+
+def _bare_names(node: object) -> set[str]:
+    """Return the bare file names a parsed document writes under a key of :data:`PATH_KEYS`."""
+    if isinstance(node, dict):
+        found = {
+            value
+            for key, value in node.items()
+            if key in PATH_KEYS and isinstance(value, str) and is_bare_filename(value)
+        }
+        return found.union(*(_bare_names(value) for value in node.values()))
+    if isinstance(node, list):
+        return set().union(*(_bare_names(item) for item in node))
+    return set()
+
+
+def _copy_of(relative: Path, tmp_path: Path, *, with_the_data: bool = True) -> Path:
+    """Copy the example of *relative* aside, so nothing rewrites the corpus.
+
+    A bare file name is refused unless the file is at the project root, and the corpus
+    holds no data. With *with_the_data* an empty file stands at the root for each bare
+    name, so a file is judged on the other reasons of this table.
+    """
     example = Path(*relative.parts[:2])
     shutil.copytree(CORPUS / example, tmp_path / example)
+    if with_the_data:
+        for file in (tmp_path / example).rglob("*.toml"):
+            document = tomllib.loads(file.read_text(encoding="utf-8-sig"))
+            for name in _bare_names(document):
+                (file.parent / name).touch()
     return tmp_path / relative
 
 
@@ -142,3 +172,22 @@ def test_a_file_validates_after_the_doctor_or_is_refused_for_its_named_reason(
         assert not errors
     else:
         assert REASONS[reason] in errors, errors
+
+
+def test_a_file_whose_data_sat_in_the_workspace_folder_is_refused_for_its_bare_name(
+    tmp_path: Path,
+) -> None:
+    """The workspace data folder is not searched any more: the doctor cannot move a file."""
+    target = _copy_of(
+        Path("v2.0.0a5/04_streamflow_intermittence_in_transient/step2_local_data.toml"),
+        tmp_path,
+        with_the_data=False,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fix_config_chain(target)
+
+    errors = _errors_of(target)
+
+    assert "is a bare name" in errors
+    assert "inputs/" in errors

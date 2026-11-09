@@ -64,16 +64,18 @@ class TestSealAndIndex:
         store = runs.open(create_zarr=False)
         assert not store.fields_path.exists()
 
-    def test_solver_category_auto_distributed(self, runs):
-        sid = runs.open(solver="modflow_nwt").sim_id
+    def test_the_category_the_manifest_carries_is_indexed(self, runs):
+        """The category of a solver is read off the manifest of the run."""
+        sid = runs.open(solver="modflow_nwt", solver_category="distributed").sim_id
         assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "distributed"
 
-    def test_solver_category_auto_integrated(self, runs):
-        sid = runs.open(solver="boussinesq").sim_id
-        assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "integrated"
+    def test_the_category_of_a_global_model_is_the_one_its_manifest_carries(self, runs):
+        """A global model writes category ``lumped``: the index keeps it as it stands."""
+        sid = runs.open(solver="linear_reservoir", solver_category="lumped").sim_id
+        assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "lumped"
 
-    def test_a_run_of_an_unknown_solver_is_indexed_with_the_unknown_category(self, runs):
-        """A solver name is checked when it is typed, not when a seal is read."""
+    def test_a_run_without_a_category_is_indexed_with_the_unknown_category(self, runs):
+        """A run of a solver whose manifest names no category is indexed ``unknown``."""
         store = runs.open(solver="exotic_solver")
         runs.seal(store)
 

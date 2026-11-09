@@ -620,7 +620,7 @@ def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model(
     parsed = tomllib.loads(path.read_text())
     assert "bottom_path" not in parsed["geographic"]
     assert parsed["data"]["substratum"]["sources"] == [
-        {"source": "custom", "path": "data/bottom.tif"}
+        {"source": "file", "path": "data/bottom.tif"}
     ]
     # The key was never read: switching the kind would change the results.
     assert parsed["domain"]["depth_model"] == {"kind": "constant_thickness", "thickness": "30 m"}
@@ -629,7 +629,7 @@ def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model(
 def test_bottom_path_dropped_when_a_substratum_is_already_declared() -> None:
     doc = {
         "geographic": {"bottom_path": "old.tif"},
-        "data": {"substratum": {"sources": [{"source": "custom", "path": "new.tif"}]}},
+        "data": {"substratum": {"sources": [{"source": "file", "path": "new.tif"}]}},
     }
 
     changes = migrate_config_doc(doc)
@@ -1133,7 +1133,7 @@ def test_a_phase_that_overrides_a_list_says_it_table_by_table() -> None:
         ("flow.param.K33.field.value", "flow.param.Kv.field.value", "", ""),
         (
             "transport.modflow6prt.parameters.stop_time_days",
-            "transport.modflow6prt.parameters.stop_time",
+            "transport.modflow6_prt.stop_time",
             "transport.modflow6prt.parameters",
             "stop_time_days",
         ),
@@ -1188,59 +1188,39 @@ def test_the_keys_transport_never_read_are_dropped() -> None:
         "[transport.modflow6prt.parameters]\nporosity = 0.2\n"
     )
     migrate_config_doc(doc)
-    assert set(doc["transport"]) == {"modflow6prt"}
+    assert set(doc["transport"]) == {"modflow6_prt"}
 
 
-def test_transport_mt3dms_parameters_are_preserved(monkeypatch) -> None:
-    from collections.abc import Mapping
-
-    import hydromodpy.config.config_migration as cm
-
-    move = cm.TableMove(
-        "transport.mt3dms.parameters", "transport.mt3dms", since=cm.SOLVER_TABLES_SINCE
+def test_a_transport_table_loses_its_parameters_level() -> None:
+    doc = tomllib.loads(
+        "[transport.mt3dms.parameters]\nporosity = 0.1\n"
+        "[transport.modflow6gwt.parameters]\nporosity = 0.2\n"
+        "[transport.modflow6prt.parameters]\nstop_time_days = 5\n"
     )
-    if move not in cm.MOVED_TABLES:
-        monkeypatch.setattr(cm, "MOVED_TABLES", (*cm.MOVED_TABLES, move))
 
-    def _safe_move_to(doc, target, moves, found, context):
-        written = [m for m in moves if cm._value_at(context, m.old) is not None] or found
-        kept = cm._kept_move(written, context)
-        existing = cm._value_at(doc, target)
-        if any(m.old.startswith(f"{target}.") for m in found) and isinstance(existing, Mapping):
-            children = {
-                m.old[len(target) + 1 :].split(".")[0]
-                for m in found
-                if m.old.startswith(f"{target}.")
-            }
-            if not any(k for k in existing if k not in children):
-                existing = None
-        winner = existing if existing is not None else cm._value_at(context, kept.old)
-        changes = []
-        moved = None
-        for m in found:
-            value = cm._value_at(doc, m.old)
-            cm._drop_table(doc, m.old)
-            if existing is None and m == kept:
-                moved = value
-                changes.append(f"{m.old} -> [{target}]")
-                continue
-            owner = (
-                f"[{target}] already set"
-                if existing is not None
-                else f"{kept.section} is the flow solver"
-            )
-            diff = cm._difference(value, winner)
-            held = f"it held other values: {diff}" if diff else "same values"
-            changes.append(f"{m.old} dropped ({owner}; {held})")
-        if moved is not None:
-            cm._set_at(doc, target, moved)
-        return changes
+    changes = migrate_config_doc(doc)
 
-    monkeypatch.setattr(cm, "_move_to", _safe_move_to)
+    assert doc["transport"] == {
+        "mt3dms": {"porosity": 0.1},
+        "modflow6": {"porosity": 0.2},
+        "modflow6_prt": {"stop_time": 5},
+    }
+    assert "transport.modflow6gwt.parameters -> [transport.modflow6]" in changes
 
-    doc = tomllib.loads("[transport.mt3dms.parameters]\nporosity = 0.1\n")
-    cm.migrate_config_doc(doc)
-    assert doc["transport"]["mt3dms"]["porosity"] == 0.1
+
+def test_a_transport_table_beside_its_parameters_is_kept_and_they_are_dropped() -> None:
+    doc = tomllib.loads(
+        "[transport.modpath]\ntrack_dir = 'forward'\n"
+        "[transport.modpath.parameters]\ntrack_dir = 'backward'\n"
+    )
+
+    changes = migrate_config_doc(doc)
+
+    assert doc["transport"]["modpath"] == {"track_dir": "forward"}
+    assert any(
+        "transport.modpath.parameters dropped ([transport.modpath] already set" in c
+        for c in changes
+    )
 
 
 def test_a_bare_buffer_is_written_out_with_the_same_rule() -> None:
@@ -1280,9 +1260,18 @@ def test_every_listed_key_is_held_against_the_models(form: OldForm) -> None:
     assert old not in keys or "{*}" in form.old, f"{form.old} is still a key"
 
 
+def _a_grammar_key_matches(path: str, keys: set[str]) -> bool:
+    """Whether a key the grammar lists fits *path*, whose ``{*}`` stands for any free name."""
+    steps = path.replace("[*]", "").split(".")
+    return any(
+        len(parts) == len(steps) and all(s in (p, "{*}") for s, p in zip(steps, parts, strict=True))
+        for parts in (key.split(".") for key in keys)
+    )
+
+
 @pytest.mark.parametrize(("key", "old", "new"), OLD_VALUES)
 def test_every_rewritten_value_is_held_against_its_key(key: str, old: str, new: str) -> None:
-    assert key in _keys_of_the_grammar()
+    assert _a_grammar_key_matches(key, _keys_of_the_grammar())
     assert old != new
 
 
@@ -2228,4 +2217,118 @@ def test_the_solver_rows_come_after_the_rows_of_a_pre_release() -> None:
         "solver.modflow6",
         "solver.modflow_nwt",
         "solver.boussinesq",
+        "transport.modflow6",
+        "transport.modflow6_prt",
+        "transport.mt3dms",
+        "transport.modpath",
     ]
+
+
+def test_doctor_refusal_of_dem_init_path(tmp_path: Path) -> None:
+    from hydromodpy.cli.commands.doctor import _refusal_of
+
+    path = _write(
+        tmp_path, '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n'
+    )
+
+    refusal = _refusal_of(path)
+
+    assert refusal is not None
+    assert "dem_init_path was removed in 2.1.0" in str(refusal)
+    assert "[[data.dem.sources]]" in str(refusal)
+    assert 'source = "file"' in str(refusal)
+
+
+def test_doctor_writes_the_dem_row_a_load_refuses(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path, '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n'
+    )
+
+    told = fix_config_file(path)
+
+    assert told == [
+        "geographic.catchment.dem_init_path -> [[data.dem.sources]] path 'inputs/dem.tif' "
+        "(dem_init_path was removed in 2.1.0: declare the DEM as [[data.dem.sources]] "
+        'with source = "file" and the same path)'
+    ]
+    parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert parsed["data"]["dem"]["sources"] == [{"source": "file", "path": "inputs/dem.tif"}]
+    assert "dem_init_path" not in parsed["geographic"]["catchment"]
+
+
+def test_doctor_refusal_of_bare_name(tmp_path: Path) -> None:
+    from hydromodpy.cli.commands.doctor import _refusal_of
+
+    path = _write(
+        tmp_path,
+        '[geographic.catchment]\nkind = "dem"\n'
+        '[[data.dem.sources]]\nsource = "file"\npath = "dem.tif"\n',
+    )
+
+    refusal = _refusal_of(path)
+
+    assert refusal is not None
+    assert "'dem.tif' is a bare name" in str(refusal)
+    assert "inputs/dem.tif" in str(refusal)
+
+
+def test_a_live_forward_model_key_is_dropped_and_the_doctor_says_why(tmp_path: Path) -> None:
+    """The key that once named a forward model leaves, and the doctor says why.
+
+    A forward model is a solver backend: the load refuses the key, and the doctor
+    has nothing to rewrite in its place, so it drops the key, keeps every other
+    key of the table and says the refusal in full, naming what a global model is
+    today.
+    """
+    path = _write(
+        tmp_path,
+        '[calibration]\nforward_model = "linear_reservoir"\nmethod = "grid"\n',
+    )
+
+    told = fix_config_file(path)
+
+    assert told == [
+        "calibration.forward_model dropped: a forward model is a solver backend "
+        "since 2.1.0: name it by solver.backend, register it in the hydromodpy.solver "
+        "entry-point group, and calibrate it with the pipeline evaluator"
+    ]
+    calib = tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]
+    assert "forward_model" not in calib
+    assert calib["method"] == "grid"
+    assert fix_config_file(path) == []
+
+
+def test_a_live_scored_forward_evaluator_is_dropped_and_the_doctor_says_why(
+    tmp_path: Path,
+) -> None:
+    """The scored_forward_model evaluator has nothing left to do: refused like its key."""
+    path = _write(tmp_path, '[calibration]\nevaluator = "scored_forward_model"\n')
+
+    told = fix_config_file(path)
+
+    assert told == [
+        "calibration.evaluator dropped: a forward model is a solver backend "
+        "since 2.1.0: name it by solver.backend, register it in the hydromodpy.solver "
+        "entry-point group, and calibrate it with the pipeline evaluator"
+    ]
+    assert "evaluator" not in tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]
+    assert fix_config_file(path) == []
+
+
+def test_a_sealed_document_holding_the_forward_model_at_null_loses_it_in_silence() -> None:
+    """A run config dated before the key was withdrawn reads, and the null is lost."""
+    doc = {"calibration": {"forward_model": None}}
+
+    migrate_sealed_config_doc(doc)
+
+    assert doc == {"calibration": {}}
+
+
+def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
+    """A run config dated before the withdrawal still says what replaced the model."""
+    doc = {"calibration": {"forward_model": "linear_reservoir"}}
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="calibration.forward_model retired"):
+        migrate_sealed_config_doc(doc)
+
+    assert doc == {"calibration": {}}

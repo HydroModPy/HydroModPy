@@ -92,11 +92,15 @@ def prepare_cases(
     shared_cache: Path | None,
     parallel: int,
     threads_per_case: int,
+    environment_flags: Sequence[str] = (),
 ) -> list[PreparedCase]:
     """Run the prepare phase of *cases*, *parallel* at a time; merge each private cache.
 
     One case per site at a time: cases of the same site share their files of
     ``data/``, so the next one waits until the first has ended and merged.
+    ``environment_flags`` are the three Environment options the launcher
+    received, carried on the command line of the prepare child too, so the
+    prepare and the solve of one case play under the same Environment.
     """
     pending = deque(cases)
     running: list[Child] = []
@@ -113,7 +117,7 @@ def prepare_cases(
                     start_child(
                         job_dir,
                         case,
-                        prepare_command(case),
+                        prepare_command(case, environment_flags=environment_flags),
                         phase="prepare",
                         threads_per_case=threads_per_case,
                     )

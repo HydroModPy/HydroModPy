@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -67,13 +68,67 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
     )
     assert "task-flags \\\n    --phase solve" in text
     assert (
-        '"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML" ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"} &' in text
+        '"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML"'
+        ' ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"}'
+        ' ${ENVIRONMENT_FLAGS[@]+"${ENVIRONMENT_FLAGS[@]}"} &' in text
     )
     assert not re.search(r"(^|\$\()\s*hmp ", text, re.M)
     assert "export HMP_THREADS_PER_CASE=2" in text
     assert "export HMP_LAUNCHED_CASE=slurm" in text
     assert "-m hydromodpy.project.launch.slurm finish-task" in text
     assert "--partition" not in text and "--time" not in text
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
+    root = tmp_path / "p"
+    planned_project(root, threads=2)
+    job = write_slurm_array(
+        root,
+        stamp=STAMP,
+        environment_flags=[
+            "--credentials",
+            "c.toml",
+            "--allow-host",
+            "a.b",
+            "--max-download-bytes",
+            "10",
+        ],
+    )
+
+    for script in (job.prepare_sh, job.array_sh):
+        done = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        assert done.returncode == 0, done.stderr
+        text = script.read_text()
+        assert "ENVIRONMENT_FLAGS=(--credentials c.toml --allow-host a.b" in text
+        assert "--max-download-bytes 10)" in text
+
+    plain_job = write_slurm_array(root, stamp="19991231-235959")
+    plain = plain_job.array_sh.read_text()
+    assert "ENVIRONMENT_FLAGS=()" in plain
+    assert "--credentials" not in plain
+    assert (
+        '"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML"'
+        ' ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"}'
+        ' ${ENVIRONMENT_FLAGS[@]+"${ENVIRONMENT_FLAGS[@]}"} &' in plain
+    )
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_a_task_flag_the_shell_would_read_is_quoted(tmp_path: Path) -> None:
+    root = tmp_path / "p"
+    planned_project(root, threads=2)
+    tricky = 'a "b" $HOME `id`'
+    job = write_slurm_array(root, stamp=STAMP, environment_flags=["--credentials", tricky])
+
+    done = subprocess.run(["bash", "-n", str(job.array_sh)], capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr
+    text = job.array_sh.read_text()
+    assert f"ENVIRONMENT_FLAGS=(--credentials {shlex.quote(tricky)})" in text
+    # The run line keeps one flag: the quoted value crosses the render whole.
+    assert '${ENVIRONMENT_FLAGS[@]+"${ENVIRONMENT_FLAGS[@]}"} &' in text
 
 
 def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -> None:

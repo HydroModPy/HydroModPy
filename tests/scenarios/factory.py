@@ -2,7 +2,9 @@
 
 The island is a 610 m square grid with one layer and an ocean on the shore.
 Five variants play it with a different solver or workflow, and five more start
-it from a computed or an earlier state. Every project is
+it from a computed or an earlier state. Four more carry a transport process
+behind the flow, in the order the planner reads, the flow first and the
+transport after it. Every project is
 built from the literal texts below. The factory reads no file, opens no network
 and draws no random number, so a project has the same bytes on every machine.
 """
@@ -21,6 +23,15 @@ INITIAL_STATE_VARIANTS: tuple[str, ...] = (
     "steady_ic_boussinesq",
     "cyclic_ic",
     "restart",
+)
+
+# The three transport chains of the lot matrix, beside the island variants.
+# A fourth case, ``nwt_modpath_seepage_clip``, is the same island again and
+# stays outside this tuple: it carries ``zone_partic = "seepage_clip"`` only.
+TRANSPORT_VARIANTS: tuple[str, ...] = (
+    "nwt_mt3dms",
+    "mf6_prt",
+    "nwt_modpath",
 )
 
 TRANSIENT = """\
@@ -125,6 +136,9 @@ kind = "transport"
 solvers = ["modflow6"]
 """
 
+# The gwt island keeps the table shape of 2.0.0, so the digests the reference
+# islands are held to in tests/scenarios/test_harness.py stay the same. A
+# living file in that shape still loads, with a migration warning.
 TRANSPORT_PARAMETERS = """
 
 [transport.modflow6gwt.parameters]
@@ -134,6 +148,15 @@ diffu_coeff = 1e-10
 react_order = 1
 rate_decay = 1.585489599e-08
 """
+
+# The transport table of a variant, at the registry name of its solver. Empty
+# for nwt_modpath, which keeps every default.
+TRANSPORT_TAILS: dict[str, str] = {
+    "nwt_mt3dms": "\n[transport.mt3dms]\nporosity = 0.1\n",
+    "mf6_prt": "\n[transport.modflow6_prt]\nporosity = 0.1\n",
+    "nwt_modpath": "",
+    "nwt_modpath_seepage_clip": '\n[transport.modpath]\nzone_partic = "seepage_clip"\n',
+}
 
 TRIANGLE_MESH = """
 [mesh]
@@ -231,8 +254,8 @@ source = "synthetic"
 values = [1.0]
 
 [[data.piezometry.sources]]
-source = "custom"
-path = "piezometry"
+source = "file"
+path = "data/piezometry"
 default_crs = "EPSG:2154"
 source_unit = "m"
 
@@ -371,6 +394,48 @@ def initial_state_files(variant: str) -> dict[str, str]:
     return {"project.toml": _first_period_unsteady(text)}
 
 
+def transport_island(name: str, flow_solver: str, transport_solver: str, *, tail: str = "") -> str:
+    """Return the island TOML with one transport process behind its flow.
+
+    The flow process comes first, the transport after it, in the order the
+    planner reads.
+    """
+    process = (
+        "\n[[simulation.process]]\n"
+        'id = "transport_main"\n'
+        'kind = "transport"\n'
+        f'solvers = ["{transport_solver}"]\n'
+    )
+    return transient_island(name, flow_solver, process=process, tail=tail)
+
+
+def transport_variant_files(variant: str) -> dict[str, str]:
+    """Return the files of one island with a transport process behind its flow.
+
+    The transport solver follows the flow solver its ``requires`` declares, and
+    carries its default parameters with a porosity given instead of the
+    specific-yield fallback, in the ``[transport.<name>]`` table the registry
+    names. A variant keeps its solver files, so a scenario can read what the
+    flow leaves to its transport: the link file of MT3DMS, the head and budget
+    files MODPATH reads, and the seepage raster. ``nwt_modpath_seepage_clip``,
+    outside ``TRANSPORT_VARIANTS``, releases the particles from the seepage
+    areas of the flow run, ``zone_partic = "seepage_clip"``.
+    """
+    solved_by = {
+        "nwt_mt3dms": ("modflow_nwt", "mt3dms"),
+        "mf6_prt": ("modflow6", "modflow6_prt"),
+        "nwt_modpath": ("modflow_nwt", "modpath"),
+        "nwt_modpath_seepage_clip": ("modflow_nwt", "modpath"),
+    }
+    if variant not in solved_by:
+        raise KeyError(variant)
+    flow_solver, transport_solver = solved_by[variant]
+    text = transport_island(variant, flow_solver, transport_solver, tail=TRANSPORT_TAILS[variant])
+    return {
+        "project.toml": text.replace("keep_solver_files = false", "keep_solver_files = true"),
+    }
+
+
 def write_project(root: Path, files: Mapping[str, str]) -> Path:
     """Write ``files`` under ``root``, which must be absent or empty, and return ``root``."""
     root = Path(root)
@@ -405,3 +470,120 @@ def tree_digest(root: Path) -> str:
         if path.is_file()
     }
     return files_digest(found)
+
+
+# The one-cell basin the global backend runs: the catchment mesh engine takes
+# the whole synthetic domain as the one cell it meshes and the reservoir reads
+# its recharge there. No ocean boundary, no aquifer property, no mesh section:
+# the engine of the run is deduced from the backend.
+BASIN = """\
+[workflow]
+mode = "simulation"
+
+[site]
+name = "basin"
+
+[workspace]
+
+[simulation]
+name = "basin"
+
+[simulation.results]
+keep_solver_files = false
+
+[simulation.results.persistence]
+field_precision = "exact"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["linear_reservoir"]
+
+[display]
+enabled = false
+
+[simulation.time]
+start_datetime = "2003-01-01"
+end_datetime = "2003-01-20"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "basin"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 31
+ny = 31
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 100.0
+
+[data]
+types = ["recharge"]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.5]
+
+[flow]
+flow_regime = "transient"
+first_period_steady = true
+active_sinks_sources = ["recharge"]
+
+[flow.ic]
+kind = "steady_state"
+source = "mean_recharge"
+
+[solver]
+backend = "linear_reservoir"
+
+[solver.linear_reservoir]
+time_constant = "30 days"
+"""
+
+# The daily recharge of the basin, written as the two files the file source
+# reads under data/recharge/: the station table, which holds the unit, and the
+# chronicle, one rate a day over the window in mm per day. The station sits at
+# the centre of the synthetic domain. The basin that uses it receives the rate
+# at the step of the file, beside the period view.
+BASIN_RECHARGE_STATIONS = """\
+id,x,y,crs,unit
+BASIN_5D,305.0,305.0,EPSG:2154,mm/day
+"""
+
+BASIN_DAILY_RECHARGE = """\
+datetime,value
+"""
+for _day in range(1, 21):
+    BASIN_DAILY_RECHARGE += f"2003-01-{_day:02d},{1.0 + (_day % 5) * 0.5:.1f}\n"
+
+# The run of the basin on five-day periods, the long step the report reads. The
+# recharge of every one of its four periods varies inside the period, so a
+# reading that took one value per period would not answer for the water.
+BASIN_5D = (
+    BASIN.replace('step_value = "1 day"', 'step_value = "5 days"')
+    .replace('[simulation]\nname = "basin"', '[simulation]\nname = "basin_5d"')
+    .replace(
+        'source = "synthetic"\nvalues = [1.5]',
+        'source = "file"\npath = "data/recharge"\ndefault_crs = "EPSG:2154"',
+    )
+)
+
+
+def basin_files(with_daily_recharge: bool = False) -> dict[str, str]:
+    """Return the files of one basin project, relative path to text.
+
+    The daily recharge goes beside the project as the file the file source
+    reads; the project that runs on daily periods carries none.
+    """
+    files = {"project.toml": BASIN_5D if with_daily_recharge else BASIN}
+    if with_daily_recharge:
+        files["data/recharge/recharge_file_LOC.csv"] = BASIN_RECHARGE_STATIONS
+        files["data/recharge/recharge_file_BASIN_5D_20030101_20030120_D.csv"] = BASIN_DAILY_RECHARGE
+    return files

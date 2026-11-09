@@ -1,13 +1,15 @@
 # model/transport
 
-The transport process.
+The configuration of the transport process. Its runtime objects are gone: a
+transport solver receives the frozen `Model` of its flow, its own options and
+the run slot through the adapter contract, and builds from them.
 
 ## Modules
 
 | module | answers |
 |---|---|
-| `transport.py` | The runtime `Transport` |
-| `transport_config.py` | `TransportConfig`, the `[transport]` table, with one parameter block per engine |
+| `transport_config.py` | `TransportConfig`, the `[transport]` table of a run: one free table per transport solver, under its registry name, without a parameters level |
 
-`transport.py` copies the parameters of each engine from the config, in one loop over the four engines
-(`modpath`, `mt3dms`, `modflow6gwt` and `modflow6prt`), and keeps the transport initial conditions.
+The solvers themselves live in the folders of the flow backends they follow,
+and the runner reads the table of a run with `options_of(name)`. The file of a
+2.0.0 project still reads, at the table paths it was written with.

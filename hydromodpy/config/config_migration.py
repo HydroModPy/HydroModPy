@@ -79,10 +79,22 @@ from hydromodpy.core.toml_io.paths import DottedPath, parse
 from hydromodpy.model.flow_config import FLOW_RUNTIME_KEYS
 from hydromodpy.model.properties.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
 from hydromodpy.results.exporters.export_spec import format_from_path
+from hydromodpy.solver.base.registry import DEFAULT_FLOW_SOLVER
 
 _logger = get_logger(__name__)
 
 _SOLVER_SECTIONS = ("modflow6", "modflownwt")
+
+_TRANSPORT_TABLES = (
+    ("modflow6gwt", "modflow6"),
+    ("modflow6prt", "modflow6_prt"),
+    ("mt3dms", "mt3dms"),
+    ("modpath", "modpath"),
+)
+"""The tables of ``[transport]`` of 2.0.0 and the registry name each one leads to."""
+
+_PRT_TIMES = ("release_times", "track_times", "track_time_step", "stop_time", "stop_travel_time")
+"""The particle-tracking times that once carried a ``_days`` suffix."""
 
 DEPRECATION_DELAY_MINORS = 2
 """How many minor versions an old form loads, the one that retired it included.
@@ -172,12 +184,24 @@ MOVED_TABLES: tuple[TableMove, ...] = (
         for section in _SOLVER_SECTIONS
     ),
     *(
+        TableMove(
+            f"transport.modflow6prt.parameters.{name}_days",
+            f"transport.modflow6prt.parameters.{name}",
+            since=ALPHA_FORM,
+        )
+        for name in _PRT_TIMES
+    ),
+    *(
         TableMove(f"flow.{old}", f"flow.runtime.{new}", since=ALPHA_FORM)
         for old, new in FLOW_RUNTIME_KEYS.items()
     ),
     TableMove("modflow6", "solver.modflow6", since=SOLVER_TABLES_SINCE),
     TableMove("modflownwt", "solver.modflow_nwt", since=SOLVER_TABLES_SINCE),
     TableMove("flow.runtime", "solver.boussinesq", since=SOLVER_TABLES_SINCE),
+    *(
+        TableMove(f"transport.{old}.parameters", f"transport.{new}", since=SOLVER_TABLES_SINCE)
+        for old, new in _TRANSPORT_TABLES
+    ),
 )
 
 
@@ -395,6 +419,8 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(_rename_simulation_keys(doc))
     changes.extend(_rename_export_times(doc))
     changes.extend(_rename_keys(doc, sealed=sealed, context=context))
+    changes.extend(_refused(_move_the_dem_init_path(doc)))
+    changes.extend(_rename_the_source_kinds(doc))
     changes.extend(_flatten_the_backend_table(doc))
     changes.extend(_rename_field_values(doc))
     changes.extend(_rename_figures(doc))
@@ -402,6 +428,7 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(_write_out_the_bare_buffer(doc))
     changes.extend(_rename_the_property_ids(doc))
     changes.extend(_drop_what_transport_never_read(doc))
+    changes.extend(_refused(_drop_the_forward_model(doc, sealed=sealed)))
     return changes
 
 
@@ -627,7 +654,43 @@ def _migrate_calibration_forms(doc: Any, *, sealed: bool, context: Any) -> list[
         *_write_the_block_metric(doc),
         *_drop_an_objective_beside_blocks(doc, sealed=sealed),
         *_rewrite_the_network_outputs(doc, sealed=sealed, context=context),
+        *_drop_the_forward_model(doc, sealed=sealed),
     ]
+
+
+def _drop_the_forward_model(doc: Any, *, sealed: bool) -> list[str]:
+    """Drop ``[calibration] forward_model`` and the value ``scored_forward_model``.
+
+    A forward model is a solver backend since 2.1.0, named by ``solver.backend``:
+    a live file is refused, and the doctor writes nothing in its place. A sealed
+    run config keeps reading: its key at ``null`` is lost in silence, and one
+    carrying a value warns.
+    """
+    changes: list[str] = []
+    for where, table in _tables_at(doc, "calibration"):
+        label = f"{where}.forward_model" if where else "calibration.forward_model"
+        if "forward_model" in table:
+            value = _plain(table["forward_model"])
+            del table["forward_model"]
+            if sealed:
+                if value is not None:
+                    warn_old_form(
+                        None, f"{label} retired ({_FORWARD_MODEL_REFUSAL})", rewritable=False
+                    )
+                continue
+            changes.append(f"{label} dropped: {_FORWARD_MODEL_REFUSAL}")
+        evaluator = table.get("evaluator")
+        if evaluator == "scored_forward_model":
+            del table["evaluator"]
+            if sealed:
+                warn_old_form(
+                    None,
+                    f"evaluator retired ({_FORWARD_MODEL_REFUSAL})",
+                    rewritable=False,
+                )
+                continue
+            changes.append(f"{where or 'calibration'}.evaluator dropped: {_FORWARD_MODEL_REFUSAL}")
+    return changes
 
 
 def _rewrite_the_warmup(doc: Any, *, sealed: bool, context: Any) -> list[str]:
@@ -1050,16 +1113,6 @@ RENAMED_KEYS: tuple[KeyRename, ...] = (
     KeyRename("geographic.catchment", "catch_def", "kind", since=ALPHA_FORM),
     KeyRename("simulation.process[*]", "type", "kind", since=ALPHA_FORM),
     KeyRename("solver.backend", "backend", "kind", since=ALPHA_FORM),
-    *(
-        KeyRename("transport.modflow6prt.parameters", f"{name}_days", name, since=ALPHA_FORM)
-        for name in (
-            "release_times",
-            "track_times",
-            "track_time_step",
-            "stop_time",
-            "stop_travel_time",
-        )
-    ),
     *(KeyRename("flow.param", old, new, since=ALPHA_FORM) for old, new in OLD_PROPERTY_IDS.items()),
 )
 """Every key a file wrote under another name, with the name that replaced it.
@@ -1090,6 +1143,8 @@ def migrate_sealed_config_doc(doc: Any) -> list[str]:
     """
     changes = _move_the_tables(doc, doc, since=SOLVER_TABLES_SINCE)
     changes.extend(_rename_keys(doc, sealed=True))
+    changes.extend(_move_the_dem_init_path(doc))
+    changes.extend(_rename_the_source_kinds(doc))
     changes.extend(_flatten_the_backend_table(doc))
     changes.extend(_rename_figures(doc))
     changes.extend(_rewrite_search_options(doc, sealed=True))
@@ -2661,12 +2716,65 @@ def _move_the_bottom_path(doc: Any) -> list[str]:
     if data is None:
         doc["data"] = {}
         data = doc["data"]
-    data["substratum"] = {"sources": [{"source": "custom", "path": path}]}
+    data["substratum"] = {"sources": [{"source": "file", "path": path}]}
     return [
         "geographic.bottom_path -> [[data.substratum.sources]] "
         "(read only with [domain.depth_model] kind = 'raster_substratum' "
         "or 'raster_thickness')"
     ]
+
+
+def _move_the_dem_init_path(doc: Any) -> list[str]:
+    """Move geographic.catchment.dem_init_path into one [[data.dem.sources]] row.
+
+    The raster the catchment reads is a data source now, declared under
+    [[data.dem.sources]] with source = "file". The path is kept as written, so a
+    sealed run reads the file it recorded. A live file is refused on load and the
+    doctor writes the row.
+    """
+    geographic = doc.get("geographic")
+    if not isinstance(geographic, Mapping):
+        return []
+    catchment = geographic.get("catchment")
+    if not isinstance(catchment, Mapping) or "dem_init_path" not in catchment:
+        return []
+    raw = _plain(catchment.pop("dem_init_path"))
+    if not catchment:
+        geographic.pop("catchment", None)
+    data = doc.setdefault("data", {})
+    if not isinstance(data, Mapping):
+        return []
+    dem = data.setdefault("dem", {})
+    if not isinstance(dem, Mapping):
+        data["dem"] = {}
+        dem = data["dem"]
+    held = _plain(dem.get("sources"))
+    held = held if isinstance(held, list) else ([] if held is None else [held])
+    dem["sources"] = [{"source": "file", "path": str(raw)}, *held]
+    return [
+        f"geographic.catchment.dem_init_path -> [[data.dem.sources]] path {raw!r} "
+        "(dem_init_path was removed in 2.1.0: declare the DEM as [[data.dem.sources]] "
+        'with source = "file" and the same path)'
+    ]
+
+
+def _rename_the_source_kinds(doc: Any) -> list[str]:
+    """Rewrite source = "custom" to source = "file" in every declared source."""
+    changes: list[str] = []
+    data = doc.get("data")
+    if not isinstance(data, Mapping):
+        return changes
+    for name, section in data.items():
+        if not isinstance(section, Mapping):
+            continue
+        sources = section.get("sources")
+        if not isinstance(sources, list):
+            continue
+        for index, source in enumerate(sources):
+            if isinstance(source, Mapping) and _plain(source.get("source")) == "custom":
+                source["source"] = "file"
+                changes.append(f"data.{name}.sources[{index}].source: 'custom' -> 'file'")
+    return changes
 
 
 def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
@@ -2717,7 +2825,7 @@ def _flow_solver_section(doc: Any) -> str:
         if isinstance(name, Mapping):
             tag = name.get("kind", name.get("backend"))
             name = name.get("name") if tag == "custom" else tag
-    return _SOLVER_SECTION_OF.get(str(name or "").strip().lower(), "modflow6")
+    return _SOLVER_SECTION_OF.get(str(name or "").strip().lower(), DEFAULT_FLOW_SOLVER)
 
 
 def _difference(dropped: Any, kept: Any) -> str:
@@ -2803,6 +2911,9 @@ def _move_to(
     written = [move for move in moves if _value_at(context, move.old) is not None] or found
     kept = _kept_move(written, context)
     existing = _value_at(doc, target)
+    if isinstance(existing, Mapping) and _holds_only_the_old_tables(existing, target, found):
+        # [transport.mt3dms.parameters] leads to [transport.mt3dms], which only holds it.
+        existing = None
     winner = existing if existing is not None else _value_at(context, kept.old)
     changes: list[str] = []
     moved = None
@@ -2824,6 +2935,16 @@ def _move_to(
     if moved is not None:
         _set_at(doc, target, moved)
     return changes
+
+
+def _holds_only_the_old_tables(existing: Mapping, target: str, found: Sequence[TableMove]) -> bool:
+    """Whether *existing*, the table at *target*, holds nothing but the old paths *found*."""
+    below = {
+        move.old[len(target) + 1 :].split(".")[0]
+        for move in found
+        if move.old.startswith(f"{target}.")
+    }
+    return bool(below) and set(existing) <= below
 
 
 def _move_directives(doc: Any, target: str, moves: Sequence[TableMove]) -> list[str]:
@@ -2886,6 +3007,27 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
 
 _PERSISTENCE = "simulation.results.persistence", "persistence"
 
+#: The forms the fusion of the ForwardModel port removed, each refused on load.
+_FORWARD_MODEL_FORMS = (
+    "calibration.forward_model",
+    'calibration.evaluator = "scored_forward_model"',
+)
+
+#: The refusal a forward model earns, which names what a global model is today.
+_FORWARD_MODEL_REFUSAL = (
+    "a forward model is a solver backend since 2.1.0: name it by solver.backend, "
+    "register it in the hydromodpy.solver entry-point group, and calibrate it with "
+    "the pipeline evaluator"
+)
+
+#: The old paths of the ``sgrid`` table of each flow solver, which ``[mesh]`` replaced.
+RETIRED_SGRID_KEYS = (
+    "modflow6.sgrid.planar",
+    "modflownwt.sgrid.planar",
+    "modflow6.sgrid.grid_dual",
+    "modflownwt.sgrid.grid_dual",
+)
+
 HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     OldForm("simulation.on_collision", "simulation.if_exists", ALPHA_FORM),
     OldForm("simulation.run_id", "simulation.name", ALPHA_FORM),
@@ -2941,30 +3083,35 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     *(OldForm(path, None, ALPHA_FORM) for path in _DROPPED_KEYS),
     OldForm(f"{_BACKEND}.kind", _BACKEND, SOLVER_TABLES_SINCE),
     OldForm(f"{_BACKEND}.name", _BACKEND, SOLVER_TABLES_SINCE),
+    OldForm(
+        "geographic.catchment.dem_init_path",
+        "data.dem.sources[*].path",
+        SOLVER_TABLES_SINCE,
+    ),
     OldForm("flow.active_bc", "flow.bc", ALPHA_FORM),
     OldForm("flow.active_sinks_sources", "flow.sinks_sources", ALPHA_FORM),
     *(OldForm(f"transport.{key}", None, ALPHA_FORM) for key in _TRANSPORT_NEVER_READ),
+    # The two parents of [transport] whose name changed with the move of their parameters.
+    OldForm("transport.modflow6gwt", "transport.modflow6", SOLVER_TABLES_SINCE),
+    OldForm("transport.modflow6prt", "transport.modflow6_prt", SOLVER_TABLES_SINCE),
+    *(OldForm(form, None, SOLVER_TABLES_SINCE, rewritten=False) for form in _FORWARD_MODEL_FORMS),
 )
 """The old forms a function of this module rewrites, one line for each key it reads."""
+
 
 OLD_VALUES: tuple[tuple[str, str, str], ...] = (
     ("flow.bc.kind", "cauchy", "drain"),
     ("flow.bc.kind", "robin", "drain"),
     ("geographic.catchment.buff_area", "10", "10% of sqrt(area)"),
+    ("data.{*}.sources[*].source", "custom", "file"),
+    ("data.hydrometry.sources[*].product", "QixM", "QIXM"),
 )
 """Values a rule rewrites under a key that keeps its name, as (key, old value, new value)."""
 
 REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
     *(
         OldForm(path, "mesh", ALPHA_FORM, rewritten=False)
-        for path in (
-            "mesh_catchment",
-            "mesh_input",
-            "modflow6.sgrid.planar",
-            "modflownwt.sgrid.planar",
-            "modflow6.sgrid.grid_dual",
-            "modflownwt.sgrid.grid_dual",
-        )
+        for path in ("mesh_catchment", "mesh_input", *RETIRED_SGRID_KEYS)
     ),
     OldForm("data.project_crs", "geographic.crs_project", ALPHA_FORM, rewritten=False),
     OldForm(
@@ -3028,6 +3175,7 @@ __all__ = [
     "OLD_VALUES",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
+    "RETIRED_SGRID_KEYS",
     "SOLVER_TABLES_SINCE",
     "KeyRename",
     "Layer",

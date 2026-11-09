@@ -15,8 +15,8 @@ import pytest
 
 from hydromodpy.calibration import CalibrationReport
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.evaluation import TrialOutcome
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.evaluation.port import TrialOutcome
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import document as document_module

@@ -43,6 +43,7 @@ from hydromodpy.core.exceptions import (
     JobInputNotFoundError,
 )
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.common.source_extent import (
     PROJECT_EXTENT_CRS,
     STATION_EXTENT_CRS,
@@ -61,11 +62,11 @@ from hydromodpy.data.request.artefacts import (
     write_tables,
 )
 from hydromodpy.data.request.model import DataRequest
-from hydromodpy.data.source.port import Extent, FetchRequest, Period
+from hydromodpy.data.source.port import Extent, FetchRequest, Period, fetch_within
 
 REPORT_NAME = "request.json"
 REPORT_SCHEMA = "hmp-data-request-report/v1"
-CUSTOM_SOURCE = "custom"
+FILE_SOURCE = "file"
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,23 +153,29 @@ def run_request(
     out_dir: str | Path,
     *,
     store: Any | None = None,
+    bounds: Bounds | None = None,
 ) -> RequestReport:
     """Serve *request* into *out_dir* and return the report written beside the files.
 
     *store* is the :class:`~hydromodpy.data.loading.store.DataStore` whose cache
-    the managers read and fill; by default one in memory, which writes nothing.
+    the managers read and fill; by default one in memory, which writes
+    nothing. *bounds* is the :class:`~hydromodpy.core.runtime.bounds.Bounds`
+    of the call: every request the sections name carries them, and the
+    hosts each source declares are refused, through :func:`fetch_within`,
+    before any connection.
     """
     from hydromodpy.data.loading.store import DataStore
 
     target_dir = Path(out_dir)
     period = None if request.period is None else (request.period.start, request.period.end)
+    call_bounds = Bounds() if bounds is None else bounds
     files: list[RequestedFile] = []
     failures: list[RequestFailure] = []
 
     with TemporaryDirectory(prefix="hmp-data-request-") as scratch:
         selector = _selector(request, Path(scratch))
         target_dir.mkdir(parents=True, exist_ok=True)
-        store = store or DataStore()
+        store = store or DataStore(bounds=call_bounds)
         for variable, section in request.sections().items():
             try:
                 files.extend(
@@ -181,6 +188,7 @@ def run_request(
                         period=period,
                         target_dir=target_dir,
                         failures=failures,
+                        bounds=call_bounds,
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - a failed variable is reported, not raised
@@ -195,6 +203,7 @@ def run_request(
                         period=period,
                         scratch=Path(scratch),
                         target_dir=target_dir,
+                        bounds=call_bounds,
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - a failed source is reported, not raised
@@ -313,10 +322,16 @@ def _serve_section(
     period: tuple[datetime, datetime] | None,
     target_dir: Path,
     failures: list[RequestFailure],
+    bounds: Bounds,
 ) -> list[RequestedFile]:
     if variable == "hydrography":
         return _serve_hydrography(
-            section, store=store, selector=selector, target_dir=target_dir, failures=failures
+            section,
+            store=store,
+            selector=selector,
+            target_dir=target_dir,
+            failures=failures,
+            bounds=bounds,
         )
     if variable == "dem":
         result = store.load_dem(section, project_extent=project_extent)
@@ -460,11 +475,15 @@ def _serve_hydrography(
     selector: _Selector,
     target_dir: Path,
     failures: list[RequestFailure],
+    bounds: Bounds,
 ) -> list[RequestedFile]:
     """Ask each source for the network over the extent, without the Whitebox manager.
 
     A listed source goes through the store's cache, as in a run: a workspace
-    store keeps the answer and serves it again.
+    store keeps the answer and serves it again. Every request the section
+    names carries the bounds of the call: ``DataStore.fetch_network``
+    builds the source under them, and the network fetch refuses a host
+    they do not allow before anything connects.
     """
     if selector.extent is None:
         raise DataRequestError(
@@ -478,20 +497,28 @@ def _serve_hydrography(
                 src.source,
                 failures,
                 target_dir,
-                lambda entries, src=src: _write_network(src, store, selector, target_dir, entries),
+                lambda entries, src=src: _write_network(
+                    src, store, selector, target_dir, entries, bounds=bounds
+                ),
             )
         )
     return files
 
 
 def _write_network(
-    src: Any, store: Any, selector: _Selector, target_dir: Path, entries: list[RequestedFile]
+    src: Any,
+    store: Any,
+    selector: _Selector,
+    target_dir: Path,
+    entries: list[RequestedFile],
+    *,
+    bounds: Bounds,
 ) -> None:
     from hydromodpy.data.variables.hydrography import custom
 
     stem = f"hydrography_{src.source}"
-    if src.source == CUSTOM_SOURCE:
-        loaded = custom.load_custom(src)
+    if src.source == FILE_SOURCE:
+        loaded = custom.load_file(src)
         if isinstance(loaded, Path):
             written = write_raster(loaded, target_dir / f"{stem}.tif", extent=selector.extent)
             entries.append(
@@ -500,7 +527,7 @@ def _write_network(
             return
         frame = loaded
     else:
-        frame = store.fetch_network(src, selector.mask_path)
+        frame = store.fetch_network(src, selector.mask_path, bounds=bounds)
     written = write_features(frame, target_dir / f"{stem}.gpkg", extent=selector.extent)
     entries.append(_entry("hydrography", src.source, "vector", written, target_dir, None, ()))
 
@@ -513,6 +540,7 @@ def _serve_installed(
     period: tuple[datetime, datetime] | None,
     scratch: Path,
     target_dir: Path,
+    bounds: Bounds,
 ) -> list[RequestedFile]:
     """Ask a plugin source through the port, and write what it answers by its kind."""
     from hydromodpy.data.source import registry
@@ -527,14 +555,14 @@ def _serve_installed(
         ) from exc
     out = scratch / f"installed-{name}"
     out.mkdir(parents=True, exist_ok=True)
-    result = source.fetch(
-        FetchRequest(
-            out_dir=out,
-            extent=selector.extent,
-            station_ids=selector.station_ids,
-            period=None if period is None else Period(start=period[0], end=period[1]),
-        )
+    request = FetchRequest(
+        out_dir=out,
+        extent=selector.extent,
+        station_ids=selector.station_ids,
+        period=None if period is None else Period(start=period[0], end=period[1]),
+        bounds=bounds,
     )
+    result = fetch_within(source, request)
     variable = ",".join(result.variables)
     stem = f"installed_{name}"
     writers: dict[str, Callable[[], Written | None]] = {

@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
 FROM_FILE = (
@@ -34,18 +35,27 @@ def calibrate_a_file(
     metric_fn: Any = None,
     objective: str | None = None,
     resume: bool = False,
+    environment: Environment | None = None,
 ):
-    """Run the calibration a TOML file declares. It needs no :class:`Project`."""
+    """Run the calibration a TOML file declares. It needs no :class:`Project`.
+
+    ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+    of the call: ``None`` builds the default of the machine. It is checked
+    here once, so a credentials file the table refuses, or a folder the
+    bounds of the call do not allow, stops the calibrate before it starts.
+    """
     from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
     from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
     from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
     from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.core.workspace.resolve import find_data_workspace
     from hydromodpy.project.dispatch.workflow import (
         calibration_phases_or_raise,
         declared_calibration_phases,
         no_such_phase,
     )
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
     # A calibration reads its files through the trial pipeline, the one global
@@ -53,6 +63,18 @@ def calibrate_a_file(
     fill_trial_pipeline()
 
     target = Path(config_path).expanduser().resolve()
+    if environment is None:
+        environment = Environment.default()
+    # The closest project root a file calibration has, before its document is
+    # loaded: the workspace it names, else the folder of the TOML. The check
+    # refuses the roots it must and reads the credentials file once.
+    project_root = (
+        Path(workspace).expanduser().resolve() if workspace is not None else target.parent
+    )
+    environment.check(
+        project_root=project_root,
+        workspace_root=find_data_workspace(project_root) or project_root,
+    )
     # Routing alone tolerates an unreadable file: the runner that reads it next
     # reports the failure with its own context. Selecting a phase by name reaches
     # no runner, so the failure has to surface here, or the user is sent looking
@@ -74,8 +96,10 @@ def calibrate_a_file(
         "resume": resume,
     }
     if declared_phases:
-        return run_staged_calibration(target, phase=phase, **options)
-    return run_calibration_cli(target, **options)
+        return run_staged_calibration(target, phase=phase, bounds=environment.bounds, **options)
+    # Same descent for the search of a calibration without phases: its trials
+    # load their data under the bounds of the call, never through os.environ.
+    return run_calibration_cli(target, bounds=environment.bounds, **options)
 
 
 def calibrate_project(

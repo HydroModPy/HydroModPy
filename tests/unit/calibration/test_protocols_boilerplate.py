@@ -581,6 +581,10 @@ class TestItReportsTheBackend:
         )
 
         assert "not supported on the boussinesq backend" in text
+        # The refusal is the backend's own answer, so the sentence says what the
+        # backend declares rather than a verdict read from a table.
+        assert "The backend says:" in text
+        assert "release_flux" in text
 
     @pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt"])
     def test_a_tested_backend_needs_no_caveat(self, backend: str) -> None:
@@ -712,8 +716,9 @@ class TestTheReportCarriesIt:
 
 def test_the_paragraph_names_what_the_protocol_it_reads_declares(monkeypatch) -> None:
     class Quiet(type(boilerplate.get_protocol(NAME))):
+        name = "quiet_probe"
         deviations = ()
-        support = {"modflow6": "expected_untested"}
+        declared_observables = ("release_flux",)
 
     monkeypatch.setattr(boilerplate, "get_protocol", lambda _name: Quiet())
 

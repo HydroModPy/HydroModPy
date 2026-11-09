@@ -30,18 +30,18 @@ class TestSourceConfigValidation:
 
     # -- Custom --
     def test_custom_valid(self, tmp_path):
-        cfg = HydrographySourceConfig(source="custom", path=tmp_path / "s.shp")
-        assert cfg.source == "custom"
+        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
+        assert cfg.source == "file"
         assert cfg.path == tmp_path / "s.shp"
         assert cfg.rasterize_field == "FID"
 
     def test_custom_requires_path(self):
         with pytest.raises(ValidationError, match="path"):
-            HydrographySourceConfig(source="custom")
+            HydrographySourceConfig(source="file")
 
     def test_custom_with_rasterize_field(self, tmp_path):
         cfg = HydrographySourceConfig(
-            source="custom", path=tmp_path / "s.gpkg", rasterize_field="CODE"
+            source="file", path=tmp_path / "s.gpkg", rasterize_field="CODE"
         )
         assert cfg.rasterize_field == "CODE"
 
@@ -95,17 +95,17 @@ class TestSourceConfigValidation:
 
     # -- Serialization round-trip --
     def test_model_dump_round_trip(self, tmp_path):
-        cfg = HydrographySourceConfig(source="custom", path=tmp_path / "s.shp")
+        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
         dumped = cfg.model_dump(mode="python")
         restored = HydrographySourceConfig.model_validate(dumped)
         assert restored.source == cfg.source
         assert restored.path == cfg.path
 
     def test_json_round_trip(self, tmp_path):
-        cfg = HydrographySourceConfig(source="custom", path=tmp_path / "s.shp")
+        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
         json_str = cfg.model_dump_json()
         restored = HydrographySourceConfig.model_validate_json(json_str)
-        assert restored.source == "custom"
+        assert restored.source == "file"
 
 
 # =====================================================================
@@ -157,20 +157,20 @@ class TestSourceConfigParamLevels:
 @pytest.mark.fast
 class TestHydrographyConfigContainer:
     def test_single_source(self, tmp_path):
-        cfg = HydrographyConfig(sources=[{"source": "custom", "path": str(tmp_path / "s.shp")}])
+        cfg = HydrographyConfig(sources=[{"source": "file", "path": str(tmp_path / "s.shp")}])
         assert len(cfg.sources) == 1
 
     def test_multi_source_all_types(self, tmp_path):
         cfg = HydrographyConfig(
             sources=[
-                {"source": "custom", "path": str(tmp_path / "s.shp")},
+                {"source": "file", "path": str(tmp_path / "s.shp")},
                 {"source": "osm"},
                 {"source": "bdtopage"},
                 {"source": "euhydro"},
             ]
         )
         assert len(cfg.sources) == 4
-        assert [s.source for s in cfg.sources] == ["custom", "osm", "bdtopage", "euhydro"]
+        assert [s.source for s in cfg.sources] == ["file", "osm", "bdtopage", "euhydro"]
 
     def test_empty_sources_rejected(self):
         with pytest.raises(ValidationError):
@@ -226,7 +226,7 @@ class TestDataManagersConfigIntegration:
             "types": ["hydrography"],
             "hydrography": {
                 "sources": [
-                    {"source": "custom", "path": "relative/streams.shp"},
+                    {"source": "file", "path": "relative/streams.shp"},
                 ],
             },
         }
@@ -285,11 +285,11 @@ class TestTomlFormatAcceptance:
         section = {
             "types": ["hydrography"],
             "hydrography": {
-                "sources": [{"source": "custom", "path": str(tmp_path / "s.shp")}],
+                "sources": [{"source": "file", "path": str(tmp_path / "s.shp")}],
             },
         }
         cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
-        assert cfg.hydrography.sources[0].source == "custom"
+        assert cfg.hydrography.sources[0].source == "file"
 
     def test_minimal_osm(self):
         from hydromodpy.data.loading.config_schema import DataManagersConfig
@@ -328,7 +328,7 @@ class TestTomlFormatAcceptance:
             "types": ["hydrography"],
             "hydrography": {
                 "sources": [
-                    {"source": "custom", "path": str(tmp_path / "local.shp")},
+                    {"source": "file", "path": str(tmp_path / "local.shp")},
                     {"source": "osm", "waterway_types": ["canal"]},
                     {"source": "bdtopage", "page_size": 100},
                     {

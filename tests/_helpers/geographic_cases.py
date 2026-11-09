@@ -33,7 +33,6 @@ def write_features(
 
 
 def outlet_config(
-    dem: Path | str = "dem.tif",
     *,
     x: float,
     y: float,
@@ -41,12 +40,11 @@ def outlet_config(
     catchment: dict | None = None,
     **sections: object,
 ) -> GeographicConfig:
-    """A validated outlet configuration on *dem*, with extra catchment keys and sections."""
+    """A validated outlet configuration, with extra catchment keys and sections."""
     return GeographicConfig.model_validate(
         {
             "catchment": {
                 "kind": "from_outlet_coord",
-                "dem_init_path": dem,
                 "x_outlet": x,
                 "y_outlet": y,
                 "buff_area": "10%",
@@ -143,14 +141,13 @@ def read_band(path: Path | str) -> np.ndarray:
 
 
 def bench_config(root: Path, *, dem: np.ndarray | None = None, **sections) -> GeographicConfig:
-    """An outlet near the foot of the bench valley, the DEM written under *root*."""
+    """An outlet near the foot of the bench valley, the DEM written to ``root/dem.tif``."""
     root.mkdir(parents=True, exist_ok=True)
     raw = bench.valley() if dem is None else dem
-    path = bench.write_raster(root / "dem.tif", raw, dtype=str(raw.dtype))
+    bench.write_raster(root / "dem.tif", raw, dtype=str(raw.dtype))
     return GeographicConfig.from_outlet(
         x=bench.x_of(bench.AXIS),
         y=bench.y_of(bench.N - 2),
-        dem=path,
         snap_dist="50 m",
         buff_area="10%",
         crs_project=bench.CRS,
@@ -250,7 +247,10 @@ def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters
 
 
 def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, **kwargs):
-    """Build the runtime context of *config* on the bench recorders, under ``root/results``."""
+    """Build the runtime context of *config* on the bench recorders, under ``root/results``.
+
+    The DEM is ``root/dem.tif``, the file ``bench_config`` writes, unless *dem_path* says otherwise.
+    """
     from hydromodpy.catchment.preprocess import pipeline
 
     terrain = terrain or BenchTerrain()
@@ -261,6 +261,7 @@ def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, **kwarg
         network=terrain.network,
         domain_rasters=terrain.domain_rasters,
     )
+    kwargs.setdefault("dem_path", root / "dem.tif")
     terrain.context = pipeline.build_geographic_runtime_context(
         config=config, out_dir_path=root / "results", **kwargs
     )
@@ -310,7 +311,6 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
         {
             "catchment": {
                 "kind": "from_outlet_coord",
-                "dem_init_path": dem,
                 "x_outlet": 1.0,
                 "y_outlet": 2.0,
                 "snap_dist": 10.0,
@@ -340,15 +340,18 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
         catchment_area_km2=12.0,
         catchment_products=None,
         flow_products=flow_products,
+        dem_path=dem,
     )
     return config, paths
 
 
-def load_cached(config, paths):
-    """The products a cache hit rebuilds, or None on a miss."""
+def load_cached(config, paths, root: Path):
+    """The products a cache hit rebuilds, or None on a miss. The DEM is ``root/dem.tif``."""
     from hydromodpy.catchment.preprocess.geographic_cache import load_cached_geographic_products
 
-    return load_cached_geographic_products(config=config, paths=paths, crs_project=LAMBERT)
+    return load_cached_geographic_products(
+        config=config, paths=paths, crs_project=LAMBERT, dem_path=root / "dem.tif"
+    )
 
 
 OUTLET_CATCHMENT = {
@@ -381,13 +384,13 @@ def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config
         root / "inputs" / "dem.tif", ramp, origin=(0.0, 1000.0), cell=100.0, nodata=-9999.0
     )
     cfg = GeographicConfig(
-        catchment={"dem_init_path": dem, **catchment},
+        catchment=catchment,
         crs_project=LAMBERT,
         dem_correc_type="breach",
         **config,
     )
     return catchment_delineation.CatchmentDelineation(
-        config=cfg, initializing=SimpleNamespace(project_root=str(root / "run"))
+        config=cfg, initializing=SimpleNamespace(project_root=str(root / "run")), dem_path=dem
     )
 
 
@@ -421,7 +424,7 @@ def within(expected: dict, tolerances: dict[str, float]) -> dict:
 
 def outlet_document(**sections) -> GeographicConfig:
     """An outlet document on a DEM that is never read, with extra sections."""
-    return GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif", **sections)
+    return GeographicConfig.from_outlet(x=1.0, y=2.0, **sections)
 
 
 def capped_breach_report():
@@ -488,8 +491,9 @@ def outlet_case_toml(
         f'[workspace]\nroot = "{root.as_posix()}"',
         f'[geographic]\ncrs_project = "{LAMBERT}"\ndem_correc_type = "{dem_correc_type}"',
         "[geographic.catchment]",
-        f'kind = "from_outlet_coord"\ndem_init_path = "{dem}"',
+        'kind = "from_outlet_coord"',
         f"x_outlet = {case['x']}\ny_outlet = {case['y']}\nsnap_dist = 50\nbuff_area = 20.0",
+        f'[[data.dem.sources]]\nsource = "file"\npath = "{dem}"',
     ]
     if river_network is not None:
         lines.append("[geographic.river_network]")
@@ -507,7 +511,9 @@ def delineate_case_toml(path: Path):
 
     cfg = HydroModPyConfig.from_toml(path)
     return CatchmentDelineation(
-        config=cfg.geographic, initializing=WorkspaceLayout(config=cfg.workspace)
+        config=cfg.geographic,
+        initializing=WorkspaceLayout(config=cfg.workspace),
+        dem_path=cfg.data.dem.sources[0].path,
     )
 
 

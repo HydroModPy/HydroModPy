@@ -113,17 +113,20 @@ Whitebox run or a solver spawn.
 Unit pattern
 ------------
 
-``tests/unit/model/transport/test_transport_process.py`` builds a process from a mapping
-and checks what it holds:
+``tests/unit/model/transport/test_transport_config.py`` reads one table of the
+``[transport]`` section by the registry name of its solver and checks what it
+holds:
 
 .. code-block:: python
 
-   from hydromodpy.model.transport.transport import Transport
+   from hydromodpy.model.transport.transport_config import TransportConfig
 
 
-   def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
-       transport = Transport({"modpath": {"parameters": {"track_dir": "backward"}}})
-       assert transport.modpath.parameters["track_dir"] == "backward"
+   def test_a_table_is_read_under_the_registry_name_of_its_solver() -> None:
+       cfg = TransportConfig.model_validate({"mt3dms": {"sconc_init": 7.5, "disp_long": 12.0}})
+
+       options = cfg.options_of("mt3dms")
+       assert options.sconc_init == 7.5 and options.disp_long == 12.0
 
 Integration pattern
 -------------------

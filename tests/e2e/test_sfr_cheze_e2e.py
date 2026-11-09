@@ -110,7 +110,6 @@ crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{_DEM_PATH}"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
 snap_dist = "60 m"
@@ -199,12 +198,16 @@ source = "synthetic"
 values = [2.0, 2.0, 2.0, 1.5, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0, 1.5, 2.0]
 freq = "MS"
 
+[[data.dem.sources]]
+source = "file"
+path = "{_DEM_PATH}"
+
 [[data.lake_geometry.sources]]
-source = "custom"
+source = "file"
 path = "{_GEOMETRY_PATH}"
 
 [[data.lake_abacus.sources]]
-source = "custom"
+source = "file"
 path = "{_ABACUS_PATH}"
 lake_id = "{_LAKE_ID}"
 

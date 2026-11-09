@@ -12,9 +12,13 @@ from pydantic import ValidationError
 import hydromodpy.calibration.runners.cli_runner as cli_runner
 import hydromodpy.calibration.runners.search as search
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.evaluation import TrialOutcome, TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.evaluation.port import TrialEvaluator, evaluator_members
+from hydromodpy.calibration.evaluation.port import (
+    TrialEvaluator,
+    TrialOutcome,
+    TrialRequest,
+    evaluator_members,
+)
 from hydromodpy.calibration.optim import engine
 from hydromodpy.calibration.optim.cache import params_hash
 from hydromodpy.calibration.persistence import CalibrationPersistence
@@ -33,13 +37,14 @@ from hydromodpy.core.plugin_registry import PluginRegistry
 # From test_trial_evaluator_registry.py
 # What turns a parameter sample into a cost is named, not imported.
 #
-# Before this, the production calibration path had exactly one forward model and
-# no way to name another. The ask/tell loop has always taken any callable -- eight
-# construction sites of this repository already pass one that is not the pipeline
-# -- but from a project TOML, through ``hmp calibrate``, the evaluator was built in
-# one place and could be nothing else. The one published injection point,
-# ``metric_fn``, applies after the solve, over a context the pipeline has already
-# produced: it changes how a run is scored, never what runs.
+# Before evaluators were named at all, the production calibration path built one
+# evaluator and could be nothing else. The ask/tell loop has always taken any
+# callable -- eight construction sites of this repository already pass one that
+# is not the pipeline -- and the scored-forward route is gone with it, folded
+# into the solver backends of 2.1.0. The one published injection point besides
+# the pipeline evaluator, a metric function, applies after the solve, over a
+# context the pipeline has already produced: it changes how a run is scored,
+# never what runs.
 #
 # Five gates, and they answer different questions.
 #
@@ -531,7 +536,7 @@ def _functions_calling(name: str) -> set[str]:
     return callers
 
 
-class TestNothingReHardwiresTheForwardModel:
+class TestNothingReHardwiresTheChoiceOfEvaluator:
     def test_only_the_two_named_launchers_run_a_pipeline_trial(self) -> None:
         assert _functions_calling("run_trial_light") == (LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL)
 

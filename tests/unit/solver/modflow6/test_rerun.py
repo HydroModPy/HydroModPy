@@ -74,6 +74,7 @@ class _Simulation:
     def __init__(self, folder: Path) -> None:
         self.sim_path = folder
         self.moved: list[str] = []
+        self.model_names: list[str] = ["flow"]
 
     def set_sim_path(self, path: str) -> None:
         self.moved.append(path)
@@ -218,10 +219,16 @@ def _refuse_ss(previous, model, tmp_path):
     return previous, previous.model.with_properties(Ss=2e-5), RunSlot(tmp_path / "next", "run")
 
 
+def _refuse_extended_by_transport(previous, model, tmp_path):
+    previous.solver_model.sim.model_names = ["flow", "gwt"]
+    return previous, model, RunSlot(tmp_path / "next", "run")
+
+
 REFUSALS = (
     ("a previous run that is not solved", _refuse_not_solved, {}, "not solved"),
     ("a previous run without its solver object", _refuse_no_solver, {}, "no solver model"),
     ("a parent a rerun already consumed", _refuse_consumed, {}, "consumed it"),
+    ("a simulation extended by transport", _refuse_extended_by_transport, {}, "more than once"),
     ("a solver object moved to another folder", _refuse_moved, {}, "no longer writes"),
     ("input files that are gone", _refuse_files_gone, {}, "run.npf"),
     ("another shared forcing folder", _refuse_other_forcing, {}, "shared forcing folder"),

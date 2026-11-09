@@ -17,6 +17,7 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
 )
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 from hydromodpy.model.properties.geology_config import GeologyConfigBlock
 
 
@@ -43,12 +44,12 @@ class _GeologySourceBase(HydroModelBase):
     )
 
 
-class CustomGeologySource(_GeologySourceBase):
+class FileGeologySource(_GeologySourceBase):
     """User-provided geology file (SHP/GPKG/TIF/CSV)."""
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' geology provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' geology provider.",
     )
     path: Annotated[
         Path,
@@ -90,6 +91,23 @@ class CustomGeologySource(_GeologySourceBase):
     )
 
 
+class UrlGeologySource(UrlSourceOptions, _GeologySourceBase):
+    """Remote geology file, pinned by its sha256 when ``https`` is not used."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' geology provider.",
+    )
+    code_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Attribute column for geology codes in vector files (SHP/GPKG).",
+    )
+    values_table_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Optional CSV linking geology codes to descriptions.",
+    )
+
+
 class BrgmGeology1mSource(_GeologySourceBase):
     """BRGM 1:1M national geological map (CODE_LEG legend)."""
 
@@ -109,7 +127,7 @@ class BrgmGeology50kSource(_GeologySourceBase):
 
 
 GeologySourceConfig: TypeAlias = Annotated[
-    CustomGeologySource | BrgmGeology1mSource | BrgmGeology50kSource,
+    FileGeologySource | UrlGeologySource | BrgmGeology1mSource | BrgmGeology50kSource,
     Field(
         discriminator="source",
         description=(
@@ -136,7 +154,7 @@ class GeologyConfig(HydroModelBase):
         source = "brgm_1m"
 
         [[data.geology.sources]]
-        source = "custom"
+        source = "file"
         path = "data/my_geology.gpkg"
         code_field = "LITHOLOGY"
     """
@@ -182,7 +200,7 @@ class GeologyConfig(HydroModelBase):
         """GeologyConfig from a custom polygon shapefile (SHP or GPKG)."""
         return cls(
             sources=[
-                CustomGeologySource(
+                FileGeologySource(
                     path=Path(path),
                     code_field=code_field,
                 )
@@ -194,7 +212,7 @@ class GeologyConfig(HydroModelBase):
     def from_geotiff(cls, path: str | Path, **overrides) -> GeologyConfig:
         """GeologyConfig from a pre-rasterized GeoTIFF."""
         return cls(
-            sources=[CustomGeologySource(path=Path(path))],
+            sources=[FileGeologySource(path=Path(path))],
             **overrides,
         )
 

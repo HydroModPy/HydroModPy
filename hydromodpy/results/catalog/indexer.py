@@ -82,7 +82,6 @@ from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
 from hydromodpy.core.version import __version__
 from hydromodpy.results.annotations import read_annotations
-from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
@@ -1055,9 +1054,9 @@ def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> d
 
     A regime or a topology the tables do not hold yet is added: a later version
     may write one, and the index keeps what the run says. A solver code the
-    table does not hold is added the same way, with the category the row names
-    or ``unknown``: a name is checked when it is typed
-    (:func:`validate_solver_code`), not when a seal is read.
+    table does not hold is added the same way, with the category the manifest
+    row names or ``unknown``: a name is checked when it is typed, not when a
+    seal is read.
     """
 
     def _id(table: str, code: Any) -> int | None:
@@ -1087,7 +1086,7 @@ def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> d
     solver_id = _id_or_new(
         "solvers",
         solver,
-        category=row.get("solver_category") or solver_category(str(solver)) or "unknown",
+        category=row.get("solver_category") or "unknown",
     )
     return {
         "solver_id": solver_id,

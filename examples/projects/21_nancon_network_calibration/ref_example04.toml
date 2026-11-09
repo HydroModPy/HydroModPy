@@ -102,7 +102,6 @@ kind = "from_outlet_coord"
 # `DEM_armorican_massif.tif` EST le `regional dem.tif` de la reference : meme
 # emprise, meme taille, meme pas de 75 m. La resolution fait partie des
 # parametres a reproduire, et elle divise le maillage par neuf.
-dem_init_path = "DEM_armorican_massif.tif"
 # Coordonnees PAR DEFAUT du script (`--x` / `--y`), et non celles du reste du
 # dossier. Le snap de 150 m ramene les deux sur le meme brin.
 x_outlet = 389358.0
@@ -130,32 +129,32 @@ thickness = 30.0
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 [[data.geology.sources]]
 source = "brgm_1m"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 station_ids = ["NANCON"]
 
 # `recharge_REA`, journalier, moyenne surfacique SIM2 sur le bassin, 1990-2020.
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 station_ids = ["NANCON_REA"]
 
 # `runoff`, ajoute au drainage simule avant comparaison, comme
 # `Qmod = outflow_drain * 1000 + r * 1000` du script.
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
+source = "file"
+path = "../../data/runoff"
 station_ids = ["NANCON_REA"]
 
 

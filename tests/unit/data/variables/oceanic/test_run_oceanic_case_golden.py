@@ -31,7 +31,7 @@ def _load_json(path: Path) -> dict:
 
 
 def _signature() -> dict:
-    source = OceanicSourceConfig(source="custom", path=DATA_DIR, col_datetime="timestamp")
+    source = OceanicSourceConfig(source="file", path=DATA_DIR, col_datetime="timestamp")
     config = OceanicConfig(sources=[source], date_start=START, date_end=END)
     store = DataStore(project_period=(datetime.fromisoformat(START), datetime.fromisoformat(END)))
     records = [

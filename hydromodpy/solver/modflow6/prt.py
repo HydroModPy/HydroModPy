@@ -5,14 +5,26 @@ from __future__ import annotations
 import os
 import warnings
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import numpy as np
+from pydantic import BaseModel
 
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.model.model import Model
+from hydromodpy.model.transport.transport_config import Modflow6PrtParametersConfig
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.adapter_protocol import HANDOFF_PRODUCTS
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.protocols import FlowModelLike
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
@@ -60,9 +72,13 @@ _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
 # non-positive. 0.30 is a generic unconsolidated-aquifer placeholder.
 _PRT_DEFAULT_POROSITY = 0.30
 
+# The suffix of the PRT model name a MODFLOW 6 PRT run writes, constant for
+# this adapter: one particle-tracking transport per run (V4).
+_PRT = "_prt"
+
 
 class Modflow6Prt:
-    """Particle tracking based on MODFLOW 6 PRT and `transport.modflow6prt`.
+    """Particle tracking based on MODFLOW 6 PRT and the ``[transport.modflow6_prt]`` table.
 
     The class attaches a PRT model to an existing MODFLOW 6 GWF simulation. It
     intentionally keeps the first implementation narrow: DISV grids, forward
@@ -72,16 +88,22 @@ class Modflow6Prt:
 
     def __init__(
         self,
-        domain: DomainLike,
-        transport: TransportLike,
+        model: Model,
         model_modflow: FlowModelLike,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
-        suffix_name: str = "_prt",
+        suffix_name: str = _PRT,
+        options: Mapping[str, Any] | None = None,
         **kwargs: object,
     ) -> None:
-        self.domain = domain
-        self.transport = transport
+        """The MODFLOW 6 PRT particle-tracking solver of the flow run ``model`` extends.
+
+        The solver is constructed from the ``Model`` of its flow, the one
+        ``upstream[0].model`` hands it, and from the validated table of the
+        transport, ``[transport.modflow6_prt]``, read by ``options_of(name)``
+        and validated by ``Modflow6PrtParametersConfig``.
+        """
+        self.model = model
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
@@ -90,10 +112,7 @@ class Modflow6Prt:
         self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
 
-        prt_params: dict[str, object] = {}
-        comp = transport.modflow6prt
-        if isinstance(getattr(comp, "parameters", None), Mapping):
-            prt_params = dict(comp.parameters)
+        prt_params: dict[str, Any] = dict(options or {})
         prt_params.update(kwargs)
 
         self.release_zone = str(prt_params.get("release_zone", "domain"))
@@ -162,7 +181,7 @@ class Modflow6Prt:
         warnings.warn(
             "No PRT porosity set; falling back to the flow specific yield "
             f"(or {_PRT_DEFAULT_POROSITY} where non-positive), which overstates particle "
-            "speed. Set transport.modflow6prt.parameters.porosity.",
+            "speed. Set transport.modflow6_prt.porosity.",
             UserWarning,
             stacklevel=2,
         )
@@ -272,7 +291,7 @@ class Modflow6Prt:
             selected = all_active
         else:
             raise ValueError(
-                "Unsupported modflow6prt release_zone "
+                "Unsupported modflow6_prt release_zone "
                 f"{self.release_zone!r}; expected domain, domain_nonriver, upstream, "
                 "upstream_nonriver, river, outlet, or custom."
             )
@@ -434,4 +453,99 @@ class Modflow6Prt:
         return success
 
 
-__all__ = ["Modflow6Prt"]
+class Modflow6PrtTransportAdapter:
+    """Port adapter of ``transport/modflow6_prt``, beside its engine class.
+
+    PRT tracks the particles of the flow run it follows, in the folder that
+    flow wrote in, under the name of its model plus the ``_prt`` suffix. Its
+    parameters are the validated ``[transport.modflow6_prt]`` table.
+    """
+
+    name: ClassVar[str] = "modflow6_prt"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = (
+        "particles/x",
+        "particles/y",
+        "particles/z",
+        "particles/time",
+        "particles/status",
+        "particles/reason",
+    )
+    reads: ClassVar[tuple[str, ...]] = HANDOFF_PRODUCTS
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = Modflow6PrtParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Nothing to refuse here: every table is validated while the file is read."""
+        return None
+
+    def build(
+        self,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the PRT model of the one flow run ``upstream`` names, in memory."""
+        (followed,) = upstream
+        if followed.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "PRT extends the MODFLOW 6 objects of the flow, and none was built."
+            )
+        flow_model = followed.solver_model
+        model_folder = (
+            str(followed.slot.folder)
+            if followed.slot is not None
+            else (
+                str(followed.output_dir.parent)
+                if followed.output_dir is not None
+                else "HydroModPy_outputs"
+            )
+        )
+        solver_model = Modflow6Prt(
+            followed.model,
+            flow_model,
+            model_folder=model_folder,
+            model_name=str(flow_model.model_name),
+            suffix_name=_PRT,
+            options=None if options is None else options.model_dump(),
+        )
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the PRT input files unless they are written, track, and return the run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
+        if not success:
+            raise SolverDivergedError(
+                f"Transport solver '{self.name}' failed for run '{solver_run.slot.name}', "
+                f"see {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the particle tracks through the registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
+
+
+__all__ = ["Modflow6Prt", "Modflow6PrtTransportAdapter"]

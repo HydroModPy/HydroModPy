@@ -10,7 +10,7 @@
 
 HELP3O is native code loaded into this process, so it comes from one pinned
 release: one tag, and one sha256 per platform and Python version. The check of
-:mod:`hydromodpy.core.io.pinned_download` runs before every load, in every process.
+:mod:`hydromodpy.core.io.fetch` runs before every load, in every process.
 A platform the release does not cover is refused, and nothing else is ever loaded.
 A new tag is a number change, under the rule of the page
 ``contribute/architecture/how-to/cut-a-release``.
@@ -31,7 +31,7 @@ from pathlib import Path
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import NetworkError, SolverBinaryError
-from hydromodpy.core.io.pinned_download import fetch_pinned
+from hydromodpy.core.io.fetch import fetch_pinned
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 

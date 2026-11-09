@@ -39,6 +39,7 @@ from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.core.io.fetch import HTTPClient
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -72,12 +73,13 @@ def fetch_projected(
     bbox: tuple[float, float, float, float],
     *,
     page_size: int,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download every reach touching *bbox*, given in EPSG:2154, with its permanence.
 
     Returns a GeoDataFrame in EPSG:2154.
     """
-    frame = sandre_topage.get_features(LAYER, bbox, page_size=page_size)
+    frame = sandre_topage.get_features(LAYER, bbox, page_size=page_size, client=client)
     # A milestone: a run that went to a public service for its network says so
     # at the default verbosity, because it is part of where the result comes from.
     logger.info("[WFS] BD Topage %s: fetched %d reaches", LAYER, len(frame), extra=MILESTONE)
@@ -87,6 +89,8 @@ def fetch_projected(
 def fetch(
     config: HydrographySourceConfig,
     bbox_wgs84: tuple[float, float, float, float],
+    *,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download BD Topage features inside *bbox_wgs84*, in EPSG:4326.
 
@@ -98,7 +102,9 @@ def fetch(
 
     lon_min, lat_min, lon_max, lat_max = bbox_wgs84
     box = Extent(xmin=lon_min, ymin=lat_min, xmax=lon_max, ymax=lat_max, crs="EPSG:4326")
-    frame = fetch_projected(box.to_crs(sandre_topage.QUERY_CRS).bbox, page_size=config.page_size)
+    frame = fetch_projected(
+        box.to_crs(sandre_topage.QUERY_CRS).bbox, page_size=config.page_size, client=client
+    )
     return frame.to_crs("EPSG:4326")
 
 
@@ -148,8 +154,10 @@ class BdTopageSource(FeatureSource):
             )
         self.page_size = page_size
 
-    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
-        return fetch_projected(bbox, page_size=self.page_size)
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient
+    ) -> gpd.GeoDataFrame:
+        return fetch_projected(bbox, page_size=self.page_size, client=client)
 
     def metadata(self) -> dict[str, Any]:
         return {"typename": LAYER}

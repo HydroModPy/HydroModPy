@@ -37,7 +37,7 @@ def test_identical_bytes_cost_nothing_and_an_absent_file_comes_with_its_sidecar(
     blob = tmp_path / "blob.csv"
     item = _file(blob, b"datetime,value\n", "data/hydrometry/a.csv")
     sidecar = tmp_path / "sidecar.json"
-    sidecar.write_text('{"source": "custom"}', encoding="utf-8")
+    sidecar.write_text('{"source": "file"}', encoding="utf-8")
 
     (first,) = plan_files({"workspace": workspace}, [item])
     assert first.status == "absent"
@@ -46,7 +46,7 @@ def test_identical_bytes_cost_nothing_and_an_absent_file_comes_with_its_sidecar(
 
     target = workspace / "data" / "hydrometry" / "a.csv"
     assert target.read_bytes() == b"datetime,value\n"
-    assert (target.parent / "a.csv.json").read_text(encoding="utf-8") == '{"source": "custom"}'
+    assert (target.parent / "a.csv.json").read_text(encoding="utf-8") == '{"source": "file"}'
     assert second.status == "unchanged"
     assert not list(target.parent.glob(".*partial"))
 

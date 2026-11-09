@@ -17,6 +17,8 @@ rules, how a run goes through it, and where to add what.
 | `calibrate.py` | the routing behind `Project.calibrate` and `hmp.calibrate` on a path: a TOML file to the staged or the CLI runner (`calibrate_a_file`), a declaration held in memory (`parameters=`, `protocol=`, the `[calibration]` of the project) to the programmatic runner (`calibrate_project`) |
 | `trial_pipeline.py` | `WorkflowTrialPipeline`, the implementation of the `TrialPipeline` protocol of `calibration/runners/trial.py`, and `fill_trial_pipeline`, which installs it once. The methods import the workflow and the configuration in their bodies, so filling costs almost nothing |
 | `state.py` | where the runtime state of a `Project` lives (`ProjectState`), and which attribute names `Project` forwards to it (`PROJECT_ATTR_TO_STATE_FIELD`) |
+| `environment.py` | the `Environment` of one verb call, its credentials file and its bounds. A verb that launches, downloads or delivers receives an `Environment`, built by the command line or the server, and the library reads no environment variable for it. The object says where and with what rights a call plays, so it never enters `request.json` or a seal, and `check` reads the credentials file once at the opening of the project |
+| `credentials.py` | the reader of `credentials.toml`, which lives outside every project and workspace, with one `[[host]]` block per address prefix and a password written in clear or read from a file; a block answers a destination by its longest matching prefix |
 | `phases.py` | the model-phase verbs as free functions: `configure`, `setup_workspace`, `build_geographic`, `load_data`, `reload_data`, `rebuild_geographic`, `build_mesh`, `open_catalog` (the index, read only, and only when it exists) |
 | `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, overrides, run naming; the attempt protocol `run_attempt` and `SealedRun` live in `workflow/record/attempt.py`, the replay checks in `workflow/replay_checks.py`); `execute` is the worker verb, `run` adds the index and the `Run` view, `draft` says what a run would do |
 | `run_overrides.py` | the `set=` of `simulate` as dotted changes of the configuration of the run, the names of `hmp config targets` |
@@ -69,6 +71,7 @@ hydromodpy/project/
   calibrate.py      routing of Project.calibrate
   trial_pipeline.py the TrialPipeline calibration reads, filled here
   state.py  phases.py  runner.py  run_overrides.py  spinup.py
+  environment.py  credentials.py
   compare.py        the comparison of sealed runs
   lock.py           the lockfile and the cache archive
   accessors.py      the read-only views and ProjectCatalog

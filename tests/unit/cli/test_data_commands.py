@@ -13,34 +13,6 @@ def _workspace(tmp_path):
     return tmp_path.resolve()
 
 
-def test_data_check_fix_reports_summary_and_data_error(monkeypatch, tmp_path) -> None:
-    calls: dict[str, object] = {}
-
-    def fake_check_data_cache(workspace, *, variable, fix):
-        calls.update({"workspace": workspace, "variable": variable, "fix": fix})
-        return {
-            "workspace": tmp_path,
-            "fix_summary": {"dropped": 2, "refreshed": 3},
-            "issues": [(tmp_path / "bad.csv", "missing datetime")],
-        }
-
-    monkeypatch.setattr(
-        "hydromodpy.data.request.cache_verbs.check_data_cache",
-        fake_check_data_cache,
-    )
-
-    workspace = _workspace(tmp_path)
-
-    result = CliRunner().invoke(
-        ["data", "check", "--workspace", str(tmp_path), "--variable", "piezometry", "--fix"]
-    )
-
-    assert result.exit_code == 16
-    assert calls == {"workspace": workspace, "variable": "piezometry", "fix": True}
-    assert "dropped 2 stale entries" in result.stdout
-    assert "missing datetime" in result.stdout
-
-
 def test_data_ls_forwards_filters_and_prints_business_columns(monkeypatch, tmp_path) -> None:
     calls: dict[str, object] = {}
 

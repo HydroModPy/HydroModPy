@@ -35,7 +35,7 @@ types = [
 ]
 
 # IGN BD ALTI 25 m, assembled from the department archives around the outlet.
-# No dem_init_path: the catchment is delineated on this download.
+# No DEM input file: the catchment is delineated on this download.
 [[data.dem.sources]]
 source = "ign_geoplateforme_dem"
 

@@ -87,7 +87,7 @@ class ProbeFlowAdapter:
     def validate(self, model, options, slot):
         raise NotImplementedError
 
-    def build(self, model, options, slot, ctx):
+    def build(self, model, options, slot, upstream):
         raise NotImplementedError
 
     def run(self, solver_run):

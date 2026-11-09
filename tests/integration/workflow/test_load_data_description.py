@@ -51,7 +51,6 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -64,8 +63,12 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = ["recharge"]
+types = ["dem", "recharge"]
 inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
 
 [[data.recharge.sources]]
 source = "synthetic"
@@ -188,7 +191,7 @@ def test_the_document_names_the_records_that_were_loaded(loaded_run) -> None:
     payload = read_data_description(root / run_dir_rel(RUN_NAME))
     assert payload is not None
     assert payload["schema"] == SCHEMA_VERSION
-    assert payload["plan_types"] == ["recharge"]
+    assert payload["plan_types"] == ["dem", "recharge"]
 
     records = {f"{r['scope']}:{r['variable']}": r for r in payload["records"]}
     assert "recharge:recharge" in records

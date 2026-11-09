@@ -124,7 +124,7 @@ def test_a_file_that_is_no_chronicle_keeps_its_sidecar_keys(tmp_path: Path) -> N
     raster.write_bytes(b"not really a tiff")
 
     with DataCatalogDuckDB(tmp_path / "data" / "cache.duckdb") as catalog:
-        catalog.register(variable="dem", source="custom", file_path=raster, is_custom=True)
+        catalog.register(variable="dem", source="file", file_path=raster, is_custom=True)
 
     payload = json.loads(sidecar_path_for(raster).read_text(encoding="utf-8"))
     assert set(payload) == {"bbox", "crs", "fetched_at", "license", "notes", "sha256", "source"}

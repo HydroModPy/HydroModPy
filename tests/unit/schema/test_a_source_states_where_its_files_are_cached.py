@@ -121,5 +121,5 @@ def test_the_index_sits_next_to_the_data_folders() -> None:
 
 
 def test_a_source_that_leaves_no_file_in_a_workspace_states_no_layout() -> None:
-    for slug in ("custom", "constant", "synthetic"):
+    for slug in ("file", "url", "constant", "synthetic"):
         assert SOURCES[slug].cache == ()

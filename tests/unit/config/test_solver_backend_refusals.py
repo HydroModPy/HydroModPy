@@ -44,7 +44,7 @@ def test_an_unknown_flow_solver_is_refused_with_the_valid_names(tmp_path) -> Non
         _config(tmp_path, "modflow7", {"drainage": {}})
     message = str(excinfo.value)
     assert "simulation.process.solvers names 'modflow7'" in message
-    assert "this installation serves boussinesq, modflow6, modflow_nwt" in message
+    assert "this installation serves boussinesq, linear_reservoir, modflow6, modflow_nwt" in message
     assert "drainage" not in message
 
 

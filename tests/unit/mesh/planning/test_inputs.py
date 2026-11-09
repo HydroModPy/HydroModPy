@@ -61,7 +61,7 @@ def _ctx(tmp_path: Path) -> SimpleNamespace:
     )
     return SimpleNamespace(
         cfg=SimpleNamespace(
-            geographic=GeographicConfig.from_outlet(x=50.0, y=10.0, dem="dem.tif"),
+            geographic=GeographicConfig.from_outlet(x=50.0, y=10.0),
             flow=SimpleNamespace(active_bc=[]),
         ),
         config_path=tmp_path / "project.toml",

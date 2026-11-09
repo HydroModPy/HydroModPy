@@ -5,11 +5,23 @@ from __future__ import annotations
 import os
 import warnings
 from collections.abc import Mapping
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, ClassVar
 
 import flopy
 import numpy as np
+from pydantic import BaseModel
 
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
+from hydromodpy.model.model import Model
+from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.results.storage.kept import Retention
+from hydromodpy.solver.base.adapter_protocol import HANDOFF_PRODUCTS
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.protocols import FlowModelLike
+from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6.builders.solver_options import optional_ims_kwargs
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
@@ -22,29 +34,45 @@ from hydromodpy.solver.modflow_common.progress import (
     write_listing_status,
 )
 
+# The suffix of the transport model name a MODFLOW 6 GWT run writes, constant
+# for this adapter: one concentration transport per run, so the index of the
+# old plan-known suffix stays 1 (V4).
+_MT_S1 = "_mt_s1"
+
 
 class Modflow6Transport:
-    """Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`.
+    """The MODFLOW 6 GWT transport solver of the ``flow/modflow6`` run.
 
-    Recharge (RCHA) is the only solute-injecting boundary: its concentration is
-    carried as an auxiliary variable and wired into SSM. CHD and WEL inflows enter
-    at concentration 0. Adding a solute source on those boundaries would edit the
-    flow-side package construction; it is a deliberate future enhancement, not an
-    oversight.
+    The solver is constructed from the ``Model`` its flow hands it and from the
+    validated table of the transport, ``[transport.modflow6]``, read by
+    ``options_of(name)``. Recharge (RCHA) is the only solute-injecting boundary:
+    its concentration is carried as an auxiliary variable and wired into SSM.
+    CHD and WEL inflows enter at concentration 0. Adding a solute source on
+    those boundaries would edit the flow-side package construction; it is a
+    deliberate future enhancement, not an oversight.
     """
 
     def __init__(
         self,
-        domain: DomainLike,
-        transport: TransportLike,
+        model: Model,
         model_modflow: FlowModelLike,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
-        suffix_name: str = "_gwt",
-        **kwargs,
+        suffix_name: str = _MT_S1,
+        options: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ):
-        self.domain = domain
-        self.transport = transport
+        """The MODFLOW 6 GWT transport solver of the flow run ``model`` extends.
+
+        The solver is constructed from the ``Model`` of its flow, the one
+        ``upstream[0].model`` of :class:`hydromodpy.solver.modflow6.adapter.Modflow6FlowAdapter`
+        hands it, and from the validated table of the transport
+        (``options``, the ``model_dump()`` of the ``[transport.modflow6]``
+        block, validated by
+        :class:`~hydromodpy.model.transport.transport_config.ConcentrationTransportParametersConfig`).
+        """
+        self.model = model
+        self.domain = model.geometry.domain
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
@@ -53,10 +81,7 @@ class Modflow6Transport:
         self.model_name_mt_mf6 = mf6_safe_name(self.model_name_mt)
         self.full_path = os.path.join(model_folder, model_name)
 
-        conc_params = {}
-        comp = transport.modflow6gwt
-        if isinstance(getattr(comp, "parameters", None), Mapping):
-            conc_params = dict(comp.parameters)
+        conc_params = dict(options or {})
         conc_params.update(kwargs)
         conc_params.update(build_concentration_runtime_overrides(conc_params, model_modflow))
 
@@ -82,7 +107,8 @@ class Modflow6Transport:
             return float(self.porosity)
         warnings.warn(
             "No transport porosity set; falling back to the flow specific yield, which "
-            "underestimates pore volume. Set transport.modflow6gwt.parameters.porosity.",
+            "underestimates pore volume. Set the porosity of the transport in the "
+            "[transport] table of the resolved configuration.",
             UserWarning,
             stacklevel=2,
         )
@@ -234,4 +260,93 @@ class Modflow6Transport:
         return success
 
 
-__all__ = ["Modflow6Transport"]
+class Modflow6GwtTransportAdapter:
+    """Port adapter of ``transport/modflow6``, beside its engine class.
+
+    GWT extends the simulation of the flow run it follows, in the folder that
+    flow wrote in, under the name of its model plus the suffix ``_mt_s1``. The
+    parameters of the deck are the validated ``[transport.modflow6]`` table the
+    runner holds, and reach the engine as one mapping.
+    """
+
+    name: ClassVar[str] = "modflow6"
+    process_type: ClassVar[str] = "transport"
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset()
+    geometry: ClassVar[str] = "cells"
+    writes: ClassVar[tuple[str, ...]] = ("concentration/*", "mass_balance")
+    reads: ClassVar[tuple[str, ...]] = HANDOFF_PRODUCTS
+    supports: ClassVar[frozenset[str]] = frozenset()
+    options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
+    category: ClassVar[str] = "distributed"
+    native_step: ClassVar[str | None] = None
+    mutable: ClassVar[frozenset[str]] = frozenset()
+    requires: ClassVar[tuple[tuple[str, str], ...]] = (("flow", "modflow6"),)
+
+    def validate(self, model: Any, options: BaseModel | None, slot: RunSlot) -> None:
+        """Nothing to refuse here: every table is validated while the file is read."""
+        return None
+
+    def build(
+        self,
+        model: Any,
+        options: BaseModel | None = None,
+        slot: RunSlot | None = None,
+        upstream: tuple[SolverRun, ...] = (),
+    ) -> SolverRun:
+        """Build the GWT model of the one flow run ``upstream`` names, in memory."""
+        (followed,) = upstream
+        if followed.solver_model is None:
+            raise SolverInputError(
+                f"Transport '{self.name}' follows a flow run whose model is missing. "
+                "GWT extends the MODFLOW 6 objects of the flow, and none was built."
+            )
+        flow_model = followed.solver_model
+        model_folder = (
+            str(followed.slot.folder)
+            if followed.slot is not None
+            else (
+                str(followed.output_dir.parent)
+                if followed.output_dir is not None
+                else "HydroModPy_outputs"
+            )
+        )
+        solver_model = Modflow6Transport(
+            followed.model,
+            flow_model,
+            model_folder=model_folder,
+            model_name=str(flow_model.model_name),
+            suffix_name=_MT_S1,
+            options=None if options is None else options.model_dump(),
+        )
+        solver_model.pre_processing()
+        return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
+
+    def run(self, solver_run: SolverRun) -> SolverRun:
+        """Write the GWT input files unless they are written, solve, and return the run."""
+        solver_model = solver_run.solver_model
+        success = solver_model.processing(
+            write_model=not solver_run.written, run_model=True, verbose=True
+        )
+        if not success:
+            raise SolverDivergedError(
+                f"Transport solver '{self.name}' failed for run '{solver_run.slot.name}', "
+                f"see {getattr(solver_model, 'full_path', '<unknown>')} for diagnostics."
+            )
+        return replace(
+            solver_run,
+            output_dir=Path(solver_model.full_path),
+            written=True,
+            solved=True,
+        )
+
+    def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:
+        """Write the concentration and the solute balance through the registered extractor."""
+        extractors.create(self.process_type, self.name).extract(solver_run, store, retention)
+
+    def cleanup(self, solver_run: SolverRun) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        if solver_run.output_dir is not None:
+            cleanup_solver_files(solver_run.output_dir)
+
+
+__all__ = ["Modflow6GwtTransportAdapter", "Modflow6Transport"]

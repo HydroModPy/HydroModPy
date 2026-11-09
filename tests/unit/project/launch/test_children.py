@@ -7,6 +7,7 @@ shared one fails its case only.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -72,3 +73,32 @@ def test_a_cache_that_cannot_be_merged_fails_its_case_only(
     assert [event["case_id"] for event in merge_failed] == ["alpha-k2e_5"]
     assert Path(merge_failed[0]["private_cache"]).is_file()
     assert events(report.journal, "launch_end")
+
+
+def test_the_command_line_of_a_case_carries_the_environment_flags() -> None:
+    from hydromodpy.project.launch.children import PlannedCase, worker_command
+
+    case = PlannedCase(
+        case_id="cal",
+        site="a",
+        recipe="base",
+        config_hash="0",
+        path=Path("plan/ab/cal.toml"),
+        workflow="simulation",
+        solves=1,
+    )
+
+    command = worker_command(
+        case,
+        ["--frozen"],
+        environment_flags=("--credentials", "c.toml", "--allow-host", "h.org"),
+    )
+
+    assert command[:5] == [sys.executable, "-m", "hydromodpy", "run", str(Path("plan/ab/cal.toml"))]
+    assert command[5:] == [
+        "--frozen",
+        "--credentials",
+        "c.toml",
+        "--allow-host",
+        "h.org",
+    ]

@@ -16,14 +16,14 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import crs_of_a_user_file
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.managers.base_manager_common import CUSTOM_SOURCE, SourceTable
+from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.provenance.derived import custom_derived_dir, derived_path
 
 logger = get_logger(__name__)
 
 
 class BaseFileManager(SourceTable):
-    """Load user files through ``read_custom`` and index the converted copies."""
+    """Load user files through ``read_file_source`` and index the converted copies."""
 
     RECORD_KIND: ClassVar[Literal["tables", "fields"]] = "fields"
     """The member of :class:`LoadResult` the records land in."""
@@ -50,9 +50,9 @@ class BaseFileManager(SourceTable):
             getattr(result, self.RECORD_KIND).extend(self._fetch_from_source(source_cfg))
         return result
 
-    def load_custom(self, source_cfg: Any) -> list[Any]:
+    def load_file(self, source_cfg: Any) -> list[Any]:
         """Convert the user's file and index the copy that landed on disk."""
-        records = self.read_custom(
+        records = self.read_file_source(
             source_cfg, derived_dir=custom_derived_dir(self.data_dir, self.VARIABLE_NAME)
         )
         if self.catalog is not None:
@@ -60,14 +60,14 @@ class BaseFileManager(SourceTable):
                 if isinstance(record.data, Path):
                     self.catalog.register(
                         variable=self.VARIABLE_NAME,
-                        source=CUSTOM_SOURCE,
+                        source="file",
                         file_path=str(record.data),
                         is_custom=True,
                         **self.index_fields(record),
                     )
         return records
 
-    def read_custom(self, source_cfg: Any, *, derived_dir: Path | None) -> list[Any]:
+    def read_file_source(self, source_cfg: Any, *, derived_dir: Path | None) -> list[Any]:
         """Read one source config into records; each variable names its converter."""
         raise NotImplementedError
 
@@ -87,7 +87,7 @@ class RasterFileManager(BaseFileManager):
     RECORD_KIND = "fields"
     INTERNAL_UNIT = "m"
 
-    def read_custom(self, source_cfg: Any, *, derived_dir: Path | None) -> list[FieldRecord]:
+    def read_file_source(self, source_cfg: Any, *, derived_dir: Path | None) -> list[FieldRecord]:
         """Read a GeoTIFF or ASC raster into a cached COG."""
         import rasterio
 
@@ -95,7 +95,7 @@ class RasterFileManager(BaseFileManager):
 
         path = Path(str(source_cfg.path)).resolve()
         if not path.exists():
-            raise FileNotFoundError(f"Custom {self.VARIABLE_NAME} path not found: {path}")
+            raise FileNotFoundError(f"File {self.VARIABLE_NAME} path not found: {path}")
 
         with rasterio.open(str(path)) as src:
             bounds = src.bounds
@@ -113,7 +113,7 @@ class RasterFileManager(BaseFileManager):
         return [
             FieldRecord(
                 variable=self.VARIABLE_NAME,
-                source="custom",
+                source="file",
                 unit=self.INTERNAL_UNIT,
                 data=data,
                 bbox=bbox,

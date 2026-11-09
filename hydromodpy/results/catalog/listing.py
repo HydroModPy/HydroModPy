@@ -69,7 +69,6 @@ def list_simulations(
     import pandas as pd
 
     from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
-    from hydromodpy.results.catalog.constants import canonical_solver_code
 
     workspace_root = Path(workspace).expanduser().resolve()
     if project:
@@ -87,7 +86,7 @@ def list_simulations(
         if sims.empty:
             continue
         if solver:
-            sims = sims[_runs_with_solver(sims["solver"], canonical_solver_code(solver))]
+            sims = sims[_runs_with_solver(sims["solver"], solver)]
         if site:
             sims = sims[sims["site"].fillna("") == site]
         if status:
@@ -106,12 +105,12 @@ def list_simulations(
 
 
 def _runs_with_solver(stored: Any, wanted: str) -> Any:
-    """Mask of the runs whose solver list holds ``wanted``, such as "modflow6,modpath"."""
-    from hydromodpy.results.catalog.constants import canonical_solver_code
+    """Mask of the runs whose solver list holds ``wanted``, such as "modflow6,modpath".
 
-    return stored.fillna("").map(
-        lambda text: wanted in {canonical_solver_code(part) for part in str(text).split(",")}
-    )
+    The name the run carries is compared as it stands: one name per backend,
+    no shorthand.
+    """
+    return stored.fillna("").map(lambda text: wanted in set(str(text).split(",")))
 
 
 def _stable_listing_projection(df: Any) -> Any:

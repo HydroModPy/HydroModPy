@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.variables.water_quality.apis import hubeau as hubeau_api
 from hydromodpy.data.variables.water_quality.apis.hubeau import (
     _normalize_dataframe,
@@ -56,7 +57,7 @@ class TestFetchMocked:
         """Test fetch logic with mocked get_json calls."""
         call_count = {"n": 0}
 
-        def fake_get_json(url, *, params=None, **kwargs):
+        def fake_get_json(_client, url, *, params=None, **kwargs):
             call_count["n"] += 1
             if "station_pc" in url or "stations" in url:
                 return {
@@ -94,6 +95,7 @@ class TestFetchMocked:
             station_ids=["R1"],
             date_start=datetime(2020, 1, 1),
             date_end=datetime(2020, 3, 31),
+            client=HTTPClient(),
         )
 
         assert len(records) == 2

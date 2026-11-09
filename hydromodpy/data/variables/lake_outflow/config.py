@@ -58,5 +58,5 @@ class LakeOutflowConfig(BaseVariableConfig):
         return cls(
             date_start=start,
             date_end=end,
-            sources=[LakeOutflowSourceConfig(source="custom", path=Path(path), **overrides)],
+            sources=[LakeOutflowSourceConfig(source="file", path=Path(path), **overrides)],
         )

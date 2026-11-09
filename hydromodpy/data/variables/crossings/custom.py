@@ -43,7 +43,7 @@ def vector_file(path: str | Path) -> Path:
     return candidate
 
 
-def load_custom(source_cfg: Any, *, path: Path | None = None) -> gpd.GeoDataFrame:
+def load_file(source_cfg: Any, *, path: Path | None = None) -> gpd.GeoDataFrame:
     """The records of a custom file, in the CRS the file declares (or ``default_crs``).
 
     *path* is the vector file when the caller already found it, for instance
@@ -75,7 +75,7 @@ def load_custom(source_cfg: Any, *, path: Path | None = None) -> gpd.GeoDataFram
     return records.build(
         frame.geometry.tolist(),
         kind=kind,
-        source="custom",
+        source="file",
         name=_text(frame, "name"),
         drop_m=_numbers(frame, "drop_m"),
         crs=str(frame.crs),

@@ -6,14 +6,14 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from hydromodpy.data.variables.dem.config import (
-    CustomDemSource,
     DemSourceConfig,
+    FileDemSource,
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.geology.config import (
     BrgmGeology1mSource,
     BrgmGeology50kSource,
-    CustomGeologySource,
+    FileGeologySource,
     GeologySourceConfig,
 )
 from hydromodpy.solver.base.simulation_config import (
@@ -37,9 +37,9 @@ class TestDataSourceUnion:
     DISPATCH_CASES = [
         pytest.param(
             DemSourceConfig,
-            {"source": "custom", "path": "dem.tif"},
-            CustomDemSource,
-            {"source": "custom"},
+            {"source": "file", "path": "dem.tif"},
+            FileDemSource,
+            {"source": "file"},
             id="dem_custom",
         ),
         pytest.param(
@@ -104,11 +104,11 @@ class TestDataSourceUnion:
 
     def test_dem_custom_requires_path(self) -> None:
         with pytest.raises(ValidationError):
-            CustomDemSource()
+            FileDemSource()
 
     def test_geology_custom_construction(self, tmp_path) -> None:
-        cfg = CustomGeologySource(path=tmp_path / "g.gpkg", code_field="LITHOLOGY")
-        assert cfg.source == "custom"
+        cfg = FileGeologySource(path=tmp_path / "g.gpkg", code_field="LITHOLOGY")
+        assert cfg.source == "file"
         assert cfg.code_field == "LITHOLOGY"
 
 

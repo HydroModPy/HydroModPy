@@ -28,10 +28,10 @@ def load_network(
     ``bdtopage`` downloads through *fetcher* around the outlets, or reuses the
     GeoPackage of ``output_dir``. ``custom`` reads a local vector file.
     """
-    if source == "custom":
+    if source in ("file", "custom"):
         if path is None:
-            raise ValueError("A custom river network needs a path.")
-        return _read_custom(path, target_crs=target_crs)
+            raise ValueError("A file river network needs a path.")
+        return _read_file_source(path, target_crs=target_crs)
     if source != "bdtopage":
         raise ValueError(f"Unsupported river network source: {source!r}.")
     return _read_bdtopage(
@@ -73,7 +73,7 @@ def snap_outlet(
     return float(projected.x), float(projected.y)
 
 
-def _read_custom(path: str | Path, *, target_crs: str) -> Any:
+def _read_file_source(path: str | Path, *, target_crs: str) -> Any:
     import geopandas as gpd
 
     return _lines_in_crs(gpd.read_file(Path(path).expanduser().resolve()), target_crs)

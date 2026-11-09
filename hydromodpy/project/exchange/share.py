@@ -51,7 +51,9 @@ from hydromodpy.results.storage.attempt import is_run_product
 DATA_DIRNAME: Final[str] = "data"
 """Folder of the workspace that holds the shared data."""
 
-CUSTOM_PROVIDERS: Final[frozenset[str]] = frozenset({"custom", "constant", "synthetic"})
+CUSTOM_PROVIDERS: Final[frozenset[str]] = frozenset(
+    {"file", "url", "custom", "constant", "synthetic"}
+)
 """Providers whose files no cache row serves: a user file, a generated value."""
 
 _SIDECAR_SUFFIX: Final[str] = ".json"
@@ -103,7 +105,7 @@ def run_bundle(run_dir: str | Path, *, project_root: str | Path) -> PayloadBundl
                 workspace,
                 project,
                 sha256=tracked.sha256,
-                provider="custom",
+                provider="file",
                 license=None,
             )
             _add(files, blobs, item, located)

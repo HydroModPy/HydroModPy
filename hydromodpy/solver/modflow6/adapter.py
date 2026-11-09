@@ -33,7 +33,7 @@ from hydromodpy.solver.base.observables import (
     servable,
     under_condition,
 )
-from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
@@ -91,6 +91,7 @@ class Modflow6FlowAdapter:
     )
     geometry: ClassVar[str] = "cells"
     writes: ClassVar[tuple[str, ...]] = (
+        "face_flow",
         "head",
         "budget/constant_head",
         "budget/constant_head_stream",
@@ -157,6 +158,7 @@ class Modflow6FlowAdapter:
             "cutoff_wall",
             "soil",
             "k_tensor",
+            "properties",
             "layers",
             "pass_through",
         }
@@ -171,11 +173,17 @@ class Modflow6FlowAdapter:
         """No precondition checks for MODFLOW 6 flow runs."""
 
     def build(
-        self, model: Any, options: BaseModel | None, slot: RunSlot, ctx: RunContext
+        self,
+        model: Any,
+        options: BaseModel | None,
+        slot: RunSlot,
+        upstream: tuple[SolverRun, ...] = (),
     ) -> SolverRun:
         """Build the MODFLOW 6 model of ``model`` in memory, under ``slot``.
 
-        The method is intentionally thin:
+        A flow follows no run, so ``upstream`` stays empty: the runner refuses a
+        flow build that names one, and nothing past ``slot`` decides where the
+        model goes. The method is intentionally thin:
 
         - resolve the shared preprocessing options from the ``Model``,
         - build the concrete ``Modflow6`` object in the folder and under the
@@ -191,7 +199,8 @@ class Modflow6FlowAdapter:
             modflow_config=options,
             preprocess_options=preprocess_options,
         )
-        return build_flow_model(solver_model, model, options, slot, ctx, preprocess_options)
+        solver_model.link_mt3dms = "face_flow" in slot.hand_off
+        return build_flow_model(solver_model, model, options, slot, preprocess_options)
 
     def run(self, solver_run: SolverRun) -> SolverRun:
         """Write the input files unless they are written, start, solve, and return the solved run.

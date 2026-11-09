@@ -10,29 +10,38 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def get_raster(model_modflow: Any) -> Any:
-    """Return the DEM grid the MODFLOW model was built on, or None.
+def _the_model(solver: Any) -> Any:
+    """Return the ``Model`` from a solver object, or the object itself.
 
-    It is ``Model.geometry.raster`` of the ``Model`` the solver keeps in
-    ``inputs``. The DEM raster paths and the CRS of the delineation are its
-    attributes.
+    A solver object (a ``ModflowNwt``) keeps the frozen ``Model`` of the run
+    on ``inputs``. The transport adapters receive the ``Model`` itself, so the
+    resolvers accept both shapes and read ``Model.geometry`` either way.
     """
-    geometry = getattr(getattr(model_modflow, "inputs", None), "geometry", None)
+    return getattr(solver, "inputs", None) or solver
+
+
+def get_raster(model: Any) -> Any:
+    """Return the DEM grid the run was built on, or None.
+
+    It is ``Model.geometry.raster`` of the ``Model`` the transport follows.
+    The DEM raster paths and the CRS of the delineation are its attributes.
+    """
+    geometry = getattr(_the_model(model), "geometry", None)
     return getattr(geometry, "raster", None)
 
 
-def get_catchment(model_modflow: Any) -> Any:
-    """Return where the catchment of the MODFLOW model closes, or None.
+def get_catchment(model: Any) -> Any:
+    """Return where the catchment of the run closes, or None.
 
     It is ``Model.geometry.catchment``, which holds the watershed polygon path.
     """
-    geometry = getattr(getattr(model_modflow, "inputs", None), "geometry", None)
+    geometry = getattr(_the_model(model), "geometry", None)
     return getattr(geometry, "catchment", None)
 
 
-def resolve_crs_proj(model_modflow: Any, domain: Any) -> Any:
+def resolve_crs_proj(model: Any, domain: Any) -> Any:
     """Resolve CRS from the DEM grid of the model, else from domain support."""
-    raster = get_raster(model_modflow)
+    raster = get_raster(model)
     if raster is not None:
         return raster.crs_proj
     support = getattr(getattr(domain, "surface_topo", None), "support", None)
@@ -41,9 +50,9 @@ def resolve_crs_proj(model_modflow: Any, domain: Any) -> Any:
     return None
 
 
-def resolve_watershed_shp(model_modflow: Any) -> str | None:
+def resolve_watershed_shp(model: Any) -> str | None:
     """Resolve watershed polygon path when available."""
-    catchment = get_catchment(model_modflow)
+    catchment = get_catchment(model)
     return getattr(catchment, "watershed_shp", None) if catchment is not None else None
 
 
@@ -61,7 +70,8 @@ def resolve_domain_raster(model_modflow: Any) -> str:
     if raster_path is None:
         raise ValueError(
             "Cannot resolve default zone_partic='domain'. "
-            "Provide transport.modpath.parameters.zone_partic as a raster path."
+            "Write [transport.modpath] zone_partic with the path of a raster "
+            "aligned on the solver grid."
         )
     return raster_path
 

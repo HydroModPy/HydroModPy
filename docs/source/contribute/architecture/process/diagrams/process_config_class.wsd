@@ -45,10 +45,9 @@ package "hydromodpy.model" {
 
 package "hydromodpy.model.transport" {
   class TransportConfig {
-    +modpath: TransportModpathConfig
-    +mt3dms: TransportMt3dmsConfig
-    +modflow6gwt: TransportModflow6GwtConfig
-    +modflow6prt: TransportModflow6PrtConfig
+    +modflow6, +mt3dms: ConcentrationTransportParametersConfig
+    +modflow6_prt: Modflow6PrtParametersConfig
+    +modpath: ModpathParametersConfig
     +param_list: list[str] (excluded)
     +param: dict[str, object] (excluded)
     +ic: object | None (excluded)
@@ -56,13 +55,8 @@ package "hydromodpy.model.transport" {
     +sinks_sources: dict[str, object] (excluded)
   }
 
-  class TransportModpathConfig {
-    +parameters: ModpathParametersConfig
-  }
+  class ConcentrationTransportParametersConfig
   class ModpathParametersConfig
-  class TransportMt3dmsConfig
-  class TransportModflow6GwtConfig
-  class TransportModflow6PrtConfig
 }
 
 
@@ -73,9 +67,8 @@ FlowConfig --> FlowBoundaryConditionConfig : bc values
 FlowConfig --> FlowSinksSourcesConfig : sinks_sources
 FlowSinksSourcesConfig *-- FlowWellConfig : wells
 
-TransportConfig *-- TransportModpathConfig : modpath
-TransportConfig *-- TransportMt3dmsConfig : mt3dms
-TransportConfig *-- TransportModflow6GwtConfig : modflow6gwt
-TransportConfig *-- TransportModflow6PrtConfig : modflow6prt
-TransportModpathConfig *-- ModpathParametersConfig : parameters
+TransportConfig *-- ConcentrationTransportParametersConfig : modflow6
+TransportConfig *-- ConcentrationTransportParametersConfig : mt3dms
+TransportConfig *-- Modflow6PrtParametersConfig : modflow6_prt
+TransportConfig *-- ModpathParametersConfig : modpath
 @enduml

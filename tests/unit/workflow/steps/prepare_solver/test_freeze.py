@@ -91,12 +91,12 @@ thickness = "20 m"
 types = ["precipitation", "etp"]
 
 [[data.precipitation.sources]]
-source = "custom"
-path = "precipitation.nc"
+source = "file"
+path = "../../data/precipitation/precipitation.nc"
 
 [[data.etp.sources]]
-source = "custom"
-path = "etp.nc"
+source = "file"
+path = "../../data/etp/etp.nc"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
@@ -242,10 +242,11 @@ def test_an_inferred_data_type_stays_out_of_the_frozen_file(tmp_path: Path) -> N
 # --- test_the_frozen_config_reads_in_any_workspace ---
 # The frozen ``config.toml`` of a run names its inputs so that any copy of the workspace reads it.
 #
-# A file of ``data/<variable>/`` is written by its bare name, a declared folder
-# by its name, a file of the project relative to it: no path of the machine.
-# Read back from the project root, in the workspace it was frozen in or in
-# another one holding the same data, the configuration points at the same files.
+# A file of the workspace ``data/`` is written relative to the project root
+# (``../../data/<variable>/...``), a file of the project relative to it: no path
+# of the machine, and no bare name, which a file no longer resolves. Read back
+# from the project root, in the workspace it was frozen in or in another one
+# holding the same data, the configuration points at the same files.
 
 WORKSPACE_PROJECT = """\
 [site]
@@ -256,22 +257,25 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
 buff_area = "10%"
 
 [data]
-types = ["hydrography", "hydrometry"]
+types = ["dem", "hydrography", "hydrometry"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 station_ids = ["NANCON"]
 """
 
@@ -307,10 +311,13 @@ def test_the_frozen_config_names_its_inputs_by_their_portable_form(tmp_path: Pat
     text = frozen.read_text(encoding="utf-8")
     assert str(tmp_path) not in text
     payload = tomllib.loads(text)
-    assert payload["geographic"]["catchment"]["dem_init_path"] == "DEM_armorican_massif.tif"
     sources = payload["data"]
-    assert sources["hydrography"]["sources"][0]["path"] == "nancon_stream_network.gpkg"
-    assert sources["hydrometry"]["sources"][0]["path"] == "hydrometry"
+    assert sources["dem"]["sources"][0]["path"] == "../../data/dem/DEM_armorican_massif.tif"
+    assert (
+        sources["hydrography"]["sources"][0]["path"]
+        == "../../data/hydrography/nancon_stream_network.gpkg"
+    )
+    assert sources["hydrometry"]["sources"][0]["path"] == "../../data/hydrometry"
 
 
 def test_another_workspace_reads_the_frozen_config_on_its_own_data(
@@ -330,9 +337,7 @@ def test_another_workspace_reads_the_frozen_config_on_its_own_data(
 
     data = (tmp_path / "cluster" / "ws" / "data").resolve()
     for cfg in (from_file, from_snapshot):
-        assert Path(cfg.geographic.catchment.dem_init_path) == data / "dem" / (
-            "DEM_armorican_massif.tif"
-        )
+        assert Path(cfg.data.dem.sources[0].path) == data / "dem" / "DEM_armorican_massif.tif"
         assert Path(cfg.data.hydrometry.sources[0].path) == data / "hydrometry"
         assert Path(cfg.data.hydrography.sources[0].path) == data / "hydrography" / (
             "nancon_stream_network.gpkg"
@@ -380,21 +385,26 @@ def _source_run(project: Path, name: str) -> str:
 
 
 def _config(project: Path, *zones: dict) -> HydroModPyConfig:
-    return HydroModPyConfig.model_validate(
+    return HydroModPyConfig.from_dict(
         {
             "workflow": {"mode": "simulation"},
             "workspace": {"project_root": str(project)},
             "site": {"name": "site_a"},
             "geographic": {
-                "catchment": {"kind": "dem", "dem_init_path": "dem.tif"},
+                "catchment": {"kind": "dem"},
                 "river_network": {"threshold_area_km2": 0.5},
+            },
+            "data": {
+                "types": ["dem"],
+                "dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]},
             },
             "mesh": {
                 "engine": "voronoi",
                 "families": {"rivers": "none"},
                 "refinement_zone": list(zones),
             },
-        }
+        },
+        base_dir=project,
     )
 
 

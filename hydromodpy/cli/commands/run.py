@@ -111,6 +111,8 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
+    from hydromodpy.cli.environment import add_environment_arguments
+
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
@@ -247,16 +249,19 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     add_override_arguments(parser)
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.cli.environment import environment_from_args
     from hydromodpy.project.launch.env import apply_thread_budget
 
     try:
         apply_thread_budget()
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
+    environment = environment_from_args(args)
     config = getattr(args, "config", None)
     if config is None:
         resume = getattr(args, "resume", None)
@@ -272,7 +277,7 @@ def run(args: argparse.Namespace) -> None:
 
     if target.suffix == ".toml":
         with project_named_by_w(getattr(args, "workspace", None)):
-            _run_toml(target, args=args)
+            _run_toml(target, args=args, environment=environment)
     elif target.suffix == ".py":
         refuse(
             "Python scripts are not supported by 'hmp run'. Run the script with python directly.",
@@ -291,6 +296,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     the run was executed with - through the same path as
     ``hmp run config.toml --resume NAME``.
     """
+    from hydromodpy.cli.environment import environment_from_args
     from hydromodpy.results.manifest import is_sealed, read_seal
     from hydromodpy.results.storage.attempt import run_dir_for_name
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
@@ -319,7 +325,9 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
         )
 
     args.resume = run_dir.name
-    _run_toml(config_path, args=args)
+    # The resume branch reads the same three Environment options the operator
+    # named on the command line; None keeps the default of the machine.
+    _run_toml(config_path, args=args, environment=environment_from_args(args))
 
 
 def _replay_project_root() -> Path:
@@ -349,6 +357,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     """
     import shutil
 
+    from hydromodpy.cli.environment import environment_from_args
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
@@ -373,7 +382,9 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     previous = os.environ.get(PROJECT_ROOT_ENV)
     os.environ[PROJECT_ROOT_ENV] = str(root)
     try:
-        _run_toml(replay_path, args=args, replayed_copy=copy_dir)
+        _run_toml(
+            replay_path, args=args, replayed_copy=copy_dir, environment=environment_from_args(args)
+        )
     finally:
         replay_path.unlink(missing_ok=True)
         shutil.rmtree(workdir, ignore_errors=True)
@@ -386,7 +397,11 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
 
 
 def _run_toml(
-    config_path: Path, *, args: argparse.Namespace, replayed_copy: Path | None = None
+    config_path: Path,
+    *,
+    args: argparse.Namespace,
+    replayed_copy: Path | None = None,
+    environment=None,
 ) -> None:
     """Run a workflow from a TOML file.
 
@@ -429,6 +444,7 @@ def _run_toml(
             args=args,
             profile_output=profile_output,
             replayed_copy=replayed_copy,
+            environment=environment,
         )
     finally:
         cleanup_effective_toml(effective_path, source=config_path)
@@ -443,6 +459,7 @@ def _run_effective(
     args: argparse.Namespace,
     profile_output: Path | None,
     replayed_copy: Path | None,
+    environment=None,
 ) -> None:
     """Run the workflow of *config_path* from its effective copy, which the caller removes."""
     import hydromodpy as hmp
@@ -469,7 +486,7 @@ def _run_effective(
     if is_sites_project(raw_toml):
         cleanup_effective_toml(effective_path, source=config_path)
         if not dry_run:
-            _launch_sites_project(config_path, args=args)
+            _launch_sites_project(config_path, args=args, environment=environment)
             return
         _print_sites_dry_run(config_path, args=args)
         return
@@ -599,11 +616,12 @@ def _run_effective(
                     fresh=fresh,
                     overrides=lineage_overrides,
                     replay_of=replayed_copy,
+                    environment=environment,
                 )
             elif workflow == "calibration" and resume is not None:
-                summary = hmp.calibrate(run_path, resume=True).to_dict()
+                summary = hmp.calibrate(run_path, resume=True, environment=environment).to_dict()
             else:
-                summary = dispatch_workflow(workflow, run_path)
+                summary = dispatch_workflow(workflow, run_path, environment=environment)
                 if workflow == "overview":
                     summary = summary.to_dict()
     except ValidationError as exc:
@@ -937,11 +955,26 @@ def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None
         sys.exit(EXIT_CONFIG)
 
 
-def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> None:
-    """Plan a ``[sites]`` project from *config_path*, then launch its current plan."""
+def _launch_sites_project(config_path: Path, *, args: argparse.Namespace, environment=None) -> None:
+    """Plan a ``[sites]`` project from *config_path*, then launch its current plan.
+
+    ``environment`` is the one the command built from its own options; its
+    check runs before the plan is written, so a credentials file the table
+    refuses stops the launch before a single case departs, and its three
+    flags ride the command line of every case, the worker of a case building
+    the same Environment from them.
+    """
+    from hydromodpy.cli.environment import environment_flags_of
     from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.core.workspace.resolve import find_data_workspace
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch import plan_project, run_plan
 
+    if environment is None:
+        environment = Environment.default()
+    force = bool(getattr(args, "force", False))
+    root = resolve_project_root(config_path.parent)
+    environment.check(project_root=root, workspace_root=find_data_workspace(root) or root)
     resume = getattr(args, "resume", None)
     if resume:
         refuse(
@@ -949,7 +982,6 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
             "case with --only and pass a bare --resume.",
             EXIT_USAGE,
         )
-    force = bool(getattr(args, "force", False))
     root = resolve_project_root(config_path.parent)
     try:
         plan_project(
@@ -968,6 +1000,7 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
             fresh=bool(getattr(args, "fresh", False)),
             force=force,
             resume=resume is not None,
+            environment_flags=environment_flags_of(args),
         )
     except KeyboardInterrupt:
         print("Launch aborted by user.", file=sys.stderr)

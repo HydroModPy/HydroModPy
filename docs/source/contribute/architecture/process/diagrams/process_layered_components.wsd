@@ -10,7 +10,7 @@ package "User and orchestration" {
 package "Configuration" {
   component "HydroModPyConfig" as HydroModPyConfig
   component "FlowConfig" as FlowConfig
-  component "TransportConfig" as TransportConfig
+  component "TransportConfig\n(one table per solver)" as TransportConfig
   component "SimulationConfig\n([[simulation.process]])" as SimulationConfig
 }
 
@@ -24,7 +24,6 @@ package "Runtime process objects (model)" {
   component "ProcessSpatial" as ProcessSpatial
   component "Flow" as Flow
   component "Model\n(frozen)" as Model
-  component "Transport" as Transport
 }
 
 package "Orchestration (solver/base)" {
@@ -33,7 +32,7 @@ package "Orchestration (solver/base)" {
 }
 
 package "Solver adapters and backends (solver)" {
-  component "SolverAdapter\n(solver/<backend>/adapters)" as Adapter
+  component "SolverAdapter\n(solver/<backend>:\nadapter.py for a flow, the\nengine module for a transport)" as Adapter
   component "MODFLOW 6 / MODFLOW-NWT /\nBoussinesq" as Backends
 }
 
@@ -44,9 +43,7 @@ HydroModPyConfig --> TransportConfig
 HydroModPyConfig --> SimulationConfig
 
 FlowConfig --> Flow : ensure_flow
-TransportConfig --> Transport : ensure_transport
 Flow --> ProcessSpatial : extends
-Transport --> ProcessSpatial : extends
 
 DataManagers --> Binders : loaded data
 Forcing --> Binders : aligned series
@@ -56,8 +53,7 @@ Flow --> Model : model_from_flow\n(prepare_solver)
 SimulationConfig --> Planner
 Planner --> Runner : SimulationPlan
 Runner --> Model : setup.model
-Runner --> Transport
-Runner --> Adapter : by run.solver
-Adapter --> Model : reads only this
+Runner --> Adapter : by run.solver, with\nbuild(model, options,\nslot, upstream)
+Adapter --> Model : the Model of its\nflow for a transport
 Adapter --> Backends : only layer that\ntranslates to solver input
 @enduml

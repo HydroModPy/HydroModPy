@@ -26,6 +26,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
+from hydromodpy.cli.environment import add_environment_arguments
 from hydromodpy.cli.helpers import (
     EXIT_GENERIC,
     EXIT_USAGE,
@@ -151,6 +152,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Fill value of the cells a GeoTIFF has no data for (default: -9999)",
     )
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
@@ -173,6 +175,8 @@ def run(args: argparse.Namespace) -> None:
         written = _regen(hmp, workspace, args.sim_ref, args.regen)
     else:
         folder, file = _destination(args.to)
+        from hydromodpy.cli.environment import environment_from_args
+
         with hmp.open(workspace).store as catalog:
             written = hmp.export(
                 catalog[args.sim_ref],
@@ -186,6 +190,7 @@ def run(args: argparse.Namespace) -> None:
                 resolution=args.resolution,
                 layer=args.layer,
                 **({} if args.nodata is None else {"nodata": args.nodata}),
+                environment=environment_from_args(args),
             )
 
     def table() -> None:

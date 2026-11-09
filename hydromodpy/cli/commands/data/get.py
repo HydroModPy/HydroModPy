@@ -7,7 +7,8 @@ Two forms, one engine (:func:`hydromodpy.data.run_request`):
   built from the options.
 
 ``DIR`` receives one file per variable and source, cut to the extent and the
-period, and the report ``request.json``.
+period, and the report ``request.json``. The three environment options build
+the ``Environment`` the engine serves the request under.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
+from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_VALIDATION,
@@ -54,7 +56,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp data get dem --to data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n  hmp data get precipitation --to data/precipitation --mask catchment.gpkg --start 2015-01-01 --end 2020-12-31 --source sim2",
+        epilog=(
+            "Examples:\n"
+            "  hmp data get dem --to data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n"
+            "  hmp data get precipitation --to data/precipitation --mask catchment.gpkg "
+            "--start 2015-01-01 --end 2020-12-31 --source sim2"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -87,6 +94,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--source", default=None, help="source to ask, when the variable has several"
     )
     parser.set_defaults(_handler=run)
+    add_environment_arguments(parser)
     return parser
 
 
@@ -108,6 +116,7 @@ def run(args: argparse.Namespace) -> None:
                 end=args.end,
                 source=args.source,
                 workspace_root=workspace_root,
+                environment_bounds=environment_from_args(args).bounds,
             )
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)

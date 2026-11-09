@@ -135,6 +135,7 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     ("hmp dev run-script", "python -m tools.dev run-script SCRIPT"),
     ("hmp dev examples", "python -m tools.dev examples manifest"),
     ("hmp dev manage", "(no replacement yet)"),
+    ("hmp data check", "hmp data ls"),
 )
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(

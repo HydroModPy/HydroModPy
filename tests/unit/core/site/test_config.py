@@ -195,7 +195,7 @@ def _record(station_id: str) -> PointRecord:
     return PointRecord(
         station_id=station_id,
         variable="discharge",
-        source="custom",
+        source="file",
         unit="m3/s",
         frequency="D",
         data=pd.DataFrame({"datetime": pd.to_datetime(["2000-01-01"]), "value": [1.0]}),
@@ -206,7 +206,7 @@ def _record(station_id: str) -> PointRecord:
 
 def test_a_loaded_record_refuses_the_word() -> None:
     assert _record("J0014010").station_id == "J0014010"
-    with pytest.raises(DataContractViolation, match="discharge from custom.*gauge code"):
+    with pytest.raises(DataContractViolation, match="discharge from file.*gauge code"):
         _record("catchment")
 
 

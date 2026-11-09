@@ -133,7 +133,7 @@ class DemManager(SourceTable):
     # Custom
     # ------------------------------------------------------------------
 
-    def load_custom(self, source_cfg) -> list[FieldRecord]:
+    def load_file(self, source_cfg) -> list[FieldRecord]:
         """Load custom DEM data (TIF, ASC, NC)."""
         from hydromodpy.data.variables.dem.custom import load_custom_dem
 
@@ -150,7 +150,7 @@ class DemManager(SourceTable):
                 if isinstance(rec, FieldRecord) and isinstance(rec.data, Path):
                     self.catalog.register(
                         variable="dem",
-                        source="custom",
+                        source="file",
                         file_path=str(rec.data),
                         bbox=rec.bbox,
                         crs=rec.crs,

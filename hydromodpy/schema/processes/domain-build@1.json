@@ -126,6 +126,7 @@
                 "calibrable": {
                   "bounds": null,
                   "description": "Aquifer thickness below the topography, one value everywhere.",
+                  "excluded_by": [],
                   "is_the_value_of_its_instance": false,
                   "sampling": "log_uniform",
                   "search_space": "log",
@@ -165,6 +166,7 @@
                 "calibrable": {
                   "bounds": null,
                   "description": "Elevation of the flat substratum, one value everywhere.",
+                  "excluded_by": [],
                   "is_the_value_of_its_instance": false,
                   "sampling": "uniform",
                   "search_space": "identity",

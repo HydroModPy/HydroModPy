@@ -9,7 +9,7 @@ needs a concrete vector file on disk. The map is named once, under
 The map is a diagnostic input and never a model input, so only a local file is
 read:
 
-- ``source = "custom"`` resolves ``path`` against the TOML directory, picking the
+- ``source = "file"`` resolves ``path`` against the TOML directory, picking the
   first vector file when it points at a directory. A raster is skipped: alpha
   rasterizes geometries onto the DEM grid itself and has nothing to do with an
   already gridded network.
@@ -60,27 +60,27 @@ def resolve_network_map_path(cfg: Any, *, config_path: Path | None) -> Path | No
 
     for source_cfg in sources:
         source_kind = str(getattr(source_cfg, "source", "")).strip()
-        if source_kind == "custom":
-            resolved = _resolve_custom_path(source_cfg, config_dir)
+        if source_kind in ("file", "custom"):
+            resolved = _resolve_file_path(source_cfg, config_dir)
             if resolved is not None:
                 return resolved
         else:
             logger.info(
                 "[data.hydrography] source %r is an API source: the alpha diagnostic "
-                "needs a custom vector source and does not download one.",
+                "needs a file vector source and does not download one.",
                 source_kind,
             )
     return None
 
 
-def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
-    """Return the vector file a ``custom`` source declares, or None when it holds a raster."""
+def _resolve_file_path(source_cfg: Any, config_dir: Path) -> Path | None:
+    """Return the vector file a ``file`` source declares, or None when it holds a raster."""
     candidate = declared_source_path(source_cfg, config_dir)
     if candidate is None:
         return None
     if not candidate.exists():
         logger.warning(
-            "[data.hydrography] custom source path not found: %s. The alpha diagnostic is skipped.",
+            "[data.hydrography] file source path not found: %s. The alpha diagnostic is skipped.",
             candidate,
         )
         return None
@@ -90,7 +90,7 @@ def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
             return None
     if candidate.suffix.lower() in (".tif", ".tiff"):
         logger.info(
-            "[data.hydrography] custom source %s is a raster, so the alpha diagnostic, "
+            "[data.hydrography] file source %s is a raster, so the alpha diagnostic, "
             "which rasterizes geometries onto the DEM grid itself, skips it.",
             candidate,
         )
@@ -98,10 +98,13 @@ def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
     return candidate
 
 
+_resolve_custom_path = _resolve_file_path
+
+
 def _find_vector_file_in_dir(directory: Path) -> Path | None:
     """Return the first vector file of ``directory``, scaffold templates excluded.
 
-    Deliberately not :func:`~hydromodpy.data.variables.hydrography.custom.load_custom`'s
+    Deliberately not :func:`~hydromodpy.data.variables.hydrography.custom.load_file`'s
     scan, which prefers a raster over a vector: alpha needs the linework.
     """
     from hydromodpy.data.common.io_helpers import is_scaffold_example

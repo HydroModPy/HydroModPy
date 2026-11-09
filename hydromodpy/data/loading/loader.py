@@ -28,6 +28,7 @@ from hydromodpy.core.exceptions import (
     HydroModPyError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
@@ -52,9 +53,12 @@ class DataManagersRuntimeLoader:
     stores loaded products on the workflow context.
     """
 
-    def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
+    def __init__(
+        self, *, config_path: str | Path, data_plan: DataLoadPlan, bounds: Any = None
+    ) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
+        self.bounds = bounds if bounds is not None else Bounds()
         self._catalog: DataCatalogDuckDB | None = None
         self._cache_root: Path | None = None
         self._store: DataStore | None = None
@@ -63,7 +67,11 @@ class DataManagersRuntimeLoader:
         """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
         if self._catalog is not None:
             if self._store is None:
-                self._store = DataStore(catalog=self._catalog, data_root=self._cache_root)
+                self._store = DataStore(
+                    catalog=self._catalog,
+                    data_root=self._cache_root,
+                    bounds=self.bounds,
+                )
             return
         self._cache_root = workspace_paths.data_dir
         self._cache_root.mkdir(parents=True, exist_ok=True)
@@ -72,6 +80,7 @@ class DataManagersRuntimeLoader:
             catalog=self._catalog,
             data_root=self._cache_root,
             workspace_root=workspace_paths.root,
+            bounds=self.bounds,
         )
 
     def _require_store(self) -> DataStore:
@@ -86,7 +95,7 @@ class DataManagersRuntimeLoader:
         try:
             workspace_paths = self._workspace_paths(result)
         except (AttributeError, ValueError):
-            self._store = DataStore(catalog=self._catalog)
+            self._store = DataStore(catalog=self._catalog, bounds=self.bounds)
             return
         self._init_catalog(workspace_paths)
 

@@ -37,7 +37,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "regional_dem_lasset.tif"
 x_outlet = 601020.0
 y_outlet = 6193860.0
 snap_dist = "200 m"
@@ -63,8 +62,8 @@ lay_decay = 1.5
 types = ["dem", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "regional_dem_lasset.tif"
+source = "file"
+path = "../../data/dem/regional_dem_lasset.tif"
 
 # Monthly recharge climatology, mm/day. The steady run uses its mean,
 # 1.17 mm/day.

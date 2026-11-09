@@ -26,6 +26,7 @@ from hydromodpy.data.provenance.sidecars import (
     sidecar_path_for,
     unlink_with_sidecar,
 )
+from hydromodpy.data.registry.cache_queries import PRODUCT_VERSION_KEY
 from hydromodpy.data.registry.cache_store import reject_frozen_download
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
@@ -47,6 +48,23 @@ _VAR_FILE_PREFIX = {
 
 _ASKED_WINDOW_KEY = "asked_window"
 """``fetch_metadata`` key of the period a station chronicle was asked for."""
+
+
+def _fetch_metadata_of(
+    window: tuple[datetime, datetime] | None, product: str | None
+) -> dict | None:
+    """The ``fetch_metadata`` of a station entry: its asked window and its product.
+
+    The two fields are written only when known, so an entry of a section that
+    carries no product keeps the bytes it always had, and a product answers
+    nothing for a request made under another one.
+    """
+    metadata: dict[str, object] = {}
+    if window is not None:
+        metadata[_ASKED_WINDOW_KEY] = [window[0].isoformat(), window[1].isoformat()]
+    if product is not None:
+        metadata[PRODUCT_VERSION_KEY] = product
+    return metadata or None
 
 
 def _hull(
@@ -131,11 +149,11 @@ class BaseVariableManager(BaseManagerCommon):
                 stacklevel=2,
             )
 
-    def load_custom(self, source_cfg: Any) -> list[PointRecord]:
+    def load_file(self, source_cfg: Any) -> list[PointRecord]:
         """Load a folder of station chronicles and their locations."""
-        from hydromodpy.data.ingest.custom_points import load_custom_points
+        from hydromodpy.data.ingest.custom_points import load_file_points
 
-        records = load_custom_points(
+        records = load_file_points(
             data_dir=Path(source_cfg.path),
             variable_name=self.VARIABLE_NAME,
             internal_unit=self.INTERNAL_UNIT,
@@ -153,6 +171,11 @@ class BaseVariableManager(BaseManagerCommon):
             source_unit_override=source_cfg.source_unit,
         )
         return self._apply_mask(records, source_cfg)
+
+    @staticmethod
+    def _product_of(source_cfg: Any) -> str | None:
+        """Return the provider product the source asks for, when it names one."""
+        return getattr(source_cfg, "product", None)
 
     def _resolved_source_values(self, source_cfg: Any) -> dict[str, Any]:
         """The point a nearest-station search starts from, when the config asks for one."""
@@ -282,6 +305,7 @@ class BaseVariableManager(BaseManagerCommon):
         max_stations = getattr(source_cfg, "max_stations", None)
         if station_ids and max_stations is not None:
             station_ids = station_ids[:max_stations]
+        product = self._product_of(source_cfg)
 
         if not station_ids or source_cfg.force_refresh:
             reject_frozen_download(
@@ -294,23 +318,25 @@ class BaseVariableManager(BaseManagerCommon):
                 ),
             )
             records = fetch_fn(station_ids or None, *self.project_period)
-            self._persist_api_records(records, source_name, window=self.project_period)
+            self._persist_api_records(
+                records, source_name, window=self.project_period, product=product
+            )
             return self._apply_mask(records, source_cfg)
 
         ready: list[PointRecord] = []
         missing_ids: list[str] = []
         to_persist: list[tuple[PointRecord, tuple[datetime, datetime]]] = []
         for sid in station_ids:
-            if self._is_empty_sentinel(source=source_name, station_id=sid):
+            if self._is_empty_sentinel(source=source_name, station_id=sid, product=product):
                 logger.debug("%s station without data (cached): %s", source_name, sid)
                 continue
-            rec = self._load_cached_api_record(source=source_name, station_id=sid)
+            rec = self._load_cached_api_record(source=source_name, station_id=sid, product=product)
             if rec is None:
                 missing_ids.append(sid)
                 continue
             # A station answers for the window it was asked for, which can be
             # wider than its data: an ONDE campaign never starts on 1 January.
-            asked = self._cached_window(source=source_name, station_id=sid)
+            asked = self._cached_window(source=source_name, station_id=sid, product=product)
             covered = _hull((rec.date_start, rec.date_end), asked)
             gaps = self._compute_missing_periods(*covered)
             if not gaps:
@@ -346,19 +372,19 @@ class BaseVariableManager(BaseManagerCommon):
                 # Nothing upstream for the gap: record that it was asked, so
                 # the next run (and a frozen replay) does not ask again.
                 ready.append(rec)
-                self._record_window(rec, source_name, window)
+                self._record_window(rec, source_name, window, product=product)
 
         for merged, window in to_persist:
-            self._persist_api_records([merged], source_name, window=window)
+            self._persist_api_records([merged], source_name, window=window, product=product)
         if not missing_ids:
             return self._apply_mask(ready, source_cfg)
 
         records = fetch_fn(missing_ids, *self.project_period)
-        self._persist_api_records(records, source_name, window=self.project_period)
+        self._persist_api_records(records, source_name, window=self.project_period, product=product)
         fetched_ids = {r.station_id for r in records}
         empty_ids = [sid for sid in missing_ids if sid not in fetched_ids]
         if empty_ids:
-            self._register_empty_api_stations(empty_ids, source_name)
+            self._register_empty_api_stations(empty_ids, source_name, product=product)
         return self._apply_mask(ready + records, source_cfg)
 
     def _compute_missing_periods(
@@ -420,6 +446,7 @@ class BaseVariableManager(BaseManagerCommon):
         source: str,
         *,
         window: tuple[datetime, datetime] | None = None,
+        product: str | None = None,
     ) -> None:
         """Save API records as CSV files in data_dir and register in catalog.
 
@@ -427,7 +454,9 @@ class BaseVariableManager(BaseManagerCommon):
         the old file is deleted before saving the new one. ``window`` is the
         period the provider was asked for (default: the project period). It
         is recorded with each entry, so a station whose data stops short of
-        it is not asked again for the days it does not have.
+        it is not asked again for the days it does not have. ``product`` keys
+        the entry the same way: the chronicle of one product never answers a
+        request for another one.
         """
         if self.data_dir is None or not records:
             return
@@ -436,7 +465,7 @@ class BaseVariableManager(BaseManagerCommon):
 
         for r in records:
             # Delete old CSV if it exists with a different filename
-            self._cleanup_old_api_file(source, r.station_id)
+            self._cleanup_old_api_file(source, r.station_id, product=product)
 
             # Save chronicle CSV
             safe_id = safe_file_token(r.station_id)
@@ -453,27 +482,41 @@ class BaseVariableManager(BaseManagerCommon):
                 self._upsert_api_loc(r.location, source)
 
             asked = _hull((r.date_start, r.date_end), window or self.project_period)
-            self._register_one(r, filepath, window=asked)
+            self._register_one(r, filepath, window=asked, product=product)
 
     def _record_window(
-        self, record: PointRecord, source: str, window: tuple[datetime, datetime]
+        self,
+        record: PointRecord,
+        source: str,
+        window: tuple[datetime, datetime],
+        product: str | None = None,
     ) -> None:
         """Record ``window`` as asked for the cached ``record``, leaving its file as it is."""
         if self.catalog is None:
             return
         entry = self.catalog.find_cached(
-            variable=self.VARIABLE_NAME, source=source, station_id=record.station_id
+            variable=self.VARIABLE_NAME,
+            source=source,
+            station_id=record.station_id,
+            product_version=product,
         )
         if entry is None or entry.file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             return
-        self._register_one(record, self._resolve_catalog_path(entry.file_path), window=window)
+        self._register_one(
+            record, self._resolve_catalog_path(entry.file_path), window=window, product=product
+        )
 
-    def _cached_window(self, *, source: str, station_id: str) -> tuple[datetime, datetime] | None:
+    def _cached_window(
+        self, *, source: str, station_id: str, product: str | None = None
+    ) -> tuple[datetime, datetime] | None:
         """Return the window a cached station was asked for, or None when not recorded."""
         if self.catalog is None:
             return None
         entry = self.catalog.find_cached(
-            variable=self.VARIABLE_NAME, source=source, station_id=station_id
+            variable=self.VARIABLE_NAME,
+            source=source,
+            station_id=station_id,
+            product_version=product,
         )
         recorded = getattr(entry, "fetch_metadata", None)
         if isinstance(recorded, str):
@@ -491,14 +534,22 @@ class BaseVariableManager(BaseManagerCommon):
         except (TypeError, ValueError):
             return None
 
-    def _cleanup_old_api_file(self, source: str, station_id: str) -> None:
-        """Delete old API CSV if a previous download exists for this station."""
+    def _cleanup_old_api_file(
+        self, source: str, station_id: str, product: str | None = None
+    ) -> None:
+        """Delete old API CSV if a previous download exists for this station.
+
+        The lookup rides on the product: a CSV written for another product
+        stays on disk, its entry answers nothing and is replaced at the end
+        of the fetch.
+        """
         if self.catalog is None:
             return
         entry = self.catalog.find_cached(
             variable=self.VARIABLE_NAME,
             source=source,
             station_id=station_id,
+            product_version=product,
         )
         if entry is None or entry.file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             return
@@ -512,6 +563,7 @@ class BaseVariableManager(BaseManagerCommon):
         self,
         station_ids: list[str],
         source: str,
+        product: str | None = None,
     ) -> None:
         """Register stations that returned no data from the API.
 
@@ -529,28 +581,29 @@ class BaseVariableManager(BaseManagerCommon):
                 station_id=sid,
                 file_path=SENTINEL_EMPTY,
                 is_custom=False,
-                fetch_metadata=(
-                    None
-                    if window is None
-                    else {_ASKED_WINDOW_KEY: [window[0].isoformat(), window[1].isoformat()]}
-                ),
+                fetch_metadata=_fetch_metadata_of(window, product),
             )
 
-    def _is_empty_sentinel(self, source: str, station_id: str) -> bool:
-        """Check if a station had no data for the requested window."""
+    def _is_empty_sentinel(self, source: str, station_id: str, product: str | None = None) -> bool:
+        """True when the cache keeps a no-data sentinel for this station.
+
+        The lookup rides on the product the same way: a sentinel written for
+        one product never answers a request made under another one.
+        """
         if self.catalog is None:
             return False
         entry = self.catalog.find_cached(
             variable=self.VARIABLE_NAME,
             source=source,
             station_id=station_id,
+            product_version=product,
         )
         if entry is None or entry.file_path != SENTINEL_EMPTY:
             return False
         # The sentinel answers for the window it was asked for. Another window
         # may hold data, so it is asked again. A sentinel with no recorded
         # window comes from an older cache and keeps answering for any window.
-        asked = self._cached_window(source=source, station_id=station_id)
+        asked = self._cached_window(source=source, station_id=station_id, product=product)
         if asked is None or self.project_period is None:
             return True
         return asked[0] <= self.project_period[0] and self.project_period[1] <= asked[1]
@@ -588,7 +641,7 @@ class BaseVariableManager(BaseManagerCommon):
             return
         for r in records:
             # API records are already registered in _persist_api_records.
-            if r.source != "custom":
+            if r.source not in ("file", "custom"):
                 continue
             fp = r.file_path if r.file_path is not None else Path(SENTINEL_CUSTOM)
             self._register_one(r, file_path=fp)
@@ -599,8 +652,9 @@ class BaseVariableManager(BaseManagerCommon):
         file_path: Path,
         *,
         window: tuple[datetime, datetime] | None = None,
+        product: str | None = None,
     ) -> None:
-        """Register a single record in the catalog, with the window it was asked for."""
+        """Register a single record in the catalog, with window and product asked."""
         if self.catalog is None:
             return
         bbox = None
@@ -620,12 +674,8 @@ class BaseVariableManager(BaseManagerCommon):
             frequency=r.frequency,
             bbox=bbox,
             crs=crs,
-            is_custom=(r.source == "custom"),
-            fetch_metadata=(
-                None
-                if window is None
-                else {_ASKED_WINDOW_KEY: [window[0].isoformat(), window[1].isoformat()]}
-            ),
+            is_custom=(r.source in ("file", "custom")),
+            fetch_metadata=_fetch_metadata_of(window, product),
         )
 
     # ------------------------------------------------------------------
@@ -637,11 +687,15 @@ class BaseVariableManager(BaseManagerCommon):
         *,
         source: str,
         station_id: str,
+        product: str | None = None,
     ) -> PointRecord | None:
         """Try to load a single station from cached CSV via the catalog.
 
         Does NOT filter by date - returns whatever is cached. The caller
-        uses _compute_missing_periods() to detect partial coverage.
+        uses _compute_missing_periods() to detect partial coverage. The
+        lookup rides on the product: a chronicle cached under one product
+        never answers a request made under another one, so the product
+        change re-downloads the station once.
         """
         if self.catalog is None or self.data_dir is None:
             return None
@@ -649,6 +703,7 @@ class BaseVariableManager(BaseManagerCommon):
             variable=self.VARIABLE_NAME,
             source=source,
             station_id=station_id,
+            product_version=product,
         )
         if entry is None:
             return None

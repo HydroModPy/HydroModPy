@@ -59,17 +59,17 @@ For a variable called ``evaporation``:
    class EvaporationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
        """One evaporation source."""
 
-       source: Annotated[Literal["custom"], Profile.USER] = Field(
-           ..., description="Data provider: 'custom' for the user's files."
+       source: Annotated[Literal["file"], Profile.USER] = Field(
+           ..., description="Data provider: 'file' for the user's files."
        )
        path: Annotated[str | None, Profile.USER] = Field(
            default=None, description="A .nc or .tif file, or a folder of chronicles."
        )
        crs: Annotated[str | None, Profile.USER] = Field(
-           default=None, description="CRS of a custom NetCDF that declares none."
+           default=None, description="CRS of a user NetCDF that declares none."
        )
        nodata: Annotated[float | None, Profile.USER] = Field(
-           default=None, description="Nodata of a custom NetCDF that declares none."
+           default=None, description="Nodata of a user NetCDF that declares none."
        )
 
 
@@ -93,8 +93,8 @@ For a variable called ``evaporation``:
        INTERNAL_UNIT = "mm/day"
        SOURCES = {}
 
-``custom`` is never in ``SOURCES``: the base class loads the user's files.
-Each network provider adds one key, see :doc:`add-a-data-source`.
+``file`` is handled by the manager base class through ``load_file``; each network
+provider adds one key in ``SOURCES``, see :doc:`add-a-data-source`.
 
 The lists a variable joins
 --------------------------
@@ -129,8 +129,8 @@ Check it
    types = ["evaporation"]
 
    [[data.evaporation.sources]]
-   source = "custom"
-   path = "data/evaporation/evaporation_basin.nc"
+   source = "file"
+   path = "inputs/evaporation_basin.nc"
    nodata = -9999.0
 
 .. code-block:: console
@@ -138,7 +138,7 @@ Check it
    $ pytest tests/unit/architecture tests/unit/data -q
    $ cat > ask.json <<'JSON'
    {"data": {"evaporation": {"sources": [
-      {"source": "custom", "path": "data/evaporation/evaporation_basin.nc",
+      {"source": "file", "path": "inputs/evaporation_basin.nc",
        "nodata": -9999.0}]}},
     "extent": {"bbox": [320000, 6780000, 330000, 6790000], "crs": "EPSG:2154"},
     "period": {"start": "2020-01-01", "end": "2020-01-31"}}
@@ -146,13 +146,13 @@ Check it
    $ hmp data get ask.json --to evap/
 
 ``hmp data get`` reads your file back through the new manager, cut to the box
-and the period, into ``evap/evaporation_custom.nc`` beside ``evap/request.json``.
-A job refuses a ``custom`` source; the command line serves it.
+and the period, into ``evap/evaporation_file.nc`` beside ``evap/request.json``.
+A job refuses a ``file`` source; the command line serves it.
 
 Tests to add
 ------------
 
-- the config: a ``custom`` source without ``path`` is refused;
+- the config: a ``file`` source without ``path`` is refused;
 - the manager on a small fixture file, offline;
 - each provider with a recorded answer, so the tier runs without network.
 

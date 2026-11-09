@@ -156,10 +156,6 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         "hydromodpy.workflow.steps.setup.ensure_flow",
         _noop_ensure,
     )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_transport",
-        _noop_ensure,
-    )
 
     step_setup(run_state)
 
@@ -189,10 +185,6 @@ def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.setup.ensure_flow",
-        lambda state: None,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: None,
     )
 
@@ -259,10 +251,6 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         "hydromodpy.workflow.steps.setup.ensure_flow",
         _ensure_flow,
     )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_transport",
-        lambda state: None,
-    )
 
     step_setup(
         run_state,
@@ -318,10 +306,6 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.setup.ensure_flow",
         _ensure_flow,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_transport",
-        lambda state: None,
     )
 
     with pytest.raises(ConfigError, match="domain.supports"):

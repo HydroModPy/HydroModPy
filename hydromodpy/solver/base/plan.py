@@ -123,11 +123,15 @@ class RunSlot:
     not call ``run``. ``bin_dir`` is the folder of the solver binaries, or
     ``None`` for the managed cache. ``shared_forcing_dir`` is the folder a
     calibration trial keeps its forcing files in, apart from its model folder,
-    or ``None`` to keep them beside the model.
+    or ``None`` to keep them beside the model. ``hand_off`` names the products
+    a later run of the plan reads of this one, written by the runner from the
+    ``reads`` of those runs: NWT poses its flow-transport link when
+    ``face_flow`` is in it, and every other backend ignores the member.
 
     The folder and the binaries are facts of the machine, kept out of the
     ``Model`` and out of the options so that two runs of one model can solve in
-    two places.
+    two places. A transport solves in the slot of the flow it follows, which
+    the runner hands it, so it reads the files that flow wrote.
     """
 
     folder: Path
@@ -135,11 +139,13 @@ class RunSlot:
     stop_before_solve: bool = False
     bin_dir: Path | None = None
     shared_forcing_dir: Path | None = None
+    hand_off: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "folder", Path(self.folder))
         object.__setattr__(self, "bin_dir", _optional_path(self.bin_dir))
         object.__setattr__(self, "shared_forcing_dir", _optional_path(self.shared_forcing_dir))
+        object.__setattr__(self, "hand_off", frozenset(str(one) for one in self.hand_off))
         if not str(self.name).strip():
             raise SolverInputError("RunSlot.name is the run name and cannot be blank.")
 
@@ -209,10 +215,9 @@ class RunContext:
 
     ``state`` is the reduced view of the workflow runtime
     (:class:`hydromodpy.core.state.run_state.RunState`), never the workflow
-    context itself. A flow adapter reads neither ``state`` nor ``store``: its
-    ``build`` reads the ``Model``, the options and the slot it is handed. A
-    transport adapter reads ``state`` until the transport port takes the
-    ``Model``.
+    context itself. No adapter reads it, and no adapter reads the ``plan`` or
+    the ``store`` either: ``build`` receives the ``Model``, the options, the
+    slot and the upstream runs it is handed.
 
     ``store`` is the catalog handle of the enclosing run, or ``None`` when the
     run writes no index (a calibration trial). It is a borrowed handle whose

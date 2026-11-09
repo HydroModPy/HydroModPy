@@ -180,18 +180,11 @@ hydromodpy = "hydromodpy.cli.main:main"
 # is what [mesh] engine names, so a mesh engine (catchment, regular, triangle
 # and voronoi ship in-tree) is substituted the same way.
 #
-# "hydromodpy.calibration.optimizer" is read by
-# hydromodpy.calibration.optim.optimizer.optimizers. It names an optimizer
-# method, for example grid, and one [calibration.<name>] table of options the
-# adapter that serves it declares, the same way a solver backend does.
-#
-# "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
-# are read by hydromodpy.calibration.evaluation.registry.evaluators and by
-# hydromodpy.calibration.evaluation.forward_registry.forward_models. The first
-# turns a parameter sample into a cost and is named by [calibration] evaluator;
-# the second answers the observables [calibration.outputs] declares and is named
-# by [calibration] forward_model, so a foreign model is scored by the criteria
-# of the document and brings none of its own.
+# "hydromodpy.calibration.evaluator" is read by
+# hydromodpy.calibration.evaluation.registry.evaluators. It turns a parameter
+# sample into a cost and is named by [calibration] evaluator. A global model is
+# a solver backend named by [solver] backend, not an evaluator: it registers on
+# the "hydromodpy.solver" group above.
 
 [project.entry-points."hydromodpy.export.format"]
 stac = "hydromodpy_annex.export.stac:StacItemView"
@@ -222,6 +215,8 @@ hydromodpy = ["py.typed"]
 "hydromodpy.data.registry.migrations" = ["*.sql"]
 # The register of known issues is read by results/validity_rules.py to label a run.
 "hydromodpy.results" = ["*.toml"]
+# The tested table of the calibration protocols, read by calibration.protocols.base.
+"hydromodpy.calibration" = ["protocols/tested_backends.toml"]
 # The JSON Schemas of the stored formats, generated from the results models.
 "hydromodpy.schema.results" = ["*.json"]
 # The SLURM job templates of `hmp campaign array`, read by importlib.resources.

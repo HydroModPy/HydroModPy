@@ -202,12 +202,12 @@ def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -
             id="domain-extent",
         ),
         pytest.param(
-            {"tables": "[transport.modflow6prt.parameters]\nwrite_track_binary = false"},
-            ("transport.modflow6prt",),
+            {"tables": "[transport.modflow6_prt]\nwrite_track_binary = false"},
+            ("transport.modflow6_prt",),
             id="a-marked-section-is-one-entry",
         ),
         pytest.param(
-            {"tables": "[transport.modpath.parameters]\ntrack_dir = 'forward'"},
+            {"tables": "[transport.modpath]\ntrack_dir = 'forward'"},
             ("transport.modpath",),
             id="modpath-block",
         ),
@@ -317,7 +317,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
     class _Launcher:
         """The overview without its downloads and its report."""
 
-        def __init__(self, config_path: Path) -> None:
+        def __init__(self, config_path: Path, bounds: object = None) -> None:
             self.cfg = cfg
 
         def run(self, claim: object, *, config_hash: str) -> dict[str, str]:

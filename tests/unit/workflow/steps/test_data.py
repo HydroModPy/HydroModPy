@@ -125,6 +125,49 @@ def test_the_binder_does_not_check_the_steady_start_without_soil(monkeypatch) ->
     assert run_state.setup.soil_forcings is None
 
 
+# --- test_the_native_forcing_reads_a_catchment_polygon_on_a_lumped_mesh_only ---
+# A spatialized source is averaged over the one cell of a lumped mesh, so the
+# binder hands the forcing a unified catchment polygon only there.
+#
+# ``catchment_outline`` is the GeoDataFrame the delineated catchment returns,
+# in the frame of its shapefile. The native forcing reads a single shapely
+# geometry in the frame of the model, and none at all under a mesh engine that
+# marks no ``lumped``, which is what keeps the meshed backends on the period
+# view and no existing run moving a number.
+
+
+def test_the_binder_hands_native_forcing_a_polygon_only_on_a_lumped_mesh(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Recharge carries the unified catchment polygon under a lumped engine alone."""
+    watershed = write_watershed(tmp_path / "watershed.shp")
+    calls: dict[str, dict] = {}
+    _patch_capture(monkeypatch, calls)
+    setup = SetupContext(
+        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        domain=object(),
+        geographic=SimpleNamespace(crs_proj="EPSG:2154", watershed_shp=str(watershed)),
+        time_grid=SimpleNamespace(window=_binder_window()),
+    )
+    for engine, expected in (("catchment", True), ("regular", False)):
+        run_state = SimpleNamespace(
+            setup=setup,
+            loaded_data=LoadedDataContext(recharge=object(), etp=object()),
+            cfg=SimpleNamespace(
+                flow=_flow_cfg(with_soil=False), mesh=SimpleNamespace(engine=engine)
+            ),
+        )
+
+        data_step._bind_soil_recharge_etp(run_state, _binder_window())
+
+        polygon = calls["recharge"]["cell_polygon"]
+        if expected:
+            assert polygon is not None
+            assert polygon.bounds == (0.0, -500.0, 1000.0, 500.0)
+        else:
+            assert polygon is None
+
+
 # --- test_a_soil_run_refuses_a_spinup_shorter_than_a_year_at_run_time ---
 # A phase override that shortens the window below a year is caught.
 #
@@ -431,6 +474,7 @@ def _printed_state(*, lightweight: bool, with_soil: bool) -> SimpleNamespace:
         execution=ExecutionRegistry(lightweight=lightweight),
         config_path="config.toml",
         data_plan=SimpleNamespace(types=()),
+        bounds=None,
     )
 
 

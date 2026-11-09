@@ -20,8 +20,8 @@ from hydromodpy.calibration.config import (
     CalibrationConfig,
     window_bounds,
 )
-from hydromodpy.calibration.evaluation import TrialOutcome, TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BOUNDS_COMPONENT,
@@ -105,6 +105,7 @@ from hydromodpy.core.exceptions import (
     UncertaintyNotAvailableError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.session.descriptor import (
     CostInterval,
@@ -1412,10 +1413,13 @@ def run_single_search(
     metric_fn: TrialMetricFn | None,
     objective: str | None,
     resume: bool,
+    bounds: Bounds | None = None,
 ) -> tuple[CalibrationReport, tuple[RestartSpread, ...]]:
     """Check the name, prepare, open the session, search, attach the width, promote and close.
 
     The sequence of a calibration without phases, from a TOML or from Python.
+    ``bounds`` are the :class:`~hydromodpy.core.runtime.bounds.Bounds` of the
+    call that launched it; ``prepare_trials`` builds its context under them.
     """
     promotion_name_check(case)
     paths = resolve_override_paths(cfg)
@@ -1423,7 +1427,7 @@ def run_single_search(
     # whole geographic, mesh and data prefix of the pipeline, and an evaluator
     # that replaces the model has no use for the model's setup.
     trial_ctx = (
-        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
+        prepare_trials(cfg_path, override_paths=paths, parameter_space=space, bounds=bounds)
         if evaluation_registry.needs_prepared_model(cfg.evaluator)
         else None
     )

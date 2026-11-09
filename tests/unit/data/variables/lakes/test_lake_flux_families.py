@@ -107,7 +107,7 @@ def test_manager_load_returns_point_timeseries_contract(tmp_path):
     for record in result.points:
         assert isinstance(record, PointRecord)
         assert record.variable == "lake_inflow"
-        assert record.source == "custom"
+        assert record.source == "file"
         assert record.unit == "m3/s"
         assert record.has_data
         assert list(record.data.columns[:2]) == ["datetime", "value"]

@@ -10,7 +10,6 @@ joining strings.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +17,7 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 from hydromodpy.core.exceptions import JobUsageError
+from hydromodpy.core.toml_io.paths import has_url_scheme
 from hydromodpy.schema.job.layout import (
     INPUTSET_FILENAME,
     JOB_LOG_FILENAME,
@@ -31,8 +31,6 @@ from hydromodpy.schema.job.layout import (
 )
 from hydromodpy.schema.job.refusal import refuse_request
 
-_SCHEME_PATTERN = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.\-]*):")
-
 
 def _strip_file_scheme(href: str, *, loc: Sequence[str]) -> str:
     """Return the local path *href* names, refusing every non-local scheme.
@@ -42,12 +40,9 @@ def _strip_file_scheme(href: str, *, loc: Sequence[str]) -> str:
     is read by the platform's own rule, so ``file:///C:/a%20b`` names ``C:\\a b``
     on Windows.
     """
-    match = _SCHEME_PATTERN.match(href)
-    if match is None:
+    if not has_url_scheme(href):
         return href
-    scheme = match.group("scheme")
-    if len(scheme) == 1:
-        return href
+    scheme = href.split(":", 1)[0]
     if scheme.lower() != "file":
         raise refuse_request(
             f"input {href!r} uses the {scheme!r} scheme; a capability reads local paths only "

@@ -14,7 +14,7 @@ Usage::
     )
     cfg.workspace.project_root
     cfg.geographic.catch_def
-    cfg.geographic.dem_init_path
+    cfg.data.dem.sources
     cfg.domain.zone_ids
     cfg.data.geology.id
     cfg.flow.param["K"]
@@ -34,6 +34,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import (
     Field,
+    ModelWrapValidatorHandler,
     PrivateAttr,
     ValidationError,
     ValidationInfo,
@@ -45,12 +46,17 @@ from hydromodpy.calibration.config import CalibrationConfig, apply_project_defau
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.config_migration import (
+    RETIRED_SGRID_KEYS,
     _raw_flow_process_solver,
     migrate_layers,
     migrate_merged_doc,
     migrate_sealed_config_doc,
 )
-from hydromodpy.config.cross_checks import check_against_the_solver
+from hydromodpy.config.cross_checks import (
+    check_against_the_solver,
+    deduce_the_mesh_engine,
+    flow_honors,
+)
 from hydromodpy.config.section_loader import (
     _load_optional_calibration_section,
     _load_optional_mesh_section,
@@ -103,7 +109,7 @@ from hydromodpy.model.forcing.soil_config import (
 )
 from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.model.initial_config import SpinupConfig
-from hydromodpy.model.properties.property_table import k_tensor_parameter_ids
+from hydromodpy.model.properties.property_table import PROPERTIES, k_tensor_parameter_ids
 from hydromodpy.model.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 from hydromodpy.results.metric_rule import MetricsConfig
@@ -246,8 +252,7 @@ RETIRED_SECTIONS: dict[str, str] = {
     "initializing": "Section [initializing] is no longer supported. Use [workspace] instead.",
     "modflow": (
         "Section [modflow] is no longer supported. "
-        "Use [solver] and the table of each flow solver under it, [solver.modflow_nwt] "
-        "and [solver.modflow6], instead."
+        "Use [solver], whose table for each flow solver sits under its name."
     ),
     "capability_gallery": (
         "Section [capability_gallery] is no longer supported: the figures of "
@@ -547,8 +552,7 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=SolverConfig,
         description=(
             "Global solver block loaded from [solver]: the flow solver in "
-            "solver.backend, the settings of each flow solver under its name "
-            "([solver.modflow6], [solver.modflow_nwt], [solver.boussinesq]), and the "
+            "solver.backend, the settings of each flow solver under its name, and the "
             "backend-agnostic preprocessing switches (solver.sink_fill, "
             "solver.drain_band_depth_m)."
         ),
@@ -608,14 +612,7 @@ class HydroModPyConfig(HydroModelBase):
             "before any meshing."
         ),
         json_schema_extra=field_metadata(
-            renamed_from=[
-                "mesh_catchment",
-                "mesh_input",
-                "modflow6.sgrid.planar",
-                "modflownwt.sgrid.planar",
-                "modflow6.sgrid.grid_dual",
-                "modflownwt.sgrid.grid_dual",
-            ]
+            renamed_from=["mesh_catchment", "mesh_input", *RETIRED_SGRID_KEYS]
         ),
     )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
@@ -673,6 +670,27 @@ class HydroModPyConfig(HydroModelBase):
         elif isinstance(workspace, Mapping) and not workspace.get("project_root"):
             payload["workspace"] = {**workspace, "project_root": "."}
         return payload
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _read_the_dem_of_its_source(
+        cls, data: Any, handler: ModelWrapValidatorHandler[HydroModPyConfig], info: ValidationInfo
+    ) -> HydroModPyConfig:
+        """Let a mapping that declares ``[[data.dem.sources]]`` hold a catchment of kind ``dem``.
+
+        ``[geographic.catchment] kind = "dem"`` reads its DEM from a DEM source. The
+        file loader tells the geographic section so through the validation context.
+        A Python caller that validates a mapping passes no context, so the same rule
+        is read here from the mapping, and both routes accept the same document.
+        """
+        context = info.context if isinstance(info.context, Mapping) else {}
+        if (
+            isinstance(data, Mapping)
+            and "allow_dem_bootstrap" not in context
+            and _raw_declares_dem_source(data.get("data"))
+        ):
+            return cls.model_validate(data, context={**context, "allow_dem_bootstrap": True})
+        return handler(data)
 
     @model_validator(mode="before")
     @classmethod
@@ -992,11 +1010,18 @@ class HydroModPyConfig(HydroModelBase):
                 "[data.substratum]; declare it with one custom source."
             )
 
+        # Without an engine written, a [mesh] section would fall on the default,
+        # which a backend that only accepts lumped engines cannot read: the
+        # engine is deduced before the mesh checks read it.
+        deduce_the_mesh_engine(self)
+
         self._check_river_network_threshold_for_the_mesh()
 
         calibration_cfg = self.calibration
         flow_cfg = self.flow
-        if calibration_cfg is not None:
+        # A flow solver without field properties, such as a global model, calibrates
+        # its own solver options, so flow.param_list may stay empty under it.
+        if calibration_cfg is not None and flow_honors(self, PROPERTIES):
             if not flow_cfg.param_list:
                 raise ValueError(
                     "[calibration] requires flow.param_list to declare at least "
@@ -1394,19 +1419,8 @@ class HydroModPyConfig(HydroModelBase):
             )
 
         geographic_section = raw.get("geographic", {})
-        catchment_section = (
-            geographic_section.get("catchment") if isinstance(geographic_section, Mapping) else None
-        )
-        catchment_dem = (
-            catchment_section.get("dem_init_path")
-            if isinstance(catchment_section, Mapping)
-            else None
-        )
-        allow_dem_bootstrap = (
-            isinstance(geographic_section, Mapping)
-            and not geographic_section.get("dem_init_path")
-            and not catchment_dem
-            and _raw_declares_dem_source(raw.get("data", {}))
+        allow_dem_bootstrap = isinstance(geographic_section, Mapping) and _raw_declares_dem_source(
+            raw.get("data", {})
         )
 
         sealed = context == "snapshot" or (

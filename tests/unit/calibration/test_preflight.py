@@ -827,11 +827,12 @@ def test_a_frozen_run_with_the_old_counts_reads_back(tmp_path: Path) -> None:
     project = _project(tmp_path)
     toml = project / "project.toml"
     toml.write_text(
-        PROJECT.replace(
-            'complete = "nancon_stream_network.gpkg"\n',
-            'complete = "nancon_stream_network.gpkg"\n'
-            "[calibration.outputs.seepage_network.model.extent]\n"
-            'flowing_at_least = "2 months"\ndry_at_most = "1 month"\n',
+        re.sub(
+            r'(complete = "[^"]*nancon_stream_network\.gpkg"\n)',
+            r"\1[calibration.outputs.seepage_network.model.extent]\n"
+            r'flowing_at_least = "2 months"\ndry_at_most = "1 month"\n',
+            PROJECT,
+            count=1,
         ),
         encoding="utf-8",
     )
@@ -1471,8 +1472,8 @@ class TestTheObservedStationIsLoaded:
             types = ["hydrometry"]
 
             [[data.hydrometry.sources]]
-            source = "custom"
-            path = "hydrometry"
+            source = "file"
+            path = "inputs/hydrometry"
             station_ids = ["OTHER"]
             """
             + _GAUGED
@@ -1491,8 +1492,8 @@ class TestTheObservedStationIsLoaded:
             types = ["hydrometry"]
 
             [[data.hydrometry.sources]]
-            source = "custom"
-            path = "hydrometry"
+            source = "file"
+            path = "inputs/hydrometry"
             station_ids = ["GAUGE"]
             """
             + _GAUGED
@@ -1605,7 +1606,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
@@ -2132,8 +2132,10 @@ def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend,
 
     normal, _ = preflight.protocol_lines(shown)
 
-    said = "  on boussinesq: unsupported - no case in this repository runs the protocol on that backend."
-    assert (said in normal) is named
+    # The backend says why itself: Boussinesq serves no per-cell saturation excess.
+    said = [line for line in normal if line.startswith("  on boussinesq: unsupported - ")]
+    assert bool(said) is named
+    assert all("saturation excess" in line for line in said)
 
 
 def test_a_finding_prints_as_one_line() -> None:

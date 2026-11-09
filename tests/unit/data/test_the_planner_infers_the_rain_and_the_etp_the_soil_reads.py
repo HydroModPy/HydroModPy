@@ -27,7 +27,7 @@ def _config_with_capacity_map() -> DataManagersConfig:
     return DataManagersConfig.model_validate(
         {
             "types": [],
-            "soil_capacity": {"sources": [{"source": "custom", "path": "ru.tif"}]},
+            "soil_capacity": {"sources": [{"source": "file", "path": "ru.tif"}]},
         }
     )
 

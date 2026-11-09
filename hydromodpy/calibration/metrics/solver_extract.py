@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.evaluation.forward import time_selector_of
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     MAXIMAL_SUFFIX,
@@ -47,6 +46,7 @@ from hydromodpy.calibration.observations.network_geometry import (
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
+    time_selector_of,
 )
 from hydromodpy.core.exceptions import (
     ObjectiveError,

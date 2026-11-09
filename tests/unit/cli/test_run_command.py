@@ -146,6 +146,42 @@ def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path,
     assert "workflow.mode=simulation" not in err
 
 
+def test_an_overview_receives_the_environment_of_the_command(monkeypatch, tmp_path, capsys) -> None:
+    """The CLI builds the Environment and hands it to the overview adapter."""
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.project.dispatch import workflow as dispatch_module
+
+    asked: dict = {}
+
+    def fake_overview(path, *, environment=None):
+        asked["environment"] = environment
+        raise HydroModPyError("sentinel-of-the-overview")
+
+    monkeypatch.setitem(dispatch_module.DISPATCH, "overview", fake_overview)
+    config_path = tmp_path / "overview.toml"
+    config_path.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "run",
+            str(config_path),
+            "--allow-host",
+            "data.geopf.fr",
+            "--max-download-bytes",
+            "4096",
+        ],
+    )
+
+    assert code == exit_code_for(HydroModPyError("x"))
+    environment = asked["environment"]
+    assert environment is not None
+    assert environment.bounds.allowed_hosts == frozenset({"data.geopf.fr"})
+    assert environment.bounds.max_download_bytes == 4096
+    assert "sentinel-of-the-overview" in capsys.readouterr().err
+
+
 CASE = "declared_name"
 
 

@@ -59,7 +59,7 @@ def load_custom_lake_geometry(
     return [
         FieldRecord(
             variable="lake_geometry",
-            source="custom",
+            source="file",
             unit="-",
             data=data,
             bbox=bbox,

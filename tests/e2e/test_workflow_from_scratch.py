@@ -4,7 +4,7 @@ Walks the chain a new user would follow:
 1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
 3. Get a DEM into the workspace: ``hmp data get`` refuses a box without
-   its CRS, ``hmp data check`` + ``hmp data add`` ingest a local file
+   its CRS, ``hmp data add`` ingests a local file
    dropped in ``data/dem/`` under the naming convention, and a request
    document serves that DEM cut to a smaller box.
 4. Seed a minimal run through the store of a run, seal it and index it, so
@@ -161,10 +161,6 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     dem_file = dem_dir / "dem_custom_valley.tif"
     shutil.copyfile(_FIXTURE_DEM, dem_file)
 
-    check = _run_hmp("data", "check", "--variable", "dem", "--workspace", str(workspace))
-    assert check.returncode == 0, f"`hmp data check` failed.\nstderr:\n{check.stderr}"
-    assert "OK" in check.stdout
-
     added = _run_hmp("data", "add", str(dem_file), "--type", "dem", "--workspace", str(workspace))
     assert added.returncode == 0, f"`hmp data add` failed.\nstderr:\n{added.stderr}"
     blob = workspace / "data" / "blobs" / "dem" / "custom" / dem_file.name
@@ -175,7 +171,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     request.write_text(
         json.dumps(
             {
-                "data": {"dem": {"sources": [{"source": "custom", "path": str(dem_file)}]}},
+                "data": {"dem": {"sources": [{"source": "file", "path": str(dem_file)}]}},
                 "extent": {"bbox": [300000, 6700000, 301250, 6701250], "crs": "EPSG:2154"},
             }
         ),

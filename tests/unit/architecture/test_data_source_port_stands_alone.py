@@ -53,6 +53,7 @@ scan_package = _BUILD_GRAPH_MODULE.scan_package
 ALLOWED_PREFIXES = (
     "hydromodpy.core",
     "hydromodpy.data.contracts",
+    "hydromodpy.data.provenance",
     "hydromodpy.data.source",
     "hydromodpy.schema",
 )
@@ -163,7 +164,9 @@ def test_a_builtin_source_module_opens_no_forbidden_door() -> None:
     """The provider modules that hold a source reach no manager, catalog or workspace."""
     from hydromodpy.data.source import registry
 
-    assert len(registry._BUILTIN_PATHS) == 26
+    # A1 (4.1): a one-line subclass joins the registry for each section the
+    # built-in sources serve, so 26 provider entries grew to 73 keyed ones.
+    assert len(registry._BUILTIN_PATHS) == 73
     provider_files = _builtin_provider_files()
     assert len(provider_files) == len(_builtin_provider_modules())
     edges = [edge for edge in scan_package(PKG_ROOT) if _relative(edge) in provider_files]
@@ -205,7 +208,7 @@ def test_every_provider_import_stays_deferred() -> None:
         cwd=REPO_ROOT,
     )
     report = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert len(report) == 26, "anti-vacuity: the registry resolved no built-in"
+    assert len(report) == 73, "anti-vacuity: the registry resolved no built-in"
     loaded = {
         source_id: sorted({name.split(".")[0] for name in added} & HEAVY_LIBRARIES)
         for source_id, (_module, added) in report.items()

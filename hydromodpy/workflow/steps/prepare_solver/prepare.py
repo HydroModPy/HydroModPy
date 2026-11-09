@@ -318,7 +318,7 @@ def _loaded_input_entry(
     bbox = getattr(rec, "bbox", None)
     if bbox is not None:
         request["bbox"] = [float(value) for value in bbox]
-    if source == "custom" and source_path is not None:
+    if source in ("file", "custom") and source_path is not None:
         licence = input_licence(source_path).spdx
     else:
         licence = licence_for_source(source).spdx

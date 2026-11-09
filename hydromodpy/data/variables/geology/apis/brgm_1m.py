@@ -1,21 +1,21 @@
 """Download and cache the BRGM 1:1M national geological map.
 
-Source: http://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip
+Source: https://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip
 License: ETALAB Open Licence v2.0 (open data, attribution required)
 """
 
 from __future__ import annotations
 
 import tempfile
-import urllib.request
 import zipfile
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from filelock import FileLock
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.io.fetch import HTTPClient, download, open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -34,9 +34,12 @@ from hydromodpy.data.variables.geology.apis.fgeol import (
     find_fgeol_shp,
 )
 
+if TYPE_CHECKING:
+    from hydromodpy.core.runtime.bounds import Bounds
+
 logger = get_logger(__name__)
 
-BRGM_1M_URL = "http://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip"
+BRGM_1M_URL = "https://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip"
 
 
 def fetch_brgm_1m(
@@ -44,6 +47,8 @@ def fetch_brgm_1m(
     output_dir: Path,
     bbox: tuple[float, float, float, float] | None = None,
     code_field: str = "CODE_LEG",
+    bounds: Bounds | None = None,
+    client: HTTPClient | None = None,
 ) -> Path:
     """Download the 1:1M national geological map and save as GeoPackage.
 
@@ -74,7 +79,7 @@ def fetch_brgm_1m(
         # One builder per archive: a second process waits, then reuses it.
         with FileLock(f"{zip_path}.lock"):
             if not full_gpkg.exists():
-                _build_national_gpkg(zip_path, full_gpkg)
+                _build_national_gpkg(zip_path, full_gpkg, bounds=bounds, client=client)
 
     # If bbox provided, create a cropped version
     if bbox is not None:
@@ -130,11 +135,15 @@ class Brgm1m:
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
-        gpkg_path = fetch_brgm_1m(
-            output_dir=request.out_dir,
-            bbox=extent.bbox,
-            code_field=self.code_field,
-        )
+        bounds = getattr(request, "bounds", None)
+        with open_client(bounds=bounds) as client:
+            gpkg_path = fetch_brgm_1m(
+                output_dir=request.out_dir,
+                bbox=extent.bbox,
+                code_field=self.code_field,
+                bounds=bounds,
+                client=client,
+            )
         from hydromodpy.data.contracts.file_record import FileRecord
 
         record = FileRecord.of(gpkg_path, state="raw", nodata=None, origin=BRGM_1M_URL)
@@ -148,24 +157,19 @@ class Brgm1m:
         )
 
 
-def _build_national_gpkg(zip_path: Path, full_gpkg: Path) -> None:
+def _build_national_gpkg(
+    zip_path: Path,
+    full_gpkg: Path,
+    *,
+    bounds: Bounds | None = None,
+    client: HTTPClient | None = None,
+) -> None:
     """Download the national archive if needed and convert it to GeoPackage."""
     import geopandas as gpd
 
     if not zip_path.exists():
-        with (
-            progress.task(
-                "Downloading BRGM 1:1M geological map", total=None, unit="bytes"
-            ) as handle,
-            staged_path(zip_path) as staged,
-        ):
-
-            def _report(block_count: int, block_size: int, total_size: int) -> None:
-                if total_size > 0:
-                    handle.update(total=total_size)
-                handle.update(completed=block_count * block_size)
-
-            urllib.request.urlretrieve(BRGM_1M_URL, str(staged), reporthook=_report)
+        with progress.status("Downloading BRGM 1:1M geological map"):
+            download(BRGM_1M_URL, zip_path, bounds=bounds, client=client)
         logger.debug("Downloaded: %s", zip_path)
 
     with tempfile.TemporaryDirectory(prefix="_brgm_1m_extract_", dir=zip_path.parent) as tmp:

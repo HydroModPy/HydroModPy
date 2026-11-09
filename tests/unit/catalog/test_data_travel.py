@@ -45,13 +45,16 @@ name = "nancon"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 
 [data]
-types = ["hydrometry"]
+types = ["hydrometry", "dem"]
+
+[[data.dem.sources]]
+source = "file"
+path = "dem.tif"
 
 [[data.hydrometry.sources]]
-source = "custom"
+source = "file"
 path = "hydrometry"
 station_ids = ["NANCON"]
 """
@@ -251,7 +254,7 @@ def test_the_index_lists_every_file_the_run_read_and_nothing_else(tmp_path) -> N
     ]
     assert not any(UNREAD_FILE in dest for dest in dests)
     dem = bundle.index.file_at("data/dem/dem.tif")
-    assert (dem.variable, dem.provider, dem.license) == ("dem", "custom", "LicenseRef-undetermined")
+    assert (dem.variable, dem.provider, dem.license) == ("dem", "file", "LicenseRef-undetermined")
     for item in bundle.index.files:
         assert bundle.blobs[stored_name(item.sha256, item.dest)].is_file()
 

@@ -35,7 +35,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
@@ -47,10 +47,37 @@ from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity, set_verbosity
 from hydromodpy.results.derive.stream.geometry import recharge_session
 
+if TYPE_CHECKING:
+    from hydromodpy.calibration.runners.trial import TrialContext
+
 # A non-converging solve can spin forever, which would wedge a whole search on one
 # trial. It only has to stop that: a daily solve takes ~15 min alone and several
-# times that at width 8. Override with ``[solver.modflow6.runtime] mf6_api_timeout_s``.
+# times that at width 8. Override with ``wall_clock_limit_s`` on the options of the
+# backend that runs.
 DEFAULT_TRIAL_LIMIT_S = 14400.0
+
+
+def _wall_clock_limit(trial_ctx: TrialContext | None) -> float:
+    """Return the wall-clock limit of one trial, in seconds.
+
+    The limit is an optional property of the options of the backend that runs
+    (``options_of``), so a backend that declares none keeps the default above.
+    A backend without an options table, shipped or a plugin, declares no cap
+    either: the read lets it keep the built-in default instead of raising,
+    and the message below says the property, never a key of a table that
+    would refuse it.
+    """
+    base_cfg = getattr(trial_ctx, "base_cfg", None) if trial_ctx is not None else None
+    solver = getattr(base_cfg, "solver", None)
+    backend = getattr(solver, "backend_name", None)
+    if solver is None or backend is None:
+        return DEFAULT_TRIAL_LIMIT_S
+    try:
+        options = solver.options_of(backend)
+    except ValueError:
+        return DEFAULT_TRIAL_LIMIT_S
+    override = getattr(options, "wall_clock_limit_s", None)
+    return float(override) if override is not None else DEFAULT_TRIAL_LIMIT_S
 
 
 def _serve(conn: Connection) -> None:
@@ -133,15 +160,7 @@ class TrialWorkerPool:
         self._retention: TrialSolveRetention | None = (
             self._trial_ctx.kept_solves if self._trial_ctx is not None else None
         )
-        solver = (
-            getattr(self._trial_ctx.base_cfg, "solver", None)
-            if self._trial_ctx is not None
-            else None
-        )
-        mf6 = solver.options_of("modflow6") if solver is not None else None
-        runtime = getattr(mf6, "runtime", None)
-        override = getattr(runtime, "mf6_api_timeout_s", None)
-        self._limit_s = float(override) if override is not None else DEFAULT_TRIAL_LIMIT_S
+        self._limit_s = _wall_clock_limit(self._trial_ctx)
         readable = dict(options)
         if self._trial_ctx is not None:
             readable["trial_ctx"] = replace(self._trial_ctx, kept_solves=None)
@@ -181,8 +200,9 @@ class TrialWorkerPool:
                 else:
                     error = (
                         f"it passed its wall-clock limit of {self._limit_s:.0f} s and was killed. "
-                        "A long chronicle can simply need more: raise it with "
-                        "[solver.modflow6.runtime] mf6_api_timeout_s."
+                        "A long chronicle can simply need more: raise the "
+                        "wall_clock_limit_s property of the options of the backend "
+                        "that runs."
                     )
             except (EOFError, OSError):
                 process.join(1.0)

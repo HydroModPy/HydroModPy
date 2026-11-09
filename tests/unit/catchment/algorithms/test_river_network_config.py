@@ -65,7 +65,7 @@ def test_an_enabled_network_with_a_wrong_threshold_is_refused(keys, match) -> No
 
 
 def test_a_jenson_snap_needs_a_threshold_to_draw_its_streams() -> None:
-    catchment = {**OUTLET_CATCHMENT, "dem_init_path": "dem.tif", "snap_method": "jenson"}
+    catchment = {**OUTLET_CATCHMENT, "snap_method": "jenson"}
     with pytest.raises(ValidationError, match="snap_method = 'jenson'"):
         GeographicConfig.model_validate({"catchment": catchment})
     network = {"threshold_mode": "cells", "threshold_cells": 50}

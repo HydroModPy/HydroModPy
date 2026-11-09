@@ -41,6 +41,14 @@ K_TENSOR_PROPERTIES: tuple[str, ...] = ("K22", "angle1", "angle2", "angle3")
 K_TENSOR = "k_tensor"
 """The trait a solver backend lists in ``supports`` when it reads K22 and the three angles."""
 
+PROPERTIES = "properties"
+"""The trait a flow backend lists in ``supports`` when it reads the aquifer properties.
+
+It covers ``[flow.param]`` and ``[domain.depth_model]``: a backend that lists
+it offers their values to a calibration through the catalog, and a document
+writing one under a backend that does not is refused as read.
+"""
+
 
 def k_tensor_parameter_ids(parameters: Mapping[str, object]) -> list[str]:
     """The flow parameter ids in ``parameters`` that set K22 or an angle."""

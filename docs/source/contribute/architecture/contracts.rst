@@ -41,8 +41,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.units``: the quantity types of a config field.
 - ``hydromodpy.core.config_kit.profile``: ``Profile``, the level of a config field.
 - ``hydromodpy.core.tracking.input_file``: ``InputFile``, a file a run depends on.
-- ``hydromodpy.core.contracts.observables``: what a solver and a forward model
-  answer.
+- ``hydromodpy.core.contracts.observables``: what a solver answers.
 - ``hydromodpy.core.state.run_state``: ``RunState``, what a transport adapter reads,
   and ``SlotRequest``, what a calibration trial asks of the slot its runs solve in.
 - ``hydromodpy.schema``: the JSON Schema export and the partial validator.
@@ -54,7 +53,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.data.managers.base_config``: the base of a data variable config.
 - ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
 - ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
-- ``hydromodpy.model.transport.transport``: ``Transport``, the transport process.
+- ``hydromodpy.model.transport.transport_config``: ``TransportConfig``, the [transport] section and its per-solver tables.
 - ``hydromodpy.solver.base.adapter_protocol``: the solver port and the extractor port,
   ``SolverAdapter`` and ``OutputAdapter``.
 - ``hydromodpy.solver.base.plan``: ``RunSlot``, ``SolverRun`` and ``RunContext``,
@@ -62,7 +61,6 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.results.storage.kept``: ``Retention``, what a run keeps of its solver
   outputs, which ``extract`` receives.
 - ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
-- ``hydromodpy.calibration.evaluation.forward``: the forward model port.
 - ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
 - ``hydromodpy.calibration.optim.parameters``: ``ParameterSpace``.
 - ``hydromodpy.display.figure``: ``BaseFigure`` and ``FigureSpec``.
@@ -110,9 +108,6 @@ declared under ``<section>_<source_id>``, an export format under its ``name``.
    * - ``hydromodpy.export.format``
      - ``ExportWriter``, ``hydromodpy.results.exporters.port``
      - experimental
-   * - ``hydromodpy.calibration.forward_model``
-     - ``ForwardModel``, ``hydromodpy.calibration.evaluation.forward``
-     - stable signature, experimental construction options
    * - ``hydromodpy.calibration.evaluator``
      - ``TrialEvaluator``, ``hydromodpy.calibration.evaluation.port``
      - experimental
@@ -128,10 +123,6 @@ declared under ``<section>_<source_id>``, an export format under its ``name``.
 
 A stable port is frozen as the facade is: a change keeps the old form working for
 two minor versions. Its types are its own, so it depends on nothing else of the
-package. For ``ForwardModel`` the stable part is ``model_id`` and
-``simulate(ForwardRequest) -> ForwardOutcome``. The arguments its constructor can ask
-for (``cfg``, ``cfg_path``, ``space``, ``workspace``) are experimental, because
-``cfg`` is the whole configuration.
 
 An experimental port can change in any minor version. ``TrialEvaluator`` waits for
 the rework of the calibration, and two of its construction options (``trial_ctx``,
@@ -141,8 +132,7 @@ it, and ``OutputAdapter`` writes through the 30 methods of ``SimulationStore``. 
 result of a run is not experimental, whichever port wrote it.
 
 ``tests/contract/`` holds the conformance suites. They are not in the wheel, so run
-them from a clone with your distribution installed. The suites of the terrain, mesh,
-evaluator and forward model ports run on every engine the registry serves. The suite of the data source port runs its declarations and its refusals on
+them from a clone with your distribution installed. The suites of the terrain, mesh and evaluator ports run on every engine the registry serves. The suite of the data source port runs its declarations and its refusals on
 every source the registry serves, as :doc:`how-to/add-a-data-source` explains,
 and the suite of the export port holds every format of ``export_formats`` to
 what its declarations say, as :doc:`how-to/add-an-exporter` explains. The suite of the solver port,
@@ -342,8 +332,8 @@ Plugin registry
 
 One engine, ``hydromodpy/core/plugin_registry.py``, holds every plugin
 surface of the package. Each surface is one instance with the attributes that
-key its members: the solver backends and the terrain, mesh, evaluator and
-forward-model engines on their entry-point groups, the data sources on
+key its members: the solver backends and the terrain, mesh and evaluator
+engines on their entry-point groups, the data sources on
 ``hydromodpy.data.source`` keyed by the section and the name of the class, the
 export formats on ``hydromodpy.export.format`` keyed by their name. The
 figures are the exception on purpose: they have no group, and their registry

@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from hydromodpy.model.initial_config import SpinupConfig
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.compare import Comparison
+    from hydromodpy.project.environment import Environment
     from hydromodpy.project.examples.install import InstallReport
     from hydromodpy.project.examples.manifest import ExampleEntry
     from hydromodpy.project.facade import Project
@@ -276,6 +277,7 @@ def run(
     frozen: bool = False,
     no_display: bool = False,
     headless: bool = False,
+    environment: Environment | None = None,
 ) -> Run | OverviewResult | PlanDraft | None:
     """Run a simulation or an overview from Python.
 
@@ -327,6 +329,10 @@ def run(
         the ``config.toml`` of a run to the record of that run.
     no_display, headless
         Draw no figure. Neither enters the identity of the run or its sealed configuration.
+    environment
+        The :class:`~hydromodpy.project.environment.Environment` of the call:
+        the credentials file it names, and the hosts, roots, byte ceiling and
+        delay it bounds. ``None`` builds the default of the machine.
 
     Returns
     -------
@@ -417,9 +423,9 @@ def run(
                 f"An overview takes none of {', '.join(written)}: they steer a simulation."
             )
         if is_path:
-            return run_overview(source)
+            return run_overview(source, environment=environment)
         with _materialized_config(config) as materialized_path:
-            return run_overview(materialized_path)
+            return run_overview(materialized_path, environment=environment)
 
     summary = run_simulation(
         source,
@@ -433,6 +439,7 @@ def run(
         frozen=frozen,
         no_display=no_display,
         headless=headless,
+        environment=environment,
     )
     if not summary.get("sim_id"):
         return None
@@ -461,13 +468,15 @@ def calibrate(
     config: ConfigLike,
     *,
     phase: str | None = None,
+    environment: Environment | None = None,
     **kwargs: Any,
 ) -> CalibrationReport:
     """Run a calibration workflow from a TOML file or config object.
 
-    A path builds no project and goes to ``calibrate_a_file``; in-memory config objects open a lazy
-    :class:`Project` so :func:`run_calibration_programmatic` has the project
-    context it requires.
+    A path builds no project and goes to ``calibrate_a_file``; in-memory config
+    objects open a lazy :class:`~hydromodpy.project.Project` so
+    :func:`hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic`
+    has the project context it requires.
 
     A TOML declaring ``[[calibration.phases]]`` **routes** to
     :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`:
@@ -477,7 +486,7 @@ def calibrate(
     run needs next to the project's ``sessions/`` and runs it from there.
 
     To read what a file declares without running anything, use
-    :func:`calibration_phases`.
+    :func:`~hydromodpy._api.calibration_phases` (``hmp.calibration_phases``).
 
     A script that calibrates with ``parallel`` above 1 needs the
     ``if __name__ == "__main__":`` guard, because the workers start in spawn.
@@ -488,24 +497,20 @@ def calibrate(
         Path of the calibration TOML file (``str`` or :class:`pathlib.Path`),
         or a validated :class:`~hydromodpy.config.HydroModPyConfig`.
     phase
-        Run only the named phase. It still needs the parameters its dependency
-        froze, so a phase whose dependency has not run is refused rather than
-        calibrated against un-frozen values.
-    kwargs
-        Options of the route: for a path ``dry_run``, ``workspace``, ``project``,
-        ``metric_fn``, ``objective``, ``resume``, for a config object those of
-        :meth:`~hydromodpy.project.Project.calibrate`. The
-        ``headless`` keyword controls the project initialization for the
-        in-memory config branch and is ignored for the TOML branch (which
-        builds no project).
+        Run only the named phase of a staged calibration.
+    environment
+        The :class:`~hydromodpy.project.environment.Environment` of the call:
+        the credentials file it names is read once, and its bounds ride on the
+        workflow context. ``None`` builds the default of the machine, which
+        allows every host and checks nothing.
+    **kwargs
+        Options of the route, the same keys ``hmp calibrate`` takes.
 
     Returns
     -------
-    CalibrationReport
+    hydromodpy.calibration.CalibrationReport
         What the calibration found, with or without phases, whatever the
-        source of the configuration: ``best``, ``best_by_case``, ``best_cost``,
-        ``best_parameters``, ``best_cases``, ``phases``, ``frozen``, ``windows``,
-        ``session`` and ``trials``.
+        source of the configuration.
 
     Raises
     ------
@@ -530,8 +535,6 @@ def calibrate(
 
     See Also
     --------
-    calibration_phases
-        What a calibration declares, with nothing run.
     hydromodpy.calibration.runners.cli_runner.run_calibration_cli
         TOML entry point used by the path branch.
     hydromodpy.calibration.runners.staged_runner.run_staged_calibration
@@ -548,7 +551,7 @@ def calibrate(
 
     if isinstance(config, (str, Path)):
         kwargs.pop("headless", None)
-        return calibrate_a_file(config, phase=phase, **kwargs)
+        return calibrate_a_file(config, phase=phase, environment=environment, **kwargs)
 
     calibration = getattr(config, "calibration", None)
     declared = getattr(calibration, "phases", None)
@@ -558,7 +561,7 @@ def calibrate(
     headless = bool(kwargs.pop("headless", True))
     if phase is not None:
         kwargs["phase"] = phase
-    with Project(config, headless=headless) as project:
+    with Project(config, headless=headless, environment=environment) as project:
         return project.calibrate(**kwargs)
 
 
@@ -751,6 +754,7 @@ def spinup(
     name_prefix: str = "spinup",
     then_run: bool = False,
     headless: bool = True,
+    environment: Environment | None = None,
 ) -> SpinupResult:
     """Run a cyclic spin-up from a TOML file or config object.
 
@@ -772,6 +776,10 @@ def spinup(
         Chain a production run from the converged state, over ``[simulation.time]``.
     headless
         Draw no figure.
+    environment
+        The :class:`~hydromodpy.project.environment.Environment` of the call:
+        the credentials file it names, and the bounds it carries.
+        ``None`` builds the default of the machine.
 
     Returns
     -------
@@ -811,7 +819,7 @@ def spinup(
         else:
             prod_cfg = copy.deepcopy(resolve_config(source))
 
-    with Project(source, headless=headless, no_display=True) as project:
+    with Project(source, headless=headless, no_display=True, environment=environment) as project:
         result = run_spinup(project, spinup=spinup, name_prefix=name_prefix)
 
     if not then_run or not result.restart_from:
@@ -826,7 +834,7 @@ def spinup(
 
         get_logger(__name__).warning("chaining a production run: %s", warning)
     prod_cfg.flow.restart_from = result.restart_from
-    production = run(prod_cfg, headless=headless)
+    production = run(prod_cfg, headless=headless, environment=environment)
     return dataclasses.replace(result, production_sim_id=getattr(production, "sim_id", None))
 
 
@@ -1147,6 +1155,7 @@ def export(
     resolution: float | None = None,
     layer: int | None = None,
     nodata: float = -9999.0,
+    environment: Environment | None = None,
 ) -> list[Path]:
     """Export data of a simulation to files; return the files written.
 
@@ -1163,6 +1172,11 @@ def export(
 
     ``run`` must be a :class:`~hydromodpy.results.run.Run`, as returned by
     ``hmp.open(project)[ref]`` or ``hmp.open(<run dir>)``.
+
+    ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
+    of the call: a ``folder`` or ``file`` it names must sit under the roots its
+    bounds allow. ``None`` keeps the default of the machine, which checks
+    nothing.
 
     Examples
     --------
@@ -1183,6 +1197,13 @@ def export(
             f"hmp.export expects a Run object as first argument, got {type(run).__name__}. "
             f"Obtain one with hmp.open(project)[ref] or hmp.open(<run dir>)."
         )
+    if environment is not None:
+        # A folder or a file the caller names must sit under the roots the
+        # bounds of the call allow before anything is written.
+        if folder is not None:
+            environment.bounds.require_path(folder, why="exporting to a folder")
+        if file is not None:
+            environment.bounds.require_path(file, why="exporting to a file")
     return run.export(
         variables,
         time=time,

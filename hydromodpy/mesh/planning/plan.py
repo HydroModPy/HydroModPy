@@ -207,13 +207,13 @@ def _sizing(
     the ring vertices there. A triangulation read, and a non-graded engine,
     get the raw families and no field.
     """
-    families = requested_families(mesh_cfg, inputs, domain, pixel=pixel)
+    families, skip_notes = requested_families(mesh_cfg, inputs, domain, pixel=pixel)
     if not graded or inputs.input_triangulation is not None:
         return _Sizing(
             families=families,
             size_field=None,
             nominal=mesh_cfg.cell_size or pixel,
-            notes=tuple(_ignored_settings(mesh_cfg, graded=graded)),
+            notes=(*skip_notes, *tuple(_ignored_settings(mesh_cfg, graded=graded))),
         )
     h0 = max(mesh_cfg.cell_size or pixel, pixel)
     terms = refinement_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel)
@@ -237,7 +237,7 @@ def _sizing(
         )
     gaps = line_gap_terms(mesh_cfg, families, domain, h0=h0, pixel=pixel)
     size_field = field(gaps)
-    notes = (*gap_notes(gaps, mesh_cfg), *shore_notes)
+    notes = (*skip_notes, *gap_notes(gaps, mesh_cfg), *shore_notes)
     split = split_barriers(
         families,
         node_tolerance(domain),

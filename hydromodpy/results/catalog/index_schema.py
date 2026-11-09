@@ -24,9 +24,13 @@ What the index holds
   ``trials.jsonl``.
 
 The dimension tables (``solvers``, ``statuses``, ``flow_regimes``,
-``mesh_topologies``) keep the codes the readers join on. ``timeseries``,
-``budgets`` and the other Parquet views are not tables: the reader installs
-them per connection over the payload files (:mod:`parquet_views`).
+``mesh_topologies``) hold the codes the readers join on. ``solvers`` and
+``mesh_topologies`` start empty: every row comes from the run itself, the
+category of a solver read off its manifest either way. ``statuses`` and
+``flow_regimes`` keep their seed: closed vocabularies of the pipeline, and no
+name in them is a backend. ``timeseries``, ``budgets`` and the other Parquet
+views are not tables: the reader installs them per connection over the payload
+files (:mod:`parquet_views`).
 """
 
 from __future__ import annotations
@@ -36,7 +40,7 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "10"
+INDEX_SCHEMA_VERSION: Final[str] = "11"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -62,14 +66,6 @@ CREATE TABLE solvers (
     code      VARCHAR NOT NULL UNIQUE,
     category  VARCHAR NOT NULL
 );
-
-INSERT INTO solvers (id, code, category) VALUES
-    (1, 'modflow6',     'distributed'),
-    (2, 'modflow_nwt',  'distributed'),
-    (3, 'boussinesq',   'integrated'),
-    (4, 'gr4j',         'lumped'),
-    (5, 'mt3dms',       'transport'),
-    (6, 'modpath',      'particle_tracking');
 
 CREATE TABLE statuses (
     id   SMALLINT PRIMARY KEY,
@@ -100,14 +96,6 @@ CREATE TABLE mesh_topologies (
     id   SMALLINT PRIMARY KEY,
     code VARCHAR NOT NULL UNIQUE
 );
-
-INSERT INTO mesh_topologies (id, code) VALUES
-    (1, 'structured_2d'),
-    (2, 'structured_3d'),
-    (3, 'unstructured_2d'),
-    (4, 'unstructured_3d'),
-    (5, 'lumped'),
-    (6, 'network_1d');
 """
 
 _CASES = f"""

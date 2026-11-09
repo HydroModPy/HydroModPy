@@ -12,6 +12,7 @@ error, never a pick.
 from __future__ import annotations
 
 import csv
+import os
 import re
 from pathlib import Path
 
@@ -84,10 +85,18 @@ def _references(document: dict, data_root: Path, config: Path) -> set[Path]:
             for source in section.get("sources", ()):
                 resolved.update(_source_files(variable, source, document, data_root, config))
 
-    # Two keys name a file outside [data]: the regional DEM the catchment is cut
-    # out of, and the mapped networks the network criterion is scored against.
-    # Neither says which variable folder it lives in, so they are located by
-    # name, and an ambiguous name is an error rather than a pick.
+    # A solver section may name a mesh bundle it reads as its cell mesh.
+    for solver_options in document.get("solver", {}).values():
+        if not (isinstance(solver_options, dict) and solver_options.get("exchange_mesh")):
+            continue
+        mesh_ref = str(solver_options["exchange_mesh"])
+        local = (config.parent / mesh_ref).resolve()
+        if local.exists():
+            resolved.add(local)
+        else:
+            resolved.add(_locate_by_name(mesh_ref, data_root, config))
+
+    # Loose paths outside [data]: the mapped networks of a calibration output.
     for path in _loose_paths(document):
         resolved.add(_locate_by_name(path, data_root, config))
     return resolved
@@ -98,9 +107,6 @@ _OLD_MAP_KEYS = {"stream_geometry_path", "minimal_stream_geometry_path"}
 
 def _loose_paths(document: dict) -> list[str]:
     names: list[str] = []
-    catchment = document.get("geographic", {}).get("catchment", {})
-    if isinstance(catchment, dict) and catchment.get("dem_init_path"):
-        names.append(str(catchment["dem_init_path"]))
     outputs = document.get("calibration", {}).get("outputs", {})
     if isinstance(outputs, dict):
         for output in outputs.values():
@@ -135,13 +141,15 @@ def _source_files(
     variable: str, source: dict, document: dict, data_root: Path, config: Path
 ) -> list[Path]:
     """Resolve one ``[[data.<variable>.sources]]`` entry to files on disk."""
-    if not isinstance(source, dict) or source.get("source") != "custom":
+    if not isinstance(source, dict) or source.get("source") != "file":
         return []
     raw = source.get("path")
     if not raw:
         return []
 
-    local = config.parent / str(raw)
+    # Lexical normalisation: '../../data/x.tif' and the data root name one file
+    # once, so the union over the configs does not list it twice.
+    local = Path(os.path.normpath(config.parent / str(raw)))
     if local.is_file():
         return [local]
     folder = data_root / variable
@@ -178,11 +186,13 @@ def _station_rows(document: dict, data_root: Path, config: Path) -> list[Payload
         if not isinstance(section, dict):
             continue
         for source in section.get("sources", ()):
-            if not isinstance(source, dict) or source.get("source") != "custom":
+            if not isinstance(source, dict) or source.get("source") != "file":
                 continue
             if not source.get("path") or Path(str(source["path"])).suffix:
                 continue
-            registry = data_root / variable / f"{variable}_custom_LOC.csv"
+            registry = data_root / variable / f"{variable}_file_LOC.csv"
+            if not registry.is_file():
+                registry = data_root / variable / f"{variable}_custom_LOC.csv"
             if not registry.is_file():
                 raise ConfigError(
                     f"{config.name} reads {variable} stations, and {registry} does not exist."

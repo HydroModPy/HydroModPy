@@ -9,18 +9,15 @@ objects. The runner therefore does not decide *what* should run or *in which
 order*. Its job is narrower:
 
 - walk through the runs in the order provided by the planner,
-- ensure each process-family block has its required runtime objects (the
-  ``Model`` of a flow run is one of them, built by ``prepare_solver``, which the
-  runner requires and never creates),
-- open and close process-family blocks via optional callbacks,
 - fill the ``RunSlot`` of each run (``slot_for``), the one rule for the run
-  folder and the run name,
+  folder and the run name, and the names a later run reads of it (``hand_off``),
 - hand each run the upstream runs referenced by ``depends_on``,
 - call the adapter through ``solve_one``: ``validate``, then ``build`` or
   ``rerun``, then ``run`` unless the slot stops before the solve,
 - record each ``SolverRun`` in ``state.execution.solver_runs``,
 - refuse a transport run that follows a flow run whose steady start did not
-  converge.
+  converge, and a transport whose dependencies are not the one flow its
+  backend follows.
 
 In one sentence:
 
@@ -50,11 +47,8 @@ from hydromodpy.core.exceptions import (
     SolverInputError,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.run_state import RunState
-from hydromodpy.model.transport.transport import Transport
 from hydromodpy.solver.base.plan import (
     ProcessRun,
-    RunContext,
     RunSlot,
     SimulationPlan,
     SolverRun,
@@ -65,52 +59,19 @@ from hydromodpy.solver.base.rerun import chooses_rerun
 logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Process-context helpers (free functions, no factory class)
-# ---------------------------------------------------------------------------
-
-_REQUIRED_COMPONENTS_BY_PROCESS: dict[str, tuple[str, ...]] = {
-    "transport": ("transport",),
-}
-
-
-def ensure_transport(state: Any) -> None:
-    """Create ``state.setup.transport`` from ``state.cfg.transport`` when missing."""
-    if state.setup.transport is None:
-        state.setup.transport = Transport(config=state.cfg.transport)
-
-
-_COMPONENT_ENSURERS: dict[str, Callable[[Any], None]] = {
-    "transport": ensure_transport,
-}
-
-
-def ensure_process_context(state: Any, process_type: str) -> None:
-    """Ensure all process objects required by ``process_type`` exist.
-
-    Process types not listed in ``_REQUIRED_COMPONENTS_BY_PROCESS`` are
-    silently accepted - they simply have no components to materialize.
-    """
-    components = _REQUIRED_COMPONENTS_BY_PROCESS.get(process_type, ())
-    for component_name in components:
-        ensurer = _COMPONENT_ENSURERS.get(component_name)
-        if ensurer is None:
-            raise PipelineError(f"Unsupported process component '{component_name}'.")
-        ensurer(state)
-
-
-# ---------------------------------------------------------------------------
 # The slot of a run, and one solve through the adapter contract
 # ---------------------------------------------------------------------------
 
-_LABEL_PREFIXES: dict[str, str] = {"flow": "f", "transport": "t"}
+_LABEL_PREFIXES: dict[str, str] = {"flow": "f"}
 
 
 def run_name(plan: SimulationPlan, run: ProcessRun, base: str) -> str:
     """Return the name of ``run``: ``base``, suffixed when its family has several runs.
 
-    A plan with one run of the family keeps ``base`` unchanged. With several,
-    each run takes a positional label in its family, ``_f1``, ``_f2`` for flows
-    and ``_t1`` for transports, so each solver writes into its own folder.
+    A plan with one flow keeps ``base`` unchanged. With several, each flow takes
+    a positional label in its family, ``_f1``, ``_f2``, so each solver writes
+    into its own folder. A transport does not come here: it solves in the slot
+    of the flow it follows, under the name of that flow.
     """
     family = [planned for planned in plan.runs if planned.process_type == run.process_type]
     if len(family) == 1:
@@ -124,7 +85,28 @@ def run_name(plan: SimulationPlan, run: ProcessRun, base: str) -> str:
     )
 
 
-def slot_for(plan: SimulationPlan, run: ProcessRun, setup: Any) -> RunSlot:
+def hand_off_of(plan: SimulationPlan, run: ProcessRun) -> frozenset[str]:
+    """Return the products a later run of the plan reads of ``run``.
+
+    The union of the ``reads`` of every run whose ``depends_on`` names ``run``.
+    The runner writes it on the ``RunSlot``, so an adapter reads what it may
+    hand over without reading the plan: NWT poses its flow-transport link when
+    a transport that follows reads ``face_flow``.
+    """
+    names: set[str] = set()
+    for later in plan.runs:
+        if run.id not in later.depends_on:
+            continue
+        names |= set(solvers.get(later.process_type, later.solver).reads)
+    return frozenset(names)
+
+
+def slot_for(
+    plan: SimulationPlan,
+    run: ProcessRun,
+    setup: Any,
+    upstream: tuple[SolverRun, ...] = (),
+) -> RunSlot:
     """Return the slot ``run`` solves in, from the setup of the pipeline.
 
     The folder is ``setup.workspace.solver_scratch_folder`` and the binaries
@@ -133,8 +115,31 @@ def slot_for(plan: SimulationPlan, run: ProcessRun, setup: Any) -> RunSlot:
     asks for in ``setup.slot_request``, else ``setup.run_id``, else
     ``default``, suffixed by :func:`run_name`. ``stop_before_solve`` and
     ``shared_forcing_dir`` come from the trial request, and are off outside a
-    trial.
+    trial. Every slot carries ``hand_off``, what the runs that depend on this
+    one read of it.
+
+    A transport solves in the slot of the one flow run it follows, ``upstream``
+    the runner resolved: the folders and the name of the flow, so it reads and
+    extends the files that flow wrote, and its own ``stop_before_solve``.
     """
+    if run.process_type == "transport":
+        if len(upstream) != 1:
+            raise SolverInputError(
+                f"Process run '{run.id}' expected exactly one flow dependency, "
+                f"got {len(upstream)}.",
+                run_id=run.id,
+            )
+        provided = upstream[0].slot
+        return RunSlot(
+            folder=provided.folder,
+            name=provided.name,
+            stop_before_solve=bool(
+                getattr(getattr(setup, "slot_request", None), "stop_before_solve", False)
+            ),
+            bin_dir=provided.bin_dir,
+            shared_forcing_dir=provided.shared_forcing_dir,
+            hand_off=hand_off_of(plan, run),
+        )
     request = getattr(setup, "slot_request", None)
     workspace = getattr(setup, "workspace", None)
     folder = Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()
@@ -147,19 +152,25 @@ def slot_for(plan: SimulationPlan, run: ProcessRun, setup: Any) -> RunSlot:
         stop_before_solve=bool(getattr(request, "stop_before_solve", False)),
         bin_dir=Path(bin_path) if bin_path else None,
         shared_forcing_dir=getattr(request, "shared_forcing_dir", None),
+        hand_off=hand_off_of(plan, run),
     )
 
 
 def options_for(adapter: object, run: ProcessRun, cfg: Any) -> BaseModel | None:
     """Return the validated options of the backend of ``run``, or ``None``.
 
-    A flow backend that declares an ``options`` class reads its table
-    ``[solver.<name>]`` through ``cfg.solver.options_of``. A backend without
-    one, and a transport, receive ``None``.
+    A flow backend reads its table ``[solver.<name>]`` through
+    ``cfg.solver.options_of``, a transport its table ``[transport.<name>]``
+    through ``cfg.transport.options_of``. A backend that declares no settings
+    class, and a process kind with no table of its own, receive ``None``.
     """
-    if getattr(type(adapter), "options", None) is None or run.process_type != "flow":
+    if getattr(type(adapter), "options", None) is None:
         return None
-    return cfg.solver.options_of(run.solver)
+    if run.process_type == "flow":
+        return cfg.solver.options_of(run.solver)
+    if run.process_type == "transport":
+        return cfg.transport.options_of(run.solver)
+    return None
 
 
 def solve_one(
@@ -167,33 +178,29 @@ def solve_one(
     model: Any,
     options: BaseModel | None,
     slot: RunSlot,
-    ctx: RunContext,
+    upstream: tuple[SolverRun, ...] = (),
     *,
     previous: SolverRun | None = None,
 ) -> SolverRun:
     """Solve one run through the adapter contract and return its ``SolverRun``.
 
-    ``validate`` first, then ``rerun`` of ``previous`` when
+    A flow passes no upstream, a transport exactly one, the run of the flow it
+    follows. ``validate`` first, then ``rerun`` of ``previous`` when
     :func:`~hydromodpy.solver.base.rerun.chooses_rerun` says so and the backend
-    accepts, else ``build``. ``run`` follows unless ``slot.stop_before_solve``,
-    which returns the built run unsolved. A
-    :class:`~hydromodpy.core.exceptions.SolverError` that names no run gets the
-    id of ``ctx.run``.
+    accepts, else ``build`` into ``slot`` with ``upstream``. ``run`` follows
+    unless ``slot.stop_before_solve``, which returns the built run unsolved. A
+    :class:`~hydromodpy.core.exceptions.SolverError` names the run by
+    ``slot.name``; the runner fills its ``run_id``.
     """
-    try:
-        adapter.validate(model, options, slot)
-        solver_run = None
-        if chooses_rerun(adapter, previous, model):
-            solver_run = adapter.rerun(previous, model, slot)
-        if solver_run is None:
-            solver_run = adapter.build(model, options, slot, ctx)
-        if slot.stop_before_solve:
-            return solver_run
-        return adapter.run(solver_run)
-    except SolverError as exc:
-        if exc.run_id is None:
-            exc.run_id = ctx.run.id
-        raise
+    adapter.validate(model, options, slot)
+    solver_run = None
+    if chooses_rerun(adapter, previous, model):
+        solver_run = adapter.rerun(previous, model, slot)
+    if solver_run is None:
+        solver_run = adapter.build(model, options, slot, upstream)
+    if slot.stop_before_solve:
+        return solver_run
+    return adapter.run(solver_run)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +258,6 @@ class SimulationRunner:
         state: Any,
         *,
         callbacks: ProcessCallbacks | None = None,
-        store: Any | None = None,
         previous: Mapping[str, SolverRun] | None = None,
     ) -> tuple[tuple[ProcessRun, SolverRun], ...]:
         """Execute each planned run in order against ``state``.
@@ -298,7 +304,6 @@ class SimulationRunner:
                         if process_open and current_process_type is not None:
                             process_open = False
                             self._call_after_process(current_process_type)
-                        ensure_process_context(state, run.process_type)
                         self._call_before_process(run.process_type)
                         current_process_type = run.process_type
                         process_open = True
@@ -307,7 +312,6 @@ class SimulationRunner:
                         plan,
                         state,
                         run,
-                        store=store,
                         previous=(previous or {}).get(run.id),
                     )
                     executed_results.append((run, result))
@@ -354,42 +358,69 @@ class SimulationRunner:
         state: Any,
         run: ProcessRun,
         *,
-        store: Any | None = None,
         previous: SolverRun | None = None,
     ) -> SolverRun:
         """Execute one resolved process run through its registered adapter."""
 
-        slot = slot_for(plan, run, state.setup)
-        if run.process_type == "mesh":
+        if run.process_type != "mesh":
+            model = getattr(state.setup, "model", None)
+            if run.process_type == "flow" and model is None:
+                raise ConfigError(
+                    f"Flow run '{run.id}' needs the Model of the run (setup.model), and the "
+                    "prepare_solver step has not built one."
+                )
+            upstream = self._resolve_upstream(state, run)
+            if run.process_type == "transport":
+                self._refuse_a_start_that_did_not_converge(state, run)
+                self._refuse_a_dependency_outside_its_family(plan, run)
+            slot = slot_for(plan, run, state.setup, upstream=upstream)
+        else:
+            upstream = ()
+            slot = slot_for(plan, run, state.setup)
             result = self._run_mesh_process(state, run, slot)
             self._record_run_output(state, run, result)
             self._call_after_run(run, result, state)
             return result
 
-        model = getattr(state.setup, "model", None)
-        if run.process_type == "flow" and model is None:
-            raise ConfigError(
-                f"Flow run '{run.id}' needs the Model of the run (setup.model), and the "
-                "prepare_solver step has not built one."
-            )
-        upstream = self._resolve_upstream(state, run)
-        if run.process_type == "transport":
-            self._refuse_a_start_that_did_not_converge(state, run)
         adapter = solvers.create(run.process_type, run.solver)
-        # No ``solver_run``: this run has produced nothing yet. Every context
-        # built after it completed goes through ``RunContext.of``.
-        ctx = RunContext(
-            plan=plan,
-            run=run,
-            state=RunState.of(state),
-            store=store,
-            upstream=upstream,
-        )
         options = options_for(adapter, run, getattr(state, "cfg", None))
-        result = solve_one(adapter, model, options, slot, ctx, previous=previous)
+        try:
+            result = solve_one(adapter, model, options, slot, upstream, previous=previous)
+        except SolverError as exc:
+            if exc.run_id is None:
+                exc.run_id = run.id
+            raise
         self._record_run_output(state, run, result)
         self._call_after_run(run, result, state)
         return result
+
+    def _refuse_a_dependency_outside_its_family(
+        self, plan: SimulationPlan, run: ProcessRun
+    ) -> None:
+        """Refuse a transport whose dependencies are not the one flow its backend follows.
+
+        A transport follows one flow of one family, named by its ``requires``.
+        The planner binds each dependency to the most recent run of that
+        family; a plan built outside the planner, or a transport with other
+        dependencies, is refused here, before anything is built.
+        """
+        expected = solvers.get(run.process_type, run.solver).requires
+        if len(run.depends_on) != 1 or len(expected) != 1:
+            raise SolverInputError(
+                f"Process run '{run.id}' expected exactly one flow dependency, "
+                f"got {len(run.depends_on)}.",
+                run_id=run.id,
+            )
+        planned = {planned_run.id: planned_run for planned_run in plan.runs}
+        kind, name = expected[0]
+        dependency = planned[run.depends_on[0]]
+        if dependency.process_type != kind or dependency.solver != name:
+            raise SolverInputError(
+                f"Transport run '{run.id}' follows the ({kind}, {name}) flow its backend "
+                f"requires, and the run it depends on solves "
+                f"{dependency.process_type}/{dependency.solver}.",
+                run_id=run.id,
+            )
 
     def _refuse_a_start_that_did_not_converge(self, state: Any, run: ProcessRun) -> None:
         """Refuse a transport run whose flow started from a permanent solve that did not converge.

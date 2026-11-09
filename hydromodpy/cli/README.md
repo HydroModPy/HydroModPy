@@ -16,6 +16,7 @@ rest of the code, and where to add what.
 | `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
 | `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `resolve_workspace` / `resolve_project` / `project_root_of`, profiling). The lookups they build on, `find_workspace` and its two siblings, live in `core/workspace/resolve.py` because a library may not import `cli` |
 | `effective_toml.py` | what a TOML verb (`run`, `calibrate`, `spinup`) runs: the copy `--set` and `--overlay` write beside the file, the file a verb was given (`toml_target`), and where `--profile` writes its report |
+| `environment.py` | the three options `--credentials`, `--allow-host` and `--max-download-bytes`: `add_environment_arguments(parser)` registers them on the six commands, `environment_from_args(args)` builds the `Environment`, and `environment_flags_of(args)` serializes them onto the command line of a launched case |
 | `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
 

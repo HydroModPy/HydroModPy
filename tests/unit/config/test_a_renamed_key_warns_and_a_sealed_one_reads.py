@@ -47,22 +47,25 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
 buff_area = "10%"
 
 [data]
-types = ["hydrography", "hydrometry"]
+types = ["dem", "hydrography", "hydrometry"]
+
+[[data.dem.sources]]
+source = "file"
+path = "inputs/DEM_armorican_massif.tif"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "inputs/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "inputs/hydrometry"
 station_ids = ["NANCON"]
 
 [simulation.time]
@@ -97,7 +100,7 @@ bounds = [5e-3, 0.35]
 support = "network"
 
 [calibration.outputs.seepage_network.map]
-complete = "nancon_stream_network.gpkg"
+complete = "inputs/nancon_stream_network.gpkg"
 
 [calibration.protocol]
 name = "matching_hydrographic_network"
@@ -117,15 +120,11 @@ def _only(monkeypatch: pytest.MonkeyPatch, *rules: KeyRename) -> None:
 
 
 def _project(root: Path) -> Path:
-    for relative in (
-        "data/dem/DEM_armorican_massif.tif",
-        "data/hydrography/nancon_stream_network.gpkg",
-    ):
-        (root / relative).parent.mkdir(parents=True, exist_ok=True)
-        (root / relative).write_bytes(b"x")
-    (root / "data" / "hydrometry").mkdir(parents=True)
     project = root / "projects" / "nancon"
-    project.mkdir(parents=True)
+    for relative in ("DEM_armorican_massif.tif", "nancon_stream_network.gpkg"):
+        (project / "inputs" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (project / "inputs" / relative).write_bytes(b"x")
+    (project / "inputs" / "hydrometry").mkdir(parents=True)
     (project / "project.toml").write_text(PROJECT, encoding="utf-8")
     return project
 
@@ -643,7 +642,7 @@ def test_a_run_sealed_on_a_network_from_the_dem_still_reads(tmp_path: Path) -> N
             'name = "network"\nmetric = "distance_gap"\nuses_outputs = ["seepage_network"]\n',
         )
         .replace(
-            '[calibration.outputs.seepage_network.map]\ncomplete = "nancon_stream_network.gpkg"\n',
+            '[calibration.outputs.seepage_network.map]\ncomplete = "inputs/nancon_stream_network.gpkg"\n',
             'observed_network = "geographic.river_network"\nheads_snap_radius = 80.0\n',
         )
     )

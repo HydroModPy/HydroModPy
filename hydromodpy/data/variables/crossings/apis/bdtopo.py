@@ -31,6 +31,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.io.fetch import open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -49,6 +50,8 @@ from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 if TYPE_CHECKING:
     import geopandas as gpd
+
+    from hydromodpy.core.io.fetch import HTTPClient
 
 logger = get_logger(__name__)
 
@@ -91,12 +94,13 @@ def fetch_pages(
     *,
     bbox: tuple[float, float, float, float],
     page_size: int,
+    client: HTTPClient,
 ) -> Iterator[gpd.GeoDataFrame]:
     """The records of the roads and railways touching *bbox*, one page at a time (EPSG:2154)."""
     page_size = int(page_size)
-    for page in layer_pages(ROAD_LAYER, bbox, page_size):
+    for page in layer_pages(ROAD_LAYER, bbox, page_size, client=client):
         yield to_records(page, [])
-    for page in layer_pages(RAILWAY_LAYER, bbox, page_size):
+    for page in layer_pages(RAILWAY_LAYER, bbox, page_size, client=client):
         yield to_records([], page)
 
 
@@ -131,7 +135,11 @@ def to_records(
 
 
 def layer_pages(
-    typename: str, bbox: tuple[float, float, float, float], page_size: int
+    typename: str,
+    bbox: tuple[float, float, float, float],
+    page_size: int,
+    *,
+    client: HTTPClient,
 ) -> Iterator[list[dict[str, Any]]]:
     """The GeoJSON features of one layer, a page at a time."""
     return wfs.iter_pages(
@@ -144,6 +152,7 @@ def layer_pages(
         identify=lambda feature: feature.get("id"),
         output_format=JSON_MEDIA_TYPE,
         properties=_PROPERTIES[typename],
+        client=client,
     )
 
 
@@ -230,10 +239,10 @@ class BdTopoCrossings:
 
         out_path = request.out_dir / cache_file_name(self.source_id, extent.bbox)
         started = time.perf_counter()
-        with staged_path(out_path) as staged:
+        with open_client(request.bounds) as client, staged_path(out_path) as staged:
             count = records.append_pages(
                 staged,
-                fetch_pages(bbox=extent.bbox, page_size=self.page_size),
+                fetch_pages(bbox=extent.bbox, page_size=self.page_size, client=client),
                 wfs.QUERY_CRS,
             )
             if count == 0:

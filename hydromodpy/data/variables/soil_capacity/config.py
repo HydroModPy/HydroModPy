@@ -10,14 +10,15 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomSoilCapacitySource(HydroModelBase):
+class FileSoilCapacitySource(HydroModelBase):
     """User-provided soil water capacity raster (GeoTIFF/ASC), values in mm."""
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' soil capacity provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' soil capacity provider.",
     )
     path: Annotated[
         Path,
@@ -39,17 +40,26 @@ class CustomSoilCapacitySource(HydroModelBase):
     )
 
 
+class UrlSoilCapacitySource(UrlSourceOptions, HydroModelBase):
+    """Remote soil capacity raster, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' soil-capacity provider.",
+    )
+
+
 class SoilCapacityConfig(HydroModelBase):
     """Soil available water capacity raster, read by the soil reservoir.
 
     Example TOML::
 
         [[data.soil_capacity.sources]]
-        source = "custom"
+        source = "file"
         path = "soil/ru_mm.tif"
     """
 
-    sources: Annotated[list[CustomSoilCapacitySource], Profile.USER] = Field(
+    sources: Annotated[list[FileSoilCapacitySource | UrlSoilCapacitySource], Profile.USER] = Field(
         ...,
         min_length=1,
         max_length=1,

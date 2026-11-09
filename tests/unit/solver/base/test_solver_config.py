@@ -16,13 +16,14 @@ from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import FrozenConfigError
 from hydromodpy.solver.base.solver_config import SolverConfig, backend_following_the_process
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
+from hydromodpy.solver.linear_reservoir.options import LinearReservoirOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.fake_solvers import fake_adapter
 
 pytestmark = pytest.mark.fast
 
-SERVED = "this installation serves boussinesq, modflow6, modflow_nwt"
+SERVED = "this installation serves boussinesq, linear_reservoir, modflow6, modflow_nwt"
 
 
 class _PluginOptions(BaseModel):
@@ -202,6 +203,7 @@ def test_a_new_backend_by_assignment_holds_its_table() -> None:
 def test_named_tables_lists_the_shipped_solvers_that_declare_settings() -> None:
     assert SolverConfig.named_tables(shipped_only=True) == {
         "boussinesq": BoussinesqOptions,
+        "linear_reservoir": LinearReservoirOptions,
         "modflow6": Modflow6Config,
         "modflow_nwt": ModflowConfig,
     }

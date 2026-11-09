@@ -115,7 +115,8 @@ def test_a_build_makes_the_solver_in_the_folder_the_slot_gives(
 def test_a_build_says_whether_an_mt3dms_run_reads_the_output(
     tmp_path: Path, fake_solver: type[_Solver], runs: tuple[ProcessRun, ...], linked: bool
 ) -> None:
-    Modflow6FlowAdapter().build(make_model(), None, RunSlot(tmp_path, "a"), _context(*runs))
+    slot = RunSlot(tmp_path, "a", hand_off=frozenset({"face_flow"} if linked else ()))
+    Modflow6FlowAdapter().build(make_model(), None, slot, _context(*runs))
 
     assert fake_solver.instances[0].link_mt3dms is linked
 

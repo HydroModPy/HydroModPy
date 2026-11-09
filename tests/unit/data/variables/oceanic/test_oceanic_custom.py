@@ -8,9 +8,9 @@ from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
 from hydromodpy.data.variables.oceanic.manager import OceanicManager
 
 
-def _load_custom(cfg, *, project_period=None):
+def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the oceanic manager does."""
-    return OceanicManager(config=None, catalog=None, project_period=project_period).load_custom(cfg)
+    return OceanicManager(config=None, catalog=None, project_period=project_period).load_file(cfg)
 
 
 @pytest.mark.fast
@@ -18,21 +18,21 @@ class TestLoadCustomDispatch:
     def test_unsupported_extension_raises(self, tmp_path):
         bad_file = tmp_path / "data.xyz"
         bad_file.write_text("hello")
-        cfg = OceanicSourceConfig(source="custom", path=bad_file)
+        cfg = OceanicSourceConfig(source="file", path=bad_file)
         with pytest.raises(ValueError, match="Unsupported custom format"):
-            _load_custom(cfg)
+            _load_file(cfg)
 
     def test_missing_directory_raises(self, tmp_path):
-        cfg = OceanicSourceConfig(source="custom", path=tmp_path / "nonexistent")
+        cfg = OceanicSourceConfig(source="file", path=tmp_path / "nonexistent")
         with pytest.raises((FileNotFoundError, ValueError)):
-            _load_custom(cfg)
+            _load_file(cfg)
 
     def test_csv_directory_without_loc_file_raises(self, tmp_path):
         data_dir = tmp_path / "oceanic"
         data_dir.mkdir()
-        cfg = OceanicSourceConfig(source="custom", path=data_dir)
-        with pytest.raises(FileNotFoundError, match="No oceanic_custom_LOC"):
-            _load_custom(cfg)
+        cfg = OceanicSourceConfig(source="file", path=data_dir)
+        with pytest.raises(FileNotFoundError, match="No oceanic_file_LOC"):
+            _load_file(cfg)
 
     def test_csv_directory_with_loc_and_chronicle(self, tmp_path):
         data_dir = tmp_path / "oceanic"
@@ -44,8 +44,8 @@ class TestLoadCustomDispatch:
         chronicle = data_dir / "oceanic_custom_ST01_20030101_20030110_D.csv"
         chronicle.write_text("datetime,value\n2003-01-01,0.5\n2003-01-02,0.6\n")
 
-        cfg = OceanicSourceConfig(source="custom", path=data_dir)
-        records = _load_custom(cfg)
+        cfg = OceanicSourceConfig(source="file", path=data_dir)
+        records = _load_file(cfg)
         assert len(records) == 1
         rec = records[0]
         assert rec.station_id == "ST01"

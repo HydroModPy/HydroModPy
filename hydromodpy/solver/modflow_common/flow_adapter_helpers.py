@@ -34,7 +34,6 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
-    RunContext,
     RunSlot,
     SolverRun,
 )
@@ -223,16 +222,6 @@ def build_preprocess_options(model: Model) -> ModflowPreprocessOptions:
     )
 
 
-def _requires_mt3dms_link(ctx: RunContext) -> bool:
-    """Return whether one downstream MT3DMS run consumes this flow output."""
-    return any(
-        planned.process_type == "transport"
-        and planned.solver == "mt3dms"
-        and ctx.run.id in planned.depends_on
-        for planned in ctx.plan.runs
-    )
-
-
 def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
     """Return the solve dispatch ('subprocess' or 'api') a flow model declares.
 
@@ -268,7 +257,6 @@ def build_flow_model(
     model: Model,
     options: BaseModel | None,
     slot: RunSlot,
-    ctx: RunContext,
     preprocess_options: ModflowPreprocessOptions,
 ) -> SolverRun:
     """Build one already-instantiated MODFLOW solver object in memory, writing nothing.
@@ -280,15 +268,16 @@ def build_flow_model(
     1. check that the ``Model`` carries the planar cell mesh,
     2. pre-process: the grid, the packages and the disk inputs the backend
        needs, from the frozen ``Model``, which it never changes,
-    3. say on the solver object whether a downstream MT3DMS run reads the
-       output (``link_mt3dms``), because ``run`` no longer sees the plan.
+    3. return the built run, ``written`` and ``solved`` false, for
+       ``run_flow_model`` to write and solve.
 
-    The ``SolverRun`` returned holds the solver object, ``written`` and
-    ``solved`` false. ``run_flow_model`` writes and solves it.
+    Whether a downstream transport reads the flow output is a fact of the
+    slot: the runner fills ``slot.hand_off`` with the ``reads`` of the runs
+    that follow, and the NWT adapter turns ``face_flow`` into its LMT
+    package on its ``build``. Nothing here reads a plan.
     """
     require_cell_mesh(model)
     solver_model.pre_processing(model, options=preprocess_options, slot=slot)
-    solver_model.link_mt3dms = _requires_mt3dms_link(ctx)
     return SolverRun(slot=slot, model=model, options=options, solver_model=solver_model)
 
 

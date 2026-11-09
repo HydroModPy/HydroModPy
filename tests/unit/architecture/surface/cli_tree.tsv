@@ -2,12 +2,15 @@ hmp	command
 hmp --version,-V	nargs=0
 hmp --workspace,-w	
 hmp calibrate	command
+hmp calibrate --allow-host	default=[]
 hmp calibrate --case	
+hmp calibrate --credentials	
 hmp calibrate --debug	nargs=0
 hmp calibrate --dry-run	nargs=0
 hmp calibrate --expand	nargs=0
 hmp calibrate --format	choices=['csv', 'json', 'table'] default='table'
 hmp calibrate --list-phases	nargs=0
+hmp calibrate --max-download-bytes	
 hmp calibrate --overlay	default=[]
 hmp calibrate --phase	
 hmp calibrate --profile	nargs=?
@@ -20,8 +23,11 @@ hmp calibrate --workspace,-w
 hmp calibrate <config>	required
 hmp campaign	command
 hmp campaign array	command
+hmp campaign array --allow-host	default=[]
+hmp campaign array --credentials	
 hmp campaign array --debug	nargs=0
 hmp campaign array --format	choices=['csv', 'json', 'table'] default='table'
+hmp campaign array --max-download-bytes	
 hmp campaign array --partition	
 hmp campaign array --prepare-parallel	
 hmp campaign array --quiet,-q	nargs=0
@@ -328,22 +334,16 @@ hmp data archive --to	required
 hmp data archive --verbose,-v	nargs=0
 hmp data archive --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp data archive --workspace,-w	
-hmp data check	command
-hmp data check --debug	nargs=0
-hmp data check --fix	nargs=0
-hmp data check --format	choices=['csv', 'json', 'table'] default='table'
-hmp data check --quiet,-q	nargs=0
-hmp data check --variable	
-hmp data check --verbose,-v	nargs=0
-hmp data check --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
-hmp data check --workspace,-w	
 hmp data get	command
+hmp data get --allow-host	default=[]
 hmp data get --bbox	
+hmp data get --credentials	
 hmp data get --crs	
 hmp data get --debug	nargs=0
 hmp data get --end	
 hmp data get --format	choices=['csv', 'json', 'table'] default='table'
 hmp data get --mask	
+hmp data get --max-download-bytes	
 hmp data get --quiet,-q	nargs=0
 hmp data get --source	
 hmp data get --start	
@@ -418,12 +418,15 @@ hmp example show --format	choices=['csv', 'json', 'table'] default='table'
 hmp example show --workspace,-w	
 hmp example show <example_id>	required
 hmp export	command
+hmp export --allow-host	default=[]
 hmp export --as	
+hmp export --credentials	
 hmp export --crs	
 hmp export --debug	nargs=0
 hmp export --format	choices=['csv', 'json', 'table'] default='table'
 hmp export --layer	
 hmp export --list	nargs=0
+hmp export --max-download-bytes	
 hmp export --nodata	
 hmp export --period	nargs=2
 hmp export --quiet,-q	nargs=0
@@ -600,7 +603,9 @@ hmp report render --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp report render --workspace,-w	
 hmp report render <sim_ref>	nargs=?
 hmp run	command
+hmp run --allow-host	default=[]
 hmp run --case	
+hmp run --credentials	
 hmp run --debug	nargs=0
 hmp run --dry-run	nargs=0
 hmp run --force	nargs=0
@@ -608,6 +613,7 @@ hmp run --format	choices=['csv', 'json', 'table'] default='table'
 hmp run --fresh	nargs=0
 hmp run --from	
 hmp run --frozen	nargs=0
+hmp run --max-download-bytes	
 hmp run --no-display	nargs=0
 hmp run --only	default=[]
 hmp run --overlay	default=[]
@@ -661,9 +667,12 @@ hmp site show --format	choices=['csv', 'json', 'table'] default='table'
 hmp site show --workspace,-w	
 hmp site show <name>	required
 hmp spinup	command
+hmp spinup --allow-host	default=[]
+hmp spinup --credentials	
 hmp spinup --debug	nargs=0
 hmp spinup --dry-run	nargs=0
 hmp spinup --format	choices=['csv', 'json', 'table'] default='table'
+hmp spinup --max-download-bytes	
 hmp spinup --profile	nargs=?
 hmp spinup --quiet,-q	nargs=0
 hmp spinup --then-run	nargs=0

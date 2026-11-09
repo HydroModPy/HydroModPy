@@ -34,7 +34,6 @@ crs_project = "EPSG:2154"
 # direct catch_def = "dem" mode does not.
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "conceptual_dem.tif"
 x_outlet = 142687.4
 y_outlet = 6849096.4
 snap_dist = "150 m"
@@ -58,8 +57,8 @@ lay_decay = 1.2
 types = ["dem", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "conceptual_dem.tif"
+source = "file"
+path = "../../data/dem/conceptual_dem.tif"
 
 # mm/day. run_manual.py sweeps this for the dry / normal / wet cases.
 [[data.recharge.sources]]

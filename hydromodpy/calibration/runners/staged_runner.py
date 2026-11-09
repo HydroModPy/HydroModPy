@@ -131,6 +131,7 @@ from hydromodpy.calibration.runners.state import (
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus, latest_session_dir
@@ -1194,6 +1195,7 @@ def run_staged_calibration(
     project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     resume: bool = False,
+    bounds: Bounds | None = None,
 ) -> CalibrationReport:
     """Run the phases of ``config_path`` one after the other, in one session.
 
@@ -1219,6 +1221,11 @@ def run_staged_calibration(
         Reopen the latest session of the case. A phase that completed there
         with the same fingerprint is read back instead of solved; the cut
         phase is solved again with its trials preloading the cache.
+    bounds
+        The :class:`~hydromodpy.core.runtime.bounds.Bounds` of the call that
+        launched the calibration. Every phase forwards them to
+        ``prepare_trials``, so its trials load their data under the hosts the
+        call allows. ``None`` keeps the all-allowing default.
 
     ``objective`` is refused by the decorator, before the reuse branch and not
     inside the search: a run that reuses every phase from disk never reaches the
@@ -1280,6 +1287,7 @@ def run_staged_calibration(
                     override_paths=_injected_paths(phase_cfg, frozen),
                     config_overrides=dict(plan.overrides),
                     parameter_space=space,
+                    bounds=bounds,
                 )
             except ConfigValidationError as exc:
                 raise ConfigValidationError(
@@ -1519,7 +1527,13 @@ def run_staged_calibration(
         frozen=tuple(frozen),
         extra=promotion_extra,
         protocol=(
-            protocol_record(cfg.protocol.name, cfg.protocol) if cfg.protocol is not None else None
+            protocol_record(
+                cfg.protocol.name,
+                cfg.protocol,
+                backend=str(getattr(getattr(cfg, "solver", None), "backend_name", None) or ""),
+            )
+            if cfg.protocol is not None
+            else None
         ),
         methods_paragraph=methods,
         methods_path=methods_path,

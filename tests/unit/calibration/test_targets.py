@@ -13,7 +13,6 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 from hydromodpy.calibration.targets import (
-    VKA_PATH,
     _physical_bounds_for,
     _searched_as_written_when_signed,
     _unit_the_leaf_is_read_in,
@@ -113,7 +112,15 @@ def test_recharge_target_reads_the_unit_of_the_recharge_block(units: str) -> Non
             "workflow": {"mode": "simulation"},
             "workspace": {"project_root": "."},
             "site": {"name": "site_a"},
-            "geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}},
+            "geographic": {
+                "catchment": {
+                    "kind": "from_outlet_coord",
+                    "x_outlet": 1.0,
+                    "y_outlet": 2.0,
+                    "snap_dist": "150 m",
+                    "buff_area": "20%",
+                }
+            },
         }
     )
     cfg.flow.sinks_sources.recharge = FlowRechargeConfig(units=units, values=1.0)
@@ -612,7 +619,7 @@ def test_vka_is_offered_where_it_is_read(tmp_path, param, backend, offered) -> N
     calibration = CalibrationConfig.model_validate({"parameters": {"vka": {"bounds": [1, 10]}}})
     if offered:
         resolve_parameter_targets(calibration, cfg)
-        assert calibration.parameters["vka"].path == VKA_PATH
+        assert calibration.parameters["vka"].path == "solver.modflow6.process_specific.vka"
         assert calibration.parameters["vka"].search_space == "log"
         assert (target.current, target.units, target.physical_bounds) == (1.0, "-", (1e-3, 1e2))
     else:
@@ -641,3 +648,143 @@ def test_a_leaf_is_read_in_the_unit_it_names_else_in_the_default_of_its_annotati
 def test_a_unit_the_registry_cannot_convert_gets_no_range() -> None:
     assert _physical_bounds_for("a.b", "K", "value", units="m/day") == (8.64e-10, 8640000.0)
     assert _physical_bounds_for("a.b", "K", "value", units="furlong") is None
+
+
+# From test_the_catalogue_walks_the_options_of_the_backend_that_runs.py
+# The options table of a backend holds what a search can move on that backend.
+#
+# Until the walk read the table of the backend that runs, an option declared
+# calibrable was reachable only through a hand-written row in this module, which
+# named the backend and could go stale like any hand-written list. The walk keeps
+# a field of the table that carries a ``Calibrable``, whatever its profile,
+# because a table of options is expert by nature and the annotation is the
+# backend author's explicit choice.
+
+
+class TestTheOptionsTableOfTheBackendThatRuns:
+    """What the table of the backend that runs offers to a search."""
+
+    def test_an_option_the_table_declares_calibrable_is_listed_by_its_field(self, tmp_path) -> None:
+        """The shipped MODFLOW 6 table declares one calibrable field, ``vka``."""
+        cfg = _config(
+            tmp_path,
+            param={
+                "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}}
+            },
+        ).model_copy(update={"solver": SolverConfig(backend="modflow6")})
+
+        target = targets_by_path(calibration_targets(cfg))["solver.modflow6.process_specific.vka"]
+
+        assert (target.name, target.current, target.units) == ("vka", 1.0, "-")
+        assert target.calibrable.search_space == "log"
+
+    def test_an_option_that_declares_nothing_searchable_is_not_listed(self, tmp_path) -> None:
+        """The MODFLOW 6 runtime carries no calibrable field, and none is offered."""
+        cfg = _config(
+            tmp_path,
+            param={
+                "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}},
+                "Kv": {"field": {"id": "Kv", "kind": "homogeneous", "unit": "m/s", "value": 1e-4}},
+            },
+        ).model_copy(update={"solver": SolverConfig(backend="modflow6")})
+
+        paths = {target.path for target in calibration_targets(cfg)}
+
+        assert "solver.modflow6.process_specific.vka" not in paths
+        assert not any(path.startswith("solver.") for path in paths)
+
+    def test_an_option_excluding_a_declared_entry_is_left_out(self) -> None:
+        """A field that keeps itself out of the way of a declared one is not a target."""
+
+        class _BarrierOptions(HydroModelBase):
+            bedleak: Annotated[float, Profile.EXPERT] = Field(
+                default=12.0,
+                json_schema_extra=field_metadata(
+                    calibrable=Calibrable(
+                        search_space="log",
+                        sampling="log_uniform",
+                        units="1/day",
+                        excluded_by=("flow.param.Kv",),
+                    ),
+                    unit="-",
+                ),
+            )
+            floor: Annotated[float, Profile.USER] = Field(default=2.0)
+
+        solver = SimpleNamespace(
+            backend_name="leaky_barrier",
+            options_of=lambda name: _BarrierOptions(),
+        )
+
+        target = targets_by_name(calibration_targets(SimpleNamespace(solver=solver, flow=_Flow())))[
+            "bedleak"
+        ]
+
+        assert (target.path, target.current, target.units) == (
+            "solver.leaky_barrier.bedleak",
+            12.0,
+            "1/day",
+        )
+        assert target.calibrable is not None
+
+    def test_an_option_excluding_an_entry_the_file_declares_is_dropped(self) -> None:
+        """The Kv a file declares settles the conductivity, so ``bedleak`` leaves."""
+
+        class _BarrierOptions(HydroModelBase):
+            bedleak: Annotated[float, Profile.EXPERT] = Field(
+                default=12.0,
+                json_schema_extra=field_metadata(
+                    calibrable=Calibrable(
+                        search_space="log",
+                        sampling="log_uniform",
+                        units="1/day",
+                        excluded_by=("flow.param.Kv",),
+                    ),
+                    unit="-",
+                ),
+            )
+
+        class _ParamInFiles(HydroModelBase):
+            Kv: Annotated[float, Profile.USER] = Field(default=1e-4)
+
+        class _FlowInFiles(HydroModelBase):
+            param: Annotated[dict[str, _ParamInFiles], Profile.USER] = Field(
+                default_factory=lambda: {"Kv": _ParamInFiles()}
+            )
+
+        solver = SimpleNamespace(
+            backend_name="leaky_barrier",
+            options_of=lambda name: _BarrierOptions(),
+        )
+        names = targets_by_name(
+            calibration_targets(SimpleNamespace(solver=solver, flow=_FlowInFiles()))
+        )
+
+        assert "bedleak" not in names
+
+    def test_the_time_constant_of_the_linear_reservoir_is_listed(self, tmp_path) -> None:
+        """The shipped global backend offers its one parameter under its field name.
+
+        ``time_constant`` is required when a file runs this backend, so a valid
+        configuration carries it as a number of days or as a string carrying its
+        unit, and the walk lists what the configuration holds.
+        """
+        cfg = _config(tmp_path, param={}).model_copy(
+            update={
+                "solver": SolverConfig.model_validate(
+                    {
+                        "backend": "linear_reservoir",
+                        "linear_reservoir": {"time_constant": "30 days"},
+                    }
+                )
+            }
+        )
+
+        target = targets_by_name(calibration_targets(cfg))["time_constant"]
+
+        assert target.path == "solver.linear_reservoir.time_constant"
+        assert (target.current, target.units) == (30.0, "day")
+        assert (target.calibrable.search_space, target.calibrable.sampling) == (
+            "log",
+            "log_uniform",
+        )

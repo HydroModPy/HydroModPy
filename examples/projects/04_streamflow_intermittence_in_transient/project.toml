@@ -41,7 +41,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -57,24 +56,24 @@ thickness = "30.0 m"
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 [[data.hydrography.sources]]
-source = "custom"
-path = "nancon_stream_network.gpkg"
+source = "file"
+path = "../../data/hydrography/nancon_stream_network.gpkg"
 
 [[data.hydrometry.sources]]
-source = "custom"
-path = "hydrometry"
+source = "file"
+path = "../../data/hydrometry"
 
 [[data.recharge.sources]]
-source = "custom"
-path = "recharge"
+source = "file"
+path = "../../data/recharge"
 
 [[data.runoff.sources]]
-source = "custom"
-path = "runoff"
+source = "file"
+path = "../../data/runoff"
 
 
 [flow]

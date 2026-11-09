@@ -151,7 +151,8 @@ def test_a_calibration_of_one_phase_reads_as_one_phase(tmp_path, monkeypatch, ca
 def _dispatches(monkeypatch, summary: dict) -> None:
     """Make ``hmp run`` get *summary* from the calibration it would launch."""
     monkeypatch.setattr(
-        "hydromodpy.project.dispatch.workflow.dispatch_workflow", lambda workflow, path: summary
+        "hydromodpy.project.dispatch.workflow.dispatch_workflow",
+        lambda workflow, path, **_: summary,
     )
     monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_launch", lambda *a, **k: None)
 

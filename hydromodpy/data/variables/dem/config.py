@@ -12,6 +12,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 RGE_ALTI_RESOLUTIONS_M = (1.0, 5.0)
 """Pixel sizes of the RGE ALTI that the WMS-Raster serves as the product itself."""
@@ -40,12 +41,12 @@ class _DemSourceBase(HydroModelBase):
     )
 
 
-class CustomDemSource(_DemSourceBase):
+class FileDemSource(_DemSourceBase):
     """User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF)."""
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' DEM provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' DEM provider.",
     )
     path: Annotated[
         Path,
@@ -53,8 +54,17 @@ class CustomDemSource(_DemSourceBase):
         InputFile(role="dem", category="data"),
     ] = Field(
         ...,
-        description="Path to custom DEM file or directory (TIF, ASC, NC).",
+        description="Path to user DEM file or directory (TIF, ASC, NC).",
         examples=["dem.tif"],
+    )
+
+
+class UrlDemSource(UrlSourceOptions, _DemSourceBase):
+    """Remote DEM file, pinned by its sha256 when ``https`` is not used."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' DEM provider.",
     )
 
 
@@ -110,7 +120,8 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
             "inland, a 5 m request returns its centre pixels unchanged, while the server "
             "resamples any other size with an undocumented kernel. A request above 150 "
             "million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m "
-            "cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m."
+            "cannot bootstrap a project from its outlet: declare the DEM as a "
+            '[[data.dem.sources]] row with source = "file", or use 5 m.'
         ),
     )
     file_format: Annotated[str, Profile.USER] = Field(
@@ -155,12 +166,12 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
 
 
 DemSourceConfig: TypeAlias = Annotated[
-    CustomDemSource | IgnGeoplateformeDemSource,
+    FileDemSource | UrlDemSource | IgnGeoplateformeDemSource,
     Field(
         discriminator="source",
         description=(
             "Discriminated union of DEM data sources tagged by the 'source' provider key. "
-            "Use 'custom' for a user file (TIF/ASC/NC) and "
+            "Use 'file' for a user file (TIF/ASC/NC), 'url' for a remote file, and "
             "'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval."
         ),
     ),
@@ -189,7 +200,7 @@ class DemConfig(HydroModelBase):
         resolution_m = 5.0
 
         [[data.dem.sources]]
-        source = "custom"
+        source = "file"
         path = "data/my_dem.tif"
     """
 
@@ -202,7 +213,7 @@ class DemConfig(HydroModelBase):
     @classmethod
     def from_geotiff(cls, path: str | Path, **overrides) -> DemConfig:
         """DemConfig reading a user GeoTIFF (or ASC/NC) file."""
-        return cls(sources=[CustomDemSource(path=Path(path), **overrides)])
+        return cls(sources=[FileDemSource(path=Path(path), **overrides)])
 
     @classmethod
     def ign_geoplateforme_dem(cls, **overrides) -> DemConfig:

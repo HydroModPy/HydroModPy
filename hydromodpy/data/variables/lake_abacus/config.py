@@ -12,9 +12,10 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.source.url import UrlSourceOptions
 
 
-class CustomLakeAbacusSource(HydroModelBase):
+class FileLakeAbacusSource(HydroModelBase):
     """User-provided lake abacus file (CSV/Parquet).
 
     The abacus is the stage-volume-area lookup table that drives
@@ -22,9 +23,9 @@ class CustomLakeAbacusSource(HydroModelBase):
     injected into the table when the file omits the column.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        default="custom",
-        description="Discriminator tag selecting the 'custom' lake-abacus provider.",
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        default="file",
+        description="Discriminator tag selecting the 'file' lake-abacus provider.",
     )
     path: Annotated[
         Path,
@@ -32,8 +33,21 @@ class CustomLakeAbacusSource(HydroModelBase):
         InputFile(role="lake_abacus", category="data"),
     ] = Field(
         ...,
-        description="Path to a custom lake-abacus table file (CSV with stage,volume,sarea).",
+        description="Path to a user lake-abacus table file (CSV with stage,volume,sarea).",
         json_schema_extra=field_metadata(site_scoped=True),
+    )
+    lake_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Lake identifier injected into the table when the file omits a lake_id column.",
+    )
+
+
+class UrlLakeAbacusSource(UrlSourceOptions, HydroModelBase):
+    """Remote lake abacus table, downloaded into the data cache by the ``url`` source."""
+
+    source: Annotated[Literal["url"], Profile.USER] = Field(
+        default="url",
+        description="Discriminator tag selecting the 'url' lake-abacus provider.",
     )
     lake_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -47,8 +61,8 @@ class LakeAbacusConfig(HydroModelBase):
     Example TOML::
 
         [[data.lake_abacus.sources]]
-        source = "custom"
-        path = "data/lake_abacus/lake_abacus_custom_lac0.csv"
+        source = "file"
+        path = "data/lake_abacus/lake_abacus_file_lac0.csv"
         lake_id = "lac0"
     """
 
@@ -59,7 +73,7 @@ class LakeAbacusConfig(HydroModelBase):
         ),
     }
 
-    sources: Annotated[list[CustomLakeAbacusSource], Profile.USER] = Field(
+    sources: Annotated[list[FileLakeAbacusSource | UrlLakeAbacusSource], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one lake-abacus data source.",
@@ -69,8 +83,5 @@ class LakeAbacusConfig(HydroModelBase):
     def from_csv(
         cls, path: str | Path, *, lake_id: str | None = None, **overrides
     ) -> LakeAbacusConfig:
-        """LakeAbacusConfig from a custom abacus CSV (stage,volume,sarea)."""
-        return cls(
-            sources=[CustomLakeAbacusSource(path=Path(path), lake_id=lake_id)],
-            **overrides,
-        )
+        """LakeAbacusConfig from a user abacus CSV (stage,volume,sarea)."""
+        return cls(sources=[FileLakeAbacusSource(path=Path(path), lake_id=lake_id, **overrides)])

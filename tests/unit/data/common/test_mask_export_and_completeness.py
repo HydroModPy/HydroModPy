@@ -36,7 +36,7 @@ def _make_record(station_id, x, y, n=10, variable="discharge"):
     return PointRecord(
         station_id=station_id,
         variable=variable,
-        source="custom",
+        source="file",
         unit="m3/s",
         frequency="D",
         data=df,
@@ -157,7 +157,7 @@ class TestCSVExport:
         rec = PointRecord(
             station_id="X",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -200,20 +200,20 @@ class TestFromToml:
     def test_water_quality_from_toml(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[water_quality]\n[[water_quality.sources]]\nsource = "custom"\npath = "/tmp/wq"\n'
+            '[water_quality]\n[[water_quality.sources]]\nsource = "file"\npath = "/tmp/wq"\n'
         )
         from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
 
         cfg = WaterQualityConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
-        assert cfg.sources[0].source == "custom"
+        assert cfg.sources[0].source == "file"
 
     def test_from_toml_custom_with_mask(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
             "[hydrometry]\n"
             "[[hydrometry.sources]]\n"
-            'source = "custom"\n'
+            'source = "file"\n'
             'path = "/tmp/data"\n'
             'mask_path = "/tmp/mask.shp"\n'
         )
@@ -327,7 +327,7 @@ class TestCompletenessReport:
         from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
         cfg = HydrometryConfig(
-            sources=[HydrometrySourceConfig(source="custom", path=sample_hydro_dir)]
+            sources=[HydrometrySourceConfig(source="file", path=sample_hydro_dir)]
         )
         mgr = HydrometryManager(
             config=cfg,
@@ -374,7 +374,7 @@ class TestCompletenessReport:
         rec = PointRecord(
             station_id="C1",
             variable="discharge",
-            source="custom",
+            source="file",
             unit="m3/s",
             frequency="D",
             data=df,
@@ -410,7 +410,7 @@ class TestManagerExport:
         from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
         cfg = HydrometryConfig(
-            sources=[HydrometrySourceConfig(source="custom", path=sample_hydro_dir)]
+            sources=[HydrometrySourceConfig(source="file", path=sample_hydro_dir)]
         )
         mgr = HydrometryManager(
             config=cfg,

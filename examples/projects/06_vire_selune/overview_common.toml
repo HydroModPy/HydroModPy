@@ -12,7 +12,6 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 # Default outlet coordinates point to the Selune gauging station.
 # Overlays override these with the watershed-specific outlet.
 x_outlet = 379541.3716
@@ -27,7 +26,12 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = ["geology", "hydrography", "hydrometry", "recharge"]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge"]
+
+[[data.dem.sources]]
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
 
 [data.geology]
 id = "field_geology"

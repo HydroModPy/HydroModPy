@@ -92,7 +92,7 @@ def test_the_resolver_asks_the_polygon_box_when_the_catchment_is_a_polygon(
     cfg = _polygon_cfg(shp)
     seen: dict = {}
 
-    def fake_bbox(_cfg, _crs, *, domain_bounds=None):
+    def fake_bbox(_cfg, _crs, *, domain_bounds=None, **_kw):
         seen["bounds"] = domain_bounds
         raise RuntimeError("stop")
 

@@ -23,6 +23,10 @@ FROZEN_DEMO = (
     Path(__file__).resolve().parents[5]
     / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/demo"
 )
+FROZEN_CALAGE = (
+    Path(__file__).resolve().parents[5]
+    / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/calage"
+)
 
 DRIFT_AT_THE_BASE = ("flow.sinks_sources.recharge.factor",)
 """What ``config_drift`` gave on this copy before the tables moved, measured once.
@@ -40,6 +44,16 @@ def demo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     run.mkdir(parents=True)
     for name in _COPIED:
         shutil.copyfile(FROZEN_DEMO / name, run / name)
+    monkeypatch.chdir(tmp_path)
+    return run
+
+
+@pytest.fixture
+def calage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    run = tmp_path / "runs" / "calage"
+    run.mkdir(parents=True)
+    for name in _COPIED:
+        shutil.copyfile(FROZEN_CALAGE / name, run / name)
     monkeypatch.chdir(tmp_path)
     return run
 
@@ -64,6 +78,10 @@ def test_the_sealed_document_writes_the_tables_that_moved(demo: Path) -> None:
 
 def test_a_replay_drifts_on_the_keys_the_base_saw_and_no_other(demo: Path) -> None:
     assert _drift_keys(demo) == DRIFT_AT_THE_BASE
+
+
+def test_a_replay_drifts_on_the_keys_the_base_saw_and_no_other_calage(calage: Path) -> None:
+    assert _drift_keys(calage) == DRIFT_AT_THE_BASE
 
 
 def test_the_settings_of_the_solver_that_ran_still_drift(demo: Path) -> None:

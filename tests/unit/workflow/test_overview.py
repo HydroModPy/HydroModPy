@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 from pydantic import ValidationError
@@ -11,6 +12,8 @@ import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.overview as overview_module
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.runtime.bounds import Bounds
+from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.crossings.resolver import fill_crossings_path
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
@@ -53,7 +56,7 @@ def test_inject_overview_dates_only_fills_sections_without_a_window(tmp_path) ->
             ]
         ),
         runoff=RunoffConfig(
-            sources=[RunoffSourceConfig(source="custom", path=tmp_path / "runoff.csv")],
+            sources=[RunoffSourceConfig(source="file", path=tmp_path / "runoff.csv")],
             date_start="2010-01-01",
             date_end="2019-12-31",
         ),
@@ -84,8 +87,9 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
     captured: dict[str, object] = {}
 
     class FakeLoader:
-        def __init__(self, *, config_path, data_plan) -> None:
+        def __init__(self, *, config_path, data_plan, bounds) -> None:
             captured["config_path"] = config_path
+            captured["bounds"] = bounds
             captured["data_plan"] = data_plan
 
         def load_all(self, proxy) -> None:
@@ -108,9 +112,10 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
     config_path = tmp_path / "overview.toml"
     launcher = object.__new__(overview_module.DataOverviewLauncher)
     launcher.config_path = config_path
+    launcher.bounds = Bounds()
     loaded_data = SimpleNamespace(hydrography="network")
     recharge = RechargeConfig(
-        sources=[RechargeSourceConfig(source="custom", path=tmp_path / "recharge.csv")]
+        sources=[RechargeSourceConfig(source="file", path=tmp_path / "recharge.csv")]
     )
     state = SimpleNamespace(
         cfg=_CopyableCfg(
@@ -133,6 +138,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
 
     proxy = captured["proxy"]
     assert captured["config_path"] == config_path
+    assert captured["bounds"] is launcher.bounds
     assert captured["data_plan"].explicit_types == ("recharge", "hydrography")
     assert proxy.cfg.data is state.cfg.data
     assert proxy.cfg.workspace == "workspace-config"
@@ -152,7 +158,7 @@ def test_resolving_the_inputs_raises_when_no_path_or_data_source_gives_a_dem(tmp
     """The one rule the overview adds to the run setup: a DEM is required, and it says how."""
     state = SimpleNamespace(
         cfg=SimpleNamespace(
-            geographic=SimpleNamespace(dem_init_path=None),
+            geographic=SimpleNamespace(),
             data=SimpleNamespace(),
         ),
         workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
@@ -160,15 +166,20 @@ def test_resolving_the_inputs_raises_when_no_path_or_data_source_gives_a_dem(tmp
         loaded_data=None,
     )
 
-    with pytest.raises(ConfigMissingError, match="No dem_init_path"):
+    with pytest.raises(ConfigMissingError, match=r"No \[data.dem\] source"):
         _launcher(tmp_path)._resolve_geographic_inputs(state)
 
 
+def _dem_record(path: Path) -> FileRecord:
+    return FileRecord(path, "0" * 64, origin="file")
+
+
 def _map_state(monkeypatch, tmp_path, *, sources=()):
-    monkeypatch.setattr(dem_resolver, "fill_dem_init_path", lambda *args, **kwargs: None)
+    dem = _dem_record(tmp_path / "dem.tif")
+    monkeypatch.setattr(dem_resolver, "resolve_dem", lambda *args, **kwargs: dem)
     return SimpleNamespace(
         cfg=SimpleNamespace(
-            geographic=SimpleNamespace(dem_init_path=tmp_path / "dem.tif"),
+            geographic=SimpleNamespace(),
             data=SimpleNamespace(hydrography=SimpleNamespace(sources=list(sources))),
         ),
         workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
@@ -180,6 +191,7 @@ def _map_state(monkeypatch, tmp_path, *, sources=()):
 def _launcher(tmp_path):
     launcher = object.__new__(overview_module.DataOverviewLauncher)
     launcher.config_path = tmp_path / "overview.toml"
+    launcher.bounds = Bounds()
     return launcher
 
 
@@ -190,10 +202,12 @@ def test_resolve_network_map_returns_the_path_of_the_data_family(monkeypatch, tm
         "resolve_network_map_path",
         lambda *args, **kwargs: network,
     )
-    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="custom")])
+    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="file")])
 
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state) == network
-    assert vars(state.cfg.geographic) == {"dem_init_path": tmp_path / "dem.tif"}
+    assert _launcher(tmp_path)._resolve_geographic_inputs(state) == (
+        network,
+        tmp_path / "dem.tif",
+    )
 
 
 def test_resolve_network_map_defers_when_no_hydrography_source_is_declared(
@@ -202,7 +216,7 @@ def test_resolve_network_map_defers_when_no_hydrography_source_is_declared(
     """Same rule as the run pipeline: no source, alpha does not run."""
     state = _map_state(monkeypatch, tmp_path, sources=[])
 
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state) is None
+    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[0] is None
 
 
 def test_resolve_network_map_does_not_raise_when_the_data_family_holds_no_vector(
@@ -213,17 +227,18 @@ def test_resolve_network_map_does_not_raise_when_the_data_family_holds_no_vector
         "resolve_network_map_path",
         lambda *args, **kwargs: None,
     )
-    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="custom")])
+    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="file")])
 
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state) is None
+    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[0] is None
 
 
 def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> None:
     seen: dict[str, object] = {}
 
     class _Delineation:
-        def __init__(self, config, workspace, *, network_map_path=None):
+        def __init__(self, config, workspace, *, dem_path=None, network_map_path=None):
             seen["network_map_path"] = network_map_path
+            seen["dem_path"] = dem_path
 
     monkeypatch.setattr(
         "hydromodpy.catchment.preprocess.catchment_delineation.CatchmentDelineation",
@@ -237,43 +252,29 @@ def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> Non
     network = tmp_path / "network.gpkg"
 
     with pytest.raises(ConfigError):
-        overview_module.DataOverviewLauncher._setup_geographic(state, network)
+        overview_module.DataOverviewLauncher._setup_geographic(state, network, tmp_path / "dem.tif")
 
     assert seen["network_map_path"] == network
+    assert seen["dem_path"] == tmp_path / "dem.tif"
 
 
-def test_resolving_the_inputs_assigns_the_dem_on_the_catchment_variant(
-    monkeypatch, tmp_path
-) -> None:
-    """``GeographicConfig.dem_init_path`` is a read-only property; the field is on the variant."""
+def test_resolving_the_inputs_leaves_the_configuration_alone(monkeypatch, tmp_path) -> None:
+    """The DEM comes back as a path; the geographic configuration is not written."""
     dem = tmp_path / "dem.tif"
-    monkeypatch.setattr(
-        dem_resolver,
-        "resolve_dem_path_from_data_sources",
-        lambda *args, **kwargs: dem,
-    )
-    monkeypatch.setattr(dem_resolver, "require_dem_crs", lambda path: None)
-    catchment = SimpleNamespace(dem_init_path=None)
-
-    class _Geographic:
-        @property
-        def dem_init_path(self):
-            return catchment.dem_init_path
-
+    monkeypatch.setattr(dem_resolver, "resolve_dem", lambda *args, **kwargs: _dem_record(dem))
+    geographic = SimpleNamespace()
     state = SimpleNamespace(
         cfg=SimpleNamespace(
-            geographic=_Geographic(),
-            data=SimpleNamespace(dem=SimpleNamespace(sources=[SimpleNamespace(source="custom")])),
+            geographic=geographic,
+            data=SimpleNamespace(dem=SimpleNamespace(sources=[SimpleNamespace(source="file")])),
         ),
         workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
         geographic=None,
         loaded_data=None,
     )
-    state.cfg.geographic.catchment = catchment
 
-    _launcher(tmp_path)._resolve_geographic_inputs(state)
-
-    assert catchment.dem_init_path == dem
+    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[1] == dem
+    assert vars(geographic) == {}
 
 
 # --- test_setup_steps ---
@@ -309,8 +310,11 @@ def _resolve(entry: str, cfg: SimpleNamespace, tmp_path: Path) -> None:
         return
     overview = object.__new__(DataOverviewLauncher)
     overview.config_path = tmp_path / "project.toml"
+    overview.bounds = Bounds()
     state = SimpleNamespace(cfg=cfg, workspace=None, geographic=None, loaded_data=None)
-    overview._resolve_geographic_inputs(state)
+    record = _dem_record(tmp_path / "dem.tif")
+    with mock.patch.object(dem_resolver, "resolve_dem", return_value=record):
+        overview._resolve_geographic_inputs(state)
 
 
 @pytest.mark.parametrize("entry", ["run", "overview"])
@@ -319,7 +323,7 @@ def test_the_path_is_filled_from_the_declared_sources(entry, section, monkeypatc
     merged = tmp_path / "crossings_ground_roe_12345678.gpkg"
     calls: list[Path] = []
 
-    def resolve(cfg, *, config_path, cache_dir=None):
+    def resolve(cfg, *, config_path, cache_dir=None, dem_path=None):
         calls.append(config_path)
         return merged
 

@@ -85,3 +85,21 @@ def test_lumped_is_not_one_of_the_declarations_the_qa_reports() -> None:
 
     assert "lumped" not in lumped.declarations()
     assert set(lumped.declarations()) == DECLARATION_KEYS
+
+
+class TestIgnoredFamilies:
+    def test_defaults_to_no_ignored_family(self):
+        capabilities = fake_capabilities()
+        assert capabilities.ignored_families == frozenset()
+
+    def test_is_not_one_of_the_declarations_the_qa_reports(self):
+        capabilities = fake_capabilities(ignored_families=frozenset({"rivers"}))
+        assert "ignored_families" not in capabilities.declarations()
+
+    def test_names_of_a_non_frozenset_are_refused(self):
+        with pytest.raises(ValueError, match="ignored_families must be a frozenset of str"):
+            fake_capabilities(ignored_families=["rivers"])
+
+    def test_a_name_outside_the_five_families_is_refused(self):
+        with pytest.raises(ValueError, match="outside the families of"):
+            fake_capabilities(ignored_families=frozenset({"stream"}))

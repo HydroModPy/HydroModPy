@@ -113,7 +113,7 @@ values = [0.8]
 
 [data.piezometry]
 [[data.piezometry.sources]]
-source = "custom"
+source = "file"
 path = "{root}/piezometry"
 default_crs = "EPSG:2154"
 source_unit = "m"

@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, PositiveFloat, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -280,6 +280,15 @@ class BoussinesqOptions(HydroModelBase):
             "to it is refused. A relative path is read from the folder of the TOML file. "
             "It is a developer entry for the validation cases. A normal run leaves it "
             "unset and reads the cell mesh of its model."
+        ),
+        json_schema_extra=field_metadata(stability="experimental"),
+    )
+    wall_clock_limit_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Wall-clock budget (seconds) of one trial of a parallel calibration under this "
+            "backend. Its worker is killed past it, so one stuck trial cannot wedge the "
+            "session. None keeps the built-in default (14400 s)."
         ),
         json_schema_extra=field_metadata(stability="experimental"),
     )

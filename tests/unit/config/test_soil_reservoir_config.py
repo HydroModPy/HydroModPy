@@ -19,7 +19,7 @@ from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabi
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.soil_capacity.config import (
-    CustomSoilCapacitySource,
+    FileSoilCapacitySource,
     SoilCapacityConfig,
 )
 from hydromodpy.model.boundaries.climate import (
@@ -898,7 +898,7 @@ def _base_kwargs(tmp_path: Path) -> dict:
 def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> None:
     raster = _write_geotiff(tmp_path / "ru.tif")
     data = DataManagersConfig(
-        soil_capacity=SoilCapacityConfig(sources=[CustomSoilCapacitySource(path=raster)])
+        soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
     )
 
     with pytest.raises(ValidationError, match=r"\[data.soil_capacity\]"):
@@ -908,7 +908,7 @@ def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> No
 def test_a_capacity_map_without_a_soil_section_names_the_fix(tmp_path: Path) -> None:
     raster = _write_geotiff(tmp_path / "ru.tif")
     data = DataManagersConfig(
-        soil_capacity=SoilCapacityConfig(sources=[CustomSoilCapacitySource(path=raster)])
+        soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
     )
 
     with pytest.raises(ValidationError) as excinfo:

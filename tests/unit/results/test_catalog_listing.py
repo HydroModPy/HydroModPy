@@ -45,7 +45,9 @@ def test_list_simulations_returns_one_row_per_sealed_run(tmp_path: Path) -> None
 def test_list_simulations_filters(tmp_path: Path) -> None:
     workspace, _project, _sim_id = _seed_workspace(tmp_path)
 
-    assert list_simulations(workspace, solver="nwt")["name"].tolist() == ["baseline"]
+    # One name per backend: a shorthand of it names nothing.
+    assert list_simulations(workspace, solver="nwt").empty
+    assert list_simulations(workspace, solver="modflow_nwt")["name"].tolist() == ["baseline"]
     assert list_simulations(workspace, tag="pinned")["name"].tolist() == ["baseline"]
     assert list_simulations(workspace, label="exploratory").shape[0] == 2
     assert list_simulations(workspace, site="nowhere").empty

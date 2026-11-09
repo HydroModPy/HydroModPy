@@ -53,7 +53,6 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -88,6 +87,10 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [3.0]
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
 
 [flow]
 flow_regime = "steady"

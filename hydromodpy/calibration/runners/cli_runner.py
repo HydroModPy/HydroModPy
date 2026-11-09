@@ -24,6 +24,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.calibration.runners.document import (
+    load_calibration_document,
+    refuse_an_objective_that_is_not_an_entry_point,
+    with_its_method,
+)
+from hydromodpy.calibration.runners.search import run_single_search
 from hydromodpy.calibration.runners.session import (
     project_root_for,
 )
@@ -34,6 +40,7 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 
 if TYPE_CHECKING:
@@ -41,13 +48,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
-
-from hydromodpy.calibration.runners.document import (
-    load_calibration_document,
-    refuse_an_objective_that_is_not_an_entry_point,
-    with_its_method,
-)
-from hydromodpy.calibration.runners.search import run_single_search
 
 
 @in_run_scratch(
@@ -63,6 +63,7 @@ def run_calibration_cli(
     project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     resume: bool = False,
+    bounds: Bounds | None = None,
 ) -> CalibrationReport:
     """Run a calibration described by ``config_path``.
 
@@ -86,6 +87,11 @@ def run_calibration_cli(
     resume
         Reopen the latest session of the case instead of starting a new one;
         the trials already journaled preload the cache.
+    bounds
+        The :class:`~hydromodpy.core.runtime.bounds.Bounds` of the call that
+        launched the calibration. ``prepare_trials`` builds its context under
+        them, so each trial loads its data under the hosts the call allows.
+        ``None`` keeps the all-allowing default.
     """
     cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
     cfg = with_its_method(cfg)
@@ -100,6 +106,7 @@ def run_calibration_cli(
         metric_fn=metric_fn,
         objective=objective,
         resume=resume,
+        bounds=bounds,
     )
     return report
 

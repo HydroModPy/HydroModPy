@@ -3475,7 +3475,7 @@ def test_a_single_search_hands_each_step_what_the_one_before_made(
     assert result == ("closed", spread)
     assert calls["prepare_trials"] == {
         "args": (path,),
-        "kwargs": {"override_paths": {"p": "q"}, "parameter_space": space},
+        "kwargs": {"override_paths": {"p": "q"}, "parameter_space": space, "bounds": None},
     }
     assert calls["open_calibration_session"]["kwargs"] == {
         "resume": True,
@@ -4287,4 +4287,19 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
     )
 
     with pytest.raises(UnresolvedParameterName, match="no such name"):
+        document._resolve_parameter_names(cfg, tmp_path)
+
+
+def test_a_bare_input_name_stops_the_load(monkeypatch, tmp_path) -> None:
+    """A path 2.1.0 refuses is named, not left to fail later on a missing 'path'."""
+    from hydromodpy.core.toml_io.paths import BareInputNameError
+
+    cfg = SimpleNamespace(parameters={"K": object()})
+    monkeypatch.setattr(
+        trial,
+        "_PIPELINE",
+        FakePipeline(config_error=BareInputNameError("inputs 'piezometry' is a bare name")),
+    )
+
+    with pytest.raises(BareInputNameError, match="'piezometry' is a bare name"):
         document._resolve_parameter_names(cfg, tmp_path)

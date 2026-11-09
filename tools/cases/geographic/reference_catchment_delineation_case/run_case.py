@@ -40,8 +40,15 @@ def run_geographic_case_from_toml(config_toml: str | Path):
     """Build WorkspaceLayout + Geographic from one global TOML file."""
     cfg = HydroModPyConfig.from_toml(config_toml)
     workspace = WorkspaceLayout(config=cfg.workspace)
-    geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
+    geographic = CatchmentDelineation(
+        config=cfg.geographic, initializing=workspace, dem_path=_declared_dem(cfg)
+    )
     return workspace, geographic
+
+
+def _declared_dem(cfg) -> Path:
+    """Return the path of the first ``[[data.dem.sources]]`` entry of the case TOML."""
+    return Path(cfg.data.dem.sources[0].path)
 
 
 def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] | None]:
@@ -73,21 +80,22 @@ def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         "base": {
             "label": "Base outlet case (from TOML)",
             "catchment": None,
+            "dem": None,
         },
         "canut": {
             "label": "Canut polygon case (from_polyg_shp)",
+            "dem": wide_brittany_dem,
             "catchment": {
                 "kind": "from_polyg_shp",
                 "polyg_shp_path": canut_shp,
-                "dem_init_path": wide_brittany_dem,
                 "buff_area": default_buff,
             },
         },
         "nancon": {
             "label": "Nancon outlet case",
+            "dem": wide_brittany_dem,
             "catchment": {
                 "kind": "from_outlet_coord",
-                "dem_init_path": wide_brittany_dem,
                 "x_outlet": 389285.910,
                 "y_outlet": 6816518.749,
                 "snap_dist": default_snap,
@@ -96,9 +104,9 @@ def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         },
         "aber": {
             "label": "Aber outlet case",
+            "dem": wide_brittany_dem,
             "catchment": {
                 "kind": "from_outlet_coord",
-                "dem_init_path": wide_brittany_dem,
                 "x_outlet": 150727.164,
                 "y_outlet": 6858066.520,
                 "snap_dist": default_snap,
@@ -241,7 +249,8 @@ def run_geographic_cases_from_toml(
             )
 
         workspace = WorkspaceLayout(config=init_cfg)
-        geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
+        dem_path = spec["dem"] if spec["dem"] is not None else _declared_dem(cfg)
+        geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace, dem_path=dem_path)
         metrics = compute_catchment_metrics(geographic)
         river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
         generated_network_shp = (

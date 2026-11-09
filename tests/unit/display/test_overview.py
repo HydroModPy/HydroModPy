@@ -805,7 +805,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "dem.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
@@ -831,7 +830,9 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "_load_data",
     ):
         monkeypatch.setattr(launcher, phase, lambda *args, **kwargs: None)
-    monkeypatch.setattr(launcher, "_resolve_geographic_inputs", lambda self, state: None)
+    monkeypatch.setattr(
+        launcher, "_resolve_geographic_inputs", lambda self, state: (None, root / "dem.tif")
+    )
     return root
 
 

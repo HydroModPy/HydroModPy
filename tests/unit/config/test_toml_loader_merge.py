@@ -27,7 +27,9 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 "",
                 "[geographic.catchment]",
                 'kind = "dem"',
-                'dem_init_path = "dem.tif"',
+                "[[data.dem.sources]]",
+                'source = "file"',
+                'path = "inputs/dem.tif"',
                 "[flow.bc.ocean]",
                 'kind = "dirichlet"',
                 'value = "1.0 m"',
@@ -79,7 +81,9 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
                 "",
                 "[geographic.catchment]",
                 'kind = "dem"',
-                'dem_init_path = "dem.tif"',
+                "[[data.dem.sources]]",
+                'source = "file"',
+                'path = "dem.tif"',
                 "[flow.bc.ocean]",
                 'kind = "dirichlet"',
                 'value = "1.0 m"',
@@ -103,7 +107,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     cfg = HydroModPyConfig.from_toml(child_path)
 
     assert cfg.workspace.project_root == tmp_path.resolve()
-    assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
+    assert str(cfg.data.dem.sources[0].path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 
 
@@ -111,7 +115,7 @@ def test_a_list_of_tables_of_the_same_length_replaces_the_inherited_list(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "base.toml").write_text(
-        '[[data.recharge.sources]]\nsource = "custom"\npath = "recharge"\nstation_ids = ["A"]\n',
+        '[[data.recharge.sources]]\nsource = "file"\npath = "recharge"\nstation_ids = ["A"]\n',
         encoding="utf-8",
     )
     child = tmp_path / "child.toml"

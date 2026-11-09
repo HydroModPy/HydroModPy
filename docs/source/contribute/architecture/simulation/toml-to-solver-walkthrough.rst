@@ -80,9 +80,9 @@ The adapter is the narrow bridge to a solver:
 - ``solver/modflow_nwt/adapter.py``
 - ``solver/modflow6/adapter.py``
 - ``solver/boussinesq/adapter.py``
-- ``solver/modflow_nwt/adapters/transport_mt3dms.py`` and
-  ``transport_modpath.py``
-- ``solver/modflow6/adapters/transport.py`` and ``prt.py``
+- ``solver/modflow_nwt/mt3dms/mt3dms.py`` and
+  ``solver/modflow_nwt/modpath/modpath.py``
+- ``solver/modflow6/transport.py`` and ``solver/modflow6/prt.py``
 
 For the MODFLOW family, the adapters stay thin and the shared lifecycle is in
 ``solver/modflow_common/flow_adapter_helpers.py``. The flow backends are

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
+    from hydromodpy.project.environment import Environment
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
 
@@ -44,6 +45,7 @@ class ProjectState:
 
     config_path: Path | None = None
     cfg: HydroModPyConfig | None = None
+    environment: Environment | None = None
     solver: str | None = None
     time_grid: ResolvedSimulationTimeGrid | ResolvedSteadySimulationTimeGrid | None = None
     headless: bool = False
@@ -67,6 +69,7 @@ class ProjectState:
 PROJECT_ATTR_TO_STATE_FIELD: dict[str, str] = {
     "_config_path": "config_path",
     "_cfg": "cfg",
+    "_environment": "environment",
     "_solver": "solver",
     "_time_grid": "time_grid",
     "_headless": "headless",

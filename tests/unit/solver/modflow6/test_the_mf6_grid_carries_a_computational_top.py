@@ -268,17 +268,17 @@ def _flow_model(tmp_path: Path, ground: np.ndarray):
 
 def test_the_transport_and_tracking_grids_carry_the_flow_top(tmp_path) -> None:
     pytest.importorskip("flopy")
-    from hydromodpy.model.transport.transport import Transport
     from hydromodpy.solver.modflow6.prt import Modflow6Prt
     from hydromodpy.solver.modflow6.transport import Modflow6Transport
+    from tests._helpers.model_factory import make_model
 
     flow = _flow_model(tmp_path / "gwt", GROUND)
     gwt = Modflow6Transport(
-        SimpleNamespace(),
-        Transport({"modflow6gwt": {"parameters": {"porosity": 0.3}}}),
+        make_model(),
         flow,
         str(tmp_path / "gwt"),
         "flow",
+        options={"porosity": 0.3},
     )
     gwt.pre_processing()
     flow_top = np.asarray(flow.gwf.disv.top.array)
@@ -286,11 +286,11 @@ def test_the_transport_and_tracking_grids_carry_the_flow_top(tmp_path) -> None:
 
     flow = _flow_model(tmp_path / "prt", GROUND)
     prt = Modflow6Prt(
-        SimpleNamespace(),
-        Transport({"modflow6prt": {"parameters": {"release_zone": "domain", "porosity": 0.3}}}),
+        make_model(),
         flow,
         str(tmp_path / "prt"),
         "flow",
+        options={"release_zone": "domain", "porosity": 0.3},
     )
     prt.pre_processing()
     np.testing.assert_array_equal(np.asarray(prt.prtdis.top.array), flow_top)

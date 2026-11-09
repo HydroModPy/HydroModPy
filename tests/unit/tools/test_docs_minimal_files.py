@@ -53,7 +53,8 @@ def test_the_three_required_sections_make_a_valid_file(tmp_path: Path) -> None:
     path = tmp_path / "minimal.toml"
     path.write_text(
         '[workflow]\nmode = "simulation"\n\n[workspace]\n\n[site]\nname = "site_a"\n\n'
-        '[geographic.catchment]\ncatch_def = "dem"\ndem_init_path = "dem.tif"\n'
+        '[geographic.catchment]\ncatch_def = "dem"\n\n'
+        '[data]\ntypes = ["dem"]\n\n[[data.dem.sources]]\nsource = "file"\npath = "inputs/dem.tif"\n'
     )
     HydroModPyConfig.from_toml(path)
 

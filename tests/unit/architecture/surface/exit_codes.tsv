@@ -1,5 +1,6 @@
 BackendError	1
 BackupFailedError	18
+BoundsError	14
 CacheCorruptionError	16
 CalibrationError	21
 CapabilityVersionMismatchError	11
@@ -10,6 +11,7 @@ CommandUsageError	2
 ConfigError	14
 ConfigMissingError	14
 ConfigValidationError	14
+CredentialsError	14
 CrossProjectsError	17
 DataCacheError	16
 DataCapabilityError	16

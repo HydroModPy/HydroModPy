@@ -66,51 +66,51 @@ class TestCustomLoader:
         return path
 
     def test_load_shp_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         shp = self._write_shp(tmp_path / "rivers.shp")
-        cfg = HydrographySourceConfig(source="custom", path=shp)
-        gdf = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=shp)
+        gdf = load_file(cfg)
         assert not gdf.empty
         assert gdf.crs is not None
 
     def test_load_gpkg_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR, load_custom
+        from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR, load_file
 
         gpkg = tmp_path / "rivers.gpkg"
         _make_lines_gdf().to_file(gpkg, driver="GPKG")
-        cfg = HydrographySourceConfig(source="custom", path=gpkg)
-        gdf = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=gpkg)
+        gdf = load_file(cfg)
         assert not gdf.empty
         assert gdf.attrs[SOURCE_PATH_ATTR] == str(gpkg)
 
     def test_load_geojson_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         gj = tmp_path / "rivers.geojson"
         _make_lines_gdf().to_file(gj, driver="GeoJSON")
-        cfg = HydrographySourceConfig(source="custom", path=gj)
-        gdf = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=gj)
+        gdf = load_file(cfg)
         assert not gdf.empty
 
     def test_directory_auto_detection(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         subdir = tmp_path / "data"
         subdir.mkdir()
         self._write_shp(subdir / "streams.shp")
-        cfg = HydrographySourceConfig(source="custom", path=subdir)
-        gdf = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=subdir)
+        gdf = load_file(cfg)
         assert not gdf.empty
 
     def test_directory_empty_raises(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
-        cfg = HydrographySourceConfig(source="custom", path=empty_dir)
+        cfg = HydrographySourceConfig(source="file", path=empty_dir)
         with pytest.raises(FileNotFoundError, match="No vector or raster file"):
-            load_custom(cfg)
+            load_file(cfg)
 
 
 @pytest.mark.fast
@@ -323,63 +323,63 @@ class TestCustomLoaderTif:
     """TIF files should be returned as Path, not GeoDataFrame."""
 
     def test_tif_file_returns_path(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         tif = tmp_path / "hydro.tif"
         _write_dummy_tif(tif)
-        cfg = HydrographySourceConfig(source="custom", path=tif)
-        result = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=tif)
+        result = load_file(cfg)
         assert isinstance(result, Path)
         assert result == tif
 
     def test_tiff_file_returns_path(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         tif = tmp_path / "hydro.tiff"
         _write_dummy_tif(tif)
-        cfg = HydrographySourceConfig(source="custom", path=tif)
-        result = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=tif)
+        result = load_file(cfg)
         assert isinstance(result, Path)
 
     def test_tif_in_directory(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         subdir = tmp_path / "data"
         subdir.mkdir()
         tif = subdir / "streams.tif"
         _write_dummy_tif(tif)
-        cfg = HydrographySourceConfig(source="custom", path=subdir)
-        result = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=subdir)
+        result = load_file(cfg)
         assert isinstance(result, Path)
         assert result.suffix == ".tif"
 
     def test_vector_file_still_returns_gdf(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         shp = tmp_path / "rivers.shp"
         _make_lines_gdf().to_file(shp)
-        cfg = HydrographySourceConfig(source="custom", path=shp)
-        result = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=shp)
+        result = load_file(cfg)
         assert isinstance(result, gpd.GeoDataFrame)
 
     def test_directory_prefers_raster_over_vector(self, tmp_path):
         """When a directory has both TIF and SHP, TIF wins."""
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         _make_lines_gdf().to_file(tmp_path / "rivers.shp")
         _write_dummy_tif(tmp_path / "streams.tif")
-        cfg = HydrographySourceConfig(source="custom", path=tmp_path)
-        result = load_custom(cfg)
+        cfg = HydrographySourceConfig(source="file", path=tmp_path)
+        result = load_file(cfg)
         assert isinstance(result, Path)
 
     def test_empty_dir_raises(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_file
 
         subdir = tmp_path / "empty"
         subdir.mkdir()
-        cfg = HydrographySourceConfig(source="custom", path=subdir)
+        cfg = HydrographySourceConfig(source="file", path=subdir)
         with pytest.raises(FileNotFoundError):
-            load_custom(cfg)
+            load_file(cfg)
 
     def test_raster_extensions_constant(self):
         from hydromodpy.data.variables.hydrography.custom import _RASTER_EXTENSIONS
@@ -405,7 +405,7 @@ class TestManagerTifPipeline:
 
         inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(
-            sources=[{"source": "custom", "path": str(tif)}],
+            sources=[{"source": "file", "path": str(tif)}],
             mask_path=inputs.mask_path,
         )
         mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
@@ -451,7 +451,7 @@ class TestManagerTifPipeline:
 
         inputs = _fake_inputs(tmp_path)
         cfg = HydrographyConfig(
-            sources=[{"source": "custom", "path": str(tif)}],
+            sources=[{"source": "file", "path": str(tif)}],
             mask_path=inputs.mask_path,
         )
         mgr = HydrographyManager(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)

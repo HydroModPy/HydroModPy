@@ -94,7 +94,9 @@ def _built(name: str) -> tuple[Polygon, MeshRequest, PlanarCellMesh]:
 def test_the_engine_declares_a_lumped_polygon_engine() -> None:
     capabilities = CatchmentMeshEngine.capabilities
 
-    assert capabilities == lumped_capabilities()
+    # One cell holds no line, so the engine names every family it skips.
+    ignored = frozenset({"rivers", "lakes", "barriers", "geology", "watershed_boundary"})
+    assert capabilities == lumped_capabilities(ignored_families=ignored)
     assert (CatchmentMeshEngine.engine_id, CatchmentMeshEngine.engine_version) == ("catchment", "1")
 
 

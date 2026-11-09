@@ -12,15 +12,15 @@ import hydromodpy.core.plugin_registry as plugin_registry
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.model.transport.transport_config import (
-    TransportModflow6GwtConfig,
-    TransportModflow6PrtConfig,
-    TransportModpathConfig,
-    TransportMt3dmsConfig,
+    ConcentrationTransportParametersConfig,
+    Modflow6PrtParametersConfig,
+    ModpathParametersConfig,
 )
 from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
+from hydromodpy.solver.linear_reservoir.options import LinearReservoirOptions
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from tests._helpers.fake_solvers import FakeAdapter, fake_adapter, fake_extractor
@@ -124,11 +124,21 @@ DECLARED = {
         "surface_excess": True,
         "mutable": frozenset(),
     },
+    "flow_linear_reservoir": {
+        "accepted_meshes": frozenset({"catchment"}),
+        "geometry": "cells",
+        "category": "lumped",
+        "options": LinearReservoirOptions,
+        "requires": (),
+        "reads": (),
+        "surface_excess": False,
+        "mutable": frozenset(),
+    },
     "transport_modflow6": {
         "accepted_meshes": frozenset(),
         "geometry": "cells",
         "category": "distributed",
-        "options": TransportModflow6GwtConfig,
+        "options": ConcentrationTransportParametersConfig,
         "requires": (("flow", "modflow6"),),
         "reads": ("face_flow",),
         "surface_excess": False,
@@ -138,7 +148,7 @@ DECLARED = {
         "accepted_meshes": frozenset(),
         "geometry": "cells",
         "category": "distributed",
-        "options": TransportModflow6PrtConfig,
+        "options": Modflow6PrtParametersConfig,
         "requires": (("flow", "modflow6"),),
         "reads": ("face_flow",),
         "surface_excess": False,
@@ -148,7 +158,7 @@ DECLARED = {
         "accepted_meshes": frozenset(),
         "geometry": "raster",
         "category": "distributed",
-        "options": TransportMt3dmsConfig,
+        "options": ConcentrationTransportParametersConfig,
         "requires": (("flow", "modflow_nwt"),),
         "reads": ("face_flow",),
         "surface_excess": False,
@@ -158,7 +168,7 @@ DECLARED = {
         "accepted_meshes": frozenset(),
         "geometry": "raster",
         "category": "distributed",
-        "options": TransportModpathConfig,
+        "options": ModpathParametersConfig,
         "requires": (("flow", "modflow_nwt"),),
         "reads": ("face_flow",),
         "surface_excess": False,
@@ -168,7 +178,8 @@ DECLARED = {
 """What each backend of the build declares. The extractor categories and the index
 table held these values before the attributes moved to the adapter, and the
 mesh, requires and surface-excess rows are what the configuration and the
-planner read. Only MODFLOW 6 reruns a built model, for K and Sy."""
+planner read. Only MODFLOW 6 reruns a built model, for K and Sy. The linear
+reservoir is the one lumped flow, on the one cell of the catchment engine."""
 
 
 @pytest.mark.parametrize("key", sorted(DECLARED))
@@ -195,12 +206,14 @@ def test_transport_capabilities_are_explicit() -> None:
     """Concentration for GWT and MT3DMS, particle tracks for PRT and MODPATH."""
     for name in ("modflow6", "mt3dms"):
         writes = solvers.get("transport", name).writes
-        assert "concentration" in writes
+        assert any(item == "concentration" or item.startswith("concentration/") for item in writes)
         assert not any(item.startswith("particles/") for item in writes)
     for name in ("modflow6_prt", "modpath"):
         writes = solvers.get("transport", name).writes
         assert {"particles/x", "particles/y", "particles/z", "particles/time"} <= set(writes)
-        assert "concentration" not in writes
+        assert not any(
+            item == "concentration" or item.startswith("concentration/") for item in writes
+        )
 
 
 def test_modflow6_prt_adapter_and_extractor_are_registered() -> None:

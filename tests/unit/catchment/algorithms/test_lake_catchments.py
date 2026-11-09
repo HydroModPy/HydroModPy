@@ -93,7 +93,7 @@ def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(t
     runoff = PointRecord(
         station_id="grid_mean",
         variable="climatic",
-        source="custom",
+        source="file",
         unit="mm/day",
         frequency="D",
         data=days,

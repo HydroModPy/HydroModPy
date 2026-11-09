@@ -31,6 +31,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import (
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
 from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing.native import NativeSeries
 from hydromodpy.model.forcing.time_forcing import compact_pre_resolved_forcings
 from hydromodpy.model.initial.state import (
     INITIAL_STATE_TYPES,
@@ -161,7 +162,10 @@ class Model:
     a barrier's ``hydchr``, ``k`` and ``thickness``, which MODFLOW 6 converts
     when it builds the package. ``active_sinks_sources`` lists the sink and
     source families the run builds. ``initial`` is one of the five start
-    states of ``hydromodpy.model.initial.state``.
+    states of ``hydromodpy.model.initial.state``. ``native_recharge`` is the
+    forcing at the step of its source that the recharge binder read, in m/s,
+    for a global solver that integrates it; ``None`` when no source gives
+    one, which is every meshed backend today.
     """
 
     geometry: Geometry
@@ -169,6 +173,7 @@ class Model:
     boundaries: BoundaryConditionBundle
     recharge: FlowRechargeConfig | None
     etp: FlowEtpConfig | None
+    native_recharge: NativeSeries | None = None
     wells: Mapping[str, FlowWellConfig]
     lakes: Mapping[str, Mapping[str, Any]]
     sfr: Mapping[str, Mapping[str, Any]]
@@ -328,6 +333,7 @@ def model_from_flow(
         boundaries=boundary_condition_bundle_from_flow(flow),
         recharge=sinks_sources.get("recharge"),
         etp=sinks_sources.get("etp"),
+        native_recharge=flow.native_recharge,
         wells=sinks_sources.get("wells"),
         lakes=sinks_sources.get("lakes"),
         sfr=sinks_sources.get("sfr"),

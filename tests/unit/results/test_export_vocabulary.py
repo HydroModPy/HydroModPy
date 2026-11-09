@@ -9,7 +9,6 @@ from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.data.variables.lake_levels.manager import LakeLevelsManager
 from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 from hydromodpy.results import field_registry
-from hydromodpy.results.derive.catchment_aggregation import VARIABLE_UNITS
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import (
     OBSERVED_VARIABLES,
@@ -19,6 +18,7 @@ from hydromodpy.results.exporters.vocabulary import (
     export_kind,
     static_export_names,
 )
+from hydromodpy.results.field_registry import TIME_SERIES_REGISTRY
 
 
 @pytest.mark.parametrize(
@@ -67,7 +67,7 @@ def test_every_registered_field_is_exportable() -> None:
 
 
 def test_the_catchment_series_are_known() -> None:
-    assert set(VARIABLE_UNITS) <= set(SIMULATED_SERIES)
+    assert set(TIME_SERIES_REGISTRY) <= set(SIMULATED_SERIES)
 
 
 @pytest.mark.parametrize(

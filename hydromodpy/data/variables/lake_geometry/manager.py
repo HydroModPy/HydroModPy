@@ -13,7 +13,7 @@ class LakeGeometryManager(BaseFileManager):
     VARIABLE_NAME = "lake_geometry"
     RECORD_KIND = "fields"
 
-    def read_custom(self, source_cfg: Any, *, derived_dir: Path | None) -> list[FieldRecord]:
+    def read_file_source(self, source_cfg: Any, *, derived_dir: Path | None) -> list[FieldRecord]:
         """Read a SHP, GPKG or GeoJSON footprint into a cached GeoParquet."""
         from hydromodpy.data.variables.lake_geometry.custom import load_custom_lake_geometry
 

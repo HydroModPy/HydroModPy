@@ -21,7 +21,7 @@ from hydromodpy.core.config_kit.types import StationName
 def registered_section_source(source: str, variable: str) -> str:
     """Return *source* when a ``[data.<variable>]`` section may name it.
 
-    What a section may write in ``source =`` is ``custom`` plus every source
+    What a section may write in ``source =`` is ``file`` plus every source
     registered for that section, plugins included. The list lives on the source
     registry and nowhere beside it, so adding a source and describing it are one
     act, and the refusal names what this installation serves.
@@ -37,10 +37,48 @@ def registered_section_source(source: str, variable: str) -> str:
 
     return check_registered_name(
         str(source).strip(),
-        (*data_sources.names(variable), "custom"),
+        (*data_sources.names(variable), "file"),
         key=f"data.{variable}.sources.source",
         group=ENTRY_POINT_GROUP,
     )
+
+
+class UrlSourceFieldsMixin(HydroModelBase):
+    """The ``url``, ``sha256`` and ``license`` fields a ``source = "url"`` entry reads.
+
+    A section declares the mixin when the ``url`` source is registered for it:
+    a single file the section reads from the user's own disk or from a URL.
+    The checks themselves live in :class:`~hydromodpy.data.source.url.UrlSourceOptions`,
+    built once here, so the sha256 motif and the URL guard sit in one place
+    whatever section writes them.
+    """
+
+    url: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Remote URL of the one file this source reads.",
+    )
+    sha256: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="SHA256 checksum pinning the downloaded file, 64 hexadecimal digits.",
+    )
+    license: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Licence of the downloaded file, written to its sidecar. Unset means undetermined."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_the_url_source(self) -> Self:
+        source = getattr(self, "source", None)
+        if self.url is None:
+            if source == "url":
+                raise ValueError("url source requires 'url'.")
+            return self
+        from hydromodpy.data.source.url import UrlSourceOptions
+
+        UrlSourceOptions(url=self.url, sha256=self.sha256, license=self.license)
+        return self
 
 
 class TimeseriesColumnsMixin(HydroModelBase):
@@ -151,7 +189,7 @@ class Sim2GridSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     source: Annotated[str, Profile.USER] = Field(
         ...,
         description=(
-            "Data provider: 'custom' for user CSV files, or the id of a source registered "
+            "Data provider: 'file' for user CSV files, or the id of a source registered "
             "for this variable's section, such as 'sim2' for the SIM2 EDR API."
         ),
     )
@@ -168,9 +206,9 @@ class Sim2GridSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> Self:
-        if self.source == "custom" and self.path is None:
+        if self.source == "file" and self.path is None:
             raise ValueError(
-                "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                "File source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
             )
         return self
 
@@ -182,16 +220,14 @@ class LakeChronicleSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin
     is the name of the variable.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        ..., description="Data provider: 'custom' for user files."
+    source: Annotated[Literal["file"], Profile.USER] = Field(
+        ..., description="Data provider: 'file' for user files."
     )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> Self:
-        if self.source == "custom" and self.path is None:
-            raise ValueError(
-                "Custom source requires 'path' (directory with location + chronicles)."
-            )
+        if self.source == "file" and self.path is None:
+            raise ValueError("File source requires 'path' (directory with location + chronicles).")
         return self
 
 

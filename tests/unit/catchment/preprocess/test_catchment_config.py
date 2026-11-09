@@ -1,7 +1,7 @@
 """``[geographic.catchment]``: its required keys, its refusals and the forms of the buffer.
 
-The table and the DEM of the dem shape have no default. A synthetic support
-still leaves the catchment out, and a [data.dem] source may still give the DEM.
+The table has no default and no table carries a DEM path: the DEM comes from the
+[[data.dem.sources]] entry. A synthetic support still leaves the catchment out.
 """
 
 from pathlib import Path
@@ -16,7 +16,6 @@ from hydromodpy.config import HydroModPyConfig
 
 _OUTLET = {
     "kind": "from_outlet_coord",
-    "dem_init_path": "dem.tif",
     "x_outlet": 1.0,
     "y_outlet": 2.0,
     "snap_dist": "50 m",
@@ -32,23 +31,23 @@ def _buffer_of(value):
 
 
 @pytest.mark.fast
-def test_the_catchment_and_the_dem_of_the_dem_shape_have_no_default_but_a_source_may_give_it():
+def test_the_catchment_has_no_default_and_no_table_names_a_dem_path_but_a_source_gives_it():
     assert GeographicConfig.model_fields["catchment"].is_required()
-    dem = DemCatchDef.model_fields["dem_init_path"]
-    assert dem.is_required()
-    assert dem.examples == ["dem.tif"]
+    assert "dem_init_path" not in DemCatchDef.model_fields
     assert GeographicConfig.model_validate({"source_mode": "synthetic"}).catchment is None
     bootstrap = {"allow_dem_bootstrap": True}
     dem_shape = {"catchment": {"kind": "dem"}}
-    assert GeographicConfig.model_validate(dem_shape, context=bootstrap).dem_init_path is None
+    assert GeographicConfig.model_validate(dem_shape, context=bootstrap).catch_def == "dem"
+    with pytest.raises(ValidationError, match="dem_init_path"):
+        GeographicConfig.model_validate({"catchment": {**_OUTLET, "dem_init_path": "dem.tif"}})
 
 
 def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():
     example = Path(__file__).parents[4] / "examples/projects/12_network_calibration_from_apis"
     cfg = HydroModPyConfig.from_toml(example / "project.toml")
-    assert cfg.geographic.dem_init_path is None
+    assert cfg.geographic.catch_def == "from_outlet_coord"
     cfg.geographic = river_network_for_the_mesh(cfg)
-    assert cfg.geographic.dem_init_path is None
+    assert cfg.geographic.catch_def == "from_outlet_coord"
 
 
 @pytest.mark.parametrize(
@@ -57,11 +56,11 @@ def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():
         pytest.param({}, r"Add a \[geographic.catchment\] table", id="no-table"),
         pytest.param(
             {"catchment": {"kind": "dem"}},
-            "requires 'dem_init_path'",
+            r"requires a \[\[data.dem.sources\]\] entry",
             id="dem-shape-without-its-dem",
         ),
         pytest.param(
-            {"catchment": {"kind": "from_outlet_coord", "dem_init_path": "d.tif"}},
+            {"catchment": {"kind": "from_outlet_coord"}},
             "from_outlet_coord",
             id="outlet-without-its-coordinates",
         ),
@@ -101,8 +100,8 @@ def test_a_buffer_percentage_keeps_its_sign_and_a_bare_number_stays_a_number() -
     assert (_buffer_of("2%"), _buffer_of("2.5%"), _buffer_of(2.0)) == ("2%", "2.5%", 2.0)
 
 
-def test_a_polygon_catchment_is_built_from_its_shapefile_and_its_dem() -> None:
-    config = GeographicConfig.from_polygon("catchment.shp", dem="dem.tif", crs_project="EPSG:2154")
+def test_a_polygon_catchment_is_built_from_its_shapefile() -> None:
+    config = GeographicConfig.from_polygon("catchment.shp", crs_project="EPSG:2154")
     assert config.catch_def == "from_polyg_shp"
     assert str(config.polyg_shp_path) == "catchment.shp"
     assert config.cell_size is None

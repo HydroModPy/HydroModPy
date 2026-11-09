@@ -256,8 +256,8 @@ sibling `unit` key where the table has one. The table gives the unit by section.
 | a flux boundary forcing in `[flow.bc]` | m/s |
 | `[flow.param.<id>.field]` value | the unit of the name (`K` in m/s, `Ss` in 1/m, `Sy` without unit), or its `unit` key |
 | `[solver]` depths and thicknesses (`drain_band_depth_m`, `drain_bed_thickness_m`) | meters |
-| `[transport.modflow6prt.parameters]` times | days |
-| `[transport.modflow6gwt]` and `[transport.mt3dms]` rates and diffusion | seconds, the clock of the two solvers |
+| `[transport.modflow6_prt]` times | days |
+| `[transport.modflow6]` and `[transport.mt3dms]` rates and diffusion | seconds, the clock of the two solvers |
 | `[simulation.time]` `step_value` | the `step_unit` beside it |
 | `[calibration.parameters]` bounds | the unit the target declares |
 

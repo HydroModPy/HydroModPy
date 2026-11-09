@@ -109,7 +109,11 @@ def _experimental_keys(value: Any, path: str) -> Iterator[str]:
                     yield f'{key} = "{item}"'
             yield from _experimental_keys(held, key)
         for name, table in written_tables_of(value).items():
-            yield from _experimental_keys(table, f"{path}.{name}" if path else name)
+            key = f"{path}.{name}" if path else name
+            if getattr(type(table), "stability", None) == "experimental":
+                yield key
+                continue
+            yield from _experimental_keys(table, key)
     elif isinstance(value, Mapping):
         for name, item in value.items():
             yield from _experimental_keys(item, f"{path}.{name}")

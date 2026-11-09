@@ -39,7 +39,7 @@ def _write_raster(path: Path, data: np.ndarray, *, west: float, north: float) ->
         dst.write(data.astype("float32"), 1)
     record = FieldRecord(
         variable="soil_capacity",
-        source="custom",
+        source="file",
         unit="mm",
         data=path,
         bbox=_BBOX,

@@ -249,6 +249,24 @@ def release_flux_stack(budget: Any, *, n_cells: int, start: int, stop: int) -> n
     return release
 
 
+def first_finite_layer(head: np.ndarray) -> np.ndarray:
+    """Head of the uppermost layer that is finite, per step and cell; NaN when none is.
+
+    A dry or inactive cell carries a sentinel the solver wrote, and the water
+    table of a column is the head of the first layer from the top that holds a
+    finite value. A one-layer, ``(time, n_cells)`` head is returned as it is.
+    Read by the watertable of the run store and by MODPATH, which takes the
+    water table the same rule gives the store.
+    """
+    if head.ndim == 2:
+        return np.asarray(head, dtype="float64")
+    wt = np.where(np.isfinite(head[:, 0]), head[:, 0], np.nan)
+    for layer in range(1, head.shape[1]):
+        below = head[:, layer]
+        wt = np.where(np.isnan(wt) & np.isfinite(below), below, wt)
+    return wt.astype("float64", copy=False)
+
+
 def seepage_mask(
     *,
     watertable: Any | None = None,
@@ -367,6 +385,7 @@ __all__ = [
     "drain_band_depth",
     "drain_stack_with_mover",
     "find_drain_budget_key",
+    "first_finite_layer",
     "has_release_budget",
     "release_flux_stack",
     "seepage_mask",

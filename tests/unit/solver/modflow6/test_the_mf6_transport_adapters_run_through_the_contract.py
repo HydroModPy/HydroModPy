@@ -1,10 +1,12 @@
 """The MODFLOW 6 transport adapters, GWT and PRT, answer the members of the contract.
 
-A transport run follows a flow run. It builds beside the flow model, in the folder
-the slot gives and under the name of the flow model. It reads its setup and its
-upstream run on the run context until the transport port takes the ``Model``.
-``run`` writes the input files unless they are written, and a solve that fails
-names the run by its slot. A transport serves no calibration observable.
+A transport run follows one flow run of its own family. Its ``build`` takes the
+``Model`` of that flow, its options, the slot of the flow and the ``SolverRun``
+of the flow, and reads nothing of the setup, the configuration or the run
+store. It works in the folder the flow solved in, under the name of its model
+plus the constant suffix of the transport. ``run`` writes the input files
+unless they are written, and a solve that fails names the run by its slot. A
+transport serves no calibration observable.
 """
 
 from __future__ import annotations
@@ -16,38 +18,33 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.core.exceptions import SolverDivergedError
-from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.solver.base.adapter_protocol import RERUN_MEMBERS, solver_members
-from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
+from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.registry import extractors
-from hydromodpy.solver.modflow6.adapters import prt, transport
+from hydromodpy.solver.modflow6 import prt, transport
 from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
-FLOW = ProcessRun(
-    id="flow_main::modflow6", process_id="flow_main", process_type="flow", solver="modflow6"
-)
 
-
-class _Transport:
+class _Engine:
     """Stands for ``Modflow6Transport`` and ``Modflow6Prt``: records how it is built and driven."""
 
-    instances: list[_Transport] = []
+    instances: list[_Engine] = []
     success = True
 
-    def __init__(self, domain, setup_transport, flow_model, **kwargs: Any) -> None:
-        self.args = (domain, setup_transport, flow_model)
+    def __init__(self, model: Any, flow_model: Any, **kwargs: Any) -> None:
+        self.args = (model, flow_model)
         self.kwargs = kwargs
         self.full_path = str(Path(kwargs["model_folder"]) / kwargs["model_name"])
         self.calls: list[tuple] = []
-        type(self).instances.append(self)
+        _Engine.instances.append(self)
 
     def pre_processing(self) -> None:
         self.calls.append(("pre",))
 
     def processing(self, **kwargs: Any) -> bool:
         self.calls.append(("run", kwargs))
-        return type(self).success
+        return _Engine.success
 
 
 ADAPTERS = {
@@ -58,28 +55,18 @@ ADAPTERS = {
 
 @pytest.fixture(params=sorted(ADAPTERS))
 def adapter(request, monkeypatch):
-    """The adapter of one transport, with its solver class replaced by ``_Transport``."""
+    """The adapter of one transport, with its engine class replaced by ``_Engine``."""
     adapter_cls, module, solver_class, _ = ADAPTERS[request.param]
-    _Transport.instances = []
-    _Transport.success = True
-    monkeypatch.setattr(module, solver_class, _Transport)
+    _Engine.instances = []
+    _Engine.success = True
+    monkeypatch.setattr(module, solver_class, _Engine)
     return adapter_cls()
 
 
-def _context(adapter, tmp_path: Path) -> RunContext:
-    run = ProcessRun(
-        id=f"transport_main::{adapter.name}",
-        process_id="transport_main",
-        process_type="transport",
-        solver=adapter.name,
-        depends_on=(FLOW.id,),
-    )
-    plan = SimulationPlan(name="demo", description="demo", runs=(FLOW, run))
+def _upstream(tmp_path: Path) -> SolverRun:
+    """The solved flow run a transport of this plan follows."""
     flow_model = SimpleNamespace(model_name="island", full_path=str(tmp_path / "island"))
-    upstream = solved_run(tmp_path / "island", solver_model=flow_model)
-    setup = SimpleNamespace(domain="DOMAIN", transport="TRANSPORT")
-    state = RunState(cfg=SimpleNamespace(), setup=setup)
-    return RunContext(plan=plan, run=run, state=state, upstream=(upstream,))
+    return solved_run(tmp_path / "island", model=object(), solver_model=flow_model)
 
 
 def test_the_adapter_carries_the_members_of_the_contract(adapter) -> None:
@@ -90,61 +77,72 @@ def test_the_adapter_carries_the_members_of_the_contract(adapter) -> None:
     assert adapter.mutable == frozenset()
 
 
-def test_a_build_sits_beside_the_flow_model_in_the_folder_of_the_slot(
+def test_a_build_sits_beside_the_flow_model_in_the_folder_of_the_flow(
     adapter, tmp_path: Path
 ) -> None:
     slot = RunSlot(tmp_path, "island_t1")
     model = object()
-    ctx = _context(adapter, tmp_path)
+    followed = _upstream(tmp_path)
 
-    built = adapter.build(model, adapter.options(), slot, ctx)
+    built = adapter.build(model, adapter.options(), slot, (followed,))
 
-    (solver,) = _Transport.instances
-    assert solver.args[:2] == ("DOMAIN", "TRANSPORT")
-    assert solver.args[2] is ctx.upstream[0].solver_model
-    assert solver.kwargs["model_folder"] == tmp_path
-    assert solver.kwargs["model_name"] == "island", "the transport reads the files of its flow"
+    (solver,) = _Engine.instances
+    assert solver.args == (followed.model, followed.solver_model)
+    assert solver.kwargs["model_folder"] == str(followed.slot.folder)
+    assert solver.kwargs["model_name"] == "island"
     assert solver.calls == [("pre",)]
-    assert built.solver_model is solver and built.model is model and built.slot is slot
-    assert (built.written, built.solved, built.output_dir) == (False, False, None)
+    assert built.solver_model is solver
+    assert built.model is model and built.slot is slot and built.options is not None
+    assert (built.written, built.solved) == (False, False)
 
 
 def test_a_build_names_its_output_by_the_kind_of_transport(adapter, tmp_path: Path) -> None:
     suffix = next(entry[3] for entry in ADAPTERS.values() if isinstance(adapter, entry[0]))
 
-    adapter.build(object(), None, RunSlot(tmp_path, "island"), _context(adapter, tmp_path))
+    adapter.build(object(), None, RunSlot(tmp_path, "island"), (_upstream(tmp_path),))
 
-    assert _Transport.instances[0].kwargs["suffix_name"].startswith(suffix)
+    (solver,) = _Engine.instances
+    assert solver.kwargs["suffix_name"] == suffix
+
+
+def test_a_build_refuses_a_flow_run_without_its_solver_object(adapter, tmp_path: Path) -> None:
+    stripped = replace(_upstream(tmp_path), solver_model=None)
+
+    with pytest.raises(SolverInputError) as raised:
+        adapter.build(object(), None, RunSlot(tmp_path, "island"), (stripped,))
+
+    assert f"Transport '{adapter.name}' follows a flow run whose model is missing" in str(
+        raised.value
+    )
 
 
 def test_a_run_writes_the_input_files_and_solves(adapter, tmp_path: Path) -> None:
-    built = adapter.build(object(), None, RunSlot(tmp_path, "island"), _context(adapter, tmp_path))
+    followed = _upstream(tmp_path)
+    built = adapter.build(object(), None, followed.slot, (followed,))
 
     solved = adapter.run(built)
 
-    (solver,) = _Transport.instances
-    (_, options) = solver.calls[-1]
+    (_, options) = built.solver_model.calls[-1]
     assert options["write_model"] is True and options["run_model"] is True
     assert solved.output_dir == tmp_path / "island"
     assert (solved.written, solved.solved) == (True, True)
-    assert solved.solver_model is solver
+    assert solved.solver_model is built.solver_model
 
 
 def test_a_run_whose_files_are_written_does_not_write_them_again(adapter, tmp_path: Path) -> None:
-    built = adapter.build(object(), None, RunSlot(tmp_path, "island"), _context(adapter, tmp_path))
+    built = adapter.build(object(), None, RunSlot(tmp_path, "island"), (_upstream(tmp_path),))
 
     adapter.run(replace(built, written=True))
 
-    assert _Transport.instances[0].calls[-1][1]["write_model"] is False
+    assert built.solver_model.calls[-1][1]["write_model"] is False
 
 
 def test_a_failed_solve_names_the_transport_and_the_run_by_its_slot(
     adapter, tmp_path: Path
 ) -> None:
-    built = adapter.build(
-        object(), None, RunSlot(tmp_path, "island_t1"), _context(adapter, tmp_path)
-    )
-    _Transport.success = False
+    followed = _upstream(tmp_path)
+    built = adapter.build(object(), None, RunSlot(tmp_path, "island_t1"), (followed,))
+    _Engine.success = False
 
     with pytest.raises(SolverDivergedError) as raised:
         adapter.run(built)

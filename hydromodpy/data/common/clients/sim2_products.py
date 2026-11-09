@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.core.io.fetch import HTTPClient, open_client
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -130,6 +131,7 @@ def fetch_sim2(
     components: Sequence[str] | None = None,
     bbox: tuple[float, float, float, float] | None = None,
     project_period: tuple[datetime, datetime] | None = None,
+    client: HTTPClient,
 ) -> list[FieldRecord]:
     """Download one SIM2 product over ``bbox`` (EPSG:2154) and ``project_period``.
 
@@ -151,13 +153,14 @@ def fetch_sim2(
     # (y, x, t) that do not match its flat value ordering, which silently
     # scrambles time with space and destroys the seasonal cycle. The NetCDF
     # response carries the dimensions explicitly so xarray decodes it correctly.
-    client = Sim2EDRClient(
+    edr_client = Sim2EDRClient(
         bbox=bbox,
         crs=SIM2_CRS,
         date_range=_date_range(project_period),
         output_format="Netcdf4",
+        http_client=client,
     )
-    ds = client.fetch_cube(parameters=parameters)
+    ds = edr_client.fetch_cube(parameters=parameters)
 
     records: list[FieldRecord] = []
     for member in selected:
@@ -220,12 +223,14 @@ class Sim2Source:
         require_selectors(self, request)
         period = require_period(self, request)
         extent = extent_for(self, request)
-        records = fetch_sim2(
-            self.section,
-            components=self.components,
-            bbox=extent.bbox,
-            project_period=period.as_tuple if period is not None else None,
-        )
+        with open_client(request.bounds) as client:
+            records = fetch_sim2(
+                self.section,
+                components=self.components,
+                bbox=extent.bbox,
+                project_period=period.as_tuple if period is not None else None,
+                client=client,
+            )
         require_declared_variables(self, [r.variable for r in records])
         return FetchResult(
             source_id=self.source_id,

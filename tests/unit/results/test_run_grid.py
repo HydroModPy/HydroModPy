@@ -40,6 +40,7 @@ def _register_sim(
     n_timesteps: int | None = None,
     period_start: str | None = None,
     period_end: str | None = None,
+    **facts: object,
 ) -> str:
     sid = runs.open(
         project="grid_test",
@@ -49,6 +50,7 @@ def _register_sim(
         n_timesteps=n_timesteps,
         period_start=_utc(period_start),
         period_end=_utc(period_end),
+        **facts,
     ).sim_id
     if with_metadata:
         meta = {
@@ -107,13 +109,25 @@ class TestGrid:
         run = Run(sid, runs.reader())
         assert run.grid is run.grid
 
-    def test_grid_raises_on_lumped(self, runs):
-        sid = runs.open(
-            project="grid_test", solver="gr4j", solver_category="lumped", n_cells=1, n_layers=1
-        ).sim_id
+    def test_grid_answers_for_a_global_model(self, runs):
+        """A global model runs on the one-cell mesh: its grid is the one pixel."""
+        sid = _register_sim(
+            runs,
+            mesh_topology="lumped",
+            nrow=1,
+            ncol=1,
+            dem_res=250.0,
+            xmin=300_000.0,
+            ymax=6_800_000.0,
+            solver="linear_reservoir",
+            solver_category="lumped",
+        )
         run = Run(sid, runs.reader())
-        with pytest.raises(RuntimeError, match="lumped simulation has no spatial grid"):
-            _ = run.grid
+        grid = run.grid
+
+        assert grid.shape == (1, 1)
+        assert grid.cell_size == 250.0
+        assert grid.catchment_area_m2 == 12.5 * 1e6
 
     def test_grid_raises_on_missing_metadata(self, runs):
         sid = _register_sim(runs, with_metadata=False)

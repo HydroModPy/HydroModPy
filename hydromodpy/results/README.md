@@ -29,7 +29,7 @@ layout is `storage/contract.py`; the full contract is
 |---|---|
 | `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`, the UDUNITS spelling of its units in `udunits.py`), the seal (`sealing.py`), the soil columns and `soil_budget` rows of a soil run (`soil_tables.py`), the attempt protocol (`attempt.py`, `run_log.py`), the emptying of the solver scratch (`scratch.py`), digests, licence and geographic facts, layout diagnostics (`README.md`) |
 | `zarr_store/` | the per-run Zarr 3 array store `SimulationZarr`: each write is a function of `zarr_writer.py` and each read one of `zarr_reader.py`, bound on the class as its methods; the schema, the write lock, ACDD and CF metadata, chunk and shard sizes (`README.md`) |
-| `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata |
+| `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata. A series a backend declares in `writes` carries the shape `time`, one value per period of the time grid, written at the station `catchment` for the whole catchment |
 | `manifest.py`, `annotations.py`, `trash.py`, `retention.py` | the on-disk side of the rule: the seal, the human sidecars (`annotations.json`), the trash by move, its tombstones and `remove_for_good` (`trash.py`), and what `hmp catalog gc` collects, read from the tree alone (`retention.py`) |
 | `record.py` | `RunRecord`: the seal built in memory by the run and written by it, `simulation.parquet`, `parameters.parquet`, `provenance.json`, `inputs.json`, then `manifest.json` last and durable; never opens the index |
 | `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse) |
@@ -146,8 +146,10 @@ hydromodpy/results/
    reads every `runs/<name>/`, `sessions/<name>/` and kept trial into a
    staging file, computes the label of each sealed run with the rules and
    the known issues of this build, and publishes the file in one rename.
-   `cases` lists every directory with its effective status, `simulations`
-   the sealed runs, `sites` the sites they name.
+   The index keeps no seed of its own: the solver category of a run comes
+   from its manifest, `unknown` when the manifest predates it. `cases` lists
+   every directory with its effective status, `simulations` the sealed runs,
+   `sites` the sites they name.
 
 ## Where to add what
 

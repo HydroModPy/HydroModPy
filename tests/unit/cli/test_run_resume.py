@@ -28,6 +28,9 @@ def _args(**kw) -> argparse.Namespace:
         "no_display": True,
         "no_parallel": False,
         "dry_run": True,
+        "credentials": None,
+        "allow_host": [],
+        "max_download_bytes": None,
     }
     base.update(kw)
     return argparse.Namespace(**base)
@@ -50,7 +53,7 @@ def test_resume_from_ref_replays_the_frozen_run_config(tmp_path, monkeypatch):
 
     calls: dict = {}
 
-    def _fake_run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
+    def _fake_run_toml(config_path: Path, *, args: argparse.Namespace, **_: object) -> None:
         calls["config_path"] = config_path
         calls["resume"] = args.resume
 
@@ -76,7 +79,7 @@ def test_a_bare_name_resumes_its_latest_version_and_a_versioned_name_that_one(
     monkeypatch.setattr(
         run_cmd,
         "_run_toml",
-        lambda config_path, *, args: calls.append((config_path, args.resume)),
+        lambda config_path, *, args, **_: calls.append((config_path, args.resume)),
     )
     monkeypatch.chdir(workspace)
 
@@ -147,7 +150,7 @@ def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, mon
 
     run_cmd._run_toml(config, args=_args(resume="", dry_run=False, verbosity="quiet"))
 
-    assert len(calls) == 1 and calls[0][1] == {"resume": True}
+    assert len(calls) == 1 and calls[0][1] == {"resume": True, "environment": None}
 
     with pytest.raises(SystemExit) as exit_info:
         run_cmd._run_toml(config, args=_args(resume="other", dry_run=False))

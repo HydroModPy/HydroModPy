@@ -9,7 +9,7 @@ low-level primitives; nothing here knows a hydrogeological rule.
 2. `canonical_json.py` writes deterministic JSON (`json_dumps`, `json_loads`), and `document_version.py` is the version rule of every stored document: a reader refuses a version it does not know and says so.
 3. `raster_io.py`, `vector_io.py`, `geoparquet.py` and `parquet.py` load and write rasters, vectors, GeoParquet 1.1 and plain Parquet with the canonical options.
 4. `crs.py` and `proj_bootstrap.py` hold the CRS helpers and the opt-in PROJ database setup.
-5. `http_client.py` is the one `HTTPClient` of the data sources, and `pinned_download.py` fetches a file whose sha256 is written in the package and refuses other bytes.
+5. `fetch.py` is the single download module. It creates an `HTTPClient` per call with its `Bounds`, resolves final redirect targets manually, caps bytes at 2 GiB by default, refuses private addresses unless allowed by name, and verifies pinned sha256 digests. It also exposes `vsicurl_path` for GDAL.
 6. `db_retry.py` is the single open point of every DuckDB file, with its lock retry.
 
 ## What other layers import from it

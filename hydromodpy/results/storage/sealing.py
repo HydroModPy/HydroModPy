@@ -245,7 +245,7 @@ def loaded_and_declared_inputs(facts: RunFacts, data_root: Path | None) -> list[
         inputs.append(
             InputEntry(
                 variable=tracked.role,
-                provider=sidecar_source(located) or "custom",
+                provider=sidecar_source(located) or "file",
                 path=tracked.path,
                 sha256=tracked.sha256,
                 bytes=tracked.bytes,

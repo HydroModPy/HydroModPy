@@ -40,7 +40,7 @@ class TestRegister:
 
     def test_list_entries(self, catalog, dummy_file):
         catalog.register(variable="hydrometry", source="hubeau", file_path=dummy_file)
-        catalog.register(variable="piezometry", source="custom", file_path=dummy_file)
+        catalog.register(variable="piezometry", source="file", file_path=dummy_file)
 
         df = catalog.list_entries()
         assert len(df) == 2
@@ -51,7 +51,7 @@ class TestRegister:
     def test_source_unit_roundtrip(self, catalog, dummy_file):
         catalog.register(
             variable="hydrometry",
-            source="custom",
+            source="file",
             file_path=dummy_file,
             station_id="ST001",
             unit="m3/s",
@@ -60,7 +60,7 @@ class TestRegister:
 
         entry = catalog.find_cached(
             variable="hydrometry",
-            source="custom",
+            source="file",
             station_id="ST001",
         )
         assert entry is not None
@@ -185,7 +185,7 @@ class TestCleanup:
     def test_cleanup_skips_custom_sentinel(self, catalog):
         catalog.register(
             variable="hydrometry",
-            source="custom",
+            source="file",
             file_path="custom",
             station_id="C",
             is_custom=True,
@@ -397,14 +397,14 @@ class TestEdgeCases:
     def test_cleanup_preserves_sentinel_entries(self, catalog):
         catalog.register(
             variable="hydrometry",
-            source="custom",
+            source="file",
             file_path="custom",
             station_id="CUSTOM01",
             is_custom=True,
         )
         catalog.register(
             variable="piezometry",
-            source="custom",
+            source="file",
             file_path="empty",
             station_id="EMPTY01",
             is_custom=True,
@@ -760,7 +760,7 @@ class TestCatalogHydrography:
         cat = DataCatalog(db_path=None)
         cat.register(
             variable="hydrography",
-            source="custom",
+            source="file",
             file_path="/tmp/a.shp",
             is_custom=True,
             file_mtime=0.0,

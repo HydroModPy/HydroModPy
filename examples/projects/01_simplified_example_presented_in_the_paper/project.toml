@@ -32,7 +32,6 @@ crs_project = "EPSG:2154"
 
 [geographic.catchment]
 kind = "from_outlet_coord"
-dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
@@ -58,8 +57,8 @@ lay_decay = 1.5
 types = ["dem", "recharge"]
 
 [[data.dem.sources]]
-source = "custom"
-path = "DEM_armorican_massif.tif"
+source = "file"
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 # 350 mm/year over the catchment.
 [[data.recharge.sources]]
