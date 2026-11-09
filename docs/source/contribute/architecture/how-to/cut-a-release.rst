@@ -66,15 +66,21 @@ The checklist
    the section of the tag and ends it at the next ``## [`` heading, so the section
    must exist and must not be the last one of the file.
 5. **Read the numbers section.** Each entry names the quantity and the size of the
-   change, and has its entry in ``hydromodpy/results/known_issues.toml``, under the
-   rule of `Changing a number`_. A pin moved since the last tag has its entry too,
-   under the rule of `Moving a pinned binary`_.
+   change, and has its row in ``hydromodpy/schema/changes.toml``, under the rule of
+   `Changing a number`_. The bullets come from that file: run
+   ``python -m tools.changes_changelog`` and it prints the difference when the block
+   between ``<!-- numbers:begin -->`` and ``<!-- numbers:end -->`` is out of date.
+   ``python -m tools.changes_changelog --write`` writes it. A pin moved since the last
+   tag has its row too, under the rule of `Moving a pinned binary`_.
 6. **Review the surface snapshots.** Read what changed since the last tag:
    ``git diff vX.Y.Z -- tests/unit/architecture/surface/``. Each removed or renamed
    line must be in the changelog with both names, and each TOML key it removes must
-   be in ``removed_toml_keys.tsv``, with its rewrite in
-   ``hydromodpy/config/config_migration.py``. A form past its delay fails
-   ``tests/unit/config/test_config_migration.py``, so remove it now.
+   be in ``removed_toml_keys.tsv``, with its ``[[migration]]`` row in
+   ``hydromodpy/schema/changes.toml``. The row stays in the register after its delay,
+   because a live file is then refused with the new name and a sealed run still reads
+   it, so it is never removed. What does go is a name of ``_lazy.py`` or
+   ``conventions.py`` past its delay, which ``tests/unit/architecture`` names, and the
+   list ``hydromodpy/config/prerelease_forms.txt``, which goes in 2.3.0.
 7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
    tag of the installed version and checks them against ``catalog.toml``. Run
    ``python -m tools.dev examples manifest`` and commit the result, or every download of the
@@ -99,6 +105,13 @@ The checklist
 12. **Merge back.** After a final release, merge the release branch into ``main``
     and ``dev``. After a maintenance release, merge the fix forward into ``dev`` if
     the bug is still there.
+13. **Open the next version on dev.** Set ``pyproject.toml`` and
+    ``_FALLBACK_VERSION`` of ``dev`` to the next minor version with ``.dev0``, for
+    example ``2.1.0.dev0`` after ``v2.0.0``. A run seals the version it was made with,
+    and a ``[[bug]]`` row covers the released versions, ``versions = "<2.1.0"``. A
+    run of ``dev`` that still said ``2.0.0`` would carry for good a bug that ``dev``
+    has fixed. ``tests/unit/architecture/test_changes_register.py`` fails when a row
+    covers the version of the tree.
 
 Changing a number
 -----------------
@@ -107,9 +120,12 @@ A fix that moves a number of a run is allowed in a minor version and in a patch 
 the old number was wrong. It carries three things in the commit that makes it:
 
 - an entry under ``Numbers`` in ``CHANGELOG.md``, with the quantity and the size of
-  the change, measured before and after;
-- an ``[[issue]]`` in ``hydromodpy/results/known_issues.toml``, with the versions it
-  touches, so that a run stored before the fix reads as ``exploratory``;
+  the change, measured before and after. It is the ``text`` of the row below, and
+  ``python -m tools.changes_changelog --write`` copies it;
+- a ``[[bug]]`` row in ``hydromodpy/schema/changes.toml``, with the versions it
+  touches and the quantities it changes, so that a run stored before the fix reads as
+  ``exploratory``. A rule or a default that moves a number without a bug is a
+  ``[[recipe]]`` of effect ``numbers`` or a ``[[default]]`` row instead;
 - the goldens it moves, under the rule of ``tests/regression/README.md``.
 
 Moving a default is another thing: see the Defaults section of :doc:`/about/versions`.
@@ -156,7 +172,7 @@ change. It goes through these steps, in the commit that moves the pin:
 3. Write the entry under ``Numbers`` in ``CHANGELOG.md``, with the old and new
    release and the size of the change, measured before and after. If nothing moved,
    the entry says that and names what was run. If a number moved, this is
-   `Changing a number`_, with its ``[[issue]]`` in ``known_issues.toml``.
+   `Changing a number`_, with its row in ``hydromodpy/schema/changes.toml``.
 
 A digest that changes while the tag stays is a new release too: the asset was
 replaced upstream, so the same steps apply. An existing cache is never refreshed by

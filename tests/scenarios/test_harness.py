@@ -27,11 +27,11 @@ pytestmark = pytest.mark.fast
 # Digests of the five islands, as the reference projects wrote them. A change of
 # a project text changes its digest, so this table is edited with the text.
 ISLAND_DIGESTS = {
-    "gwt": "564d23dabf206abbe4a5d786cd3ef5521968122877c1ead2a8323f586a8fe252",
-    "nwt": "d93022dea0dacf8c57f1838d15f321f7b1950303127bb47ad02185c0baae4c63",
-    "boussinesq": "c0fd06b0f86b1bdf39064ae0348afd6efaa5bbdd00c816d8320c088f74deb1ae",
-    "spinup": "b3af4af7302006e817dd40a458fdd92c9e6d605ef805325a4a2cb81cbb7beb07",
-    "calage": "9967c5f156d6f803522c07b2095966eabe21c254f9aeb22892aac38a1d6886e4",
+    "gwt": "85a6c50d5a525986326544ec26114fdb5697b0fb3478919123479d58bf342e80",
+    "nwt": "a217aa5ca3408dfa1484dfbb3836582df68b153647d1d0af31702e2bbda8302d",
+    "boussinesq": "b8b8ea245c619d8bd9caf3a7670abda9e1eebc80ed6cc2b707942b8dd9b173b3",
+    "spinup": "670b1e536a888265bb674c5a0adb9d2e913698479722740c46168d46a299fb89",
+    "calage": "adfabb52dccea078761acab5ea53b6120aaba88a235c976d8b6b699071f54fb5",
 }
 
 

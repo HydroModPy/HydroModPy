@@ -14,7 +14,8 @@ those data files.
 | Python API and command line (`reference/python/`, `reference/cli/`) | `hydromodpy.__all__`, the signatures, the docstrings and the `argparse` parser | `tools/docs/api_registry.py`, then `_ext/hmp_api.py` |
 | Catalogs of solvers, figures and data sources | the registries of the code | `tools/docs/catalogs.py`, then `_ext/hmp_catalogs.py` |
 | Validation page and "Checked by" boxes | `tests/` and `validation_cases/` | `tools/docs/tests_index.py`, then `_ext/hmp_validation.py` |
-| TOML changes since the last release | the field snapshot of the release under `tools/docs/snapshots/`, the current registry and the tables the loader moves (`MOVED_TABLES` of `hydromodpy/config/config_migration.py`) | `tools/docs/toml_changelog.py` |
+| TOML changes since the last release | the field snapshot of each release under `tools/docs/snapshots/` (the last is `fields-2.0.0.json`), the current registry, the `move` rows of the register of changes and `hydromodpy/config/prerelease_forms.txt` | `tools/docs/toml_changelog.py` and `tools/docs/legacy_keys.py` |
+| Register of changes (`reference/changes-register`) | `hydromodpy/schema/changes.toml` | `_ext/hmp_changes_register.py` |
 | Layer matrix | `tests/unit/architecture/layer_matrix.yaml` | `tools/doc_contracts.py` |
 | JSON Schema of the configuration | `HydroModPyConfig` | `tools/docs/schema_export.py` |
 
@@ -26,11 +27,21 @@ written pages. The layer matrix fragment is committed: a build rewrites it, and
 CI fails if the committed copy is stale
 (`HMP_SKIP_CONTRACT_TABLES_GEN=1` skips that step).
 
-A table that the loader moves, such as `modflow6.sgrid.vertical` to `domain.layers`, appears
-under Renamed on the changes page, with the note that it still loads. The loader and the page read
-the same list, `MOVED_TABLES`, so they cannot disagree. A new move is declared there once, as a
-`TableMove(old, new)`. The keys of the moved table keep their names, so the page compares them
-from one release to the next, and a change of default, profile or unit shows under Changed.
+A key or a table that the loader moves, such as `modflow6` to `solver.modflow6`, appears under
+Renamed on the changes page, with the note that it still loads. The loader and the page read the
+same rows, the `[[migration]]` rows of `hydromodpy/schema/changes.toml`, so they cannot disagree.
+A new move is one row there. The keys of the moved table keep their names, so the page compares
+them from one release to the next, and a change of default, profile or unit shows under Changed.
+A key that only a pre-release wrote shows under Renamed or Removed with the note that 2.1.0
+refuses it and that the doctor of a 2.0.x release rewrites the file. The page reads that list from
+`hydromodpy/config/prerelease_forms.txt`.
+
+The page `reference/changes-register` lists every row of the register, one table per kind, with
+no prose written by hand. It is the place to look up why a number moved, what an edition holds
+and which key a version moved.
+
+A new release adds its snapshot: run `python -m tools.docs.snapshot vX.Y.Z` on the tag, and
+commit the file `fields-X.Y.Z.json`.
 
 ## The local extensions
 
@@ -42,6 +53,7 @@ They live in `docs/source/_ext/` and are listed in `conf.py`.
 | `hmp_tview` | The annotated TOML view of each section. |
 | `hmp_api` | The Python API and command-line pages, rendered with autodoc and napoleon. |
 | `hmp_catalogs` | The solver, figure and data source catalogs. |
+| `hmp_changes_register` | The tables of the register of changes, one directive for each kind of row. |
 | `hmp_validation` | The validation page and the "Checked by" boxes. |
 | `hmp_card` | The text rendering of one parameter card. |
 | `hmp_directives` | The `image-comparison` slider, and optional page-view analytics. |

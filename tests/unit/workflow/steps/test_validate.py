@@ -9,20 +9,22 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.export_checks import check_export_variables, check_time_selectors
+from hydromodpy.config.cross_checks import refuse_an_export_that_cannot_be_written
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.validate import ValidateStep
 
 # --- test_export_and_time_are_checked_before_the_solve ---
-# Step 0 refuses an export or a date the run cannot honor, naming the line.
+# Loading the file refuses an export or a date the run cannot honor, naming the
+# line, so step 0 never meets one.
 #
-# ``check_export_variables`` reads every ``[[export]]`` name against what a run
-# can export and plans each block with the kind of each name.
-# ``check_time_selectors`` reads every date of ``[[export]]`` and ``[display]``
-# against the stress periods ``[simulation.time]`` resolves to. A date takes the
-# period that holds it, so one date is right on a monthly and on a daily grid.
+# ``refuse_an_export_that_cannot_be_written`` reads every ``[[export]]`` name
+# against what a run can export and plans each block with the kind of each name.
+# ``refuse_a_time_the_run_does_not_hold`` reads every date of ``[[export]]`` and
+# ``[display]`` against the stress periods ``[simulation.time]`` resolves to. A
+# date takes the period that holds it, so one date is right on a monthly and on
+# a daily grid.
 
 _HEAD = """\
 [workspace]
@@ -96,77 +98,67 @@ class TestDates:
             grid=grid,
         )
 
-        check_time_selectors(cfg)
+        assert len(cfg.export) == 2
 
     @pytest.mark.parametrize("grid", [MONTHLY, DAILY], ids=["monthly", "daily"])
     def test_a_date_outside_the_record_names_its_block(self, tmp_path: Path, grid: str) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = "head"\n'
-            'time = "2003-06-01"\n',
-            grid=grid,
-        )
-
         with pytest.raises(ConfigError, match=r"export\[1\]\.time: 2003-06-01 is outside") as err:
-            check_time_selectors(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = "head"\n'
+                'time = "2003-06-01"\n',
+                grid=grid,
+            )
         assert "2000-01-01 to 2003-01-01" in str(err.value)
 
     def test_two_dates_on_one_period_are_refused_before_the_solve(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\ntime = ["2000-01-10", "2000-02-01"]\n',
-            grid=MONTHLY,
-        )
-
         with pytest.raises(ConfigError, match=r"export\[0\]\.time: '2000-01-10' and '2000-02-01'"):
-            check_time_selectors(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "head"\ntime = ["2000-01-10", "2000-02-01"]\n',
+                grid=MONTHLY,
+            )
 
     def test_a_period_outside_the_record(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "discharge"\nperiod = ["1990-01-01", "1995-12-31"]\n',
-            grid=MONTHLY,
-        )
-
         with pytest.raises(ConfigError, match=r"export\[0\]\.period"):
-            check_time_selectors(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "discharge"\nperiod = ["1990-01-01", "1995-12-31"]\n',
+                grid=MONTHLY,
+            )
 
     def test_a_step_index_counts_the_periods_of_the_grid(self, tmp_path: Path) -> None:
         body = '[[export]]\nvariables = "head"\ntime = 1018\n'
-        check_time_selectors(_load(tmp_path, body, grid=DAILY))
+        _load(tmp_path, body, grid=DAILY)
 
         with pytest.raises(ConfigError, match=r"export\[0\]\.time: period index 1018"):
-            check_time_selectors(_load(tmp_path, body, grid=MONTHLY))
+            _load(tmp_path, body, grid=MONTHLY)
 
     def test_the_display_time_and_a_figure_time_are_read(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            """\
-            [display]
-            time = "1999-12-31"
-
-            [display.overrides.seepage_map]
-            time = "2004-01-01"
-            """,
-            grid=MONTHLY,
-        )
-
         with pytest.raises(ConfigError) as err:
-            check_time_selectors(cfg)
+            _load(
+                tmp_path,
+                """\
+                [display]
+                time = "1999-12-31"
+
+                [display.overrides.seepage_map]
+                time = "2004-01-01"
+                """,
+                grid=MONTHLY,
+            )
         message = str(err.value)
         assert "display.time: 1999-12-31 is outside" in message
         assert "display.overrides.seepage_map.time: 2004-01-01 is outside" in message
 
     def test_a_steady_run_without_a_window_has_no_dates(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\ntime = "last"\n\n'
-            '[[export]]\nvariables = "head"\ntime = "2002-10-15"\n',
-            grid=_STEADY,
-        )
-
         with pytest.raises(ConfigError, match=r'export\[1\]\.time: .*no dates; write "last"'):
-            check_time_selectors(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "head"\ntime = "last"\n\n'
+                '[[export]]\nvariables = "head"\ntime = "2002-10-15"\n',
+                grid=_STEADY,
+            )
 
 
 class TestNames:
@@ -194,19 +186,17 @@ class TestNames:
             grid=MONTHLY,
         )
 
-        check_export_variables(cfg)
+        assert len(cfg.export) == 5
 
     def test_an_unknown_name_names_its_block_and_prints_the_vocabulary(
         self, tmp_path: Path
     ) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = ["hed"]\n',
-            grid=MONTHLY,
-        )
-
         with pytest.raises(ConfigError) as err:
-            check_export_variables(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = ["hed"]\n',
+                grid=MONTHLY,
+            )
         message = str(err.value)
         assert "export[1]: 'hed'" in message
         assert "fields: " in message
@@ -214,54 +204,46 @@ class TestNames:
         assert "tables: budget" in message
 
     def test_a_kind_the_format_cannot_hold_names_its_block(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path, '[[export]]\nvariables = "watershed"\nformat = "netcdf"\n', grid=MONTHLY
-        )
-
         with pytest.raises(ConfigError, match=r"export\[0\]: 'watershed' is a vector"):
-            check_export_variables(cfg)
+            _load(
+                tmp_path, '[[export]]\nvariables = "watershed"\nformat = "netcdf"\n', grid=MONTHLY
+            )
 
     def test_crs_on_a_series_names_its_block(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path, '[[export]]\nvariables = "discharge"\ncrs = "EPSG:4326"\n', grid=MONTHLY
-        )
-
         with pytest.raises(ConfigError, match=r"export\[0\]: crs .*does not reproject"):
-            check_export_variables(cfg)
+            _load(
+                tmp_path, '[[export]]\nvariables = "discharge"\ncrs = "EPSG:4326"\n', grid=MONTHLY
+            )
 
     def test_two_blocks_that_write_one_file_are_refused(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            """\
-            [[export]]
-            variables = "head"
-            time = "2002-10-15"
-
-            [[export]]
-            variables = "discharge"
-
-            [[export]]
-            variables = ["head", "watertable_depth"]
-            time = "2002-10-15"
-            """,
-            grid=MONTHLY,
-        )
-
         with pytest.raises(
             ConfigError, match=r"export\[0\] and export\[2\] both write head_2002-10-15"
         ):
-            check_export_variables(cfg)
+            _load(
+                tmp_path,
+                """\
+                [[export]]
+                variables = "head"
+                time = "2002-10-15"
+
+                [[export]]
+                variables = "discharge"
+
+                [[export]]
+                variables = ["head", "watertable_depth"]
+                time = "2002-10-15"
+                """,
+                grid=MONTHLY,
+            )
 
     def test_the_root_of_the_exports_named_is_the_default_folder(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\ntime = "last"\n\n'
-            '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "."\n',
-            grid=MONTHLY,
-        )
-
         with pytest.raises(ConfigError, match=r"both write head_last\.tif\."):
-            check_export_variables(cfg)
+            _load(
+                tmp_path,
+                '[[export]]\nvariables = "head"\ntime = "last"\n\n'
+                '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "."\n',
+                grid=MONTHLY,
+            )
 
     def test_a_windows_spelling_of_one_file_collides(self) -> None:
         # On Windows a TOML folder loads as a Windows path.
@@ -273,7 +255,7 @@ class TestNames:
             ConfigError,
             match=r"export\[0\] and export\[1\] both write deliver/sub/head_last\.tif\.",
         ):
-            check_export_variables(cfg)
+            refuse_an_export_that_cannot_be_written(cfg, sealed=False)
 
     def test_a_folder_keeps_two_blocks_apart(self, tmp_path: Path) -> None:
         cfg = _load(
@@ -283,10 +265,10 @@ class TestNames:
             grid=MONTHLY,
         )
 
-        check_export_variables(cfg)
+        assert len(cfg.export) == 2
 
 
-def test_the_validate_step_runs_both_checks(tmp_path: Path) -> None:
+def test_the_validate_step_meets_the_refusals_of_the_loader(tmp_path: Path) -> None:
     path = _write(tmp_path, '[[export]]\nvariables = "head"\ntime = "2010-01-01"\n', grid=MONTHLY)
     state = PipelineState(run_id="r", data={"config_path": path})
 
@@ -296,3 +278,20 @@ def test_the_validate_step_runs_both_checks(tmp_path: Path) -> None:
     path.write_text(path.read_text().replace('"head"', '"hed"'), encoding="utf-8")
     with pytest.raises(ConfigError, match=r"export\[0\]: 'hed'"):
         ValidateStep().run(state)
+
+
+def test_the_validate_step_carries_a_config_the_loader_accepted(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ntime = "last"\n', grid=MONTHLY)
+
+    out = ValidateStep().run(PipelineState(run_id="r", data={"cfg": cfg}))
+
+    assert out.get("cfg") is cfg
+
+
+def test_the_validate_step_refuses_a_built_config_whose_window_moved(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ntime = "2002-10-15"\n', grid=MONTHLY)
+    # An assignment validates its own section, never the rules between sections.
+    cfg.simulation.time.end_datetime = "2001-12-31"
+
+    with pytest.raises(ConfigError, match=r"export\[0\]\.time: 2002-10-15 is outside"):
+        ValidateStep().run(PipelineState(run_id="r", data={"cfg": cfg}))

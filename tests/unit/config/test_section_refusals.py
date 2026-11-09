@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+import tomlkit
 from pydantic import ValidationError
 
 from hydromodpy.catchment.preprocess.capped_breach_config import (
@@ -261,18 +262,7 @@ def _load(tmp_path: Path, body: str) -> HydroModPyConfig:
 
 @pytest.mark.parametrize(
     ("body", "expected"),
-    [
-        ('[mesh_catchment]\nconstraints_mode = "rivers_only"\n', ["[mesh]", "cell_size", "engine"]),
-        ("[mesh_catchment_batch]\n", ["no replacement"]),
-        ('[mesh_input]\nmesh_path = "a.msh"\n', ["[mesh.triangle] path", "engine"]),
-        (
-            "[modflow6.sgrid.planar]\nmode = 'keep_native'\n",
-            ["sgrid.planar", "[mesh]", "cell_size"],
-        ),
-        ("[modflownwt.sgrid.planar]\nmode = 'keep_native'\n", ["sgrid.planar", "[mesh]", "shape"]),
-        ('[modflow6.sgrid]\ngrid_dual = "voronoi"\n', ["sgrid.grid_dual", "[mesh] engine"]),
-        ('[modflownwt.sgrid]\ngrid_dual = "triangle"\n', ["sgrid.grid_dual", "[mesh] engine"]),
-    ],
+    [("[mesh_catchment_batch]\n", ["no replacement"])],
 )
 def test_a_retired_key_in_a_file_is_refused_with_its_replacement(
     tmp_path: Path, body: str, expected: list[str]
@@ -282,6 +272,36 @@ def test_a_retired_key_in_a_file_is_refused_with_its_replacement(
     message = str(excinfo.value)
     for fragment in expected:
         assert fragment in message
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "mesh_catchment",
+        "mesh_input",
+        "modflow6.sgrid.planar",
+        "modflownwt.sgrid.planar",
+        "modflow6.sgrid.grid_dual",
+        "modflownwt.sgrid.grid_dual",
+    ],
+)
+def test_a_mesh_key_only_a_pre_release_wrote_is_refused_in_a_file_with_the_way_out(
+    tmp_path: Path, path: str
+) -> None:
+    """The six keys of the meshing of 2.0.0a, which ``[mesh]`` replaced before the release."""
+    from hydromodpy.config.config_migration import PRERELEASE_FORMS
+
+    assert path in {form.path for form in PRERELEASE_FORMS}
+    document: dict = {"x": 1}
+    for part in reversed(path.split(".")):
+        document = {part: document}
+    text = tomlkit.dumps(document)
+
+    with pytest.raises(ConfigValidationError, match="written by a pre-release") as excinfo:
+        _load(tmp_path, text)
+
+    assert path in str(excinfo.value)
+    assert 'pip install "hydromodpy~=2.0.0"' in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
@@ -362,7 +382,7 @@ value = {value}
 
 PROFILE = """
 [flow.param.{param_id}.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "15 m"
 """
 
@@ -563,7 +583,7 @@ path = "weathered.tif"
 
 PROFILE_2 = """
 [flow.param.K.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "15 m"
 """
 
@@ -1054,7 +1074,7 @@ name = "rock"
 
 PROFILE_3 = """
 [flow.param.K.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "15 m"
 """
 
@@ -1133,26 +1153,9 @@ def test_modflow6_still_reads_the_layers(tmp_path: Path) -> None:
     assert cfg.domain.layers.layer_count == 2
 
 
-@pytest.mark.unit
-def test_an_older_solver_table_is_refused_with_the_same_message(tmp_path: Path) -> None:
-    """The older table is read as [domain.layers], so the refusal names that key."""
+def test_a_phase_that_asks_for_layers_is_refused(tmp_path: Path) -> None:
     with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        _load_4(tmp_path, "[modflow6.sgrid.vertical]\nnlay = 5\n")
-
-    message = str(excinfo.value)
-    assert (
-        f"does not honor domain.layers (genmtd_lay = 'constant', 5 layer(s)): {IGNORED}" in message
-    )
-
-
-@pytest.mark.parametrize(
-    "override",
-    ['"domain.layers.nlay" = 3', '"modflow6.sgrid.vertical.nlay" = 3'],
-    ids=["dotted_override", "older_dotted_override"],
-)
-def test_a_phase_that_asks_for_layers_is_refused(tmp_path: Path, override: str) -> None:
-    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        _load_4(tmp_path, CALIBRATION.format(overrides=override))
+        _load_4(tmp_path, CALIBRATION.format(overrides='"domain.layers.nlay" = 3'))
 
     message = str(excinfo.value)
     assert (
@@ -1274,13 +1277,10 @@ def test_a_raster_depth_model_with_a_substratum_is_accepted(tmp_path) -> None:
     assert cfg.domain.depth_model.scale == 1.5
 
 
-def test_a_geographic_bottom_path_is_accepted_ignored_and_warned_about() -> None:
-    with pytest.warns(DeprecationWarning, match="bottom_path"):
-        cfg = GeographicConfig.model_validate(
-            {"source_mode": "synthetic", "bottom_path": "bottom.tif"}
-        )
-
-    assert "bottom_path" not in cfg.model_dump()
+def test_a_geographic_bottom_path_is_refused_as_an_unknown_key() -> None:
+    """Only a pre-release wrote it; a file that does is refused with the doctor of 2.0.x."""
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        GeographicConfig.model_validate({"source_mode": "synthetic", "bottom_path": "bottom.tif"})
 
 
 def test_the_overview_workflow_without_an_overview_section_is_rejected(tmp_path) -> None:

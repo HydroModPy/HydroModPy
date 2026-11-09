@@ -34,6 +34,7 @@ both may import ``schema`` without a new edge in the layer matrix.
 from __future__ import annotations
 
 import json
+import tomllib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -885,6 +886,25 @@ def derived_licence(licences: Iterable[Licence]) -> str:
     return rollup.expression
 
 
+def declared_source_tokens(config_text: str) -> tuple[str, ...]:
+    """Return ``source@<section>_<source>`` for each ``[[data.<section>.sources]]`` of a config.
+
+    *config_text* is the ``config.toml`` a run sealed. The label of the run reads these
+    tokens, so a bug of one source declasses only the runs that declared it. The text
+    is read as TOML alone, whatever grammar wrote it, so ``results`` needs no
+    ``config``. Each token comes once, in the order of the file.
+    """
+    data = tomllib.loads(config_text).get("data")
+    tokens = []
+    for section, table in data.items() if isinstance(data, Mapping) else ():
+        sources = table.get("sources") if isinstance(table, Mapping) else None
+        for entry in sources if isinstance(sources, list) else ():
+            slug = entry.get("source") if isinstance(entry, Mapping) else None
+            if isinstance(slug, str) and slug:
+                tokens.append(f"source@{section}_{slug}")
+    return tuple(dict.fromkeys(tokens))
+
+
 __all__ = [
     "CACHE_INDEX",
     "COPERNICUS_LICENCE_ID",
@@ -893,6 +913,7 @@ __all__ = [
     "SOURCES",
     "CacheLayout",
     "SourceEntry",
+    "declared_source_tokens",
     "derived_licence",
     "input_licence",
     "is_determined",

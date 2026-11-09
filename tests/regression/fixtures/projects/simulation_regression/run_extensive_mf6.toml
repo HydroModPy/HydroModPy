@@ -7,12 +7,12 @@ mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
 [transport.modflow6gwt.parameters]

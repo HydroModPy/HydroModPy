@@ -80,7 +80,7 @@ COMPUTE_DATA_FILES: Final[tuple[str, ...]] = ("catchment/administrative/departem
 OTHER_DATA_SUFFIXES: Final[tuple[str, ...]] = (".md", ".tex", ".sql", ".toml", ".txt", ".pyc")
 """Suffixes of the other package files of a compute layer: documents and labels.
 
-``results/known_issues.toml`` and the CF names label a run and change no number.
+``schema/changes.toml`` and the CF names label a run and change no number.
 A test refuses a data file with another suffix that :data:`COMPUTE_DATA_FILES` does
 not list, so a new table has to be classified.
 """

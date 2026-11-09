@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.io.file_digest import sha256_of as compute_sha256
+from hydromodpy.schema.changes import migrations_of
 
 SIDECAR_SUFFIX = ".json"
 
@@ -31,7 +32,7 @@ SIDECAR_DATA_SUFFIXES = frozenset(
 
 #: Env var that, when set to ``"1"``, forces ``fetched_at`` to ``None`` for every
 #: remote source. Use it in CI and fixtures to keep sidecar payloads
-#: byte-identical across runs. Local ``custom`` sources are already
+#: byte-identical across runs. Local ``file`` sources are already
 #: deterministic and ignore the toggle.
 DETERMINISTIC_FETCHED_AT_ENV = "HMP_DETERMINISTIC_FETCHED_AT"
 
@@ -44,7 +45,7 @@ DOWNLOAD_FIELDS = ("origin", "etag", "last_modified", "product_version", "state"
 class Sidecar(BaseModel):
     """Provenance metadata stored next to a ``data/<var>/raw/`` input file.
 
-    ``fetched_at`` is omitted (``None``) for local ``source in ('custom', 'file')`` inputs
+    ``fetched_at`` is omitted (``None``) for local ``source = 'file'`` inputs
     that have no network fetch event, so the sidecar stays byte-identical across
     test runs and never appears in ``git status``. Real remote fetches keep a
     real ISO timestamp.
@@ -138,14 +139,30 @@ def write_sidecar(file_path: Path, sidecar: Sidecar) -> Path:
     return target
 
 
+def _as_written_today(payload: dict) -> dict:
+    """Read *payload* under today's names, by the rows of ``schema/changes.toml``.
+
+    A sidecar is one flat object, so the path of a row is one key. A row that
+    renames a value changes it, a row that moves a key moves it unless the new
+    key is written, and a row that retires a key drops it when it says so.
+    """
+    for row in migrations_of("sidecar"):
+        if row.shape == "value":
+            if payload.get(row.key) == row.old_value:
+                payload[row.key] = row.new_value
+        elif row.shape == "move":
+            if row.old in payload and row.new not in payload:
+                payload[row.new] = payload.pop(row.old)
+        elif row.sealed == "drop":
+            payload.pop(row.old, None)
+    return payload
+
+
 def load_sidecar(file_path: Path) -> Sidecar:
     """Load and validate the sidecar next to ``file_path``."""
     target = sidecar_path_for(file_path)
     raw = target.read_text(encoding="utf-8")
-    payload = json.loads(raw)
-    if payload.get("source") == "custom":
-        payload["source"] = "file"
-    return read_stored(Sidecar, payload)
+    return read_stored(Sidecar, _as_written_today(json.loads(raw)))
 
 
 __all__ = [

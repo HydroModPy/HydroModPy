@@ -1,11 +1,8 @@
-"""The changes page shows a table the loader moves as a move, not as a removal and an addition.
+"""The changes page shows a key or a table the loader moves as a move, not as a removal and an addition.
 
-The moves are declared once, in ``config_migration.MOVED_TABLES``. The migration
-makes them and the docs list them, so the page cannot name a path the loader does
-not move. Today the moves are the solver layering tables, which now are
-``[domain.layers]``, the keys of the Boussinesq solve, and the settings table of
-each flow solver, now under ``[solver]``, and the transport tables, which lost
-their ``parameters`` level. A key of a pre-release that moved twice
+The moves are declared once, as the ``move`` rows of ``document = "config"`` in
+``hydromodpy/schema/changes.toml``. The migration makes them and the docs list them, so the
+page cannot name a path the loader does not move. A path that the register of a release moved
 ends where the last row leads.
 """
 
@@ -20,42 +17,28 @@ from typing import Any
 import pytest
 
 from hydromodpy.config import config_migration
-from hydromodpy.model.flow_config import FLOW_RUNTIME_KEYS
+from hydromodpy.schema.changes import REGISTER, Migration, migrations_of
 from tools.docs import field_registry, legacy_keys, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[3]
 EXT = ROOT / "docs" / "source" / "_ext"
-LAST_RELEASE = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0a4.json"
+LAST_RELEASE = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0.json"
 
 LAYERING_MOVES = {
     "modflow6.sgrid.vertical": "domain.layers",
     "modflownwt.sgrid.vertical": "domain.layers",
 }
-TRANSPORT_MOVES = {
-    "transport.modflow6gwt.parameters": "transport.modflow6",
-    "transport.modflow6prt.parameters": "transport.modflow6_prt",
-    "transport.mt3dms.parameters": "transport.mt3dms",
-    "transport.modpath.parameters": "transport.modpath",
-    **{
-        f"transport.modflow6prt.parameters.{old}": f"transport.modflow6prt.parameters.{new}"
-        for old, new in (
-            ("release_times_days", "release_times"),
-            ("track_times_days", "track_times"),
-            ("track_time_step_days", "track_time_step"),
-            ("stop_time_days", "stop_time"),
-            ("stop_travel_time_days", "stop_travel_time"),
-        )
-    },
-}
+"""A move of two tables to one, the case the diff has to carry the keys across."""
 
-MOVES = {
-    **LAYERING_MOVES,
-    **TRANSPORT_MOVES,
-    **{f"flow.{old}": f"flow.runtime.{new}" for old, new in FLOW_RUNTIME_KEYS.items()},
-    "modflow6": "solver.modflow6",
-    "modflownwt": "solver.modflow_nwt",
-    "flow.runtime": "solver.boussinesq",
-}
+MOVES = legacy_keys.moved_tables()
+"""Old path -> new path, as the register moves them."""
+
+PLAIN_MOVES = [
+    row
+    for row in migrations_of("config")
+    if row.shape == "move" and row.rule is None and "[*]" not in str(row.old)
+]
+"""The rows the generic move makes: no list to walk and no rule that moves them instead."""
 
 
 @pytest.fixture(scope="module")
@@ -106,29 +89,34 @@ def _layering_registry(
 # ---------------------------------------------------------------- one source
 
 
-def test_the_page_reads_the_moves_the_migration_declares() -> None:
-    assert legacy_keys.moved_tables() == MOVES
-    assert legacy_keys.moved_tables() == {
-        move.old: move.new for move in config_migration.MOVED_TABLES
+def test_the_page_reads_the_moves_the_register_declares() -> None:
+    assert MOVES == {
+        config_migration.document_path(str(row.old)): config_migration.document_path(str(row.new))
+        for row in REGISTER.migrations
+        if row.document == "config" and row.shape == "move"
     }
+    assert MOVES["modflow6"] == "solver.modflow6"
+    assert MOVES["modflownwt"] == "solver.modflow_nwt"
+    assert MOVES["flow.runtime"] == "solver.boussinesq"
 
 
-@pytest.mark.parametrize("move", config_migration.MOVED_TABLES, ids=lambda move: move.old)
-def test_the_migration_moves_the_table_and_the_dotted_override_it_declares(
-    move: config_migration.TableMove,
+@pytest.mark.parametrize("move", PLAIN_MOVES, ids=lambda row: str(row.old))
+def test_the_migration_moves_the_table_and_the_dotted_override_the_row_declares(
+    move: Migration,
 ) -> None:
     """A declared move that the migration did not make would put a false line on the page."""
+    old, new = str(move.old), str(move.new)
     doc = {
-        **_nested(move.old, {"nlay": 4}),
-        "calibration": {"phases": [{"name": "p", "overrides": {f"{move.old}.nlay": 6}}]},
+        **_nested(old, {"nlay": 4}),
+        "calibration": {"phases": [{"name": "p", "overrides": {f"{old}.nlay": 6}}]},
     }
 
     config_migration.migrate_config_doc(doc)
 
-    # The rows run in order, so flow.ts_vi_adapt ends under [solver.boussinesq].
-    destination = config_migration.rewrite_dotted_path(move.new)
+    # The rows run in order, so a table that a later row moves again ends where it leads.
+    destination = config_migration.rewrite_dotted_path(new)
     assert _descend(doc, destination) == {"nlay": 4}
-    assert _descend(doc, move.old) is None
+    assert _descend(doc, old) is None
     assert doc["calibration"]["phases"][0]["overrides"] == {f"{destination}.nlay": 6}
 
 
@@ -140,11 +128,11 @@ def _descend(doc: dict, path: str) -> Any:
     return doc
 
 
-def test_a_moved_table_is_a_key_the_loader_still_reads() -> None:
-    accepted = legacy_keys.accepted_old_names({})
+def test_a_moved_key_inside_its_delay_is_a_key_the_loader_still_reads() -> None:
+    accepted = legacy_keys.accepted_old_names()
 
-    for old in MOVES:
-        assert accepted[old] == legacy_keys.MIGRATES
+    for row in PLAIN_MOVES:
+        assert accepted[str(row.old)] == legacy_keys.MIGRATES
 
 
 # ---------------------------------------------------------------- the diff
@@ -212,24 +200,24 @@ def test_the_history_passes_the_moves_to_every_pair() -> None:
     assert [r["from"] for r in out["pairs"][0]["renamed"]] == list(LAYERING_MOVES)
 
 
-def test_the_layering_of_this_tree_is_a_move_against_the_last_release() -> None:
+def test_the_solver_tables_of_this_tree_are_a_move_against_the_last_release() -> None:
     payload, _gates = field_registry.build_payload("current")
     release = json.loads(LAST_RELEASE.read_text())
-    assert set(LAYERING_MOVES) <= set(release["nodes"])
+    assert release["meta"]["label"] == "2.0.0"
+    assert {"modflow6", "modflownwt"} <= set(release["nodes"])
 
-    out = toml_changelog.diff(release, toml_changelog.snapshot(payload), legacy_keys.moved_tables())
+    out = toml_changelog.diff(release, toml_changelog.snapshot(payload), MOVES)
 
-    assert {"from": "modflow6.sgrid.vertical", "to": "domain.layers"} in out["renamed"]
-    assert {"from": "modflownwt.sgrid.vertical", "to": "domain.layers"} in out["renamed"]
-    assert not [p for p in out["removed"] if p in LAYERING_MOVES]
-    assert "domain.layers" not in out["added"]
-    assert "domain.layers.nlay" not in out["added"]
+    assert {"from": "modflow6", "to": "solver.modflow6"} in out["renamed"]
+    assert {"from": "modflownwt", "to": "solver.modflow_nwt"} in out["renamed"]
+    assert "modflow6" not in out["removed"]
+    assert "solver.modflow6" not in out["added"]
 
 
 # ---------------------------------------------------------------- the page
 
 
-def _page(hmp_params, monkeypatch: pytest.MonkeyPatch, pair: dict) -> str:
+def _page(hmp_params, monkeypatch: pytest.MonkeyPatch, pair: dict, nodes: dict) -> str:
     """Render the changes page for one pair of versions and return its HTML."""
 
     class Page(hmp_params.ChangelogDirective):
@@ -238,7 +226,7 @@ def _page(hmp_params, monkeypatch: pytest.MonkeyPatch, pair: dict) -> str:
     history = {"versions": [pair["from"], pair["to"]], "pairs": [pair]}
     monkeypatch.setattr(hmp_params, "current_builder", lambda: SimpleNamespace())
     monkeypatch.setattr(hmp_params, "version_history", lambda: history)
-    monkeypatch.setitem(hmp_params.S, "nodes", {})
+    monkeypatch.setitem(hmp_params.S, "nodes", nodes)
     monkeypatch.setitem(hmp_params.S, "home", {})
     return Page.__new__(Page).run()[0].astext()
 
@@ -254,22 +242,40 @@ def _moves_pair(to: str) -> dict:
     }
 
 
+def _nodes_below_the_new_paths() -> dict:
+    """A registry that holds a key under each destination, as a moved table has."""
+    return {f"{new}.nlay": {"kind": "leaf"} for old, new in MOVES.items() if "." in new}
+
+
 def test_the_page_lists_the_move_under_renamed_with_the_dotted_override(
     monkeypatch: pytest.MonkeyPatch, ext_path: None
 ) -> None:
     import hmp_params
 
-    html = _page(hmp_params, monkeypatch, _moves_pair(hmp_params.CURRENT))
+    html = _page(
+        hmp_params, monkeypatch, _moves_pair(hmp_params.CURRENT), _nodes_below_the_new_paths()
+    )
 
     for old in MOVES:
         assert f"<code>{old}</code> is now" in html
-        assert f"&quot;{old}.&lt;key&gt;&quot;" in html
-    assert "&quot;domain.layers.&lt;key&gt;&quot;" in html
-    assert "still loads; the loader moves it on load" in html
+    assert "&quot;modflow6.&lt;key&gt;&quot;" in html
+    assert "&quot;solver.modflow6.&lt;key&gt;&quot;" in html
+    assert "still loads; ConfigKeyRenamedWarning names the new key" in html
     assert "A file that writes an old name still loads, as each line says." in html
     assert "tc-req" not in html
     assert "Removed" not in html
     assert "Added" not in html
+
+
+def test_a_moved_key_that_holds_no_table_names_the_override_by_its_path_alone(
+    monkeypatch: pytest.MonkeyPatch, ext_path: None
+) -> None:
+    import hmp_params
+
+    html = _page(hmp_params, monkeypatch, _moves_pair(hmp_params.CURRENT), {})
+
+    assert "&quot;modflow6&quot;" in html
+    assert "&lt;key&gt;" not in html
 
 
 def test_a_pair_between_two_releases_does_not_promise_what_the_loader_does_now(
@@ -277,8 +283,8 @@ def test_a_pair_between_two_releases_does_not_promise_what_the_loader_does_now(
 ) -> None:
     import hmp_params
 
-    html = _page(hmp_params, monkeypatch, _moves_pair("2.0.0"))
+    html = _page(hmp_params, monkeypatch, _moves_pair("2.0.0"), _nodes_below_the_new_paths())
 
-    assert "<code>modflow6.sgrid.vertical</code> is now" in html
+    assert "<code>modflow6</code> is now" in html
     assert "still loads" not in html
     assert "&lt;key&gt;" not in html

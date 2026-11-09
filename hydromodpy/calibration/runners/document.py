@@ -46,8 +46,9 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     a base configuration invisible here while the pipeline resolved it, so a
     calibration overlay of two lines failed on "No [calibration] section".
 
-    The legacy keys are migrated in memory first, as the project loader does,
-    so a file ``hmp doctor --fix-config <file>`` would fix also runs unfixed.
+    The moved keys of the register are migrated in memory first, as the project
+    loader does, so a file ``hmp doctor --fix-config <file>`` would fix also runs
+    unfixed. A key only a pre-release of 2.0 wrote is refused.
     """
     from pydantic import ValidationError
 

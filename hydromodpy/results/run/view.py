@@ -429,7 +429,7 @@ class Run(
         that produced the run and the known issues of this build: a newer
         build may declass a run without rewriting it.
         """
-        return label_of(self._record())
+        return label_of(self._record(), self.dir)
 
     # -- Export --------------------------------------------------------------
 

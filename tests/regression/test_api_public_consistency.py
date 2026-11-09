@@ -83,11 +83,13 @@ class _FakeProject:
     """Test double matching the :class:`hydromodpy.project.Project` surface."""
 
     last_headless: bool | None = None
+    last_environment: object = None
     last_calibrate_kwargs: dict | None = None
     calibrate_result: object = None
 
-    def __init__(self, cfg, *, headless=False):  # noqa: D401
+    def __init__(self, cfg, *, headless=False, environment=None):  # noqa: D401
         type(self).last_headless = headless
+        type(self).last_environment = environment
 
     def __enter__(self):
         return self
@@ -131,3 +133,4 @@ def test_calibrate_object_branch_keeps_project(monkeypatch) -> None:
     result = hmp.calibrate(object(), max_trials=5)
     assert result == {"branch": "object"}
     assert _FakeProject.last_calibrate_kwargs == {"max_trials": 5}
+    assert _FakeProject.last_environment is None

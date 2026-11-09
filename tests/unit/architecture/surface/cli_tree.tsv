@@ -274,6 +274,9 @@ hmp config	command
 hmp config check	command
 hmp config check --debug	nargs=0
 hmp config check --format	choices=['csv', 'json', 'table'] default='table'
+hmp config check --inputs	nargs=0
+hmp config check --lang	choices=['en', 'fr'] default='en'
+hmp config check --partial	nargs=0
 hmp config check --quiet,-q	nargs=0
 hmp config check --verbose,-v	nargs=0
 hmp config check --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
@@ -300,12 +303,6 @@ hmp config template --modules	nargs=+
 hmp config template --profile	choices=['dev', 'expert', 'user'] default='user'
 hmp config template --to	
 hmp config template --workspace,-w	
-hmp config validate-field	command
-hmp config validate-field --context	
-hmp config validate-field --format	choices=['csv', 'json', 'table'] default='table'
-hmp config validate-field --workspace,-w	
-hmp config validate-field <path>	required
-hmp config validate-field <value>	required
 hmp config wizard	command
 hmp config wizard --profile	choices=['dev', 'expert', 'user'] default='user'
 hmp config wizard --to	

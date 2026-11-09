@@ -156,7 +156,7 @@ def test_the_seal_stamps_the_rules_of_the_derived_fields(filled: RunStore) -> No
     manifest = seal_completed(filled)
 
     assert manifest.derive_rule_version == DERIVE_RULE_VERSION
-    assert label_of(manifest).rule_version == RULE_VERSION
+    assert label_of(manifest, filled.run_dir).rule_version == RULE_VERSION
 
 
 def test_the_manifest_carries_the_facts_of_the_run(filled: RunStore) -> None:

@@ -1,4 +1,9 @@
-"""A key retired by the outputs and orchestration target is refused by name."""
+"""A key retired by the outputs and orchestration target is refused by name.
+
+A section that only a pre-release of 2.0 wrote is refused in a file by the list of
+``prerelease_forms.txt``, with the way out. The model still says what replaces it, which
+a Python caller and a sealed snapshot read.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +12,12 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import tomlkit
 from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.hydromodpy_config import RETIRED_SECTIONS
+from hydromodpy.config.config_migration import PRERELEASE_FORMS, fix_config_file
+from hydromodpy.config.section_loader import RETIRED_SECTIONS
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.solver.base.simulation_config import SimulationConfig
 
@@ -69,6 +76,51 @@ def test_a_project_root_written_in_a_file_is_refused(tmp_path: Path) -> None:
     path = _write(tmp_path, '[workspace]\nproject_root = "."\n')
     with pytest.raises(ConfigValidationError, match="Delete the line"):
         HydroModPyConfig.from_toml(path)
+
+
+def test_the_doctor_leaves_a_project_root_and_the_loader_refuses_it(tmp_path: Path) -> None:
+    """The line names a folder only the user knows, so the doctor writes nothing on it."""
+    path = _write(tmp_path, '[workspace]\nproject_root = "."\ndata_dir = "../../data"\n')
+    written = path.read_text(encoding="utf-8")
+
+    assert fix_config_file(path) == []
+
+    assert path.read_text(encoding="utf-8") == written
+    with pytest.raises(ConfigValidationError, match="Delete the line"):
+        HydroModPyConfig.from_toml(path)
+
+
+def test_if_exists_replace_is_refused_in_a_file_with_what_to_write(tmp_path: Path) -> None:
+    """No run is replaced. Only a pre-release wrote ``replace``: a file is told the doctor
+    of 2.0.x, which wrote ``version``, and the doctor of this version writes nothing."""
+    path = tmp_path / "project.toml"
+    path.write_text(
+        tomlkit.dumps({**SYNTHETIC, "simulation": {"if_exists": "replace"}}), encoding="utf-8"
+    )
+    written = path.read_text(encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match="holds simulation.if_exists, written by"):
+        HydroModPyConfig.from_toml(path)
+    with pytest.raises(ConfigValidationError, match="hydromodpy~=2.0.0"):
+        fix_config_file(path)
+    assert path.read_text(encoding="utf-8") == written
+
+
+def test_a_real_catchment_without_a_site_is_still_refused_by_name() -> None:
+    """``[site]`` names the catchment, which only its author knows: the loader says what to write."""
+    from hydromodpy.config.cross_checks import require_site_for_real_catchment
+    from hydromodpy.core.exceptions import ConfigError
+
+    class _Geographic:
+        catch_def = "from_outlet_coord"
+
+    class _Config:
+        geographic = _Geographic()
+        site = None
+        sites = None
+
+    with pytest.raises(ConfigError, match=r"Add \[site\] with name"):
+        require_site_for_real_catchment(_Config())
 
 
 def test_the_project_root_is_the_folder_holding_project_toml(tmp_path: Path) -> None:
@@ -137,7 +189,10 @@ def test_every_retired_root_section_is_refused_with_its_sentence(
 ) -> None:
     ending = re.escape(RETIRED_SECTIONS[section][-40:])
     path = _write(tmp_path, f"[{section}]\nx = 1\n")
-    with pytest.raises(ConfigValidationError, match=ending):
+    pre_release = section in {form.path for form in PRERELEASE_FORMS}
+    with pytest.raises(
+        ConfigValidationError, match="written by a pre-release" if pre_release else ending
+    ):
         HydroModPyConfig.from_toml(path)
     with pytest.raises(ValidationError, match=ending):
         HydroModPyConfig.model_validate({**SYNTHETIC, section: {}})

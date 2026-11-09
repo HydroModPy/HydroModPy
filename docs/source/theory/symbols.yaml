@@ -242,14 +242,14 @@ symbols:
     symbol: K_z
     meaning: "vertical hydraulic conductivity, :math:`K / \\beta`, or the parameter with the id ``Kv``"
     unit: m/s
-    set_by: ":toml:`vka|modflow6.process_specific.vka`"
+    set_by: ":toml:`vka|solver.modflow6.process_specific.vka`"
     group: ground
     pages: [notation, groundwater-flow, solvers]
   - id: anisotropy
     symbol: \beta
     meaning: ratio :math:`K / K_z`
     unit: "-"
-    set_by: ":toml:`vka|modflow6.process_specific.vka`"
+    set_by: ":toml:`vka|solver.modflow6.process_specific.vka`"
     group: ground
     pages: [notation, groundwater-flow, solvers]
   - id: transmissivity
@@ -542,21 +542,21 @@ symbols:
     symbol: n_{\min}
     meaning: pixels a cell needs for a hillslope statistic
     unit: "-"
-    set_by: ":toml:`min_pixels|modflow6.sgrid.top_sampling.min_pixels`"
+    set_by: ":toml:`min_pixels|solver.modflow6.sgrid.top_sampling.min_pixels`"
     group: mesh
     pages: [mesh]
   - id: spike
     symbol: \varepsilon_z
     meaning: spike tolerance of the zonal top
     unit: m
-    set_by: ":toml:`spike_guard_tol_m|modflow6.sgrid.top_sampling.spike_guard_tol_m`"
+    set_by: ":toml:`spike_guard_tol_m|solver.modflow6.sgrid.top_sampling.spike_guard_tol_m`"
     group: mesh
     pages: [mesh]
   - id: bmin
     symbol: b_{\min}
     meaning: smallest thickness kept under a zonal top
     unit: m
-    set_by: ":toml:`min_thickness_m|modflow6.sgrid.top_sampling.min_thickness_m`"
+    set_by: ":toml:`min_thickness_m|solver.modflow6.sgrid.top_sampling.min_thickness_m`"
     group: mesh
     pages: [mesh]
   - id: cell-top
@@ -1174,7 +1174,7 @@ symbols:
     symbol: d_\mathrm{ext}
     meaning: "extinction depth of the evapotranspiration, below its surface"
     unit: "m"
-    set_by: ":toml:`extinction_depth|flow.sinks_sources.etp.extinction_depth`, :toml:`evt_extinction_depth|modflow6.process_specific.evt_extinction_depth`"
+    set_by: ":toml:`extinction_depth|flow.sinks_sources.etp.extinction_depth`, :toml:`evt_extinction_depth|solver.modflow6.process_specific.evt_extinction_depth`"
     group: exits
     pages: [exits/drains-and-et, forcing]
   - id: et-offset

@@ -53,12 +53,13 @@ solvers = ["modflow6"]
 [flow]
 flow_regime = "steady"
 param_list = ["K"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
+
+[flow.bc.drainage]
 """
 
 _SITES = """

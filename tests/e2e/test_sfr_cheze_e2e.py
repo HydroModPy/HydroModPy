@@ -71,7 +71,6 @@ _CONTROL_DRAWDOWN_MARGIN_M = 0.1
 
 
 def _config_body(*, with_sfr: bool) -> str:
-    active_bc = '"lake", "sfr", "drainage"' if with_sfr else '"lake", "drainage"'
     sfr_toml = """
 [flow.sinks_sources.sfr.net0]
 streambed_k = 1e-5
@@ -146,8 +145,6 @@ solvers = ["modflow6"]
 
 [flow]
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = [{active_bc}]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]

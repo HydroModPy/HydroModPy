@@ -36,7 +36,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
+from pydantic import BaseModel
+
 from hydromodpy.config.config_migration import migrate_sealed_config_doc
+from hydromodpy.core.config_kit.introspect import child_of
 from hydromodpy.core.toml_io.paths import assign, portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.tracking import rewrite_input_paths
@@ -121,14 +124,27 @@ def resolved_at_build(ctx: WorkflowContext) -> dict[str, Any]:
     return decided
 
 
-def config_drift(
+@dataclass(frozen=True, slots=True)
+class SealedComparison:
+    """What a replay finds against the ``config.resolved.toml`` a run sealed.
+
+    ``drift`` is each key that moved. ``new_at_default`` is each key the sealed file
+    does not write and the replay holds at its default, with its value: a key a later
+    version added, which keeps the computation of the edition the run sealed.
+    """
+
+    drift: tuple[KeyDrift, ...]
+    new_at_default: dict[str, Any]
+
+
+def compare_with_sealed(
     config: Any,
     run_dir: Path,
     *,
     project_root: Path,
     intended: Iterable[str] = (),
-) -> tuple[KeyDrift, ...] | None:
-    """Return each key of *config* that differs from what the run at *run_dir* sealed.
+) -> SealedComparison | None:
+    """Compare *config* with what the run at *run_dir* sealed.
 
     ``None`` when the run sealed no ``config.resolved.toml``. *intended* names the
     dotted paths the caller asked to change: they and what lies below them count
@@ -139,9 +155,15 @@ def config_drift(
 
     The sealed document is read under today's names first, as a sealed
     ``config.toml`` is, so a table that moved since the seal is compared where it
-    is now. The settings table of a flow solver that did not run counts for no
-    drift either, ``[solver.<name>]`` beside the solver of the run: the run never
-    read it.
+    is now, and the defaults of its edition (``"2.0"`` when it writes none) fill the
+    keys a later edition moved. The settings table of a flow solver that did not run
+    counts for no drift either, ``[solver.<name>]`` beside the solver of the run: the
+    run never read it.
+
+    A resolved file writes every default its version knew, so a key it does not
+    write is a key that version did not know. Such a key counts for no drift when the
+    replay holds it at the default its field declares: it goes to ``new_at_default``.
+    At another value it drifts.
     """
     sealed = _read_sealed(run_dir)
     if sealed is None:
@@ -158,9 +180,56 @@ def config_drift(
         *_tables_of_other_transports(config, sealed, current),
         *intended,
     )
-    return tuple(
-        drift for drift in _differences(sealed, current) if not _under_any(drift.key, exempt)
-    )
+    drift: list[KeyDrift] = []
+    new_at_default: dict[str, Any] = {}
+    for item in _differences(sealed, current):
+        if _under_any(item.key, exempt):
+            continue
+        if item.sealed is _MISSING and _at_its_default(config, item.key, item.effective):
+            new_at_default[item.key] = item.effective
+        else:
+            drift.append(item)
+    return SealedComparison(tuple(drift), new_at_default)
+
+
+def config_drift(
+    config: Any,
+    run_dir: Path,
+    *,
+    project_root: Path,
+    intended: Iterable[str] = (),
+) -> tuple[KeyDrift, ...] | None:
+    """Return each key of *config* that differs from what the run at *run_dir* sealed.
+
+    The drift of :func:`compare_with_sealed`, ``None`` when the run sealed no
+    ``config.resolved.toml``. A key the sealed file does not write, at its default
+    today, is no drift.
+    """
+    compared = compare_with_sealed(config, run_dir, project_root=project_root, intended=intended)
+    return None if compared is None else compared.drift
+
+
+def _at_its_default(config: Any, key: str, value: Any) -> bool:
+    """Whether *value*, what *config* holds at the flattened *key*, is its field's default.
+
+    A field the configuration did not write holds its default. A key that names no
+    field of the model, a list entry or a value a rule derives, is not one.
+    """
+    *parents, name = key.split(".")
+    node = config
+    for part in parents:
+        field, _, index = part.partition("[")
+        try:
+            node = child_of(node, field) if isinstance(node, BaseModel) else node[field]
+            if index:
+                node = node[int(index.rstrip("]"))]
+        except (AttributeError, KeyError, IndexError, TypeError, ValueError):
+            return False
+    if not isinstance(node, BaseModel) or name not in type(node).model_fields:
+        return False
+    if name not in node.model_fields_set:
+        return True
+    return value == type(node).model_fields[name].get_default(call_default_factory=True)
 
 
 def _tables_of_other_solvers(config: Any, *payloads: Mapping[str, Any]) -> tuple[str, ...]:
@@ -379,7 +448,9 @@ def _under_any(key: str, paths: Iterable[str]) -> bool:
 __all__ = [
     "BUILD_TABLE",
     "KeyDrift",
+    "SealedComparison",
     "build_drift",
+    "compare_with_sealed",
     "config_drift",
     "portable_config_payload",
     "resolved_at_build",

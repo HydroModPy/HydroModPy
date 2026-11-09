@@ -629,7 +629,7 @@
     },
     "CalibAggregateDecl": {
       "additionalProperties": false,
-      "description": "How several scored targets become one cost.\n\n``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared\nhere and never read: a file that wrote them got the same cost. They are\nrefused, and ``hmp doctor --fix-config`` deletes them.",
+      "description": "How several scored targets become one cost.\n\n``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared\nhere and never read: a file that wrote them got the same cost. They are\nrefused as keys of a pre-release of 2.0.",
       "properties": {
         "min_samples": {
           "default": 1,
@@ -18323,7 +18323,7 @@
               "type": "string"
             }
           ],
-          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (10) still reads as that rule and warns, so a sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit form with the same distance.",
+          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (5) still reads as that rule, so a sealed run replays its domain; the explicit form with the same distance says the same thing.",
           "examples": [
             "10%"
           ],
@@ -19062,7 +19062,7 @@
               "type": "string"
             }
           ],
-          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (10) still reads as that rule and warns, so a sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit form with the same distance.",
+          "description": "Margin around the watershed polygon. A percentage ('10%') enlarges the catchment AREA by that share, the rule of Abherve et al. (2023): the distance is solved on the real polygon, then snapped to the DEM grid. A length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment. A bare number (5) still reads as that rule, so a sealed run replays its domain; the explicit form with the same distance says the same thing.",
           "examples": [
             "10%"
           ],
@@ -26033,6 +26033,16 @@
   "additionalProperties": false,
   "description": "Top-level configuration for HydroModPy.\n\nAggregates sub-components (workspace, geographic, domain, data, flow,\ntransport, solver, display)\ninto a centralized,\nhierarchical model and validates optional flow parameters as\n`FieldParamConfig` dictionaries.",
   "properties": {
+    "edition": {
+      "default": "2.0",
+      "description": "The set of defaults the file is read with. A key the file does not write takes its default in this edition, so a later version never moves a number of a file that did not ask. config.resolved.toml writes it.",
+      "examples": [
+        "2.0"
+      ],
+      "title": "Edition",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
     "workflow": {
       "$ref": "#/$defs/WorkflowConfig",
       "description": "Workflow configuration: `workflow.mode` ('simulation', 'calibration' or 'overview'), the console verbosity and the profiler. The mode is optional; unset, the sections of the file say what `hmp run` does.",

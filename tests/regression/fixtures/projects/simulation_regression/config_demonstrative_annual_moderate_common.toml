@@ -47,7 +47,7 @@ value = "0.012 -"
 [flow.bc.drainage]
 application_domain = "top"
 value = "1.0e-5 m2/s"
-kind = "cauchy"
+kind = "drain"
 
 [data]
 types = ["recharge"]

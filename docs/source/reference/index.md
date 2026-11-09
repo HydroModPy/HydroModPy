@@ -17,6 +17,13 @@ Every section of the configuration file, grouped by what it describes.
 Added, removed and changed fields between two versions, computed from the models.
 :::
 
+:::{grid-item-card} Register of changes
+:link: changes-register
+:link-type: doc
+
+Every fix that moves a number, every default that moves with an edition, and every key that moves or leaves, read from the register.
+:::
+
 :::{grid-item-card} Python API
 :link: python/index
 :link-type: doc
@@ -67,6 +74,7 @@ Every search method with its options and defaults, and every metric with its for
 
 parameters/index
 changes
+changes-register
 ```
 
 ```{toctree}

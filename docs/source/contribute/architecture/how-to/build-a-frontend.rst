@@ -6,12 +6,12 @@ no websocket. It exposes two stable hooks that any frontend (Angular, React, a
 Jupyter widget, a desktop app) can use without importing the package:
 
 1. a JSON Schema export of the whole configuration;
-2. a partial validator that checks one field at a time.
+2. a check of the document the form holds, which may still be incomplete.
 
 The code is in ``hydromodpy/schema/config_schema.py`` and
-``hydromodpy/schema/partial_validator.py``. The pattern behind it is a Pydantic
-model plus an exported schema: the structure is declared once, in Python, and
-the UI never copies it.
+``hydromodpy/config/check.py``. The pattern behind it is a Pydantic model plus
+an exported schema: the structure is declared once, in Python, and the UI never
+copies it.
 
 The schema export
 -----------------
@@ -37,9 +37,10 @@ From Python:
 
 .. code-block:: python
 
-   from hydromodpy.schema import export_full_schema, validate_field
+   from hydromodpy import HydroModPyConfig
+   from hydromodpy.schema.config_schema import export_full_schema
 
-   export_full_schema("./schema/")
+   export_full_schema("./schema/", root=HydroModPyConfig)
 
 Each field in ``config.json`` keeps what the models declare in
 ``json_schema_extra`` (the keys of ``FieldMetadata`` in
@@ -69,28 +70,50 @@ code exports. A frontend that needs the required keys and the strict unions
 reads the model schema instead: ``hmp config schema``, or the three files of
 ``hmp config schema --bundle --to DIR``.
 
-The partial validator
----------------------
+The check of a document
+-----------------------
 
-``hmp config validate-field <path> <value>`` runs the validator your form
-should call on each change, in well under 50 ms and without I/O. From Python:
+``check(document, partial=True)`` is the call your form makes each time the
+document changes. It takes the document as a mapping, the same tree a TOML file
+gives, reads no file and asks no network, and it is meant to answer in under
+10 ms when warm. From Python:
 
 .. code-block:: python
 
-   from hydromodpy.schema import validate_field
+   from hydromodpy.config.check import check, phrase
 
 
-   def on_change(path: str, value):
-       result = validate_field(path, value)
-       if not result.valid:
-           show_error(path, result.error)
+   def on_change(document: dict):
+       for d in check(document):
+           show(d.path, d.severity, phrase(d.code, "fr"), d.detail)
 
-It resolves the dotted path on ``HydroModPyConfig``, picks the matching
-``pydantic.TypeAdapter`` and returns a ``ValidationResult`` with ``valid``,
-``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoized,
-so a repeated call on the same path is free. A frontend that is not written in
-Python reaches it through the CLI in a subprocess, or through any transport the
-integrator chooses.
+It walks the sections one by one with the validator the loader uses, so it
+gives every diagnostic at once and not only the first. Each ``Diagnostic`` holds
+the ``path`` of the key as the document spells it, a ``code``, a ``severity``,
+the ``detail`` the validator gave for this case, the ``help`` text of the field
+and the ``line`` when the document was read from a file. The ``phrase`` of a code
+is read in English or French from ``hydromodpy/schema/phrases.toml``, so the form
+writes the sentence in its own language. A solver that comes from a plugin has no
+phrase of its own, so its keys get the description of the field as the sentence.
+
+The severity is ``error``, ``warning`` or ``to_fill``. A ``to_fill`` is a key the
+document must hold and does not hold yet. Your form shows it as a field to fill.
+Rules that read several sections wait until every section they
+read is complete, and they say nothing before. ``partial=False`` turns each
+``to_fill`` into an ``error``, which is what a run needs. ``inputs=True`` also reads
+the header of each input file, a local path or an URL, and nothing else. It is
+slower, so keep it for the submit button.
+
+A frontend that is not written in Python gives the document to the command line,
+or to any transport the integrator chooses:
+
+.. code-block:: bash
+
+   hmp config check --partial --format json draft.toml
+
+The output is ``{ok, diagnostics, workspace}``, and each entry of ``diagnostics`` has
+the keys of ``Diagnostic``. There is no check of one field on its own. Send the
+document, so a rule that crosses two sections is seen.
 
 A form on the schema
 --------------------
@@ -146,8 +169,9 @@ Tests to add
 - A unit test for any Python service that wraps the exports.
 - A schema diff in your CI: export again and fail on a difference you did not
   commit.
-- A smoke call of ``validate_field`` on a few valid and invalid pairs at each
-  release.
+- A smoke call of ``check`` on a complete document, a document with a key left
+  out and a document with a wrong value, at each release. The first gives no
+  ``error``, the second a ``to_fill`` at that key, the third an ``error``.
 
 See also
 --------

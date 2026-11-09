@@ -1,8 +1,15 @@
 """Step 0 - config validation.
 
 Loads the TOML config (if a path is present in ``state.data["config_path"]``)
-and instantiates the Pydantic ``HydroModPyConfig``. If ``state.data["cfg"]``
-is already a Pydantic config, it is re-validated to ensure immutability.
+and instantiates the Pydantic ``HydroModPyConfig``. A mapping in
+``state.data["cfg"]`` is validated the same way. The rules that read several
+sections, the ``[[export]]`` names and the dates of ``[[export]]`` and
+``[display]`` among them, run in that validation.
+
+A ``HydroModPyConfig`` given already built is not validated again, since an
+assignment on one section validates that section alone. The rules that read
+several sections run on it once more, so a section changed after the load
+cannot reach the solve with an export date outside the new window.
 
 The resolved configuration is then written beside the run's resume checkpoint,
 under the run directory the pipeline says it owns. It is the step's product:
@@ -28,7 +35,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import ClassVar
 
-from hydromodpy.config.export_checks import check_export_variables, check_time_selectors
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.record.manifest import (
     resolved_config_path,
@@ -90,9 +96,8 @@ class ValidateStep:
             config_path = path
         elif not isinstance(cfg, HydroModPyConfig):
             cfg = HydroModPyConfig.model_validate(cfg)
-
-        check_export_variables(cfg)
-        check_time_selectors(cfg)
+        else:
+            _run_the_cross_rules_again(cfg)
 
         out = state.advance(
             step_index=state.step_index + 1,
@@ -104,3 +109,16 @@ class ValidateStep:
         if run_dir is not None:
             write_resolved_config(run_dir, out.run_id, state_config_payload(out))
         return out
+
+
+def _run_the_cross_rules_again(cfg: object) -> None:
+    """Raise the first refusal of ``CROSS_RULES`` on a config built before this step.
+
+    Its warnings were told when it was built, so they are not told twice.
+    """
+    from hydromodpy.config.cross_checks import run_cross_rules
+
+    sealed = bool(getattr(cfg, "read_as_sealed", False))
+    for outcome in run_cross_rules(cfg, sealed=sealed, first_only=True):
+        if outcome.error is not None:
+            raise outcome.error

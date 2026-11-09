@@ -6,7 +6,7 @@ A seal says what was measured (:mod:`hydromodpy.results.checks`). Whether
 those facts make a run ``calibrated`` depends on rules that change, and on
 bugs found after the run was sealed. So the label is computed here, every
 time it is read, from the checks, the version that produced the run and the
-register of known issues shipped with this build. An old run is reclassified
+bugs of the register of changes shipped with this build. An old run is reclassified
 by a newer build without anyone rewriting its files.
 
 Labels, in order of precedence
@@ -15,7 +15,7 @@ Labels, in order of precedence
 2. ``failed``: ``checks.converged`` is ``False``, with the reason
    ``solver did not converge``. Unknown convergence (``None``) is not a
    failure.
-3. ``exploratory`` with the issue ids: a known issue of the producing version
+3. ``exploratory`` with the bug ids: a known bug of the producing version
    touches a quantity of the run. The run is declassed, whatever else it is.
 4. ``evaluated``: the run is calibrated (rule 5 holds) and was scored, with
    at least ``ValidityRules.min_scored_samples`` samples, on a window that
@@ -44,72 +44,52 @@ those of a solved model. A search with no rule of its own that spent its
 budget closes ``completed``, so its run is ``calibrated`` (rule 5), and the
 run README says why its search stopped.
 
-Format of ``known_issues.toml``
--------------------------------
-The register ships in the wheel next to this module and is read with
-``importlib.resources``. One ``[[issue]]`` table per issue::
+The known issues are the bugs of the register
+----------------------------------------------
+The register is ``hydromodpy/schema/changes.toml``, read by
+:mod:`hydromodpy.schema.changes`. One ``[[bug]]`` per fix that changes a number::
 
-    [[issue]]
+    [[bug]]
     id = "discharge_scores_before_period_alignment"  # [a-z0-9_]+, stable
+    since = "2.0.0"  # the first version with the fix
     versions = "<2.0.0a1"  # PEP 440 specifier set of the affected versions
     quantities = ["metrics"]  # tokens a run exposes, see run_quantities()
-    since_commit = "e6c5e50f5"  # the commit that fixed it
-    description = "..."  # one sentence a reader can act on
+    text = "..."  # one sentence a reader can act on
+    commit = "e6c5e50f5"  # the commit that fixed it, optional
 
 A run exposes its quantities as tokens: ``metrics`` when it carries a
 score, ``heads@<solver>`` and ``fluxes@<solver>`` for its solver,
 ``mesh@<engine>`` for its mesh engine, ``derived@<version>`` for the rules its
-seal stamps as ``derive_rule_version``. An issue hits a run when its versions
-contain the run's ``hydromodpy_version`` and one of its quantities is one of
-the run's. The register is a feature: a fix lands with its entry. The derived
-fields are rebuilt on read, so a fix of one changes what an old run reads: the fix
-bumps ``DERIVE_RULE_VERSION`` and its entry names ``derived@<old version>``.
+seal stamps as ``derive_rule_version``, and ``source@<section>_<source>`` for each
+``[[data.<section>.sources]]`` its ``config.toml`` declares. A bug hits a run when
+its versions contain the run's ``hydromodpy_version`` and one of its quantities is
+one of the run's. A fix lands with its row. The derived fields are rebuilt on read,
+so a fix of one changes what an old run reads: the fix bumps
+``DERIVE_RULE_VERSION`` and its row names ``derived@<old version>``.
 """
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
-from importlib.resources import files
 from typing import Annotated, Final
 
-from packaging.specifiers import SpecifierSet
-from packaging.version import Version
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
 from hydromodpy.results.checks import CalibrationSessionStatus, Checks
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
+from hydromodpy.schema.changes import REGISTER, Bug
 
 RULE_VERSION: Final[str] = "2"
 """Version of the labeling rules. Bump it when a label changes meaning."""
-
-KNOWN_ISSUES_FILENAME: Final[str] = "known_issues.toml"
-"""The register of known issues, package data of this module."""
 
 Label = Annotated[str, Vocabulary("exploratory", "calibrated", "evaluated", "failed")]
 """What a reader may call a run today."""
 
 CALIBRATED_LABELS: Final[tuple[Label, ...]] = ("calibrated", "evaluated")
 """Labels of a calibrated run: an evaluated run is calibrated, scored out of its window."""
-
-
-class KnownIssue(HydroModelBase):
-    """One bug that declasses the runs of the versions it touched."""
-
-    id: str = Field(pattern=r"^[a-z0-9_]+$", description="Stable id of the issue")
-    versions: str = Field(description="PEP 440 specifier set of the affected versions")
-    quantities: list[str] = Field(min_length=1, description="Run quantities the issue touches")
-    since_commit: str = Field(description="Commit that fixed the issue")
-    description: str = Field(description="What was wrong, in one sentence")
-
-    def hits(self, hydromodpy_version: str, quantities: Sequence[str]) -> bool:
-        """Return whether the issue touches a run of *hydromodpy_version* exposing *quantities*."""
-        version = Version(hydromodpy_version)
-        affected = SpecifierSet(self.versions, prereleases=True)
-        return version in affected and bool(set(self.quantities) & set(quantities))
 
 
 class ValidityRules(HydroModelBase):
@@ -124,7 +104,7 @@ class ValidityRules(HydroModelBase):
         default=1, ge=1, description="Samples a score needs for the run to be evaluated"
     )
     declass_on_known_issue: bool = Field(
-        default=True, description="Whether a known issue of the producing version declasses a run"
+        default=True, description="Whether a known bug of the producing version declasses a run"
     )
 
 
@@ -138,25 +118,14 @@ class LabelResult:
     known_issues: tuple[str, ...]
 
 
-def load_known_issues() -> tuple[KnownIssue, ...]:
-    """Return the register shipped with this build."""
-    text = files(__package__).joinpath(KNOWN_ISSUES_FILENAME).read_text(encoding="utf-8")
-    payload = tomllib.loads(text)
-    issues = tuple(KnownIssue.model_validate(entry) for entry in payload.get("issue", ()))
-    ids = [issue.id for issue in issues]
-    if len(ids) != len(set(ids)):
-        raise ValueError(f"{KNOWN_ISSUES_FILENAME} repeats an issue id: {sorted(ids)}")
-    return issues
-
-
 def known_issues_hitting(
     hydromodpy_version: str,
     quantities: Sequence[str],
-    issues: Sequence[KnownIssue] | None = None,
-) -> tuple[KnownIssue, ...]:
-    """Return the issues that touch a run of that version exposing those quantities."""
-    register = load_known_issues() if issues is None else tuple(issues)
-    return tuple(issue for issue in register if issue.hits(hydromodpy_version, quantities))
+    issues: Sequence[Bug] | None = None,
+) -> tuple[Bug, ...]:
+    """Return the bugs that touch a run of that version exposing those quantities."""
+    register = REGISTER.bugs if issues is None else tuple(issues)
+    return tuple(bug for bug in register if bug.hits(hydromodpy_version, quantities))
 
 
 def run_quantities(
@@ -165,8 +134,13 @@ def run_quantities(
     mesh_engine: str | None = None,
     has_metrics: bool = False,
     derive_rule_version: str | None = None,
+    sources: Sequence[str] = (),
 ) -> tuple[str, ...]:
-    """Return the quantity tokens a run exposes, the vocabulary of the register."""
+    """Return the quantity tokens a run exposes, the vocabulary of the register.
+
+    *sources* are the ``source@<section>_<source>`` tokens of the sources the run
+    declares (:func:`hydromodpy.schema.sources.declared_source_tokens`).
+    """
     tokens = [f"heads@{solver}", f"fluxes@{solver}"]
     if mesh_engine:
         tokens.append(f"mesh@{mesh_engine}")
@@ -174,6 +148,7 @@ def run_quantities(
         tokens.append("metrics")
     if derive_rule_version:
         tokens.append(f"derived@{derive_rule_version}")
+    tokens.extend(sources)
     return tuple(tokens)
 
 
@@ -188,12 +163,12 @@ def label_for(
     hydromodpy_version: str,
     quantities: Sequence[str] = (),
     rules: ValidityRules | None = None,
-    issues: Sequence[KnownIssue] | None = None,
+    issues: Sequence[Bug] | None = None,
 ) -> LabelResult:
     """Return the label of a run today, with the reasons.
 
-    *issues* overrides the shipped register, for a caller that reads another
-    build's register or a test. The rules are those of the module docstring.
+    *issues* overrides the bugs of the shipped register, for a caller that reads
+    another build's register or a test. The rules are those of the module docstring.
     """
     active = ValidityRules() if rules is None else rules
     if checks.fatal_failed():
@@ -206,7 +181,7 @@ def label_for(
         )
     if checks.converged is False:
         return LabelResult("failed", active.rule_version, ("solver did not converge",), ())
-    hitting: tuple[KnownIssue, ...] = ()
+    hitting: tuple[Bug, ...] = ()
     if active.declass_on_known_issue:
         hitting = known_issues_hitting(hydromodpy_version, quantities, issues)
     if hitting:
@@ -214,7 +189,7 @@ def label_for(
             "exploratory",
             active.rule_version,
             tuple(
-                f"known issue {issue.id} touches {hydromodpy_version}: {issue.description}"
+                f"known issue {issue.id} touches {hydromodpy_version}: {issue.text}"
                 for issue in hitting
             ),
             tuple(issue.id for issue in hitting),
@@ -257,14 +232,11 @@ def label_for(
 
 __all__ = [
     "CALIBRATED_LABELS",
-    "KNOWN_ISSUES_FILENAME",
     "RULE_VERSION",
-    "KnownIssue",
     "Label",
     "LabelResult",
     "ValidityRules",
     "known_issues_hitting",
     "label_for",
-    "load_known_issues",
     "run_quantities",
 ]

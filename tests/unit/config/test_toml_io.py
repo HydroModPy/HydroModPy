@@ -23,6 +23,7 @@ from hydromodpy.core.toml_io.error_locator import format_loc, format_validation_
 from hydromodpy.core.toml_io.generator import generate_toml, generate_toml_from_instances
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
+from hydromodpy.schema.changes import FIRST_EDITION
 
 
 def test_dumps_round_trips_nested_tables_and_arrays() -> None:
@@ -272,7 +273,8 @@ def test_the_template_shows_one_commented_export_block() -> None:
     assert "# [[export]]" in text
     assert "# variables = " in text
     # Every block is commented: an export is asked for, never on by default.
-    assert tomllib.loads(text) == {}
+    # The edition is the one scalar of the root, so a template writes it.
+    assert tomllib.loads(text) == {"edition": FIRST_EDITION}
 
 
 def test_the_full_template_parses_and_carries_no_export() -> None:

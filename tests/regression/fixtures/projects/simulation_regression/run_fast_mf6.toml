@@ -7,12 +7,12 @@ mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
 # MF6 GWT runs on the SI SECONDS clock: diffu_coeff is m2/s and rate_decay is

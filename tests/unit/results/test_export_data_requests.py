@@ -19,7 +19,7 @@ from hydromodpy.results.exporters.export_spec import load_export_requests
 def recorded(monkeypatch, tmp_path) -> list[str]:
     seen: list[str] = []
 
-    def fake_request(_store, _sim_id, request, _target) -> list[Path]:
+    def fake_request(_store, _sim_id, request, _target, *, taken) -> list[Path]:
         seen.append(request.variables)
         if request.variables == "head":
             raise ValueError("cannot write head")

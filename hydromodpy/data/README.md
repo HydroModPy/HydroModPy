@@ -55,8 +55,9 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
 
 1. A variable never imports another variable.
 2. Another layer of HydroModPy imports only the modules listed under `public`
-   in `data_layout.yaml`. Managers, `common`, `schemas`, and the inside of
-   `loading` and of the variables stay private.
+   in `data_layout.yaml`. Managers, `common`, `schemas` but the DEM contract
+   that the check of the input files reads, and the inside of `loading` and of
+   the variables stay private.
 3. A manager reaches its providers through the source registry, so adding a
    provider touches no manager body and an `if` on the source name has no
    reason to appear.

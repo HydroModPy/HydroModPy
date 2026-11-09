@@ -87,7 +87,7 @@ def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunR
     _seal_field_store(store, when)
     record = build_record(store, ended_at=when)
     record.write(run_dir)
-    label = label_of(record)
+    label = label_of(record, run_dir)
     write_readme(
         run_dir,
         render_run_readme(record, None, label, manifest_sha256=manifest_sha256(run_dir)),

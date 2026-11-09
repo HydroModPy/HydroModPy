@@ -666,7 +666,7 @@ class TestTheCheckBeforeTheRun:
 
     def test_a_window_ending_before_it_is_named_with_its_phase(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="last", window=_TO_JUNE)
-        assert "[[calibration.phases]] 'conductivity'" in found
+        assert "calibration.phases: 'conductivity': " in found
         assert "window open to 2000-06-30" in found
         assert "stamped 2001-01-01" in found
 
@@ -676,7 +676,7 @@ class TestTheCheckBeforeTheRun:
 
     def test_a_date_the_run_does_not_hold_is_named_without_a_window(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="2005-03-15", window="")
-        assert "[calibration.outputs.net]" in found
+        assert "calibration.outputs.net: " in found
         assert "outside the record" in found
 
     @_NO_GENERIC_UNIT

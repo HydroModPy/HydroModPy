@@ -83,8 +83,6 @@ mf6_runner = "{runner}"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]

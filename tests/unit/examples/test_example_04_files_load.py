@@ -9,7 +9,7 @@ import pytest
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.project.check import check_project
+from hydromodpy.project.api import check
 
 pytestmark = pytest.mark.fast
 
@@ -65,9 +65,9 @@ def test_each_file_draws_figures_and_writes_exports(name: str) -> None:
 @pytest.mark.parametrize("name", CALIBRATIONS)
 def test_each_calibration_passes_the_preflight(name: str) -> None:
     """What ``hmp config check`` says of the file: a calibration with no error."""
-    report = check_project(EXAMPLE_04 / name)
-    assert report.kind == "calibration"
-    assert report.ok, report.errors
+    assert load_toml_with_base_config(EXAMPLE_04 / name, root=ROOT_CONFIG).get("calibration")
+    errors = [item.line() for item in check(EXAMPLE_04 / name) if item.severity == "error"]
+    assert not errors, errors
 
 
 def test_the_project_names_its_catchment_and_its_window_once() -> None:

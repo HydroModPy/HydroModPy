@@ -7,7 +7,14 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.core.config_kit.base import forget_old_forms_told
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+
+@pytest.fixture(autouse=True)
+def _told_again() -> None:
+    """A warning is told once per file and key, so each test starts from none told."""
+    forget_old_forms_told()
 
 
 def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> None:
@@ -298,42 +305,52 @@ def test_the_identity_of_each_list_of_tables_is_the_one_the_merge_reads() -> Non
     assert not by_identity
 
 
+OLD_MF6 = "[modflow6.process_specific]\nvka = {}\n"
+NEW_MF6 = "[solver.modflow6.process_specific]\nvka = {}\n"
+OLD_NWT = "[modflownwt.process_specific]\nvka = {}\n"
+NEW_NWT = "[solver.modflow_nwt.process_specific]\nvka = {}\n"
+
+
 @pytest.mark.parametrize(
-    ("first", "second", "written", "expected"),
+    ("first", "second", "written", "solver", "expected"),
     [
         pytest.param(
-            "[domain.layers]\nnlay = 3\n",
-            "[modflow6.sgrid.vertical]\nnlay = 5\n",
+            NEW_MF6.format(3.0),
+            OLD_MF6.format(5.0),
             "chain",
-            5,
+            "modflow6",
+            5.0,
             id="an old name in a child beats a new name in its parent",
         ),
         pytest.param(
-            "[modflow6.sgrid.vertical]\nnlay = 3\n",
-            "[domain.layers]\nnlay = 5\n",
+            OLD_MF6.format(3.0),
+            NEW_MF6.format(5.0),
             "chain",
-            5,
+            "modflow6",
+            5.0,
             id="a new name in a child beats an old name in its parent",
         ),
         pytest.param(
-            "[domain.layers]\nnlay = 3\n",
-            "[modflow6.sgrid.vertical]\nnlay = 5\n",
+            NEW_MF6.format(3.0),
+            OLD_MF6.format(5.0),
             "overlay",
-            5,
+            "modflow6",
+            5.0,
             id="an old name in an overlay beats a new name in the file",
         ),
         pytest.param(
-            '[domain.layers]\nnlay = 3\n[[simulation.process]]\nid = "flow"\ntype = "flow"\n'
+            NEW_NWT.format(3.0) + '[[simulation.process]]\nid = "flow"\nkind = "flow"\n'
             'solvers = ["modflow6"]\n',
-            "[modflownwt.sgrid.vertical]\nnlay = 5\n",
+            OLD_NWT.format(5.0),
             "chain",
-            5,
-            id="the one old table of the chain moves whatever the solver",
+            "modflow_nwt",
+            5.0,
+            id="the old table of a solver that does not run moves to its own table",
         ),
     ],
 )
 def test_each_file_is_migrated_before_the_merge(
-    tmp_path: Path, first: str, second: str, written: str, expected: int
+    tmp_path: Path, first: str, second: str, written: str, solver: str, expected: float
 ) -> None:
     from argparse import Namespace
 
@@ -355,9 +372,9 @@ def test_each_file_is_migrated_before_the_merge(
             assert effective is not None
             effective.unlink()
 
-    assert payload["domain"]["layers"]["nlay"] == expected
+    assert payload["solver"][solver]["process_specific"]["vka"] == expected
     assert "modflow6" not in payload
-    assert "sgrid" not in payload.get("solver", {}).get("modflow6", {})
+    assert "modflownwt" not in payload
 
 
 def test_a_set_and_a_variable_written_under_an_old_name_win(
@@ -369,67 +386,76 @@ def test_a_set_and_a_variable_written_under_an_old_name_win(
     from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 
     base = tmp_path / "base.toml"
-    base.write_text("[domain.layers]\nnlay = 3\n", encoding="utf-8")
-    args = Namespace(overlay=[], set_overrides=["modflow6.sgrid.vertical.nlay=5"], case=None)
+    base.write_text(NEW_MF6.format(3.0), encoding="utf-8")
+    args = Namespace(overlay=[], set_overrides=["modflow6.process_specific.vka=5.0"], case=None)
 
     with pytest.warns(ConfigKeyRenamedWarning, match="--set: .*write the new name") as told:
         effective, payload, lineage = materialize_effective_toml(base, args=args)
     assert effective is not None
     effective.unlink()
 
-    assert payload["domain"]["layers"]["nlay"] == 5
-    assert lineage == {"domain.layers.nlay": 5}
+    assert payload["solver"]["modflow6"]["process_specific"]["vka"] == 5.0
+    assert lineage == {"solver.modflow6.process_specific.vka": 5.0}
     assert "fix-config" not in str(told[0].message)
 
-    monkeypatch.setenv("HMP_SET_modflow6__sgrid__vertical__nlay", "7")
+    monkeypatch.setenv("HMP_SET_modflow6__process_specific__vka", "7.0")
     with pytest.warns(ConfigKeyRenamedWarning, match=r"HMP_SET_\*"):
         effective, payload, lineage = materialize_effective_toml(
             base, args=Namespace(overlay=[], set_overrides=[], case=None)
         )
     assert effective is not None
     effective.unlink()
-    assert payload["domain"]["layers"]["nlay"] == 7
+    assert payload["solver"]["modflow6"]["process_specific"]["vka"] == 7.0
 
 
 @pytest.mark.parametrize(
-    ("solver", "expected"),
-    [pytest.param("modflow6", 3, id="MODFLOW 6"), pytest.param("modflow_nwt", 5, id="NWT")],
+    ("solver", "table", "expected"),
+    [
+        pytest.param("modflow6", "modflow6", 3.0, id="MODFLOW 6"),
+        pytest.param("modflow_nwt", "modflow_nwt", 5.0, id="NWT"),
+    ],
 )
-def test_the_table_of_the_flow_solver_wins_across_the_files(
-    tmp_path: Path, solver: str, expected: int
+def test_the_table_of_each_solver_moves_on_its_own_across_the_files(
+    tmp_path: Path, solver: str, table: str, expected: float
 ) -> None:
-    """A table a solver never read stays unread, even when a child writes it."""
+    """A table a solver never reads stays beside the one it reads, even when a child writes it."""
     from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 
     (tmp_path / "base.toml").write_text(
-        f'[solver]\nbackend = "{solver}"\n[modflow6.sgrid.vertical]\nnlay = 3\n',
-        encoding="utf-8",
+        f'[solver]\nbackend = "{solver}"\n' + OLD_MF6.format(3.0), encoding="utf-8"
     )
     child = tmp_path / "child.toml"
-    child.write_text(
-        'base_config = "base.toml"\n[modflownwt.sgrid.vertical]\nnlay = 5\n', encoding="utf-8"
-    )
+    child.write_text('base_config = "base.toml"\n' + OLD_NWT.format(5.0), encoding="utf-8")
 
     with pytest.warns(ConfigKeyRenamedWarning):
         payload = load_toml_with_base_config(child, root=ROOT_CONFIG)
 
-    assert payload["domain"]["layers"]["nlay"] == expected
+    assert payload["solver"]["backend"] == solver
+    assert payload["solver"]["modflow6"]["process_specific"]["vka"] == 3.0
+    assert payload["solver"]["modflow_nwt"]["process_specific"]["vka"] == 5.0
+    assert payload["solver"][table]["process_specific"]["vka"] == expected
 
 
 def test_a_table_two_files_fill_key_by_key_waits_for_the_merge(tmp_path: Path) -> None:
-    """Toggles of one ``[export]`` table in two files keep both, as they always did."""
+    """One moved table in two files keeps the keys of both, as the merge of tables always did."""
     from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 
     (tmp_path / "base.toml").write_text(
-        '[export]\nnetcdf = true\nvariables = ["head"]\n', encoding="utf-8"
+        "[modflow6.process_specific]\nvka = 2.0\n", encoding="utf-8"
     )
     child = tmp_path / "child.toml"
-    child.write_text('base_config = "base.toml"\n[export]\nvtu = true\n', encoding="utf-8")
+    child.write_text(
+        'base_config = "base.toml"\n[modflow6.process_specific]\nevt_extinction_depth = 3.0\n',
+        encoding="utf-8",
+    )
 
     with pytest.warns(ConfigKeyRenamedWarning):
         payload = load_toml_with_base_config(child, root=ROOT_CONFIG)
 
-    assert [block["format"] for block in payload["export"]] == ["netcdf", "vtu"]
+    assert payload["solver"]["modflow6"]["process_specific"] == {
+        "vka": 2.0,
+        "evt_extinction_depth": 3.0,
+    }
 
 
 def test_an_overlay_keeps_its_directives_until_it_meets_the_file(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.project.check import check_project
+from hydromodpy.project.api import check
 from hydromodpy.project.launch.sites.expansion import expand_plan
 from tests._helpers.cli_runner import CliRunner
 
@@ -38,9 +38,9 @@ def _rows() -> dict[str, dict[str, str]]:
 
 @pytest.mark.parametrize("project", [EXAMPLE_09, EXAMPLE_19], ids=["09", "19"])
 def test_the_check_finds_no_error(project: Path) -> None:
-    report = check_project(project / "project.toml")
-    assert report.kind == "sites"
-    assert report.ok, report.errors
+    assert _cases(project)
+    errors = [item.line() for item in check(project / "project.toml") if item.severity == "error"]
+    assert not errors, errors
 
 
 def test_example_09_is_one_site_crossed_with_three_values_of_k() -> None:

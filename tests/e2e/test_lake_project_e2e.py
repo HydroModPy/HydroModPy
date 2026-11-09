@@ -131,18 +131,16 @@ path = "{_DEM_PATH}"
 """
 
 
-def _config_body(*, active_bc: list[str], flow_extra: str, data_toml: str) -> str:
+def _config_body(*, flow_extra: str, data_toml: str) -> str:
     """Return the self-contained project TOML for the given lake declaration.
 
     Self-contained (no ``base_config``) so the run does not inherit the committed
     fixtures' relative well / oceanic paths, which would break when the config
-    lives in tmp_path. ``active_bc`` and any lake-specific ``flow.*`` subtables
-    are injected into the single ``[flow]`` table (TOML forbids declaring it
-    twice). Uses one aligned 30-day period and a small 30x30 / 1-layer DISV grid
-    to keep the mf6 run fast; ``keep_solver_files`` keeps ``runs/<run>/solver/`` so
+    lives in tmp_path. Any lake-specific ``flow.*`` subtables are injected after
+    the drainage and recharge tables. Uses one aligned 30-day period and a small
+    30x30 / 1-layer DISV grid to keep the mf6 run fast; ``keep_solver_files`` keeps ``runs/<run>/solver/`` so
     the LAK package file can be asserted on disk.
     """
-    active_bc_toml = ", ".join(f'"{name}"' for name in active_bc)
     return f"""\
 [site]
 name = "cheze"
@@ -186,8 +184,6 @@ solvers = ["modflow6"]
 
 [flow]
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = [{active_bc_toml}]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -232,9 +228,9 @@ def _write_lake_config(
 ) -> None:
     """Write the lake project TOML: a drainage outlet plus a config-declared lake.
 
-    ``active_bc`` carries ``lake`` (-> MF6 LAK, modflow6-only) and ``drainage`` (a
-    seepage outlet that lets the flow model converge). The lake carries a WEIR
-    spillway outlet so its stage is capped near the surrounding terrain. The lake
+    The lake table (-> MF6 LAK, modflow6-only) and the ``drainage`` table (a
+    seepage outlet that lets the flow model converge) are both declared. The lake
+    carries a WEIR spillway outlet so its stage is capped near the surrounding terrain. The lake
     reaches the build only through the CUSTOM lake_geometry / lake_abacus data
     sources and the ``flow.sinks_sources.lakes`` payload, so the whole data layer
     is on the path.
@@ -265,11 +261,7 @@ lake_id = "{_LAKE_ID}"
 """
     )
     config_path.write_text(
-        _config_body(
-            active_bc=["lake", "drainage"],
-            flow_extra=flow_extra,
-            data_toml=data_toml,
-        ),
+        _config_body(flow_extra=flow_extra, data_toml=data_toml),
         encoding="utf-8",
     )
 
@@ -277,11 +269,7 @@ lake_id = "{_LAKE_ID}"
 def _write_no_lake_config(config_path: Path) -> None:
     """Write the SAME base config without a lake (drainage only, no LAK)."""
     config_path.write_text(
-        _config_body(
-            active_bc=["drainage"],
-            flow_extra="",
-            data_toml=_RECHARGE_DATA_TOML + _DEM_DATA_TOML,
-        ),
+        _config_body(flow_extra="", data_toml=_RECHARGE_DATA_TOML + _DEM_DATA_TOML),
         encoding="utf-8",
     )
 

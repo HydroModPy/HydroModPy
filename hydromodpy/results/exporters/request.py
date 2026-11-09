@@ -4,8 +4,9 @@ A request (:class:`~hydromodpy.results.exporters.export_spec.ExportRequest`)
 names data, not formats. This module reads what the run holds
 (:func:`~hydromodpy.results.exporters.vocabulary.list_exportable`), expands
 ``"all"``, plans every file with the same
-:func:`~hydromodpy.results.exporters.export_spec.plan_outputs` the step 0 check
-ran, resolves the dates to stress periods, and hands each planned file to the
+:func:`~hydromodpy.results.exporters.export_spec.plan_outputs` the check of the
+document ran, refuses a file an earlier request of the run already writes,
+resolves the dates to stress periods, and hands each planned file to the
 format the registry resolves
 (:mod:`hydromodpy.results.exporters.registry`):
 (:class:`~hydromodpy.results.exporters.job.ExportJob` reads the run, the
@@ -84,6 +85,7 @@ def export_data_requests(store: Any, sim_id: str, requests: Sequence[ExportReque
     """
     failures: list[str] = []
     written: list[Path] = []
+    taken: set[Path] = set()
     target: ExportTarget | None = None
     views = run_formats()
     for index, request in enumerate(requests):
@@ -91,7 +93,7 @@ def export_data_requests(store: Any, sim_id: str, requests: Sequence[ExportReque
             continue
         try:
             target = target or run_export_target(store, sim_id)
-            written.extend(export_request(store, sim_id, request, target))
+            written.extend(export_request(store, sim_id, request, target, taken=taken))
         except Exception as exc:  # noqa: BLE001 - every request has its turn, then all raise
             failures.append(f"export request {index + 1} ({_describe(request)}): {exc}")
     if failures:
@@ -200,14 +202,24 @@ def _global_attrs(store: Any, sim_id: str) -> dict[str, Any]:
 
 
 def export_request(
-    catalog: Any, sim_id: str, request: ExportRequest, target: ExportTarget
+    catalog: Any,
+    sim_id: str,
+    request: ExportRequest,
+    target: ExportTarget,
+    *,
+    taken: set[Path] | None = None,
 ) -> list[Path]:
     """Write every file ``request`` asks of one run and return their paths.
+
+    *taken* holds the files the earlier requests of the same run write. A
+    request that would write one of them again is refused before it writes
+    anything, and its own files join *taken* otherwise.
 
     Raises
     ------
     ExportError
-        A name the run does not hold, or a format nothing serves.
+        A name the run does not hold, a format nothing serves, or a file of
+        *taken*.
     ValueError
         A date outside the record, a format a kind cannot be written in, a
         field of several layers in a one-layer format without ``layer``.
@@ -229,6 +241,8 @@ def export_request(
         _check_held(run, label, names, held)
         kinds = {name: held[name] for name in names}
         planned = plan_outputs(request, kinds, run_label=label, names=names)
+        if taken is not None:
+            _hold_the_files(planned, target, taken)
         job = ExportJob(catalog=catalog, run=run, request=request, kinds=kinds, target=target)
         written = []
         for item in planned:
@@ -321,6 +335,22 @@ def _all_names(held: Mapping[str, Any]) -> list[str]:
     ``mesh_cells`` already holds them as columns; they stay requestable by name.
     """
     return [name for name in held if name not in MESH_QUALITY_DESCRIPTORS]
+
+
+def _hold_the_files(planned: Sequence[Any], target: ExportTarget, taken: set[Path]) -> None:
+    """Refuse a planned file an earlier request of the run writes, then add these to *taken*.
+
+    The check of a document plans the files before the run has a name, so a
+    ``file`` that takes the name of the run directory is only seen here.
+    """
+    landing = [_destination(item.path, target) for item in planned]
+    again = sorted({path.name for path in landing if path in taken})
+    if again:
+        raise ExportError(
+            f"{', '.join(again)} is already written by an earlier [[export]] block of this "
+            "run. Give this block its own file or folder."
+        )
+    taken.update(landing)
 
 
 def _destination(path: PurePosixPath, target: ExportTarget) -> Path:

@@ -28,7 +28,7 @@ the {doc}`list of data sources <../../reference/data-sources>` says what each on
 ## The calibration files
 
 Example 04 ships five files that calibrate the model of `project.toml`. The guide
-{doc}`../calibrate-k` walks through one. Check one before you run it: `hmp config check` loads the file, prints what each phase will do and runs nothing.
+{doc}`../calibrate-k` walks through one. Check one before you run it: `hmp config check` lists every problem of the file at once, prints what each phase will do and runs nothing.
 
 ```bash
 hmp config check run_calibration.toml

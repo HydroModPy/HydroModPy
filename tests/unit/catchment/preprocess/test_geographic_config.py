@@ -79,6 +79,13 @@ def test_a_geographic_table_is_refused(payload, match) -> None:
         GeographicConfig.model_validate(payload)
 
 
+@pytest.mark.parametrize("key", ["bottom_path"])
+def test_a_key_the_section_dropped_is_refused_as_unknown(key: str) -> None:
+    # A file that writes it is refused earlier, by the loader, as a key of a pre-release.
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        GeographicConfig.model_validate({"source_mode": "synthetic", key: "bottom.tif"})
+
+
 def test_a_file_that_says_nothing_gets_fill_and_one_that_writes_breach_keeps_it() -> None:
     assert GeographicConfig(source_mode="synthetic").dem_correc_type == "fill"
     breach = GeographicConfig(source_mode="synthetic", dem_correc_type="breach")
@@ -194,7 +201,7 @@ def test_a_correction_on_a_support_with_no_catchment_is_refused(build, match) ->
 def test_a_toml_declaring_the_stream_burn_is_refused_not_ignored(tmp_path) -> None:
     (tmp_path / "dem.tif").touch()
     burn = (
-        '[geographic.catchment]\ncatch_def = "dem"\n'
+        '[geographic.catchment]\nkind = "dem"\n'
         "[geographic.enforce_streams]\nenabled = true\ndepth_m = 10.0\n"
     )
     with pytest.raises(Exception, match="enforce_streams"):

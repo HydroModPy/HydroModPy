@@ -37,7 +37,7 @@ from the same parsers.
 | `export` | write data of one run to files under `runs/<run>/exports/` (fields, series, layers, budget, or the whole run), and write again what its ledgers record (`--regen`) |
 | `publish` | copy a run, the summary or the project out of the tree (directory or tar), with `PUBLICATION.json`; `--package` writes the project with its data, which `hmp project import` installs |
 | `viz` | figures: `list`, `show` |
-| `config` | `template`, `check`, `resolve`, `schema`, `targets`, `validate-field`, `wizard` |
+| `config` | `template`, `check` (`--partial` accepts a file with keys still to fill, `--inputs` reads the headers of the input files), `resolve`, `schema`, `targets`, `wizard` |
 | `lock` | the lockfile of a project: `update`, `verify` |
 | `completion` | a shell completion script |
 | `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |

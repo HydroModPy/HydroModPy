@@ -307,8 +307,9 @@ at the stamp that closes its period: `time = "last"` (the default),
 `"first"`, or a date such as `"2002-10-15"`, which reads the period that
 holds it. The window has to hold that stamp, and `hmp config check` says so
 before any solve when it does not. The old `warmup` and `warmup_periods`
-counted samples, so their span followed the time step; `hmp doctor
---fix-config` turns `warmup_periods` into the start date of the window.
+counted samples, so their span followed the time step. A file that writes
+them was written by a pre-release of 2.0, and the doctor of a 2.0.x release
+turns `warmup_periods` into the start date of the window.
 
 Dates can be kept apart from the search with `validation_window = {start, end}`
 on `[calibration]`, once for the session. `[metrics] window` minus those dates

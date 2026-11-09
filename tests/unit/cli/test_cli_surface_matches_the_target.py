@@ -68,9 +68,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
     ),
     "report": frozenset({"render", "compare", "catchment"}),
     "viz": frozenset({"list", "show"}),
-    "config": frozenset(
-        {"template", "check", "resolve", "schema", "targets", "validate-field", "wizard"}
-    ),
+    "config": frozenset({"template", "check", "resolve", "schema", "targets", "wizard"}),
     "data": frozenset({"ls", "get", "add", "remove", "prune", "archive", "restore"}),
     "example": frozenset({"list", "show", "add"}),
     "privacy": frozenset({"purge", "verify"}),

@@ -744,7 +744,7 @@ def test_a_baseflow_is_returned_alone_when_the_runoff_cannot_be_added(monkeypatc
 # ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared here
 # and never read, so a file that wrote ``weighting = "error"`` or
 # ``on_member_failure = "drop"`` got the same cost as one that did not. They
-# are refused, and ``hmp doctor --fix-config`` deletes them.
+# are refused, and the sentence says to delete them.
 
 
 def _config(aggregate: dict[str, object], **over: object) -> dict[str, object]:
@@ -781,7 +781,10 @@ class TestTheRefusedKeys:
         [("weighting", "error"), ("nested_gauges", "incremental"), ("on_member_failure", "drop")],
     )
     def test_an_aggregate_key_nothing_read_is_refused(self, key: str, value: str) -> None:
-        with pytest.raises(ValueError, match=rf"'{key}' is not accepted any more.*deletes it"):
+        with pytest.raises(
+            ValueError,
+            match=rf"'{key}' is not accepted any more: no step ever read it, so delete it",
+        ):
             CalibrationConfig.model_validate(_config({key: value}))
 
         assert key not in CalibAggregateDecl.model_fields
@@ -790,7 +793,10 @@ class TestTheRefusedKeys:
         "key", ["lightweight_extraction", "persist_model_distribution", "persistence"]
     )
     def test_a_section_key_nothing_read_is_refused(self, key: str) -> None:
-        with pytest.raises(ValueError, match=rf"'{key}' is not accepted any more.*deletes it"):
+        with pytest.raises(
+            ValueError,
+            match=rf"'{key}' is not accepted any more: no step ever read it, so delete it",
+        ):
             CalibrationConfig.model_validate({key: True})
 
         assert key not in CalibrationConfig.model_fields

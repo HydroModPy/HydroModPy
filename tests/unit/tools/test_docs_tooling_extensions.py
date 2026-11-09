@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from tools.docs import field_registry, legacy_keys, tests_index
+from hydromodpy.schema.changes import read
+from tools.docs import legacy_keys, tests_index
 
 ROOT = Path(__file__).resolve().parents[3]
 EXT = ROOT / "docs" / "source" / "_ext"
@@ -67,43 +68,104 @@ def test_a_workflow_with_two_jobs_marks_only_the_job_that_installs_petsc4py(
 
 # ---------------------------------------------------------------- legacy_keys
 
+MOVES = """schema = "hydromodpy.changes.v1"
+[[migration]]
+document = "config"
+old = "a.old_table"
+new = "a.new_table"
+since = "2.1.0"
+[[migration]]
+document = "config"
+old = "b.list[*].old_key"
+new = "b.list[*].new_key"
+since = "2.0.0"
+[[migration]]
+document = "config"
+old = "c.long_gone"
+new = "c.gone_for_good"
+since = "1.0.0"
+[[migration]]
+document = "config"
+key = "d.kind"
+old_value = "a"
+new_value = "b"
+since = "2.1.0"
+[[migration]]
+document = "config"
+old = "e.left"
+instead = "write something else"
+since = "2.1.0"
+[[migration]]
+document = "fields"
+old = "f.stored"
+new = "f.stored_now"
+since = "2.1.0"
+"""
 
-@pytest.fixture(scope="module")
-def renamed_nodes() -> dict:
-    payload, _gates = field_registry.build_payload("test")
-    return payload["nodes"]
 
+def test_a_move_row_inside_its_delay_is_a_key_a_live_file_may_still_write() -> None:
+    register = read(MOVES)
 
-def test_every_rename_the_loader_still_reads_is_classified(renamed_nodes: dict) -> None:
-    accepted = legacy_keys.accepted_old_names(renamed_nodes)
-    assert accepted["flow.ic.type"] == legacy_keys.MIGRATES
-    assert "calibration.optimizer_kwargs" not in accepted
-    assert "calibration.phases.optimizer_kwargs" not in accepted
-    assert "calibration.protocol.steady_engine_options" not in accepted
-    assert accepted["export.netcdf"] == legacy_keys.MIGRATES
-    assert accepted["export.artifacts"] == legacy_keys.MIGRATES
-
-
-def test_the_retired_results_tables_still_load(renamed_nodes: dict) -> None:
-    from hydromodpy.config import config_migration
-
-    accepted = legacy_keys.accepted_old_names(renamed_nodes)
-    assert config_migration.RETIRED_RESULTS_TABLES
-    for table in config_migration.RETIRED_RESULTS_TABLES:
-        assert accepted[table] == legacy_keys.MIGRATES
-    assert accepted["simulation.results.derived"] == legacy_keys.MIGRATES
-    assert accepted["simulation.results.budget"] == legacy_keys.MIGRATES
-
-
-def test_a_rename_the_loader_does_not_read_is_left_out(renamed_nodes: dict) -> None:
-    nodes = {
-        "flow.hk": {"model": "FlowConfig", "renamed_from": ["flow.never_read_key"]},
-        **renamed_nodes,
+    assert legacy_keys.accepted_old_names(register) == {
+        "a.old_table": legacy_keys.MIGRATES,
+        "b.list.old_key": legacy_keys.MIGRATES,
     }
-    assert "flow.never_read_key" not in legacy_keys.accepted_old_names(nodes)
 
 
-def _removed_block(hmp_params, monkeypatch: pytest.MonkeyPatch, removed: list[str]) -> str:
+def test_every_move_row_is_a_move_of_the_page_even_past_its_delay() -> None:
+    register = read(MOVES)
+
+    assert legacy_keys.moved_tables(register) == {
+        "a.old_table": "a.new_table",
+        "b.list.old_key": "b.list.new_key",
+        "c.long_gone": "c.gone_for_good",
+    }
+
+
+def test_the_shipped_register_moves_the_solver_tables() -> None:
+    accepted = legacy_keys.accepted_old_names()
+    moves = legacy_keys.moved_tables()
+
+    assert accepted["modflow6"] == legacy_keys.MIGRATES
+    assert moves["modflow6"] == "solver.modflow6"
+    assert moves["flow.runtime"] == "solver.boussinesq"
+    assert set(accepted) <= set(moves)
+
+
+def test_a_pre_release_form_is_refused_and_no_row_moves_it() -> None:
+    accepted = legacy_keys.accepted_old_names()
+    forms = legacy_keys.prerelease_paths()
+
+    assert {"calibration.optimizer_kwargs", "calibration.max_iter"} <= forms
+    assert not forms & set(accepted)
+    assert "calibration.optimizer_kwargs" not in accepted
+
+
+def test_a_form_that_refuses_a_value_is_not_a_removed_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hydromodpy.config.config_migration import PrereleaseForm
+
+    monkeypatch.setattr(
+        legacy_keys,
+        "PRERELEASE_FORMS",
+        (
+            PrereleaseForm("a.old.{*}"),
+            PrereleaseForm("b.kind", "robin", has_value=True),
+            PrereleaseForm("c.list[*].x"),
+        ),
+    )
+
+    assert legacy_keys.prerelease_paths() == {"a.old", "c.list.x"}
+
+
+def test_a_rename_the_loader_does_not_read_is_left_out() -> None:
+    assert "flow.never_read_key" not in legacy_keys.accepted_old_names(read(MOVES))
+
+
+def _block(
+    hmp_params, monkeypatch: pytest.MonkeyPatch, *, removed=(), renamed=(), nodes=None
+) -> str:
     """Render the changes page for one pair, released version to this tree, and return its HTML."""
     from types import SimpleNamespace
 
@@ -113,29 +175,42 @@ def _removed_block(hmp_params, monkeypatch: pytest.MonkeyPatch, removed: list[st
     pair = {
         "from": "1.0.0",
         "to": hmp_params.CURRENT,
-        "renamed": [],
-        "removed": removed,
+        "renamed": [{"from": old, "to": new} for old, new in renamed],
+        "removed": list(removed),
         "added": [],
         "changed": [],
     }
     history = {"versions": ["1.0.0", hmp_params.CURRENT], "pairs": [pair]}
     monkeypatch.setattr(hmp_params, "current_builder", lambda: SimpleNamespace())
     monkeypatch.setattr(hmp_params, "version_history", lambda: history)
-    monkeypatch.setitem(hmp_params.S, "nodes", {})
+    monkeypatch.setitem(hmp_params.S, "nodes", nodes or {})
     monkeypatch.setitem(hmp_params.S, "home", {})
     return Page.__new__(Page).run()[0].astext()
 
 
-def test_a_retired_table_is_listed_as_still_loading_and_not_breaking(
+def test_a_moved_key_is_listed_as_still_loading_and_not_breaking(
     monkeypatch: pytest.MonkeyPatch, ext_path: None
 ) -> None:
     import hmp_params
 
-    html = _removed_block(hmp_params, monkeypatch, ["simulation.results.derived"])
+    html = _block(hmp_params, monkeypatch, removed=["modflow6"])
 
     assert "A file that writes them still loads, as each line says." in html
-    assert "still loads; the loader rewrites or drops it on load" in html
+    assert "still loads; ConfigKeyRenamedWarning names the new key" in html
+    assert "hmp doctor --fix-config rewrites the file" in html
     assert "tc-req" not in html
+
+
+def test_a_pre_release_key_is_refused_with_the_doctor_of_2_0_x(
+    monkeypatch: pytest.MonkeyPatch, ext_path: None
+) -> None:
+    import hmp_params
+
+    html = _block(hmp_params, monkeypatch, removed=["calibration.optimizer_kwargs"])
+
+    assert "refused since 2.1.0" in html
+    assert "hmp doctor --fix-config of a 2.0.x release rewrites the file" in html
+    assert 'tc-req">breaking' in html
 
 
 def test_a_removed_key_the_loader_refuses_keeps_the_block_breaking(
@@ -143,9 +218,7 @@ def test_a_removed_key_the_loader_refuses_keeps_the_block_breaking(
 ) -> None:
     import hmp_params
 
-    html = _removed_block(
-        hmp_params, monkeypatch, ["simulation.results.derived", "flow.never_read_key"]
-    )
+    html = _block(hmp_params, monkeypatch, removed=["modflow6", "flow.never_read_key"])
 
     assert "refused, unless its line says it still loads" in html
     assert 'tc-req">breaking' in html
@@ -222,3 +295,152 @@ def test_the_type_aliases_of_a_verb_are_spelled_out_once(ext_path: None) -> None
     assert "HydroModPyConfig" in html
     assert "Readable" not in html
     assert hmp_api.type_aliases_html({"returns": [], "type_aliases": []}) == ""
+
+
+# ---------------------------------------------------------------- register page
+
+REGISTER_ROWS = """schema = "hydromodpy.changes.v1"
+[[bug]]
+id = "a_bug"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["metrics", "heads@modflow6"]
+text = "A `bug` in [section] reads *wrong*."
+[[default]]
+id = "a_default"
+since = "2.1.0"
+edition = "2.1"
+key = "solver.x"
+old = 0.5
+new = "auto"
+quantities = ["metrics"]
+text = "A default."
+[[recipe]]
+id = "a_recipe"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A recipe."
+[[migration]]
+document = "config"
+old = "a.b"
+new = "a.c"
+since = "2.1.0"
+[[migration]]
+document = "config"
+old = "a.left"
+instead = "Write a.right."
+sealed = "drop"
+since = "2.1.0"
+[[migration]]
+document = "config"
+key = "d.kind"
+old_value = "a"
+new_value = "b"
+since = "2.1.0"
+[[migration]]
+document = "sidecar"
+old = "s.old"
+new = "s.new"
+since = "2.1.0"
+"""
+
+
+def _table_text(table: str, register) -> list[list[str]]:
+    import hmp_changes_register as page
+
+    head, cells, widths = page.rows_of(table, register)
+    assert len(head) == len(widths)
+    assert all(len(row) == len(head) for row in cells)
+    return cells
+
+
+@pytest.mark.parametrize(
+    ("table", "expected"),
+    [
+        ("bug", [["a_bug", "2.1.0", "<2.1.0", "metrics, heads@modflow6"]]),
+        ("default", [["a_default", "2.1.0", "2.1", "solver.x", "0.5", '"auto"', "metrics"]]),
+        ("recipe", [["a_recipe", "2.1.0", "refusal", "none"]]),
+        (
+            "migration",
+            [
+                ["config", "a.b -> a.c", "2.1.0", "2.3.0"],
+                ["config", "a.left (left)", "2.1.0", "2.1.0"],
+                ["config", 'd.kind: "a" -> "b"', "2.1.0", "2.3.0"],
+                ["sidecar", "s.old -> s.new", "2.1.0", "-"],
+            ],
+        ),
+    ],
+)
+def test_each_row_of_the_register_is_a_row_of_its_table(
+    table: str, expected: list[list[str]], ext_path: None
+) -> None:
+    cells = _table_text(table, read(REGISTER_ROWS))
+
+    # The last column is the text of the row, checked apart from the short columns.
+    assert [row[: len(expected[0])] for row in cells] == expected
+
+
+def test_a_retired_key_says_what_to_write_and_that_a_sealed_run_drops_it(ext_path: None) -> None:
+    cells = _table_text("migration", read(REGISTER_ROWS))
+
+    assert cells[1][4] == "Write a.right. A sealed run drops it."
+    assert cells[0][4] == "-"
+
+
+def test_the_text_of_a_row_is_shown_as_it_is_written(ext_path: None) -> None:
+    import hmp_changes_register as page
+
+    head, cells, widths = page.rows_of("bug", read(REGISTER_ROWS))
+    shown = page.table_node(head, cells, widths, page.CODE_COLUMN["bug"]).astext()
+
+    assert "A `bug` in [section] reads *wrong*." in shown
+    assert "a_bug" in shown
+
+
+def test_the_shipped_register_is_listed_row_for_row(ext_path: None) -> None:
+    import hmp_changes_register as page
+
+    from hydromodpy.schema.changes import REGISTER
+
+    for table, rows in (
+        ("bug", REGISTER.bugs),
+        ("default", REGISTER.defaults),
+        ("recipe", REGISTER.recipes),
+        ("migration", REGISTER.migrations),
+    ):
+        _head, cells, _widths = page.rows_of(table, REGISTER)
+        assert len(cells) == len(rows)
+    assert {row[0] for row in page.rows_of("bug", REGISTER)[1]} == {b.id for b in REGISTER.bugs}
+
+
+def test_the_directive_takes_a_known_table_only(ext_path: None) -> None:
+    from types import SimpleNamespace
+
+    import hmp_changes_register as page
+    from docutils.parsers.rst import DirectiveError
+
+    class Page(page.RegisterDirective):
+        env = SimpleNamespace(note_dependency=lambda path: None)
+
+    def run(table: str):
+        directive = Page.__new__(Page)
+        directive.arguments = [table]
+        return directive.run()
+
+    assert run("bug")
+    with pytest.raises(DirectiveError):
+        run("everything")
+
+
+def test_no_tool_of_the_docs_reads_a_private_name_of_the_migration_module() -> None:
+    files = [
+        ROOT / "tools" / "surface_snapshot.py",
+        ROOT / "tools" / "changes_changelog.py",
+        ROOT / "tools" / "docs" / "legacy_keys.py",
+        ROOT / "tools" / "docs" / "toml_changelog.py",
+        EXT / "hmp_params.py",
+        EXT / "hmp_changes_register.py",
+    ]
+    for path in files:
+        assert "config_migration._" not in path.read_text(), path.name

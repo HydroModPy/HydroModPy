@@ -7,10 +7,13 @@
 # one key that moves or leaves, or one value that is renamed, in the TOML grammar or
 # in a stored document.
 #
-# The changelog is generated from this file: a bug, a default and a recipe whose
-# effect is "numbers" go under Numbers, the rest under Changed. No code reads this
-# file yet. Until it does, the register of known issues of published versions is
-# hydromodpy/results/known_issues.toml.
+# hydromodpy/schema/changes.py reads this file once, at import, and refuses a
+# faulty row. The label of a run reads its bugs, the migration of a configuration
+# reads the rows of document = "config", and
+# tests/unit/architecture/test_changes_register.py holds the rest. The Numbers
+# section of CHANGELOG.md is generated from the bugs, the defaults and the recipes
+# whose effect is "numbers" (python -m tools.changes_changelog --write). Every row
+# is listed on the generated page docs/source/reference/changes-register.md.
 #
 # Rules for every row:
 # - id is [a-z0-9_]+, unique in the whole file, and never reused. A migration row has
@@ -19,9 +22,10 @@
 # - text is the changelog line, in plain English: the quantity, the case, the old
 #   value, the new value and the size of the change.
 # - quantities are the tokens a run exposes, as in results/validity_rules.py:
-#   "metrics", "heads@<solver>", "fluxes@<solver>", "mesh@<engine>", "derived@<v>".
+#   "metrics", "heads@<solver>", "fluxes@<solver>", "mesh@<engine>", "derived@<v>",
+#   and "source@<section>_<source>" for each [[data.<section>.sources]] of its config.toml.
 # - A path is dotted, with [*] for each table of a list and {*} for the tables under
-#   free names, as in config/config_migration.py.
+#   free names, as in the dotted paths of the TOML grammar.
 
 schema = "hydromodpy.changes.v1"
 
@@ -88,8 +92,10 @@ schema = "hydromodpy.changes.v1"
 # new_value = "<new>"
 # since = "2.1.0"
 #
-# Any shape may add rule = "<function name>" when one row cannot say the whole
-# change. The function carries it, and the row stays for the changelog.
+# Any shape may add rule = "<name>" when one row cannot say the whole change. The
+# name is a key of the table RULES of the reader of the document, in
+# [a-z][a-z0-9_]*, never a module path. The function carries the change, and the
+# row stays for the changelog.
 
 [[recipe]]
 id = "seal_digests_the_field_store"
@@ -135,7 +141,7 @@ document = "config"
 old = "solver.backend.kind"
 new = "solver.backend"
 since = "2.1.0"
-rule = "_flatten_the_backend_table"
+rule = "flatten_the_backend_table"
 
 [[recipe]]
 id = "lake_refused_under_a_cyclic_start"
@@ -163,7 +169,7 @@ text = "A transport run is refused with SolverDivergedError when the flow it fol
 id = "hubeau_qixm_discharge"
 since = "2.1.0"
 versions = "<2.1.0"
-quantities = ["metrics"]
+quantities = ["source@hydrometry_hubeau"]
 text = "Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM."
 
 [[migration]]
@@ -177,14 +183,14 @@ since = "2.1.0"
 id = "hubeau_named_stations_capped"
 since = "2.1.0"
 versions = "<2.1.0"
-quantities = ["metrics"]
+quantities = ["source@hydrometry_hubeau"]
 text = "With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded."
 
 [[bug]]
 id = "hubeau_cache_ignores_product"
 since = "2.1.0"
 versions = "<2.1.0"
-quantities = ["metrics"]
+quantities = ["source@hydrometry_hubeau"]
 text = "Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway."
 
 [[recipe]]
@@ -220,7 +226,7 @@ document = "config"
 old = "geographic.catchment.dem_init_path"
 instead = "geographic.catchment.dem_init_path was removed in 2.1.0. Declare the DEM as [[data.dem.sources]] with source = \"file\" and path = \"<the same path>\". `hmp doctor --fix-config` rewrites it."
 since = "2.1.0"
-rule = "_move_the_dem_init_path"
+rule = "move_the_dem_init_path"
 
 [[migration]]
 document = "config"
@@ -270,3 +276,97 @@ document = "fields"
 old = "concentration"
 new = "concentration.{*}"
 since = "2.1.0"
+
+# The three bugs of the register of known issues, which this file replaces. A run
+# of the versions they name is labelled exploratory when it exposes a quantity
+# they touch.
+
+[[bug]]
+id = "discharge_scores_before_period_alignment"
+since = "2.0.0"
+versions = "<2.0.0a1"
+quantities = ["metrics"]
+text = "A stress-period stamp was compared with the observed value at the stamp instead of the mean of the period it closes, so discharge scores (NSE, KGE, RMSE) of these runs are not comparable with later ones."
+commit = "e6c5e50f5"
+
+[[bug]]
+id = "voronoi_nwt_boussinesq_fixes_2026_10_09"
+since = "2.0.0"
+versions = "<2.0.0a5"
+quantities = ["mesh@voronoi", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq"]
+text = "MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between c14c1b4c6 and 48d7db46e."
+commit = "c14c1b4c6"
+
+[[bug]]
+id = "mf6_computation_top"
+since = "2.0.0"
+versions = "<2.0.0a5"
+quantities = ["heads@modflow6", "fluxes@modflow6"]
+text = "The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88."
+commit = "b1fa87021"
+
+# hmp project new of 2.0.0 wrote [[simulation.process]] type = "flow". The key is kind
+# since 2.0.0, so a project made by that release loads in 2.1 with a warning.
+
+[[migration]]
+document = "config"
+old = "simulation.process[*].type"
+new = "simulation.process[*].kind"
+since = "2.0.0"
+
+# The forms of 2.0.0 that moved in 2.1.0 and had no row yet. The two parent
+# tables of [transport] come after the rows of their parameters, which empty them.
+
+[[migration]]
+document = "config"
+old = "solver.backend.name"
+new = "solver.backend"
+since = "2.1.0"
+rule = "flatten_the_backend_table"
+
+[[migration]]
+document = "config"
+old = "transport.modflow6gwt"
+new = "transport.modflow6"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "transport.modflow6prt"
+new = "transport.modflow6_prt"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "calibration.forward_model"
+instead = "A forward model is a solver backend since 2.1.0: name it by solver.backend, register it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator. evaluator = \"scored_forward_model\" leaves with it."
+since = "2.1.0"
+rule = "drop_the_forward_model"
+
+[[recipe]]
+id = "resolved_config_carries_edition"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "config.resolved.toml writes edition, the set of defaults the run used, \"2.0\" today. A resolved file without it reads as edition 2.0."
+
+[[recipe]]
+id = "frozen_replay_reads_a_new_key_at_its_edition"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp run --frozen no longer refuses a run whose config.resolved.toml does not write a key that a later version added, when that key is at the default of the edition the run sealed. lineage.drift of a rerun lists such keys under new_at_default. A key the sealed file writes with another value is still a difference."
+
+[[recipe]]
+id = "prerelease_forms_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A file or a sealed run that holds one of the 175 keys or values only a pre-release of 2.0 wrote is refused, with every such key it holds. pip install \"hydromodpy~=2.0.0\" then hmp doctor --fix-config rewrites it. The list is hydromodpy/config/prerelease_forms.txt, and it leaves in 2.3.0."
+
+[[recipe]]
+id = "stac_and_prov_exports_need_the_annex"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp export --as stac and --as prov, and [[export]] format = \"stac\" or \"prov\", are refused when hydromodpy_annex is not installed, with the module to install. Both views moved to the annex. RO-Crate stays in the wheel."

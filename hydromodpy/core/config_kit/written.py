@@ -36,13 +36,7 @@ def written_fields(model: BaseModel) -> tuple[str, ...]:
     under a section the file never wrote. The tag of a model (a field that
     admits one literal) always counts, since a union reads the model by it.
     """
-    return tuple(
-        name
-        for name, info in type(model).model_fields.items()
-        if name in model.model_fields_set
-        or _is_tag(info.annotation)
-        or not _holds_its_default(model, name)
-    )
+    return tuple(name for name in type(model).model_fields if _is_written(model, name))
 
 
 def written_payload(model: BaseModel) -> dict[str, Any]:
@@ -91,14 +85,24 @@ def log_experimental_keys(model: BaseModel) -> None:
 
 def _experimental_keys(value: Any, path: str) -> Iterator[str]:
     if isinstance(value, BaseModel):
-        for name in written_fields(value):
+        for name, info in type(value).model_fields.items():
             key = f"{path}.{name}" if path else name
-            extra = type(value).model_fields[name].json_schema_extra
+            extra = info.json_schema_extra
             extra = extra if isinstance(extra, dict) else {}
             held = getattr(value, name)
             if held is None:
                 # TOML has no null: a loader that fills a section it did not find
                 # sets the field, and the file wrote nothing.
+                continue
+            if not (
+                extra.get("stability") == "experimental"
+                or extra.get("experimental_values")
+                or isinstance(held, (BaseModel, Mapping, list, tuple))
+            ):
+                # Nothing below a plain unmarked value can be experimental, so the
+                # costly comparison with the default is skipped.
+                continue
+            if not _is_written(value, name):
                 continue
             if extra.get("stability") == "experimental":
                 yield key
@@ -120,6 +124,15 @@ def _experimental_keys(value: Any, path: str) -> Iterator[str]:
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             yield from _experimental_keys(item, f"{path}[{index}]")
+
+
+def _is_written(model: BaseModel, name: str) -> bool:
+    """Whether *name* counts as written on *model*, as :func:`written_fields` counts it."""
+    return (
+        name in model.model_fields_set
+        or _is_tag(type(model).model_fields[name].annotation)
+        or not _holds_its_default(model, name)
+    )
 
 
 def _is_tag(annotation: Any) -> bool:

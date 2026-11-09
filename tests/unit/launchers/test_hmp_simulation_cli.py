@@ -88,11 +88,12 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         tmp_path / "config.toml",
         '[workflow]\nmode = "simulation"\n'
         "[workspace]\n"
-        '[simulation]\nname = "base"\nrun_id = "base_run"\n',
+        '[simulation]\nname = "base"\n'
+        '[modflow6.runtime]\nmf6_ims_complexity = "SIMPLE"\n',
     )
     overlay = _write_toml(
         tmp_path / "overlay.toml",
-        '[simulation]\nname = "overlay"\nrun_id = "overlay_run"\n',
+        '[modflow6.runtime]\nmf6_ims_complexity = "MODERATE"\n',
     )
 
     captured: dict = {}
@@ -103,7 +104,7 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         captured["payload"] = tomllib.loads(path.read_text(encoding="utf-8"))
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setenv("HMP_SET_simulation__run_id", "env_run")
+    monkeypatch.setenv("HMP_SET_modflow6__runtime__mf6_ims_complexity", "COMPLEX")
     monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",
@@ -114,18 +115,21 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
             "--overlay",
             str(overlay),
             "--set",
-            "simulation.run_id=cli_run",
+            "modflow6.runtime.mf6_ims_complexity=SIMPLE",
         ],
     )
 
-    main()
+    with pytest.warns(Warning, match="solver.modflow6"):
+        main()
 
     assert captured["config_path"] != config.resolve()
     assert not captured["config_path"].exists()
-    # ``run_id`` is the old form of ``name``: each layer is migrated on its own, then the
-    # environment wins over ``--set``, which wins over the overlay and the base.
-    assert captured["payload"]["simulation"]["name"] == "env_run"
-    assert "run_id" not in captured["payload"]["simulation"]
+    # ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0: each layer is migrated on its
+    # own, then the environment wins over ``--set``, which wins over the overlay and the base.
+    payload = captured["payload"]
+    assert payload["solver"]["modflow6"]["runtime"]["mf6_ims_complexity"] == "COMPLEX"
+    assert "modflow6" not in payload
+    assert payload["simulation"]["name"] == "base"
 
 
 def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:

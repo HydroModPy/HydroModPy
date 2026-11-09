@@ -138,7 +138,8 @@ def test_root_sections_lists_expected_keys():
         "export",
     ):
         assert key in sections, f"missing section {key!r}"
-    assert scalars == {}
+    # The edition is the one scalar field of the root.
+    assert set(scalars) == {"edition"}
 
 
 # An exported schema declares its dialect and its identity, and no package version.

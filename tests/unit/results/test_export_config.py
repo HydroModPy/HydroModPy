@@ -85,10 +85,9 @@ def test_a_request_written_as_a_table_is_refused_with_the_spelling_to_write(
         _load(tmp_path, '[export]\nvariables = "head"\nformat = "netcdf"\n')
 
 
-def test_the_old_table_of_toggles_still_loads(tmp_path: Path) -> None:
-    cfg = _load(tmp_path, '[export]\ngeotiff = true\nvariables = ["head"]\ntime = 3\n')
-
-    assert cfg.export == [ExportRequest(variables=["head"], format="geotiff", time=3)]
+def test_the_old_table_of_toggles_is_refused_as_a_pre_release_form(tmp_path: Path) -> None:
+    with pytest.raises(ConfigValidationError, match="export.geotiff"):
+        _load(tmp_path, '[export]\ngeotiff = true\nvariables = ["head"]\ntime = 3\n')
 
 
 def test_the_loader_reads_an_empty_document_as_no_request() -> None:

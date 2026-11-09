@@ -338,7 +338,6 @@ source_mode = "synthetic"
 {nwt}
 
 [flow]
-active_bc = ["sfr"]
 
 [flow.sinks_sources.sfr.nancon]
 rectify_on_mesh = true

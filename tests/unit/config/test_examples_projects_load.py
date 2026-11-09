@@ -14,8 +14,10 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.project.check import check_project
+from hydromodpy.project.api import check
+from hydromodpy.project.launch.sites.expansion import expand_plan
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_PROJECTS = Path("examples/projects")
@@ -86,10 +88,10 @@ def test_examples_projects_are_discovered() -> None:
 @pytest.mark.parametrize("project_file", _PROJECT_CONFIGS, ids=_identifier)
 def test_examples_projects_load(project_file: Path) -> None:
     if _belongs_to_sites_project(project_file):
-        report = check_project(project_file)
-        assert report.kind == "sites"
-        assert report.ok, report.errors
-        assert report.n_cases
+        errors = [item.line() for item in check(project_file) if item.severity == "error"]
+        assert not errors, errors
+        draft = expand_plan(resolve_project_root(project_file.parent), project_file)
+        assert draft.cases
         return
     HydroModPyConfig.from_toml(project_file)
 

@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.hydromodpy_config import require_site_for_real_catchment
+from hydromodpy.config.cross_checks import require_site_for_real_catchment
 from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesRunConfig
 from hydromodpy.core.config_kit.introspect import site_scoped_paths
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
@@ -299,7 +299,7 @@ def test_a_sites_project_takes_its_site_from_the_table() -> None:
 def test_a_toml_real_catchment_without_a_site_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
-        '[geographic.catchment]\ncatch_def = "dem"\n[[data.dem.sources]]\nsource = "file"\npath = "inputs/dem.tif"\n',
+        '[geographic.catchment]\nkind = "dem"\n[[data.dem.sources]]\nsource = "file"\npath = "inputs/dem.tif"\n',
         encoding="utf-8",
     )
     with pytest.raises(ConfigValidationError, match=r"no \[site\] names it"):

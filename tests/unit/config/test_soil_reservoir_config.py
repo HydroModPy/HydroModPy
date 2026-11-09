@@ -141,8 +141,6 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -150,6 +148,10 @@ kind = "steady_state"
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 """
 
 
@@ -220,8 +222,6 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -229,6 +229,10 @@ kind = "steady_state"
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 """
 
 
@@ -396,8 +400,6 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -406,6 +408,10 @@ kind = "steady_state"
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
 spinup = "{spinup}"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 """
 
 
@@ -491,8 +497,6 @@ types = {data_types}
 {precipitation_section}
 {etp_section}
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -500,6 +504,10 @@ kind = "steady_state"
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 """
 
 
@@ -631,8 +639,6 @@ source = "sim2"
 extent = "watershed"
 {extra_sections}
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -640,6 +646,10 @@ kind = "steady_state"
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 """
 
 
@@ -739,8 +749,8 @@ solvers = ["modflow6"]
 types = {data_types}
 {data_recharge}
 [flow]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
+
+[flow.bc.drainage]
 
 [flow.sinks_sources.recharge]
 {recharge}

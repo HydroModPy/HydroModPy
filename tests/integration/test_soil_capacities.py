@@ -86,8 +86,6 @@ path = "{etp_path}"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -112,6 +110,10 @@ value = 1e-5
 ru = "150 mm"
 spinup = "none"
 transit_time = "5 days"
+
+[flow.sinks_sources.etp]
+
+[flow.bc.drainage]
 
 [display]
 enabled = false

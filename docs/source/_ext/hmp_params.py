@@ -573,13 +573,16 @@ class IntroDirective(SphinxDirective):
         ]
         if "." not in path:
             minimal = doc_uri(builder, doc, "reference/parameters/minimal-files")
-            template = static_uri(builder, doc, f"templates/{path}.toml")
-            facts.append(
-                f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
-                f'(<a href="{esc(template)}" download>download it</a>), '
-                f"then <code>hmp config check file.toml</code>. "
-                f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
-            )
+            if path in template_modules():
+                template = static_uri(builder, doc, f"templates/{path}.toml")
+                facts.append(
+                    f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
+                    f'(<a href="{esc(template)}" download>download it</a>), '
+                    f"then <code>hmp config check file.toml</code>. "
+                    f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
+                )
+            else:
+                facts.append(f'<li><a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>')
         adv = len(sub) > user
         switch = ADV_SWITCH if adv else ""
         return [
@@ -1016,12 +1019,18 @@ class ChangelogDirective(SphinxDirective):
 
         from tools.docs import legacy_keys
 
-        reads = legacy_keys.accepted_old_names(S["nodes"])
+        reads = legacy_keys.accepted_old_names()
         moves = legacy_keys.moved_tables()
+        prerelease = legacy_keys.prerelease_paths()
         STILL = {
-            legacy_keys.WARNS: "still loads; ConfigKeyRenamedWarning names the new key",
-            legacy_keys.MIGRATES: "still loads; the loader rewrites or drops it on load",
+            legacy_keys.MIGRATES: (
+                "still loads; ConfigKeyRenamedWarning names the new key, "
+                "and hmp doctor --fix-config rewrites the file"
+            ),
         }
+        REFUSED = (
+            "refused since 2.1.0; hmp doctor --fix-config of a 2.0.x release rewrites the file"
+        )
 
         def rename_note(c: dict) -> str:
             """What the loader does with an old name, read from the loader (legacy_keys)."""
@@ -1051,26 +1060,31 @@ class ChangelogDirective(SphinxDirective):
                 )
             return "a file that writes them still loads, as each line says"
 
-        loader = {"reads": {}, "moves": {}}
+        loader = {"reads": {}, "moves": {}, "prerelease": frozenset()}
 
         def still_note(old: str) -> str:
-            """The line after an old name the loader still reads, from the loader (legacy_keys)."""
+            """The line after an old name: what the loader does with it, read from the register."""
+            if old in loader["prerelease"] and old not in loader["reads"]:
+                return f' <span class="hmp-muted">({REFUSED})</span>'
             kind = loader["reads"].get(old)
             if kind not in STILL:
                 return ""
             text = STILL[kind]
             if old in loader["moves"]:
-                before = esc(f'"{old}.<key>"')
-                after = esc(f'"{loader["moves"][old]}.<key>"')
+                new = loader["moves"][old]
+                below = ".<key>" if any(p.startswith(f"{new}.") for p in S["nodes"]) else ""
+                before = esc(f'"{old}{below}"')
+                after = esc(f'"{new}{below}"')
                 text = (
-                    "still loads; the loader moves it on load, and a calibration phase that "
-                    f"overrides <code>{before}</code> is moved to <code>{after}</code> too"
+                    f"{text}; a calibration phase that overrides "
+                    f"<code>{before}</code> is moved to <code>{after}</code> too"
                 )
             return f' <span class="hmp-muted">({text})</span>'
 
         def render_pair(c: dict) -> str:
             loader["reads"] = reads if c["to"] == CURRENT else {}
             loader["moves"] = moves if c["to"] == CURRENT else {}
+            loader["prerelease"] = prerelease if c["to"] == CURRENT else frozenset()
             parts = []
             moved = [it for it in c["changed"] if "default" in it["changes"]]
             if moved:
@@ -1298,6 +1312,14 @@ def on_build_finished(app: Sphinx, exception: Exception | None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(keys_payload(app.builder), ensure_ascii=False, separators=(",", ":")))
     write_templates(Path(app.outdir) / "_static" / "templates")
+
+
+def template_modules() -> set[str]:
+    """The sections ``hmp config template --modules`` accepts. A scalar such as ``edition`` is not one."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.toml_io.generator import available_modules
+
+    return set(available_modules(HydroModPyConfig))
 
 
 def write_templates(folder: Path) -> None:

@@ -34,12 +34,13 @@ transition_distance = 680.0
 watershed_boundary = "face"
 
 [flow]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 
 # This mesh run pumps nothing: drop the wells the base file declares.
 [flow.sinks_sources]
 wells__delete = true
+
+[flow.bc.ocean]
+enabled = false
 
 [display]
 enabled = true

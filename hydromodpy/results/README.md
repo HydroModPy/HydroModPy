@@ -35,7 +35,7 @@ layout is `storage/contract.py`; the full contract is
 | `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse) |
 | `heartbeat.py` | `logs/heartbeat.json`, the pulse of a running attempt, and the thread that writes it |
 | `checks.py` | the `checks` block of the seal: the measured facts (budget, convergence, coverage, verdicts, promoting session) a label derives from, and their flat columns |
-| `validity_rules.py`, `known_issues.toml` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the register of known issues that declasses the runs of the versions they touched |
+| `validity_rules.py` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the `[[bug]]` rows of `schema/changes.toml` that declass the runs of the versions they touched |
 | `identity.py` | the `identity` block every exported file carries, posed and read back per format: Zarr attributes, Parquet metadata, `gpkg_metadata`, PNG text chunk, `.meta.json` sidecar |
 | `run_identity.py` | who a run directory is for a file derived from it: the manifest of a sealed run (`read_sealed_manifest`), its label of the day (`label_of`), and the identity block of a run still being computed |
 | `lineage.py` | the `lineage` block of the seal: parent run, session, phase, trial, kind and overrides, by ids |
@@ -145,7 +145,7 @@ hydromodpy/results/
    and `hmp catalog reindex` rebuilds the whole index: `catalog/indexer.py`
    reads every `runs/<name>/`, `sessions/<name>/` and kept trial into a
    staging file, computes the label of each sealed run with the rules and
-   the known issues of this build, and publishes the file in one rename.
+   the bugs of `schema/changes.toml` in this build, and publishes the file in one rename.
    The index keeps no seed of its own: the solver category of a run comes
    from its manifest, `unknown` when the manifest predates it. `cases` lists
    every directory with its effective status, `simulations` the sealed runs,

@@ -97,7 +97,7 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp dev lock verify", "hmp lock verify"),
     ("hmp dev rank", "hmp catalog rank --project PROJECT"),
     ("hmp dev schema export", "hmp config schema --bundle --to DIR"),
-    ("hmp dev schema validate-field", "hmp config validate-field PATH VALUE"),
+    ("hmp dev schema validate-field", "hmp config check --partial"),
     # One option for what a program reads.
     ("hmp workspace list --json", "hmp workspace list --format json"),
     ("hmp doctor --json", "hmp doctor --format json"),
@@ -136,6 +136,7 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     ("hmp dev examples", "python -m tools.dev examples manifest"),
     ("hmp dev manage", "(no replacement yet)"),
     ("hmp data check", "hmp data ls"),
+    ("hmp config validate-field", "hmp config check --partial"),
 )
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(

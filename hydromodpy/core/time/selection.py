@@ -59,10 +59,17 @@ class TimeSelectionError(ResultsError, ValueError):
 
 
 def _edges(edges: Any) -> pd.DatetimeIndex | None:
-    """Return ``edges`` as a checked tz-naive index, or ``None`` for a run without dates."""
+    """Return ``edges`` as a checked tz-naive index, or ``None`` for a run without dates.
+
+    A tz-naive index is taken as it is, so a caller that reads several selectors
+    against one grid converts its edges once.
+    """
     if edges is None:
         return None
-    index = pd.DatetimeIndex([naive_timestamp(edge) for edge in edges])
+    if isinstance(edges, pd.DatetimeIndex) and edges.tz is None:
+        index = edges
+    else:
+        index = pd.DatetimeIndex([naive_timestamp(edge) for edge in edges])
     if len(index) < 2:
         raise ValueError(f"a record needs at least two edges, got {len(index)}.")
     if not index.is_monotonic_increasing or not index.is_unique:

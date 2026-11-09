@@ -146,7 +146,7 @@ class TestPreflightActsOnIt:
             }
         )
         findings = preflight_calibration(cfg, source=tmp_path / "calib.toml")
-        return [f"{item.where}: {item.detail}" for item in findings]
+        return [f"{item.path}: {item.detail}" for item in findings]
 
     def test_a_lake_output_on_nwt_is_refused_before_the_search(self, tmp_path) -> None:
         messages = " | ".join(self._check(tmp_path, "modflow_nwt", "lake"))

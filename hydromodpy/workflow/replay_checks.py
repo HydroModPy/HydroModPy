@@ -27,7 +27,11 @@ from hydromodpy.results.storage.contract import (
     RUN_RESOLVED_CONFIG_FILENAME,
 )
 from hydromodpy.results.storage.digests import sha256_streaming
-from hydromodpy.workflow.steps.prepare_solver.resolved import build_drift, config_drift
+from hydromodpy.workflow.steps.prepare_solver.resolved import (
+    build_drift,
+    compare_with_sealed,
+    config_drift,
+)
 
 logger = get_logger(__name__)
 
@@ -145,23 +149,27 @@ def warn_config_drift(
 ) -> dict[str, dict[str, Any]]:
     """Warn about each key a rerun takes otherwise than its source, and return them.
 
-    The result is what ``lineage.drift`` records. *intended* names what the caller
-    asked to change.
+    The result is what ``lineage.drift`` records, with the keys the parent did not
+    seal and the rerun holds at their default under ``new_at_default``. *intended*
+    names what the caller asked to change.
     """
     if run_dir is None:
         return {}
     project_root = Path(config.workspace.project_root)
-    drift = config_drift(config, run_dir, project_root=project_root, intended=intended)
-    if drift is None:
+    compared = compare_with_sealed(config, run_dir, project_root=project_root, intended=intended)
+    if compared is None:
         logger.warning(
             "%s holds no %s: this rerun cannot say whether a default moved since.",
             Path(run_dir).name,
             RUN_RESOLVED_CONFIG_FILENAME,
         )
         return {}
-    for item in drift:
+    for item in compared.drift:
         logger.warning("Rerun of %s takes another value. %s", Path(run_dir).name, item.line())
-    return {item.key: item.record() for item in drift}
+    recorded: dict[str, dict[str, Any]] = {item.key: item.record() for item in compared.drift}
+    if compared.new_at_default:
+        recorded["new_at_default"] = dict(compared.new_at_default)
+    return recorded
 
 
 def solver_binary_warning(run_dir: Path) -> str | None:

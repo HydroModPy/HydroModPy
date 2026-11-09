@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.data.provenance import sidecars
 from hydromodpy.data.provenance.sidecars import (
     DETERMINISTIC_FETCHED_AT_ENV,
     SIDECAR_SUFFIX,
@@ -19,6 +20,7 @@ from hydromodpy.data.provenance.sidecars import (
     sidecar_path_for,
     write_sidecar,
 )
+from hydromodpy.schema.changes import migrations_of, read
 
 
 def _make_sidecar() -> Sidecar:
@@ -210,6 +212,69 @@ def test_load_sidecar_migrates_custom_to_file(tmp_path: Path):
     loaded = load_sidecar(target)
     assert loaded.source == "file"
     assert loaded.sha256 == "80b7524471f901b167de8bc7c9718d825eb8ca537b4c6205ec187997995759f3"
+
+
+_HEAD = 'schema = "hydromodpy.changes.v1"\n'
+_ROWS = {
+    "a value renamed": (
+        '[[migration]]\ndocument = "sidecar"\nkey = "state"\nold_value = "kept"\n'
+        'new_value = "cached"\nsince = "2.1.0"\n',
+        {"state": "kept"},
+        {"state": "cached"},
+    ),
+    "a value that is not the old one": (
+        '[[migration]]\ndocument = "sidecar"\nkey = "state"\nold_value = "kept"\n'
+        'new_value = "cached"\nsince = "2.1.0"\n',
+        {"state": "fresh"},
+        {"state": "fresh"},
+    ),
+    "a key moved": (
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        {"note": "by hand"},
+        {"notes": "by hand"},
+    ),
+    "a key moved while the new one is written": (
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        {"note": "old", "notes": "new"},
+        {"note": "old", "notes": "new"},
+    ),
+    "a key retired that the row drops": (
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\ninstead = "nothing"\n'
+        'sealed = "drop"\nsince = "2.1.0"\n',
+        {"note": "by hand"},
+        {},
+    ),
+    "a key retired that the row keeps": (
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\ninstead = "nothing"\nsince = "2.1.0"\n',
+        {"note": "by hand"},
+        {"note": "by hand"},
+    ),
+    "a row of another document": (
+        '[[migration]]\ndocument = "fields"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        {"note": "by hand"},
+        {"note": "by hand"},
+    ),
+}
+
+
+@pytest.mark.parametrize(("rows", "written", "read_as"), _ROWS.values(), ids=_ROWS.keys())
+def test_a_sidecar_is_read_under_the_names_the_register_gives(
+    rows: str, written: dict, read_as: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register = read(_HEAD + rows)
+    monkeypatch.setattr(
+        sidecars, "migrations_of", lambda document: migrations_of(document, register)
+    )
+    target = tmp_path / "data.csv"
+    target.write_bytes(b"1,2,3")
+    base = {"source": "ign", "sha256": "0" * 64}
+    sidecar_path_for(target).write_text(json.dumps({**base, **written}), encoding="utf-8")
+
+    loaded = load_sidecar(target)
+
+    dumped = {**loaded.model_dump(), **(loaded.__pydantic_extra__ or {})}
+    assert {key: dumped[key] for key in read_as} == read_as
+    assert all(key not in dumped for key in written if key not in read_as)
 
 
 def test_load_sidecar_from_v2_corpus_read_only():

@@ -61,7 +61,7 @@ import json
 import shutil
 import tomllib
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -122,7 +122,8 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.json_io import beside_seal, read_json, readable, reason_text
 from hydromodpy.results.storage.parquet_io import read_checked_table
-from hydromodpy.results.validity_rules import RULE_VERSION, load_known_issues
+from hydromodpy.results.validity_rules import RULE_VERSION
+from hydromodpy.schema.changes import REGISTER
 
 logger = get_logger(__name__)
 
@@ -343,10 +344,8 @@ def _session_entry(rel_dir: str, path: Path) -> DiskEntry | None:
 
 
 def known_issues_digest() -> str:
-    """Return a digest of the known issues register this build labels with."""
-    payload = json.dumps(
-        [issue.model_dump(mode="json") for issue in load_known_issues()], sort_keys=True
-    )
+    """Return a digest of the bugs of the register of changes this build labels with."""
+    payload = json.dumps([asdict(bug) for bug in REGISTER.bugs], sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -639,7 +638,7 @@ class _IndexWriter:
         row.update(_directory_identity(entry, manifest))
         row.update(_lookup_ids(self._conn, row))
         row.update(_frozen_config(path))
-        row.update(_label_columns(manifest, label_date=self._at.date()))
+        row.update(_label_columns(manifest, path, label_date=self._at.date()))
         row.update(_score_columns(manifest))
         row["session_id"] = manifest.lineage.session_id
         # The engine that built the mesh is a fact of the seal: a config
@@ -1109,9 +1108,9 @@ def _frozen_config(path: Path) -> dict[str, Any]:
     return {"config_toml": text, "config_snapshot": snapshot}
 
 
-def _label_columns(manifest: Manifest, *, label_date) -> dict[str, Any]:
-    """The label of the run today, computed from its sealed checks."""
-    result = label_of(manifest)
+def _label_columns(manifest: Manifest, run_dir: Path, *, label_date) -> dict[str, Any]:
+    """The label of the run today, computed from its sealed checks and its config."""
+    result = label_of(manifest, run_dir)
     return {
         "label": result.label,
         "label_date": label_date,

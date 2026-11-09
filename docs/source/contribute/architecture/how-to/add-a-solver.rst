@@ -356,6 +356,13 @@ shipped backends through ``SolverConfig.named_tables``. A field that every
 backend reads belongs to ``[solver]``, as ``sink_fill`` does (see
 :doc:`add-a-config-field`).
 
+The ``description`` of each field is also the sentence that a check gives for
+the key. ``check(document)`` resolves ``[solver.mysolver]`` through the registry,
+so a plugin writes no phrase in ``schema/phrases.toml``. A wrong value at
+``solver.mysolver.max_iter`` is reported at that path, with the description of
+the field as its ``help``, and a key the class does not know is reported at its
+own path. Write the description for a person who reads it next to the error.
+
 Tests to add
 ------------
 
@@ -368,6 +375,9 @@ Three tiers, smallest first:
   so a registered backend is checked for its members, and for ``rerun`` if and only
   if its ``mutable`` is not empty. A backend that carries ``rerun`` adds a test
   that compares a rerun with a new build of the same ``Model``, file by file.
+  The same file checks, for each backend that has ``options``, that ``check``
+  points at a key of its table by its exact path and gives the description of that
+  field as the ``help``.
 - **Integration** under ``tests/integration/solver/`` for one
   end-to-end ``hmp run`` on a tiny case.
 - **Validation** under ``tests/validation/`` (analytical or numerical)

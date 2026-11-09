@@ -29,7 +29,7 @@ rules, how a run goes through it, and where to add what.
 | `compare.py` | how sealed runs of one site are compared, for `hmp report compare` and `hmp.compare`. Each run is read through the public `Run` API, so a comparison runs no simulation, opens no index and writes into no run. `hmp.compare_pair` reads the index and lives in `results/catalog/facade.py`, beside `Catalog.diff` |
 | `examples/` | the shipped examples behind `hmp example`: the catalog, the blob cache, the install into a workspace and the rows the command prints. See `examples/README.md` |
 | `lock.py` | `hmp lock update`, `hmp lock verify`, and the cache archive and restore behind `hmp data archive` and `hmp data restore`. It sits here because it reads `data`, `results` (two schema versions) and `schema` together, and only `project` may |
-| `check.py` | `check_project`, the one check behind `hmp config check`, for a run, a calibration or a `[sites]` project |
+| `api.py` | the public verbs that the facade `hmp` imports from here. `check(source, partial=True, inputs=False, environment=None)` takes a path or a mapping and gives a list of `Diagnostic`. On a path it reads the `base_config` chain, expands a `[sites]` project case by case, calls `config.check.check`, and adds the preflight of a calibration when the document has no error and nothing to fill. `hmp config check` calls it with `partial=False` |
 | `spinup.py` | `run_spinup`: repeat a forcing window, each cycle restarting from the last, until heads and lake stages stop moving |
 
 ## Import rules

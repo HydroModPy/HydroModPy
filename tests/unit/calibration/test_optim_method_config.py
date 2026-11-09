@@ -30,12 +30,9 @@ from hydromodpy.calibration.protocols import (
     options_the_recipe_already_runs,
 )
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import two_dim_space
-from tests.unit.calibration._factories_search import fix_toml
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
 
 # From test_lhs_adapter.py
@@ -234,8 +231,8 @@ class TestMethodConfig:
 # ``max_iter`` counted evaluations, and ``maxfev``, ``max_evaluations`` and
 # gp_mapping's own ``max_iter`` counted them too, under four names that did not
 # agree about what an iteration was. A key renamed or removed is refused with the
-# name that replaces it, the doctor rewrites the file, and a sealed run config
-# still reads.
+# name that replaces it and the way to the doctor of a 2.0.x release, which rewrites
+# the file.
 
 
 PROTOCOL = "matching_hydrographic_network"
@@ -328,110 +325,9 @@ def test_a_phase_and_a_stage_refuse_a_budget_option_at_load() -> None:
         )
 
 
-def test_the_doctor_renames_the_budgets_and_moves_the_options_into_them(tmp_path: Path) -> None:
-    path, changes, document = fix_toml(
-        tmp_path,
-        "[calibration]\n"
-        'method = "scipy_nelder_mead"\n'
-        "max_iter = 60\n"
-        "method_options = { maxfev = 25, xatol = 0.01 }\n"
-        "[[calibration.phases]]\n"
-        'name = "a"\n'
-        'method = "cma_es"\n'
-        'max_iter = "auto"\n'
-        "method_options = { max_evaluations = 40, popsize = 4 }\n"
-        "[[calibration.phases]]\n"
-        'name = "b"\n'
-        'method = "gp_mapping"\n'
-        "method_options = { max_iter = 15, n_init = 5 }\n"
-        "[[calibration.phases]]\n"
-        'name = "c"\n'
-        'method = "da_mh_gp"\n'
-        "max_iter = 30\n"
-        "method_options = { max_iter = 200 }\n"
-        "[[calibration.phases]]\n"
-        'name = "d"\n'
-        'method = "scipy_de"\n'
-        "method_options = { maxiter = 5 }\n"
-        "[calibration.protocol]\n"
-        'name = "matching_hydrographic_network"\n'
-        "steady_max_iter = 20\n"
-        "transient_max_iter = 90\n"
-        'transient_method = "scipy_nelder_mead"\n'
-        "transient_method_options = { maxfev = 50 }\n",
-    )
-
-    phases = {phase["name"]: phase for phase in document["phases"]}
-    assert document["max_trials"] == 25
-    assert document["method_options"] == {"xatol": 0.01}
-    assert phases["a"]["max_trials"] == 40
-    assert phases["a"]["method_options"] == {"popsize": 4}
-    assert phases["b"]["max_trials"] == 15
-    assert phases["b"]["method_options"] == {"n_init": 5}
-    assert phases["c"]["max_trials"] == 30
-    assert phases["c"]["method_options"] == {"chain_length": 200}
-    assert phases["d"]["method_options"] == {"maxiter": 5}
-    assert document["protocol"]["steady_max_trials"] == 20
-    assert document["protocol"]["transient_max_trials"] == 50
-    assert "transient_method_options" not in document["protocol"]
-    assert any("not an evaluation count" in change and "[3]" in change for change in changes)
-    assert "max_iter" not in path.read_text(encoding="utf-8")
-
-
-def test_the_doctor_keeps_the_smaller_of_the_two_budgets(tmp_path: Path) -> None:
-    _, _, document = fix_toml(
-        tmp_path,
-        '[calibration]\nmethod = "cma_es"\nmax_iter = 20\nmethod_options = { max_evaluations = 90 }\n',
-    )
-
-    assert document["max_trials"] == 20
-
-
-def test_a_phase_takes_the_method_and_budget_of_the_section(tmp_path: Path) -> None:
-    _, _, document = fix_toml(
-        tmp_path,
-        '[calibration]\nmethod = "scipy_nelder_mead"\nmax_trials = 50\n'
-        '[[calibration.phases]]\nname = "a"\nmethod_options = { maxfev = 80 }\n'
-        '[[calibration.phases]]\nname = "b"\nmethod_options = { maxfev = 30 }\n',
-    )
-
-    phases = document["phases"]
-    assert [phase["max_trials"] for phase in phases] == [50, 30]
-    assert all("method_options" not in phase for phase in phases)
-
-
-def test_a_budget_option_without_a_method_is_left_with_the_reason(tmp_path: Path) -> None:
-    path, changes, _ = fix_toml(tmp_path, "[calibration]\nmethod_options = { max_iter = 20 }\n")
-
-    assert "max_iter = 20" in path.read_text(encoding="utf-8")
-    assert any("method" in change and "left" in change for change in changes)
-
-
-def test_a_sealed_document_reads_the_old_budget_keys_and_drops_the_old_options() -> None:
-    doc = {
-        "calibration": {
-            "method": "gp_mapping",
-            "max_iter": 50,
-            "method_options": {"max_iter": 10, "n_init": 4},
-            "phases": [
-                {"name": "p", "method": "da_mh_gp", "method_options": {"max_iter": 80}},
-                {"name": "q", "method": "scipy_nelder_mead", "method_options": {"maxfev": 9}},
-            ],
-            "protocol": {"steady_max_iter": 12},
-        }
-    }
-
-    migrate_sealed_config_doc(doc)
-
-    section = doc["calibration"]
-    assert section["max_trials"] == 50
-    assert section["method_options"] == {"n_init": 4}
-    assert section["phases"][0]["method_options"] == {"chain_length": 80}
-    assert "method_options" not in section["phases"][1]
-    assert section["protocol"] == {"steady_max_trials": 12}
-
-
-def test_a_frozen_protocol_run_with_the_old_budget_keys_reads_back(tmp_path: Path) -> None:
+def test_a_frozen_protocol_run_with_the_old_budget_keys_is_refused_with_the_way_out(
+    tmp_path: Path,
+) -> None:
     project = _project(tmp_path)
     cfg = HydroModPyConfig.from_toml(project / "project.toml")
     run_dir = project / "runs" / "nancon"
@@ -443,19 +339,15 @@ def test_a_frozen_protocol_run_with_the_old_budget_keys_reads_back(tmp_path: Pat
     sealed.write_text(old, encoding="utf-8")
     assert PROJECT  # the same project the run was frozen from
 
-    replayed = HydroModPyConfig.from_toml(sealed)
+    with pytest.raises(ConfigValidationError, match="written by a pre-release of 2.0") as refused:
+        HydroModPyConfig.from_toml(sealed)
 
-    expected = [p.model_dump(mode="json") for p in cfg.calibration.phases]
-    assert [p.model_dump(mode="json") for p in replayed.calibration.phases] == expected
+    assert 'pip install "hydromodpy~=2.0.0"' in str(refused.value)
     document = tomllib.loads(old)
     with pytest.raises(ConfigValidationError):
         HydroModPyConfig.from_dict(document, base_dir=project)
-    assert (
+    with pytest.raises(ConfigValidationError, match="written by a pre-release of 2.0"):
         HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
-        .calibration.phases[0]
-        .max_trials
-        == cfg.calibration.phases[0].max_trials
-    )
 
 
 # From test_method_config.py
@@ -585,7 +477,6 @@ def test_the_schema_carries_the_new_names_as_user_keys_and_not_the_old_ones() ->
     for properties in (schema["properties"], phase, protocol):
         assert not [key for key in properties if "optimizer_kwargs" in key]
         assert not [key for key in properties if "engine_options" in key]
-    assert "model_legacy_keys" not in str(schema)
     # The old names survive only as the renames the reference lists.
     assert phase["method_options"]["renamed_from"] == ["calibration.phases.optimizer_kwargs"]
 
@@ -621,7 +512,8 @@ def test_the_preflight_names_the_phase_whose_options_its_method_refuses() -> Non
     findings = [item for item in _check_engines(calibration) if item.severity == "error"]
 
     assert len(findings) == 1
-    assert findings[0].where == "[[calibration.phases]] 'transient_storage'"
+    assert findings[0].path == "calibration.phases"
+    assert findings[0].detail.startswith("'transient_storage': ")
     assert "'scipy_nelder_mead' does not take sweep_points" in findings[0].detail
 
 

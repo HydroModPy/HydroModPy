@@ -105,6 +105,21 @@ def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> Non
     assert "invalid toml" in err.lower() or "config" in err.lower()
 
 
+def test_config_check_json_names_the_code_of_a_toml_fault(monkeypatch, capsys, tmp_path) -> None:
+    """The machine output is ``{ok, diagnostics, workspace}``, each diagnostic with its code."""
+    import json
+
+    bad = tmp_path / "bad.toml"
+    bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
+
+    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad), "--format", "json"])
+
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert code == 14
+    assert data["ok"] is False
+    assert [item["code"] for item in data["diagnostics"]] == ["bad_toml"]
+
+
 def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
     """``hmp config template --to FILE`` creates a non-empty TOML file."""
     out = tmp_path / "cfg.toml"

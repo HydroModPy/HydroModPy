@@ -110,7 +110,7 @@ Replace the solver and the section prefix:
 ```toml
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [modflownwt.sgrid.planar]

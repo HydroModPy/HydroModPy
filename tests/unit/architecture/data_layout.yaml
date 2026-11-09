@@ -34,8 +34,8 @@ text_paths:
 # Rule 2: what another layer of hydromodpy may import from hydromodpy/data.
 # A pattern ending in ".*" names a package and every module under it; a "*"
 # anywhere else stands for exactly one name. Everything else is private to
-# hydromodpy/data: managers, common, schemas, and the inside of loading and of
-# the variables.
+# hydromodpy/data: managers, common, schemas but the DEM contract, and the inside
+# of loading and of the variables.
 public:
   - hydromodpy.data
   - hydromodpy.data.contracts.*
@@ -55,3 +55,5 @@ public:
   - hydromodpy.data.variables.geology.io
   - hydromodpy.data.variables.*.read
   - hydromodpy.data.loading.inputs
+  # The header contract of a DEM, which the check of the input files reads.
+  - hydromodpy.data.schemas.dem

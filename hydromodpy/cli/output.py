@@ -339,12 +339,7 @@ OUTPUTS: tuple[Output, ...] = (
     _object(
         "config check",
         "ok",
-        "kind",
-        "n_cases",
-        "summary",
-        "errors",
-        "warnings",
-        "experimental_keys",
+        "diagnostics",
         "workspace",
     ),
     _rows(
@@ -356,15 +351,6 @@ OUTPUTS: tuple[Output, ...] = (
         "units",
         "physical_bounds",
         "registry_id",
-    ),
-    _object(
-        "config validate-field",
-        "valid",
-        "path",
-        "error",
-        "warnings",
-        "dependent_fields_affected",
-        "timing_ms",
     ),
     # Data
     _rows("data ls", "variable", "source", "station_id", "file_path", open_fields=True),

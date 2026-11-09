@@ -146,8 +146,6 @@ path = "inputs/lake_bathymetry.tif"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean", "drainage", "lake"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -157,6 +155,8 @@ value = "5e-6 m/s"
 [flow.bc.ocean]
 kind = "dirichlet"
 value = "0.0 m"
+
+[flow.bc.drainage]
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"

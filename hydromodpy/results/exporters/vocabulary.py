@@ -7,7 +7,7 @@ the formats it can be written in
 (:data:`~hydromodpy.results.exporters.export_spec.KIND_FORMATS`).
 
 This module holds the static part: every name some run can hold, known before
-any run exists. The step 0 check reads it to refuse a typo before the solve.
+any run exists. The check of a document reads it to refuse a typo before the solve.
 A name is looked up in the order ``hmp.read`` resolves it: the field registry
 first, then the series, the vector layers, the raster layers and the tables.
 

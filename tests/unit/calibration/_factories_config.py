@@ -10,8 +10,9 @@ import re
 import textwrap
 from pathlib import Path
 
-from hydromodpy.calibration.preflight import PreflightFinding, preflight_calibration
+from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
@@ -101,19 +102,26 @@ def write_calibration(
 
 
 def messages(findings) -> str:
-    return " | ".join(f"{item.where}: {item.detail}" for item in findings)
+    return " | ".join(f"{item.path}: {item.detail}" for item in findings)
 
 
-def run_preflight(path: Path) -> list[PreflightFinding]:
+def run_preflight(path: Path) -> list[Diagnostic]:
     """Load the way the CLI does, then check; loading lives a layer above."""
     try:
         cfg = HydroModPyConfig.from_toml(path)
     except Exception as exc:
-        return [PreflightFinding("error", path.name, f"the file does not load: {exc}")]
+        return [
+            Diagnostic(
+                path=path.name,
+                code="calibration_preflight",
+                severity="error",
+                detail=f"the file does not load: {exc}",
+            )
+        ]
     return preflight_calibration(cfg, source=path)
 
 
-def preflight_of(tmp_path: Path, *sections: str, **options) -> list[PreflightFinding]:
+def preflight_of(tmp_path: Path, *sections: str, **options) -> list[Diagnostic]:
     return run_preflight(write_calibration(tmp_path, *sections, **options))
 
 

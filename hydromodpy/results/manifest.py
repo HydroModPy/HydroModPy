@@ -325,7 +325,7 @@ DERIVE_RULE_VERSION: Final[str] = "1"
 """Version of the rules that rebuild the derived fields of a run on read.
 
 A seal stamps it. A fix that changes what a stored run reads through a derived
-field bumps it and adds an entry to ``known_issues.toml`` on the token
+field bumps it and adds a ``[[bug]]`` row to ``schema/changes.toml`` on the token
 ``derived@<old version>``, which :func:`hydromodpy.results.validity_rules.run_quantities`
 gives a run sealed under that version.
 """

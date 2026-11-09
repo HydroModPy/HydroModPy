@@ -148,7 +148,9 @@ from tests.unit.calibration._factories_search import result_of
 pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
 
 # From test_a_calibration_file_takes_the_user_migration.py
-# A calibration file goes through the migration of user files when it is read.
+# A calibration file goes through the migration of user files when it is read: a table
+# the register moves is read under its new name and warns, a key only a pre-release wrote
+# is refused.
 
 
 _TOML = """\
@@ -160,8 +162,8 @@ objective = "nse"
 bounds = [1e-8, 1e-2]
 search_space = "log"
 
-[simulation.results.budget]
-spatial_fields = true
+[modflow6]
+sgrid = {}
 """
 
 
@@ -173,7 +175,21 @@ def test_a_user_file_keeps_the_user_migration(tmp_path: Path) -> None:
         cfg, raw = load_toml_calibration(user)
 
     assert cfg.method == "grid"
-    assert "budget" not in raw["simulation"]["results"]
+    assert "modflow6" not in raw
+    assert raw["solver"]["modflow6"] == {"sgrid": {}}
+
+
+def test_a_user_file_with_a_key_of_a_pre_release_is_refused(tmp_path: Path) -> None:
+    user = tmp_path / "calibration.toml"
+    user.write_text(
+        _TOML.replace("[modflow6]\nsgrid = {}", "[simulation.results.budget]\nx = 1"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ConfigError, match=r"holds simulation\.results\.budget, written by a pre-release"
+    ):
+        load_toml_calibration(user)
 
 
 # From test_a_calibration_that_names_no_method.py
@@ -1048,12 +1064,14 @@ def test_the_validation_window_comes_second_on_a_search_it_is_scored_on(tmp_path
     )
 
 
-def test_a_count_of_skipped_samples_is_refused_with_the_window_to_write(tmp_path) -> None:
+def test_a_count_of_skipped_samples_is_refused_with_the_way_out(tmp_path) -> None:
     path = _case(
         tmp_path, CASE.replace("max_trials = 3\n", "max_trials = 3\nwarmup_periods = 12\n")
     )
 
-    with pytest.raises(ConfigError, match=r"warmup_periods.*window = \{start"):
+    with pytest.raises(
+        ConfigError, match=r"holds calibration\.warmup_periods, written by a pre-release"
+    ):
         load_toml_calibration(path)
 
 
@@ -1684,7 +1702,9 @@ class TestTheProjectDefaults:
     def test_a_station_key_is_refused_for_the_gauge(self, tmp_path):
         text = self._SITE + self._SEARCH.format(extra='observed_station_id = "OTHER"')
 
-        with pytest.raises(ConfigError, match=r"observed_station_id.*\[site\] gauge"):
+        with pytest.raises(
+            ConfigError, match=r"holds calibration\.observed_station_id, written by a pre-release"
+        ):
             load_toml_calibration(write_document(tmp_path, text, "calage.toml"))
 
 
@@ -3179,7 +3199,7 @@ class TestTheMinimalMap:
         named = [item for item in findings if "nowhere_permanent.gpkg" in item.detail]
         assert len(named) == 1
         assert named[0].severity == "error"
-        assert named[0].where == "[calibration.outputs.net]"
+        assert named[0].path == "calibration.outputs.net"
         assert "map.permanent" in named[0].detail
 
     @pytest.mark.parametrize(
@@ -3251,7 +3271,7 @@ class TestTheExtentTable:
         refused = [item for item in findings if "extent table" in item.detail]
         assert len(refused) == 1
         assert refused[0].severity == "error"
-        assert refused[0].where == "[calibration.outputs.net]"
+        assert refused[0].path == "calibration.outputs.net"
         assert "[flow] flow_regime" in refused[0].detail
 
     @pytest.mark.parametrize(("regime", "extent"), [("transient", True), ("steady", False)])
@@ -3278,7 +3298,7 @@ class TestTheExtentTable:
         refused = [item for item in findings if "extent table" in item.detail]
         # Only the steady phase is named; the transient one reads the extent.
         assert len(refused) == 1
-        assert refused[0].where == "[calibration.outputs.net]"
+        assert refused[0].path == "calibration.outputs.net"
         assert "'k_network'" in refused[0].detail
 
     def test_a_steady_phase_through_its_overrides_is_refused(self, tmp_path) -> None:
@@ -3342,7 +3362,7 @@ class TestTheMinimalObservedNetworkSource:
         named = [item for item in findings if "map.permanent" in item.detail]
         assert len(named) == 1
         assert named[0].severity == "error"
-        assert named[0].where == "[calibration.outputs.net]"
+        assert named[0].path == "calibration.outputs.net"
         assert "data.hydrography.sources" in named[0].detail
 
     def test_a_minimal_source_with_a_hydrography_section_is_no_finding(self, tmp_path) -> None:
@@ -3890,27 +3910,21 @@ def _calibration_file(tmp_path, value: str):
     return path
 
 
-def test_the_calibration_loader_refuses_the_paper_ratio_and_leaves_the_file(tmp_path) -> None:
-    """``hmp calibrate`` names the key the doctor would fix, and never edits the file."""
+@pytest.mark.parametrize("ratio", ["2", "3"])
+def test_the_calibration_loader_refuses_a_ratio_by_name_and_leaves_the_file(
+    tmp_path, ratio
+) -> None:
+    """``hmp calibrate`` names the key, points to the doctor of a 2.0.x release, edits nothing."""
 
-    path = _calibration_file(tmp_path, "2")
+    path = _calibration_file(tmp_path, ratio)
     before = path.read_bytes()
 
-    with pytest.raises(ConfigError, match="roptim_max dropped .*hmp doctor --fix-config"):
-        load_toml_calibration(path)
-
-    assert path.read_bytes() == before
-
-
-def test_the_calibration_loader_refuses_another_ratio_by_name(tmp_path) -> None:
-
-    path = _calibration_file(tmp_path, "3")
-
-    with pytest.raises(ConfigError, match="validity_length") as raised:
+    with pytest.raises(ConfigError, match=r"holds calibration\.outputs\.net\.roptim_max") as raised:
         load_toml_calibration(path)
 
     assert path.name in str(raised.value)
-    assert "roptim_max = 3 has no exact equivalent" in str(raised.value)
+    assert "hmp doctor --fix-config" in str(raised.value)
+    assert path.read_bytes() == before
 
 
 @pytest.mark.parametrize(

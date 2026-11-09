@@ -18,6 +18,7 @@ from tests._helpers.sealed_runs import make_project
 VERBS = {
     "calibrate",
     "calibration_phases",
+    "check",
     "compare",
     "compare_pair",
     "doctor",

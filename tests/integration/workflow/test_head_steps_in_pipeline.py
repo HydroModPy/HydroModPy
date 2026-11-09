@@ -71,8 +71,6 @@ values = [3.0]
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -83,6 +81,10 @@ value = "1e-5 m/s"
 [flow.ic]
 kind = "custom"
 value = "5.0 m"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 
 [domain.layers]
 nlay = 1

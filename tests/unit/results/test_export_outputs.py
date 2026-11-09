@@ -895,6 +895,21 @@ def test_fields_over_the_run_share_one_netcdf_with_the_run_metadata(dated_run) -
         assert ds.attrs["title"] == "demo"
 
 
+def test_a_file_that_takes_the_name_of_the_run_is_refused_before_it_is_written(
+    dated_run,
+) -> None:
+    catalog, sid, exports = dated_run
+    requests = [
+        ExportRequest(variables=["head", "watertable_depth"]),
+        ExportRequest(variables="head", file="demo_fields.nc"),
+    ]
+
+    with pytest.raises(ExportError, match=r"demo_fields\.nc is already written by an earlier"):
+        export_data_requests(catalog, sid, requests)
+    with xr.open_dataset(exports / "demo_fields.nc") as ds:
+        assert {"head", "watertable_depth"} <= set(ds.data_vars)
+
+
 def test_a_period_keeps_the_periods_it_overlaps(dated_run) -> None:
     catalog, sid, exports = dated_run
     written = export_run(

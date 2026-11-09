@@ -73,12 +73,16 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
 kind = "steady_state"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+
+[flow.sinks_sources.etp]
 """
     config_path = tmp_path / "project.toml"
     config_path.write_text(boilerplate + "\n" + _block(), encoding="utf-8")

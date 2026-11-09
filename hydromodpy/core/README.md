@@ -13,6 +13,7 @@ question, and each sub-package has its own `README.md`.
 | module | answers |
 |---|---|
 | `exceptions.py` | what can go wrong, by name? The typed `HydroModPyError` hierarchy the CLI maps to exit codes |
+| `diagnostic.py` | what did a check find in a document? `Diagnostic` and `Severity` (`error`, `warning`, `to_fill`), the one shape that the check of a document, the refusal of the loader, the preflight of a calibration and the expansion of a `[sites]` project all give. `HydroModPyError` carries them. The phrase of a code is not here, it is read from `schema/phrases.toml` when a diagnostic is written for a reader |
 | `logging.py` | how loud is a run? The console and file logging policy (`LogManager`, `get_logger`, verbosity) |
 | `version.py` | which release is this? The one source of `__version__` |
 | `pipeline_steps.py` | how are the steps of a simulation called? `STEP_NAMES`, shared by every layer |
