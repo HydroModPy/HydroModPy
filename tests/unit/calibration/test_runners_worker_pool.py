@@ -359,6 +359,28 @@ def test_the_limit_is_the_default_without_an_options_table(tmp_path: Path) -> No
         assert pool._limit_s == DEFAULT_TRIAL_LIMIT_S == 14400.0
 
 
+@pytest.mark.parametrize(
+    ("backend", "table", "limit"),
+    [
+        ("modflow6", {}, DEFAULT_TRIAL_LIMIT_S),
+        ("modflow6", {"runtime": {"mf6_api_timeout_s": 600.0}}, 600.0),
+        ("modflow_nwt", {}, DEFAULT_TRIAL_LIMIT_S),
+        ("modflow_nwt", {"wall_clock_limit_s": 600.0}, 600.0),
+        ("boussinesq", {}, DEFAULT_TRIAL_LIMIT_S),
+        ("boussinesq", {"wall_clock_limit_s": 600.0}, 600.0),
+    ],
+)
+def test_each_backend_table_sets_the_limit_of_a_trial(
+    backend: str, table: dict[str, object], limit: float
+) -> None:
+    from hydromodpy.solver.base.solver_config import SolverConfig
+
+    solver = SolverConfig.model_validate({"backend": backend, backend: table})
+    trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(solver=solver))
+
+    assert worker_pool._wall_clock_limit(trial_ctx) == limit
+
+
 def test_a_state_that_cannot_cross_is_refused_with_what_to_write(tmp_path: Path) -> None:
     options = {"trial_ctx": _trial_ctx(tmp_path), "metric_fn": lambda: None}
     with pytest.raises(CalibrationError, match=r"parallel = 3 .*top level.*parallel = 1"):

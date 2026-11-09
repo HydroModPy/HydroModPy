@@ -189,7 +189,7 @@ class TestSeriesRegistry:
         registry = TIME_SERIES_REGISTRY
         assert registry["discharge"].units == "m3 s-1"
         assert registry["well_pumping"].units == "m3 s-1"
-        assert registry["reservoir_storage"].units == "m3"
+        assert registry["reservoir_storage"].units == "m"
 
     def test_the_lake_and_reach_states_are_registered(self):
         registry = TIME_SERIES_REGISTRY

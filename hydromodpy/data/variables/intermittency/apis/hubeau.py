@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
+from hydromodpy.core.io.fetch import open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json, paginate_json
 from hydromodpy.data.common.clients.hubeau import station_location
@@ -30,6 +31,7 @@ from hydromodpy.data.common.clients.hubeau import station_location
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.core.io.fetch import HTTPClient
     from hydromodpy.data.contracts.location import StationLocation
     from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.source.port import (
@@ -79,6 +81,7 @@ def fetch(
     date_end: datetime,
     require_observations: bool = True,
     fallback_search_radius_km: float | None = None,
+    client: HTTPClient,
 ) -> list[PointRecord]:
     """Fetch ONDE flow-state observations from Hub'Eau and return ``PointRecord`` list.
 
@@ -94,6 +97,7 @@ def fetch(
             date_start=date_start,
             date_end=date_end,
             require_observations=require_observations,
+            client=client,
         )
         if not ids and bbox is not None and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
@@ -108,6 +112,7 @@ def fetch(
                 date_start=date_start,
                 date_end=date_end,
                 require_observations=require_observations,
+                client=client,
             )
     else:
         raise ValueError("Either bbox, station_ids, or code_departement must be provided.")
@@ -126,8 +131,8 @@ def fetch(
     records: list[PointRecord] = []
     empty: list[str] = []
     for sid in progress.track(ids, "Fetching ONDE stations"):
-        location = _fetch_station_location(sid)
-        obs_df = _download_observations(sid, date_start, date_end)
+        location = _fetch_station_location(sid, client=client)
+        obs_df = _download_observations(sid, date_start, date_end, client=client)
         if obs_df.empty:
             empty.append(sid)
             continue
@@ -199,15 +204,17 @@ class HubeauIntermittency:
         require_selectors(self, request)
         period = require_period(self, request)
         extent = extent_for(self, request) if request.extent is not None else None
-        records = fetch(
-            bbox=None if extent is None else extent.bbox,
-            station_ids=list(request.station_ids) or None,
-            date_start=period.start,
-            date_end=period.end,
-            code_departement=self.code_departement,
-            require_observations=self.require_observations,
-            fallback_search_radius_km=self.fallback_search_radius_km,
-        )
+        with open_client(request.bounds) as client:
+            records = fetch(
+                bbox=None if extent is None else extent.bbox,
+                station_ids=list(request.station_ids) or None,
+                date_start=period.start,
+                date_end=period.end,
+                code_departement=self.code_departement,
+                require_observations=self.require_observations,
+                fallback_search_radius_km=self.fallback_search_radius_km,
+                client=client,
+            )
         require_declared_variables(self, [record.variable for record in records])
         return FetchResult(
             source_id=self.source_id,
@@ -231,6 +238,7 @@ def _discover_stations(
     date_start: datetime | None = None,
     date_end: datetime | None = None,
     require_observations: bool = False,
+    client: HTTPClient,
 ) -> list[str]:
     """Query Hub'Eau ecoulement stations endpoint."""
     params: dict = {"size": 10_000, "format": "json"}
@@ -240,7 +248,7 @@ def _discover_stations(
     if code_departement:
         params["code_departement"] = ",".join(code_departement)
 
-    payload = get_json(None, f"{API_BASE}/stations", params=params)
+    payload = get_json(client, f"{API_BASE}/stations", params=params)
     if payload is None:
         return []
 
@@ -260,11 +268,11 @@ def _discover_stations(
     return ids
 
 
-def _fetch_station_location(station_id: str) -> StationLocation | None:
+def _fetch_station_location(station_id: str, *, client: HTTPClient) -> StationLocation | None:
     """Fetch one station's reference info and return a ``StationLocation``."""
 
     payload = get_json(
-        None,
+        client,
         f"{API_BASE}/stations",
         params={"code_station": station_id, "size": 1, "format": "json"},
     )
@@ -293,6 +301,8 @@ def _download_observations(
     station_id: str,
     date_start: datetime,
     date_end: datetime,
+    *,
+    client: HTTPClient,
 ) -> pd.DataFrame:
     """Download all ONDE observations for one station in the given period."""
     import pandas as pd
@@ -306,7 +316,7 @@ def _download_observations(
     }
 
     raw_records = paginate_json(
-        None,
+        client,
         f"{API_BASE}/observations",
         params=params,
         page_size=1000,

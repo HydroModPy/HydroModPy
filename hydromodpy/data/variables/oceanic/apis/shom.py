@@ -46,7 +46,6 @@ still a refusal.
 
 from __future__ import annotations
 
-import contextlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -91,7 +90,7 @@ def fetch(
     fallback_search_radius_km: float | None = None,
     cache_dir: Path | None = None,
     write: bool = True,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> list[PointRecord]:
     """Download sea-level data from one SHOM tide gauge.
 
@@ -136,28 +135,26 @@ def fetch(
             "near_lon to search for the nearest one. Not both, not neither."
         )
 
-    client_cm = contextlib.nullcontext(client) if client is not None else open_client()
-    with client_cm as active_client:
-        gauges = _discover_tide_gauges(active_client)
+    gauges = _discover_tide_gauges(client)
 
-        if station_id is not None:
-            tg_id, tg_name, tg_lat, tg_lon = _gauge_by_id(gauges, station_id)
-        else:
-            tg_id, tg_name, tg_lat, tg_lon = _find_nearest(
-                gauges,
-                lat=float(near_lat),
-                lon=float(near_lon),
-                radius_km=fallback_search_radius_km,
-            )
+    if station_id is not None:
+        tg_id, tg_name, tg_lat, tg_lon = _gauge_by_id(gauges, station_id)
+    else:
+        tg_id, tg_name, tg_lat, tg_lon = _find_nearest(
+            gauges,
+            lat=float(near_lat),
+            lon=float(near_lon),
+            radius_km=fallback_search_radius_km,
+        )
 
-        cached_df = _try_load_cached(cache_dir, tg_id, date_start, date_end)
-        if cached_df is not None:
-            df = cached_df
-        else:
-            zh_ref = _get_vertical_reference(active_client, tg_id)
-            df = _download_sea_level(active_client, tg_id, date_start, date_end, zh_ref)
-            if write:
-                _write_cache(cache_dir, tg_id, date_start, date_end, df)
+    cached_df = _try_load_cached(cache_dir, tg_id, date_start, date_end)
+    if cached_df is not None:
+        df = cached_df
+    else:
+        zh_ref = _get_vertical_reference(client, tg_id)
+        df = _download_sea_level(client, tg_id, date_start, date_end, zh_ref)
+        if write:
+            _write_cache(cache_dir, tg_id, date_start, date_end, df)
 
     if df.empty:
         logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)

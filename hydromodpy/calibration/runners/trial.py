@@ -315,7 +315,6 @@ class TrialContext:
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
         new_setup.model = None
-        new_setup.transport = None
         new_setup.slot_request = slot_request
 
         new_ctx = WorkflowContext(
@@ -332,7 +331,7 @@ class TrialContext:
             rng=getattr(self.ctx.execution, "rng", None),
         )
 
-        # Rebuild flow / transport from the patched cfg and re-bind the
+        # Rebuild the flow from the patched cfg and re-bind the
         # loaded forcings (recharge, oceanic) to the fresh objects. Without
         # this, the trial solver runs on a Flow with zero recharge. The
         # rebuild is skipped when ``loaded_data`` has no real forcings

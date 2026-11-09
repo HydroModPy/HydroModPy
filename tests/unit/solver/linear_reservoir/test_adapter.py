@@ -42,7 +42,7 @@ def _slot(tmp_path: object) -> RunSlot:
 
 def test_the_declared_writes_are_the_two_tables_the_store_serves() -> None:
     adapter = LinearReservoirFlowAdapter()
-    assert adapter.writes == ("timeseries", "budgets")
+    assert adapter.writes == ("discharge", "reservoir_storage", "budgets")
 
 
 def test_the_declared_supports_carry_the_recharge_of_the_run() -> None:

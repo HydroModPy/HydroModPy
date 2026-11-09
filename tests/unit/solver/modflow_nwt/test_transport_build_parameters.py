@@ -6,6 +6,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.model.transport.transport_config import (
     ConcentrationTransportParametersConfig,
     ModpathParametersConfig,
@@ -90,3 +93,25 @@ def test_modpath_build_forwards_non_default_parameters_and_detects_seepage_clip(
     assert params["track_dir"] == "backward"
     assert params["zone_partic"] == "seepage_clip"
     assert len(seepage_called) == 1
+
+
+def test_the_seepage_clip_raster_reads_the_heads_under_the_nwt_name(tmp_path: Path) -> None:
+    """A run name with spaces names its NWT files with underscores, and so its heads."""
+    flow_dir = tmp_path / "Example 12 run"
+    flow_model = SimpleNamespace(
+        full_path=str(flow_dir), dem_watershed_path=str(tmp_path / "dem.tif")
+    )
+    followed = SolverRun(
+        slot=RunSlot(tmp_path, "Example 12 run"),
+        model=None,
+        options=None,
+        solver_model=flow_model,
+        output_dir=flow_dir,
+        written=True,
+        solved=True,
+    )
+
+    with pytest.raises(SolverInputError) as raised:
+        modpath._write_seepage_clip_raster(followed)
+
+    assert str(flow_dir / "Example_12_run.hds") in str(raised.value)

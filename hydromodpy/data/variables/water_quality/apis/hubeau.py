@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
+from hydromodpy.core.io.fetch import open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import keep_nearest
@@ -22,6 +23,7 @@ from hydromodpy.data.common.clients.hubeau import keep_nearest
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.core.io.fetch import HTTPClient
     from hydromodpy.data.contracts.location import StationLocation
     from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -55,6 +57,7 @@ def fetch(
     parameters: list[str] | None = None,
     nearest_to: tuple[float, float] | None = None,
     fallback_search_radius_km: float | None = None,
+    client: HTTPClient,
 ) -> list[PointRecord]:
     """Fetch water quality data from Hub'Eau.
 
@@ -74,7 +77,7 @@ def fetch(
     if station_ids is None:
         if bbox is None:
             raise ValueError("Either station_ids or bbox required.")
-        station_ids = _discover_stations(bbox, is_river=is_river)
+        station_ids = _discover_stations(bbox, is_river=is_river, client=client)
         if not station_ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
 
@@ -82,7 +85,7 @@ def fetch(
             logger.info(
                 "Hub'Eau WQ: no stations in bbox, expanding by %s km", fallback_search_radius_km
             )
-            station_ids = _discover_stations(expanded, is_river=is_river)
+            station_ids = _discover_stations(expanded, is_river=is_river, client=client)
         if not station_ids:
             logger.info("Hub'Eau WQ: no stations in bbox")
             return []
@@ -92,7 +95,7 @@ def fetch(
         station_ids = keep_nearest(
             station_ids,
             nearest_to,
-            lambda sid: _fetch_station_location(sid, is_river=is_river),
+            lambda sid: _fetch_station_location(sid, is_river=is_river, client=client),
             label="water quality",
         )
         if not station_ids:
@@ -106,9 +109,9 @@ def fetch(
     empty: list[str] = []
 
     for sid in progress.track(station_ids, "Fetching water quality stations"):
-        location = _fetch_station_location(sid, is_river=is_river)
+        location = _fetch_station_location(sid, is_river=is_river, client=client)
         raw_df = _download_analyses(
-            sid, date_start=date_start, date_end=date_end, is_river=is_river
+            sid, date_start=date_start, date_end=date_end, is_river=is_river, client=client
         )
         if raw_df.empty:
             empty.append(sid)
@@ -212,16 +215,18 @@ class HubeauWaterQuality:
         require_selectors(self, request)
         period = require_period(self, request)
         extent = extent_for(self, request) if request.extent is not None else None
-        records = fetch(
-            site_type=self.site_type,
-            bbox=None if extent is None else extent.bbox,
-            station_ids=list(request.station_ids) or None,
-            date_start=period.start,
-            date_end=period.end,
-            parameters=self.parameters,
-            nearest_to=self.nearest_to,
-            fallback_search_radius_km=self.fallback_search_radius_km,
-        )
+        with open_client(request.bounds) as client:
+            records = fetch(
+                site_type=self.site_type,
+                bbox=None if extent is None else extent.bbox,
+                station_ids=list(request.station_ids) or None,
+                date_start=period.start,
+                date_end=period.end,
+                parameters=self.parameters,
+                nearest_to=self.nearest_to,
+                fallback_search_radius_km=self.fallback_search_radius_km,
+                client=client,
+            )
         return FetchResult(
             source_id=self.source_id,
             kind=self.payload_kind,
@@ -232,7 +237,9 @@ class HubeauWaterQuality:
         )
 
 
-def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -> list[str]:
+def _discover_stations(
+    bbox: tuple, *, is_river: bool, client: HTTPClient, max_stations: int = 50
+) -> list[str]:
     """Find station IDs inside bbox."""
     url = API_RIVER_STATIONS if is_river else API_PZ_STATIONS
     params = {
@@ -240,7 +247,7 @@ def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -
         "size": min(max_stations, 10000),
         "format": "json",
     }
-    payload = get_json(None, url, params=params)
+    payload = get_json(client, url, params=params)
     if payload is None:
         return []
 
@@ -258,7 +265,9 @@ def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -
     return ids
 
 
-def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocation | None:
+def _fetch_station_location(
+    station_id: str, *, is_river: bool, client: HTTPClient
+) -> StationLocation | None:
     """Get station coordinates from stations endpoint."""
     url = API_RIVER_STATIONS if is_river else API_PZ_STATIONS
     if is_river:
@@ -268,7 +277,7 @@ def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocati
     else:
         params = {"bss_id": station_id, "size": 1, "format": "json"}
 
-    payload = get_json(None, url, params=params)
+    payload = get_json(client, url, params=params)
     if not payload or not payload.get("data"):
         return None
 
@@ -315,6 +324,7 @@ def _download_analyses(
     date_start: datetime,
     date_end: datetime,
     is_river: bool,
+    client: HTTPClient,
 ) -> pd.DataFrame:
     """Download analyses year by year."""
     import pandas as pd
@@ -336,7 +346,7 @@ def _download_analyses(
         params["date_debut_prelevement"] = year_start.strftime("%Y-%m-%d")
         params["date_fin_prelevement"] = year_end.strftime("%Y-%m-%d")
 
-        payload = get_json(None, url, params=params)
+        payload = get_json(client, url, params=params)
         if payload is not None:
             all_records.extend(payload.get("data", []))
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.variables.hydrometry import catchment_area_check as mod
 from hydromodpy.data.variables.hydrometry.catchment_area_check import (
     compare_catchment_area,
@@ -44,7 +45,9 @@ def test_the_published_area_is_read_from_the_site_endpoint(monkeypatch):
 
     monkeypatch.setattr("hydromodpy.data.common.api_client.get_json", _get_json)
 
-    assert published_catchment_area_km2(_NANCON_STATION) == pytest.approx(_NANCON_AREA_KM2)
+    assert published_catchment_area_km2(_NANCON_STATION, client=HTTPClient()) == pytest.approx(
+        _NANCON_AREA_KM2
+    )
     assert seen["url"].endswith("/referentiel/sites")
     assert seen["params"]["code_site"] == _NANCON_SITE
 
@@ -55,7 +58,7 @@ def test_the_published_area_is_read_from_the_site_endpoint(monkeypatch):
 def test_a_site_without_a_usable_area_yields_nothing(monkeypatch, payload):
     monkeypatch.setattr("hydromodpy.data.common.api_client.get_json", lambda *a, **k: payload)
 
-    assert published_catchment_area_km2(_NANCON_STATION) is None
+    assert published_catchment_area_km2(_NANCON_STATION, client=HTTPClient()) is None
 
 
 def test_an_unreachable_service_yields_nothing_rather_than_failing(monkeypatch):
@@ -66,7 +69,7 @@ def test_an_unreachable_service_yields_nothing_rather_than_failing(monkeypatch):
 
     monkeypatch.setattr("hydromodpy.data.common.api_client.get_json", _boom)
 
-    assert published_catchment_area_km2(_NANCON_STATION) is None
+    assert published_catchment_area_km2(_NANCON_STATION, client=HTTPClient()) is None
 
 
 def test_an_agreeing_area_does_not_warn(monkeypatch, caplog):
@@ -74,7 +77,7 @@ def test_an_agreeing_area_does_not_warn(monkeypatch, caplog):
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: _NANCON_AREA_KM2)
 
     with caplog.at_level("WARNING"):
-        comparison = compare_catchment_area(_NANCON_STATION, 64.61)
+        comparison = compare_catchment_area(_NANCON_STATION, 64.61, client=HTTPClient())
 
     assert comparison is not None
     assert comparison.relative_gap == pytest.approx(0.0025, abs=1e-4)
@@ -85,7 +88,7 @@ def test_a_catchment_on_the_wrong_branch_warns(monkeypatch, caplog):
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: _NANCON_AREA_KM2)
 
     with caplog.at_level("WARNING"):
-        comparison = compare_catchment_area(_NANCON_STATION, 6.0)
+        comparison = compare_catchment_area(_NANCON_STATION, 6.0, client=HTTPClient())
 
     assert comparison is not None
     assert "wrong branch of a confluence" in caplog.text
@@ -96,7 +99,7 @@ def test_the_warning_threshold_is_the_caller_s_to_set(monkeypatch, caplog):
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 100.0)
 
     with caplog.at_level("WARNING"):
-        compare_catchment_area(_NANCON_STATION, 105.0, warn_relative_gap=0.20)
+        compare_catchment_area(_NANCON_STATION, 105.0, warn_relative_gap=0.20, client=HTTPClient())
 
     assert not caplog.text
 
@@ -104,9 +107,9 @@ def test_the_warning_threshold_is_the_caller_s_to_set(monkeypatch, caplog):
 def test_no_published_area_is_not_a_failure(monkeypatch):
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: None)
 
-    assert compare_catchment_area(_NANCON_STATION, 64.61) is None
+    assert compare_catchment_area(_NANCON_STATION, 64.61, client=HTTPClient()) is None
 
 
 def test_a_delineated_area_of_zero_is_refused():
     with pytest.raises(ValueError, match="must be positive"):
-        compare_catchment_area(_NANCON_STATION, 0.0)
+        compare_catchment_area(_NANCON_STATION, 0.0, client=HTTPClient())

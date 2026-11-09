@@ -80,6 +80,7 @@ _RUNTIME_PROBES: dict[str, Any] = {
     "ts_vi_type": "cn",
     "ts_vi_snes_type": "vinewtonssls",
     "exchange_mesh": Path("mesh_bundle"),
+    "wall_clock_limit_s": 600.0,
 }
 
 

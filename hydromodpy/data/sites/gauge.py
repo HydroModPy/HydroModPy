@@ -12,11 +12,14 @@ the gauge of the run.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.site import SiteConfig, resolve_gauge
 from hydromodpy.data.source.registry import data_sources
+
+if TYPE_CHECKING:
+    from hydromodpy.core.runtime.bounds import Bounds
 
 GAUGE_VARIABLES: tuple[str, ...] = ("hydrometry", "recharge", "runoff")
 """The ``[data.<variable>]`` sections whose stations are the catchment station."""
@@ -68,15 +71,23 @@ def check_run_gauge_area(
     site: SiteConfig | None,
     hydrometry: Any,
     catchment_area_km2: float | None,
+    *,
+    bounds: Bounds,
 ) -> None:
     """Warn when the delineated area disagrees with the one the run's gauge publishes.
 
     The gauge is :func:`gauge_of_run`. A run with several stations and no
-    ``[site] gauge`` has none, so nothing is checked.
+    ``[site] gauge`` has none, so nothing is checked. The request to Hub'Eau
+    obeys the *bounds* of the call.
     """
+    from hydromodpy.core.io.fetch import open_client
     from hydromodpy.data.variables.hydrometry.catchment_area_check import check_gauge_area
 
-    check_gauge_area(gauge_of_run(site, hydrometry), catchment_area_km2)
+    gauge = gauge_of_run(site, hydrometry)
+    if gauge is None or not catchment_area_km2:
+        return
+    with open_client(bounds) as client:
+        check_gauge_area(gauge, catchment_area_km2, client=client)
 
 
 def _selects_by_station(source_name: Any, variable: str) -> bool:

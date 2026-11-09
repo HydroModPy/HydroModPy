@@ -12,6 +12,7 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import DataRequestError, DataSourceError
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.common.clients import sandre_topage
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
 from hydromodpy.data.variables.hydrography.apis import bdtopage
@@ -34,7 +35,9 @@ def asked(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     """Stub the client: record each question and answer with three reaches."""
     questions: list[dict] = []
 
-    def _get_features(typename: str, bbox: tuple, *, page_size: int) -> gpd.GeoDataFrame:
+    def _get_features(
+        typename: str, bbox: tuple, *, page_size: int, client: HTTPClient
+    ) -> gpd.GeoDataFrame:
         questions.append({"typename": typename, "bbox": bbox, "page_size": page_size})
         return _reaches(PersistanceTH=["permanent", "intermittent", "permanent"])
 
@@ -84,7 +87,7 @@ def test_no_reach_is_not_an_error() -> None:
 
 def test_the_source_asks_its_layer_over_the_lambert93_box(asked: list[dict]) -> None:
     box = (346361.0, 6797325.0, 363915.0, 6821726.0)
-    frame = bdtopage.BdTopageSource(page_size=17).download(box)
+    frame = bdtopage.BdTopageSource(page_size=17).download(box, client=HTTPClient())
 
     assert asked == [{"typename": bdtopage.LAYER, "bbox": box, "page_size": 17}]
     assert frame[PERMANENCE_COLUMN].tolist() == ["permanent", "intermittent", "permanent"]
@@ -96,7 +99,9 @@ def test_a_wgs84_caller_gets_degrees_back_and_asks_a_box_that_holds_its_own(
 ) -> None:
     from pyproj import Transformer
 
-    frame = bdtopage.fetch(HydrographySourceConfig(source="bdtopage"), (-1.8, 48.1, -1.5, 48.4))
+    frame = bdtopage.fetch(
+        HydrographySourceConfig(source="bdtopage"), (-1.8, 48.1, -1.5, 48.4), client=HTTPClient()
+    )
 
     assert str(frame.crs) == "EPSG:4326"
     (question,) = asked
@@ -175,7 +180,7 @@ class TestEuHydroApi:
         mock_get.side_effect = [ms_resp, name5_resp, name6_resp, data5_resp, data6_resp]
 
         cfg = HydrographySourceConfig(source="euhydro")
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert len(gdf) == 3  # 2 + 1
         assert "layer_id" in gdf.columns
         assert "layer_name" in gdf.columns
@@ -190,7 +195,7 @@ class TestEuHydroApi:
         mock_get.return_value = ms_resp
 
         cfg = HydrographySourceConfig(source="euhydro")
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert gdf.empty
 
     @patch("hydromodpy.core.io.fetch.HTTPClient.get")
@@ -235,7 +240,7 @@ class TestEuHydroApi:
         cfg = HydrographySourceConfig(
             source="euhydro", group_name="Canal_lines", euhydro_page_size=50
         )
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert len(gdf) == 1
 
 
@@ -270,7 +275,7 @@ class TestOsmApi:
         mock_get.return_value = resp
 
         cfg = HydrographySourceConfig(source="osm")
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert len(gdf) == 5
         assert str(gdf.crs) == "EPSG:4326"
         assert "waterway" in gdf.columns
@@ -287,7 +292,7 @@ class TestOsmApi:
         mock_get.return_value = resp
 
         cfg = HydrographySourceConfig(source="osm")
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert gdf.empty
 
     @patch("hydromodpy.core.io.fetch.HTTPClient.get")
@@ -301,7 +306,7 @@ class TestOsmApi:
         mock_get.return_value = resp
 
         cfg = HydrographySourceConfig(source="osm", waterway_types=["canal"])
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert len(gdf) == 2
         # Verify query was built with "canal"
         call_params = mock_get.call_args
@@ -341,6 +346,6 @@ class TestOsmApi:
         mock_get.return_value = resp
 
         cfg = HydrographySourceConfig(source="osm", waterway_types=["stream"])
-        gdf = fetch(cfg, self.BBOX)
+        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
         assert gdf.iloc[0]["intermit"] == 2  # intermittent
         assert gdf.iloc[1]["intermit"] == 1  # permanent

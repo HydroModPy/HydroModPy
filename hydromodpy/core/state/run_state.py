@@ -64,7 +64,7 @@ class SetupContext:
 
     Most field types are ``Any`` because ``core`` cannot import from
     sibling layers (``catchment``, ``mesh``, ``model``). Concrete classes live in
-    ``model.flow``, ``model.model``, ``model.transport``, ``model.domain``,
+    ``model.flow``, ``model.model``, ``model.domain``,
     ``catchment.preprocess`` and ``mesh.io``.
     """
 
@@ -84,7 +84,6 @@ class SetupContext:
     # The frozen Model of the run (model.model.Model), built from ``flow`` by the
     # prepare_solver step and the only thing a flow adapter reads. None until then.
     model: Any = None
-    transport: Any = None
     mesh_summary: dict[str, Any] | None = None
     # The planar cell mesh the solvers read (mesh.planar PlanarCellMesh).
     cell_mesh: Any = None

@@ -64,7 +64,7 @@ BOX_2154 = (340000.0, 6800000.0, 350000.0, 6810000.0)
 def _pages(asked: list[tuple], sample):
     """A provider that records the box it was asked and serves the sample in pages."""
 
-    def fetch(*, bbox, page_size):
+    def fetch(*, bbox, page_size, client):
         asked.append(bbox)
         frame = sample()
         for start in range(0, len(frame), page_size):
@@ -453,7 +453,7 @@ def test_an_api_source_without_an_outlet_is_refused(tmp_path: Path, offline: lis
 
 def test_a_box_without_any_crossing_is_refused(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
-        roe, "fetch_pages", lambda *, bbox, page_size: iter([records.empty("EPSG:2154")])
+        roe, "fetch_pages", lambda *, bbox, page_size, client: iter([records.empty("EPSG:2154")])
     )
     cfg = _cfg([RoeCrossingsSource()])
 
@@ -483,7 +483,7 @@ def test_the_pages_of_a_download_are_written_as_they_arrive(
     out_dir = tmp_path / "out"
     held: list[int] = []
 
-    def fetch(*, bbox, page_size):
+    def fetch(*, bbox, page_size, client):
         sample = _roe_sample()
         for start in range(0, len(sample), 2):
             staged = list(out_dir.glob("*.tmp-*.gpkg"))
@@ -505,7 +505,7 @@ def test_the_pages_of_a_download_are_written_as_they_arrive(
 def test_a_failure_in_the_middle_of_the_pages_leaves_no_file(tmp_path: Path, monkeypatch) -> None:
     out_dir = tmp_path / "out"
 
-    def fetch(*, bbox, page_size):
+    def fetch(*, bbox, page_size, client):
         yield _roe_sample().iloc[:2]
         raise RuntimeError("the service stopped")
 

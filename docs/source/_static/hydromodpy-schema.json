@@ -462,6 +462,22 @@
           "stability": "experimental",
           "title": "Exchange Mesh",
           "x-hmp-profile": "dev"
+        },
+        "wall_clock_limit_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wall-clock budget (seconds) of one trial of a parallel calibration under this backend. Its worker is killed past it, so one stuck trial cannot wedge the session. None keeps the built-in default (14400 s).",
+          "stability": "experimental",
+          "title": "Wall Clock Limit S",
+          "x-hmp-profile": "expert"
         }
       },
       "title": "BoussinesqOptions",
@@ -17312,6 +17328,21 @@
           "$ref": "#/$defs/SolverSGridConfig",
           "description": "How the top of the solver grid is sampled from the DEM; the planar grid is [mesh] and the layering is [domain.layers].",
           "x-hmp-profile": "user"
+        },
+        "wall_clock_limit_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wall-clock budget (seconds) of one trial of a parallel calibration under this backend. Its worker is killed past it, so one stuck trial cannot wedge the session. None keeps the built-in default (14400 s).",
+          "title": "Wall Clock Limit S",
+          "x-hmp-profile": "expert"
         }
       },
       "title": "ModflowConfig",

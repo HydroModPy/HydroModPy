@@ -14,6 +14,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.time import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
@@ -131,6 +132,7 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         getattr(ctx.cfg, "site", None),
         ctx.loaded_data.hydrometry,
         getattr(ctx.setup.geographic, "catch_area", None),
+        bounds=ctx.bounds if ctx.bounds is not None else Bounds(),
     )
     apply_structural_updates_from_data(ctx)
     ctx.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())

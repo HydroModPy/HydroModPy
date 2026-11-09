@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import DataSourceError
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import bdtopo, roe, wfs
 
@@ -196,7 +197,11 @@ def test_bdtopo_pages_by_count_and_sorts_every_page(server: _Server) -> None:
     server.total = len(roads)
     server.pages = [_json_page(roads[i : i + 2]) for i in range(0, len(roads), 2)]
 
-    layer = [f for page in bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2) for f in page]
+    layer = [
+        f
+        for page in bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient())
+        for f in page
+    ]
 
     assert [f["id"] for f in layer] == [f["id"] for f in roads]
     hits, *pages = server.sent
@@ -211,7 +216,7 @@ def test_bdtopo_pages_by_count_and_sorts_every_page(server: _Server) -> None:
 def test_the_box_is_sent_with_its_crs_in_the_same_urn_as_srsname(server: _Server) -> None:
     server.total = 0
 
-    list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2))
+    list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient()))
 
     sent = server.sent[0]
     assert sent["BBOX"] == f"340000.0,6800000.0,350000.0,6810000.0,{URN}"
@@ -221,7 +226,7 @@ def test_the_box_is_sent_with_its_crs_in_the_same_urn_as_srsname(server: _Server
 def test_roe_asks_the_sandre_layer_in_gml(server: _Server) -> None:
     server.total = 0
 
-    list(roe.fetch_pages(bbox=BOX, page_size=2))
+    list(roe.fetch_pages(bbox=BOX, page_size=2, client=HTTPClient()))
 
     assert server.sent[0]["url"] == roe.WFS_URL
     assert server.sent[0]["TYPENAMES"] == "sa:ObstEcoul_FXX"
@@ -230,7 +235,7 @@ def test_roe_asks_the_sandre_layer_in_gml(server: _Server) -> None:
 def test_a_box_without_a_feature_gives_no_page(server: _Server) -> None:
     server.total = 0
 
-    pages = list(roe.fetch_pages(bbox=BOX, page_size=2))
+    pages = list(roe.fetch_pages(bbox=BOX, page_size=2, client=HTTPClient()))
 
     assert pages == []
 
@@ -242,7 +247,7 @@ def test_pages_that_do_not_add_up_to_the_total_are_refused(server: _Server) -> N
     server.pages += [_json_page([])] * 3
 
     with pytest.raises(DataSourceError, match="announced"):
-        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2))
+        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient()))
 
 
 def test_a_feature_served_twice_is_refused(server: _Server) -> None:
@@ -251,7 +256,7 @@ def test_a_feature_served_twice_is_refused(server: _Server) -> None:
     server.pages = [_json_page(roads), _json_page(roads)]
 
     with pytest.raises(DataSourceError, match="repeated"):
-        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2))
+        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient()))
 
 
 def test_a_refusal_sent_with_http_200_is_raised_by_name(server: _Server) -> None:
@@ -260,7 +265,7 @@ def test_a_refusal_sent_with_http_200_is_raised_by_name(server: _Server) -> None
     )
 
     with pytest.raises(DataSourceError, match="refused a request on 'BDTOPO_V3:troncon_de_route'"):
-        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2))
+        list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient()))
 
 
 def test_bdtopo_asks_only_the_attributes_it_reads(server: _Server) -> None:
@@ -268,8 +273,8 @@ def test_bdtopo_asks_only_the_attributes_it_reads(server: _Server) -> None:
     server.total = len(roads)
     server.pages = [_json_page(roads[i : i + 2]) for i in range(0, len(roads), 2)]
 
-    list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2))
-    list(bdtopo.layer_pages(bdtopo.RAILWAY_LAYER, BOX, 2))
+    list(bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient()))
+    list(bdtopo.layer_pages(bdtopo.RAILWAY_LAYER, BOX, 2, client=HTTPClient()))
 
     asked = {
         entry["TYPENAMES"]: entry["PROPERTYNAME"].split(",")
@@ -288,7 +293,7 @@ def test_a_page_is_handed_out_before_the_next_one_is_asked(server: _Server) -> N
     server.total = len(roads)
     server.pages = [_json_page(roads[i : i + 2]) for i in range(0, len(roads), 2)]
 
-    pages = bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2)
+    pages = bdtopo.layer_pages(bdtopo.ROAD_LAYER, BOX, 2, client=HTTPClient())
     first = next(pages)
 
     assert len(first) == 2
@@ -301,7 +306,7 @@ def test_the_pages_of_bdtopo_become_records_one_by_one(server: _Server) -> None:
     server.total = len(roads)
     server.pages = [_json_page(roads[i : i + 2]) for i in range(0, len(roads), 2)]
 
-    frames = list(bdtopo.fetch_pages(bbox=BOX, page_size=2))
+    frames = list(bdtopo.fetch_pages(bbox=BOX, page_size=2, client=HTTPClient()))
 
     # Three pages of two features for each of the two layers, the server answering both
     # with the same sample.

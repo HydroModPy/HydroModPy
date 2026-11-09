@@ -5,8 +5,12 @@ from __future__ import annotations
 import logging
 from types import SimpleNamespace
 
+from hydromodpy.core.io.fetch import HTTPClient
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.sites.gauge import check_run_gauge_area
 from hydromodpy.data.variables.hydrometry import catchment_area_check as mod
+
+BOUNDS = Bounds()
 
 
 def _site(gauge: str | None = None):
@@ -26,14 +30,14 @@ def _warnings(caplog) -> list:
 def test_a_gap_of_fifteen_per_cent_does_not_warn(monkeypatch, caplog) -> None:
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 100.0)
     with caplog.at_level(logging.INFO):
-        mod.compare_catchment_area("J001401001", 115.0)
+        mod.compare_catchment_area("J001401001", 115.0, client=HTTPClient())
     assert not _warnings(caplog)
 
 
 def test_a_gap_beyond_twenty_per_cent_warns(monkeypatch, caplog) -> None:
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 64.45)
     with caplog.at_level(logging.INFO):
-        result = mod.check_gauge_area("J001401001", 96.5)
+        result = mod.check_gauge_area("J001401001", 96.5, client=HTTPClient())
     assert result is not None
     assert _warnings(caplog)
 
@@ -43,10 +47,10 @@ def test_nothing_is_checked_without_a_hubeau_gauge_and_an_area(monkeypatch) -> N
     monkeypatch.setattr(
         mod, "published_catchment_area_km2", lambda sid, **_kw: calls.append(sid) or 10.0
     )
-    assert mod.check_gauge_area(None, 50.0) is None
-    assert mod.check_gauge_area("my_station", 50.0) is None
-    assert mod.check_gauge_area("J001401001", None) is None
-    assert mod.check_gauge_area("J001401001", 0.0) is None
+    assert mod.check_gauge_area(None, 50.0, client=HTTPClient()) is None
+    assert mod.check_gauge_area("my_station", 50.0, client=HTTPClient()) is None
+    assert mod.check_gauge_area("J001401001", None, client=HTTPClient()) is None
+    assert mod.check_gauge_area("J001401001", 0.0, client=HTTPClient()) is None
     assert calls == []
 
 
@@ -57,20 +61,21 @@ def test_the_gauge_of_the_run_is_the_one_checked(monkeypatch, caplog) -> None:
     )
     with caplog.at_level(logging.INFO):
         # Declared gauge among several stations.
-        check_run_gauge_area(_site("J001401001"), _loaded("J001401001", "K123456701"), 96.5)
+        check_run_gauge_area(
+            _site("J001401001"), _loaded("J001401001", "K123456701"), 96.5, bounds=BOUNDS
+        )
         assert seen == ["J001401001"]
         assert _warnings(caplog)
         # No declared gauge: the single loaded station.
-        check_run_gauge_area(None, _loaded("J001401001"), 96.5)
+        check_run_gauge_area(None, _loaded("J001401001"), 96.5, bounds=BOUNDS)
         assert seen == ["J001401001", "J001401001"]
     # Several stations and no declared gauge: no gauge, no check.
-    check_run_gauge_area(None, _loaded("J001401001", "K123456701"), 96.5)
-    check_run_gauge_area(None, None, 96.5)
+    check_run_gauge_area(None, _loaded("J001401001", "K123456701"), 96.5, bounds=BOUNDS)
+    check_run_gauge_area(None, None, 96.5, bounds=BOUNDS)
     assert len(seen) == 2
 
 
 def test_the_data_step_runs_the_guard_after_the_load(monkeypatch, caplog) -> None:
-    from hydromodpy.core.runtime.bounds import Bounds
     from hydromodpy.workflow.steps import data as data_step
 
     monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 64.45)

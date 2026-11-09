@@ -735,8 +735,8 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     ),
     "reservoir_storage": TimeSeriesDescriptor(
         public_name="reservoir_storage",
-        long_name="Water stored in the lumped reservoir of the catchment",
-        units="m3",
+        long_name="Depth of water stored in the lumped reservoir of the catchment",
+        units="m",
     ),
     # Lake states (the lake station is ``lake:<id>``).
     "stage": TimeSeriesDescriptor(

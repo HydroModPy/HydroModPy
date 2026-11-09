@@ -22,7 +22,7 @@ MAX_RETRIES = 3
 
 
 def get_json(
-    client: HTTPClient | None,
+    client: HTTPClient,
     url: str,
     *,
     params: dict[str, Any] | None = None,
@@ -33,15 +33,7 @@ def get_json(
 
     Returns the parsed JSON dict, or ``None`` on HTTP 404 only. Any other
     failure (HTTP >= 400 or network failure) raises :class:`DataSourceError`.
-    With ``client=None`` a client is opened for this call under default
-    bounds; the hosts of the source were already checked by ``fetch_within``.
     """
-    if client is None:
-        from hydromodpy.core.io.fetch import open_client
-        from hydromodpy.core.runtime.bounds import Bounds
-
-        with open_client(Bounds()) as opened:
-            return get_json(opened, url, params=params, timeout=timeout, retries=retries)
     try:
         return client.get_json(url, params=params, timeout=timeout)
     except NetworkError as exc:
@@ -67,7 +59,7 @@ def get_json(
 
 
 def paginate_json(
-    client: HTTPClient | None,
+    client: HTTPClient,
     url: str,
     *,
     params: dict[str, Any] | None = None,

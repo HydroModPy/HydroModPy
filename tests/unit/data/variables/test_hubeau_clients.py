@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError, DataSourceError
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.common import api_client
 from hydromodpy.data.source.port import (
     DataSource,
@@ -166,7 +167,7 @@ def install(monkeypatch):
 
 
 def _fetch(name, **kw):
-    return _mod(name).fetch(**SPECS[name].base, **_window(kw))
+    return _mod(name).fetch(**SPECS[name].base, **_window(kw), client=HTTPClient())
 
 
 def _window(kw):
@@ -460,7 +461,9 @@ def test_piezometry_depth_product_reads_the_depth_column(install):
         }
     )
     world.obs["B"] = _data(2)
-    (rec,) = _mod("piezometry").fetch(product="depth", station_ids=["B"], **_window({}))
+    (rec,) = _mod("piezometry").fetch(
+        product="depth", station_ids=["B"], **_window({}), client=HTTPClient()
+    )
     assert rec.variable == "groundwater_depth"
     assert list(rec.data["value"]) == [1001.0, 1002.0]
 
@@ -470,21 +473,21 @@ def test_piezometry_location_falls_back_to_direct_fields(monkeypatch):
     rows = {"data": [{"longitude_station": -1.5, "latitude_station": 47.5, "nom_commune": "X"}]}
     mod = _mod("piezometry")
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: rows)
-    loc = mod._fetch_piezometer_location("B")
+    loc = mod._fetch_piezometer_location("B", client=HTTPClient())
     assert (loc.x, loc.y, loc.metadata["station_name"]) == (-1.5, 47.5, "X")
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: {"data": [{"nom_commune": "X"}]})
-    assert mod._fetch_piezometer_location("B") is None
+    assert mod._fetch_piezometer_location("B", client=HTTPClient()) is None
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: None)
-    assert mod._fetch_piezometer_location("B") is None
+    assert mod._fetch_piezometer_location("B", client=HTTPClient()) is None
 
 
 @pytest.mark.fast
 def test_piezometry_chronicle_without_date_column_is_empty(monkeypatch):
     mod = _mod("piezometry")
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: {"data": [{"niveau_nappe_eau": 1.0}]})
-    assert mod._download_chronicles("B", "level", START, END).empty
+    assert mod._download_chronicles("B", "level", START, END, client=HTTPClient()).empty
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: {"data": [{"date_mesure": "2020-01-01"}]})
-    assert mod._download_chronicles("B", "level", START, END).empty
+    assert mod._download_chronicles("B", "level", START, END, client=HTTPClient()).empty
 
 
 @pytest.mark.fast
@@ -498,7 +501,7 @@ def test_intermittency_maps_codes_and_drops_impossible_observations(install):
         }
     )
     world.obs["S1"] = [(f"2020-01-{i + 1:02d}", c) for i, c in enumerate(codes)]
-    (rec,) = _mod("intermittency").fetch(station_ids=["S1"], **_window({}))
+    (rec,) = _mod("intermittency").fetch(station_ids=["S1"], **_window({}), client=HTTPClient())
     assert list(rec.data["value"]) == [5, 4, 3, 2, 1]
 
 
@@ -520,7 +523,11 @@ def test_intermittency_department_discovery_and_frozen_station(monkeypatch):
 
     monkeypatch.setattr(mod, "get_json", fake)
     ids = mod._discover_stations(
-        code_departement=["35", "56"], date_start=START, date_end=END, require_observations=True
+        code_departement=["35", "56"],
+        date_start=START,
+        date_end=END,
+        require_observations=True,
+        client=HTTPClient(),
     )
     assert ids == ["S1"]
     assert seen["code_departement"] == "35,56" and "bbox" not in seen
@@ -537,9 +544,9 @@ def test_intermittency_only_impossible_observations_gives_no_record(install):
     )
     # A named station is never dropped in silence (lot 4.3): no observation left is refused.
     with pytest.raises(DataSourceError, match="every named station"):
-        _mod("intermittency").fetch(station_ids=["S1"], **_window({}))
+        _mod("intermittency").fetch(station_ids=["S1"], **_window({}), client=HTTPClient())
     with pytest.raises(ValueError, match="code_departement"):
-        _mod("intermittency").fetch(**_window({}))
+        _mod("intermittency").fetch(**_window({}), client=HTTPClient())
 
 
 @pytest.mark.fast
@@ -606,16 +613,20 @@ def test_water_quality_parameters_filter_and_one_record_per_parameter(install):
         ("2020-01-04", ("pH", 7.4, "u")),
     ]
     mod = _mod("water_quality")
-    both = {r.variable: r for r in mod.fetch(station_ids=["W1"], **_window({}))}
+    both = {
+        r.variable: r for r in mod.fetch(station_ids=["W1"], **_window({}), client=HTTPClient())
+    }
     assert {k: (len(r.data), r.unit) for k, r in both.items()} == {
         "Nitrates": (1, "mg/L"),
         "pH": (2, "u"),
     }
-    only = mod.fetch(station_ids=["W1"], parameters=["NITRATES"], **_window({}))
+    only = mod.fetch(
+        station_ids=["W1"], parameters=["NITRATES"], **_window({}), client=HTTPClient()
+    )
     assert [r.variable for r in only] == ["Nitrates"]
     # A named station is never dropped in silence (lot 4.3): no analysis left is refused.
     with pytest.raises(DataSourceError, match="every named station"):
-        mod.fetch(station_ids=["W1"], parameters=["absent"], **_window({}))
+        mod.fetch(station_ids=["W1"], parameters=["absent"], **_window({}), client=HTTPClient())
 
 
 @pytest.mark.fast
@@ -643,7 +654,11 @@ def test_water_quality_groundwater_uses_bss_params_and_data_coordinates(monkeypa
 
     monkeypatch.setattr(mod, "get_json", fake)
     (rec,) = mod.fetch(
-        site_type="piezometer", station_ids=["07/123", "bss9"], date_start=START, date_end=END
+        site_type="piezometer",
+        station_ids=["07/123", "bss9"],
+        date_start=START,
+        date_end=END,
+        client=HTTPClient(),
     )[:1]
     assert (rec.station_id, rec.variable, rec.unit) == ("07/123", "Cl", "mg/L")
     assert (rec.location.x, rec.location.y) == (-1.4, 47.6)
@@ -660,8 +675,11 @@ def test_water_quality_discovery_dedupes_and_normalization_rejects_bad_columns(m
     mod = _mod("water_quality")
     rows = [{"code_station": "A"}, {"code_station": "A"}, {"code_station": "B"}, {"bss_id": "C"}]
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: {"data": rows})
-    assert mod._discover_stations(BBOX, is_river=True, max_stations=2) == ["A", "B"]
-    assert mod._discover_stations(BBOX, is_river=False) == ["C"]
+    assert mod._discover_stations(BBOX, is_river=True, max_stations=2, client=HTTPClient()) == [
+        "A",
+        "B",
+    ]
+    assert mod._discover_stations(BBOX, is_river=False, client=HTTPClient()) == ["C"]
     assert mod._normalize_dataframe(pd.DataFrame({"resultat": [1]}), is_river=True).empty
     assert mod._normalize_dataframe(pd.DataFrame({"date": ["2020-01-01"]}), is_river=True).empty
 

@@ -26,7 +26,6 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.core.io.fetch import HTTPClient
-    from hydromodpy.data.source.port import FetchRequest, FetchResult
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -39,19 +38,13 @@ _TIMEOUT = 300
 _PAGING_GUARD = 2_000_000
 
 
-def _get(url: str, params: dict[str, Any], *, client: HTTPClient | None = None) -> Any:
-    if client is not None:
-        r = client.get(url, params=params, timeout=_TIMEOUT)
-    else:
-        from hydromodpy.core.io.fetch import open_client
-
-        with open_client() as c:
-            r = c.get(url, params=params, timeout=_TIMEOUT)
+def _get(url: str, params: dict[str, Any], *, client: HTTPClient) -> Any:
+    r = client.get(url, params=params, timeout=_TIMEOUT)
     r.raise_for_status()
     return r
 
 
-def _mapserver_pjson(*, client: HTTPClient | None = None) -> dict:
+def _mapserver_pjson(*, client: HTTPClient) -> dict:
     r = _get(BASE_URL, {"f": "pjson"}, client=client)
     return r.json()
 
@@ -77,7 +70,7 @@ def _feature_layer_ids_in_group(ms: dict, group_name: str) -> list[int]:
     return sorted(set(ids))
 
 
-def _layer_name(layer_id: int, *, client: HTTPClient | None = None) -> str:
+def _layer_name(layer_id: int, *, client: HTTPClient) -> str:
     r = _get(
         f"{BASE_URL}/{layer_id}",
         {"f": "pjson"},
@@ -92,7 +85,7 @@ def _query_page_geojson(
     offset: int,
     limit: int,
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> dict:
     lon_min, lat_min, lon_max, lat_max = bbox_wgs84
     url = f"{BASE_URL}/{layer_id}/query"
@@ -123,7 +116,7 @@ def _fetch_layer(
     page_size: int,
     label: str,
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download features for a single layer with pagination."""
     import geopandas as gpd
@@ -153,7 +146,7 @@ def fetch(
     config: HydrographySourceConfig,
     bbox_wgs84: tuple[float, float, float, float],
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download EU-Hydro features inside *bbox_wgs84*.
 
@@ -230,7 +223,7 @@ class EuHydroSource(FeatureSource):
         self.euhydro_page_size = euhydro_page_size
 
     def download(
-        self, bbox: tuple[float, float, float, float], *, client: HTTPClient | None = None
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient
     ) -> gpd.GeoDataFrame:
         from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
@@ -240,31 +233,6 @@ class EuHydroSource(FeatureSource):
             euhydro_page_size=self.euhydro_page_size,
         )
         return fetch(config, bbox, client=client)
-
-    def fetch(self, request: FetchRequest) -> FetchResult:
-        from hydromodpy.core.io.fetch import open_client
-        from hydromodpy.data.source.port import (
-            FetchResult,
-            extent_for,
-            require_period,
-            require_selectors,
-        )
-
-        require_selectors(self, request)
-        require_period(self, request)
-        extent = extent_for(self, request)
-        bounds = getattr(request, "bounds", None)
-        with open_client(bounds) as client:
-            features = self.download(extent.bbox, client=client)
-        return FetchResult(
-            source_id=self.source_id,
-            kind=self.payload_kind,
-            variables=self.variables,
-            extent=extent,
-            period=None,
-            features=features,
-            metadata=self.metadata(),
-        )
 
     def metadata(self) -> dict[str, Any]:
         return {"group_name": self.group_name}

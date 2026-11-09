@@ -18,6 +18,7 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import DataRequestError, DataSourceError
+from hydromodpy.core.io.fetch import HTTPClient
 from hydromodpy.data.common.clients import sandre_topage
 
 TYPENAME = "sa:TronconHydrographique_FXX_Topage2026"
@@ -101,7 +102,7 @@ def test_a_short_page_does_not_end_the_download(server: _Server, tmp_path: Path)
     """A page of three holding two is not the last one: the old loop stopped here."""
     server.replies = [_hits(5), _page(tmp_path, [1, 2]), _page(tmp_path, [3, 4, 5])]
 
-    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=3)
+    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=3, client=HTTPClient())
 
     assert sorted(frame["gid"]) == [1, 2, 3, 4, 5]
     assert [q.get("STARTINDEX") for q in server.sent[1:]] == ["0", "3"]
@@ -111,7 +112,7 @@ def test_a_short_page_does_not_end_the_download(server: _Server, tmp_path: Path)
 def test_the_hits_count_and_the_pages_ask_the_same_box(server: _Server, tmp_path: Path) -> None:
     server.replies = [_hits(1), _page(tmp_path, [1])]
 
-    sandre_topage.get_features(TYPENAME, BOX, page_size=10)
+    sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
     count, page = server.sent
     assert count["RESULTTYPE"] == "hits"
@@ -126,7 +127,7 @@ def test_an_empty_page_before_the_total_is_walked_past(server: _Server, tmp_path
         _page(tmp_path, [3]),
     ]
 
-    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=2)
+    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=2, client=HTTPClient())
 
     assert sorted(frame["gid"]) == [1, 2, 3]
 
@@ -135,20 +136,20 @@ def test_pages_that_never_reach_the_total_raise(server: _Server, tmp_path: Path)
     server.replies = [_hits(5), _page(tmp_path, [1, 2])] + [_empty_page(tmp_path)] * 3
 
     with pytest.raises(DataSourceError, match="announced 5 features"):
-        sandre_topage.get_features(TYPENAME, BOX, page_size=2)
+        sandre_topage.get_features(TYPENAME, BOX, page_size=2, client=HTTPClient())
 
 
 def test_a_feature_sent_twice_raises(server: _Server, tmp_path: Path) -> None:
     server.replies = [_hits(2), _page(tmp_path, [7]), _page(tmp_path, [7])]
 
     with pytest.raises(DataSourceError, match="repeated"):
-        sandre_topage.get_features(TYPENAME, BOX, page_size=1)
+        sandre_topage.get_features(TYPENAME, BOX, page_size=1, client=HTTPClient())
 
 
 def test_no_feature_in_the_box_asks_for_no_page(server: _Server) -> None:
     server.replies = [_hits(0)]
 
-    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=10)
+    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
     assert frame.empty
     assert str(frame.crs) == "EPSG:2154"
@@ -165,7 +166,7 @@ def test_an_exception_report_sent_with_http_200_is_raised(server: _Server) -> No
     ]
 
     with pytest.raises(DataSourceError, match="TYPENAME Nope does not exist"):
-        sandre_topage.count_features(TYPENAME, BOX)
+        sandre_topage.count_features(TYPENAME, BOX, client=HTTPClient())
 
 
 def test_a_mapserver_error_page_is_raised(server: _Server) -> None:
@@ -175,34 +176,36 @@ def test_a_mapserver_error_page_is_raised(server: _Server) -> None:
     ]
 
     with pytest.raises(DataSourceError, match="msOWSPreParseRequest"):
-        sandre_topage.get_features(TYPENAME, BOX, page_size=10)
+        sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
 
 def test_a_page_that_is_not_a_zip_is_raised(server: _Server) -> None:
     server.replies = [_hits(1), _Reply(b'{"type": "FeatureCollection", "features": []}')]
 
     with pytest.raises(DataSourceError, match="not a zip"):
-        sandre_topage.get_features(TYPENAME, BOX, page_size=10)
+        sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
 
 def test_an_http_error_is_raised(server: _Server) -> None:
     server.replies = [_Reply(b"Service Unavailable", status_code=503)]
 
     with pytest.raises(DataSourceError, match="HTTP 503"):
-        sandre_topage.count_features(TYPENAME, BOX)
+        sandre_topage.count_features(TYPENAME, BOX, client=HTTPClient())
 
 
 def test_missing_text_arrives_as_none(server: _Server, tmp_path: Path) -> None:
     server.replies = [_hits(2), _page(tmp_path, [1, 2], TopoOH=["", "la Truite"])]
 
-    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=10)
+    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
 
     assert frame.sort_values("gid")["TopoOH"].tolist() == [None, "la Truite"]
 
 
 def test_an_overseas_layer_is_refused_before_any_request(server: _Server) -> None:
     with pytest.raises(DataRequestError, match="REU"):
-        sandre_topage.count_features("sa:TronconHydrographique_REU_Topage2026", BOX)
+        sandre_topage.count_features(
+            "sa:TronconHydrographique_REU_Topage2026", BOX, client=HTTPClient()
+        )
 
     assert server.sent == []
 

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, PositiveFloat, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -272,6 +272,14 @@ class ModflowConfig(HydroModelBase):
         description=(
             "How the top of the solver grid is sampled from the DEM; the planar grid is "
             "[mesh] and the layering is [domain.layers]."
+        ),
+    )
+    wall_clock_limit_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Wall-clock budget (seconds) of one trial of a parallel calibration under this "
+            "backend. Its worker is killed past it, so one stuck trial cannot wedge the "
+            "session. None keeps the built-in default (14400 s)."
         ),
     )
 

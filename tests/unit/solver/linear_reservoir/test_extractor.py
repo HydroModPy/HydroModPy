@@ -95,8 +95,10 @@ def test_the_discharge_and_the_storage_read_at_the_catchment_station(tmp_path) -
     store, engine = _run_extract_write(tmp_path, rates, lengths)
     written = {item[2] for item in store.timeseries}
     stations = {item[1] for item in store.timeseries}
+    units = {item[2]: item[4] for item in store.timeseries}
     assert written == {"discharge", "reservoir_storage"}
     assert stations == {CATCHMENT}
+    assert units == {"discharge": "m3 s-1", "reservoir_storage": "m"}
     del engine
 
 

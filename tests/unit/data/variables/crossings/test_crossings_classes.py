@@ -66,7 +66,7 @@ def _stub(monkeypatch: pytest.MonkeyPatch, module, pages) -> list:
     """Replace one provider, and record the boxes and page sizes it is asked."""
     asked: list = []
 
-    def fetch(*, bbox, page_size):
+    def fetch(*, bbox, page_size, client):
         asked.append((bbox, page_size))
         yield from pages()
 

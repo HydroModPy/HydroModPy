@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
+from hydromodpy.core.io.fetch import open_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import keep_nearest, station_period_overlaps
@@ -29,6 +30,7 @@ from hydromodpy.data.source.port import (
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.core.io.fetch import HTTPClient
     from hydromodpy.data.contracts.location import StationLocation
     from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -53,6 +55,7 @@ def fetch(
     nearest_to: tuple[float, float] | None = None,
     require_observations: bool = True,
     fallback_search_radius_km: float | None = None,
+    client: HTTPClient,
 ) -> list[PointRecord]:
     """Fetch piezometry data from Hub'Eau.
 
@@ -77,6 +80,7 @@ def fetch(
             date_start=date_start,
             date_end=date_end,
             require_observations=require_observations,
+            client=client,
         )
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
@@ -91,13 +95,19 @@ def fetch(
                 date_start=date_start,
                 date_end=date_end,
                 require_observations=require_observations,
+                client=client,
             )
     else:
         raise ValueError("Either bbox or station_ids must be provided.")
 
     # nearest_to: keep only the closest piezometer to the target point
     if nearest_to and ids:
-        ids = keep_nearest(ids, nearest_to, _fetch_piezometer_location, label="piezometry")
+        ids = keep_nearest(
+            ids,
+            nearest_to,
+            lambda bss_id: _fetch_piezometer_location(bss_id, client=client),
+            label="piezometry",
+        )
 
     if not ids:
         logger.info("Hub'Eau piezo: no piezometers found.")
@@ -111,8 +121,8 @@ def fetch(
     records: list[PointRecord] = []
     empty: list[str] = []
     for bss_id in progress.track(ids, "Fetching piezometers"):
-        location = _fetch_piezometer_location(bss_id)
-        obs_df = _download_chronicles(bss_id, product, date_start, date_end)
+        location = _fetch_piezometer_location(bss_id, client=client)
+        obs_df = _download_chronicles(bss_id, product, date_start, date_end, client=client)
         if obs_df.empty:
             empty.append(bss_id)
             continue
@@ -192,16 +202,18 @@ class HubeauPiezometry:
         require_selectors(self, request)
         period = require_period(self, request)
         extent = extent_for(self, request) if request.extent is not None else None
-        records = fetch(
-            product=self.product,
-            bbox=None if extent is None else extent.bbox,
-            station_ids=list(request.station_ids) or None,
-            date_start=period.start,
-            date_end=period.end,
-            nearest_to=self.nearest_to,
-            require_observations=self.require_observations,
-            fallback_search_radius_km=self.fallback_search_radius_km,
-        )
+        with open_client(request.bounds) as client:
+            records = fetch(
+                product=self.product,
+                bbox=None if extent is None else extent.bbox,
+                station_ids=list(request.station_ids) or None,
+                date_start=period.start,
+                date_end=period.end,
+                nearest_to=self.nearest_to,
+                require_observations=self.require_observations,
+                fallback_search_radius_km=self.fallback_search_radius_km,
+                client=client,
+            )
         require_declared_variables(self, [record.variable for record in records])
         return FetchResult(
             source_id=self.source_id,
@@ -219,6 +231,7 @@ def _discover_piezometers_in_bbox(
     date_start: datetime | None = None,
     date_end: datetime | None = None,
     require_observations: bool = False,
+    client: HTTPClient,
 ) -> list[str]:
     """Find piezometer BSS codes inside bbox.
 
@@ -227,7 +240,7 @@ def _discover_piezometers_in_bbox(
     """
     xmin, ymin, xmax, ymax = bbox
     payload = get_json(
-        None,
+        client,
         f"{API_BASE}/stations",
         params={
             "bbox": f"{xmin},{ymin},{xmax},{ymax}",
@@ -256,11 +269,11 @@ def _discover_piezometers_in_bbox(
     return ids
 
 
-def _fetch_piezometer_location(bss_id: str) -> StationLocation | None:
+def _fetch_piezometer_location(bss_id: str, *, client: HTTPClient) -> StationLocation | None:
     from hydromodpy.data.contracts.location import StationLocation
 
     payload = get_json(
-        None,
+        client,
         f"{API_BASE}/stations",
         params={"code_bss": bss_id, "size": 1, "format": "json"},
     )
@@ -308,6 +321,8 @@ def _download_chronicles(
     product: str,
     date_start: datetime,
     date_end: datetime,
+    *,
+    client: HTTPClient,
 ) -> pd.DataFrame:
     import pandas as pd
 
@@ -319,7 +334,7 @@ def _download_chronicles(
         y_start = max(date_start, datetime(year, 1, 1))
         y_end = min(date_end, datetime(year, 12, 31))
         payload = get_json(
-            None,
+            client,
             f"{API_BASE}/chroniques",
             params={
                 "code_bss": bss_id,

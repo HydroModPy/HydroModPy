@@ -66,7 +66,7 @@ def iter_pages(
     identify: Callable[[Feature], Hashable],
     output_format: str | None = None,
     properties: tuple[str, ...] | None = None,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> Iterator[list[Feature]]:
     """The features of *typename* touching *bbox*, one page at a time, as *parse_page* reads them.
 
@@ -128,7 +128,7 @@ def _count(
     typename: str,
     bbox: tuple[float, float, float, float],
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> int:
     body = _get(url, {**box_params(typename, bbox), "RESULTTYPE": "hits"}, typename, client=client)
     match = _NUMBER_MATCHED.search(body[:4096])
@@ -144,16 +144,10 @@ def _get(
     params: dict[str, str],
     typename: str,
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> bytes:
     """The body of one answer, or the refusal it carries raised by name."""
-    if client is not None:
-        response = client.get(url, params=params, timeout=_TIMEOUT_S)
-    else:
-        from hydromodpy.core.io.fetch import open_client
-
-        with open_client() as c:
-            response = c.get(url, params=params, timeout=_TIMEOUT_S)
+    response = client.get(url, params=params, timeout=_TIMEOUT_S)
     return checked_body(response, typename=typename, label="WFS")
 
 

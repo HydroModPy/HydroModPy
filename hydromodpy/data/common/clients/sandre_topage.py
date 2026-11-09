@@ -100,7 +100,7 @@ def count_features(
     typename: str,
     bbox: tuple[float, float, float, float],
     *,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> int:
     """How many features of *typename* touch *bbox*, as the server counts them."""
     params = {**bbox_params(typename, bbox), "RESULTTYPE": "hits"}
@@ -119,7 +119,7 @@ def get_features(
     bbox: tuple[float, float, float, float],
     *,
     page_size: int,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Every feature of *typename* touching *bbox*, in EPSG:2154.
 
@@ -204,7 +204,7 @@ def _get_page(
     *,
     start: int,
     count: int,
-    client: HTTPClient | None = None,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download one page of features and parse the GPKG payload."""
     import geopandas as gpd
@@ -234,13 +234,8 @@ def _get_page(
         return gpd.read_file(io.BytesIO(payload))
 
 
-def _get(params: dict[str, str], *, client: HTTPClient | None = None) -> requests.Response:
-    if client is not None:
-        return client.get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
-    from hydromodpy.core.io.fetch import open_client
-
-    with open_client() as c:
-        return c.get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
+def _get(params: dict[str, str], *, client: HTTPClient) -> requests.Response:
+    return client.get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
 
 
 def checked_body(response: requests.Response, *, typename: str, label: str = "Sandre WFS") -> bytes:

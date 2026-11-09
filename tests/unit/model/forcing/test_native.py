@@ -187,3 +187,46 @@ def _field_dataset(values: Any, index: Any) -> Any:
         },
     )
     return type("Rec", (), {"variable": "recharge", "data": data})()
+
+
+def test_the_native_series_aligned_on_the_periods_is_the_recharge_of_the_model() -> None:
+    """One period mean, written once: aligning the native series gives the period view.
+
+    The binder builds both from one point source. ``model_from_flow`` carries
+    ``flow.sinks_sources["recharge"]`` as ``Model.recharge`` unchanged, so the
+    period values are compared there, to the bit, on a recharge that varies
+    inside each period of three days.
+    """
+    from hydromodpy.model.boundaries.climate import apply_recharge_load_result_to_flow
+    from hydromodpy.model.flow import Flow
+    from hydromodpy.model.flow_config import FlowConfig
+    from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
+
+    index = pd.date_range("2026-01-01", periods=12, freq="D")
+    values = np.random.default_rng(3).uniform(0.0, 8.0, index.size)
+    window = ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2026-01-01"),
+        end=pd.Timestamp("2026-01-12"),
+        step_value=3,
+        step_unit="day",
+        coverage_policy="error",
+    )
+    flow = Flow(FlowConfig.model_validate({"sinks_sources": {"recharge": {}}}))
+
+    bound = apply_recharge_load_result_to_flow(
+        flow=flow,
+        recharge_result=_Source(points=[_point_series(values, index)]),
+        simulation_window=window,
+    )
+
+    assert bound
+    native = flow.native_recharge
+    assert native is not None and len(native) == index.size
+    aligned = align_forcing_series_to_simulation_window(
+        pd.Series(native.values, index=native.starts[:-1]),
+        simulation_window=window,
+        label="recharge",
+    )
+    period_view = np.asarray(flow.sinks_sources["recharge"].values, dtype=float)
+    assert period_view.size == 4
+    assert np.array_equal(aligned.to_numpy(dtype=float), period_view)

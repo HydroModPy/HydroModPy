@@ -1543,6 +1543,7 @@ solver.boussinesq.ts_vi_type	str	'beuler'	experimental
 solver.boussinesq.vi_max_adaptive_substeps	int | None	None	experimental
 solver.boussinesq.vi_substep_on_failure	bool	False	experimental
 solver.boussinesq.vi_substeps_per_period	int	1	experimental
+solver.boussinesq.wall_clock_limit_s	float | None	None	experimental
 solver.drain_band_depth_m	float	0.0	stable
 solver.drain_bed_thickness_m	float	1.0	stable
 solver.drain_conductance_floor_m2_s	float	1e-12	stable
@@ -1645,6 +1646,7 @@ solver.modflow_nwt.sgrid.top_sampling.min_pixels	int	3	stable
 solver.modflow_nwt.sgrid.top_sampling.min_thickness_m	float	0.1	stable
 solver.modflow_nwt.sgrid.top_sampling.mode	Literal['centroid', 'zonal']	'centroid'	stable
 solver.modflow_nwt.sgrid.top_sampling.spike_guard_tol_m	float	2.0	stable
+solver.modflow_nwt.wall_clock_limit_s	float | None	None	stable
 solver.sink_fill	bool	False	stable
 spinup	table | None	None	stable
 spinup.max_cycles	int	10	stable

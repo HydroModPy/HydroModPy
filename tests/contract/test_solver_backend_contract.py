@@ -38,7 +38,11 @@ from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.mesh.registry import mesh_engines
 from hydromodpy.model.properties.property_table import OVERRIDE_PROPERTY_NAMES
 from hydromodpy.model.supports import SUPPORT_SOURCES, SUPPORTS
-from hydromodpy.results.field_registry import BUDGET_GROUP, all_zarr_paths
+from hydromodpy.results.field_registry import (
+    BUDGET_GROUP,
+    TIME_SERIES_REGISTRY,
+    all_zarr_paths,
+)
 from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
 from hydromodpy.solver.base.adapter_protocol import (
     CATEGORIES,
@@ -112,9 +116,9 @@ def backend(key: str) -> type:
 
 
 def _known_name(name: str) -> bool:
-    """Whether *name* is a stored field, a budget term, a table or a member of an undescribed group."""
+    """Whether *name* is a stored field, a budget term, a table, a series or a member of an undescribed group."""
     known = set(all_zarr_paths()) | {f"{BUDGET_GROUP}{term}" for term in PER_CELL_BUDGET_TERMS}
-    known |= set(VIEW_SCHEMAS)
+    known |= set(VIEW_SCHEMAS) | set(TIME_SERIES_REGISTRY)
     if name.startswith(UNDESCRIBED_GROUPS) and name not in UNDESCRIBED_GROUPS:
         return True
     if "/*" in name:
@@ -462,6 +466,59 @@ def test_an_unknown_key_of_a_flow_table_is_refused(tmp_path: Path, flow_key: str
         assert "declares none to read them" in message
     else:
         assert "no_solver_has_this_key" in message
+
+
+def _documented_scalar(options: type[BaseModel]) -> tuple[list[str], str] | None:
+    """Return the path and the description of the first documented field that is not a table.
+
+    The walk goes down the tables of the settings, ``runtime`` of MODFLOW 6 for one.
+    """
+    for name, info in options.model_fields.items():
+        members = (info.annotation, *getattr(info.annotation, "__args__", ()))
+        tables = [arg for arg in members if isinstance(arg, type) and issubclass(arg, BaseModel)]
+        if tables:
+            inner = _documented_scalar(tables[0])
+            if inner is not None:
+                return [name, *inner[0]], inner[1]
+            continue
+        mappings = [arg for arg in members if isinstance(arg, type) and issubclass(arg, dict)]
+        if info.description and info.annotation is not Any and not mappings:
+            return [name], info.description
+    return None
+
+
+@pytest.mark.parametrize("flow_key", _flows())
+def test_the_check_points_at_a_key_of_a_flow_table_with_its_help(
+    tmp_path: Path, flow_key: str
+) -> None:
+    """``check`` names the exact key of ``[solver.<name>]``, and helps with its description.
+
+    The settings class is the one the registry serves for the backend, so a
+    plugin that ships no phrase of its own gets the description of its field.
+    """
+    from hydromodpy.config.check import check
+
+    flow = solvers.get(flow_key)
+    document = _document(tmp_path, flow, {"solver": {flow.name: {"no_solver_has_this_key": 1}}})
+
+    found = check(document, base=tmp_path)
+
+    if flow.options is None:
+        assert [d.path for d in found if d.severity == "error"] == [f"solver.{flow.name}"]
+        return
+    unknown = [d for d in found if d.code == "unknown_key"]
+    assert [d.path for d in unknown] == [f"solver.{flow.name}.no_solver_has_this_key"]
+
+    documented = _documented_scalar(flow.options)
+    assert documented is not None, f"{flow_key} documents none of its settings"
+    keys, description = documented
+    table: dict[str, Any] = {keys[-1]: {"not": "a value"}}
+    for key in reversed(keys[:-1]):
+        table = {key: table}
+    document = _document(tmp_path, flow, {"solver": {flow.name: table}})
+    (wrong,) = [d for d in check(document, base=tmp_path) if d.severity == "error"]
+    assert wrong.path == ".".join(["solver", flow.name, *keys])
+    assert wrong.help == description
 
 
 @pytest.mark.parametrize("trait", sorted(SUPPORTS))

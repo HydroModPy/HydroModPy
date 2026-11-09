@@ -20,6 +20,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- `[solver.modflow_nwt]` and `[solver.boussinesq]` take `wall_clock_limit_s`, the wall-clock budget of one trial of a parallel calibration, as MODFLOW 6 does with `[solver.modflow6.runtime] mf6_api_timeout_s`. Unset, a trial keeps the built-in 14400 s.
+- A flow adapter declares `face_flow` among what it writes, and the GWT one declares `concentration/*`.
+- A transport whose flow does not write `face_flow` is refused when the file is read, with the flow solvers that write it.
+- Series names have the shape `time` in the field registry, and a backend declares the series it writes in `writes`. The linear reservoir declares `discharge`, `reservoir_storage` and `budgets`, and writes the unit the registry gives, `m` for the stored depth.
 - source = "url" for the data variables read from one file. https, or http with a sha256. The URL only fills the data cache, and the run reads the file.
 - `hydromodpy.model.supports` holds the closed set of traits a solver backend lists in `supports`: the boundary kinds,
   the fields of `ModelOptions` and the initial states `head_rule`, `steady_start`, `cyclic_start` and `prior_state`.
@@ -69,6 +73,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The export vocabulary lists the simulated series `lak_connection` and `reservoir_storage`, which the time-series registry now holds.
 
 ### Changed
+- A transport backend receives the frozen `Model` of its flow, its options, the run slot of its flow and the `SolverRun` of that flow, through `build(model, options, slot, upstream=())`. It no longer reads the setup, the configuration or the run store.
+- MODFLOW-NWT writes its flow-transport link file when a later run of the plan reads `face_flow`, and no longer looks for a run named `mt3dms` in the plan.
+- The concentration of a transport run is stored under `concentration/<species>`, named by `spc_name`. Runs written by 2.0.0 still read.
+- The calibration catalog lists the calibrable options of the backend that runs. `vka` is found that way.
+- Every data source that goes to the network now does it under the bounds of the call, with its allowed hosts, byte ceiling and timeout: OpenStreetMap, EU-Hydro, BD Topage, SHOM, the two crossings sources, Hub'Eau piezometry, water quality and intermittency, and the area check of the gauge. Before, each opened a client under the default bounds.
+- `hydromodpy.data.sites.importers.rows_from_hubeau` takes `bounds`, the bounds of the call for the station search and the BD Topage snap.
 - The setup step resolves every [data] file and url source under the bounds of the call before the run is named, so allowed_roots holds for every section and not only for the DEM.
 - Lake geometry, abacus and bathymetry are read by their data readers and bound by lake id again, and a cutoff wall or flow barrier line_path is read from the project root.
 - GeographicConfig.from_outlet, from_dem and from_polygon lose their ignored dem argument.
@@ -385,6 +395,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Removed
 
+- `hydromodpy.model.transport.transport.Transport` and the `transport` member of the run setup. The transport solvers read their table directly.
 - geographic.catchment.dem_init_path. Declare the DEM as [[data.dem.sources]] with source = "file". A file that still writes it is refused, `hmp doctor --fix-config` writes the `[[data.dem.sources]]` row, and a sealed run config still reads it.
 - hmp data check and hydromodpy.data.workspace.custom_scan.
 - hydromodpy.core.io.http_client and hydromodpy.core.io.pinned_download. Use hydromodpy.core.io.fetch.
@@ -471,6 +482,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The solver aliases mf6 and nwt of `hmp catalog ls --solver` are gone. Write the full backend name.
 ### Fixed
 
+- A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.
 - Hub'Eau clients report dropped stations via report_dropped instead of silently ignoring empty chronicles.
 - Hub'Eau product QIXM discharge conversion (l/s to m3/s).
 - The steady start of a transient Boussinesq run with the `petsc` backend and `ts_vi_obstacle` stopped with

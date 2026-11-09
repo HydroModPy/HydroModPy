@@ -23,6 +23,9 @@ from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.core.io.fetch import HTTPClient
+    from hydromodpy.core.runtime.bounds import Bounds
+
 StationDiscovery = Callable[..., list[dict]]
 """Finds the Hub'Eau reference rows inside a WGS84 box."""
 
@@ -114,6 +117,7 @@ def rows_from_hubeau(
     snap_output_dir: Path | None = None,
     discover: StationDiscovery | None = None,
     today: date | None = None,
+    bounds: Bounds | None = None,
 ) -> SiteImport:
     """Read the Hub'Eau discharge stations inside a box, one site per Hub'Eau site.
 
@@ -124,16 +128,49 @@ def rows_from_hubeau(
     stations open for at least that many years, closing date or today.
     ``snap_network`` (a vector file, or ``bdtopage``) moves each outlet onto
     the nearest line within ``snap_max_m``; a
-    station farther away is skipped and named.
+    station farther away is skipped and named. ``bounds`` are the bounds of the
+    call (hosts, byte ceiling, timeout) that every HTTP request of the import
+    obeys; unset means ``Bounds()``.
     """
+    from functools import partial
+
     from pyproj import Transformer
 
+    from hydromodpy.core.io.fetch import open_client
+    from hydromodpy.core.runtime.bounds import Bounds
     from hydromodpy.data.variables.hydrometry.apis.hubeau import discover_stations
 
     to_wgs84 = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
     xmin, ymin, xmax, ymax = (float(value) for value in bbox)
     box = to_wgs84.transform_bounds(xmin, ymin, xmax, ymax, densify_pts=21)
-    stations = (discover or discover_stations)(box)
+    with open_client(bounds or Bounds()) as client:
+        stations = discover(box) if discover is not None else discover_stations(box, client=client)
+        return _rows_of_stations(
+            stations,
+            crs=crs,
+            min_years=min_years,
+            today=today,
+            snap_network=snap_network,
+            snap_max_m=snap_max_m,
+            snap_output_dir=snap_output_dir,
+            fetcher=partial(fetch_bdtopage_reference_network, client=client),
+        )
+
+
+def _rows_of_stations(
+    stations: Sequence[dict],
+    *,
+    crs: str,
+    min_years: float | None,
+    today: date | None,
+    snap_network: Path | str | None,
+    snap_max_m: float,
+    snap_output_dir: Path | None,
+    fetcher: Callable[..., Any],
+) -> SiteImport:
+    """Build the site rows of the stations, and snap them when a network is given."""
+    from pyproj import Transformer
+
     from_wgs84 = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
     current = today or datetime.now(UTC).date()
 
@@ -174,6 +211,7 @@ def rows_from_hubeau(
             max_distance_m=snap_max_m,
             crs=crs,
             output_dir=snap_output_dir,
+            fetcher=fetcher,
         )
         skipped.extend(far)
     return SiteImport(rows=tuple(rows), skipped=tuple(skipped))
@@ -183,6 +221,7 @@ def fetch_bdtopage_reference_network(
     bbox_wgs84: tuple[float, float, float, float],
     *,
     page_size: int,
+    client: HTTPClient,
 ) -> gpd.GeoDataFrame:
     """Download the BD Topage reaches inside *bbox_wgs84*, in EPSG:4326, to snap outlets on.
 
@@ -191,7 +230,11 @@ def fetch_bdtopage_reference_network(
     from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
-    return fetch(HydrographySourceConfig(source="bdtopage", page_size=page_size), bbox_wgs84)
+    return fetch(
+        HydrographySourceConfig(source="bdtopage", page_size=page_size),
+        bbox_wgs84,
+        client=client,
+    )
 
 
 def _snap(
@@ -201,6 +244,7 @@ def _snap(
     max_distance_m: float,
     crs: str,
     output_dir: Path | None,
+    fetcher: Callable[..., Any],
 ) -> tuple[list[SiteRow], list[str]]:
     """Move each outlet onto the nearest line of a river network, or skip it."""
     from dataclasses import replace
@@ -216,7 +260,7 @@ def _snap(
         outlets=outlets,
         target_crs=crs,
         output_dir=output_dir or Path("."),
-        fetcher=fetch_bdtopage_reference_network,
+        fetcher=fetcher,
         path=None if source == "bdtopage" else Path(network),
     )
     snapped: list[SiteRow] = []

@@ -17,6 +17,7 @@ import pandas as pd
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
+from hydromodpy.results.field_registry import series_unit
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.linear_reservoir.adapter import SERIES_FILE
@@ -48,12 +49,11 @@ class LinearReservoirExtractor:
 
             raise NothingThereError(f"{series_path} holds no period of the run.")
         self._write_time_axis(sim_id, store, solver_run, frame)
-        store.write_timeseries(
-            sim_id, CATCHMENT, "discharge", frame["discharge_m3_s"], unit="m3 s-1"
-        )
-        store.write_timeseries(
-            sim_id, CATCHMENT, "reservoir_storage", frame["reservoir_storage_m"], unit="m"
-        )
+        for name, column in (
+            ("discharge", "discharge_m3_s"),
+            ("reservoir_storage", "reservoir_storage_m"),
+        ):
+            store.write_timeseries(sim_id, CATCHMENT, name, frame[column], unit=series_unit(name))
         self._write_budget_rows(sim_id, store, solver_run, frame)
 
     def _write_time_axis(

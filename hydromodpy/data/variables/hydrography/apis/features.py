@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from hydromodpy.core.io.fetch import open_client
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -26,6 +27,8 @@ from hydromodpy.data.source.port import (
 
 if TYPE_CHECKING:
     import geopandas as gpd
+
+    from hydromodpy.core.io.fetch import HTTPClient
 
 NETWORK_VARIABLES: tuple[str, ...] = ("hydrography",)
 
@@ -52,18 +55,22 @@ class FeatureSource:
         require_selectors(self, request)
         require_period(self, request)
         extent = extent_for(self, request)
+        with open_client(request.bounds) as client:
+            features = self.download(extent.bbox, client=client)
         return FetchResult(
             source_id=self.source_id,
             kind=self.payload_kind,
             variables=self.variables,
             extent=extent,
             period=None,
-            features=self.download(extent.bbox),
+            features=features,
             metadata=self.metadata(),
         )
 
-    def download(self, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
-        """The features inside ``bbox``, in WGS84."""
+    def download(
+        self, bbox: tuple[float, float, float, float], *, client: HTTPClient
+    ) -> gpd.GeoDataFrame:
+        """The features inside ``bbox``, in WGS84, read through the call's client."""
         raise NotImplementedError
 
     def metadata(self) -> dict[str, Any]:

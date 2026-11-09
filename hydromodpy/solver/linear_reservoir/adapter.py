@@ -281,7 +281,7 @@ class LinearReservoirFlowAdapter:
     process_type: ClassVar[str] = "flow"
     accepted_meshes: ClassVar[frozenset[str]] = frozenset({"catchment"})
     geometry: ClassVar[str] = "cells"
-    writes: ClassVar[tuple[str, ...]] = ("timeseries", "budgets")
+    writes: ClassVar[tuple[str, ...]] = ("discharge", "reservoir_storage", "budgets")
     reads: ClassVar[tuple[tuple[str, str], ...]] = ()
     supports: ClassVar[frozenset[str]] = frozenset({"recharge", "steady_start"})
     options: ClassVar[type[BaseModel] | None] = LinearReservoirOptions
