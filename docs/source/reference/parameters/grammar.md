@@ -231,9 +231,9 @@ value = "4.3 m/day"
 Three more cases. {toml}`geographic.catchment.buff_area` is the only field that reads a
 percentage: `"10%"` enlarges the catchment area by 10 %, `"500 m"` or `"2 km"`
 is a distance, and `"10% of sqrt(area)"` is the rule of version 1 written out. A bare number
-still reads as that rule and warns, and `hmp doctor --fix-config` rewrites it in the explicit
-form with the same distance. Some
-keys carry the unit in a sibling key, as in {toml}`flow.sinks_sources.lakes.<name>.bedleak_unit`.
+reads as that same rule, so `buff_area = 10` and `buff_area = "10% of sqrt(area)"` give the
+same distance. Some keys carry the unit in a sibling key, as in
+{toml}`flow.sinks_sources.lakes.<name>.bedleak_unit`.
 And a field that takes a list of values takes one value too: `variables = "budget"` and
 `variables = ["head", "budget"]` are both read by {toml}`export.variables`.
 
@@ -423,16 +423,21 @@ both are tagged `dev`. The `profile` key of `[workflow]` is unrelated: it times 
 
 ## Check a file
 
-`hmp config check` loads the file, follows `base_config`, validates the merged result and
-prints the path of the first error.
+`hmp config check` loads the file, follows `base_config`, checks the merged result section
+by section and prints every diagnostic at once. Each one gives its severity, the key it
+reaches, the line of that key when the file writes it, a phrase that says what kind of fault
+it is, and on the next line what the check said about this case.
 
 ```text
 $ hmp config check typo.toml
-Config invalid: typo.toml: Unknown TOML key(s) in [flow]: flow_regme
+Config invalid: /home/me/project/typo.toml
+  error flow: This value is refused by the check of its key or its table. The detail says why.
+    Unknown TOML key(s) in [flow]: flow_regme
 
 $ hmp config check conflict.toml
-Config invalid: 1 validation error(s) in conflict.toml:
-  conflict.toml:3: flow.param.K.field.homogeneous: Value error, K.value mixes conflicting units: 'm/h' and 'm/s'.
+Config invalid: /home/me/project/conflict.toml
+  error flow.param.K.field.homogeneous:3: This value is refused by the check of its key or its table. The detail says why.
+    Value error, K.value mixes conflicting units: 'm/h' and 'm/s'.
 ```
 
 The second file wrote `value = "0.36 m/h"` under a parent that had `unit = "m/s"`. The key

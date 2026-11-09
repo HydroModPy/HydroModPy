@@ -11,8 +11,10 @@ code assignments. Codes follow the ``HMPY.Exxx`` convention.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, Self
+
+from hydromodpy.core.diagnostic import Diagnostic
 
 
 class HydroModPyError(Exception):
@@ -24,6 +26,12 @@ class HydroModPyError(Exception):
         Human-readable error message.
     sim_id, run_id:
         Optional identifiers propagated by the pipeline before reraising.
+    details:
+        One record per fault of a document, each with its RFC 6901 ``pointer``.
+        Read from ``diagnostics`` when not given.
+    diagnostics:
+        Every :class:`~hydromodpy.core.diagnostic.Diagnostic` of the document
+        this error refuses, the first fault included.
     **context:
         Arbitrary key/value context kept on the exception for logging.
     """
@@ -36,6 +44,8 @@ class HydroModPyError(Exception):
         *,
         sim_id: str | None = None,
         run_id: str | None = None,
+        details: Iterable[Mapping[str, Any]] = (),
+        diagnostics: Iterable[Diagnostic] = (),
         **context: Any,
     ) -> None:
         super().__init__(message)
@@ -43,6 +53,25 @@ class HydroModPyError(Exception):
         self.sim_id = sim_id
         self.run_id = run_id
         self.context = context
+        self.diagnostics: tuple[Diagnostic, ...] = tuple(diagnostics)
+        given = tuple(dict(entry) for entry in details)
+        self.details: tuple[dict[str, Any], ...] = given or tuple(
+            diagnostic.to_dict() for diagnostic in self.diagnostics
+        )
+
+    def carrying(self, diagnostics: Sequence[Diagnostic], *, message: str | None = None) -> Self:
+        """Give this error every diagnostic of the document it refuses, and return it.
+
+        The loader raises the error of the first fault of a document, with the
+        diagnostics of every fault. ``details`` is read again from them, and
+        *message*, when given, replaces the message so it names them all.
+        """
+        self.diagnostics = tuple(diagnostics)
+        self.details = tuple(diagnostic.to_dict() for diagnostic in self.diagnostics)
+        if message is not None:
+            self.message = message
+            self.args = (message,)
+        return self
 
     @classmethod
     def title(cls) -> str:
@@ -75,6 +104,8 @@ class HydroModPyError(Exception):
             payload["sim_id"] = self.sim_id
         if self.run_id is not None:
             payload["run_id"] = self.run_id
+        if self.details:
+            payload["details"] = [dict(entry) for entry in self.details]
         return payload
 
 
@@ -125,28 +156,33 @@ class ConfigValidationError(ConfigError):
         message: str = "",
         *,
         details: Iterable[Mapping[str, Any]] = (),
+        diagnostics: Iterable[Diagnostic] = (),
         source: str | None = None,
         sim_id: str | None = None,
         run_id: str | None = None,
         **context: Any,
     ) -> None:
-        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
-        self.details: tuple[dict[str, Any], ...] = tuple(dict(entry) for entry in details)
+        super().__init__(
+            message,
+            sim_id=sim_id,
+            run_id=run_id,
+            details=details,
+            diagnostics=diagnostics,
+            **context,
+        )
         self.source = source
 
     def to_dict(self) -> dict[str, Any]:
-        """Add the per-field faults, each with its RFC 6901 JSON Pointer.
+        """Add the file the document was read from, when there is one.
 
-        A front end highlights the offending widget from ``pointer``; the flat
-        ``detail`` string cannot be pointed at anything. When validation
-        produced no structured fault — a refusal raised before the model runs —
-        ``details`` is absent rather than an empty list pretending to be one.
+        The per-field faults come from the base class, each with its RFC 6901
+        JSON Pointer, so a front end highlights the offending widget. When
+        validation produced no structured fault, ``details`` is absent rather
+        than an empty list pretending to be one.
         """
         payload = super().to_dict()
         if self.source is not None:
             payload["source"] = self.source
-        if self.details:
-            payload["details"] = [dict(entry) for entry in self.details]
         return payload
 
 

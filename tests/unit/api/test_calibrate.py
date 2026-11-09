@@ -479,14 +479,14 @@ path = "inputs/naizin_dem.tif"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = []
-active_bc = ["drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
 value = "1e-5 m/s"
+
+[flow.bc.drainage]
 
 [simulation]
 name = "minimal"

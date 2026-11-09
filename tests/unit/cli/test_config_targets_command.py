@@ -138,7 +138,6 @@ _LAKE_TOML = textwrap.dedent(
     source_mode = "synthetic"
 
     [flow]
-    active_bc = ["lake"]
 
     [flow.param.K.field]
     id = "K"

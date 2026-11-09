@@ -95,12 +95,12 @@ switches from PRT to MODPATH, which supports backward tracking:
 ```toml
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [[simulation.process]]
 id = "particles"
-type = "transport"
+kind = "transport"
 solvers = ["modpath"]
 
 [transport.modpath.parameters]

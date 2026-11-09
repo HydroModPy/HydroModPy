@@ -120,7 +120,7 @@ def _export_best_runs(
         manifest = read_sealed_manifest(run_dir)
         if manifest is None:
             continue
-        identity = labelled_identity(manifest)
+        identity = labelled_identity(manifest, run_dir)
         for variable in request.variables:
             target = folder / f"{record['site']}_{variable}.csv"
             export_csv(

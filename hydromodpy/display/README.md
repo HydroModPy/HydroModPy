@@ -45,10 +45,10 @@ rules.
    gallery or in `[display.overrides.<figure>]` for one. `runs._resolve_time`
    is the one place a date meets a run: it calls `run.periods.step_at` and hands the
    figure the step as `timestep`, the internal channel the maps read. The user
-   never writes `timestep`. In a TOML the old key is renamed to `time` on load
-   by `config/config_migration.py` (INFO line, `hmp doctor --fix-config <file>`
-   persists it); a `DisplayConfig` built from a
-   dict renames it in its own before-validator, with a `ConfigKeyRenamedWarning`.
+   never writes `timestep`. A file that writes it under `[display.overrides.<figure>]`
+   was written by a pre-release of 2.0, and the load refuses it with the sentence
+   that points to the doctor of a 2.0.x release. A `DisplayConfig` built from a
+   dict refuses it as an option the figure does not take.
    A date the run does not hold skips the figure with its reason.
 4. An option is a parameter. The keys `[display.overrides.<figure>]` takes
    are the named parameters of the figure's `plot` and `render`, read along the

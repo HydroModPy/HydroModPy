@@ -58,15 +58,14 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.search import phase_cost_block_fractions
 from hydromodpy.calibration.runners.staged_runner import _reused_phase_cost_block_fractions
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.scoring.metric_table import METRIC_SPECS
 from hydromodpy.core.scoring.metrics import clip_negatives, log_nse
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import _score
-from tests.unit.calibration._factories_search import fix_toml
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
 
 # From test_a_criterion_has_no_observed_vector.py
@@ -1394,8 +1393,8 @@ def test_the_fallback_reports_both_ranges() -> None:
 # weight. ``prior`` named a probability law that a search without a Bayesian
 # reading only uses to draw starting points. Now the parameter says
 # ``search_space`` and ``sampling``, the block says ``cost_transform``, and the
-# engine's own vocabulary follows. A key renamed is refused with the new name,
-# the doctor rewrites the file, a sealed run config still reads, and the
+# engine's own vocabulary follows. A key renamed is refused with the new name and
+# the way to the doctor of a 2.0.x release, which rewrites the file, and the
 # ``Calibrable`` metadata a field carries uses the same words.
 
 
@@ -1574,100 +1573,8 @@ def test_the_documentation_catalogue_prints_the_new_words() -> None:
     }
 
 
-# -- the doctor --------------------------------------------------------------
-OLD_FILE = """\
-[calibration]
-
-[calibration.parameters.K]
-bounds = [1e-7, 1e-3]
-transform = "log"  # a conductivity
-prior = "log_uniform"
-
-[calibration.parameters.Sy]
-bounds = [0.01, 0.3]
-prior = "normal"
-
-[[calibration.objective_blocks]]
-name = "network"
-metric = "distance_gap"
-uses_outputs = ["seepage"]
-transform = "log"
-
-[[calibration.objective_blocks]]
-name = "hydrograph"
-metric = "nse_log"
-uses_outputs = ["q"]
-"""
-
-
-def test_the_doctor_rewrites_the_three_words_and_keeps_the_comment(tmp_path: Path) -> None:
-    path, changes, section = fix_toml(tmp_path, OLD_FILE)
-
-    written = path.read_text(encoding="utf-8")
-    assert section["parameters"]["K"] == {
-        "bounds": [1e-7, 1e-3],
-        "search_space": "log",
-        "sampling": "log_uniform",
-    }
-    assert section["parameters"]["Sy"]["sampling"] == "normal"
-    assert [block.get("cost_transform") for block in section["objective_blocks"]] == ["log", None]
-    assert "# a conductivity" in written
-    assert not re.search(r"^(transform|prior) = ", written, flags=re.MULTILINE)
-    assert len(changes) == 4
-    assert fix_config_file(path) == []
-
-
-def test_the_doctor_reads_a_block_whose_cost_transform_leaves_metres(tmp_path: Path) -> None:
-    _, _, document = fix_toml(
-        tmp_path,
-        "[calibration]\n"
-        "[calibration.uncertainty]\n"
-        "tolerance = 0.05\n"
-        "[[calibration.objective_blocks]]\n"
-        'name = "network"\n'
-        'metric = "distance_gap"\n'
-        'uses_outputs = ["seepage"]\n'
-        'transform = "log"\n',
-    )
-
-    assert document["objective_blocks"][0]["cost_transform"] == "log"
-    assert document["uncertainty"] == {"cost_margin": "5%"}
-
-
-def test_the_doctor_leaves_a_word_written_under_both_names(tmp_path: Path) -> None:
-    _, changes, _ = fix_toml(
-        tmp_path,
-        '[calibration.parameters.K]\nbounds = [1e-7, 1e-3]\ntransform = "log"\n'
-        'search_space = "identity"\n',
-    )
-
-    assert changes == [
-        "calibration.parameters.K.transform left: 'search_space' is given too, keep one"
-    ]
-
-
-# -- a sealed run ------------------------------------------------------------
-def test_a_sealed_document_reads_the_three_old_words() -> None:
-    doc = {
-        "calibration": {
-            "parameters": {
-                "K": {"bounds": [1e-7, 1e-3], "transform": "log", "prior": "log_uniform"}
-            },
-            "objective_blocks": [{"name": "q", "metric": "rmse", "transform": "inverse"}],
-        }
-    }
-
-    migrate_sealed_config_doc(doc)
-
-    assert doc["calibration"]["parameters"]["K"] == {
-        "bounds": [1e-7, 1e-3],
-        "search_space": "log",
-        "sampling": "log_uniform",
-    }
-    assert doc["calibration"]["objective_blocks"][0]["cost_transform"] == "inverse"
-
-
-def test_a_frozen_run_with_the_old_words_reads_back(tmp_path: Path) -> None:
+# -- a run sealed by a pre-release ---------------------------------------------
+def test_a_frozen_run_with_the_old_words_is_refused_with_the_way_out(tmp_path: Path) -> None:
     project = _project(tmp_path)
     toml = project / "project.toml"
     toml.write_text(
@@ -1690,13 +1597,13 @@ def test_a_frozen_run_with_the_old_words_reads_back(tmp_path: Path) -> None:
     sealed = run_dir / "config.toml"
     sealed.write_text(old, encoding="utf-8")
 
-    replayed = HydroModPyConfig.from_toml(sealed)
+    with pytest.raises(ConfigValidationError, match="written by a pre-release of 2.0") as refused:
+        HydroModPyConfig.from_toml(sealed)
 
-    assert replayed.calibration.parameters["K"].search_space == "log"
-    assert replayed.calibration.parameters["K"].sampling == "log_uniform"
-    expected = [p.model_dump(mode="json") for p in cfg.calibration.phases]
-    assert [p.model_dump(mode="json") for p in replayed.calibration.phases] == expected
-    assert replayed.calibration.objective_blocks == cfg.calibration.objective_blocks
+    told = str(refused.value)
+    assert "calibration.parameters.K.transform" in told
+    assert "calibration.parameters.K.prior" in told
+    assert 'pip install "hydromodpy~=2.0.0"' in told
 
 
 # From test_the_station_costs_are_averaged_not_pooled.py

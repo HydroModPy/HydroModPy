@@ -256,11 +256,27 @@ def test_the_history_compares_every_older_version_with_every_newer_one() -> None
 
 def test_every_snapshot_names_its_version_and_holds_the_root_sections() -> None:
     snaps = sorted((ROOT / "tools" / "docs" / "snapshots").glob("fields-*.json"))
-    assert len(snaps) >= 4
+    assert len(snaps) >= 5
     for snap in snaps:
         data = json.loads(snap.read_text())
         assert snap.stem == f"fields-{data['meta']['label']}"
         assert {"workflow", "workspace", "geographic", "flow"} <= set(data["nodes"])
+
+
+def test_the_snapshot_of_2_0_0_is_the_newest_release_and_names_its_commit() -> None:
+    from packaging.version import Version
+
+    folder = ROOT / "tools" / "docs" / "snapshots"
+    labels = [json.loads(p.read_text())["meta"]["label"] for p in folder.glob("fields-*.json")]
+    newest = max(labels, key=Version)
+    data = json.loads((folder / "fields-2.0.0.json").read_text())
+
+    assert newest == "2.0.0"
+    assert "d8d099a28" in data["meta"]["source"]
+    # A field of 2.0.0 that the resolved file of a release candidate did not write yet.
+    assert data["nodes"]["flow.sinks_sources.recharge.factor"]["default"] == "1.0"
+    # The tables the 2.1.0 grammar moves are still at their 2.0.0 place.
+    assert {"modflow6", "modflownwt"} <= set(data["nodes"])
 
 
 def test_the_report_file_has_its_own_tables_outside_the_project_file(registry: dict) -> None:

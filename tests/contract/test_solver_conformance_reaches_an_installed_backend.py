@@ -59,7 +59,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProbeOptions(BaseModel):
@@ -67,7 +67,7 @@ class ProbeOptions(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    steps: int = 3
+    steps: int = Field(3, description="Steps the probe takes in one period.")
 
 
 class ProbeFlowAdapter:

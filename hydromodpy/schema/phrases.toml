@@ -1,0 +1,94 @@
+# The phrase of each code a check of a configuration gives, in English and in French.
+#
+# A diagnostic carries its code, its path and what the validator said about the
+# case. The command line and a front end write this phrase beside it, in the
+# language of the reader. A key of [check] is a code: the set is closed, and a
+# test holds every code a check gives to one row here.
+
+[check.to_fill]
+en = "This key is required and not written yet. The checks that read this key with other sections run once it is filled."
+fr = "Cette clé est requise et pas encore écrite. Les contrôles qui la lisent avec d'autres sections tournent une fois qu'elle est remplie."
+
+[check.unknown_key]
+en = "This key is not one the configuration reads. Check its spelling and the table it sits in."
+fr = "Cette clé n'est pas lue par la configuration. Vérifiez son orthographe et la table où elle se trouve."
+
+[check.retired_section]
+en = "This section is no longer read. The detail says what replaces it."
+fr = "Cette section n'est plus lue. Le détail dit ce qui la remplace."
+
+[check.retired_key]
+en = "This key or this form is refused since a release. The detail says what to write instead."
+fr = "Cette clé ou cette forme est refusée depuis une version. Le détail dit quoi écrire à la place."
+
+[check.old_key]
+en = "This key is written under an older name or form. It still loads, and hmp doctor --fix-config rewrites the file."
+fr = "Cette clé est écrite sous un nom ou une forme ancienne. Elle se charge encore, et hmp doctor --fix-config réécrit le fichier."
+
+[check.wrong_type]
+en = "This value does not have the type the key takes, a number, a text, a table or a list."
+fr = "Cette valeur n'a pas le type que la clé attend, un nombre, un texte, une table ou une liste."
+
+[check.out_of_range]
+en = "This value is outside the bounds the key accepts, or holds too few or too many items."
+fr = "Cette valeur est hors des bornes que la clé accepte, ou compte trop peu ou trop d'éléments."
+
+[check.not_a_choice]
+en = "This value is not one of the choices the key accepts. The detail lists them."
+fr = "Cette valeur ne fait pas partie des choix que la clé accepte. Le détail les donne."
+
+[check.unknown_name]
+en = "This name is not served by this installation. The detail lists the names it serves."
+fr = "Ce nom n'est pas servi par cette installation. Le détail donne les noms qu'elle sert."
+
+[check.refused_value]
+en = "This value is refused by the check of its key or its table. The detail says why."
+fr = "Cette valeur est refusée par le contrôle de sa clé ou de sa table. Le détail dit pourquoi."
+
+[check.cross_rule]
+en = "Two or more sections disagree with each other. The detail names the keys and what to change."
+fr = "Deux sections ou plus se contredisent. Le détail nomme les clés et ce qu'il faut changer."
+
+[check.incompatible]
+en = "The solver this document runs does not honour what it asks for. The detail names the solvers that do."
+fr = "Le solveur que ce document lance ne prend pas en compte ce qu'il demande. Le détail nomme les solveurs qui le font."
+
+[check.contamination]
+en = "Two keys spoil each other whatever the solver. The detail says why and what to keep."
+fr = "Deux clés se gênent quel que soit le solveur. Le détail dit pourquoi et laquelle garder."
+
+[check.cross_warning]
+en = "Two sections run together, and the result may not be what the file means. The detail says why."
+fr = "Deux sections fonctionnent ensemble, et le résultat n'est peut-être pas celui que le fichier veut. Le détail dit pourquoi."
+
+[check.section_warning]
+en = "This section loads, and its check has a warning about it. The detail says what."
+fr = "Cette section se charge, et son contrôle donne un avertissement. Le détail dit lequel."
+
+[check.experimental_key]
+en = "This key is experimental and may change in a minor release."
+fr = "Cette clé est expérimentale et peut changer dans une version mineure."
+
+[check.bad_toml]
+en = "The file is not valid TOML. The detail gives the line and the column."
+fr = "Le fichier n'est pas un TOML valide. Le détail donne la ligne et la colonne."
+
+[check.bad_chain]
+en = "The base_config chain of this file cannot be read. The detail names the file at fault."
+fr = "La chaîne base_config de ce fichier ne peut pas être lue. Le détail nomme le fichier en cause."
+
+[check.calibration_preflight]
+en = "The preflight of the calibration found this before any run. The detail says what to write."
+fr = "Le contrôle préalable du calage a trouvé ceci avant tout lancement. Le détail dit quoi écrire."
+
+[check.sites_case]
+en = "A case of this [sites] project does not expand. The detail names the case and the cell or the file."
+fr = "Un cas de ce projet [sites] ne se construit pas. Le détail nomme le cas et la cellule ou le fichier."
+
+[check.input_header]
+en = "The header of this input file does not hold its contract. The detail says what it reads."
+fr = "L'en-tête de ce fichier d'entrée ne respecte pas son contrat. Le détail dit ce qu'il contient."
+
+[check.input_unreachable]
+en = "This input file cannot be opened: it is absent, its host is outside the bounds of the call, or it does not answer."
+fr = "Ce fichier d'entrée ne s'ouvre pas : il est absent, son hôte est hors des bornes de l'appel, ou il ne répond pas."

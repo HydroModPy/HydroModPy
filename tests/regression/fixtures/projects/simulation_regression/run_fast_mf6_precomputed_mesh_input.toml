@@ -24,12 +24,12 @@ name = "example12_fast_mf6_precomputed_mesh"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
 [transport.modflow6gwt.parameters]

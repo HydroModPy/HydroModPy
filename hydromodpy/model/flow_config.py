@@ -51,6 +51,7 @@ from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.model.time.regime import FlowRegime, normalize_flow_regime
+from hydromodpy.schema.changes import prerelease_refusal
 
 FLOW_RUNTIME_KEYS: dict[str, str] = {
     "runtime_backend": "backend",
@@ -210,7 +211,7 @@ def normalize_bc_payloads(
             raise ValueError(
                 f"[flow.bc.{key}.<id>] is no longer supported: a boundary is keyed by what it "
                 "IS, not by the family it belongs to, which the registry already owns. Write "
-                "[flow.bc.<id>]. Run 'hmp doctor --fix-config <file>' to rewrite it."
+                "[flow.bc.<id>]. " + prerelease_refusal("[flow.bc]", [key])
             )
         if raw_payload is None:
             continue

@@ -37,7 +37,7 @@ def base_config_path(tmp_path: Path) -> Path:
 root = "{tmp_path.as_posix()}"
 
 [simulation]
-run_id = "base_run"
+name = "base_run"
 
 [flow.param.K.field]
 kind = "homogeneous"

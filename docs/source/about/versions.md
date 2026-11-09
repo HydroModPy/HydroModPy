@@ -38,7 +38,17 @@ and the files it inherits, and keeps your comments. The changelog lists the rena
 
 A key or a table that only a pre-release wrote (an alpha, a beta or `2.0.0rc1`) still loads in
 2.0.x, with the same warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is
-refused, with a message that points to the doctor of a 2.0.x release.
+refused. The message names every such key the file holds, at once, and gives the way out: run
+`pip install "hydromodpy~=2.0.0"`, then `hmp doctor --fix-config <file>`, then come back to the
+new version. A run stored by a pre-release is refused the same way. The keys are listed in
+`hydromodpy/config/prerelease_forms.txt`, and the list leaves in 2.3.0. One key is not on it.
+In 2.0.0, `hmp project new` wrote `type` in `[[simulation.process]]`. So a project it made still
+loads in 2.1 with the warning, and `hmp doctor --fix-config` writes `kind`.
+
+Each move of a key is one row of the register of changes,
+`hydromodpy/schema/changes.toml`, that the loader, the doctor and the {doc}`generated list of
+changes </reference/changes-register>` all read. A key that moves in a stored document, such as
+a sidecar or a field store, has its row there too.
 
 An old name of Python, or an old `hmp` command or flag, follows the rule of two minor versions
 when the change comes in 2.2.0 or later. It prints a `FutureWarning` with both names and then
@@ -50,17 +60,23 @@ left before 2.0.0 is refused until 2.2.
 
 A fix that changes the numbers of a run (a head, a flow, a score) is allowed in a minor version
 and in a patch when the old number was wrong. A scientific correction does not wait. The
-changelog lists it under `Numbers` with the size of the change, and it gets an entry in the
-register of known issues, `hydromodpy/results/known_issues.toml`. A run stored with an older
-version keeps its numbers and its version stamp and is never rewritten. `Run.label()` then
-calls it `exploratory` and names the issue.
+changelog lists it under `Numbers` with the size of the change, and it gets a row in the
+register of changes, `hydromodpy/schema/changes.toml`. A fix has a `bug` row with the versions
+that carry it and the quantities it touches. A rule that changes a number without a bug has a
+`recipe` row. The `Numbers` section of the changelog is generated from these rows, so it cannot
+forget one. A run stored with an older version keeps its numbers and its version stamp and is
+never rewritten. `Run.label()` then calls it `exploratory` and names the bug.
 
 ### Defaults
 
 A file that does not say which defaults it wants follows the defaults of 2.0, for the whole 2
-line. So a key you did not write never changes your numbers. The day a default has to move, an
-optional `edition` key comes with it, and only a file that writes this key gets the new value.
-The key does not exist yet, because no default has moved.
+line. So a key you did not write never changes your numbers. The day a default has to move, the
+`edition` key comes with it, and only a file that writes the new edition gets the new value. The
+key is a root key of the file. It is `"2.0"` when the file does not write it, and
+`config.resolved.toml` writes it with every other default. A file that names an edition this
+version does not know is refused, with the list of the editions it knows. Each default that
+moves is a `default` row of the register of changes. No default has moved yet, so `"2.0"` is
+the only edition.
 
 ### What makes two runs the same
 
@@ -76,9 +92,12 @@ holds its own solve.
 
 A run seals `config.toml`, what it was given, overrides included, and `config.resolved.toml`, the
 same with every default written. `hmp run <run>/config.toml --frozen` compares the two with what
-this version would use and refuses a key that moved. It also checks the digests of the inputs the
-run recorded, and warns when the solver binary differs. `hmp catalog rerun` warns on the same keys
-and records them in the lineage of the new run.
+this version would use and refuses a key that moved. A key that this version added, and that is
+absent from the sealed `config.resolved.toml`, is not a difference when its value is the default
+of the edition the run sealed, because the sealed file writes every default its version knew.
+`lineage.drift` lists such keys under `new_at_default`. It also checks the digests of the inputs
+the run recorded, and warns when the solver binary differs. `hmp catalog rerun` warns on the same
+keys and records them in the lineage of the new run.
 
 ### Experimental
 

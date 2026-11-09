@@ -154,6 +154,13 @@ A verb with a handful of actions nests a second ``add_subparsers`` in
 its own module: ``hmp config template``, ``hmp config check``,
 ``hmp report render``.
 
+``hmp config check`` shows how thin a handler stays. ``run`` parses the arguments
+and calls ``hmp.check(path, partial=args.partial, inputs=args.inputs)``, which
+gives a list of ``Diagnostic``. It prints ``line()`` of each one, or, under
+``--format json``, emits ``{ok, diagnostics, workspace}``, and it ends with the
+exit code 14 when a diagnostic has the severity ``error``. Reading the file,
+walking the sections and the rules between them all happen below the command.
+
 A verb with a whole lifecycle becomes a **family**: a sub-package under
 ``cli/commands/`` whose ``__init__.py`` declares ``NAME``, ``HELP`` and
 an ``ACTIONS`` tuple, with one module per action following the same

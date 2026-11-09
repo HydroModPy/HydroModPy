@@ -164,12 +164,13 @@ def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
     assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"
 
 
-def test_doctor_fix_config_rewrites_a_v1_file_in_place_and_says_what_changed(
+def test_doctor_fix_config_rewrites_a_2_0_file_in_place_and_says_what_changed(
     monkeypatch, tmp_path, capsys
 ) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
-        '# my project\n[simulation]\nrun_id = "cheze"\non_collision = "replace"\n',
+        '# my project\n[modflow6.runtime]\nmf6_ims_complexity = "SIMPLE"\n'
+        '[[simulation.process]]\nid = "flow"\ntype = "flow"\n',
         encoding="utf-8",
     )
 
@@ -178,13 +179,13 @@ def test_doctor_fix_config_rewrites_a_v1_file_in_place_and_says_what_changed(
     assert code == 0
     out = capsys.readouterr().out
     assert f"Migrated {path}:" in out
-    assert "on_collision -> if_exists" in out
-    assert "run_id -> name" in out
+    assert "modflow6 -> [solver.modflow6]" in out
+    assert "type -> kind" in out
     text = path.read_text(encoding="utf-8")
     assert "# my project" in text
-    assert 'name = "cheze"' in text
-    assert 'if_exists = "version"' in text
-    assert "run_id" not in text and "on_collision" not in text
+    assert 'mf6_ims_complexity = "SIMPLE"' in text
+    assert 'kind = "flow"' in text
+    assert "[modflow6" not in text and "type =" not in text
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(path)])
 
@@ -205,23 +206,68 @@ def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
     monkeypatch, tmp_path, capsys
 ) -> None:
     """An old key in a parent is told under the parent, and the fix does not come back."""
-    from hydromodpy.project.check import check_project
+    from hydromodpy.project.api import check
 
     parent = tmp_path / "project.toml"
-    parent.write_text('[simulation]\non_collision = "version"\n', encoding="utf-8")
+    parent.write_text('[modflow6.runtime]\nmf6_ims_complexity = "SIMPLE"\n', encoding="utf-8")
     child = tmp_path / "run.toml"
     child.write_text('base_config = "project.toml"\n', encoding="utf-8")
 
-    told = check_project(child).warnings
-    assert any(line.startswith(f"{parent}: simulation.on_collision") for line in told)
-    assert any(f"--fix-config {parent}" in line for line in told)
+    told = [item.detail for item in check(child) if item.code == "old_key"]
+    assert any(line.startswith(f"{parent}: modflow6 -> [solver.modflow6]") for line in told)
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(child)])
 
     assert code == 0
     out = capsys.readouterr().out
     assert f"Migrated {parent}:" in out
-    assert "on_collision -> if_exists" in out
+    assert "modflow6 -> [solver.modflow6]" in out
     assert f"{child} is already up to date." in out
-    assert 'if_exists = "version"' in parent.read_text(encoding="utf-8")
-    assert not check_project(child).warnings
+    assert "[solver.modflow6.runtime]" in parent.read_text(encoding="utf-8")
+    assert not [item for item in check(child) if item.code == "old_key"]
+
+
+def test_doctor_fix_config_says_the_old_forms_it_cannot_rewrite(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    """A form the check still reads as old after the rewrite is told, not left in silence."""
+    from hydromodpy.core.diagnostic import Diagnostic
+
+    config = tmp_path / "run.toml"
+    config.write_text('[simulation]\nname = "demo"\n', encoding="utf-8")
+    left = Diagnostic(
+        path="flow.old", code="old_key", severity="warning", detail="flow.old -> flow.new"
+    )
+    monkeypatch.setattr("hydromodpy.cli.commands.doctor._checked", lambda file: [left])
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(config)])
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert f"{config} has nothing to migrate, and the check still reads old forms:" in out
+    assert "  - flow.old -> flow.new" in out
+    assert "already up to date" not in out
+
+
+def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.core.diagnostic import Diagnostic
+
+    config = tmp_path / "run.toml"
+    config.write_text('[simulation]\nname = "demo"\n', encoding="utf-8")
+    retired = Diagnostic(
+        path="flow.gone",
+        code="retired_key",
+        severity="error",
+        detail="flow.gone was removed in 2.1.0",
+    )
+    monkeypatch.setattr("hydromodpy.cli.commands.doctor._checked", lambda file: [retired])
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(config)])
+
+    out = capsys.readouterr().out
+    assert code == EXIT_CONFIG
+    assert "and the check still refuses it:" in out
+    assert "  - flow.gone was removed in 2.1.0" in out

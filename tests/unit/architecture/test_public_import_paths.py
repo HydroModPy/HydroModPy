@@ -90,7 +90,10 @@ def _taught_imports() -> list[tuple[str, str, str]]:
 
 
 def test_the_pages_teach_an_import() -> None:
-    assert {module for _, module, _ in _taught_imports()} >= {"hydromodpy", "hydromodpy.schema"}
+    assert {module for _, module, _ in _taught_imports()} >= {
+        "hydromodpy",
+        "hydromodpy.schema.config_schema",
+    }
 
 
 def test_a_page_imports_only_what_the_list_or_the_facade_answers_for() -> None:

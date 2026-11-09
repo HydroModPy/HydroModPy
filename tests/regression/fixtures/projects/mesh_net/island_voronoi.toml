@@ -21,7 +21,7 @@ field_precision = "exact"
 
 [[simulation.process]]
 id = "flow_net"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -70,8 +70,6 @@ source_unit = "mm/day"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -80,7 +78,7 @@ kind = "homogeneous"
 value = "5e-6 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "1.0 m"
 
 [flow.bc.ocean]

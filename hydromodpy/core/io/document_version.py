@@ -35,8 +35,9 @@ stay as they were written. The living ones (``annotations.json``, ``outcome.json
 ``session.json``, ``phases/<p>/session.json``, the ledgers) are written again by
 the commands that own them, at their version, and such a rewrite keeps what it
 does not understand (:func:`~hydromodpy.core.config_kit.stored.dump_stored`). The
-one migration of a file HydroModPy keeps is the grammar of a configuration, in
-:mod:`hydromodpy.config.config_migration`, because a configuration is an input.
+one migration of a file HydroModPy keeps is the grammar of a configuration, which
+:mod:`hydromodpy.config.config_migration` reads from the rows of ``schema/changes.toml``,
+because a configuration is an input.
 """
 
 from __future__ import annotations

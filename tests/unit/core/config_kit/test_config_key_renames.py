@@ -1,13 +1,11 @@
-"""Renaming a TOML key must not break the files that already use it.
+"""Moving a TOML key must not go unseen by the files that already use it.
 
-Every configuration model forbids unknown keys, and nothing in the repository
-declares an alias or a deprecation. A rename was therefore a hard break for every
-project file at once, which is why several keys that say the wrong thing are
-still called what they are called.
-
-The seam is declarative: a model lists what a key used to be called, the old
-spelling keeps loading, and using it warns with both names so a reader knows what
-to write instead.
+Every configuration model forbids unknown keys, so a key that moves is a hard break
+for every project file at once. The rows of ``schema/changes.toml`` say where a key
+went, the migration reads a file under the new name, and ``warn_old_form`` tells the
+reader of the file, with both names, what to write instead. This file holds what the
+base of the models owes that seam: the warning reaches its reader, and a model never
+accepts a key it does not hold.
 """
 
 from __future__ import annotations
@@ -19,15 +17,23 @@ import pytest
 from pydantic import Field
 
 import hydromodpy
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
+from hydromodpy.core.config_kit.base import (
+    ConfigKeyRenamedWarning,
+    HydroModelBase,
+    forget_old_forms_told,
+    warn_old_form,
+)
 
 
 class _Engine(HydroModelBase):
     """A model whose ``engine`` key used to be called ``method``."""
 
-    model_legacy_keys = {"method": "engine"}
-
     engine: str = Field(default="grid", description="Optimizer name.")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_told() -> None:
+    forget_old_forms_told()
 
 
 def test_the_canonical_key_loads_without_a_word() -> None:
@@ -36,29 +42,28 @@ def test_the_canonical_key_loads_without_a_word() -> None:
         assert _Engine.model_validate({"engine": "optuna"}).engine == "optuna"
 
 
-def test_the_old_key_still_loads() -> None:
+def test_a_moved_key_warns_the_reader_of_the_file() -> None:
     with pytest.warns(ConfigKeyRenamedWarning):
-        assert _Engine.model_validate({"method": "optuna"}).engine == "optuna"
+        warn_old_form("run.toml", "method -> engine")
 
 
-def test_the_warning_names_both_spellings() -> None:
+def test_the_warning_names_both_spellings_and_the_doctor() -> None:
     with pytest.warns(ConfigKeyRenamedWarning) as caught:
-        _Engine.model_validate({"method": "optuna"})
+        warn_old_form("run.toml", "method -> engine")
 
     message = str(caught[0].message)
-    assert "method" in message
-    assert "engine" in message
+    assert "method -> engine" in message
+    assert "hmp doctor --fix-config run.toml" in message
 
 
-def test_declaring_both_is_refused() -> None:
-    """Two spellings of one key in one file is a contradiction, not a merge."""
-    with pytest.raises(ValueError, match="both"):
-        _Engine.model_validate({"method": "optuna", "engine": "grid"})
+def test_the_old_key_is_not_accepted_by_the_model() -> None:
+    """The base keeps no list of old spellings: the migration moves the key before it."""
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        _Engine.model_validate({"method": "optuna"})
 
 
-def test_an_unknown_key_is_still_refused() -> None:
-    """The seam widens nothing: only the declared old spellings are accepted."""
-    with pytest.raises(ValueError):
+def test_an_unknown_key_is_refused() -> None:
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         _Engine.model_validate({"methode": "optuna"})
 
 
@@ -83,12 +88,12 @@ _PYTHON_DEFAULT_FILTERS = (
 
 
 def test_the_warning_survives_python_s_default_filters() -> None:
-    """The rename reaches the reader of `hmp config check`, not only a test run."""
+    """The move reaches the reader of `hmp config check`, not only a test run."""
     with warnings.catch_warnings(record=True) as caught:
         warnings.resetwarnings()
         for action, category, module in reversed(_PYTHON_DEFAULT_FILTERS):
             warnings.filterwarnings(action, category=category, module=module)
-        _Engine.model_validate({"method": "optuna"})
+        warn_old_form("run.toml", "method -> engine")
 
     assert [item.category for item in caught] == [ConfigKeyRenamedWarning]
     assert issubclass(ConfigKeyRenamedWarning, FutureWarning)
@@ -97,11 +102,11 @@ def test_the_warning_survives_python_s_default_filters() -> None:
 def test_the_warning_is_dated_inside_the_package() -> None:
     """The console routing hides a deprecation a dependency raises about itself.
 
-    Dated at pydantic's frame, the rename would be read as one and demoted to
+    Dated at a third party's frame, the move would be read as one and demoted to
     DEBUG, so it names the package's own file.
     """
     with pytest.warns(ConfigKeyRenamedWarning) as caught:
-        _Engine.model_validate({"method": "optuna"})
+        warn_old_form("run.toml", "method -> engine")
 
     package = Path(hydromodpy.__file__).resolve().parent
     assert Path(caught[0].filename).resolve().is_relative_to(package)

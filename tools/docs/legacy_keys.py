@@ -1,87 +1,55 @@
-"""Which renamed TOML keys the loader still reads, from the code of the loader.
+"""Which old TOML keys a file may still write, read from the register of changes.
 
-The changes page lists every key a field replaces (``renamed_from``). Whether a
-file that writes the old name is refused is a fact about the loader, so it is
-read there and not written by hand:
+The changes page lists every key a field replaces. Whether a file that writes the
+old name loads is a fact about the loader, so it is read from the same rows the loader
+applies and not written by hand:
 
-- ``warns``: the model lists the old spelling in ``model_legacy_keys``. The key
-  is renamed on load and ``ConfigKeyRenamedWarning`` names the new one.
-- ``migrates``: the rows of ``config_migration.RENAMED_KEYS``, which a load reads
-  under the new name with a warning, the old ``[export]`` tables, which
-  ``config_migration`` rewrites into ``[[export]]`` blocks in memory on load, the
-  retired ``[simulation.results]`` tables, which the loader drops on load, and the
-  tables it moves whole to another path (``config_migration.MOVED_TABLES``,
-  the solver layering that now is ``[domain.layers]``). The dotted override of
-  a calibration phase that sets a key of a moved table moves with it.
+- ``migrates``: a ``move`` row of ``document = "config"`` in
+  ``hydromodpy/schema/changes.toml``, still inside its delay. A load reads the key under
+  its new name with ``ConfigKeyRenamedWarning``, and ``hmp doctor --fix-config``
+  rewrites the file. The dotted override of a calibration phase moves with it.
+- refused as a pre-release form: a key listed in ``hydromodpy/config/prerelease_forms.txt``.
+  Only a pre-release of 2.0 wrote it, so 2.1 refuses it with a sentence that names the
+  doctor of 2.0.x (:func:`prerelease_paths`).
 
 A rename in neither group is refused (``extra="forbid"``).
 """
 
 from __future__ import annotations
 
-from typing import Any
+from hydromodpy.config.config_migration import PRERELEASE_FORMS, document_path
+from hydromodpy.core.version import __version__
+from hydromodpy.schema.changes import REGISTER, Register, migrations_of, outlived
 
-WARNS = "warns"
 MIGRATES = "migrates"
 
 
-def _parent(path: str) -> str:
-    return path.rsplit(".", 1)[0] if "." in path else ""
+def moved_tables(register: Register = REGISTER) -> dict[str, str]:
+    """Old path -> new path, for each key or table a ``move`` row moves whole."""
+    return {
+        document_path(str(row.old)): document_path(str(row.new))
+        for row in migrations_of("config", register)
+        if row.shape == "move"
+    }
 
 
-def _leaf(path: str) -> str:
-    return path.rsplit(".", 1)[-1]
+def accepted_old_names(register: Register = REGISTER) -> dict[str, str]:
+    """Old path -> ``migrates`` for each old key a live file may still write.
 
-
-def _models_named(name: str) -> list[type]:
-    """Every config model class with this name, found from the base class."""
-    from hydromodpy.core.config_kit.base import HydroModelBase
-
-    found, todo = [], [HydroModelBase]
-    while todo:
-        cls = todo.pop()
-        if cls.__name__ == name:
-            found.append(cls)
-        todo.extend(cls.__subclasses__())
-    return found
-
-
-def moved_tables() -> dict[str, str]:
-    """Old table path -> new table path, for each table the loader moves whole.
-
-    Read from the migration module, which makes the move with the same list.
+    A ``move`` row past its delay is refused with the new name, so it is left out. An
+    old path that is absent from the result is refused by the loader.
     """
-    from hydromodpy.config import config_migration
+    return {
+        document_path(str(row.old)): MIGRATES
+        for row in migrations_of("config", register)
+        if row.shape == "move" and not outlived(row.since, __version__)
+    }
 
-    return {move.old: move.new for move in config_migration.MOVED_TABLES}
 
+def prerelease_paths() -> frozenset[str]:
+    """The keys only a pre-release of 2.0 wrote, which 2.1 refuses, as the docs write a path.
 
-def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
-    """Old path -> ``warns`` or ``migrates`` for each old key the loader still reads.
-
-    ``nodes`` is the ``nodes`` mapping of the field registry. An old path that is
-    absent from the result is refused by the loader. The retired tables and the
-    moved tables come out as ``migrates`` whether or not the registry still holds
-    them.
+    A form that refuses a value of a key that still exists is not a removed key, so it
+    is left out.
     """
-    from hydromodpy.config import config_migration
-
-    accepted: dict[str, str] = {}
-    for path, node in nodes.items():
-        for old in node.get("renamed_from") or []:
-            if _parent(old) == _parent(path):
-                for model in _models_named(node.get("model", "")):
-                    if model.model_legacy_keys.get(_leaf(old)) == _leaf(path):
-                        accepted[old] = WARNS
-            elif path == "export" and old.startswith("export."):
-                if _leaf(old) in config_migration._EXPORT_TABLE_KEYS:
-                    accepted[old] = MIGRATES
-    for rule in config_migration.RENAMED_KEYS:
-        if not (rule.sealed_only or rule.refused_on_load):
-            path = config_migration.document_path(f"{rule.scope}.{rule.old}")
-            accepted.setdefault(path, MIGRATES)
-    for table in config_migration.RETIRED_RESULTS_TABLES:
-        accepted[table] = MIGRATES
-    for old in moved_tables():
-        accepted[old] = MIGRATES
-    return accepted
+    return frozenset(document_path(form.path) for form in PRERELEASE_FORMS if not form.has_value)

@@ -230,6 +230,7 @@ of the contract, so a script that reads ``hmp.results`` does not depend on what 
 before it."""
 
 LAZY_IMPORTS: dict[str, str] = {
+    "check": "hydromodpy.project.api",
     "Project": "hydromodpy.project",
     "Run": "hydromodpy.results.run",
     "RunSet": "hydromodpy.results.run.group",

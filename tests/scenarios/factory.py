@@ -4,7 +4,8 @@ The island is a 610 m square grid with one layer and an ocean on the shore.
 Five variants play it with a different solver or workflow, and five more start
 it from a computed or an earlier state. Four more carry a transport process
 behind the flow, in the order the planner reads, the flow first and the
-transport after it. Every project is
+transport after it. One more, ``v2_1_forms``, writes the solver tables where 2.0.0
+wrote them, which the register of changes moves. Every project is
 built from the literal texts below. The factory reads no file, opens no network
 and draws no random number, so a project has the same bytes on every machine.
 """
@@ -99,8 +100,6 @@ value = 0.0
 [flow]
 flow_regime = "transient"
 first_period_steady = true
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean", "drainage"]
 param_list = ["K", "Sy", "Ss"]
 
 [flow.param.K.field]
@@ -111,6 +110,7 @@ value = "5e-6 m/s"
 kind = "dirichlet"
 value = "0.0 m"
 
+[flow.bc.drainage]
 
 [flow.sinks_sources.recharge]
 values = [1.0, 4.0, 2.0]
@@ -136,9 +136,9 @@ kind = "transport"
 solvers = ["modflow6"]
 """
 
-# The gwt island keeps the table shape of 2.0.0, so the digests the reference
-# islands are held to in tests/scenarios/test_harness.py stay the same. A
-# living file in that shape still loads, with a migration warning.
+# The gwt island keeps the table shape of 2.0.0, the table the reference island
+# writes, so both texts stay one. A living file in that shape still loads, with a
+# migration warning, until its row leaves in 2.3.0.
 TRANSPORT_PARAMETERS = """
 
 [transport.modflow6gwt.parameters]
@@ -157,6 +157,18 @@ TRANSPORT_TAILS: dict[str, str] = {
     "nwt_modpath": "",
     "nwt_modpath_seepage_clip": '\n[transport.modpath]\nzone_partic = "seepage_clip"\n',
 }
+
+# The solver tables of 2.0.0, which 2.1.0 moves under [solver]: the backend as a table
+# with a kind, and the settings of the flow solver at the root. A file in this shape
+# still loads, with a migration warning, and a sealed run of 2.0.0 replays.
+OLDER_SOLVER_TABLES = """
+
+[solver.backend]
+kind = "modflow6"
+
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+"""
 
 TRIANGLE_MESH = """
 [mesh]
@@ -261,8 +273,6 @@ source_unit = "m"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean", "drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -273,6 +283,8 @@ value = "5e-6 m/s"
 kind = "dirichlet"
 value = "0.0 m"
 
+
+[flow.bc.drainage]
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"
@@ -348,6 +360,8 @@ def island_files(variant: str) -> dict[str, str]:
         text = transient_island(variant, "boussinesq", mesh=TRIANGLE_MESH)
     elif variant == "spinup":
         text = transient_island(variant, "modflow6", tail=SPINUP_TAIL)
+    elif variant == "v2_1_forms":
+        text = transient_island(variant, "modflow6", tail=OLDER_SOLVER_TABLES)
     elif variant == "calage":
         return {
             "project.toml": STEADY,
@@ -534,11 +548,12 @@ values = [1.5]
 [flow]
 flow_regime = "transient"
 first_period_steady = true
-active_sinks_sources = ["recharge"]
 
 [flow.ic]
 kind = "steady_state"
 source = "mean_recharge"
+
+[flow.sinks_sources.recharge]
 
 [solver]
 backend = "linear_reservoir"

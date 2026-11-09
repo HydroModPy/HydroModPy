@@ -161,16 +161,17 @@ def test_a_stage_that_names_another_window_is_still_refused(tmp_path: Path) -> N
         HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
 
 
-def test_a_station_sealed_in_a_stage_is_dropped_on_read(tmp_path: Path) -> None:
+def test_a_station_sealed_in_a_stage_is_refused_by_its_path(tmp_path: Path) -> None:
+    """Only a pre-release sealed a station in a stage. The read names the key and stops."""
     project = _project(tmp_path, start="2000-01-01", end="2002-12-31")
     document = tomllib.loads(_frozen(project).read_text(encoding="utf-8"))
     document["calibration"]["phases"][0]["observed_station_id"] = "OTHER"
 
-    replayed = HydroModPyConfig.from_snapshot(
-        {**document, "workspace": {"project_root": str(project)}}
-    )
-
-    assert _phases(replayed) == _phases(HydroModPyConfig.from_toml(project / "project.toml"))
+    with pytest.raises(
+        ConfigValidationError,
+        match=r"calibration\.phases\[0\]\.observed_station_id, written by a pre-release",
+    ):
+        HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
 
 
 def test_a_run_of_a_calibration_seals_its_own_solve(tmp_path: Path) -> None:

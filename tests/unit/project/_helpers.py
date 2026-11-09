@@ -49,14 +49,16 @@ types = []
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
 value = "1e-5 m/s"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 
 [mesh]
 engine = "triangle"

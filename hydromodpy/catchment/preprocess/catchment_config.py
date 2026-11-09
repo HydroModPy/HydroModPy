@@ -41,8 +41,8 @@ def _normalize_buff_area(value):
       cent of the square root of the catchment area, about 50 per cent more area on
       a real catchment;
     - a bare number stays a float: the same v1 rule, which a sealed run still
-      carries and must replay. ``hmp doctor --fix-config`` rewrites it as the
-      explicit form above, with the same distance.
+      carries and must replay. The explicit form above, with the same distance,
+      says the same thing.
 
     A run is re-read from its own sealed config, so this validator reads what
     it wrote: ``normalize(normalize(x)) == normalize(x)``.
@@ -85,9 +85,8 @@ _BUFF_AREA_DESCRIPTION = (
     "length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid "
     "like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, "
     "10 per cent of the square root of the catchment area, about 50 per cent more area "
-    "on a real catchment. A bare number (10) still reads as that rule and warns, so a "
-    "sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit "
-    "form with the same distance."
+    "on a real catchment. A bare number (5) still reads as that rule, so a sealed run "
+    "replays its domain; the explicit form with the same distance says the same thing."
 )
 
 

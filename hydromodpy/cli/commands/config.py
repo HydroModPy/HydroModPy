@@ -2,12 +2,12 @@
 
 Subparsers:
   - ``hmp config template [--to FILE]``  : generate a TOML template
-  - ``hmp config check FILE.toml``       : validate a run, a calibration or a [sites] project
+  - ``hmp config check FILE.toml``       : check a run, a calibration or a [sites] project,
+                                           every diagnostic at once (``--partial`` for a draft)
   - ``hmp config resolve FILE.toml``     : print the file its base_config chain resolves to
   - ``hmp config schema ...``            : export the JSON Schema, with ``--editor`` the editor
                                            schema of one TOML file, with ``--bundle`` the files
                                            a frontend reads
-  - ``hmp config validate-field P V``    : validate one field value
   - ``hmp config wizard``                : stdin-driven wizard
 """
 
@@ -37,6 +37,7 @@ from hydromodpy.cli.output import emit
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
+    from hydromodpy.core.diagnostic import Diagnostic
 
 NAME: str = "config"
 HELP: str = "Generate a TOML template, validate a config, or export the JSON Schema"
@@ -79,13 +80,16 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     chk = sub.add_parser(
         "check",
-        help="Validate a run, a calibration or a whole [sites] project",
+        help="Check a run, a calibration or a whole [sites] project",
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp config check run.toml\n"
+            "  hmp config check draft.toml --partial\n"
             "  hmp config check calibration.toml -v\n"
-            "  hmp config check project.toml\n"
+            "  hmp config check project.toml --inputs --lang fr\n"
+            "Every fault is listed at once, one line each. A key the file does not write\n"
+            "yet is an error, or with --partial a to_fill that stops nothing.\n"
             "A calibration is read by its preflight and says which published method it\n"
             "runs and where it departs from it (-v adds the stages and the references).\n"
             "The last one expands a [sites] project and checks every case.\n"
@@ -94,6 +98,22 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     chk.add_argument("file", help="Path to the TOML configuration")
+    chk.add_argument(
+        "--partial",
+        action="store_true",
+        help="Check a draft: a required key not written yet is to_fill, not an error",
+    )
+    chk.add_argument(
+        "--inputs",
+        action="store_true",
+        help="Also read the header of each input file, local or by its final URL (downloads nothing)",
+    )
+    chk.add_argument(
+        "--lang",
+        choices=("en", "fr"),
+        default="en",
+        help="Language of the phrase of each diagnostic (default: en)",
+    )
 
     res = sub.add_parser(
         "resolve",
@@ -171,23 +191,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Parameter visibility level (default: user)",
     )
 
-    val = sub.add_parser(
-        "validate-field",
-        help="Validate one field value without loading a whole config",
-        parents=[workspace_parser(reads_none=True), format_parser()],
-        epilog="Example:\n  hmp config validate-field mesh.engine triangle",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    val.add_argument("path", help="Dotted field path")
-    val.add_argument("value", help="Candidate value")
-    val.add_argument("--context", default=None, help="TOML providing form state")
-
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    # A bare ``hmp config`` writes a template. ``validate-field`` is parsed but has no handler.
+    # A bare ``hmp config`` writes a template.
     handlers = {
         "check": _cmd_config_check,
         "template": _cmd_config_template,
@@ -381,18 +390,17 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
 
 
 def _cmd_config_check(args: argparse.Namespace) -> None:
-    """Validate a run, a calibration or a ``[sites]`` project with one verb.
+    """Check a run, a calibration or a ``[sites]`` project with ``hmp.check``.
 
-    The check is :func:`hydromodpy.project.check.check_project`: a run is
-    loaded and goes through the checks of step 0 of ``hmp run``; a calibration
-    is loaded and read by its preflight; a ``[sites]`` project is expanded
-    case by case, and the errors come back grouped, each at the cell or the
-    file it comes from.
+    ``hmp.check`` gives every diagnostic at once. The file is refused, with the
+    exit code of a configuration, when one of them is an ``error``. ``--partial``
+    keeps a required key not written yet as ``to_fill``, which refuses nothing.
     """
     from hydromodpy.cli.commands.doctor import probe_toml_workspace
+    from hydromodpy.config.check import phrase
     from hydromodpy.core.config_kit.written import experimental_keys_line
     from hydromodpy.core.logging import current_verbosity
-    from hydromodpy.project.check import check_project, report_lines
+    from hydromodpy.project.api import check
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -401,46 +409,60 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     verbosity = current_verbosity()
     verbose = verbosity in ("verbose", "debug")
     with project_named_by_w(args.workspace):
-        report = check_project(path)
-        if report.kind == "calibration" and verbosity != "quiet":
+        diagnostics = check(path, partial=args.partial, inputs=args.inputs)
+        if verbosity != "quiet":
             for line in _calibration_notes(path, verbose=verbose):
                 print(line, file=sys.stderr)
         where = probe_toml_workspace(path) if verbose or args.format != "table" else []
-    if report.experimental_keys and verbosity != "quiet":
-        print(experimental_keys_line(report.experimental_keys), file=sys.stderr)
-    summary, *findings = report_lines(report)
+    ok = not any(item.severity == "error" for item in diagnostics)
+    experimental = [item.path for item in diagnostics if item.code == "experimental_key"]
+    if experimental and verbosity != "quiet":
+        print(experimental_keys_line(experimental), file=sys.stderr)
+    findings = [item for item in diagnostics if item.code != "experimental_key"]
 
     def table() -> None:
-        print(summary, file=sys.stdout if report.ok else sys.stderr)
-        for line in findings:
-            print(line, file=sys.stderr)
-        for check in where:
-            print(f"{check['status']:<4} {check['name']}: {check['detail']}", file=sys.stderr)
+        print(
+            f"OK: {path}" if ok else f"Config invalid: {path}",
+            file=sys.stdout if ok else sys.stderr,
+        )
+        for item in findings:
+            print(_diagnostic_text(item, args.lang), file=sys.stderr)
+        for entry in where:
+            print(f"{entry['status']:<4} {entry['name']}: {entry['detail']}", file=sys.stderr)
 
     emit(
         args,
         "config check",
         {
-            "ok": report.ok,
-            "kind": report.kind,
-            "n_cases": report.n_cases,
-            "summary": summary,
-            "errors": list(report.errors),
-            "warnings": list(report.warnings),
-            "experimental_keys": list(report.experimental_keys),
+            "ok": ok,
+            "diagnostics": [
+                {**item.to_dict(), "phrase": phrase(item.code, args.lang)} for item in diagnostics
+            ],
             "workspace": where,
         },
         table=table,
     )
-    if not report.ok:
+    if not ok:
         sys.exit(EXIT_CONFIG)
+
+
+def _diagnostic_text(diagnostic: Diagnostic, lang: str) -> str:
+    """Return a diagnostic as ``severity path:line: phrase``, its detail on the next line."""
+    from hydromodpy.config.check import phrase
+
+    where = diagnostic.path or "<document>"
+    if diagnostic.line_number is not None:
+        where = f"{where}:{diagnostic.line_number}"
+    text = f"  {diagnostic.severity} {where}: {phrase(diagnostic.code, lang)}"
+    return f"{text}\n    {diagnostic.detail}" if diagnostic.detail else text
 
 
 def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
     """Return what a calibration file runs: its published method, its departures, its comparisons.
 
     These lines inform, they never refuse: a file that does not load prints
-    none, its refusal is already a finding of the check.
+    none, its refusal is already a finding of the check. A file with no
+    ``[calibration]`` prints none either.
     """
     import warnings
 
@@ -454,6 +476,8 @@ def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
             warnings.simplefilter("ignore")
             cfg = HydroModPyConfig.from_toml(path)
     except (ConfigError, ValueError, KeyError, FileNotFoundError):
+        return []
+    if cfg.calibration is None:
         return []
     normal, detailed = protocol_lines(cfg)
     return [*normal, *(detailed if verbose else ()), *comparison_lines(cfg, path)]
@@ -493,7 +517,7 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 def _write_schema_bundle(args: argparse.Namespace) -> None:
     """Write the JSON Schema and the files a frontend reads with it into the folder ``--to``."""
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.schema import export_full_schema
+    from hydromodpy.schema.config_schema import export_full_schema
 
     if args.to is None or args.editor or args.section or args.profile:
         refuse(
@@ -505,40 +529,6 @@ def _write_schema_bundle(args: argparse.Namespace) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     for key, path in export_full_schema(folder, root=HydroModPyConfig).items():
         print(f"{key}: {path}", file=sys.stderr)
-
-
-def _cmd_config_validate_field(args: argparse.Namespace) -> None:
-    """Validate one field value, for a frontend that checks a form as it is filled."""
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.schema import validate_field
-
-    payload = validate_field(
-        args.path, args.value, root=HydroModPyConfig, context=_load_context(args.context)
-    ).as_dict()
-
-    def table() -> None:
-        print(f"{args.path}: {'valid' if payload['valid'] else 'invalid'}")
-        if payload["error"]:
-            print(f"  {payload['error']}", file=sys.stderr)
-        for line in payload["warnings"]:
-            print(f"  warning: {line}", file=sys.stderr)
-
-    emit(args, "config validate-field", payload, table=table)
-    if not payload["valid"]:
-        sys.exit(EXIT_CONFIG)
-
-
-def _load_context(ctx_path: str | None) -> dict | None:
-    """Return the TOML that gives the state of the form, when ``--context`` names one."""
-    import tomllib
-
-    if not ctx_path:
-        return None
-    ctx_file = Path(ctx_path).expanduser().resolve()
-    if not ctx_file.is_file():
-        refuse(f"context TOML not found: {ctx_file}", EXIT_NOT_FOUND)
-    with ctx_file.open("rb") as fh:
-        return tomllib.load(fh)
 
 
 def _write_editor_schema(out_path: str | None, *, section: str | None, profile: str | None) -> None:

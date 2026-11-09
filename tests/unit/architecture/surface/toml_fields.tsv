@@ -703,6 +703,7 @@ domain.supports.labels	list[str]	[]	stable
 domain.supports.radii	list[float | str]	[]	stable
 domain.supports.source_zone_id	str	'catchment'	stable
 domain.zone_ids	list[str]	[]	stable
+edition	str	'2.0'	stable
 export	list[table]	[]	stable
 export.crs	str | None	None	stable
 export.file	Path | None	None	stable

@@ -1,4 +1,4 @@
-"""The base class of every configuration model: legacy, retired and refused keys, frozen copies."""
+"""The base class of every configuration model: refused keys, quoted booleans, frozen copies."""
 
 from __future__ import annotations
 
@@ -33,9 +33,7 @@ class _Inner(HydroModelBase):
 
 
 class _Cfg(HydroModelBase):
-    model_retired_keys = frozenset({"old_flag"})
     model_refused_keys = {"mode": "use 'engine' instead"}
-    model_legacy_keys = {"method": "engine"}
 
     engine: str = "grid"
     verbose: bool = False
@@ -53,31 +51,18 @@ def _fresh_told() -> None:
     forget_old_forms_told()
 
 
-def test_an_unknown_key_is_refused() -> None:
+# A key the model does not hold is refused, whether it is a typo, a key the model dropped
+# or an old spelling of a key. A pre-release spelling is refused earlier, by the loader of a
+# file, with the sentence that names the doctor of a 2.0.x release.
+@pytest.mark.parametrize("key", ["enginee", "old_flag", "method"])
+def test_an_unknown_key_is_refused(key: str) -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        _Cfg.model_validate({"enginee": "x"})
+        _Cfg.model_validate({key: "x"})
 
 
 def test_a_refused_key_names_what_to_write_instead() -> None:
     with pytest.raises(ValidationError, match="'mode' is not accepted any more: use 'engine'"):
         _Cfg.model_validate({"mode": "x"})
-
-
-def test_a_retired_key_loads_with_a_warning_and_has_no_effect() -> None:
-    with pytest.warns(DeprecationWarning, match="'old_flag' is no longer read by _Cfg"):
-        cfg = _Cfg.model_validate({"old_flag": 1, "engine": "x"})
-    assert cfg.engine == "x"
-    assert "old_flag" not in cfg.model_dump()
-
-
-def test_an_old_spelling_keeps_loading_with_a_warning_naming_both() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning, match="'method' is now called 'engine'"):
-        assert _Cfg.model_validate({"method": "x"}).engine == "x"
-
-
-def test_both_spellings_of_one_key_are_refused() -> None:
-    with pytest.raises(ValidationError, match="was given both 'method' and 'engine'"):
-        _Cfg.model_validate({"method": "x", "engine": "y"})
 
 
 @pytest.mark.parametrize("quoted", ["true", "yes", "maybe"])
@@ -252,14 +237,11 @@ def test_an_old_form_warning_names_the_doctor_and_promises_no_delay(tmp_path: Pa
         warn_old_form(where, "a -> b")
     with pytest.warns(ConfigKeyRenamedWarning) as from_set:
         warn_old_form("--set", "a -> b", rewritable=False)
-    with pytest.warns(ConfigKeyRenamedWarning) as from_key:
-        _Cfg.model_validate({"method": "x"})
-    with pytest.warns(ConfigKeyRenamedWarning) as from_time_key:
-        DisplayConfig.model_validate({"overrides": {"cross_section": {"timestep": 33}}})
+    with pytest.warns(ConfigKeyRenamedWarning) as from_no_file:
+        warn_old_form(None, "a -> b")
     assert "hmp doctor --fix-config" in str(from_file[0].message)
-    assert "hmp doctor --fix-config" in str(from_key[0].message)
-    assert "hmp doctor --fix-config" in str(from_time_key[0].message)
-    for caught in (from_file, from_set, from_key, from_time_key):
+    assert "hmp doctor --fix-config" in str(from_no_file[0].message)
+    for caught in (from_file, from_set, from_no_file):
         message = str(caught[0].message)
         assert "two minor versions" not in message
         assert "still loads, with this warning" in message
@@ -309,8 +291,6 @@ def test_the_module_remembers_what_it_told_until_forgotten() -> None:
 class _Toggles(HydroModelBase):
     """One field of each shape a boolean can take."""
 
-    model_legacy_keys = {"raster": "geotiff"}
-
     geotiff: bool = Field(default=False, description="Plain boolean.")
     optional: bool | None = Field(default=None, description="Boolean or nothing.")
     tagged: Annotated[bool, Profile.EXPERT] = Field(default=False, description="Tagged boolean.")
@@ -352,11 +332,9 @@ def test_a_field_that_admits_both_still_takes_a_string() -> None:
     assert _Toggles.model_validate({"profile": True}).profile is True
 
 
-def test_the_old_spelling_of_a_boolean_key_is_refused_too() -> None:
-    """The rename lands first, so the refusal names the spelling to write."""
-    with pytest.warns(ConfigKeyRenamedWarning):
-        with pytest.raises(ValidationError, match="geotiff = 'yes' is quoted"):
-            _Toggles.model_validate({"raster": "yes"})
+def test_the_old_spelling_of_a_boolean_key_is_refused_as_unknown() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        _Toggles.model_validate({"raster": "yes"})
 
 
 def test_the_other_coercions_are_untouched() -> None:

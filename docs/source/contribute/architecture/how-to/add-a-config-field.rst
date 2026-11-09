@@ -221,13 +221,24 @@ Use ``@field_validator(mode="before")`` for normalization
 (parse-then-validate) and ``@model_validator(mode="after")`` for
 cross-field invariants. Keep them small and explicit.
 
+A rule that reads two sections belongs to neither of them. It is one row of
+``CROSS_RULES`` in ``hydromodpy/config/cross_checks.py``, a
+``CrossRule(rule, reads)``, named by its function. ``rule(sections, *, sealed)`` reads the validated
+sections as attributes, raises ``ValueError`` when it refuses and returns the
+sentences of its warnings. ``reads`` names the sections it reads. The check of an
+incomplete document runs the rule once every one of them is complete, and a test
+holds ``reads`` equal to what the function reads, so a section missing from it
+would let the rule run too early.
+
 Add a brand-new section
 -----------------------
 
 1. Create the Pydantic model in the appropriate package.
 2. Add the field to ``HydroModPyConfig`` in
    ``hydromodpy/config/hydromodpy_config.py``, with a default factory or
-   ``None``, and its entry in the section loader table of the same file.
+   ``None``, and its row in ``SECTIONS`` of
+   ``hydromodpy/config/section_loader.py``. ``from_toml`` and ``check`` walk that
+   one table.
 3. If a launcher should dispatch on the new section, wire it through
    ``hydromodpy/project/dispatch/workflow.py`` (or the equivalent dispatcher).
 4. Regenerate the committed JSON Schema with
@@ -334,7 +345,8 @@ Tests to add
 - **Integration** if the field changes the dispatched workflow.
 
 Run ``hmp config check <toml>`` to validate any candidate TOML
-against the new model.
+against the new model. It lists every fault at once, and ``--partial`` accepts a
+file that still lacks required keys.
 
 Rename, move or remove a key
 ----------------------------
@@ -342,34 +354,36 @@ Rename, move or remove a key
 A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loading
 for two minor versions. In one change:
 
-1. Add a row to ``RENAMED_KEYS`` in ``hydromodpy/config/config_migration.py``, with
-   ``since`` set to the version that will ship the change, or a row to ``MOVED_TABLES``
-   when the key or the table changes place. A load then reads the old name with a
-   warning, and ``hmp doctor --fix-config`` rewrites the file and the files it inherits.
+1. Add a ``[[migration]]`` row of ``document = "config"`` to
+   ``hydromodpy/schema/changes.toml``, with ``old`` and ``new`` for a key or a table that
+   moves, ``key``, ``old_value`` and ``new_value`` for a value that takes another name,
+   or ``old`` and ``instead`` for a key that leaves. ``since`` is the version that will
+   ship the change. Add ``rule`` when the row cannot say the whole change: it names a
+   function of ``RULES`` in ``hydromodpy/config/config_migration.py``. A load then reads
+   the old name with a warning, and ``hmp doctor --fix-config`` rewrites the file and
+   the files it inherits.
    That one row also carries the dotted paths that name the key: the ``overrides`` of a
    calibration phase, ``path`` and ``target`` of a calibration parameter, the keys of
    ``[sites.bind]`` and of the ``set`` table of a recipe, ``--set``, ``HMP_SET_*``, and
    the directives ``<old>__append``, ``<old>__merge`` and ``<old>__delete``. A figure
    option is a row with the scope ``display.overrides.{*}``.
-2. List the old key in the ``model_refused_keys`` of the model, with ``renamed_to``, so
-   a config built in Python is told what to write. A plain rename of ``[calibration]`` is
-   one row of ``CALIBRATION_RENAMES`` in ``hydromodpy/calibration/config.py`` instead, which
-   fills both tables. Any row under ``[calibration]`` has no delay, because the section is
-   experimental: a load refuses the file with the new name, the doctor rewrites it, and a
-   sealed run still reads it.
+2. List the old key in the ``model_refused_keys`` of the model, so a config built in
+   Python is told what to write. Under ``[calibration]``, ``renamed_to(old, new, meaning)``
+   of ``hydromodpy/calibration/config.py`` writes that sentence.
 3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
    the rename.
-4. Run ``python -m tools.surface_snapshot``. It refuses a stable key that has no row in
-   the table, and it records the key in ``removed_toml_keys.tsv``.
+4. Run ``python -m tools.surface_snapshot``. It refuses a removed stable key that has no
+   such row, and it records the key in ``removed_toml_keys.tsv``.
 5. Write the old and the new name under ``Changed`` in the changelog.
 
-``tests/unit/config/test_historical_configs.py`` loads real files of the published alphas
-from ``tests/unit/config/corpus/``, so a rename with no row fails there.
+``tests/unit/config/test_historical_configs.py`` reads real files of the published alphas
+from ``tests/unit/config/corpus/``. A file that holds a key only a pre-release wrote is
+refused with every such key, and the others load, so a rename with no row fails there.
 
-A row outlives its delay when the version of the package reaches ``since`` plus two
-minor versions, and ``tests/unit/config/test_config_migration.py`` then fails. Set
-``sealed_only=True`` on the row at that point: a live file is refused, and a run sealed
-under the old name stays readable.
+A row stays in the register after its delay, which ends when the version of the
+package reaches ``since`` plus two minor versions. From then on a live file is refused
+with the new name, and a run sealed under the old name stays readable for the whole
+major line.
 
 Pitfalls flagged by the layer matrix
 ------------------------------------

@@ -463,6 +463,19 @@ def test_config_check_says_which_workspace_the_file_resolves_to(project: Path) -
     assert {"workspace", "catalog_path", "data_dir", "runs_dir"} <= set(names)
 
 
+def test_config_check_machine_output_is_ok_diagnostics_and_workspace(project: Path) -> None:
+    file = project / "run.toml"
+    file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(["config", "check", str(file), "--format", "json"])
+
+    data = json.loads(result.stdout)["data"]
+    assert set(data) == {"ok", "diagnostics", "workspace"}
+    assert data["ok"] is False
+    assert {item["code"] for item in data["diagnostics"]} >= {"to_fill"}
+    assert {"pointer", "code", "severity", "phrase", "msg"} <= set(data["diagnostics"][0])
+
+
 def test_a_cache_entry_is_counted_and_kept_under_dry_run(tmp_path: Path) -> None:
     (tmp_path / "data").mkdir()
     (tmp_path / "projects").mkdir()
@@ -546,7 +559,7 @@ def test_every_verb_that_writes_has_a_dry_run_that_changes_nothing(
     (other / "projects").mkdir()
     (project / "runs" / RUN_NAME / "config.toml").write_text('[site]\nname = "x"\n', "utf-8")
     old_key = tmp_path / "old.toml"
-    old_key.write_text('[simulation]\nrun_id = "cheze"\n', encoding="utf-8")
+    old_key.write_text('[modflow6.runtime]\nmf6_ims_complexity = "SIMPLE"\n', encoding="utf-8")
     plain = tmp_path / "spin.toml"
     plain.write_text(_SPINUP_TOML, encoding="utf-8")
     copy, package, ws = tmp_path / "copy", tmp_path / "pkg.tar", str(project)
@@ -584,4 +597,5 @@ def test_every_verb_that_writes_has_a_dry_run_that_changes_nothing(
             assert key in data, words
 
     table = CliRunner().invoke(["doctor", "--fix-config", str(old_key), "--dry-run"])
-    assert "-run_id" in table.stdout and "+name" in table.stdout
+    assert "-[modflow6.runtime]" in table.stdout
+    assert "+[solver.modflow6.runtime]" in table.stdout

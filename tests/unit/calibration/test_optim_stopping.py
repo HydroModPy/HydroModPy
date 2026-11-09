@@ -664,7 +664,8 @@ def test_the_preflight_refuses_a_steady_budget_below_fifteen(tmp_path: Path) -> 
     findings = _budget_findings(tmp_path, steady_max_trials=10)
 
     assert [finding.severity for finding in findings] == ["error"]
-    assert findings[0].where == "[[calibration.phases]] 'steady_conductivity'"
+    assert findings[0].path == "calibration.phases"
+    assert findings[0].detail.startswith("'steady_conductivity': ")
     assert "max_trials = 10 is below the 15 evaluations" in findings[0].detail
     assert "steady_max_trials" in findings[0].detail
 

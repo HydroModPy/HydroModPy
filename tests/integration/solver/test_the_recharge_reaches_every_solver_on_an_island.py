@@ -221,15 +221,15 @@ def test_a_steady_initial_state_stands_under_the_time_mean(tmp_path: Path, solve
         fields = zarr.open_group(str(root / "runs" / name / "fields.zarr"), mode="r")
         return np.asarray(fields["head"][0], dtype=float).reshape(-1)
 
-    mean = first_heads("mean", '\n[flow.ic.h]\ntype = "steady_state"\nsource = "mean_recharge"\n')
+    mean = first_heads("mean", '\n[flow.ic.h]\nkind = "steady_state"\nsource = "mean_recharge"\n')
     stated = first_heads(
         "stated",
-        '\n[flow.ic.h]\ntype = "steady_state"\nsource = "prescribed"\n'
+        '\n[flow.ic.h]\nkind = "steady_state"\nsource = "prescribed"\n'
         f'rate = "{TIME_MEAN_MM_DAY!r} mm/day"\n',
     )
     plain = first_heads(
         "plain",
-        '\n[flow.ic.h]\ntype = "steady_state"\nsource = "prescribed"\n'
+        '\n[flow.ic.h]\nkind = "steady_state"\nsource = "prescribed"\n'
         f'rate = "{float(np.mean(RATES_MM_DAY))!r} mm/day"\n',
     )
 
@@ -244,7 +244,7 @@ def test_modpath_runs_without_drains_on_a_grid_that_is_not_the_dem(tmp_path: Pat
         "particles",
         solver="modflow_nwt",
         replacements=(
-            ('active_bc = ["ocean", "drainage"]', 'active_bc = ["ocean"]'),
+            ("[flow.bc.drainage]\n\n", ""),
             ('param_list = ["K"]', 'param_list = ["K", "Sy", "Ss"]'),
             (
                 '[[simulation.process]]\nid = "flow_main"\nkind = "flow"\n'

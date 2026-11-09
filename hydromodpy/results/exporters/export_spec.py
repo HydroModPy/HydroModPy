@@ -14,8 +14,8 @@ The model refuses what it can decide alone, without the run and without the
 kind of each name. :func:`plan_outputs` finishes the job once the kind of each
 name is known: it names every file a request writes and refuses what the kinds
 make impossible (a vector layer in a NetCDF, a reprojection a format cannot
-carry). The step 0 check and the exporters both call it, so the plan checked
-before the solve is the plan written after it.
+carry). The loader, ``hmp config check`` and the exporters all call it, so the
+plan checked before the solve is the plan written after it.
 
 A format is a name the export registry serves
 (:mod:`hydromodpy.results.exporters.registry`), never an enum value here: the
@@ -48,6 +48,7 @@ from hydromodpy.results.exporters.registry import (
     suffix_format,
     view_filename,
 )
+from hydromodpy.schema.changes import prerelease_refusal
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 
 EXPORT_ALL = "all"
@@ -502,7 +503,7 @@ class PlannedFile:
     """One file an export request writes.
 
     ``path`` is relative to the ``exports/`` directory of the run. It is spelled with forward slashes on every OS, as a TOML writes
-    it: the step 0 check compares and reports it, and the exporter turns it
+    it: the config check compares and reports it, and the exporter turns it
     into a native path only to write the file. It holds
     :data:`STEP_DATE_TOKEN` when one file is written per step and the steps
     are known only on the run. ``instant`` is the time selector of a
@@ -714,12 +715,14 @@ def load_export_requests(data: Any) -> list[ExportRequest]:
     if data is None:
         return []
     if isinstance(data, Mapping):
-        raise ValueError(
+        told = (
             "[export] is written as a table. An export is a request, one block per "
             'request: write [[export]] with variables = "...", and one block more for '
-            "each other export. 'hmp doctor --fix-config <file>' rewrites a file written "
-            "for the old [export] toggles."
+            "each other export."
         )
+        if data:
+            told += " " + prerelease_refusal("[export]", [str(key) for key in data])
+        raise ValueError(told)
     return _EXPORT_REQUESTS.validate_python(list(data))
 
 

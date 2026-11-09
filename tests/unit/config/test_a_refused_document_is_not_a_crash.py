@@ -15,9 +15,11 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import tomlkit
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.config_migration import PRERELEASE_FORMS
 from hydromodpy.core.exceptions import ConfigValidationError
 
 WORKSPACE = """\
@@ -90,8 +92,35 @@ def test_a_bad_workflow_mode_reaches_the_config_exit_code(tmp_path: Path) -> Non
 
 def test_a_workspace_that_is_not_a_table_reaches_the_config_exit_code(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
-    path.write_text("workspace = 3\n", encoding="utf-8")
+    path.write_text(tomlkit.dumps({"workspace": 3}), encoding="utf-8")
     assert exit_code_for(_refusal(path)) == EXIT_CONFIG
+
+
+def _written_by_a_pre_release(path: str) -> str:
+    """Return a TOML text that writes the form of *path* of ``prerelease_forms.txt``."""
+    assert path in {form.path for form in PRERELEASE_FORMS}
+    document: dict = {"x": 1}
+    for part in reversed(path.split(".")):
+        document = {"x" if part == "{*}" else part: document}
+    return tomlkit.dumps(document)
+
+
+@pytest.mark.parametrize(
+    "form",
+    ["calibration.max_iter", "flow.active_bc", "export.netcdf", "geographic.catchment.catch_def"],
+)
+def test_a_form_only_a_pre_release_wrote_reaches_the_config_exit_code(
+    tmp_path: Path, form: str
+) -> None:
+    """The refusal comes before the model runs, and is a refusal of the document all the same."""
+    error = _refusal(_write(tmp_path, _written_by_a_pre_release(form), head=LOADABLE))
+
+    assert exit_code_for(error) == EXIT_CONFIG
+    assert error.to_dict()["code"] == "HMPY.E101"
+    assert form in str(error)
+    assert 'pip install "hydromodpy~=2.0.0"' in str(error)
+    assert [entry["pointer"] for entry in error.details] == ["/" + form.replace(".", "/")]
+    assert error.to_dict()["details"][0]["type"] == "prerelease_form"
 
 
 # ---------------------------------------------------------------------------
@@ -109,17 +138,18 @@ def test_the_pointer_names_the_key_the_document_wrote(tmp_path: Path) -> None:
 
 
 def test_the_pointer_of_a_retired_section_names_that_section(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[modflow]\nexe_name = 'mfnwt'\n"))
+    error = _refusal(_write(tmp_path, "[modflow]\nexe_name = 'mfnwt'\n", head=LOADABLE))
     assert [entry["pointer"] for entry in error.details] == ["/modflow"]
 
 
 def test_every_unknown_section_gets_its_own_pointer(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[zulu]\nx = 1\n\n[alpha]\ny = 2\n"))
+    error = _refusal(_write(tmp_path, "[zulu]\nx = 1\n\n[alpha]\ny = 2\n", head=LOADABLE))
     assert sorted(entry["pointer"] for entry in error.details) == ["/alpha", "/zulu"]
 
 
 def test_a_project_root_in_a_file_points_at_that_key(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[workspace]\nproject_root = '.'\n", head=""))
+    body = "[workspace]\nproject_root = '.'\n\n" + LOADABLE.removeprefix(WORKSPACE)
+    error = _refusal(_write(tmp_path, body, head=""))
     assert [entry["pointer"] for entry in error.details] == ["/workspace/project_root"]
 
 
@@ -175,7 +205,7 @@ def test_a_typed_error_without_details_omits_the_member() -> None:
 MALFORMED = {
     "unknown key in a section": "[flow]\ntypo_runtime = true\n",
     "unknown key in a nested model": "[solver.modflow6.sgrid]\ntypo = 1\n",
-    "a section that is a scalar": "flow = 3\n",
+    "a section that is a scalar": tomlkit.dumps({"flow": 3}),
     "a value outside its literal": "[flow]\nflow_regime = 'not_a_regime'\n",
     "a retired section": "[modflow]\nexe_name = 'mfnwt'\n",
     "a section that never existed": "[not_a_section]\nx = 1\n",
@@ -230,7 +260,7 @@ def test_a_value_too_large_to_help_is_not_repeated_back(tmp_path: Path) -> None:
 def test_the_pointer_does_not_invent_the_union_tag(tmp_path: Path) -> None:
     """Pydantic names the variant it selected; the document never wrote it.
 
-    ``[flow.ic]`` is a flattened discriminated union: ``type`` and the variant's
+    ``[flow.ic]`` is a flattened discriminated union: ``kind`` and the variant's
     own fields are siblings in one table. Pydantic reports the fault at
     ``("flow", "ic", "spinup_cyclic", "max_cycles")``. A pointer built from that
     addresses a table that does not exist, and a front end resolving it
@@ -240,7 +270,7 @@ def test_the_pointer_does_not_invent_the_union_tag(tmp_path: Path) -> None:
     error = _refusal(
         _write(
             tmp_path,
-            "[flow.ic]\ntype = 'spinup_cyclic'\nmax_cycles = 'not_an_int'\n",
+            "[flow.ic]\nkind = 'spinup_cyclic'\nmax_cycles = 'not_an_int'\n",
             head=LOADABLE,
         )
     )

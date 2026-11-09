@@ -86,8 +86,6 @@ path = "etp.nc"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
@@ -107,6 +105,8 @@ value = 0.1
 kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
+
+[flow.bc.drainage]
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"

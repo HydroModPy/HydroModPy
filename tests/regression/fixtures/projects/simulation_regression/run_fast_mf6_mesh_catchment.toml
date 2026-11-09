@@ -14,12 +14,12 @@ name = "example12_fast_mf6_mesh_catchment"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
 [simulation.time]
@@ -40,7 +40,7 @@ freq = "10D"
 first_period_steady = false
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.param.K.field]
 value = "1e-5 m/s"

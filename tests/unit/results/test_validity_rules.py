@@ -6,20 +6,22 @@ from datetime import date
 
 import pytest
 from packaging.specifiers import SpecifierSet
-from pydantic import ValidationError
 
 from hydromodpy.mesh import registry as mesh_registry
+from hydromodpy.results import run_identity
 from hydromodpy.results.checks import Checks, Validity
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.run_identity import label_of
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.validity_rules import (
-    KnownIssue,
     ValidityRules,
     known_issues_hitting,
     label_for,
-    load_known_issues,
     run_quantities,
 )
+from hydromodpy.schema.changes import REGISTER, Bug, read
+from hydromodpy.schema.sources import declared_source_tokens, source_entry
 from hydromodpy.solver.base import registry as solver_registry
 from tests._helpers.run_records import (
     WINDOW,
@@ -58,9 +60,7 @@ def test_a_promoted_run_of_an_unfinished_session_is_not_calibrated(status):
 
 
 def test_a_run_that_did_not_converge_is_failed_before_any_other_rule():
-    issue = KnownIssue(
-        id="x", versions="<3", quantities=["heads@modflow6"], since_commit="abc", description="d"
-    )
+    issue = Bug(id="x", since="2.0.0", versions="<3", quantities=("heads@modflow6",), text="d")
     checks = _promoted("completed", converged=False)
     result = label_for(checks, hydromodpy_version=CURRENT, quantities=MF6, issues=[issue])
     assert result.label == "failed"
@@ -142,12 +142,13 @@ def test_a_known_issue_declasses_an_old_version_without_rewriting_the_seal(tmp_p
     record = make_record()
     record.write(tmp_path)
     sealed = (tmp_path / RUN_MANIFEST_FILENAME).read_bytes()
-    issue = KnownIssue(
+    issue = Bug(
         id="mf6_top",
+        since="2.0.0",
         versions="<2.0.0a5",
-        quantities=["heads@modflow6"],
-        since_commit="b1fa87021",
-        description="the top was the ground",
+        quantities=("heads@modflow6",),
+        text="the top was the ground",
+        commit="b1fa87021",
     )
 
     old = label_for(record.checks, hydromodpy_version="2.0.0a4", quantities=MF6, issues=[issue])
@@ -160,9 +161,7 @@ def test_a_known_issue_declasses_an_old_version_without_rewriting_the_seal(tmp_p
 
 
 def test_a_known_issue_on_another_quantity_leaves_the_run_alone():
-    issue = KnownIssue(
-        id="x", versions="<3", quantities=["heads@boussinesq"], since_commit="abc", description="d"
-    )
+    issue = Bug(id="x", since="2.0.0", versions="<3", quantities=("heads@boussinesq",), text="d")
     result = label_for(
         _promoted("completed"), hydromodpy_version="2.0.0a4", quantities=MF6, issues=[issue]
     )
@@ -170,9 +169,7 @@ def test_a_known_issue_on_another_quantity_leaves_the_run_alone():
 
 
 def test_a_failed_run_stays_failed_under_a_known_issue():
-    issue = KnownIssue(
-        id="x", versions="<3", quantities=["heads@modflow6"], since_commit="abc", description="d"
-    )
+    issue = Bug(id="x", since="2.0.0", versions="<3", quantities=("heads@modflow6",), text="d")
     checks = Checks(validities=[Validity("water_budget", False, 9.0, "no", True)])
     assert (
         label_for(checks, hydromodpy_version=CURRENT, quantities=MF6, issues=[issue]).label
@@ -181,15 +178,15 @@ def test_a_failed_run_stays_failed_under_a_known_issue():
 
 
 def test_the_shipped_register_holds_the_three_real_issues_with_valid_specifiers():
-    issues = load_known_issues()
-    assert [issue.id for issue in issues] == [
+    by_id = {issue.id: issue for issue in REGISTER.bugs}
+    for known in (
         "discharge_scores_before_period_alignment",
         "voronoi_nwt_boussinesq_fixes_2026_10_09",
         "mf6_computation_top",
-    ]
-    for issue in issues:
+    ):
+        assert by_id[known].commit
+    for issue in REGISTER.bugs:
         SpecifierSet(issue.versions)
-        assert issue.since_commit
 
 
 def test_the_shipped_register_declasses_the_versions_it_names_and_not_the_current_one():
@@ -203,12 +200,12 @@ def test_the_shipped_register_declasses_the_versions_it_names_and_not_the_curren
 
 
 def test_a_fix_of_a_derived_field_declasses_the_runs_sealed_under_the_old_rules():
-    issue = KnownIssue(
+    issue = Bug(
         id="seepage_band",
+        since="2.0.1",
         versions=">=2.0.0a1",
-        quantities=["derived@1"],
-        since_commit="abc",
-        description="The seepage mask of these runs read the wrong band.",
+        quantities=("derived@1",),
+        text="The seepage mask of these runs read the wrong band.",
     )
     sealed_under = run_quantities(solver="modflow6", derive_rule_version="1")
     assert "derived@1" in sealed_under
@@ -238,7 +235,15 @@ def test_run_quantities_spell_the_vocabulary_of_the_register():
     )
 
 
-def test_every_register_token_names_a_real_solver_or_mesh_engine():
+def _a_known_token(token: str, allowed: set[str]) -> bool:
+    """A source token names a registered source: ``source@<section>_<slug>``."""
+    if token.startswith("source@"):
+        _section, _, slug = token.removeprefix("source@").partition("_")
+        return source_entry(slug) is not None
+    return token in allowed
+
+
+def test_every_register_token_names_a_real_solver_mesh_engine_or_source():
     solvers = set(solver_registry.solvers.names("flow"))
     engines = set(mesh_registry.mesh_engines.names(shipped_only=True))
     allowed = {"metrics"}
@@ -247,20 +252,94 @@ def test_every_register_token_names_a_real_solver_or_mesh_engine():
 
     unknown = {
         (issue.id, token)
-        for issue in load_known_issues()
+        for issue in REGISTER.bugs
         for token in issue.quantities
-        if token not in allowed
+        if not _a_known_token(token, allowed)
     }
-    assert unknown == set(), f"tokens naming no solver or mesh engine: {sorted(unknown)}"
+    assert unknown == set(), f"tokens naming no solver, mesh engine or source: {sorted(unknown)}"
 
 
-def test_an_issue_without_a_fix_commit_or_with_a_bad_id_is_refused():
-    with pytest.raises(ValidationError, match="since_commit"):
-        KnownIssue(id="x", versions="<3", quantities=["metrics"], description="d")
-    with pytest.raises(ValidationError, match="id"):
-        KnownIssue(
-            id="Bad Id", versions="<3", quantities=["metrics"], since_commit="a", description="d"
-        )
+_BAD_BUGS = {
+    "a bad id": ('id = "Bad Id"', "id must match"),
+    "a commit that is no sha": ('commit = "not-a-sha"', "commit must be a hex sha"),
+    "versions that are no specifier": ('versions = "two point one"', "versions must be"),
+    "no quantity": ("quantities = []", "quantities is empty"),
+}
+
+
+@pytest.mark.parametrize(("change", "fault"), _BAD_BUGS.values(), ids=_BAD_BUGS.keys())
+def test_an_issue_with_a_bad_field_is_refused(change: str, fault: str):
+    fields = {
+        "id": 'id = "x"',
+        "commit": 'commit = "abc1234"',
+        "versions": 'versions = "<3"',
+        "quantities": 'quantities = ["metrics"]',
+    }
+    fields[change.split(" = ")[0]] = change
+    text = 'schema = "hydromodpy.changes.v1"\n[[bug]]\nsince = "2.0.0"\ntext = "d"\n' + "\n".join(
+        fields.values()
+    )
+    with pytest.raises(ValueError, match=fault):
+        read(text)
+
+
+SOURCE_CONFIGS = {
+    "a Hub'Eau gauge": (
+        '[[data.hydrometry.sources]]\nsource = "hubeau"\n',
+        ("source@hydrometry_hubeau",),
+    ),
+    "two sections, one source twice": (
+        '[[data.dem.sources]]\nsource = "file"\npath = "a.tif"\n'
+        '[[data.dem.sources]]\nsource = "file"\npath = "b.tif"\n'
+        '[[data.hydrometry.sources]]\nsource = "hubeau"\n',
+        ("source@dem_file", "source@hydrometry_hubeau"),
+    ),
+    "no source": ("[data]\ntypes = []\n", ()),
+    "no data": ('[simulation]\nname = "x"\n', ()),
+}
+
+
+@pytest.mark.parametrize(("text", "tokens"), SOURCE_CONFIGS.values(), ids=SOURCE_CONFIGS.keys())
+def test_a_run_exposes_one_token_per_source_its_config_declares(text, tokens):
+    assert declared_source_tokens(text) == tokens
+    assert run_quantities(solver="modflow6", sources=tokens)[2:] == tokens
+
+
+HUBEAU_BUG = Bug(
+    id="hubeau_x",
+    since="2.1.0",
+    versions="<2.1.0",
+    quantities=("source@hydrometry_hubeau",),
+    text="Hub'Eau read the wrong series.",
+)
+
+
+@pytest.mark.parametrize(
+    ("config", "label"),
+    [
+        pytest.param(
+            '[[data.hydrometry.sources]]\nsource = "hubeau"\n', "exploratory", id="hubeau"
+        ),
+        pytest.param("[data]\ntypes = []\n", "calibrated", id="no-source"),
+        pytest.param(None, "calibrated", id="no-config-file"),
+    ],
+)
+def test_a_bug_of_a_source_declasses_only_the_runs_that_declared_it(
+    tmp_path, monkeypatch, config, label
+):
+    record = make_record(identity=make_identity(hydromodpy_version="2.0.0"))
+    record.write(tmp_path)
+    if config is not None:
+        (tmp_path / RUN_CONFIG_FILENAME).write_text(config, encoding="utf-8")
+    # label_of reads the shipped register; this case reads one bug of its own.
+    monkeypatch.setattr(
+        run_identity, "label_for", lambda checks, **kw: label_for(checks, issues=[HUBEAU_BUG], **kw)
+    )
+
+    result = label_of(record, tmp_path)
+
+    assert result.label == label
+    assert result.known_issues == (("hubeau_x",) if label == "exploratory" else ())
 
 
 def test_the_label_carries_the_rule_version_a_reader_can_cite():

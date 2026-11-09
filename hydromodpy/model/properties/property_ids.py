@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.schema.changes import prerelease_refusal
+
 
 @dataclass(frozen=True)
 class FlowPropertyId:
@@ -54,7 +56,7 @@ FLOW_PROPERTY_IDS: tuple[FlowPropertyId, ...] = (
 )
 """The properties a built-in solver reads, in the order they are mapped."""
 
-OLD_PROPERTY_IDS: dict[str, str] = {
+_RENAMED_IDS: dict[str, str] = {
     "k": "K",
     "kv": "Kv",
     "K33": "Kv",
@@ -67,13 +69,13 @@ OLD_PROPERTY_IDS: dict[str, str] = {
     "ss": "Ss",
     "k22": "K22",
 }
-"""Other spellings a solver read as one of the ids above. The migration rewrites them."""
+"""Other spellings a pre-release of 2.0 read as one of the ids above. A file is refused."""
 
-NEVER_READ_IDS: dict[str, str] = {"Kz": "Kv", "Kx": "K", "Ky": "K22"}
+_NEVER_READ_IDS: dict[str, str] = {"Kz": "Kv", "Kx": "K", "Ky": "K22"}
 """Ids that no solver ever read, with the id that does the job. A file is refused.
 
-Rewriting one would start to read a number no run has used. So it stays a refusal, and
-the person who wrote it decides.
+Rewriting one would start to read a number no run has used, so the person who wrote it
+decides.
 """
 
 CONDUCTIVITY_IDS: tuple[str, ...] = tuple(p.id for p in FLOW_PROPERTY_IDS if p.conductivity)
@@ -89,15 +91,15 @@ def default_unit_of(param_id: str) -> str:
 
 def refusal_of_a_retired_id(param_id: str) -> str | None:
     """Return why ``flow.param.<param_id>`` is refused, or None for an id that is allowed."""
-    if param_id in OLD_PROPERTY_IDS:
+    if param_id in _RENAMED_IDS:
         return (
-            f"flow.param.{param_id} is now flow.param.{OLD_PROPERTY_IDS[param_id]}. "
-            "`hmp doctor --fix-config <file>` rewrites the file."
+            f"flow.param.{param_id} is now flow.param.{_RENAMED_IDS[param_id]}. "
+            + prerelease_refusal("This table", [param_id])
         )
-    if param_id in NEVER_READ_IDS:
+    if param_id in _NEVER_READ_IDS:
         return (
             f"flow.param.{param_id} has never been read by a solver, so the runs of this file "
-            f"did not use it. Write flow.param.{NEVER_READ_IDS[param_id]} to set it, or remove "
+            f"did not use it. Write flow.param.{_NEVER_READ_IDS[param_id]} to set it, or remove "
             "the table."
         )
     return None
@@ -106,8 +108,6 @@ def refusal_of_a_retired_id(param_id: str) -> str | None:
 __all__ = [
     "CONDUCTIVITY_IDS",
     "FLOW_PROPERTY_IDS",
-    "NEVER_READ_IDS",
-    "OLD_PROPERTY_IDS",
     "FlowPropertyId",
     "default_unit_of",
     "refusal_of_a_retired_id",

@@ -16,12 +16,17 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.cli.conventions import dry_run_parser, format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.workspace.resolve import find_workspace
+
+if TYPE_CHECKING:
+    from hydromodpy.core.diagnostic import Diagnostic
 
 NAME: str = "doctor"
 HELP: str = "Diagnose the local environment (Python, deps, solvers, workspace)"
@@ -136,13 +141,22 @@ def _fix_config(toml_path: str, *, dry_run: bool = False) -> None:
     refused: Exception | None = None
     for file, changes in chain.items():
         if not changes:
-            refusal = _refusal_of(file)
-            if refusal is None:
-                print(f"{file} is already up to date.")
-            else:
-                print(f"{file} has nothing to migrate, and the loader still refuses it:")
+            held = _checked(file)
+            refusal = _refusal_in(held)
+            if refusal is not None:
+                print(f"{file} has nothing to migrate, and the check still refuses it:")
                 print(f"  - {refusal}")
                 refused = refusal
+                continue
+            # Under --dry-run the files above are not rewritten yet, so their old forms
+            # still show here and are told under their own file.
+            left = [] if dry_run else [item for item in held if item.code == "old_key"]
+            if left:
+                print(f"{file} has nothing to migrate, and the check still reads old forms:")
+                for item in left:
+                    print(f"  - {item.detail}")
+            else:
+                print(f"{file} is already up to date.")
             continue
         untouched = all(CANNOT_REWRITE in change for change in changes)
         label = "Left as it is" if untouched else ("Would migrate" if dry_run else "Migrated")
@@ -155,23 +169,39 @@ def _fix_config(toml_path: str, *, dry_run: bool = False) -> None:
         sys.exit(EXIT_CONFIG)
 
 
-def _refusal_of(file: Path) -> Exception | None:
-    """Return what the loader says of *file* when it refuses a retired key, else ``None``."""
-    from hydromodpy.config import HydroModPyConfig
+def _checked(file: Path) -> list[Diagnostic]:
+    """Return what the check of ``config`` says of *file* and the files it inherits.
+
+    A file that does not read as TOML is the business of the loader, not of the
+    doctor, so it has no diagnostic here.
+    """
+    from hydromodpy.config.check import check
+    from hydromodpy.core.toml_io.loader import config_base_dir, merge_toml_chain, read_toml_chain
 
     try:
-        HydroModPyConfig.from_toml(file)
-    except Exception as exc:  # noqa: BLE001 - the message is what the user needs
-        # A partial file fails to load for reasons that are not a retired key; only
-        # the keys the loader no longer accepts are the doctor's business.
-        msg = str(exc)
-        if any(
-            phrase in msg
-            for phrase in ("not accepted any more", "was removed in", "is a bare name")
-        ):
-            return exc
+        document = merge_toml_chain(read_toml_chain(file, root=None), root=None)
+    except (ValueError, OSError):
+        return []
+    return check(document, partial=True, base=config_base_dir(file))
+
+
+def _refusal_in(held: Sequence[Diagnostic]) -> Exception | None:
+    """Return the refusal made of the ``retired_key`` diagnostics of *held*, else ``None``."""
+    from hydromodpy.core.exceptions import ConfigValidationError
+
+    retired = [item for item in held if item.code == "retired_key"]
+    if not retired:
         return None
-    return None
+    return ConfigValidationError("\n".join(item.detail for item in retired), diagnostics=retired)
+
+
+def _refusal_of(file: Path) -> Exception | None:
+    """Return what the check says of *file* when it refuses a retired key, else ``None``.
+
+    A partial file is refused for reasons that are not a retired key, and only a
+    key the loader no longer accepts is the doctor's business.
+    """
+    return _refusal_in(_checked(file))
 
 
 def _check(name: str, status: str, detail: str, hint: str | None = None) -> dict:

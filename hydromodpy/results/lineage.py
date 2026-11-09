@@ -48,7 +48,9 @@ class Lineage(HydroModelBase):
         default_factory=dict,
         description=(
             "Keys whose value differs from config.resolved.toml of the parent, "
-            "by dotted path: {sealed, effective}, a side the file does not write left out"
+            "by dotted path: {sealed, effective}, a side the file does not write left out. "
+            "The key new_at_default holds, by dotted path, the keys the parent did not "
+            "seal and the rerun holds at their default."
         ),
     )
     parent_hint: str | None = Field(

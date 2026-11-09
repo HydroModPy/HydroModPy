@@ -6,10 +6,11 @@ An added or removed table is listed once, not field by field. A removed path
 that a field of the new tree declares in ``renamed_from`` is listed as renamed,
 not as removed.
 
-A table the loader moves whole (``moves``, old path to new path, read from
-``config_migration.MOVED_TABLES``) is listed as renamed too. Its keys that kept
-their name are neither added nor removed: they are compared across the move, so
-a changed default still shows. A key that is new in the moved table is added.
+A key or a table the loader moves (``moves``, old path to new path, read from the
+``move`` rows of ``hydromodpy/schema/changes.toml``) is listed as renamed too. Its
+keys that kept their name are neither added nor removed: they are compared across
+the move, so a changed default still shows. A key that is new in the moved table is
+added.
 
 Pseudo-nodes (named instances such as ``flow.param.K``) are not fields of the
 file and never count as a change. Nor do the keys of another file (the

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import inspect
+import logging
 import warnings
 from pathlib import Path
 
@@ -12,7 +13,6 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.display import figure_registry
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import (
@@ -345,26 +345,26 @@ def test_a_key_under_a_misplaced_table_header_is_refused() -> None:
         DisplayConfig(overrides={"seepage_map": {"figures": ["seepage_map"]}})
 
 
-def test_the_former_timestep_key_loads_as_time_and_warns() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning) as caught:
-        config = DisplayConfig(overrides={"cross_section": {"timestep": 33, "orientation": "sn"}})
-
-    assert config.overrides["cross_section"] == {"time": 33, "orientation": "sn"}
-    assert "'timestep' is now called 'time' ([display.overrides.cross_section])" in str(
-        caught[0].message
-    )
-
-
-def test_both_spellings_in_one_table_are_refused_naming_the_line_to_delete() -> None:
-    # A base that writes time and a calibration phase override that still
-    # writes ".timestep" merge into one table holding both.
+@pytest.mark.parametrize(
+    "table",
+    [
+        pytest.param({"timestep": 33, "orientation": "sn"}, id="the former key alone"),
+        # A base that writes time and a calibration phase override that still
+        # writes ".timestep" merge into one table holding both.
+        pytest.param({"time": "2002-10-15", "timestep": 0}, id="both spellings in one table"),
+    ],
+)
+def test_the_former_timestep_key_is_refused_as_an_option_the_figure_does_not_take(
+    table: dict,
+) -> None:
+    # A file that writes it is refused earlier, by the loader, with the way to the doctor
+    # of a 2.0.x release. A DisplayConfig built from a dict refuses it as any other key.
     with pytest.raises(ValidationError) as caught:
-        DisplayConfig(overrides={"seepage_map": {"time": "2002-10-15", "timestep": 0}})
+        DisplayConfig(overrides={"cross_section": table})
 
     message = str(caught.value)
-    assert "was given both 'timestep' and 'time'" in message
-    assert "delete the 'timestep' line" in message
-    assert '"display.overrides.seepage_map.timestep"' in message
+    assert "[display.overrides.cross_section] has no option 'timestep'" in message
+    assert "time" in message
 
 
 @pytest.mark.parametrize(
@@ -423,12 +423,16 @@ def test_a_redraw_of_a_run_without_snapshot_takes_the_figure_defaults() -> None:
     assert figure_options_from_run(_SealedRun(None), "seepage_map") == {}
 
 
-def test_a_redraw_reads_the_former_timestep_of_an_old_snapshot_silently() -> None:
+def test_a_redraw_of_a_snapshot_with_the_former_timestep_says_so_and_takes_the_defaults(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     run = _SealedRun({"overrides": {"seepage_map": {"timestep": 33}}})
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        assert figure_options_from_run(run, "seepage_map") == {"time": 33}
+    with caplog.at_level(logging.WARNING):
+        assert figure_options_from_run(run, "seepage_map") == {}
+
+    assert "no longer loads" in caplog.text
+    assert "has no option 'timestep'" in caplog.text
 
 
 # Display figures are strictly read-only.

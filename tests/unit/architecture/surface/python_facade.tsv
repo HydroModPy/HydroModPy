@@ -1,47 +1,48 @@
 AmbiguousReferenceError	class	(ref: str, candidates: list[tuple[str, str | None]]) -> None
-BackupFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-CalibrationError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-CapabilityVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+BackupFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+CalibrationError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+CapabilityVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Catalog	class	(project_root: Path | str, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-CatalogError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CatalogError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 CatalogUnreadableError	class	(db_path: str, *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-CommandUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ComparisonCaseError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ComparisonReferenceError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ConfigError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ConfigMissingError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-CrossProjectsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-DataError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-DisplayError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CommandUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ComparisonCaseError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ComparisonReferenceError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ConfigError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ConfigMissingError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+CrossProjectsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+DataError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+DisplayError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 FailedCasesError	class	(message: str = '', *, summary: Mapping[str, Any] | None = None, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-FieldNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+FieldNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 HydroModPyConfig	class	
-HydroModPyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ImportConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-JobUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-MeshError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-MigrationFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-NothingThereError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-OldNameError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+HydroModPyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ImportConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+JobUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+MeshError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+MigrationFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+NothingThereError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+OldNameError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Project	class	(config: str | Path | object | dict, *, solver: str | None = None, headless: bool = False, no_display: bool = False, environment: Environment | None = None) -> None
-ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Run	class	(sim_id: str, catalog: Catalog, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-RunNotSealedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+RunNotSealedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 RunSet	class	(sim_ids: list[str], catalog: Catalog) -> None
-SchemaVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+SchemaVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Session	class	(session_dir: str | Path, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-SimulationNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-SolverError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+SimulationNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+SolverError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 StepError	class	(step_name: str, cause: BaseException, *, run_id: str | None = None, sim_id: str | None = None, **context: Any) -> None
-StorageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-TerrainError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+StorageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+TerrainError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Workspace	class	(root: str | Path) -> None
-WriteConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+WriteConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 __version__	str	
 calibrate	function	(config: ConfigLike, *, phase: str | None = None, environment: Environment | None = None, **kwargs: Any) -> CalibrationReport
 calibration_phases	function	(config: ConfigLike, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
+check	function	(source: PathLike | Mapping[str, Any], *, partial: bool = True, inputs: bool = False, environment: Environment | None = None) -> list[Diagnostic]
 compare	function	(refs: Sequence[str], *, variables: Sequence[str] | None = None, out: PathLike | None = None, workspace: PathLike | None = None) -> Comparison
 compare_pair	function	(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame
 doctor	function	() -> dict

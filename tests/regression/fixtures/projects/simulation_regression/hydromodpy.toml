@@ -11,7 +11,7 @@ mode = "simulation"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -49,8 +49,6 @@ station_ids = ["J736422001"]
 
 [flow]
 flow_regime = "transient"
-active_sinks_sources = ["recharge", "wells"]
-active_bc = ["ocean", "drainage"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -58,7 +56,7 @@ kind = "homogeneous"
 value = "5e-5 m/s"
 
 [flow.param.K.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "15.0 m"
 min_factor = 2e-4
 
@@ -71,12 +69,12 @@ kind = "homogeneous"
 value = "0.02 -"
 
 [flow.param.Sy.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "30.0 m"
 min_factor = 5e-2
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.ocean]
 value = "1.0 m"
@@ -86,7 +84,7 @@ kind = "dirichlet"
 [flow.bc.drainage]
 application_domain = "top"
 value = "0.0 m2/s"
-kind = "cauchy"
+kind = "drain"
 
 [flow.sinks_sources.wells.W1]
 units = "m3/day"

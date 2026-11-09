@@ -196,7 +196,8 @@ does today, so it can record a bug as easily as a fix. Before you run it:
 A golden that moves because the old number was wrong takes two more things in the
 same commit, as `docs/source/contribute/architecture/how-to/cut-a-release.rst` says: a
 line under `Numbers` in `CHANGELOG.md` with the quantity and the size of the change, and
-an entry in `hydromodpy/results/known_issues.toml`. The tolerances live in
+a row in the register of changes, `hydromodpy/schema/changes.toml` (a `[[bug]]` for a fix, a
+`[[recipe]]` of effect `numbers` for a rule). The tolerances live in
 `tests/TOLERANCES.md`, and widening one to avoid a golden update is not allowed.
 
 Update all golden references:
@@ -223,6 +224,16 @@ python -m pytest tests/regression/extensive/test_simulation_regression_extensive
 compares what the code writes today with a reference, `frozen_runs/` reads old files
 with the code of today. It has its own `README.md`, and `--update-goldens` does not
 touch it.
+
+The replay follows one rule. A run sealed by 2.0.0 is read through the `[[migration]]` rows
+of the register, in silence, so its old table names load. A key that a later version added is
+no difference when the sealed `config.resolved.toml` does not write it and its value today is the
+default of the edition the run sealed. The replay lists it under `new_at_default` in
+`lineage.drift`. A key that a later version added at a value that is not that default is a
+difference, and a default that would change a number needs its `[[default]]` row first, so the
+frozen run still gives the same numbers. A key that only a pre-release of 2.0 wrote is refused,
+and the fixtures that hold one are kept to show that refusal. Never edit the folder to make a
+replay pass.
 
 ## Notes
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
 
@@ -19,15 +20,18 @@ def test_config_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> N
     assert "hmp report compare" in result.stderr
 
 
-def test_config_check_expands_a_sites_project_and_counts_its_cases(tmp_path) -> None:
+def test_config_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> None:
     from tests.unit.project.launch.test_sites_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
 
-    result = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+    checked = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+    planned = CliRunner().invoke(["run", str(project / "project.toml"), "--dry-run", "-q"])
 
-    assert result.exit_code == 0, result.stderr
-    assert f"OK: {project / 'project.toml'} (4 case(s))" in result.stdout
+    assert checked.exit_code == 0, checked.stderr
+    assert f"OK: {project / 'project.toml'}" in checked.stdout
+    assert planned.exit_code == 0, planned.stderr
+    assert "4 cases (" in planned.stdout
 
 
 def test_config_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
@@ -205,7 +209,7 @@ def test_config_template_writes_sites_only_when_asked(tmp_path) -> None:
     assert "[sites" in template.read_text(encoding="utf-8")
 
 
-def test_the_full_template_fails_its_check_only_on_the_catchment_to_choose(tmp_path) -> None:
+def test_the_full_template_is_refused_at_every_key_left_to_choose(tmp_path) -> None:
     template = tmp_path / "full.toml"
     assert CliRunner().invoke(["config", "template", "--to", str(template)]).exit_code == 0
 
@@ -213,9 +217,10 @@ def test_the_full_template_fails_its_check_only_on_the_catchment_to_choose(tmp_p
 
     output = checked.stderr + checked.stdout
     assert checked.exit_code != 0
-    assert "1 validation error(s)" in output, output
+    assert "error geographic.catchment:" in output
     assert "geographic.catchment.kind is required" in output
     assert "crossings" not in output
+    assert "to_fill" not in output
 
 
 _BODY = """\
@@ -287,22 +292,75 @@ def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
     assert "export[0] and export[1] both write discharge.csv" in result.stderr
 
 
-def test_config_validate_field_ends_in_the_usage_refusal() -> None:
+def test_config_validate_field_is_refused_with_the_form_that_replaces_it() -> None:
     result = CliRunner().invoke(["config", "validate-field", "flow.flow_regime", "steady"])
 
+    assert result.exit_code == 2
+    assert "hmp config check --partial" in result.stderr
+
+
+_DRAFT = '[flow]\nflow_regime = "steady"\n'
+
+
+def _json_check(tmp_path: Path, body: str, *flags: str):
+    path = tmp_path / "draft.toml"
+    path.write_text(body, encoding="utf-8")
+    result = CliRunner().invoke(["config", "check", str(path), "--format", "json", *flags])
+    return result, json.loads(result.stdout)["data"]
+
+
+def test_a_draft_is_refused_for_a_key_to_fill_unless_it_is_partial(tmp_path: Path) -> None:
+    refused, held = _json_check(tmp_path, _DRAFT)
+    drafted, kept = _json_check(tmp_path, _DRAFT, "--partial")
+
+    assert refused.exit_code == 14
+    assert held["ok"] is False
+    assert {"loc": "geographic", "severity": "error"}.items() <= next(
+        item for item in held["diagnostics"] if item["code"] == "to_fill"
+    ).items()
+    assert drafted.exit_code == 0, drafted.stderr
+    assert kept["ok"] is True
+    assert [item["severity"] for item in kept["diagnostics"] if item["loc"] == "geographic"] == [
+        "to_fill"
+    ]
+
+
+def test_the_machine_output_is_ok_diagnostics_and_workspace(tmp_path: Path) -> None:
+    _, data = _json_check(tmp_path, _DRAFT, "--partial")
+
+    assert set(data) == {"ok", "diagnostics", "workspace"}
+    for item in data["diagnostics"]:
+        assert {"pointer", "loc", "msg", "type", "code", "severity", "help", "phrase"} <= set(item)
+
+
+def test_every_fault_of_a_file_is_told_at_once_with_the_exit_code_of_the_first(
+    tmp_path: Path,
+) -> None:
+    body = '[geographic]\nsource_mode = "synthetic"\n[flow]\nflow_regime = "nope"\n[simulation]\nbogus = 1\n'
+
+    result, data = _json_check(tmp_path, body)
+
+    paths = {item["loc"] for item in data["diagnostics"] if item["severity"] == "error"}
+    assert {"flow.flow_regime", "simulation.bogus"} <= paths
     assert result.exit_code == 14
-    assert "usage: hmp config" in result.stderr
 
 
-def test_the_validate_field_example_names_a_field_that_validates() -> None:
-    """The example of the help is a real one: a registered name is valid, an absent one is not."""
-    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-    from hydromodpy.schema import validate_field
+def test_the_phrase_is_written_in_the_language_asked(tmp_path: Path) -> None:
+    _, english = _json_check(tmp_path, _DRAFT, "--partial")
+    _, french = _json_check(tmp_path, _DRAFT, "--partial", "--lang", "fr")
 
-    result = CliRunner().invoke(["config", "validate-field", "--help"])
+    def phrases(data: dict) -> dict[str, str]:
+        return {item["loc"]: item["phrase"] for item in data["diagnostics"]}
 
-    assert "hmp config validate-field mesh.engine triangle" in result.stdout
-    assert validate_field("mesh.engine", "triangle", root=ROOT_CONFIG).valid
-    absent = validate_field("mesh.engine", "nope", root=ROOT_CONFIG)
-    assert not absent.valid
-    assert "this installation serves" in str(absent.error)
+    assert phrases(english)["geographic"].startswith("This key is required")
+    assert phrases(french)["geographic"].startswith("Cette clé est requise")
+
+
+def test_a_diagnostic_is_one_line_with_its_key_its_line_and_its_detail(tmp_path: Path) -> None:
+    path = tmp_path / "draft.toml"
+    path.write_text('[flow]\nflow_regime = "nope"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(["config", "check", str(path), "--partial"])
+
+    assert result.exit_code == 14
+    assert "  error flow.flow_regime:2: " in result.stderr

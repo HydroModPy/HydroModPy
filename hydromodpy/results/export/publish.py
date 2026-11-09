@@ -371,7 +371,7 @@ def _publish_one(
             ),
             manifest_sha256=None if is_summary else sha256_of(source_dir / RUN_MANIFEST_FILENAME),
             files=_digests(staging),
-            label=None if manifest is None else label_of(manifest).label,
+            label=None if manifest is None else label_of(manifest, source_dir).label,
             label_date=None if manifest is None else datetime.now(UTC).date(),
             hydromodpy_version=HYDROMODPY_VERSION,
             published_at=datetime.now(UTC),

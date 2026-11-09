@@ -25,8 +25,10 @@ from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import Manifest, is_sealed, read_seal
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.record import RunRecord
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_facts import identity_of, read_facts
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
+from hydromodpy.schema.sources import declared_source_tokens
 
 
 def read_sealed_manifest(run_dir: str | Path) -> Manifest | None:
@@ -37,12 +39,16 @@ def read_sealed_manifest(run_dir: str | Path) -> Manifest | None:
     return read_seal(directory)
 
 
-def label_of(seal: Manifest | RunRecord) -> LabelResult:
+def label_of(seal: Manifest | RunRecord, run_dir: str | Path) -> LabelResult:
     """Return the label of a sealed run today, under the shipped rules and register.
 
-    A run has metrics for the register when its headline score holds a value.
+    *run_dir* is the folder of the run. A run has metrics for the register when its
+    headline score holds a value, and a source for each one its sealed
+    ``config.toml`` declares. A run without that file declares none.
     """
     score = seal.score
+    config = Path(run_dir) / RUN_CONFIG_FILENAME
+    sources = declared_source_tokens(config.read_text(encoding="utf-8")) if config.is_file() else ()
     return label_for(
         seal.checks,
         hydromodpy_version=seal.identity.hydromodpy_version,
@@ -51,13 +57,16 @@ def label_of(seal: Manifest | RunRecord) -> LabelResult:
             mesh_engine=seal.geometry.mesh_engine,
             has_metrics=score is not None and score.value is not None,
             derive_rule_version=seal.derive_rule_version,
+            sources=sources,
         ),
     )
 
 
-def labelled_identity(manifest: Manifest, *, today: date | None = None) -> Identity:
-    """Return the identity of a sealed run, carrying its label of *today*."""
-    result = label_of(manifest)
+def labelled_identity(
+    manifest: Manifest, run_dir: str | Path, *, today: date | None = None
+) -> Identity:
+    """Return the identity of the sealed run at *run_dir*, carrying its label of *today*."""
+    result = label_of(manifest, run_dir)
     return manifest.identity.labelled(
         result.label,
         label_date=today or datetime.now(UTC).date(),
@@ -78,7 +87,7 @@ def identity_of_run_dir(run_dir: str | Path, *, today: date | None = None) -> Id
     directory = Path(run_dir)
     manifest = read_sealed_manifest(directory)
     if manifest is not None:
-        return labelled_identity(manifest, today=today)
+        return labelled_identity(manifest, directory, today=today)
     facts = read_facts(directory)
     if facts is not None:
         return identity_of(facts)

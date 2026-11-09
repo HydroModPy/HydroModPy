@@ -92,94 +92,37 @@ from hydromodpy.results.derive.stream.extent import (
     parse_extent_duration,
     parse_visible_flow,
 )
+from hydromodpy.schema.changes import prerelease_refusal
 
 
-def renamed_to(new: str, meaning: str) -> str:
-    """Return the refusal of a key that got a new name, for ``model_refused_keys``.
+def renamed_to(old: str, new: str, meaning: str) -> str:
+    """Return the refusal of a key that a pre-release of 2.0 wrote under its old name.
 
-    *meaning* says in one clause what the new key is, so a reader who never saw
-    the old name still learns what to write. ``hmp doctor --fix-config`` rewrites
-    the file (``hydromodpy.config.config_migration.RENAMED_KEYS``).
+    It is a value of ``model_refused_keys``. *meaning* says in one clause what the new
+    key is, so a reader who never saw the old name still learns what to write. The
+    doctor of a 2.0.x release rewrites the file, which the sentence of
+    :func:`hydromodpy.schema.changes.prerelease_refusal` says.
     """
-    return f"renamed to {new!r} ({meaning}); hmp doctor --fix-config <file> rewrites it"
+    return f"renamed to {new!r} ({meaning}). {prerelease_refusal(_THIS_TABLE, [old])}"
 
 
-CALIBRATION_RENAMES: Mapping[str, Mapping[str, tuple[str, str]]] = {
-    "calibration": {
-        "scoring_window": ("window", "the dates every metric is scored on"),
-        "optimizer_kwargs": ("method_options", "options of the method"),
-        "max_iter": ("max_trials", "the evaluations the search may run"),
-        "tolerance": ("precision", "how finely the search pins a parameter"),
-    },
-    "calibration.phases[*]": {
-        "scoring_window": ("window", "the dates this phase scores"),
-        "optimizer_kwargs": ("method_options", "options of this phase's method"),
-        "max_iter": ("max_trials", "evaluations this phase may run"),
-        "tolerance": ("precision", "how finely this phase pins its parameters"),
-    },
-    "calibration.protocol": {
-        "scoring_window": ("window", "the dates stage two scores"),
-        "steady_engine_options": ("steady_method_options", "options of the stage-one method"),
-        "transient_engine_options": ("transient_method_options", "options of the stage-two method"),
-        "steady_max_iter": ("steady_max_trials", "evaluations stage one may run"),
-        "transient_max_iter": ("transient_max_trials", "evaluations stage two may run"),
-        "steady_tolerance": ("steady_precision", "how finely stage one pins the conductivity"),
-        "transient_tolerance": ("transient_precision", "how finely stage two pins the storage"),
-    },
-    "calibration.parameters.{*}": {
-        "transform": ("search_space", "the space the search walks the parameter in"),
-        "prior": ("sampling", "the law that starting points and random draws follow"),
-    },
-    "calibration.objective_blocks[*]": {
-        "transform": ("cost_transform", "the function applied to the cost of this block"),
-    },
-    "calibration.outputs.{*}": {
-        "stream_geometry_path": ("map.complete", "the file of every mapped reach"),
-        "observed_network": ("map.complete", "where every mapped reach comes from"),
-        "minimal_stream_geometry_path": ("map.permanent", "the file of the permanent reaches"),
-        "minimal_observed_network": ("map.permanent", "where the permanent reaches come from"),
-        "observed_rasterization": ("map.drawn_by", "how the map is drawn on the cells"),
-        "clip_map_to_catchment": ("map.clip_to_catchment", "whether the map is cut first"),
-        "heads_snap_radius": ("map.heads.radius", "how far from its cell a head may land"),
-        "heads_min_drained_area_km2": ("map.heads.min_drained_area", "the area a head needs, km2"),
-        "observed_position_accuracy": ("map.position_accuracy", "how well the map is placed"),
-        "tau_specific_ratio": ("model.seepage_threshold", "what makes a cell a seepage face"),
-        "diagonal_neighbors": ("model.neighbours", "the graph the descent walks, 'D8' or 'D4'"),
-        "weighting": ("model.weighting", "how the cells count in the average"),
-        "extent": ("model.extent", "the transient two-bound mode"),
-        "validity_length": ("verdict.validity_length", "the validity bound of Eq. 4"),
-        "on_roptim_violation": ("verdict.on_invalid", "what a violation of Eq. 4 does"),
-        "alpha_warning_threshold": ("verdict.alpha_warning_threshold", "when alpha warns"),
-        "clipping_warning_share": ("verdict.clipping_warning_share", "when clipping is reported"),
-        "clipping_warning_gap": ("verdict.clipping_warning_gap", "when clipping is reported"),
-    },
-    "calibration.outputs.{*}.extent": {
-        "maximal_flowing_duration": ("model.extent.flowing_at_least", "how long a cell must flow"),
-        "minimal_dry_duration": (
-            "model.extent.dry_at_most",
-            "how long a cell may be dry in a year",
-        ),
-        "weights": ("map.calibrate_on", "the role of each map"),
-    },
-}
-"""Every plain rename of ``[calibration]``, by scope: old key, then new key and what it is.
-
-This one list feeds the refusal of the models here and ``RENAMED_KEYS`` of the doctor. A
-new key with a dot goes to another table of the network output, which ``RENAMED_KEYS``
-cannot do, so the two scopes of that output feed the rewrite of the doctor instead.
-"""
+def _renamed(renames: Mapping[str, tuple[str, str]]) -> dict[str, str]:
+    """Return the refusals of keys given as old key: (new key, what it is)."""
+    return {old: renamed_to(old, new, meaning) for old, (new, meaning) in renames.items()}
 
 
-def _renames_under(scope: str) -> dict[str, str]:
-    """Return the refusals of the renames of *scope*, for ``model_refused_keys``."""
-    renames = CALIBRATION_RENAMES[scope].items()
-    return {old: renamed_to(new, meaning) for old, (new, meaning) in renames}
+def _never_read(*keys: str) -> dict[str, str]:
+    """Return the refusals of keys that a pre-release declared and no step ever read.
+
+    No run depended on such a key, so the file loses nothing when the key goes.
+    """
+    return {key: "no step ever read it, so delete it from the file." for key in keys}
 
 
-_DROPPED_ADVICE = "it was never read; hmp doctor --fix-config <file> deletes it"
+_THIS_TABLE = "This table"
 _GAUGE_ADVICE = (
-    "the station is [site] gauge, and a point output names its own with 'observes'; "
-    "hmp doctor --fix-config <file> moves it"
+    "the station is [site] gauge, and a point output names its own with 'observes'. "
+    + prerelease_refusal(_THIS_TABLE, ["observed_station_id"])
 )
 
 
@@ -319,7 +262,29 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        **_renames_under("calibration.protocol"),
+        **_renamed(
+            {
+                "scoring_window": ("window", "the dates stage two scores"),
+                "steady_engine_options": (
+                    "steady_method_options",
+                    "options of the stage-one method",
+                ),
+                "transient_engine_options": (
+                    "transient_method_options",
+                    "options of the stage-two method",
+                ),
+                "steady_max_iter": ("steady_max_trials", "evaluations stage one may run"),
+                "transient_max_iter": ("transient_max_trials", "evaluations stage two may run"),
+                "steady_tolerance": (
+                    "steady_precision",
+                    "how finely stage one pins the conductivity",
+                ),
+                "transient_tolerance": (
+                    "transient_precision",
+                    "how finely stage two pins the storage",
+                ),
+            }
+        ),
         "observed_station_id": _GAUGE_ADVICE,
     }
 
@@ -565,7 +530,12 @@ class CalibParameterDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        **_renames_under("calibration.parameters.{*}"),
+        **_renamed(
+            {
+                "transform": ("search_space", "the space the search walks the parameter in"),
+                "prior": ("sampling", "the law that starting points and random draws follow"),
+            }
+        ),
     }
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
@@ -1210,14 +1180,28 @@ class CalibNetworkExtent(HydroModelBase):
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "maximal_flowing_steps": renamed_to(
+            "maximal_flowing_steps",
             "flowing_at_least",
             "how long a cell has to flow in a year, with its unit, such as '1 month'",
         ),
         "minimal_dry_steps": renamed_to(
+            "minimal_dry_steps",
             "dry_at_most",
             "how long a cell may be dry in a year, with its unit, such as '1 month'",
         ),
-        **_renames_under("calibration.outputs.{*}.extent"),
+        **_renamed(
+            {
+                "maximal_flowing_duration": (
+                    "model.extent.flowing_at_least",
+                    "how long a cell must flow",
+                ),
+                "minimal_dry_duration": (
+                    "model.extent.dry_at_most",
+                    "how long a cell may be dry in a year",
+                ),
+                "weights": ("map.calibrate_on", "the role of each map"),
+            }
+        ),
     }
 
     flowing_at_least: Annotated[str | None, Profile.USER] = Field(
@@ -1455,7 +1439,55 @@ class CalibOutputNetwork(HydroModelBase):
             "[calibration.outputs.<name>.verdict] max_catchment_mismatch refuses that, 0.05 "
             "by default."
         ),
-        **_renames_under("calibration.outputs.{*}"),
+        **_renamed(
+            {
+                "stream_geometry_path": ("map.complete", "the file of every mapped reach"),
+                "observed_network": ("map.complete", "where every mapped reach comes from"),
+                "minimal_stream_geometry_path": (
+                    "map.permanent",
+                    "the file of the permanent reaches",
+                ),
+                "minimal_observed_network": (
+                    "map.permanent",
+                    "where the permanent reaches come from",
+                ),
+                "observed_rasterization": ("map.drawn_by", "how the map is drawn on the cells"),
+                "clip_map_to_catchment": ("map.clip_to_catchment", "whether the map is cut first"),
+                "heads_snap_radius": ("map.heads.radius", "how far from its cell a head may land"),
+                "heads_min_drained_area_km2": (
+                    "map.heads.min_drained_area",
+                    "the area a head needs, km2",
+                ),
+                "observed_position_accuracy": (
+                    "map.position_accuracy",
+                    "how well the map is placed",
+                ),
+                "tau_specific_ratio": (
+                    "model.seepage_threshold",
+                    "what makes a cell a seepage face",
+                ),
+                "diagonal_neighbors": (
+                    "model.neighbours",
+                    "the graph the descent walks, 'D8' or 'D4'",
+                ),
+                "weighting": ("model.weighting", "how the cells count in the average"),
+                "extent": ("model.extent", "the transient two-bound mode"),
+                "validity_length": ("verdict.validity_length", "the validity bound of Eq. 4"),
+                "on_roptim_violation": ("verdict.on_invalid", "what a violation of Eq. 4 does"),
+                "alpha_warning_threshold": (
+                    "verdict.alpha_warning_threshold",
+                    "when alpha warns",
+                ),
+                "clipping_warning_share": (
+                    "verdict.clipping_warning_share",
+                    "when clipping is reported",
+                ),
+                "clipping_warning_gap": (
+                    "verdict.clipping_warning_gap",
+                    "when clipping is reported",
+                ),
+            }
+        ),
     }
 
     variable: Annotated[str, Profile.USER] = Field(
@@ -1606,7 +1638,14 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        **_renames_under("calibration.objective_blocks[*]"),
+        **_renamed(
+            {
+                "transform": (
+                    "cost_transform",
+                    "the function applied to the cost of this block",
+                ),
+            }
+        ),
         "warmup": (
             "a window bounds every block: write window = {start = <date>} on [calibration] instead"
         ),
@@ -1837,10 +1876,10 @@ def _refuse_a_posterior(data: Any, where: str) -> None:
 
 _UNCERTAINTY_REFUSED_KEYS: Mapping[str, str] = {
     "tolerance": renamed_to(
-        "cost_margin", "write '5%' or '25 m', a share of the best cost or a length"
+        "tolerance", "cost_margin", "write '5%' or '25 m', a share of the best cost or a length"
     ),
     "mode": renamed_to(
-        "cost_margin", "its unit says what mode said: '5%' is relative, '25 m' absolute"
+        "mode", "cost_margin", "its unit says what mode said: '5%' is relative, '25 m' absolute"
     ),
 }
 """The two keys that said how wide an interval is, now one margin that carries its unit."""
@@ -1945,7 +1984,14 @@ class CalibPhaseDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        **_renames_under("calibration.phases[*]"),
+        **_renamed(
+            {
+                "scoring_window": ("window", "the dates this phase scores"),
+                "optimizer_kwargs": ("method_options", "options of this phase's method"),
+                "max_iter": ("max_trials", "evaluations this phase may run"),
+                "tolerance": ("precision", "how finely this phase pins its parameters"),
+            }
+        ),
         "observed_station_id": _GAUGE_ADVICE,
     }
 
@@ -2215,13 +2261,11 @@ class CalibAggregateDecl(HydroModelBase):
 
     ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared
     here and never read: a file that wrote them got the same cost. They are
-    refused, and ``hmp doctor --fix-config`` deletes them.
+    refused as keys of a pre-release of 2.0.
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "weighting": _DROPPED_ADVICE,
-        "nested_gauges": _DROPPED_ADVICE,
-        "on_member_failure": _DROPPED_ADVICE,
+        **_never_read("weighting", "nested_gauges", "on_member_failure"),
     }
 
     min_samples: Annotated[int, Profile.USER] = Field(
@@ -2396,18 +2440,23 @@ class CalibrationConfig(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        **_renames_under("calibration"),
+        **_renamed(
+            {
+                "scoring_window": ("window", "the dates every metric is scored on"),
+                "optimizer_kwargs": ("method_options", "options of the method"),
+                "max_iter": ("max_trials", "the evaluations the search may run"),
+                "tolerance": ("precision", "how finely the search pins a parameter"),
+            }
+        ),
         "observed_station_id": _GAUGE_ADVICE,
         "warmup_periods": (
             "write window = {start = <date>} instead, with [simulation.time] "
-            "start_datetime plus that many steps as the date; hmp doctor --fix-config "
-            "<file> writes it when the step is known"
+            "start_datetime plus that many steps as the date. "
+            + prerelease_refusal(_THIS_TABLE, ["warmup_periods"])
         ),
         # Declared and never read. The promoted run follows
         # [simulation.results.persistence], never these.
-        "lightweight_extraction": _DROPPED_ADVICE,
-        "persist_model_distribution": _DROPPED_ADVICE,
-        "persistence": _DROPPED_ADVICE,
+        **_never_read("lightweight_extraction", "persist_model_distribution", "persistence"),
         "rerun_best_with_outputs": (
             "the best trial is promoted by default: save_runs = 'best_n' with "
             "save_best_n = 1 writes it under runs/<case>/."
@@ -3620,7 +3669,6 @@ def _site_of(gauge: str | None) -> Any:
 
 
 __all__ = [
-    "CALIBRATION_RENAMES",
     "CalibrationConfig",
     "apply_project_defaults",
     "implicit_station_scoring",

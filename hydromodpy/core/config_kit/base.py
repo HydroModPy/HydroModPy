@@ -185,33 +185,6 @@ class HydroModelBase(BaseModel):
         ser_json_inf_nan="strings",
     )
 
-    model_legacy_keys: ClassVar[Mapping[str, str]] = {}
-    """What a key used to be called, mapped to what it is called now.
-
-    ``extra="forbid"`` makes any rename a hard break for every file that already
-    uses the old spelling, so a key that says the wrong thing tends to keep its
-    name forever. Declaring the rename here keeps those files loading and warns
-    with both spellings, which is the only way a reader learns what to write.
-
-    Only the spellings listed here are accepted; an unknown key is refused as
-    before. Writing both spellings of one key is refused too: it is a
-    contradiction, and picking a winner silently would hide it.
-    """
-
-    model_retired_keys: ClassVar[frozenset[str]] = frozenset()
-    """Keys this model used to accept and no longer has, at all.
-
-    ``model_legacy_keys`` covers a key that was renamed; this covers a key that
-    was removed. The distinction matters because ``extra="forbid"`` refuses both
-    the same way, and a removed key has no new spelling to migrate to.
-
-    A run seals its resolved configuration and ``hmp run --resume`` replays that
-    file, so dropping a field from the schema makes every sealed run unreplayable
-    unless its key keeps loading. Listing it here accepts it, ignores it, and
-    warns, which is what lets the field disappear from the schema without
-    rewriting history on disk.
-    """
-
     model_refused_keys: ClassVar[Mapping[str, str]] = {}
     """Keys this model no longer accepts, mapped to what to write instead.
 
@@ -233,35 +206,12 @@ class HydroModelBase(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _drop_retired_keys(cls, data: Any) -> Any:
-        retired = cls.model_retired_keys
-        if not retired or not isinstance(data, Mapping):
-            return data
-        present = [key for key in retired if key in data]
-        if not present:
-            return data
-        kept = dict(data)
-        for key in present:
-            warnings.warn(
-                f"{key!r} is no longer read by {cls.__name__}; it is accepted so that "
-                "files written before its removal keep loading, and it has no effect.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            kept.pop(key)
-        return kept
-
-    @model_validator(mode="before")
-    @classmethod
     def _refuse_quoted_booleans(cls, data: Any) -> Any:
         """Refuse a string given for a field that takes only a boolean.
 
         TOML has native booleans, so a quoted one is always a mistake. Pydantic's
         lax coercion reads ``"yes"`` as True and refuses ``"maybe"``, which makes
         one class of typo behave two different ways; both are refused here.
-
-        Runs after ``_accept_legacy_keys``, so an old spelling is already the key
-        it was renamed to and the refusal names the spelling to write.
         """
         if not isinstance(data, Mapping):
             return data
@@ -277,33 +227,6 @@ class HydroModelBase(BaseModel):
                     f"TOML writes booleans unquoted: write {key} = true or {key} = false."
                 )
         return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def _accept_legacy_keys(cls, data: Any) -> Any:
-        renames = cls.model_legacy_keys
-        if not renames or not isinstance(data, Mapping):
-            return data
-        present = {old: new for old, new in renames.items() if old in data}
-        if not present:
-            return data
-        migrated = dict(data)
-        for old, new in present.items():
-            if new in migrated:
-                raise ValueError(
-                    f"{cls.__name__} was given both {old!r} and {new!r}; {old!r} is the "
-                    f"old spelling of {new!r}, so keep one."
-                )
-            # stacklevel=1 names this file. The caller is pydantic, which the
-            # console routing reads as a third-party deprecation and hides.
-            warnings.warn(
-                f"{old!r} is now called {new!r} ({cls.__name__}); the old spelling still "
-                f"loads, with this warning, and `{_FIX_CONFIG} <file>` rewrites a file.",
-                ConfigKeyRenamedWarning,
-                stacklevel=1,
-            )
-            migrated[new] = migrated.pop(old)
-        return migrated
 
     @classmethod
     def __get_pydantic_json_schema__(

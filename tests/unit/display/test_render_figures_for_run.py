@@ -13,7 +13,6 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.budget.terms import budget_terms_for
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import RUNS_DIRNAME
@@ -564,7 +563,7 @@ def test_two_sampled_parameters_without_a_name_do_not_apply() -> None:
 
 # A figure names its instant by date, and a date the run does not hold is a skip.
 #
-# Measured on the Nancon. The file used to write ``timestep = 33`` for October
+# Measured on the Nancon. A pre-release of 2.0 wrote ``timestep = 33`` for October
 # 2002 of the monthly run, ``timestep = 1017`` for the same month of the daily
 # run, and a calibration phase override ``timestep = 0`` for its steady stage,
 # which solves one period over the whole record. Reading step 33 out of a
@@ -737,9 +736,8 @@ def test_the_gallery_time_reaches_only_the_figures_that_draw_one_instant(
     assert series.drawn == [{}]
 
 
-def test_the_former_timestep_key_is_still_a_period_index(figure, tmp_path) -> None:
-    with pytest.warns(ConfigKeyRenamedWarning, match="'timestep' is now called 'time'"):
-        cfg = _dated_config(overrides={"seepage_map": {"timestep": 33}})
+def test_an_integer_time_is_a_period_index(figure, tmp_path) -> None:
+    cfg = _dated_config(overrides={"seepage_map": {"time": 33}})
 
     monthly = render_figures_for_run(_DatedRun(MONTHLY), cfg, output_dir=tmp_path)
     steady = render_figures_for_run(_DatedRun(STEADY), cfg, output_dir=tmp_path)

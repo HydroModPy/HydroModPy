@@ -112,8 +112,10 @@ def _loose_paths(document: dict) -> list[str]:
         for output in outputs.values():
             if isinstance(output, dict) and _OLD_MAP_KEYS & output.keys():
                 raise ConfigError(
-                    "a network output names its map with an old key, so no file would ship. "
-                    "Run 'hmp doctor --fix-config' to write it as map.complete."
+                    f"a network output names its map with {', '.join(sorted(_OLD_MAP_KEYS & output.keys()))}, "
+                    "which only a pre-release of 2.0 wrote, so no file would ship. Write it as "
+                    "map.complete or map.permanent, or run `hmp doctor --fix-config <file>` "
+                    "of a 2.0.x release."
                 )
             maps = output.get("map") if isinstance(output, dict) else None
             for role in ("complete", "permanent"):

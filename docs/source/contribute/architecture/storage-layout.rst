@@ -234,8 +234,8 @@ the index, a calibration included.
 convergence, observation coverage, score window, the validities of the calibration criteria,
 the bounds hit, whether the code was reproducible. The label (``exploratory``, ``calibrated``,
 ``evaluated``, ``failed``) is derived on read by :mod:`hydromodpy.results.validity_rules` and the
-``known_issues.toml`` shipped in the wheel, so a run sealed by a version with a known defect is
-downgraded without rewriting its seal. Every file that leaves a run carries the ``identity`` block
+``[[bug]]`` rows of the register of changes, ``hydromodpy/schema/changes.toml``, shipped in the
+wheel, so a run sealed by a version with a known defect is downgraded without rewriting its seal. Every file that leaves a run carries the ``identity`` block
 (site, case, ``sim_id``, period, score window, label, label date, rule version, version): root
 attributes of the Zarr store, ``schema.metadata`` of each Parquet file, ``gpkg_metadata`` of a
 GeoPackage, metadata and a visible footer of a figure, and a ``<file>.meta.json`` next to a CSV.
@@ -493,9 +493,14 @@ A gesture that names one document keeps the refusal: ``hmp.open``, ``hmp calibra
 ``hmp report render <session>``, and the plan ``hmp project status`` reads, because without its
 plan the command knows no case.
 
-The one migration of a file HydroModPy keeps is the grammar of a configuration
-(``config/config_migration.py``, applied on load; ``hmp doctor --fix-config <file>`` rewrites
-the file in place). A file another one inherits stays as it is when its rewrite hangs on a key only
+The one migration of a file HydroModPy keeps is the grammar of a configuration. It is the
+``[[migration]]`` rows of ``document = "config"`` in the register of changes,
+``hydromodpy/schema/changes.toml``, applied on load by ``config/config_migration.py``;
+``hmp doctor --fix-config <file>`` rewrites the file in place. A stored document that changes
+its shape, such as a sidecar or the field store, has its own row, ``document = "<id>"``, that the
+reader of that document applies. A key that only a pre-release of 2.0 wrote has no row. It is
+listed in ``config/prerelease_forms.txt`` and refused, with the way to the doctor of a 2.0.x
+release. A file another one inherits stays as it is when its rewrite hangs on a key only
 that child writes, since a sibling can write another one, and the doctor says what to write.
 ``tests/unit/results/test_every_document_carries_its_version.py`` holds the rule and lists the
 exempt files with their reason.
@@ -938,7 +943,10 @@ its provider, product, product version, the full request (extent, period, statio
 ``hmp run <run>/config.toml --frozen`` replays from that record alone. Before anything runs it
 refuses an input whose digest differs from ``inputs.json`` or from ``manifest.json``, naming the
 file and both digests, and a configuration that differs from ``config.resolved.toml``, naming each
-key and both values. It warns when the solver binary is not the one ``provenance.json`` records,
+key and both values. A key that this version added, absent from ``config.resolved.toml`` and
+at the default of the edition the run sealed, is no difference: the sealed file writes every
+default its version knew, so the key is one that version did not know. ``lineage.drift`` lists
+such keys under ``new_at_default``. It warns when the solver binary is not the one ``provenance.json`` records,
 naming both versions. Once it has run, it says what its build decided otherwise and which file it
 read that the source did not. ``hydromodpy.lock`` keeps its role for a project TOML.
 
@@ -950,8 +958,8 @@ its inputs there.
 
 The configuration of a sealed run is two files. ``config.toml`` holds what the run was given,
 overrides included, and a validator that tells a written key from its default answers on it as it
-did on the run. ``config.resolved.toml`` holds every key with its value, and is never read back as
-a configuration. Its body adds what a rule derives from the configuration alone, by the rule the
+did on the run. ``config.resolved.toml`` holds every key with its value, ``edition`` included, and is never read
+back as a configuration. A resolved file without ``edition`` reads as edition 2.0. Its body adds what a rule derives from the configuration alone, by the rule the
 builders use: ``geographic.terrain_engine``, ``mesh.lake_refinement.shoreline_band`` and
 ``hfb_buffer``, ``metrics.station``. Its table ``[resolved_at_build]`` holds what the build decided:
 the ETP the data step injected, with ``surface_offset_m`` and its reference, the cell sizes the mesh

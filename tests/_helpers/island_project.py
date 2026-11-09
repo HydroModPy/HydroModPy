@@ -77,8 +77,6 @@ values = [1.0]
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = [{sources}]
-active_bc = ["ocean", "drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -88,6 +86,8 @@ value = "5e-6 m/s"
 [flow.bc.ocean]
 kind = "dirichlet"
 value = "0.0 m"
+
+[flow.bc.drainage]
 
 {wells}
 [flow.sinks_sources.recharge]
@@ -119,10 +119,7 @@ def island_toml(
     cell can give.
     """
     wells = "" if well_flux is None else _WELL.format(flux=well_flux)
-    sources = '"recharge"' if well_flux is None else '"recharge", "wells"'
-    return _ISLAND.format(
-        name=name, keep=str(keep_solver_files).lower(), sources=sources, wells=wells
-    )
+    return _ISLAND.format(name=name, keep=str(keep_solver_files).lower(), wells=wells)
 
 
 def run_island(config: Path, *, cwd: Path = REPO_ROOT) -> None:

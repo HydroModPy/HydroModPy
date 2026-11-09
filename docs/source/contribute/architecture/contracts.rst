@@ -44,7 +44,9 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.contracts.observables``: what a solver answers.
 - ``hydromodpy.core.state.run_state``: ``RunState``, what a transport adapter reads,
   and ``SlotRequest``, what a calibration trial asks of the slot its runs solve in.
-- ``hydromodpy.schema``: the JSON Schema export and the partial validator.
+- ``hydromodpy.schema.config_schema``: the JSON Schema export, ``export_full_schema``.
+- ``hydromodpy.config.check``: ``check`` and ``phrase``, the sentence of each code a
+  check gives, read from ``hydromodpy/schema/phrases.toml``.
 - ``hydromodpy.catchment.terrain.port``: the terrain engine port.
 - ``hydromodpy.mesh.port``: the mesh engine port.
 - ``hydromodpy.data.source.port``: the data source port.
@@ -145,13 +147,14 @@ Changing a contract
 A change to the facade, to a stable port or to the two Protocols below is announced.
 The old name follows the rules of :doc:`/about/versions`. A name that leaves in 2.1.0
 or earlier is refused with its new form. From 2.2.0 on it keeps working for two minor
-versions and warns. This page and :doc:`storage-layout` change with it. A renamed TOML key gets its row in
-``hydromodpy/config/config_migration.py``, with ``since``. A renamed name of
+versions and warns. This page and :doc:`storage-layout` change with it. A renamed TOML key gets its
+``[[migration]]`` row in the register of changes, ``hydromodpy/schema/changes.toml``, with
+``since``, and the row stays there after its delay for the runs already sealed. A renamed name of
 ``hmp.__all__`` gets its entry in ``OLD_NAMES`` of ``hydromodpy/_lazy.py``, and a renamed
 ``hmp`` command or flag its entry in ``OLD_CLI_FORMS`` of
 ``hydromodpy/cli/conventions.py``, both with ``since``. Each warns with a
-``FutureWarning``, then forwards to the new form. A test fails once a row or an entry
-outlives its delay. ``OLD_NAMES`` and ``OLD_CLI_FORMS`` hold, marked ``refused``, the names,
+``FutureWarning``, then forwards to the new form. A test fails once an entry outlives its
+delay. All three read that delay from ``hydromodpy/schema/changes.py``, where it is written once. ``OLD_NAMES`` and ``OLD_CLI_FORMS`` hold, marked ``refused``, the names,
 the members of the public objects, the commands and the flags that left before the first
 stable version. They keep no alias: each is refused with a message that names its new
 form, and leaves the table at 2.2. The members live in ``hydromodpy/core/old_members.py``,

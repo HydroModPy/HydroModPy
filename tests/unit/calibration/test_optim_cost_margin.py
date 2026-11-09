@@ -334,9 +334,8 @@ def test_check_passes_the_defaults(tmp_path) -> None:
 def test_check_refuses_a_relative_width_written_in_a_network_phase(tmp_path) -> None:
     findings = _width_findings(_check(tmp_path, k_extra='uncertainty = { cost_margin = "5%" }'))
 
-    assert [(item.severity, item.where) for item in findings] == [
-        ("error", "[[calibration.phases]] 'k_network'")
-    ]
+    assert [(item.severity, item.path) for item in findings] == [("error", "calibration.phases")]
+    assert findings[0].detail.startswith("'k_network': ")
     assert "written in this phase" in findings[0].detail
 
 
@@ -347,7 +346,8 @@ def test_check_refuses_a_relative_width_the_section_hands_a_network_phase(tmp_pa
         _check(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "5%"\n')
     )
 
-    assert [item.where for item in findings] == ["[[calibration.phases]] 'k_network'"]
+    assert [item.path for item in findings] == ["calibration.phases"]
+    assert findings[0].detail.startswith("'k_network': ")
     assert "written in [calibration.uncertainty]" in findings[0].detail
 
 
@@ -395,31 +395,36 @@ def test_a_single_metric_distance_takes_one_mesh_cell(tmp_path, template, phase)
 
 @pytest.mark.fast
 @pytest.mark.parametrize(
-    ("template", "uncertainty", "where"),
+    ("template", "uncertainty", "path", "head"),
     [
         (
             SINGLE_METRIC_SECTION,
             '\n[calibration.uncertainty]\ncost_margin = "5%"\n',
-            "[calibration.uncertainty]",
+            "calibration.uncertainty",
+            "",
         ),
         (
             SINGLE_METRIC_PHASE,
             'uncertainty = { cost_margin = "5%" }',
-            "[[calibration.phases]] 'k_gap'",
+            "calibration.phases",
+            "'k_gap': ",
         ),
     ],
     ids=["section", "phase"],
 )
 def test_check_refuses_a_relative_width_on_a_single_metric_distance(
-    tmp_path, template, uncertainty, where
+    tmp_path, template, uncertainty, path, head
 ) -> None:
-    path = write_document(
+    document = write_document(
         tmp_path, PROJECT.format(root=tmp_path) + template.format(uncertainty=uncertainty)
     )
 
-    findings = _width_findings(preflight_calibration(HydroModPyConfig.from_toml(path), source=path))
+    findings = _width_findings(
+        preflight_calibration(HydroModPyConfig.from_toml(document), source=document)
+    )
 
-    assert [(item.severity, item.where) for item in findings] == [("error", where)]
+    assert [(item.severity, item.path) for item in findings] == [("error", path)]
+    assert findings[0].detail.startswith(head)
 
 
 @pytest.mark.fast

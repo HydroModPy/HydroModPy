@@ -18,6 +18,7 @@ from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.workflow.steps.prepare_solver.resolved import (
     BUILD_TABLE,
     build_drift,
+    compare_with_sealed,
     config_drift,
     resolved_at_build,
     resolved_config_document,
@@ -284,3 +285,71 @@ def test_a_sealed_table_of_2_0_is_compared_where_it_is_now(tmp_path: Path) -> No
     (run_dir / RUN_RESOLVED_CONFIG_FILENAME).write_text(dumps(document), encoding="utf-8")
 
     assert config_drift(_config(tmp_path), run_dir, project_root=tmp_path) == ()
+
+
+def _without(run_dir: Path, section: str, key: str) -> None:
+    """Remove one key from the sealed file, as a version that did not know it wrote it."""
+    resolved = run_dir / RUN_RESOLVED_CONFIG_FILENAME
+    document = tomllib.loads(resolved.read_text(encoding="utf-8"))
+    del document[section][key]
+    resolved.write_text(dumps(document), encoding="utf-8")
+
+
+NEW_KEYS = (
+    (
+        "a key the sealed file does not write, at its default",
+        {},
+        [],
+        {"solver.drain_bed_thickness_m": 1.0},
+    ),
+    (
+        "the same key written at its default",
+        {"solver": {"drain_bed_thickness_m": 1.0}},
+        [],
+        {"solver.drain_bed_thickness_m": 1.0},
+    ),
+    (
+        "the same key away from its default",
+        {"solver": {"drain_bed_thickness_m": 2.0}},
+        ["solver.drain_bed_thickness_m: sealed (not written), now 2.0"],
+        {},
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "sections", "lines", "at_default"), NEW_KEYS, ids=[row[0] for row in NEW_KEYS]
+)
+def test_a_key_the_sealed_file_does_not_write_drifts_only_away_from_its_default(
+    tmp_path: Path, case: str, sections: dict, lines: list[str], at_default: dict
+) -> None:
+    del case
+    run_dir = _sealed(tmp_path / "runs" / "x", _config(tmp_path), tmp_path)
+    _without(run_dir, "solver", "drain_bed_thickness_m")
+
+    compared = compare_with_sealed(_config(tmp_path, **sections), run_dir, project_root=tmp_path)
+
+    assert compared is not None
+    assert [item.line() for item in compared.drift] == lines
+    assert compared.new_at_default == at_default
+    assert (
+        config_drift(_config(tmp_path, **sections), run_dir, project_root=tmp_path)
+        == compared.drift
+    )
+
+
+def test_a_key_the_replay_no_longer_writes_still_drifts(tmp_path: Path) -> None:
+    run_dir = _sealed(tmp_path / "runs" / "x", _config(tmp_path), tmp_path)
+    document = tomllib.loads((run_dir / RUN_RESOLVED_CONFIG_FILENAME).read_text())
+    document["solver"]["a_key_of_an_older_version"] = 3
+    (run_dir / RUN_RESOLVED_CONFIG_FILENAME).write_text(dumps(document), encoding="utf-8")
+
+    compared = compare_with_sealed(_config(tmp_path), run_dir, project_root=tmp_path)
+
+    assert compared is not None
+    assert compared.new_at_default == {}
+    assert [item.key for item in compared.drift] == ["solver.a_key_of_an_older_version"]
+
+
+def test_a_comparison_of_a_run_that_sealed_no_file_says_so(tmp_path: Path) -> None:
+    assert compare_with_sealed(_config(tmp_path), tmp_path, project_root=tmp_path) is None

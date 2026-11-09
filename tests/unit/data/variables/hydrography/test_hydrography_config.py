@@ -60,16 +60,14 @@ class TestSourceConfigValidation:
         cfg = HydrographySourceConfig(source="bdtopage")
         assert cfg.page_size == 50_000
 
-    def test_a_sealed_typename_loads_and_is_ignored(self):
-        """The layer is fixed; runs sealed while ``typename`` existed still replay."""
-        with pytest.warns(DeprecationWarning, match="typename"):
-            cfg = HydrographySourceConfig(
+    def test_a_typename_is_refused_as_an_unknown_key(self):
+        """The layer is fixed. Only a pre-release wrote ``typename``, so no run reads it."""
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            HydrographySourceConfig(
                 source="bdtopage",
                 typename="sa:CoursEau_FXX_Topage2025",
                 page_size=500,
             )
-        assert "typename" not in type(cfg).model_fields
-        assert cfg.page_size == 500
 
     # -- EU-Hydro --
     def test_euhydro_defaults(self):

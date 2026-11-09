@@ -100,8 +100,6 @@ path = "../../data/etp/etp.nc"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.param.K.field]
@@ -126,6 +124,8 @@ transit_time = "5 days"
 
 [flow.sinks_sources.etp]
 extinction_depth = "2 m"
+
+[flow.bc.drainage]
 
 [display]
 enabled = false

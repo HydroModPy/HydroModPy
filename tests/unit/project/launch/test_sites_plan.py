@@ -14,11 +14,17 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
+from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.project.launch.sites.budget import dry_run_lines, plan_budget
 from hydromodpy.project.launch.sites.expansion import SitesProjectError, expand_plan
-from hydromodpy.project.launch.sites.issues import PlanError, group_issues
+from hydromodpy.project.launch.sites.issues import (
+    PlanError,
+    PlanIssue,
+    group_diagnostics,
+    group_issues,
+)
 from hydromodpy.project.launch.sites.plan import (
     RunningCaseError,
     is_plan_case,
@@ -57,12 +63,13 @@ solvers = ["modflow6"]
 [flow]
 flow_regime = "steady"
 param_list = ["K"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
 value = 5e-5
+
+[flow.bc.drainage]
 {extra}
 [sites]
 table = "sites.csv"
@@ -740,35 +747,78 @@ def test_a_recipe_writing_site_is_refused(tmp_path: Path) -> None:
         expand_plan(inline, inline / "project.toml")
 
 
+@pytest.mark.parametrize(
+    ("issue", "cases", "detail"),
+    [
+        (
+            PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k", case_id="a"),
+            1,
+            "a: sites.csv:3 column k -> flow.k: bad",
+        ),
+        (
+            PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k"),
+            3,
+            "3 cases: sites.csv:3 column k -> flow.k: bad",
+        ),
+        (PlanIssue("the plan is empty"), 1, "the plan is empty"),
+    ],
+    ids=["one case", "three cases", "the plan"],
+)
+def test_an_issue_is_a_sites_case_diagnostic_at_its_key(
+    issue: PlanIssue, cases: int, detail: str
+) -> None:
+    found = issue.diagnostic("warning", cases=cases)
+
+    assert found == Diagnostic(
+        path=issue.target or "", code="sites_case", severity="warning", detail=detail
+    )
+
+
+def test_the_same_issue_on_many_cases_is_one_diagnostic_and_one_line() -> None:
+    issues = [
+        PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k", case_id="a-low"),
+        PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k", case_id="a-high"),
+        PlanIssue("other", case_id="b-low"),
+    ]
+
+    found = group_diagnostics(issues)
+
+    assert [item.detail for item in found] == [
+        "2 cases: sites.csv:3 column k -> flow.k: bad",
+        "b-low: other",
+    ]
+    assert group_issues(issues) == [item.detail for item in found]
+    assert {item.severity for item in found} == {"error"}
+
+
 def test_a_recipe_that_cannot_be_read_is_a_finding_named_after_it(tmp_path: Path) -> None:
-    from hydromodpy.project.check import check_project
+    from hydromodpy.project.api import check
 
     project = write_sites_project(tmp_path)
     _add_recipe(project, "bad", "bad.toml", "[flow\n")
 
-    report = check_project(project / "project.toml")
+    [error] = check(project / "project.toml")
 
-    assert not report.ok and report.kind == "sites"
-    [error] = report.errors
-    assert error.startswith("[sites.recipes] bad: ") and "invalid TOML" in error
+    assert error.severity == "error" and error.code == "sites_case"
+    assert error.detail.startswith("[sites.recipes] bad: ") and "invalid TOML" in error.detail
 
     (project / "bad.toml").write_text('base_config = "missing.toml"\n', encoding="utf-8")
-    [error] = check_project(project / "project.toml").errors
-    assert error.startswith("[sites.recipes] bad: ") and "missing.toml" in error
+    [error] = check(project / "project.toml")
+    assert error.detail.startswith("[sites.recipes] bad: ") and "missing.toml" in error.detail
 
 
 def test_an_error_no_check_expected_is_a_finding(tmp_path: Path, monkeypatch) -> None:
-    import hydromodpy.project.check as check
+    import hydromodpy.project.api as api
 
-    def fail(target: Path) -> None:
+    def fail(target: Path, **_: object) -> None:
         raise RuntimeError("the disk went away")
 
-    monkeypatch.setattr(check, "_check", fail)
+    monkeypatch.setattr(api, "_check_file", fail)
 
-    report = check.check_project(tmp_path / "run.toml")
+    [error] = api.check(tmp_path / "run.toml")
 
-    assert not report.ok and report.kind == "simulation"
-    assert report.errors == ("Config check failed: the disk went away",)
+    assert error.severity == "error"
+    assert error.detail == "Config check failed: the disk went away"
 
 
 def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
@@ -804,41 +854,41 @@ def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
     ]
 
 
-def test_one_row_of_the_migration_reaches_every_layer_of_a_case(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A bind line, a recipe, a site file and --set all write the key under its old name."""
-    from hydromodpy.config import config_migration as migration
-    from hydromodpy.config.config_migration import KeyRename
+def test_one_row_of_the_migration_reaches_every_layer_of_a_case(tmp_path: Path) -> None:
+    """A bind line, a recipe, a site file and --set all write a key under its old name.
 
-    rows = (
-        KeyRename("flow.param.{*}.field", "value_before", "value", since="2.3.0"),
-        KeyRename("mesh", "size_before", "cell_size", since="2.3.0"),
-    )
-    monkeypatch.setattr(migration, "RENAMED_KEYS", (*migration.RENAMED_KEYS, *rows))
+    ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0, so each layer loads with a
+    warning and every case holds the key at its new place.
+    """
+    complexity = "solver.modflow6.runtime.mf6_ims_complexity"
     project = write_sites_project(
         tmp_path,
-        recipes_extra='small = { file = "project.toml", set = { "mesh.size_before" = 50.0 } }\n',
+        recipes_extra=(
+            'small = { file = "project.toml", '
+            'set = { "modflow6.runtime.mf6_ims_complexity" = "SIMPLE" } }\n'
+        ),
+        bind_extra='"modflow6.runtime.mf6_inner_dvclose" = "k"\n',
     )
     marker = project / "project.toml"
-    marker.write_text(
-        marker.read_text(encoding="utf-8").replace(
-            f'"{_K_PATH}" = "k"', f'"{_K_PATH}_before" = "k"'
-        ),
-        encoding="utf-8",
-    )
     (project / "site_overrides" / "couesnon.toml").write_text(
-        "[mesh]\nsize_before = 60.0\n", encoding="utf-8"
+        '[modflow6.runtime]\nmf6_ims_complexity = "MODERATE"\n', encoding="utf-8"
     )
 
     forget_old_forms_told()
     with pytest.warns(ConfigKeyRenamedWarning):
         draft = expand_plan(project, marker)
     with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
-        forced = expand_plan(project, marker, set_overrides={"mesh": {"size_before": 70.0}})
+        forced = expand_plan(
+            project,
+            marker,
+            set_overrides={"modflow6": {"runtime": {"mf6_ims_complexity": "COMPLEX"}}},
+        )
 
     assert not draft.errors
+    nancon = _case(draft, "nancon-base").document
     assert _k(_case(draft, "nancon-base")) == pytest.approx(1e-5)
-    assert lookup(_case(draft, "nancon-small").document, "mesh.cell_size") == 50.0
-    assert lookup(_case(draft, "couesnon-base").document, "mesh.cell_size") == 60.0
-    assert all(lookup(case.document, "mesh.cell_size") == 70.0 for case in forced.cases)
+    assert lookup(nancon, "solver.modflow6.runtime.mf6_inner_dvclose") == pytest.approx(1e-5)
+    assert lookup(_case(draft, "nancon-small").document, complexity) == "SIMPLE"
+    assert lookup(_case(draft, "couesnon-base").document, complexity) == "MODERATE"
+    assert all(lookup(case.document, complexity) == "COMPLEX" for case in forced.cases)
+    assert all("modflow6" not in case.document for case in [*draft.cases, *forced.cases])

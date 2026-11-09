@@ -12,19 +12,17 @@ persisted, not from a second layer of per-family booleans.
 from __future__ import annotations
 
 import datetime as _dt
-import warnings
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, field_validator
 
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 
-# What a figure option names an instant with, and what it used to be called.
+# What a figure option names an instant with.
 TIME_KEY = "time"
-_FORMER_TIME_KEY = "timestep"
 _TIME_FORMS = 'a date (YYYY-MM-DD), "first" or "last"'
 
 
@@ -177,49 +175,6 @@ class DisplayConfig(HydroModelBase):
     @classmethod
     def _check_time_shape(cls, value: Any) -> Any:
         return time_selector(value, "display.time")
-
-    @field_validator("overrides", mode="before")
-    @classmethod
-    def _rename_former_time_key(cls, value: Any) -> Any:
-        """Read the old per-figure ``timestep`` as ``time``, with a warning.
-
-        ``overrides`` is a dict, not a model, so ``model_legacy_keys`` cannot
-        carry this rename. The policy is the same: the old key loads and
-        warns, and both keys in one table are refused. A project TOML reaches
-        this validator already renamed: ``config_migration`` renames the key on
-        load and warns. This validator serves a ``DisplayConfig`` built from
-        a dict, and the pair of keys it refuses is left untouched by the
-        migration.
-        """
-        if not isinstance(value, Mapping):
-            return value
-        migrated: dict[Any, Any] = {}
-        for figure, options in value.items():
-            if not isinstance(options, Mapping) or _FORMER_TIME_KEY not in options:
-                migrated[figure] = options
-                continue
-            table = f"[display.overrides.{figure}]"
-            if TIME_KEY in options:
-                raise ValueError(
-                    f"{table} was given both {_FORMER_TIME_KEY!r} and {TIME_KEY!r}; "
-                    f"{_FORMER_TIME_KEY!r} is the old spelling of {TIME_KEY!r}, so delete "
-                    f"the {_FORMER_TIME_KEY!r} line. A calibration phase override "
-                    f'"display.overrides.{figure}.{_FORMER_TIME_KEY}" writes that line '
-                    "too: delete it, a date needs no phase override."
-                )
-            # stacklevel=1 names this file, as base.py does: the caller is
-            # pydantic, which the console routing hides.
-            warnings.warn(
-                f"{_FORMER_TIME_KEY!r} is now called {TIME_KEY!r} ({table}); the old spelling "
-                "still loads, with this warning, and `hmp doctor --fix-config <file>` "
-                "rewrites a file.",
-                ConfigKeyRenamedWarning,
-                stacklevel=1,
-            )
-            renamed = {k: v for k, v in options.items() if k != _FORMER_TIME_KEY}
-            renamed[TIME_KEY] = options[_FORMER_TIME_KEY]
-            migrated[figure] = renamed
-        return migrated
 
     @field_validator("figures", "overrides", mode="after")
     @classmethod

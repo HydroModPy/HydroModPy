@@ -335,6 +335,7 @@ extensions = [
     "hmp_notation",
     "hmp_contribute",
     "hmp_about",
+    "hmp_changes_register",
 ]
 
 # Theory figures are drawn at build time from the functions of the code, with
@@ -511,6 +512,7 @@ html_theme_options = {
             "about/**",
             "reference/index",
             "reference/changes",
+            "reference/changes-register",
             "reference/data-sources",
             "reference/figures",
             "reference/solvers",

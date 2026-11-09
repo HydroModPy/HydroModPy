@@ -15,6 +15,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
+from hydromodpy.schema.changes import prerelease_refusal
 
 
 class TopSamplingConfig(HydroModelBase):
@@ -147,7 +148,7 @@ _RETIRED_SGRID_KEYS = {
     ),
     "vertical": (
         "[domain.layers]: the layering describes the aquifer, so one table serves every "
-        "solver. Move the table there, or run hmp doctor --fix-config"
+        "solver. Move the table there"
     ),
 }
 
@@ -171,7 +172,10 @@ class SolverSGridConfig(HydroModelBase):
         if isinstance(data, Mapping):
             for key, replacement in _RETIRED_SGRID_KEYS.items():
                 if key in data:
-                    raise ValueError(f"sgrid.{key} is replaced by {replacement}.")
+                    raise ValueError(
+                        f"sgrid.{key} is replaced by {replacement}. "
+                        + prerelease_refusal("This table", [key])
+                    )
         return data
 
     @classmethod

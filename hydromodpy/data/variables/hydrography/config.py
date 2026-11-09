@@ -35,15 +35,6 @@ class HydrographySourceConfig(UrlSourceFieldsMixin, HydroModelBase):
     installed next to the build that exported it.
     """
 
-    model_retired_keys = frozenset({"typename"})
-    """``typename`` chose the BD Topage layer, and the only right one is fixed now.
-
-    It defaulted to ``CoursEau``, the named rivers, which leaves out most of the
-    intermittent network and says nothing of permanence. BD Topage is the reaches
-    layer, full stop. The key stays accepted, and ignored, so the runs sealed
-    while it existed keep replaying.
-    """
-
     source: Annotated[str, Profile.USER] = Field(
         ...,
         description=(

@@ -108,13 +108,6 @@ class DataManagersConfig(HydroModelBase):
     by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
     """
 
-    model_retired_keys = frozenset({"project_crs"})
-    """``project_crs`` promised reprojection and nothing read it.
-
-    The carrier is ``geographic.crs_project``. The key stays accepted, and
-    ignored, so the runs sealed while it existed keep replaying.
-    """
-
     types: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(

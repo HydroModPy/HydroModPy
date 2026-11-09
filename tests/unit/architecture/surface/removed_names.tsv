@@ -1,3 +1,8 @@
+hmp config validate-field	2.1.0
+hmp config validate-field --context	2.1.0
+hmp config validate-field --format	2.1.0
+hmp config validate-field --workspace	2.1.0
+hmp config validate-field -w	2.1.0
 hmp data check	2.1.0
 hmp dev	2.1.0
 hmp dev examples	2.1.0

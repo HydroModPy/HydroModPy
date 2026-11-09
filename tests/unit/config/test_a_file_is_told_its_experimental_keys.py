@@ -28,7 +28,7 @@ from hydromodpy.core.config_kit.written import (
 from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
-from hydromodpy.project.check import check_project
+from hydromodpy.project.api import check
 from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
@@ -377,11 +377,11 @@ def test_quiet_keeps_config_check_silent_on_a_sound_file(tmp_path: Path) -> None
 
 
 def test_a_calibration_check_lists_its_section_without_a_verdict_change(tmp_path: Path) -> None:
-    report = check_project(_write(tmp_path, tables=K_FIELD + CALIBRATION))
+    diagnostics = check(_write(tmp_path, tables=K_FIELD + CALIBRATION))
 
-    assert report.ok
-    assert report.experimental_keys == ("calibration",)
-    assert not report.lines()
+    assert not [item for item in diagnostics if item.severity == "error"]
+    assert [item.path for item in diagnostics if item.code == "experimental_key"] == ["calibration"]
+    assert all(item.code == "experimental_key" for item in diagnostics)
 
 
 def test_a_sites_check_lists_the_keys_of_its_cases_once(tmp_path: Path) -> None:
@@ -391,10 +391,15 @@ def test_a_sites_check_lists_the_keys_of_its_cases_once(tmp_path: Path) -> None:
     )
     project = write_sites_project(tmp_path, extra=wall)
 
-    report = check_project(project / "project.toml")
+    from hydromodpy.core.state.result_dirs import resolve_project_root
+    from hydromodpy.project.launch.sites.expansion import expand_plan
 
-    assert report.n_cases == 4
-    assert report.experimental_keys == ("flow.sinks_sources.flow_barriers",)
+    diagnostics = check(project / "project.toml")
+
+    assert len(expand_plan(resolve_project_root(project), project / "project.toml").cases) == 4
+    assert [item.path for item in diagnostics if item.code == "experimental_key"] == [
+        "flow.sinks_sources.flow_barriers"
+    ]
 
 
 def test_the_report_says_its_shape_is_experimental() -> None:

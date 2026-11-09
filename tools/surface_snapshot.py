@@ -11,8 +11,8 @@ Regenerate with one command, after a change of surface made on purpose::
     python -m tools.surface_snapshot
 
 The command refuses to drop a stable TOML key that has no row in
-``hydromodpy/config/config_migration.py``, a row that rewrites the key. A stable key it
-drops goes into ``removed_toml_keys.tsv``, so the gate still holds the migration after
+``hydromodpy/schema/changes.toml``, a ``[[migration]]`` row of ``document = "config"``
+that rewrites the key. A stable key it drops goes into ``removed_toml_keys.tsv``, so the gate still holds the migration after
 the old snapshot is gone. From the first stable version on, it also refuses a name of
 ``hydromodpy.__all__`` with no entry in ``hydromodpy/_lazy.py``, a command or a flag of
 ``hmp`` with no entry in ``hydromodpy/cli/conventions.py``, and a stable TOML key marked
@@ -45,6 +45,8 @@ from packaging.version import Version
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
+from hydromodpy.schema.changes import Migration, migrations_of, outlived
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT_DIR = REPO_ROOT / "tests" / "unit" / "architecture" / "surface"
 REMOVED_TOML_KEYS = "removed_toml_keys.tsv"
@@ -54,6 +56,8 @@ TOML_SURFACE = "toml_fields.tsv"
 FACADE_SURFACE = "python_facade.tsv"
 CLI_SURFACE = "cli_tree.tsv"
 EXPERIMENTAL = "experimental"
+FIRST_STABLE = "2.0.0"
+"""The first stable version. Before it, nothing is promised and no name needs an entry."""
 REGENERATE = "python -m tools.surface_snapshot"
 
 OBJECTS: tuple[tuple[str, str], ...] = (
@@ -401,19 +405,62 @@ def compare(before: Iterable[str], after: Iterable[str]) -> SurfaceDiff:
     )
 
 
-def migration_for(path: str) -> Any | None:
-    """Return the old form that rewrites a TOML path, by its own path or a moved parent.
+def _config_path(path: str) -> str:
+    """Return a path of the register as the snapshots write it, with no list marker."""
+    from hydromodpy.config.config_migration import document_path
 
-    A form the loader only refuses is no migration: ``hmp doctor --fix-config`` cannot
-    rewrite it, and the promise of ``versions.md`` is that it does.
+    return document_path(path)
+
+
+def _covers(old: str, path: str) -> bool:
+    return path == old or path.startswith(f"{old}.")
+
+
+def migration_for(path: str) -> Migration | None:
+    """Return the row of the register that rewrites a TOML path, itself or by a moved parent.
+
+    A ``move`` row and a ``value`` row rewrite. A ``retire`` row does when it names a
+    ``rule``, which writes the key somewhere else. A key that the loader only refuses is
+    no migration: ``hmp doctor --fix-config`` cannot rewrite it, and the promise of
+    ``versions.md`` is that it does.
     """
-    from hydromodpy.config.config_migration import document_path, old_forms
+    for row in migrations_of("config"):
+        if row.shape == "retire" and row.rule is None:
+            continue
+        old = _config_path(row.key if row.shape == "value" else str(row.old))
+        if _covers(old, path):
+            return row
+    return None
 
-    for form in old_forms():
-        old = document_path(form.old)
-        if form.rewritten and (path == old or path.startswith(f"{old}.")):
+
+def prerelease_form_for(path: str) -> Any | None:
+    """Return the form of ``prerelease_forms.txt`` that refuses a TOML path, or ``None``.
+
+    Such a key left the grammar before 2.0.0 was released, so the ledger holds it and
+    the doctor of 2.0.x rewrites it. It never covers a key that leaves today. A form of a
+    value refuses one value of a key that stays, so it covers no path. A form that ends
+    in ``{*}`` refuses the tables a pre-release wrote under a key, so it covers what lies
+    below that key and not the key itself.
+    """
+    from hydromodpy.config.config_migration import PRERELEASE_FORMS
+
+    for form in PRERELEASE_FORMS:
+        if form.has_value:
+            continue
+        old = _config_path(form.path)
+        if path.startswith(f"{old}.") or (path == old and not form.path.endswith(".{*}")):
             return form
     return None
+
+
+def toml_entry_for(path: str) -> Any | None:
+    """Return what keeps a removed TOML key answered: a row of the register or a refusal.
+
+    The ledger of removed keys holds rewrites and refusals. A rewrite is a row of the
+    register, a refusal is a line of ``prerelease_forms.txt``, and it stays until that
+    list leaves.
+    """
+    return migration_for(path) or prerelease_form_for(path)
 
 
 def _is_stable(rows: Iterable[str]) -> bool:
@@ -464,24 +511,32 @@ INTERFACE_NAMES: dict[str, Callable[[Iterable[str]], set[str]]] = {
 """The surfaces whose names keep working for their delay, and how to read their names."""
 
 
-def interface_forms() -> tuple[Any, ...]:
-    """Return the entries of the tables of old names and old forms of ``hmp``, as old forms."""
+@dataclass(frozen=True)
+class InterfaceForm:
+    """An old name of the facade or an old form of ``hmp``, and the entry that keeps it working."""
+
+    old: str
+    new: str | None
+    since: str
+
+
+def interface_forms() -> tuple[InterfaceForm, ...]:
+    """Return the entries of the tables of old names and old forms of ``hmp``."""
     from hydromodpy import _lazy
     from hydromodpy.cli import conventions
-    from hydromodpy.config.config_migration import OldForm
 
     return (
-        *(OldForm(name, entry.new, entry.since) for name, entry in _lazy.OLD_NAMES.items()),
-        *(OldForm(form.old, form.new, form.since) for form in conventions.OLD_CLI_FORMS),
+        *(InterfaceForm(name, entry.new, entry.since) for name, entry in _lazy.OLD_NAMES.items()),
+        *(InterfaceForm(form.old, form.new, form.since) for form in conventions.OLD_CLI_FORMS),
     )
 
 
-def outlived_interface_forms(version: str) -> tuple[Any, ...]:
+def outlived_interface_forms(version: str) -> tuple[InterfaceForm, ...]:
     """Return the entries of the two tables that *version* should no longer hold."""
-    return tuple(form for form in interface_forms() if form.outlived_by(version))
+    return tuple(form for form in interface_forms() if outlived(form.since, version))
 
 
-def entry_for(name: str) -> Any | None:
+def entry_for(name: str) -> InterfaceForm | None:
     """Return the entry that keeps a name of the facade or of ``hmp`` working.
 
     The entry of a command covers its flags and the commands under it.
@@ -494,10 +549,9 @@ def entry_for(name: str) -> Any | None:
 
 def before_the_tag() -> bool:
     """Whether this build comes before the first stable version, when nothing is promised."""
-    from hydromodpy.config.config_migration import ALPHA_FORM
     from hydromodpy.core.version import __version__
 
-    return Version(__version__) < Version(ALPHA_FORM)
+    return Version(__version__) < Version(FIRST_STABLE)
 
 
 def installed_release() -> str:
@@ -531,9 +585,10 @@ def regenerate(directory: Path = SNAPSHOT_DIR) -> list[str]:
     promised = not before_the_tag()
     left = _names_that_left(directory, current) if promised else []
     refused = [
-        f"{path}: this stable TOML key left and config_migration.py has no row that rewrites it. "
-        "Add the row, with its `since`, so that hmp doctor --fix-config rewrites it, or mark the "
-        "key experimental first if it was never promised and has never been stable."
+        f"{path}: this stable TOML key left and hydromodpy/schema/changes.toml has no migration row "
+        "that rewrites it. Add the row, with its `since`, so that hmp doctor --fix-config "
+        "rewrites it, or mark the key experimental first if it was never promised and has never "
+        "been stable."
         for path in removed
         if migration_for(path) is None
     ]
@@ -547,7 +602,7 @@ def regenerate(directory: Path = SNAPSHOT_DIR) -> list[str]:
     if promised:
         refused += [
             f"{path}: this stable TOML key is marked experimental. A stable version made a promise "
-            "on it: keep it stable, or rename it with its row in config_migration.py."
+            "on it: keep it stable, or rename it with its row in hydromodpy/schema/changes.toml."
             for path in newly_demoted
         ]
     if refused:

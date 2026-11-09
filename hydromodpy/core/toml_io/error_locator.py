@@ -166,6 +166,43 @@ def resolve_loc(loc: Sequence[object], document: object) -> tuple[str, ...]:
     return tuple(resolved)
 
 
+def located_faults(
+    error: ValidationError,
+    *,
+    loc_prefix: Sequence[str] = (),
+    source_path: Path | str | None = None,
+    text: str | None = None,
+    document: object = None,
+) -> tuple[tuple[tuple[str, ...], dict[str, object]], ...]:
+    """Return each field fault with the key segments it sits at, as the document spells them.
+
+    The record is the one :func:`validation_error_details` returns. The segments
+    come with it so a reader that builds a
+    :class:`~hydromodpy.core.diagnostic.Diagnostic` keeps a key that holds a dot
+    or a slash in one piece.
+    """
+    if text is None and source_path is not None:
+        try:
+            text = Path(source_path).read_text(encoding="utf-8-sig")
+        except OSError:
+            text = None
+
+    located: list[tuple[tuple[str, ...], dict[str, object]]] = []
+    for err in error.errors():
+        loc = _document_loc(loc_prefix, err, document)
+        record: dict[str, object] = {
+            "pointer": json_pointer(loc),
+            "loc": format_loc(loc) or "<root>",
+            "msg": err.get("msg", ""),
+            "type": err.get("type", ""),
+        }
+        line_no = locate_loc(text, loc) if text else None
+        if line_no is not None:
+            record["line"] = line_no
+        located.append((loc, record))
+    return tuple(located)
+
+
 def validation_error_details(
     error: ValidationError,
     *,
@@ -181,27 +218,14 @@ def validation_error_details(
     paragraph: it needs the field, and that is what ``pointer`` carries.
     ``line`` is present only when the source text is available and the locator
     found the token, because a line number that is a guess is worse than none.
+    The check of a document reads the same records through :func:`located_faults`.
     """
-    if text is None and source_path is not None:
-        try:
-            text = Path(source_path).read_text(encoding="utf-8-sig")
-        except OSError:
-            text = None
-
-    records: list[dict[str, object]] = []
-    for err in error.errors():
-        loc = _document_loc(loc_prefix, err, document)
-        record: dict[str, object] = {
-            "pointer": json_pointer(loc),
-            "loc": format_loc(loc) or "<root>",
-            "msg": err.get("msg", ""),
-            "type": err.get("type", ""),
-        }
-        line_no = locate_loc(text, loc) if text else None
-        if line_no is not None:
-            record["line"] = line_no
-        records.append(record)
-    return tuple(records)
+    return tuple(
+        record
+        for _, record in located_faults(
+            error, loc_prefix=loc_prefix, source_path=source_path, text=text, document=document
+        )
+    )
 
 
 def _document_loc(
@@ -274,6 +298,7 @@ __all__ = [
     "format_validation_error",
     "json_pointer",
     "locate_loc",
+    "located_faults",
     "resolve_loc",
     "validation_error_details",
 ]

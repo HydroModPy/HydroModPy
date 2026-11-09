@@ -20,6 +20,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- `config.resolved.toml` writes `edition`, the set of defaults the run used, `"2.0"` today. A resolved file without it reads as edition 2.0. A file may write `edition` at its root, and a value this version does not serve is refused with the editions it serves.
+- The register of changes is listed on a generated page, `docs/source/reference/changes-register.md`, one table per kind of row.
+- `python -m tools.changes_changelog` writes the `Numbers` block of `CHANGELOG.md` between two comments from the register, and exits with 1 when the block differs.
+- `tools/docs/snapshots/fields-2.0.0.json`, so the page of TOML changes compares 2.0.0 with the tree.
 - `[solver.modflow_nwt]` and `[solver.boussinesq]` take `wall_clock_limit_s`, the wall-clock budget of one trial of a parallel calibration, as MODFLOW 6 does with `[solver.modflow6.runtime] mf6_api_timeout_s`. Unset, a trial keeps the built-in 14400 s.
 - A flow adapter declares `face_flow` among what it writes, and the GWT one declares `concentration/*`.
 - A transport whose flow does not write `face_flow` is refused when the file is read, with the flow solvers that write it.
@@ -71,8 +75,20 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A document that writes [flow.param] or [domain.depth_model], or calibrates one of their entries, is refused under a solver backend that reads no aquifer property, such as linear_reservoir.
 - A calibration protocol states the observables its stages read. A backend that declares one of them unavailable is reported as unsupported, and a backend that no case of the repository runs is reported as expected to work but untested.
 - The export vocabulary lists the simulated series `lak_connection` and `reservoir_storage`, which the time-series registry now holds.
+- `hydromodpy.config.check.check(document, partial=True)` checks a whole or a partial configuration section by section and returns every `Diagnostic` at once: the dotted path, a stable code, a severity (`error`, `warning` or `to_fill`) and what the validator said. A required key that is not written yet is `to_fill`. The phrase of each code is in `hydromodpy/schema/phrases.toml`, in English and in French.
+- `hmp.check(source, partial=True, inputs=False, environment=None)` checks a project file or a document from Python and returns its list of `Diagnostic`. On a file it gives the line of each key, and once the file has no error and nothing left to fill it adds the findings of the calibration preflight.
+- `hmp config check --partial` checks a draft, where a missing required key is `to_fill` and refuses nothing. `--inputs` reads the header of each input file, of every case of a `[sites]` project too, and `--lang fr` writes the phrases in French.
+- `hmp.check(..., inputs=True)` reads the header of each input file the document names. A local file is opened in a rasterio `Env` of the call. A URL goes through the head-only resolution of `core.io.fetch` under the bounds of the call, then GDAL reads the final URL by `/vsicurl/`, so GDAL never sees the first URL, and a URL without bounds is refused. A DEM must declare a projected CRS in metres, a square pixel and a grid that is not rotated, and the outlet must fall on a valid cell.
 
 ### Changed
+- The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
+- `[[simulation.process]] type`, which `hmp init` of 2.0.0 wrote, loads in 2.1 with a warning under its name `kind`, and is refused from 2.2.
+- `hmp run --frozen` no longer counts as a difference a key that the sealed `config.resolved.toml` does not write, when the replay holds it at its default. `lineage.drift` of a rerun lists such keys under `new_at_default`.
+- A known bug of a data source declasses only the runs whose `config.toml` declares that source, through the token `source@<section>_<source>`. The three Hub'Eau bugs of 2.0.x name `source@hydrometry_hubeau`, so a run that declares no Hub'Eau hydrometry keeps its label.
+- `label_of` and `labelled_identity` of `hydromodpy.results.run_identity` take the folder of the run, whose `config.toml` says the sources the run declared.
+- The refusals of calibration keys, `flow.param` ids, `[export]` tables, `[flow.bc.<family>.<id>]` tables and sgrid keys of a pre-release of 2.0 end with the sentence that names `pip install "hydromodpy~=2.0.0"` and `hmp doctor --fix-config`. `renamed_to` of `hydromodpy.calibration.config` takes the old key first.
+- The refusal of a key only a pre-release wrote carries one fault per key in `details`, each with its JSON pointer, and the file in `source`.
+- The sidecar reader applies the rows of `schema/changes.toml` marked `document = "sidecar"` instead of renaming `custom` to `file` in code.
 - A transport backend receives the frozen `Model` of its flow, its options, the run slot of its flow and the `SolverRun` of that flow, through `build(model, options, slot, upstream=())`. It no longer reads the setup, the configuration or the run store.
 - MODFLOW-NWT writes its flow-transport link file when a later run of the plan reads `face_flow`, and no longer looks for a run named `mt3dms` in the plan.
 - The concentration of a transport run is stored under `concentration/<species>`, named by `spc_name`. Runs written by 2.0.0 still read.
@@ -392,9 +408,19 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `NativeSeries` carries one more edge than values, and the last edge is the end of the run. A step that starts before the run is cut at its start, so no water from before the run is counted.
 - The linear reservoir declares `writes = ("timeseries", "budgets")`, the two tables it fills. Its `locate_cell` and `top_active_layer` follow the `CellLocator` port.
 - The old names `CustomCrossingsSource`, `CustomDemSource`, `CustomGeologySource`, `CustomLakeAbacusSource`, `CustomLakeBathymetrySource`, `CustomLakeGeometrySource`, `CustomLayerBaseSource`, `CustomSoilCapacitySource` and `CustomSubstratumSource` of `hydromodpy` are refused with their `File...Source` replacement.
+- A configuration that fails to load names every fault it holds, not only the first. The type of the error and the exit code are those of the first fault, as before.
+- Every HydroModPy error that refuses a document carries its diagnostics, and `to_dict()` lists them under `details` with their pointer, code and severity, not only `ConfigValidationError`.
+- The checks of the `[[export]]` names and of the dates of `[[export]]` and `[display]` run when the file is loaded, with the other rules between sections. They give the same messages, the same `ConfigError` and the same exit code 14. A sealed run only warns of them, as it does of the checks against the solver. Step 0 of a run given a `HydroModPyConfig` already built runs every rule between sections on it again, so a section changed after the load is still refused before the solve.
+- Two `[[export]]` blocks that write one file are refused at load only when the file does not depend on the name of the run. A `file` that takes the name of a group of fields or series of the run, such as `<run>_fields.nc`, is refused by the export before that block writes anything, and the earlier file is kept.
+- The rules between sections of a project file are the rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`, each with the sections it reads. The refusals and their sentences are those of the validators of `HydroModPyConfig` they replace, and the first refusal is raised in the same order.
+- `hmp config check --format json` writes `{"ok": ..., "diagnostics": [...], "workspace": [...]}`, each diagnostic with its pointer, code, severity, detail and a phrase in the language of `--lang`. The keys `kind`, `n_cases`, `summary`, `errors`, `warnings` and `experimental_keys` are gone. The number of cases of a `[sites]` project is printed by `hmp run --dry-run`.
+- `hmp doctor --fix-config` reads the retired keys from the check codes, and says which old forms it cannot rewrite.
+- `preflight_calibration`, `preflight_launch` and `refuse_what_the_preflight_refuses` give `Diagnostic` objects of code `calibration_preflight` in place of `PreflightFinding`, which is removed. The key sits in `path` as a dotted key such as `calibration.parameters.K`, and the text that followed a key in brackets, a phase name or the word bounds, opens `detail`. The refusal of a launch carries its error diagnostics in `ConfigError.diagnostics`, with the same message.
 
 ### Removed
 
+- The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds; `pip install "hydromodpy~=2.0.0"` then `hmp doctor --fix-config` rewrites it. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.3.0.
+- `model_legacy_keys` and `model_retired_keys` of `HydroModelBase`, `CALIBRATION_RENAMES` of `hydromodpy.calibration.config`, `OLD_PROPERTY_IDS` and `NEVER_READ_IDS` of `hydromodpy.model.properties.property_ids`. A key only a pre-release of 2.0 wrote is refused, with the way to the doctor of a 2.0.x release.
 - `hydromodpy.model.transport.transport.Transport` and the `transport` member of the run setup. The transport solvers read their table directly.
 - geographic.catchment.dem_init_path. Declare the DEM as [[data.dem.sources]] with source = "file". A file that still writes it is refused, `hmp doctor --fix-config` writes the `[[data.dem.sources]]` row, and a sealed run config still reads it.
 - hmp data check and hydromodpy.data.workspace.custom_scan.
@@ -480,6 +506,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 - `[calibration].forward_model` and the `ForwardModel` port are removed. A global model is a solver backend: name it by `solver.backend` and calibrate it with the pipeline evaluator.
 - The solver aliases mf6 and nwt of `hmp catalog ls --solver` are gone. Write the full backend name.
+- `hydromodpy.schema.validate_field` and `hydromodpy.schema.ValidationResult`: `check(document, partial=True)` replaces them. `hydromodpy.schema` re-exports nothing, so `export_full_schema`, `build_config_meta` and `build_field_validators` are imported from `hydromodpy.schema.config_schema`.
+- `hydromodpy.config.export_checks`: its two checks are rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`. `require_site_for_real_catchment` and `REAL_CATCHMENT_DEFINITIONS` moved there from `hydromodpy.config.hydromodpy_config`.
+- `hmp config validate-field`, which had no handler. Use `hmp config check --partial`, or `hmp.check` from Python.
+- `hydromodpy.project.check` (`check_project`, `CheckReport`), replaced by `hydromodpy.project.api.check`, which returns a list of `Diagnostic`.
 ### Fixed
 
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.
@@ -491,6 +521,15 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   a first run. Before, only a path worked there.
 - The frozen config of a run whose catchment reads its DEM from `[[data.dem.sources]]` validates again.
 - MODPATH and MT3DMS build their deck again, and the `seepage_clip` release raster reads the water table cell by cell.
+
+### Numbers
+
+<!-- numbers:begin -->
+- Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM.
+- With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
+- Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway.
+- The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = "steady_state" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = "petsc" and surface_interaction_model = "vi_obstacle", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it.
+<!-- numbers:end -->
 
 ## [v2.0.0] - 2026-11-07
 

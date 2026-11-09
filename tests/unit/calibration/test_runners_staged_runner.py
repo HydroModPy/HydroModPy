@@ -827,7 +827,9 @@ def test_the_preflight_refuses_bounds_outside_the_resolved_ones() -> None:
         calibration = cfg
 
     findings = preflight_calibration(_Config(), source=Path("calibration.toml"))
-    refused = [finding for finding in findings if "bounds" in finding.where]
+    refused = [
+        finding for finding in findings if finding.detail.partition(": ")[0].endswith(" bounds")
+    ]
 
     assert [finding.severity for finding in refused] == ["error"]
     assert "[1e-05, 0.001]" in refused[0].detail

@@ -27,8 +27,7 @@ import copy
 import json
 import os
 import re
-from collections.abc import Callable, Mapping, Sequence
-from functools import partial
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
@@ -36,34 +35,32 @@ from pydantic import (
     Field,
     ModelWrapValidatorHandler,
     PrivateAttr,
-    ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
 )
 
-from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.config_migration import (
     RETIRED_SGRID_KEYS,
-    _raw_flow_process_solver,
     migrate_layers,
     migrate_merged_doc,
     migrate_sealed_config_doc,
 )
-from hydromodpy.config.cross_checks import (
-    check_against_the_solver,
-    deduce_the_mesh_engine,
-    flow_honors,
-)
+from hydromodpy.config.cross_checks import check_against_the_solver, deduce_the_mesh_engine
 from hydromodpy.config.section_loader import (
-    _load_optional_calibration_section,
-    _load_optional_mesh_section,
+    ANALYSIS_SECTION_REFUSAL,
+    HYDROMETRY_SECTION_REFUSAL,
+    RETIRED_SECTIONS,
+    TESTBED_REFUSAL,
     _raw_declares_dem_source,
-    load_geographic_section,
-    load_optional_section,
-    load_standard_section,
+    align_solver_keys,
+    build_document,
+    raise_the_first,
+    resolve_document,
+    retired_section,
+    validate_sections,
 )
 from hydromodpy.config.sites import SitesConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -81,56 +78,34 @@ from hydromodpy.core.exceptions import (
     IncompatibleCapabilitiesError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.site import SiteConfig
 from hydromodpy.core.state.result_dirs import is_sealed_run_config, resolve_project_root
-from hydromodpy.core.time.window import (
-    build_simulation_time_boundaries,
-    resolve_simulation_time_window,
-)
-from hydromodpy.core.toml_io.error_locator import (
-    format_validation_error,
-    json_pointer,
-    validation_error_details,
-)
 from hydromodpy.core.toml_io.loader import config_base_dir, load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import assign, parse, source_of_effective_copy
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
+from hydromodpy.data.sites.gauge import apply_site_gauge
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
-from hydromodpy.model.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.forcing.soil_config import (
-    soil_reservoir_of,
-    spinup_refusal,
-    steady_start_refusal,
-)
-from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.model.initial_config import SpinupConfig
-from hydromodpy.model.properties.property_table import PROPERTIES, k_tensor_parameter_ids
 from hydromodpy.model.transport.transport_config import TransportConfig
-from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
+from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.metric_rule import MetricsConfig
 from hydromodpy.results.publication import PublicationConfig
+from hydromodpy.schema.changes import FIRST_EDITION, editions
 from hydromodpy.solver.base.observation_config import ObservationConfig
 from hydromodpy.solver.base.simulation_config import SimulationConfig
-from hydromodpy.solver.base.solver_config import SolverConfig, backend_following_the_process
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 logger = get_logger(__name__)
 
 WorkflowMode = Literal["simulation", "calibration", "overview"]
 ValidationContext = Literal["toml", "api", "snapshot"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
-
-ANALYSIS_SECTION_REFUSAL = (
-    "[analysis] was removed: a comparison is hmp report compare over sealed runs, "
-    "figures are hmp export <run> --regen figures on a run"
-)
-HYDROMETRY_SECTION_REFUSAL = (
-    "a root [hydrometry] is not read: a run reads its stations from [data.hydrometry]"
-)
 
 RETIRED_WORKFLOW_MODES: dict[str, str] = {
     "testbed": (
@@ -214,168 +189,6 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
-_ROOT_PERSISTENCE_REFUSAL = (
-    "Section [persistence] is not read by any run. Write its keys under "
-    "[simulation.results.persistence], which a run reads, and so does the run "
-    "a calibration promotes."
-)
-
-
-_RETIRED_MESH_SECTIONS: dict[str, str] = {
-    "mesh_catchment": (
-        'Section [mesh_catchment] is replaced by [mesh]. Write engine = "triangle" or '
-        '"voronoi" (the cells MODFLOW 6 ran on were chosen by sgrid.grid_dual), '
-        "cell_size (was zone_meshing.global_size), river_cell_size and river_band (were "
-        "zone_meshing.interface_size and interface_distance) and [mesh.families] (was "
-        "constraints_mode and watershed_boundary). The cache, output, figure, "
-        "hydraulic_properties and rivers keys are gone: the run caches its mesh and "
-        "reads K from [flow.param.K]."
-    ),
-    "mesh_catchment_batch": (
-        "Section [mesh_catchment_batch] has no replacement: [mesh] meshes the catchment "
-        "of the project."
-    ),
-    "mesh_input": (
-        'Section [mesh_input] is replaced by [mesh.triangle] path, with engine = "triangle" '
-        'or "voronoi" in [mesh]. '
-        "Its bundle_dir has no replacement."
-    ),
-}
-
-
-_TESTBED_REFUSAL = (
-    "a case of a testbed is a recipe: list the catchments in [sites] and the "
-    "variants in [sites.recipes]."
-)
-
-RETIRED_SECTIONS: dict[str, str] = {
-    "initializing": "Section [initializing] is no longer supported. Use [workspace] instead.",
-    "modflow": (
-        "Section [modflow] is no longer supported. "
-        "Use [solver], whose table for each flow solver sits under its name."
-    ),
-    "capability_gallery": (
-        "Section [capability_gallery] is no longer supported: the figures of "
-        "a run are drawn again by hmp export <run> --regen figures."
-    ),
-    "analysis": ANALYSIS_SECTION_REFUSAL,
-    "hydrometry": HYDROMETRY_SECTION_REFUSAL,
-    "batch": (
-        "Section [batch] is no longer supported. List the catchments in [sites] "
-        "and the variants in [sites.recipes]."
-    ),
-    "testbed": "Section [testbed] is no longer supported: " + _TESTBED_REFUSAL,
-    "persistence": _ROOT_PERSISTENCE_REFUSAL,
-    **_RETIRED_MESH_SECTIONS,
-    "regional_lab": (
-        "Section [regional_lab] is not a HydroModPyConfig section. A regional "
-        "lab is a [sites] project: list the catchments in [sites] and the "
-        "variants in [sites.recipes]."
-    ),
-}
-"""Root sections a file may no longer write, each with the sentence that refuses it.
-
-A new retired section is one row here. ``_from_payload`` refuses the first one a
-document writes, and a direct ``model_validate`` refuses it too.
-"""
-
-
-def _retired_section(data: Mapping[str, Any]) -> str | None:
-    """Return the first retired root section a document declares, or None."""
-    return next((name for name in RETIRED_SECTIONS if name in data), None)
-
-
-def _with_calibration_defaults(raw: dict[str, Any], *, source_path: Path | None) -> dict[str, Any]:
-    """Write ``[site] gauge`` and ``[metrics] window`` into ``[calibration]``.
-
-    The defaults the calibration runners apply
-    (:func:`~hydromodpy.calibration.config.apply_project_defaults`), applied
-    here too, so a document that leaves ``observes`` or ``window``
-    to the project loads the same way through ``from_toml`` and
-    ``hmp config check``. A written station that is not the gauge is refused.
-    """
-    calibration = raw.get("calibration")
-    if not isinstance(calibration, Mapping):
-        return raw
-    site, metrics = raw.get("site"), raw.get("metrics")
-    try:
-        raw["calibration"] = apply_project_defaults(
-            calibration,
-            site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
-            metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
-        )
-    except ConfigError as exc:
-        raise _section_refusal(
-            "calibration", str(exc), source_path=source_path, error_type="value_error"
-        ) from exc
-    return raw
-
-
-def _section_refusal(
-    section: str,
-    message: str,
-    *,
-    source_path: Path | None = None,
-    error_type: str = "extra_forbidden",
-) -> ConfigValidationError:
-    """Build the refusal of one named top-level section, pointer included.
-
-    A section a document is not allowed to declare is a fault of that document,
-    not of this process, so it carries the same shape as a Pydantic field fault
-    and reaches the same exit code.
-    """
-    return ConfigValidationError(
-        f"{source_path}: {message}" if source_path is not None else message,
-        details=(
-            {
-                "pointer": json_pointer((section,)),
-                "loc": section,
-                "msg": message,
-                "type": error_type,
-            },
-        ),
-        source=None if source_path is None else str(source_path),
-    )
-
-
-def _validation_refusal(
-    exc: ValidationError,
-    *,
-    loc_prefix: Sequence[str] = (),
-    source_path: Path | None = None,
-    document: Mapping[str, Any] | None = None,
-) -> ConfigValidationError:
-    """Turn a Pydantic failure into the typed refusal this boundary raises.
-
-    ``loc_prefix`` is what makes the JSON Pointer true. A section is validated
-    against its own model, so Pydantic reports ``dem_correction_type`` where the
-    document says ``geographic.dem_correction_type``; without the prefix the
-    pointer would name a root key that does not exist.
-
-    ``document`` is the mapping that was validated, and it is what settles the
-    other half: Pydantic inserts the tag of the union variant it chose, and the
-    document is the only thing that knows that segment is not a key of its own.
-    """
-    return ConfigValidationError(
-        format_validation_error(
-            exc, source_path=source_path, loc_prefix=loc_prefix, document=document
-        ),
-        details=validation_error_details(
-            exc, loc_prefix=loc_prefix, source_path=source_path, document=document
-        ),
-        source=None if source_path is None else str(source_path),
-    )
-
-
-def _optional_model(model_cls: type[HydroModelBase]) -> Callable[[Any, Path], Any]:
-    """Return the loader of an optional section that names no file.
-
-    The section is validated as written: its relative paths, if any, are read
-    from the project root by the code that opens them, not rebased here.
-    """
-    return lambda data, _base: None if data is None else model_cls.model_validate(data)
-
-
 def _derive_name_from_filename(toml_path: Path) -> str:
     """Derive a simulation name from a TOML filename.
 
@@ -404,34 +217,6 @@ def _resolve_calibration_parameter_names(cfg: Any) -> None:
     resolve_parameter_targets(calibration, cfg, strict=False)
 
 
-REAL_CATCHMENT_DEFINITIONS: frozenset[str] = frozenset(
-    {"from_outlet_coord", "from_polyg_shp", "dem"}
-)
-"""Values of ``geographic.catchment.kind`` that model a real catchment, named by a site."""
-
-
-def require_site_for_real_catchment(config: Any) -> None:
-    """Refuse a real catchment that no site names.
-
-    A run on a real catchment is grouped, compared and published by its site,
-    never by the name of its project folder. A synthetic domain has no site,
-    and a ``[sites]`` project takes the site of each case from its table row.
-    Raises :class:`~hydromodpy.core.exceptions.ConfigError` naming
-    ``catch_def`` and the key to write.
-    """
-    if getattr(config, "site", None) is not None or getattr(config, "sites", None) is not None:
-        return
-    geographic = getattr(config, "geographic", None)
-    catch_def = getattr(geographic, "catch_def", None) if geographic is not None else None
-    if catch_def not in REAL_CATCHMENT_DEFINITIONS:
-        return
-    raise ConfigError(
-        f"geographic.catchment.kind = {catch_def!r} models a real catchment, and no "
-        '[site] names it. Add [site] with name = "<catchment>" (letters, digits and '
-        'underscores), and gauge = "<station>" when a station measures it.'
-    )
-
-
 def _project_root_of(document: Mapping[str, Any]) -> Any:
     """Return ``[workspace] project_root`` of *document*, or ``None``."""
     workspace = document.get("workspace")
@@ -449,6 +234,15 @@ class HydroModPyConfig(HydroModelBase):
     `FieldParamConfig` dictionaries.
     """
 
+    edition: Annotated[str, Profile.USER] = Field(
+        default=FIRST_EDITION,
+        description=(
+            "The set of defaults the file is read with. A key the file does not write "
+            "takes its default in this edition, so a later version never moves a number "
+            "of a file that did not ask. config.resolved.toml writes it."
+        ),
+        examples=["2.0"],
+    )
     workflow: Annotated[WorkflowConfig, Profile.USER] = Field(
         default_factory=WorkflowConfig,
         description=(
@@ -637,7 +431,7 @@ class HydroModPyConfig(HydroModelBase):
     _read_as_sealed: bool = PrivateAttr(default=False)
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "testbed": _TESTBED_REFUSAL,
+        "testbed": TESTBED_REFUSAL,
         "analysis": ANALYSIS_SECTION_REFUSAL,
         "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
@@ -651,6 +445,12 @@ class HydroModPyConfig(HydroModelBase):
         would stop.
         """
         return self._read_as_sealed
+
+    @field_validator("edition")
+    @classmethod
+    def _an_edition_this_version_serves(cls, value: str) -> str:
+        """Refuse an edition this version does not serve, with the ones it serves."""
+        return check_registered_name(value, editions(), key="edition")
 
     @model_validator(mode="before")
     @classmethod
@@ -697,7 +497,7 @@ class HydroModPyConfig(HydroModelBase):
     def _refuse_retired_sections(cls, data: Any) -> Any:
         """Refuse a retired root section with what replaces it."""
         if isinstance(data, Mapping):
-            name = _retired_section(data)
+            name = retired_section(data)
             if name is not None and name not in cls.model_refused_keys:
                 raise ValueError(RETIRED_SECTIONS[name])
         return data
@@ -712,468 +512,36 @@ class HydroModPyConfig(HydroModelBase):
         the backend follows it. When it writes both with two names, it is
         refused.
         """
-        if not isinstance(data, Mapping):
-            return data
-        flow = _raw_flow_process_solver(data.get("simulation"))
-        if flow is None:
-            return data
-        process_id, process_solver = flow
-        solver = data.get("solver")
-        if isinstance(solver, SolverConfig):
-            declared = "backend" in solver.model_fields_set
-            backend = solver.backend if declared else None
-        elif isinstance(solver, Mapping):
-            declared = "backend" in solver
-            backend = solver.get("backend")
-        elif solver is None:
-            declared, backend = False, None
-        else:
-            return data
-        if declared:
-            backend_solver = backend.strip().lower() if isinstance(backend, str) else None
-            if backend_solver and backend_solver != process_solver.lower():
-                raise ValueError(
-                    f"solver.backend names {backend_solver!r} and the flow process "
-                    f"{process_id!r} of [[simulation.process]] names {process_solver!r} in "
-                    "solvers. The run builds the solver of the process and the checks "
-                    "read solver.backend, so both must name the same solver. Write the "
-                    "same name in both, or remove solver.backend: it then follows the "
-                    "flow process."
-                )
-            return data
-        # The derived name is marked, so it stays out of the fields set and a
-        # later assignment of another flow solver moves it again.
-        payload = dict(data)
-        derived = backend_following_the_process(process_solver)
-        if isinstance(solver, SolverConfig):
-            # A copy is not validated again, so its fields set is kept here.
-            following = solver.model_copy(update={"backend": derived})
-            following.__pydantic_fields_set__.discard("backend")
-            payload["solver"] = following
-        else:
-            payload["solver"] = {**(solver or {}), "backend": derived}
-        return payload
-
-    def _check_river_network_threshold_for_the_mesh(self) -> None:
-        """Refuse a mesh that needs the river network when no threshold is set.
-
-        The mesh switches ``[geographic.river_network]`` on by itself, so the
-        threshold check of that section never ran and the run stopped at
-        ``build_geographic`` on a message that named neither the section nor the
-        mesh. The rule is ``MeshConfig.requires_river_trace``, the one the
-        geographic step reads.
-        """
-        geographic = self.geographic
-        if geographic.uses_synthetic_geographic():
-            return
-        river_network = geographic.river_network
-        if bool(river_network.enabled):
-            return
-        mesh = self.mesh
-        if mesh is None:
-            return
-        active_bc = {str(name).lower() for name in self.flow.active_bc}
-        if not mesh.requires_river_trace(active_bc=active_bc, synthetic=False):
-            return
-        if mesh.triangle is not None and mesh.triangle.path is not None:
-            needed_by = "The 'stream' boundary on a [mesh.triangle] path mesh"
-        elif mesh.families.rivers == "cell":
-            needed_by = f"[mesh] engine = {mesh.engine!r} with families.rivers = 'cell'"
-        else:
-            needed_by = "[[mesh.refinement_zone]] where = 'height_above_stream'"
-        refusal = river_network.missing_threshold_refusal(needed_by=needed_by)
-        if refusal is not None:
-            raise ValueError(refusal)
-
-    def _check_the_solver_reads_the_mesh(self, solver_cfg: SolverConfig) -> None:
-        """Refuse a solver paired with a mesh engine whose cells it cannot read.
-
-        Raised while the document is read, before any step of the pipeline runs.
-        The engine is the one of ``[mesh]``, or ``regular`` when the section is
-        absent. The rule is ``engine_accepted`` of the mesh registry.
-        """
-        from hydromodpy.mesh import registry as mesh_registry
-        from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
-        from hydromodpy.solver.base.registry import solvers
-
-        mesh = self.mesh
-        engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
-        solver_name = solver_cfg.backend_name
-        accepted = solvers.get("flow", solver_name).accepted_meshes
-        if mesh_registry.engine_accepted(accepted, engine_id):
-            return
-        names = ", ".join(sorted(accepted - {ANY_PLANAR_ENGINE}))
-        if ANY_PLANAR_ENGINE in accepted:
-            names += " and any engine with planar cells that is not lumped"
-        readers = sorted(
-            name
-            for name in solvers.names("flow")
-            if mesh_registry.engine_accepted(solvers.get("flow", name).accepted_meshes, engine_id)
-        )
-        origin = "" if mesh is not None and "engine" in mesh.model_fields_set else " (the default)"
-        raise ValueError(
-            f"solver {solver_name!r} reads the meshes of the engines {names}, and mesh.engine "
-            f"is {engine_id!r}{origin}. Write [mesh] engine with one of the engines the solver "
-            f"reads, or run a solver that reads {engine_id!r}"
-            + (f" ({', '.join(readers)})." if readers else ".")
-        )
-
-    def _check_the_layer_bases(self) -> None:
-        """Refuse a layering by surfaces whose rasters ``[data.layer_base]`` does not match.
-
-        A layering by surfaces reads its rasters by name from ``[data.layer_base]``,
-        and the two lists must match. What a solver reads of the layering is checked
-        against its ``supports`` in ``config/cross_checks.py``.
-        """
-        layers = self.domain.layers
-        layer_base = self.data.layer_base
-        declared = set() if layer_base is None else {source.name for source in layer_base.sources}
-        read = set(layers.base_surface_names)
-        if read - declared:
-            raise ValueError(
-                f"[domain.layers] reads the base surfaces {sorted(read - declared)}, and "
-                "[data.layer_base] does not declare them. Add one "
-                "[[data.layer_base.sources]] entry per name, with its raster."
-            )
-        if declared - read:
-            raise ValueError(
-                f"[data.layer_base] declares {sorted(declared - read)}, and no layer of "
-                "[domain.layers] reads them as its surface. Give a layer that surface, or "
-                "remove the entries."
-            )
-
-    def _check_the_angles_of_the_tensor(self) -> None:
-        """Refuse an angle of the K tensor with a depth profile.
-
-        An angle is a direction: a vertical profile would scale it with depth,
-        which has no meaning. Whether the solver reads the tensor at all is checked
-        against its ``supports`` in ``config/cross_checks.py``.
-        """
-        params = self.flow.param or {}
-        for param_id in k_tensor_parameter_ids(params):
-            profile = getattr(params[param_id], "field_vertical_profile", None)
-            if param_id.startswith("angle") and profile is not None and profile.kind != "none":
-                raise ValueError(
-                    f"flow.param.{param_id} has a vertical profile, which would scale the "
-                    "angle with depth. Remove [flow.param."
-                    f"{param_id}.field_vertical_profile]; give the angle per zone instead."
-                )
-
-    def _check_cell_addressing_needs_a_regular_mesh(self) -> None:
-        """Refuse a ``[lay, row, col]`` address when the mesh has no rows and columns.
-
-        A well (``location.kind = "cell"``) or an explicit SFR reach
-        (``reaches[].cell``) names its cell by layer, row and column. Only the
-        ``regular`` engine has rows and columns: on a triangle or Voronoi mesh the
-        address names no cell, and the build would stop on it after meshing. The
-        engine is the one of ``[mesh]``, or ``regular`` when the section is absent.
-        """
-        from hydromodpy.mesh import registry as mesh_registry
-
-        mesh = self.mesh
-        engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
-        if engine_id == "regular":
-            return
-        sinks_sources = self.flow.sinks_sources
-        addressed: list[str] = []
-        for well_id, well in (getattr(sinks_sources, "wells", None) or {}).items():
-            if getattr(getattr(well, "location", None), "kind", None) == "cell":
-                addressed.append(f"flow.sinks_sources.wells.{well_id}.location")
-        for network_id, network in (getattr(sinks_sources, "sfr", None) or {}).items():
-            for index, reach in enumerate(getattr(network, "reaches", None) or []):
-                if getattr(getattr(reach, "cell", None), "kind", None) == "cell":
-                    addressed.append(f"flow.sinks_sources.sfr.{network_id}.reaches[{index}].cell")
-        if addressed:
-            raise ValueError(
-                f"A cell is addressed by [lay, row, col] at {', '.join(addressed)}, and "
-                f"mesh.engine is {engine_id!r}: only the 'regular' engine has rows and "
-                "columns. Locate a well by coordinates (absolute_xy or relative_xy), or "
-                'write [mesh] engine = "regular".'
-            )
+        return align_solver_keys(data) if isinstance(data, Mapping) else data
 
     @model_validator(mode="after")
-    def _name_the_site_of_a_real_catchment(self) -> HydroModPyConfig:
-        """Refuse a real catchment without [site].
+    def _resolve_then_run_the_cross_rules(self, info: ValidationInfo) -> HydroModPyConfig:
+        """Fill what the sections leave to one another, then run the rules that read several.
 
-        The rule holds for a file read from disk and for a Python caller alike.
+        The station sources take ``[site] gauge``, and a global model with no
+        ``[mesh] engine`` takes the one engine it reads. Then every row of
+        ``CROSS_RULES`` runs, in order, and the first refusal is raised. The loader
+        and ``check`` run the rows themselves and keep every refusal: they say so
+        in the context. A sealed document is the frozen config of a run already on
+        disk, read as it ran, where a refusal of a rule that checks the run only
+        warns.
         """
-        try:
-            require_site_for_real_catchment(self)
-        except ConfigError as exc:
-            raise ValueError(exc.message) from exc
-        return self
-
-    @model_validator(mode="after")
-    def _take_the_site_gauge(self, info: ValidationInfo) -> HydroModPyConfig:
-        """Fill the station sources from [site] gauge; refuse a station other than it.
-
-        A sealed document is read as it was run, so ``[metrics] station`` is not checked.
-        """
-        from hydromodpy.core.site.config import resolve_gauge
-        from hydromodpy.data.sites.gauge import apply_site_gauge
-
-        context = info.context if isinstance(info.context, Mapping) else {}
-        try:
-            apply_site_gauge(self.data, self.site)
-            if context.get("validation_context") != "snapshot":
-                station = getattr(self.metrics, "station", None)
-                resolve_gauge(self.site, station, field="metrics.station")
-        except ConfigError as exc:
-            raise ValueError(exc.message) from exc
-        return self
-
-    def _check_the_metrics_window_meets_the_run(self, *, sealed: bool) -> None:
-        """Refuse a ``[metrics] window`` that shares no day with ``[simulation.time]``.
-
-        A sealed document, the frozen config of a run already on disk, is read
-        as it was run: the window only warns, and the run has no score.
-        """
-        window = getattr(self.metrics, "window", None)
-        run = self.simulation.time
-        run_start = getattr(run, "start_datetime", None)
-        run_end = getattr(run, "end_datetime", None)
-        if window is None or run_start is None or run_end is None:
-            return
-        if window.end >= run_start.date() and window.start <= run_end.date():
-            return
-        missed = (
-            f"[metrics] window runs from {window.start} to {window.end} and shares no "
-            f"day with [simulation.time], which runs from {run_start.date()} to "
-            f"{run_end.date()}"
-        )
-        if sealed:
-            logger.warning("%s: this sealed run has no score.", missed)
-            return
-        raise ValueError(
-            f"{missed}: the run would be scored on nothing. Move the window inside the "
-            "run, or remove it."
-        )
-
-    @model_validator(mode="after")
-    def _check_cross_section_coherence(self, info: ValidationInfo) -> HydroModPyConfig:
-        """Cross-section coherence checks run after sub-configs validate.
-
-        Currently enforced invariants:
-
-        * ``data.inference_mode == "strict"`` ⇒ at least one data type must
-          be declared (``data.types`` non-empty).
-        * an active ``calibration`` ⇒ ``flow.param_list`` is not empty (no point
-          calibrating with zero tunable parameters).
-        * ``domain.depth_model.kind`` is ``raster_substratum`` or
-          ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
-          is the raster the domain reads.
-        * every trait of the ``Model`` the document uses is in the ``supports`` of
-          its flow solver, a transport solver follows that flow solver, and no
-          pair of ``CONTAMINATIONS`` is written (``config/cross_checks.py``). A
-          sealed document only warns.
-        * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
-          is declared, since only the soil reservoir reads that raster.
-        * ``[domain.layers]`` by surfaces reads only bases ``[data.layer_base]``
-          declares, and ``[data.layer_base]`` declares only bases a layer reads.
-        * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
-          without it the workflow delineates and loads, then writes no report.
-        * ``[metrics] window`` shares at least one day with ``[simulation.time]``,
-          else the run is scored on nothing.
-        """
-        if self.site is not None and self.sites is not None:
-            raise ValueError(
-                "[site] and [sites] are both declared: a [sites] project takes the site "
-                "of each case from its row of the site table. Remove [site], or remove "
-                "[sites] to model one catchment."
-            )
-
         context = info.context if isinstance(info.context, Mapping) else {}
         # An assignment on a sealed config validates again without the context.
         sealed = self._read_as_sealed or context.get("validation_context") == "snapshot"
         if sealed:
             self._read_as_sealed = True
-        self._check_the_metrics_window_meets_the_run(sealed=sealed)
-
-        if self.workflow.mode == "overview" and (self.overview is None):
-            raise ValueError(
-                "workflow.mode = 'overview' needs an [overview] section: it names the card and "
-                "holds its window and panels. Add the section, with at least a name."
-            )
-
-        data_cfg = self.data
-        if data_cfg.inference_mode == "strict":
-            if not data_cfg.types:
-                raise ValueError(
-                    "data.inference_mode='strict' requires at least one explicit "
-                    "data type in data.types"
-                )
-
-        depth_kind = self.domain.depth_model.kind
-        if depth_kind in RASTER_DEPTH_MODEL_KINDS and data_cfg.substratum is None:
-            raise ValueError(
-                f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
-                "[data.substratum]; declare it with one custom source."
-            )
-
+        try:
+            apply_site_gauge(self.data, self.site)
+        except ConfigError as exc:
+            raise ValueError(exc.message) from exc
         # Without an engine written, a [mesh] section would fall on the default,
         # which a backend that only accepts lumped engines cannot read: the
-        # engine is deduced before the mesh checks read it.
+        # engine is deduced before the mesh rules read it.
         deduce_the_mesh_engine(self)
-
-        self._check_river_network_threshold_for_the_mesh()
-
-        calibration_cfg = self.calibration
-        flow_cfg = self.flow
-        # A flow solver without field properties, such as a global model, calibrates
-        # its own solver options, so flow.param_list may stay empty under it.
-        if calibration_cfg is not None and flow_honors(self, PROPERTIES):
-            if not flow_cfg.param_list:
-                raise ValueError(
-                    "[calibration] requires flow.param_list to declare at least "
-                    "one tunable parameter"
-                )
-
-        # What the flow solver ignores is named before the checks of one section.
-        check_against_the_solver(self, sealed=sealed)
-
-        soil = soil_reservoir_of(self.flow)
-        if soil is not None:
-            # data.types is read as declared here: recharge and runoff are never
-            # inferred (data/loading/planner.py), so a fully-silent double count
-            # would otherwise pass validation.
-            declared_data_types = set(getattr(data_cfg, "types", []) or [])
-            if "recharge" in declared_data_types:
-                raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] computes the recharge from "
-                    "the precipitation and the ETP, and data.types also loads one "
-                    "from [data.recharge]: the model would receive one and ignore "
-                    'the other. Remove "recharge" from data.types to keep the soil '
-                    "reservoir (and write recharge__delete = true under [data] if a "
-                    "base file declares it), or remove "
-                    "[flow.sinks_sources.recharge.soil] to use the loaded recharge."
-                )
-            if "runoff" in declared_data_types:
-                raise ValueError(
-                    "[data.runoff] loads a surface runoff that already takes its "
-                    "share of the rain the soil reservoir receives (SIM2 RUNC, for "
-                    "instance): the streams, the lakes and the gauged discharge "
-                    'would count that water twice. Remove "runoff" from data.types '
-                    "(and write runoff__delete = true under [data] if a base file "
-                    "declares it); in soil mode the water that seeps out of "
-                    "saturated ground reaches the streams through the drains, and "
-                    "sealed ground through impervious_fraction."
-                )
-            if getattr(data_cfg, "precipitation", None) is None:
-                raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] fills the soil with daily "
-                    "precipitation, and no [data.precipitation] section says where "
-                    "to read it: add a [[data.precipitation.sources]] block, for "
-                    'example source = "sim2" with extent = "watershed".'
-                )
-            if getattr(data_cfg, "etp", None) is None:
-                raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] empties the soil with "
-                    "daily ETP, and no [data.etp] section says where to read it: "
-                    'add a [[data.etp.sources]] block, for example source = "sim2" '
-                    'with extent = "watershed".'
-                )
-
-            active_sinks_sources = {
-                str(name).lower() for name in getattr(flow_cfg, "active_sinks_sources", []) or []
-            }
-            if "recharge" not in active_sinks_sources:
-                raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
-                    "says enabled = false, so MODFLOW would receive none: remove "
-                    "enabled = false, or remove the soil section."
-                )
-
-            soil_active_bc = {
-                str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []
-            }
-            if "lake" in soil_active_bc and "sfr" not in soil_active_bc:
-                raise ValueError(
-                    "[flow.sinks_sources.lakes] declares a lake with no stream network: in "
-                    "soil mode the water that seeps out of the ground reaches a lake "
-                    "only through the stream network, so the lake would receive "
-                    "none of it. Declare a [flow.sinks_sources.sfr] network, or remove "
-                    "[flow.sinks_sources.recharge.soil] and load [data.runoff] as before."
-                )
-            if "lake" in soil_active_bc:
-                soil_sinks = getattr(flow_cfg, "sinks_sources", None)
-                soil_sfr = getattr(soil_sinks, "sfr", None) or {}
-                items = soil_sfr.items() if hasattr(soil_sfr, "items") else []
-                for network_id, network in items:
-                    flag = (
-                        network.get("route_drainage", True)
-                        if isinstance(network, dict)
-                        else getattr(network, "route_drainage", True)
-                    )
-                    if flag is False:
-                        raise ValueError(
-                            f"[flow.sinks_sources.sfr.{network_id}] sets route_drainage = "
-                            "false with a lake and [flow.sinks_sources.recharge.soil]: the "
-                            "water of the drains would leave the model and the lake would "
-                            "receive only its own rain. Remove route_drainage = false "
-                            "(it is on by default)."
-                        )
-
-            for precip_source in (
-                getattr(getattr(data_cfg, "precipitation", None), "sources", []) or []
-            ):
-                components = list(getattr(precip_source, "components", []) or [])
-                if components != ["total"]:
-                    raise ValueError(
-                        f"[data.precipitation] loads components = {components!r}, "
-                        "and the soil reservoir takes one precipitation grid: two "
-                        "grids would be averaged, not added. Write "
-                        'components = ["total"], which counts the snow as rain.'
-                    )
-
-            window = resolve_simulation_time_window(self)
-            if window is None:
-                raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] runs day by day over "
-                    "[simulation.time], which this file does not declare: add "
-                    "start_datetime, end_datetime and step_value."
-                )
-
-            boundaries = build_simulation_time_boundaries(window)
-            run_days = (boundaries[-1] - boundaries[0]).days
-            spinup_message = spinup_refusal(soil, run_days)
-            if spinup_message is not None:
-                raise ValueError(spinup_message)
-
-            steady_start_message = steady_start_refusal(flow_cfg, window)
-            if steady_start_message is not None:
-                raise ValueError(steady_start_message)
-
-        declared_recharge = getattr(self.flow.sinks_sources, "recharge", None)
-        if declared_recharge is not None:
-            refuse_an_impossible_recharge(
-                declared_recharge.peak_rate_mm_day(),
-                label="flow.sinks_sources.recharge.values",
-            )
-            if (
-                soil is None
-                and "recharge" in set(getattr(data_cfg, "types", []) or [])
-                and declared_recharge.peak_rate_mm_day() != 0.0
-            ):
-                raise ValueError(
-                    f"flow.sinks_sources.recharge.values = {declared_recharge.values!r} would be "
-                    "replaced by the series [data.recharge] loads, so the model would not read "
-                    "it: remove values (write values__delete = true if a base file declares "
-                    'it), or remove "recharge" from data.types to impose this rate.'
-                )
-
-        if soil is None and getattr(data_cfg, "soil_capacity", None) is not None:
-            raise ValueError(
-                "[data.soil_capacity] is read only by the soil reservoir, and this "
-                "file declares no [flow.sinks_sources.recharge.soil]: declare the "
-                "soil section, or remove [data.soil_capacity]."
-            )
-
-        self._check_the_layer_bases()
-        self._check_the_angles_of_the_tensor()
-
-        # Last, so a fault of the solver itself is named before a mesh it would not read.
-        self._check_the_solver_reads_the_mesh(self.solver)
-        self._check_cell_addressing_needs_a_regular_mesh()
+        if context.get("cross_rules") != "caller":
+            check_against_the_solver(self, sealed=sealed)
+        return self
         return self
 
     @classmethod
@@ -1234,9 +602,11 @@ class HydroModPyConfig(HydroModelBase):
                 raw, base=config_base_dir(toml_path), context="toml", source_path=toml_path
             )
         except IncompatibleCapabilitiesError as exc:
-            # A typed capability error from the after-validator does not carry the
-            # TOML location; prepend it while keeping the type and error code.
-            raise type(exc)(f"{toml_path}: {exc.message or exc}") from exc
+            # A typed capability error of a rule does not carry the TOML location;
+            # prepend it while keeping the type, the error code and the diagnostics.
+            raise type(exc)(
+                f"{toml_path}: {exc.message or exc}", diagnostics=exc.diagnostics
+            ) from exc
 
         # Derive the simulation name from the TOML filename if not set explicitly.
         if not cfg.simulation.name:
@@ -1295,18 +665,21 @@ class HydroModPyConfig(HydroModelBase):
         context: ValidationContext = "api",
         source_path: Path | None = None,
     ) -> HydroModPyConfig:
-        """Normalize one raw config payload and validate the root model.
+        """Validate one raw config payload, section by section, and build the root.
 
-        Every refusal of the document leaves this method as a
-        :class:`~hydromodpy.core.exceptions.ConfigValidationError`, never as a
-        bare ``ValueError`` and never as a raw Pydantic ``ValidationError``:
-        those two both map to exit code 1, which is the code for a bug in this
-        process, and a caller cannot tell them apart from one.
+        The resolutions of ``config/section_loader.py`` run first, then each
+        section is validated on its own, then the root is built and the rules of
+        ``CROSS_RULES`` run. This is the validator ``check`` walks too. A
+        document with faults raises the error of the first fault in the order of
+        the steps, carrying the diagnostics of every fault: a
+        :class:`~hydromodpy.core.exceptions.ConfigValidationError` for a fault of
+        a section, the typed error of a rule otherwise. Never a bare
+        ``ValueError`` nor a raw Pydantic ``ValidationError``, which both map to
+        exit code 1, the code of a bug in this process.
 
-        A section loader is handed the raw mapping of one section and nothing
-        else, so a ``ValueError`` leaving it names that section of the document.
-        It is converted here rather than at each of its raise sites, which is
-        what keeps the rule true for the next loader somebody writes.
+        The project root is never a key of a file: it is the folder that holds
+        project.toml above the file, else the folder of the file. A Python caller
+        may pass it. HMP_PROJECT_ROOT wins over both (used by test infra).
         """
         document = copy.deepcopy(dict(payload))
         if context == "snapshot":
@@ -1314,197 +687,43 @@ class HydroModPyConfig(HydroModelBase):
             # protocol is expanded: it compares the stages the run froze with the
             # ones it writes, and a stage frozen under an old key would differ.
             migrate_sealed_config_doc(document)
-        try:
-            raw = expand_calibration_protocol(document)
-        except ValidationError as exc:
-            # Pydantic's ValidationError IS a ValueError, so this clause has to
-            # come first: a protocol validating its own options against a model
-            # would otherwise be rendered by `str()` as a raw Pydantic dump,
-            # typed `value_error`, and pointed at the whole [calibration] table.
-            raise _validation_refusal(
-                exc,
-                loc_prefix=("calibration", "protocol"),
-                source_path=source_path,
-                document=payload,
-            ) from exc
-        except ValueError as exc:
-            raise _section_refusal(
-                "calibration",
-                str(exc),
-                source_path=source_path,
-                error_type="value_error",
-            ) from exc
-        raw = _with_calibration_defaults(raw, source_path=source_path)
-        retired = _retired_section(raw)
-        if retired is not None:
-            raise _section_refusal(retired, RETIRED_SECTIONS[retired], source_path=source_path)
-        known = set(cls.model_fields)
-        unknown = sorted(set(raw) - known)
-        if unknown:
-            message = f"Unknown top-level TOML section(s): {', '.join(unknown)}"
-            raise ConfigValidationError(
-                f"{source_path}: {message}" if source_path is not None else message,
-                source=None if source_path is None else str(source_path),
-                details=tuple(
-                    {
-                        "pointer": json_pointer((name,)),
-                        "loc": name,
-                        "msg": "Extra inputs are not permitted",
-                        "type": "extra_forbidden",
-                    }
-                    for name in unknown
-                ),
-            )
-
-        # The project root is never a key of a file: it is the folder that holds
-        # project.toml above the file, else the folder of the file. A Python caller
-        # may pass it. HMP_PROJECT_ROOT wins over both (used by test infra).
-        workspace_section = raw.get("workspace", {})
-        if workspace_section is None:
-            workspace_section = {}
-        if not isinstance(workspace_section, Mapping):
-            raise _section_refusal(
-                "workspace",
-                "TOML section [workspace] must be a mapping",
-                source_path=source_path,
-                error_type="dict_type",
-            )
-        workspace_section = dict(workspace_section)
-        if context == "toml" and "project_root" in workspace_section:
-            message = (
-                "[workspace] project_root is not a key of a file: the project root is "
-                "the folder that holds project.toml (or the folder of this file). "
-                "Delete the line."
-            )
-            raise ConfigValidationError(
-                f"{source_path}: {message}" if source_path is not None else message,
-                source=None if source_path is None else str(source_path),
-                details=(
-                    {
-                        "pointer": json_pointer(("workspace", "project_root")),
-                        "loc": "workspace.project_root",
-                        "msg": message,
-                        "type": "extra_forbidden",
-                    },
-                ),
-            )
         env_project_root = os.environ.get("HMP_PROJECT_ROOT")
         if env_project_root:
-            workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
+            forced_root: Path | None = Path(env_project_root).expanduser().resolve()
         elif context == "toml":
-            workspace_section["project_root"] = str(resolve_project_root(base))
-        elif not workspace_section.get("project_root"):
-            workspace_section["project_root"] = str(base)
-
-        # Workspace must be parsed first so we can derive the shared data
-        # directory and pass it to every other section loader. This lets
-        # bare filenames in [data.*.sources].path resolve against
-        # <workspace>/data/<role>/ instead of forcing the user to write
-        # ../../data/<role>/<file>.
-        try:
-            parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
-        except ValidationError as exc:
-            raise _validation_refusal(
-                exc, loc_prefix=("workspace",), source_path=source_path, document=raw
-            ) from exc
-        except ValueError as exc:
-            raise _section_refusal(
-                "workspace", str(exc), source_path=source_path, error_type="value_error"
-            ) from exc
-        workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
-
-        def _std(model_cls: type[Any]) -> Callable[[Any, Path], Any]:
-            return lambda data, b: load_standard_section(
-                data, model_cls, b, workspace_data_dir=workspace_data_dir
-            )
-
-        geographic_section = raw.get("geographic", {})
-        allow_dem_bootstrap = isinstance(geographic_section, Mapping) and _raw_declares_dem_source(
-            raw.get("data", {})
+            forced_root = resolve_project_root(base)
+        else:
+            forced_root = None
+        resolved = resolve_document(
+            cls,
+            document,
+            base=base,
+            forced_root=forced_root,
+            in_a_file=context == "toml",
+            source_path=source_path,
         )
-
         sealed = context == "snapshot" or (
             source_path is not None and is_sealed_run_config(source_path)
         )
-        section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
-            "geographic": (
-                geographic_section,
-                lambda data, b: load_geographic_section(
-                    data,
-                    b,
-                    workspace_data_dir=workspace_data_dir,
-                    allow_dem_bootstrap=allow_dem_bootstrap,
-                ),
-            ),
-            "domain": ({}, _std(DomainConfig)),
-            "data": (
-                {},
-                lambda data, b: DataManagersConfig.from_toml_section(
-                    data, base_dir=b, workspace_data_dir=workspace_data_dir
-                ),
-            ),
-            "flow": (
-                {},
-                lambda data, b: FlowConfig.from_toml_section(
-                    {} if data is None else data, base_dir=b, workspace_data_dir=workspace_data_dir
-                ),
-            ),
-            "transport": ({}, _std(TransportConfig)),
-            "simulation": ({}, _std(SimulationConfig)),
-            "solver": ({}, _std(SolverConfig)),
-            "display": ({}, _std(DisplayConfig)),
-            "export": ([], lambda data, _b: load_export_requests(data)),
-            "observation": ({}, _std(ObservationConfig)),
-            "overview": (None, lambda data, b: load_optional_section(data, OverviewConfig, b)),
-            "mesh": (None, _load_optional_mesh_section),
-            "calibration": (None, partial(_load_optional_calibration_section, sealed=sealed)),
-            "spinup": (None, lambda data, b: load_optional_section(data, SpinupConfig, b)),
-            "site": (None, _optional_model(SiteConfig)),
-            "sites": (None, _optional_model(SitesConfig)),
-            "metrics": (None, _optional_model(MetricsConfig)),
-            "publication": (None, _optional_model(PublicationConfig)),
-        }
-
-        parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}
-        for section_name, (default_value, loader) in section_loaders.items():
-            section_data = raw.get(section_name, default_value)
-            try:
-                parsed_sections[section_name] = loader(section_data, base)
-            except ValidationError as exc:
-                raise _validation_refusal(
-                    exc, loc_prefix=(section_name,), source_path=source_path, document=raw
-                ) from exc
-            except ValueError as exc:
-                raise _section_refusal(
-                    section_name, str(exc), source_path=source_path, error_type="value_error"
-                ) from exc
-
-        if "workflow" in raw:
-            workflow_section = raw["workflow"]
-            if not isinstance(workflow_section, Mapping):
-                raise _section_refusal(
-                    "workflow",
-                    "TOML section [workflow] must be a mapping with key 'mode'",
-                    source_path=source_path,
-                    error_type="dict_type",
-                )
-            try:
-                parsed_sections["workflow"] = WorkflowConfig.model_validate(dict(workflow_section))
-            except ValidationError as exc:
-                raise _validation_refusal(
-                    exc, loc_prefix=("workflow",), source_path=source_path, document=raw
-                ) from exc
-
-        try:
-            cfg = cls.model_validate(
-                parsed_sections,
-                context={
-                    "allow_dem_bootstrap": allow_dem_bootstrap,
-                    "validation_context": context,
-                },
-            )
-        except ValidationError as exc:
-            raise _validation_refusal(exc, source_path=source_path, document=raw) from exc
+        sections, faults = validate_sections(
+            cls, resolved, base=base, sealed=sealed, source_path=source_path
+        )
+        faults = [*resolved.faults, *faults]
+        if faults:
+            raise_the_first(faults)
+        cfg, faults, said = build_document(
+            cls,
+            sections,
+            resolved,
+            context=context,
+            sealed=context == "snapshot",
+            source_path=source_path,
+        )
+        for text in said:
+            logger.warning("%s", text)
+        if faults:
+            raise_the_first(faults)
+        assert isinstance(cfg, HydroModPyConfig)
         _resolve_calibration_parameter_names(cfg)
         return cfg
 
