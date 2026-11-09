@@ -573,13 +573,16 @@ class IntroDirective(SphinxDirective):
         ]
         if "." not in path:
             minimal = doc_uri(builder, doc, "reference/parameters/minimal-files")
-            template = static_uri(builder, doc, f"templates/{path}.toml")
-            facts.append(
-                f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
-                f'(<a href="{esc(template)}" download>download it</a>), '
-                f"then <code>hmp config check file.toml</code>. "
-                f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
-            )
+            if path in template_modules():
+                template = static_uri(builder, doc, f"templates/{path}.toml")
+                facts.append(
+                    f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
+                    f'(<a href="{esc(template)}" download>download it</a>), '
+                    f"then <code>hmp config check file.toml</code>. "
+                    f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
+                )
+            else:
+                facts.append(f'<li><a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>')
         adv = len(sub) > user
         switch = ADV_SWITCH if adv else ""
         return [
@@ -1309,6 +1312,14 @@ def on_build_finished(app: Sphinx, exception: Exception | None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(keys_payload(app.builder), ensure_ascii=False, separators=(",", ":")))
     write_templates(Path(app.outdir) / "_static" / "templates")
+
+
+def template_modules() -> set[str]:
+    """The sections ``hmp config template --modules`` accepts. A scalar such as ``edition`` is not one."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.toml_io.generator import available_modules
+
+    return set(available_modules(HydroModPyConfig))
 
 
 def write_templates(folder: Path) -> None:

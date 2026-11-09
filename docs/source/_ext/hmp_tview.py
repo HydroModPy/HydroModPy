@@ -1175,12 +1175,16 @@ class MinimalFilesDirective(SphinxDirective):
                     f'{esc(section)}.toml <span class="hmp-muted">· checked against the models</span>'
                     f"</div>{body}</div>"
                 )
-            else:
+            elif section in H.template_modules():
                 template = H.static_uri(builder, doc, f"templates/{section}.toml")
                 parts.append(
                     f"{head}<p>Start from the template of the section "
                     f'(<a href="{esc(template)}" download>download it</a>):</p>'
                     f'<pre class="hmp-term">{esc(cmd)}</pre>'
+                )
+            else:
+                parts.append(
+                    f"{head}<p>This key is one line of the file, so it has no template.</p>"
                 )
         return [H.raw("".join(parts))]
 

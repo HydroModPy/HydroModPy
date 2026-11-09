@@ -44,7 +44,7 @@ Three rules hold for the whole file.
 - Two things are required in every file: a `[site]` with {toml}`site.name` when the file
   models a real catchment, and `[geographic]`. In its standard mode, `[geographic]` needs
   `[geographic.catchment]` with {toml}`geographic.catchment.kind`, and
-  `kind = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these keys,
+  `kind = "dem"` needs a DEM declared in {toml}`data.dem.sources`. With these keys,
   `hmp config check` accepts the file. `[workflow]` can be left out: the sections of the file
   say what it does. A file never writes the project root: it is the folder that holds
   `project.toml`.
@@ -318,25 +318,23 @@ time = "last"
 A path in a file is read from **the project root**, the folder that holds `project.toml`
 at or above the file. Outside a project, it is the folder of the oldest file of the
 `base_config` chain. It is not read from the folder of the file that wrote it: a file in
-`plan/<hash>/` or in `runs/<case>/` names the same `dem_init_path` as `project.toml` does. The
+`plan/<hash>/` or in `runs/<case>/` names the same `inputs/dem.tif` as `project.toml` does. The
 loader merges the files first, then resolves the paths, so a path written in a parent, in an
 `--overlay` file or in a `--set` value is read from the same root.
 
 | Written as | Read from |
 |---|---|
-| `"dem.tif"`, a bare name, in a field that is an input file | the project root; if the file is not there, `<workspace>/data/<role>/`, then `<workspace>/data/` |
-| `"data/dem.tif"` or `"../dem.tif"` | the project root |
+| `"dem.tif"`, a bare name, in a field that is an input file | refused with `BareInputNameError`: write `"inputs/dem.tif"` |
+| `"inputs/dem.tif"` or `"../dem.tif"` | the project root |
 | `"/data/dem.tif"` or `"~/dem.tif"` | as written, with `~` expanded |
 | the value of `base_config` | the folder of the file that holds it |
 | {toml}`export.folder` | the `exports/` folder of the run, `runs/<name>/exports/`; an absolute folder is refused |
 | a relative {toml}`export.file` | the `folder` of the same block |
 
-The `<role>` is the kind of data: `dem`, `hydrography`, and so on. The workspace is found in
-this order: `[workspace]` with `root` or `data_dir`, the environment variable
-`HMP_WORKSPACE`, the layout `<workspace>/projects/<name>/project.toml` beside a `data/`
-folder, and last the project folder itself. This is why a file can write
-`dem_init_path = "dem.tif"` and not a full path: the file sits in the data folder of the
-workspace.
+The workspace is found in this order: `[workspace]` with `root` or `data_dir`, the environment
+variable `HMP_WORKSPACE`, the layout `<workspace>/projects/<name>/project.toml` beside a `data/`
+folder, and last the project folder itself. A bare file name is not looked up there, so a file
+writes `path = "inputs/dem.tif"` from the project root.
 
 ## Free keys: `<id>` and `<name>`
 
@@ -369,8 +367,8 @@ types = ["geology"]
 id = "geology_zones"
 
 [[data.geology.sources]]
-source = "custom"
-path = "geology.gpkg"
+source = "file"
+path = "inputs/geology.gpkg"
 code_field = "zone"
 
 [flow.param.K.field]
