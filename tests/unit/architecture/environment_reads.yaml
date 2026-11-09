@@ -42,6 +42,11 @@ rows:
   kind: read
   class: cli
   why: the user of the session, named by the command line override
+- file: hydromodpy/cli/commands/calibrate.py
+  variable: <whole>
+  kind: pass
+  class: cli
+  why: the command layer folds the HMP_SET_* overrides of the environment into the request
 - file: hydromodpy/cli/commands/catalog/ls.py
   variable: HMP_WORKSPACE
   kind: read
@@ -74,104 +79,16 @@ rows:
   class: cli
   why: the marker that says the launcher, not a user, started this process
 - file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer reads back the project root it wrote for the loader
-- file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer reads back the project root it wrote for the loader
-- file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer reads back the project root it wrote for the loader
-- file: hydromodpy/cli/commands/run.py
-  variable: HMP_PROJECT_ROOT
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer reads back the project root it wrote for the loader
-- file: hydromodpy/cli/commands/run.py
-  variable: HMP_WORKSPACE
-  kind: read
-  lifted_by: 4.19
-  class: transitional
-  why: a second resolution rule of the workspace beside the one of core
-- file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/cli/commands/run.py
-  variable: <PROJECT_ROOT_ENV>
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/cli/effective_toml.py
   variable: <whole>
   kind: pass
   class: cli
-  why: the effective TOML composes the HMP_SET_* overrides of the environment
-- file: hydromodpy/cli/effective_toml.py
-  variable: <whole>
-  kind: pass
-  class: cli
-  why: the effective TOML composes the HMP_SET_* overrides of the environment
-- file: hydromodpy/cli/effective_toml.py
-  variable: <name>
-  kind: read
-  class: cli
-  why: one HMP_SET_* override, read back once the prefix list named it
-- file: hydromodpy/cli/helpers.py
-  variable: HMP_PROJECT_ROOT
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer reads back the project root it wrote for the loader
+  why: the command layer folds the HMP_SET_* overrides of the environment into the request
 - file: hydromodpy/cli/helpers.py
   variable: HMP_WORKSPACE
   kind: read
   lifted_by: 4.19
   class: transitional
   why: a second resolution rule of the workspace beside the one of core
-- file: hydromodpy/cli/helpers.py
-  variable: HMP_PROJECT_ROOT
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/cli/helpers.py
-  variable: HMP_PROJECT_ROOT
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/cli/helpers.py
-  variable: HMP_PROJECT_ROOT
-  kind: write
-  lifted_by: 4.8
-  class: transitional
-  why: the command layer writes the project root for the loader to reread
-- file: hydromodpy/config/hydromodpy_config.py
-  variable: HMP_PROJECT_ROOT
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the base of the relative paths arrives by variable instead of an argument
 - file: hydromodpy/core/console/ndjson.py
   variable: HMP_PROGRESS_FILE
   kind: read
@@ -265,16 +182,10 @@ rows:
   lifted_by: 4.18
   class: transitional
   why: a process publishes its run scratch to siblings by variable
-- file: hydromodpy/core/toml_io/loader.py
-  variable: HMP_PROJECT_ROOT
-  kind: read
-  lifted_by: 4.8
-  class: transitional
-  why: the base of the paths of the loader arrives by variable instead of an argument
 - file: hydromodpy/core/workspace/config.py
   variable: HMP_WORKSPACE
   kind: read
-  lifted_by: 4.4
+  lifted_by: 4.19
   class: transitional
   why: a second resolution rule of the workspace beside the one of core
 - file: hydromodpy/core/workspace/resolve.py
@@ -295,25 +206,13 @@ rows:
 - file: hydromodpy/data/provenance/sidecars.py
   variable: HMP_DETERMINISTIC_FETCHED_AT
   kind: read
-  lifted_by: 4.4
+  lifted_by: 4.19
   class: transitional
   why: a test clock for the fetched-at stamp of a sidecar
-- file: hydromodpy/data/registry/catalog_duckdb.py
-  variable: HMP_DATA_CACHE_PRIVATE
-  kind: read
-  lifted_by: 4.4
-  class: transitional
-  why: a private cache base kept until the cache goes without it
-- file: hydromodpy/data/registry/migrations/auto_boot.py
-  variable: HMP_AUTO_MIGRATE
-  kind: read
-  lifted_by: 4.4
-  class: transitional
-  why: a migration the reader opts out of by variable
 - file: hydromodpy/data/schemas/validation.py
   variable: HMP_PANDERA_STRICT
   kind: read
-  lifted_by: 4.4
+  lifted_by: 4.19
   class: transitional
   why: a development switch of the schema validation
 - file: hydromodpy/display/overview/location.py

@@ -15,7 +15,7 @@ end note
 :Store the DataLoadPlan in the context;
 
 :LoadDataStep runs step_data_loading(ctx);
-:DataManagersRuntimeLoader.load_all(run_state);
+:DataLoader.load_all(run_state);
 :Fill loaded_data, one field per variable;
 
 :apply_structural_updates_from_data();

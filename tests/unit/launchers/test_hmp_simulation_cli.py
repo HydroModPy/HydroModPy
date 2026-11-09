@@ -12,9 +12,10 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.cli.main import main
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.loading import load
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.project.dispatch import workflow as project_workflow
+from hydromodpy.project.request import RunOutcome
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -22,61 +23,71 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
+def _outcome(name: str = "test", sim_id: str = "abc", **fields) -> RunOutcome:
+    """The outcome of a run, as ``run_simulation`` gives it back."""
+    given = {
+        "name": name,
+        "run_dir": Path("runs") / name,
+        "sim_id": sim_id,
+        "request_id": "request",
+        "status": "completed",
+        "identical_to": None,
+        "project_root": Path("."),
+        **fields,
+    }
+    return RunOutcome(**given)
+
+
+def _simulation(monkeypatch, captured: dict, outcome: RunOutcome | None = None) -> None:
+    """Stand in for the simulation runner: record the request and the base it is given."""
+
+    def fake_run(request, *, base, environment=None, replay_of=None):
+        captured.update(request=request, base=base, environment=environment, replay_of=replay_of)
+        return outcome or _outcome()
+
+    monkeypatch.setattr(project_workflow, "run_simulation", fake_run)
+
+
+SIMULATION = '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n'
+
+
 def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=simulation dispatches to run_simulation."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
-    )
-
+    """``hmp run`` with workflow=simulation gives the request of the file to run_simulation."""
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
     captured: dict = {}
-
-    def fake_run(config_path, **kwargs):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        captured["kwargs"] = kwargs
-        return {"name": "test", "sim_id": "abc"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
+    _simulation(monkeypatch, captured)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
 
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
+    request = captured["request"]
+    assert request.config["workflow"] == {"mode": "simulation"}
+    assert request.form == "toml"
+    assert request.source.endswith("config.toml")
+    # The file is its own anchor: the project root above it, no variable, no option.
+    assert captured["base"] == tmp_path.resolve()
     # --no-display was not passed so the CLI forwards no_display=False.
-    assert captured["kwargs"].get("no_display") is False
-    # ``--checkpoint`` was removed with the pickle layer.
-    assert "checkpoint" not in captured["kwargs"]
+    assert request.no_display is False
+    # The request was read as a draft by the command, and the run it hands over is none.
+    assert request.dry_run is False
+    assert captured["replay_of"] is None
 
 
 def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
-    """``hmp run --no-display`` must reach run_simulation(no_display=True)."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
-    )
-
+    """``hmp run --no-display`` must reach the request."""
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
     captured: dict = {}
-
-    def fake_run(config_path, **kwargs):
-        captured["kwargs"] = kwargs
-        return {"name": "test", "sim_id": "abc"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
+    _simulation(monkeypatch, captured)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--no-display"])
 
     main()
 
-    assert captured["kwargs"].get("no_display") is True
+    assert captured["request"].no_display is True
 
 
 def test_hmp_run_rejects_removed_checkpoint_flag(monkeypatch, tmp_path) -> None:
     """``--checkpoint`` was removed with the pickle layer."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
-    )
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--checkpoint"])
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -95,17 +106,9 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         tmp_path / "overlay.toml",
         '[modflow6.runtime]\nmf6_ims_complexity = "MODERATE"\n',
     )
-
     captured: dict = {}
-
-    def fake_run(config_path, **kwargs):
-        path = Path(config_path)
-        captured["config_path"] = path
-        captured["payload"] = tomllib.loads(path.read_text(encoding="utf-8"))
-        return {"name": "test", "sim_id": "abc"}
-
+    _simulation(monkeypatch, captured)
     monkeypatch.setenv("HMP_SET_modflow6__runtime__mf6_ims_complexity", "COMPLEX")
-    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -122,52 +125,40 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
     with pytest.warns(Warning, match="solver.modflow6"):
         main()
 
-    assert captured["config_path"] != config.resolve()
-    assert not captured["config_path"].exists()
-    # ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0: each layer is migrated on its
-    # own, then the environment wins over ``--set``, which wins over the overlay and the base.
-    payload = captured["payload"]
-    assert payload["solver"]["modflow6"]["runtime"]["mf6_ims_complexity"] == "COMPLEX"
-    assert "modflow6" not in payload
-    assert payload["simulation"]["name"] == "base"
+    request = captured["request"]
+    # ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0: each file is migrated on its
+    # own. The document holds the base and its overlay, and ``--set`` rides beside it, the
+    # environment winning over it, as the loader applies them last.
+    assert request.config["solver"]["modflow6"]["runtime"]["mf6_ims_complexity"] == "MODERATE"
+    assert "modflow6" not in request.config
+    assert request.config["simulation"]["name"] == "base"
+    assert request.set == {"modflow6.runtime.mf6_ims_complexity": "COMPLEX"}
+    assert request.overlays == ("overlay.toml",)
+    assert request.overrides() == {
+        "solver.modflow6.runtime.mf6_ims_complexity": "COMPLEX",
+        "overlay": ["overlay.toml"],
+    }
+    # Nothing is written beside the file the user named.
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["config.toml", "overlay.toml"]
 
 
 def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:
     """``--resume`` propagates a run_id to the simulation dispatcher."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
-    )
-
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
     captured: dict = {}
-
-    def fake_run(config_path, **kwargs):
-        captured["kwargs"] = kwargs
-        return {"name": "test", "sim_id": "abc"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
+    _simulation(monkeypatch, captured)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--resume", "run-1"])
 
     main()
 
-    assert captured["kwargs"].get("resume") == "run-1"
+    assert captured["request"].resume == "run-1"
 
 
 def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_path) -> None:
     """Pipeline step controls must reach only the simulation dispatcher."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
-    )
-
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
     captured: dict = {}
-
-    def fake_run(config_path, **kwargs):
-        captured["config_path"] = Path(config_path)
-        captured["kwargs"] = kwargs
-        return {"name": "test", "sim_id": "abc"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
+    _simulation(monkeypatch, captured)
     monkeypatch.setattr(
         "sys.argv",
         ["hmp", "run", str(config), "--from", "setup", "--until", "solve"],
@@ -175,10 +166,112 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
 
     main()
 
-    assert captured["config_path"] == config.resolve()
-    assert captured["kwargs"]["from_step"] == "setup"
-    assert captured["kwargs"]["until_step"] == "solve"
-    assert "parallel" not in captured["kwargs"]
+    assert captured["request"].from_step == "setup"
+    assert captured["request"].until_step == "solve"
+    assert captured["base"] == tmp_path.resolve()
+
+
+def test_hmp_run_names_the_base_by_argument(monkeypatch, tmp_path) -> None:
+    """``--base`` is the folder the run is written in, whatever the folder of the file."""
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
+    project = tmp_path / "elsewhere"
+    project.mkdir()
+    captured: dict = {}
+    _simulation(monkeypatch, captured)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--base", str(project)])
+
+    main()
+
+    assert captured["base"] == project.resolve()
+
+
+def test_hmp_run_takes_the_project_w_names_as_its_base(monkeypatch, tmp_path) -> None:
+    """``-w`` is the base given by argument: no variable of the environment carries it."""
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "project.toml").write_text("", encoding="utf-8")
+    captured: dict = {}
+    _simulation(monkeypatch, captured)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "-w", str(project)])
+
+    main()
+
+    assert captured["base"] == project.resolve()
+
+
+def test_hmp_run_plays_a_json_request(monkeypatch, tmp_path) -> None:
+    """A ``.json`` file is a run request, and the base is its project root or ``--base``."""
+    import json
+
+    request_file = tmp_path / "request.json"
+    request_file.write_text(
+        json.dumps(
+            {
+                "schema": "hydromodpy.request.v1",
+                "config": {"workflow": {"mode": "simulation"}, "simulation": {"name": "by_json"}},
+                "name": "by_json",
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured: dict = {}
+    _simulation(monkeypatch, captured)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(request_file), "--base", str(tmp_path)])
+
+    main()
+
+    assert captured["request"].name == "by_json"
+    assert captured["request"].config["simulation"] == {"name": "by_json"}
+    assert captured["base"] == tmp_path.resolve()
+
+
+def test_hmp_run_refuses_an_overlay_with_a_json_request(monkeypatch, tmp_path, capsys) -> None:
+    request_file = tmp_path / "request.json"
+    request_file.write_text(
+        '{"schema": "hydromodpy.request.v1", "config": {"workflow": {"mode": "simulation"}}}',
+        encoding="utf-8",
+    )
+    overlay = _write_toml(tmp_path / "overlay.toml", "[simulation]\n")
+    monkeypatch.setattr(
+        "sys.argv", ["hmp", "run", str(request_file), "--overlay", str(overlay), "--base", "."]
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == EXIT_CONFIG
+    assert "--overlay merges a TOML file into a TOML file" in capsys.readouterr().err
+
+
+def test_hmp_run_says_what_a_skipped_run_gave_back(monkeypatch, tmp_path, capsys) -> None:
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
+    captured: dict = {}
+    _simulation(monkeypatch, captured, _outcome(name="test.v2", identical_to="test"))
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    err = capsys.readouterr().err
+    assert "Config identical to completed run 'test'" in err
+    assert "Re-run with --force to run it again." in err
+
+
+def test_hmp_run_gives_the_mesh_summary_of_a_run_in_its_json_result(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    """The summary of a mesh lives in memory only: the command hands it on as 2.0 did."""
+    import json
+
+    config = _write_toml(tmp_path / "config.toml", SIMULATION)
+    summary = {"engine": "gmsh", "cache_key": "k1"}
+    _simulation(monkeypatch, {}, _outcome(mesh_summary=summary))
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--format", "json"])
+
+    main()
+
+    result = json.loads(capsys.readouterr().out)["data"]["result"]
+    assert (result["engine"], result["cache_key"], result["name"]) == ("gmsh", "k1", "test")
 
 
 def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, tmp_path) -> None:
@@ -189,7 +282,7 @@ def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, 
 
     called = False
 
-    def fake_run(config_path, environment=None):
+    def fake_run(request, *, base, environment=None):
         nonlocal called
         called = True
         return {"mode": "calibration"}
@@ -213,8 +306,9 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
 
     captured: dict = {}
 
-    def fake_run(config_path, environment=None):
-        captured["config_path"] = Path(config_path)
+    def fake_run(request, *, base, environment=None):
+        captured["request"] = request
+        captured["base"] = Path(base)
         captured["environment"] = environment
         captured["run_called"] = True
         return SimpleNamespace(to_dict=lambda: {"mode": "data_overview"})
@@ -224,7 +318,8 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
 
     main()
 
-    assert captured["config_path"] == config.resolve()
+    assert captured["request"].source.endswith("overview.toml")
+    assert captured["base"] == tmp_path.resolve()
     assert captured["run_called"] is True
     assert captured["environment"] is not None
 
@@ -252,8 +347,9 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
 
     captured: dict = {}
 
-    def fake_run(config_path, environment=None):
-        captured["config_path"] = Path(config_path)
+    def fake_run(request, *, base, environment=None):
+        captured["request"] = request
+        captured["base"] = Path(base)
         captured["environment"] = environment
         captured["run_called"] = True
         return {"mode": "calibration"}
@@ -263,7 +359,8 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
 
     main()
 
-    assert captured["config_path"] == config.resolve()
+    assert captured["request"].source.endswith("calib.toml")
+    assert captured["base"] == tmp_path.resolve()
     assert captured["run_called"] is True
     assert captured["environment"] is not None
 
@@ -344,15 +441,8 @@ def test_hmp_run_rejects_python_scripts(monkeypatch, tmp_path, capsys) -> None:
     assert "Run the script with python directly." in err
 
 
-def test_overview_config_respects_project_root_env_override(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
+def test_overview_config_respects_the_base_argument(tmp_path: Path) -> None:
     redirected_project_root = tmp_path / "redirected_project_root"
-    monkeypatch.setenv(
-        "HMP_PROJECT_ROOT",
-        str(redirected_project_root),
-    )
 
     toml_content = f"""\
 [workflow]
@@ -377,7 +467,7 @@ name = "Test"
     toml_path = tmp_path / "overview.toml"
     toml_path.write_text(toml_content, encoding="utf-8")
 
-    cfg = HydroModPyConfig.from_toml(toml_path)
+    cfg = load(toml_path, redirected_project_root)
 
     assert cfg.workspace.project_root == redirected_project_root.resolve()
     assert cfg.overview is not None

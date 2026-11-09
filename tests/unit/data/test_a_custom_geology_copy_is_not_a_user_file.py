@@ -1,21 +1,19 @@
-"""A copy derived from a custom geology file never lands among the user's files.
+"""A copy derived from a geology file of the user is no file of the user and no row.
 
-The clipped copy of ``GEO1M.shp`` was written as
-``data/geology/geology_custom_GEO1M.gpkg``: the name of a user drop-in file,
-shared by every project whatever its bbox. It now lives under
-``data/blobs/geology/custom/`` with a name keyed on the source and the bbox,
-and its sidecar sits beside it.
+The clipped copy of ``GEO1M.shp`` lives under ``data/blobs/geology/file/`` with a
+name keyed on the source and the bbox. The scan of the data cache never enters
+that folder, so the copy has no sidecar and the folder of the variable keeps only
+what a download wrote.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import CacheIndex, sidecar_path_for
 from hydromodpy.data.variables.geology.config import FileGeologySource, GeologyConfig
 from hydromodpy.data.variables.geology.custom import load_custom_geology
-from hydromodpy.data.variables.geology.manager import GeologyManager
+from hydromodpy.data.variables.geology.variable import GeologyVariable
 
 
 def _write_polygons(path: Path) -> Path:
@@ -44,30 +42,27 @@ def _source(path: Path, **kwargs) -> FileGeologySource:
     return FileGeologySource(source="file", path=path, code_field="CODE", **kwargs)
 
 
-def test_the_manager_writes_the_clip_under_blobs_with_its_sidecar(tmp_path: Path) -> None:
+def test_the_variable_writes_the_clip_under_blobs_and_it_is_no_row(tmp_path: Path) -> None:
     data_root = tmp_path / "ws" / "data"
     geology_dir = data_root / "geology"
     user_file = _write_polygons(geology_dir / "GEO1M.gpkg")
     mask = _write_mask(tmp_path / "mask.gpkg", (10, 10, 40, 40))
     before = sorted(p.name for p in geology_dir.iterdir())
 
-    catalog = DataCatalogDuckDB(data_root / "cache.duckdb")
-    try:
-        manager = GeologyManager(
-            config=GeologyConfig(sources=[_source(user_file, mask_path=mask)]),
-            catalog=catalog,
-            data_dir=geology_dir,
-        )
-        record = manager.load().fields[0]
-    finally:
-        catalog.close()
+    index = CacheIndex(data_root)
+    variable = GeologyVariable(
+        config=GeologyConfig(sources=[_source(user_file, mask_path=mask)]),
+        index=index,
+        data_dir=geology_dir,
+    )
+    record = variable.load().fields[0]
 
     clip = Path(record.data)
-    assert clip.parent == data_root / "blobs" / "geology" / "custom"
+    assert clip.parent == data_root / "blobs" / "geology" / "file"
     assert clip.name.startswith("GEO1M_clip_")
     assert sorted(p.name for p in geology_dir.iterdir()) == before
-    assert load_sidecar(clip).source == "file"
-    assert sidecar_path_for(clip).parent == clip.parent
+    assert not sidecar_path_for(clip).exists()
+    assert index.rows() == []
 
 
 def test_two_bboxes_give_two_copies(tmp_path: Path) -> None:

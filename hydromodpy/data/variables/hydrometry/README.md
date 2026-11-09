@@ -5,7 +5,7 @@ series from custom CSV files or from the Hub'Eau API.
 
 ## Layout
 
-- `manager.py`: `HydrometryManager`, which dispatches to the configured source
+- `variable.py`: `HydrometryVariable`, which dispatches to the configured source
   (`custom` or `hubeau`).
 - `config.py`: `HydrometrySourceConfig` and `HydrometryConfig` (Pydantic v2,
   `extra="forbid"`).

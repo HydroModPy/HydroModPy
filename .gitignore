@@ -151,7 +151,6 @@ hydromodpy/solver/**/cases/outputs/**
 tools/cases/**/outputs/**
 **/.ipynb_checkpoints/
 examples/*.duckdb
-examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
 # Large local provider data generated while preparing examples.
@@ -195,7 +194,6 @@ examples/data/dem/processed/dem_ign_geoplateforme_*
 *.duckdb.lock
 /memory.duckdb*
 /.benchmarks/
-examples/projects/**/data/cache.duckdb*
 tests/regression/fixtures/**/cache.duckdb*
 
 # Generated reports and run outputs from example workflows.

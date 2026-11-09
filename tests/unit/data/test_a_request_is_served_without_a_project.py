@@ -28,8 +28,8 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.source.port import FetchRequest, FetchResult, extent_for
 from hydromodpy.data.source.registry import data_sources
-from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-from hydromodpy.data.variables.precipitation.manager import PrecipitationManager
+from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
+from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
 from hydromodpy.schema.job.digest import sha256_file
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -4,7 +4,7 @@ Contracts and design patterns
 This page says which names the contract of :doc:`/about/versions` covers: the
 public import paths, the plugin ports, the two storage Protocols and the field
 registry. Then it lists the patterns the code reuses. Know the patterns and the
-code is predictable: adding a backend, a data manager or a figure follows one of
+code is predictable: adding a backend, a data variable or a figure follows one of
 them.
 
 The public facade
@@ -52,9 +52,9 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.data.source.port``: the data source port.
 - ``hydromodpy.results.exporters.port``: the export format port.
 - ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
-- ``hydromodpy.data.managers.base_config``: the base of a data variable config.
-- ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
-- ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
+- ``hydromodpy.data.families.base_config``: the base of a data variable config.
+- ``hydromodpy.data.families.grids``: the base of a gridded variable.
+- ``hydromodpy.data.families.timeseries_config``: the base of a series variable.
 - ``hydromodpy.model.transport.transport_config``: ``TransportConfig``, the [transport] section and its per-solver tables.
 - ``hydromodpy.solver.base.adapter_protocol``: the solver port and the extractor port,
   ``SolverAdapter`` and ``OutputAdapter``.
@@ -194,9 +194,13 @@ directories and rebuilds at any time (:doc:`storage-layout`). DuckDB is the only
 backend the contract promises. The catalog reaches it through a port, and the port
 takes SQL in the dialect of DuckDB.
 
-``hydromodpy.lock`` freezes the data cache of a project before a run. The launcher of
-a ``[sites]`` project writes it, and ``hmp lock`` writes it by hand for a single
-project. ``hmp run --frozen`` on a project TOML verifies it and refuses without one. No
+The data cache has no database and no Protocol. Each fetched file has a sidecar
+``<file>.json``, and the sidecars are the cache (``hydromodpy/data/provenance/sidecars.py``,
+:doc:`data-scopes`).
+
+``hydromodpy.lock`` freezes the data cache and the files of the user of a project before a
+run. The launcher of a ``[sites]`` project writes it, and ``hmp data lock`` writes it by hand
+for a single project. ``hmp run --frozen`` on a project TOML verifies it and refuses without one. No
 other run needs it, because the manifest of a run records the inputs of that run: on the
 ``config.toml`` of a run, ``--frozen`` reads that record. See
 :ref:`artifact-policy` for the sidecar formats that are allowed.
@@ -383,11 +387,11 @@ A third party reaches the routing through the terrain engine port.
 *Why:* one process holds one Whitebox environment, and a registry with one entry only added
 a name to remember.
 
-Data manager
-~~~~~~~~~~~~
+Data variable
+~~~~~~~~~~~~~
 
-``hydromodpy/data/managers/base_manager_variable.py`` holds
-``BaseVariableManager``, with one subclass per variable under
+``hydromodpy/data/families/stations.py`` holds
+``StationVariable``, with one subclass per variable under
 ``hydromodpy/data/variables/<variable>/``. A subclass sets ``VARIABLE_NAME``,
 ``INTERNAL_UNIT`` and ``SOURCES`` and ``load()`` returns a ``LoadResult``.
 ``DataPlanner`` (``data/loading/planner.py``) turns the explicit config and the

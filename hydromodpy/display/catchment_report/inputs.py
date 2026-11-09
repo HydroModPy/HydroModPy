@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.scratch import kept_preprocessing_dir, preprocessing_dir
+from hydromodpy.core.workspace import WorkspaceConfig
 from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 from hydromodpy.display.overview.location import (
     REVIEW_DIRNAME,
@@ -22,7 +23,6 @@ from hydromodpy.display.overview.location import (
     overview_name_of_file,
     overview_run_dir,
 )
-from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME, RUN_REPORT_DIRNAME
 
 if TYPE_CHECKING:
@@ -61,7 +61,12 @@ class CatchmentReportInputs:
     @property
     def run_dir(self) -> Path:
         """``runs/<simulation_name>/``: the run the report describes and is written into."""
-        return runs_dir_for(self.simulation_workspace_dir) / run_dirname(self.simulation_name)
+        return runs_dir_for(self.simulation_workspace_dir) / str(self.simulation_name)
+
+    @property
+    def data_dir(self) -> Path:
+        """The data folder of the run: ``<workspace>/data``, or ``data/`` of a project alone."""
+        return WorkspaceConfig(project_root=self.simulation_workspace_dir).data_path
 
     @property
     def output_dir(self) -> Path:

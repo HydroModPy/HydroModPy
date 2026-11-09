@@ -1,20 +1,23 @@
-"""Verbs of ``hmp data`` on the workspace cache: list, request, add, remove, prune.
+"""Verbs of ``hmp data`` on the cache of a workspace: list, request, remove, archive.
 
-A read (``ls``) opens the workspace cache read-only, so it never waits on, nor
-blocks, a launch that merges into the cache. Only the actions that change the
-cache (``add``, ``remove``, ``prune``) open it read-write.
+The cache is the sidecar next to each fetched file, so a verb reads it by a walk
+of ``data/`` and writes only sidecars and the files they describe. A file the user
+keeps under ``inputs/`` is no row, so no verb here touches it.
 Each function takes the root of a workspace that is already resolved.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.state.layout import data_cache_path_for
+from hydromodpy.data.provenance.sidecars import CacheIndex, ScanReport, scan
 
 if TYPE_CHECKING:
     from hydromodpy.core.runtime.bounds import Bounds
+
+DATA_DIRNAME = "data"
 
 
 def list_data_cache(
@@ -22,15 +25,23 @@ def list_data_cache(
     *,
     variable: str | None = None,
     provider: str | None = None,
-) -> Any:
-    """List artifacts indexed in the workspace data cache."""
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+) -> ScanReport | None:
+    """List the rows of the workspace data cache, or return None when there is no ``data/``.
 
-    db_path = data_cache_path_for(workspace_root / "data")
-    if not db_path.exists():
+    The report holds only the rows of *variable* and *provider* when they are given,
+    and the sidecars the walk could not turn into a row.
+    """
+    data_root = Path(workspace_root) / DATA_DIRNAME
+    if not data_root.is_dir():
         return None
-    with DataCatalogDuckDB(db_path, read_only=True) as catalog:
-        return catalog.list_entries(variable=variable, source=provider)
+    report = scan(data_root)
+    rows = tuple(
+        row
+        for row in report.rows
+        if (variable is None or row.variable == variable)
+        and (provider is None or row.source == provider)
+    )
+    return replace(report, rows=rows)
 
 
 def request_data(
@@ -89,85 +100,6 @@ def request_data(
     return report.to_document()
 
 
-def add_data_entry(
-    file: Any,
-    *,
-    variable: str,
-    provider: str = "custom",
-    crs: str | None = None,
-    unit: str | None = None,
-    station_id: str | None = None,
-    workspace_root: Path,
-    project: Any = None,
-    frozen: bool = False,
-) -> dict:
-    """Ingest a single file into the workspace data cache.
-
-    ``frozen`` checks the candidate against the lockfile of ``project``, or of
-    the project the current directory sits in when none is named. ``workspace_root``
-    only ever names the cache the file lands in: it holds many projects and
-    therefore no lockfile of its own.
-    """
-    from hydromodpy.data.ingest import (
-        convert_asc_to_geotiff,
-        convert_timeseries_csv_to_parquet,
-        convert_vector_to_geoparquet,
-    )
-    from hydromodpy.data.provenance.lockfile import (
-        project_lockfile_path,
-        read_lockfile_inputs,
-        resolve_lockfile_root,
-        sha256_of,
-    )
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.data.workspace.scaffold import VARIABLES
-
-    src = Path(file).expanduser().resolve()
-    if not src.is_file():
-        raise FileNotFoundError(f"File not found: {src}")
-    if frozen:
-        lockfile = project_lockfile_path(resolve_lockfile_root(project))
-        if not lockfile.is_file():
-            raise FileNotFoundError(f"--frozen requested but no lockfile at {lockfile}")
-        expected = {item.sha256 for item in read_lockfile_inputs(lockfile)}
-        if sha256_of(src) not in expected:
-            raise ValueError(f"--frozen: {src} SHA-256 does not match any lockfile entry")
-
-    spec = next((s for s in VARIABLES if s.name == variable), None)
-    if spec is None:
-        raise ValueError(f"Unknown variable {variable!r}")
-
-    blobs = workspace_root / "data" / "blobs" / spec.name / provider
-    blobs.mkdir(parents=True, exist_ok=True)
-    if spec.kind == "timeseries":
-        sid = station_id or src.stem
-        dest = blobs / f"{sid}.parquet"
-        convert_timeseries_csv_to_parquet(src, dest)
-    elif spec.kind == "raster":
-        sid = None
-        dest = blobs / f"{src.stem}.tif"
-        convert_asc_to_geotiff(src, dest)
-    elif spec.kind == "vector":
-        sid = None
-        dest = blobs / f"{src.stem}.parquet"
-        convert_vector_to_geoparquet(src, dest)
-    else:
-        raise ValueError(f"Unsupported kind {spec.kind!r}")
-
-    with DataCatalogDuckDB(data_cache_path_for(workspace_root / "data")) as catalog:
-        catalog.register(
-            variable=spec.name,
-            source=provider,
-            station_id=sid,
-            file_path=str(src),
-            crs=crs,
-            unit=unit or spec.unit,
-            is_custom=True,
-            fetch_metadata={"pivot_path": str(dest), "pivot_format": spec.pivot},
-        )
-    return {"variable": spec.name, "provider": provider, "station_id": sid, "dest": str(dest)}
-
-
 def remove_data_entries(
     workspace_root: Path,
     *,
@@ -177,36 +109,41 @@ def remove_data_entries(
     delete_files: bool = False,
     dry_run: bool = False,
 ) -> int:
-    """Remove cache entries matching the filters. Returns the count, removed or found."""
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    """Remove cache rows matching the filters. Returns the count, removed or found.
 
-    db_path = data_cache_path_for(workspace_root / "data")
-    if not db_path.exists():
-        return 0
-    with DataCatalogDuckDB(db_path) as catalog:
-        return catalog.invalidate(
-            variable=variable,
-            source=provider,
-            station_id=station_id,
-            delete_files=delete_files,
-            dry_run=dry_run,
-        )
+    A row is its sidecar. Without *delete_files* only the sidecar goes, and the file
+    is then no row of the cache.
+    """
+    index = CacheIndex(Path(workspace_root) / DATA_DIRNAME)
+    rows = index.rows(variable=variable, source=provider, station_id=station_id)
+    if not dry_run:
+        for row in rows:
+            index.forget(row, delete_file=delete_files)
+    return len(rows)
 
 
-def prune_data_cache(
-    workspace_root: Path,
-    *,
-    older_than_days: int = 30,
-    delete_files: bool = False,
-    dry_run: bool = False,
-) -> int:
-    """Drop cache entries older than N days. Returns the count, removed or found."""
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+def archive_data_cache(output: str | Path, *, workspace_root: Path) -> Path:
+    """Archive the rows of the workspace cache, each with its sidecar, and their lockfile."""
+    from hydromodpy.data.provenance.archive import archive_data
 
-    db_path = data_cache_path_for(workspace_root / "data")
-    if not db_path.exists():
-        return 0
-    with DataCatalogDuckDB(db_path) as catalog:
-        return catalog.prune_older_than(
-            days=older_than_days, delete_files=delete_files, dry_run=dry_run
-        )
+    data_root = Path(workspace_root) / DATA_DIRNAME
+    dest = Path(output).expanduser().resolve()
+    if not scan(data_root).rows:
+        raise FileNotFoundError(f"no data cache row under {data_root}: nothing to archive")
+    return archive_data(data_root, dest)
+
+
+def restore_data_cache(
+    source: str | Path, *, workspace_root: Path, to: str | Path | None = None
+) -> Path:
+    """Restore a cache archive, each file with its sidecar, once its SHA-256 are checked.
+
+    Returns the folder restored into: *to*, else ``data/`` of the workspace, where the
+    restored files are rows of the cache at once.
+    """
+    from hydromodpy.data.provenance.archive import restore_archive
+
+    src = Path(source).expanduser().resolve()
+    dest = Path(to).expanduser().resolve() if to else Path(workspace_root) / DATA_DIRNAME
+    restore_archive(src, dest)
+    return dest

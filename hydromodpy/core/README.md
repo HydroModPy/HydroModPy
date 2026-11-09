@@ -32,7 +32,7 @@ question, and each sub-package has its own `README.md`.
 | `toml_io/` | how is a TOML config read, merged and written? Loader with `base_config`, overrides, path resolution, commented templates, error lines |
 | `tracking/` | which files does a config read? `InputFile` and the walker that feeds the manifest |
 | `workspace/` | where does a workspace live, and what are its paths? `WorkspaceConfig`, `WorkspaceLayout`, the path registry, `workspace.toml` |
-| `state/` | where do things live in a project, and what does a run carry between steps? Path helpers, run contexts, the seed manager |
+| `state/` | where do things live in a project, and what does a run carry between steps? Path helpers, run contexts, the seed manager, and the one rule of a project name and a run name (`names.py`) |
 | `site/` | what is a site? `SiteConfig`, `SiteRow`, the site fingerprint, the gauge rule |
 | `payload/` | what does a package install, and where? `INSTALL.toml` and the one installer |
 | `contracts/` | what do two layers agree on without importing each other? Protocols, solver and cache contracts |
@@ -50,8 +50,7 @@ question, and each sub-package has its own `README.md`.
 `bed_regularization` is now in `catchment/algorithms/`; `solver_diagnostics` is
 `solver/boussinesq/runtimes/diagnostic_files.py`; `administrative_france` is
 `catchment/administrative/regions.py`; `units/udunits` is `results/storage/udunits.py`;
-`config_kit/export_spec` is `results/exporters/export_spec.py`; `migrations` is
-`data/registry/migrations/`. The drainage kernels (receiver graph, depression filling, descent D,
+`config_kit/export_spec` is `results/exporters/export_spec.py`. The drainage kernels (receiver graph, depression filling, descent D,
 downslope distance) are in `catchment/drainage/`, the mean recharge of the stream criterion is in
 `model/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
 
@@ -63,7 +62,7 @@ allowed target, itself, and the layer test counts every import: module level, in
 
 A kernel module that needs something from a higher layer receives it as an argument from its caller.
 `config_kit` and `toml_io` receive the root config class as an argument of the functions that read and
-write the configuration, and the data cache surface stays the protocol of `contracts/data_cache_backend.py`.
+write the configuration.
 No kernel module reaches for a global: the bootstrap hooks are gone, and `TrialPipeline` in
 `calibration/runners` is the only provider left in the library. A new sibling edge is a regression unless
 the YAML is updated with its rationale.
@@ -77,7 +76,7 @@ Keep `core` light: importing `hydromodpy.core` does not load the configuration o
 3. A unit alias goes in `units/types.py`, with its canonical unit.
 4. A field visibility rule goes in `config_kit/profile.py` and `config_kit/introspect.py`.
 5. An exception the CLI should map to an exit code goes in `exceptions.py`, then in `exit_code_for` of `hydromodpy/cli/helpers.py`.
-6. A DuckDB schema change is a new numbered `.sql` file in the `migrations/` folder of the component (data cache: `data/registry/migrations/`). The project index is never migrated, a schema change there is a rebuild (`results/catalog/index_schema.py`).
+6. The project index is the one DuckDB file of the library, and it is never migrated: a schema change there is a rebuild (`results/catalog/index_schema.py`). The data cache has no database, its sidecars are the cache (`data/provenance/sidecars.py`).
 7. A metric goes in `scoring/metrics.py`, pure NumPy, JSON-friendly floats.
 
 ## Reading path

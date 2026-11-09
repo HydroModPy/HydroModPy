@@ -101,9 +101,9 @@ hmp run calibration.toml
 
 The first command runs every case of the plan, the second the recipe file `calibration.toml`
 on every site. Each case runs in its own process, as `hmp run plan/<hash>/<case>.toml`. Before the solves, a
-`prepare` phase fetches the data of every case. The cases only read the input cache of the
-workspace: what each one downloads goes to a private cache that the launcher merges into the
-shared one, so the cases never compete for it.
+`prepare` phase fetches the data of every case into the input cache of the workspace. Each
+file goes there with its sidecar, and one station is written at a time under a file lock, so two
+cases that need the same station leave one file and never compete for it.
 
 {toml}`sites.run.parallel` is the number of solves that run side by side. A calibration
 case that solves five trials at once counts for five, at its widest phase, and a case wider

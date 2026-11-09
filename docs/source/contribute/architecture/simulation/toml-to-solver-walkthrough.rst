@@ -10,16 +10,19 @@ interrupted run restarts.
 End-to-end chain
 ----------------
 
-1. ``hmp run <file>`` enters at ``hydromodpy/cli/commands/run.py``.
-   ``hydromodpy.run`` in ``hydromodpy/_api.py`` takes the same path from Python.
-2. The workflow of the file selects the launcher through ``DISPATCH`` in
+1. ``hmp run <file>`` enters at ``hydromodpy/cli/commands/run.py``, which builds a ``RunRequest``
+   with ``request_of`` (``hydromodpy/project/request.py``). The file is a ``.toml`` file or a
+   ``.json`` run request. ``hydromodpy.run`` in ``hydromodpy/_api.py`` builds the same request
+   from Python, and a server or a Docker container hands over the same JSON.
+2. The workflow of the request selects the launcher through ``DISPATCH`` in
    ``hydromodpy/project/dispatch/workflow.py``: ``simulation``, ``overview`` or
    ``calibration``. ``[workflow].mode`` names it; left unwritten, the sections
-   of the file say it (``[calibration]`` calibrates, ``[overview]`` without
+   of the document say it (``[calibration]`` calibrates, ``[overview]`` without
    ``[simulation]`` draws the overview, anything else simulates).
-3. For ``simulation``, ``run_simulation`` opens ``Project``
-   (``hydromodpy/project/facade.py``), which validates the file into a
-   ``HydroModPyConfig`` and calls ``Project.simulate``.
+3. For ``simulation``, ``run_simulation`` loads the document into a ``HydroModPyConfig``
+   (``hydromodpy/config/loading.py``), claims the run folder, resolves the inputs and opens
+   ``Project`` (``hydromodpy/project/facade.py``), which calls ``Project.simulate``. The next
+   section gives the order.
 4. ``simulate`` builds the shared model phase once, then runs the ``Pipeline``
    (``hydromodpy/workflow/runner.py``) over the twelve steps of
    ``standard_steps()`` in ``hydromodpy/workflow/steps/sequence.py``.
@@ -32,6 +35,49 @@ End-to-end chain
    ``hydromodpy/solver/<backend>/adapters/``.
 7. The backend package under ``hydromodpy/solver/`` builds and runs the model.
 8. The extract, derive, display and export steps write the run to disk.
+
+The order of a run
+------------------
+
+``run_simulation(request, base=, environment=)`` does these things in this order. A refusal in
+steps 1 and 2 leaves nothing on the disk.
+
+1. ``load`` reads the document of the request, with its ``set`` changes, from the base. The base
+   is the folder relative paths are read from. It is an argument, so a document in memory needs
+   one and is refused without it.
+2. ``Environment.check`` tests the credentials and the bounds of the call, and ``check_name``
+   tests the name of the run against the rule of ``core/state/names.py``: ``[a-z0-9_-]``, 40
+   characters, no reserved Windows name.
+3. The run claims ``runs/<name>[.vN]``. A completed name gets a new version, a failed or aborted
+   one continues as the next attempt. The claim writes ``outcome.json`` and starts the pulse. Its
+   ``sim_id`` is a uuid taken here, and it enters no identity.
+4. A request given as JSON or as a dict is written as ``request.json``, whole and never
+   redacted. ``config.toml``, what the run was given, is written from the loaded configuration.
+   A run that stops before the mesh can then be resumed. ``config.resolved.toml`` comes later,
+   from ``prepare_solver``.
+5. ``resolve_inputs`` turns every input into a file with a digest. A download that fails closes
+   the outcome as ``failed``. The result is put in ``WorkflowContext.inputs``, so the setup step
+   does not resolve a second time.
+6. The ``request_id`` is computed and written into ``outcome.json`` at once.
+7. A resumed attempt starts over when its ``request_id`` differs from the one of the last
+   attempt, or when that attempt recorded none.
+8. A plain run (not a resume, a partial window, a forced run or a replay) computes its
+   ``solution_key`` and looks for a sealed run of the same name whose key is equal. Found, the
+   claim is withdrawn without a trace and that run is given back. The file of each API source that
+   the found run cites must still be in the cache with the same sha256, or the run is computed.
+   ``hmp run`` and ``hmp calibrate`` skip this way, and no other verb does.
+9. ``if_exists = "fail"`` is tested after the skip, so an identical run is always given back.
+10. The pipeline runs.
+
+The request id says what a run asks for. It is the sha256 of the document as a file writes it,
+without ``[workspace]``, ``[workflow]``, ``simulation.name`` and every ``deliver_to`` key, and
+without the mesh the run builds. Each input enters by the digest and the state of its bytes, and a
+URL enters by its pinned sha256, so the address leaves the document. The edition of the
+defaults enters too, and so does the digest of the ``final_state/`` a window starts from, when
+it starts from one. The solution
+key adds the code that computes, the mesh engine and its version, the sha256 of the solver
+binaries and the versions of the numeric packages. The name of the run, its ``sim_id`` and its
+path are in neither.
 
 Config loading and the model phase
 ----------------------------------
@@ -110,6 +156,14 @@ Where to change what
      - Where
    * - Workflow registration or CLI dispatch
      - ``hydromodpy/project/dispatch/workflow.py``
+   * - The request, the base of relative paths
+     - ``hydromodpy/project/request.py`` and ``hydromodpy/config/loading.py``
+   * - The rule of a project name and of a run name
+     - ``hydromodpy/core/state/names.py``
+   * - The request id and the solution key
+     - ``hydromodpy/results/request_identity.py``
+   * - Claim, restart and withdrawal of a run folder
+     - ``hydromodpy/results/storage/attempt.py``
    * - Project orchestration, workspace behavior
      - ``hydromodpy/project/facade.py``
    * - Planning rules, dependency binding

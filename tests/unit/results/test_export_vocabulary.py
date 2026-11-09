@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
-from hydromodpy.data.variables.lake_levels.manager import LakeLevelsManager
-from hydromodpy.data.variables.piezometry.manager import PiezometryManager
+from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
+from hydromodpy.data.variables.intermittency.variable import IntermittencyVariable
+from hydromodpy.data.variables.lake_levels.variable import LakeLevelsVariable
+from hydromodpy.data.variables.piezometry.variable import PiezometryVariable
 from hydromodpy.results import field_registry
 from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import (
@@ -72,7 +72,7 @@ def test_the_catchment_series_are_known() -> None:
 
 @pytest.mark.parametrize(
     "manager",
-    [HydrometryManager, IntermittencyManager, LakeLevelsManager, PiezometryManager],
+    [HydrometryVariable, IntermittencyVariable, LakeLevelsVariable, PiezometryVariable],
 )
 def test_each_observation_family_has_its_observed_series(manager: type) -> None:
     assert manager.RECORD_VARIABLE in OBSERVED_VARIABLES

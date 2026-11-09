@@ -34,7 +34,6 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_VALIDATION,
-    project_named_by_w,
     refuse,
 )
 from hydromodpy.cli.output import emit
@@ -130,7 +129,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     catchment_p = sub.add_parser(
         "catchment",
         help="Build a catchment HTML report from one TOML configuration",
-        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        parents=[workspace_parser(reads_none=True), format_parser(), verbosity_parser()],
         epilog="Examples:\n  hmp report catchment report.toml\n  hmp report catchment report.toml --report-only",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -308,13 +307,12 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
 
     try:
         overrides = _catchment_overrides(args)
-        with project_named_by_w(args.workspace):
-            result = run_catchment_report_pipeline(
-                args.report_config,
-                preset=preset_from_name(args.preset) if args.preset else None,
-                root=ROOT_CONFIG,
-                **overrides,
-            )
+        result = run_catchment_report_pipeline(
+            args.report_config,
+            preset=preset_from_name(args.preset) if args.preset else None,
+            root=ROOT_CONFIG,
+            **overrides,
+        )
     except (ValueError, ConfigError) as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
 

@@ -125,6 +125,30 @@ def test_fail_takes_a_name_nobody_holds(tmp_path: Path) -> None:
     assert _claim(project, "beta", if_exists="fail").name == "beta"
 
 
+def test_a_name_held_only_by_the_claim_that_asks_is_free(tmp_path: Path) -> None:
+    """``if_exists = "fail"`` is read once the attempt has claimed: its own folder is no holder."""
+    from hydromodpy.results.catalog.registration import check_name_free
+
+    project = tmp_path / "p"
+    claim = claim_run(project, "alpha")
+
+    check_name_free(project, "alpha", excluding=claim.run_dir.name)
+    with pytest.raises(NameTakenError, match="runs/alpha"):
+        check_name_free(project, "alpha")
+
+
+def test_a_name_held_beside_the_claim_that_asks_is_taken(tmp_path: Path) -> None:
+    from hydromodpy.results.catalog.registration import check_name_free
+
+    project = tmp_path / "p"
+    _sealed(project, "alpha")
+    claim = _claim(project, "alpha")
+    assert claim.run_dir.name == "alpha.v2"
+
+    with pytest.raises(NameTakenError, match="runs/alpha"):
+        check_name_free(project, "alpha", excluding=claim.run_dir.name)
+
+
 def test_fail_lets_an_unfinished_attempt_retry_in_its_directory(tmp_path: Path) -> None:
     project = tmp_path / "p"
     first = claim_run(project, "alpha")

@@ -1,6 +1,6 @@
-"""Convert user-facing CSV files into the internal Parquet pivot format.
+"""Read user-facing CSV files and convert some of them into the internal Parquet pivot format.
 
-Two CSV flavours are supported:
+Two CSV flavours are read:
 
 - **Timeseries CSVs** (``<variable>_custom_<id>_<start>_<end>_<freq>.csv``)
   with columns ``datetime,value``.
@@ -27,7 +27,6 @@ from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.data.schemas import (
     StationCollectionSchema,
-    TimeSeriesSchema,
     validate_abacus,
     validate_warn_only,
 )
@@ -187,46 +186,6 @@ def _write_parquet_v2(table: object, dest: Path) -> Path:
         raise
     os.replace(tmp_io, native_io_path(dest))
     return dest
-
-
-def convert_timeseries_csv_to_parquet(
-    src: str | Path,
-    dest: str | Path,
-) -> Path:
-    """Convert a validated timeseries CSV into a Parquet file.
-
-    The output respects the v2 Parquet write defaults (ZSTD-5, page index,
-    row-group 50k) without crossing the layer boundary into ``results``.
-    """
-    import pandas as pd
-    import pyarrow as pa
-
-    src = Path(src)
-    dest = Path(dest)
-    artifact = read_timeseries_csv(src)
-
-    frame = pd.DataFrame(
-        {
-            "datetime": [record[0] for record in artifact.records],
-            "value": [record[1] for record in artifact.records],
-            "station_id": [artifact.station_id] * len(artifact.records),
-        },
-    )
-    validation_view = frame[["datetime", "value"]].rename(columns={"datetime": "date"})
-    validate_warn_only(
-        validation_view,
-        TimeSeriesSchema,
-        schema_name=f"TimeSeriesSchema[{src.name}]",
-    )
-    schema = pa.schema(
-        [
-            pa.field("datetime", pa.timestamp("ms")),
-            pa.field("value", pa.float64()),
-            pa.field("station_id", pa.string()),
-        ]
-    )
-    table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
-    return _write_parquet_v2(table, dest)
 
 
 def convert_abacus_to_parquet(

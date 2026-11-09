@@ -102,7 +102,12 @@ class RunFacts(HydroModelBase):
     solver: str | None = None
     solver_category: str | None = None
     flow_regime: FlowRegime | None = None
-    config_hash: str | None = Field(default=None, description="Identity hash, without [workspace]")
+    config_hash: str | None = Field(
+        default=None,
+        description=(
+            "Solution key of the run: its request, inputs, code, solver binaries and packages"
+        ),
+    )
     solver_output_dirs: dict[str, str] = Field(
         default_factory=dict,
         description="Folder each run of the plan solved in, by run id, for a resume to read",

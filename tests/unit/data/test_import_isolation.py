@@ -8,7 +8,7 @@ package** as an attribute, and ``from a.b import c`` reads that attribute, not
 made every later ``monkeypatch.setattr("a.b.c.d", ...)`` patch one object while
 the code under test imported another -- silently, and only when this file ran
 first. Two tests in ``tests/unit/data/variables/hydrography/test_hydrography_resolver.py`` failed
-exactly that way whenever the suite was invoked with ``data_managers`` ahead of
+exactly that way whenever the suite was invoked with the families tests ahead of
 ``data``.
 """
 
@@ -54,14 +54,15 @@ def _isolated_module_state(*prefixes: str) -> Iterator[None]:
         _rebind_on_parents(snapshot)
 
 
-def test_hydromodpy_config_import_does_not_eagerly_load_sql_catalog() -> None:
+def test_hydromodpy_config_import_does_not_eagerly_load_the_data_store() -> None:
+    """Reading a config builds no store, so it reads no data folder."""
     with _isolated_module_state(
         "hydromodpy.config.hydromodpy_config",
         "hydromodpy.data",
     ):
         importlib.import_module("hydromodpy.config.hydromodpy_config")
 
-        assert "hydromodpy.data.registry.catalog_duckdb" not in sys.modules
+        assert "hydromodpy.data.loading.store" not in sys.modules
 
 
 def test_the_isolation_leaves_no_module_behind_its_parent_attribute() -> None:
@@ -84,10 +85,10 @@ def test_the_isolation_leaves_no_module_behind_its_parent_attribute() -> None:
     assert parent.config is before
 
 
-def test_a_variable_config_loads_no_manager() -> None:
-    """Validating a [data] section must not load a single variable manager."""
+def test_a_variable_config_loads_no_variable_module() -> None:
+    """Validating a [data] section must not load a single ``variable`` module."""
     with _isolated_module_state("hydromodpy.config.hydromodpy_config", "hydromodpy.data"):
         importlib.import_module("hydromodpy.config.hydromodpy_config")
-        loaded = sorted(name for name in sys.modules if name.endswith(".manager"))
+        loaded = sorted(name for name in sys.modules if name.endswith(".variable"))
 
     assert [name for name in loaded if name.startswith("hydromodpy.data.")] == []

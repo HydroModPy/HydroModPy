@@ -15,15 +15,15 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+from hydromodpy.data.families.stations import StationVariable
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, variable_class_for
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
-from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
 from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
-from hydromodpy.data.variables.lake_inflow.manager import LakeInflowManager
+from hydromodpy.data.variables.lake_inflow.variable import LakeInflowVariable
 from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
-from hydromodpy.data.variables.lake_outflow.manager import LakeOutflowManager
+from hydromodpy.data.variables.lake_outflow.variable import LakeOutflowVariable
 from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
-from hydromodpy.data.variables.lake_withdrawal.manager import LakeWithdrawalManager
+from hydromodpy.data.variables.lake_withdrawal.variable import LakeWithdrawalVariable
 from hydromodpy.data.workspace.scaffold import VARIABLES
 
 PROJECT_PERIOD = (datetime(2020, 1, 1), datetime(2020, 3, 31))
@@ -31,9 +31,9 @@ PROJECT_PERIOD = (datetime(2020, 1, 1), datetime(2020, 3, 31))
 FLUX_FAMILIES = ("lake_inflow", "lake_outflow", "lake_withdrawal")
 
 MANAGER_CLASSES = {
-    "lake_inflow": (LakeInflowConfig, LakeInflowManager),
-    "lake_outflow": (LakeOutflowConfig, LakeOutflowManager),
-    "lake_withdrawal": (LakeWithdrawalConfig, LakeWithdrawalManager),
+    "lake_inflow": (LakeInflowConfig, LakeInflowVariable),
+    "lake_outflow": (LakeOutflowConfig, LakeOutflowVariable),
+    "lake_withdrawal": (LakeWithdrawalConfig, LakeWithdrawalVariable),
 }
 
 
@@ -65,10 +65,10 @@ def _make_lake_flux_dir(tmp_path, variable_name, *, lake_ids, unit="m3/s", value
 def test_family_registers_in_dispatch(name):
     spec = VARIABLE_SPECS[name]
     assert spec.config_module == f"hydromodpy.data.variables.{name}.config"
-    assert spec.manager_module == f"hydromodpy.data.variables.{name}.manager"
+    assert spec.variable_module == f"hydromodpy.data.variables.{name}.variable"
 
-    manager_cls = get_manager_class(name)
-    assert issubclass(manager_cls, BaseVariableManager)
+    manager_cls = variable_class_for(name)
+    assert issubclass(manager_cls, StationVariable)
     assert manager_cls.VARIABLE_NAME == name
     assert manager_cls.INTERNAL_UNIT == "m3/s"
 
@@ -96,7 +96,7 @@ def test_manager_load_returns_point_timeseries_contract(tmp_path):
     config = config_cls.from_csv_directory(data_dir)
     manager = manager_cls(
         config=config,
-        catalog=None,
+        index=None,
         project_period=PROJECT_PERIOD,
         data_dir=data_dir,
     )

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -117,7 +116,7 @@ def test_run_without_config_or_resume_errors(monkeypatch, tmp_path):
 
 
 def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch, capsys):
-    """Only the simulation workflow skips an identical run, so only it accepts --force."""
+    """Only a simulation and a calibration give back identical work, so only they take --force."""
     workspace = tmp_path / "ws"
     workspace.mkdir()
     config = workspace / "overview.toml"
@@ -128,29 +127,35 @@ def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch
         run_cmd._run_toml(config, args=_args(resume=None, force=True, dry_run=False))
 
     assert exit_info.value.code == EXIT_CONFIG
-    assert "--force is only supported for the 'simulation' workflow" in capsys.readouterr().err
+    assert "--force is only supported for the 'simulation' and 'calibration' workflows" in (
+        capsys.readouterr().err
+    )
 
 
 def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, monkeypatch, capsys):
     """A launched calibration started again reopens its session instead of a new version."""
     import hydromodpy
+    from hydromodpy.project.dispatch import workflow as project_workflow
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
     config = workspace / "cal.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     monkeypatch.chdir(workspace)
-    calls: list[tuple[Path, dict]] = []
-    monkeypatch.setattr(
-        hydromodpy,
-        "calibrate",
-        lambda path, **kw: calls.append((Path(path), kw)) or SimpleNamespace(to_dict=dict),
-    )
+    calls: list = []
+
+    def calibrate(request, *, base, environment=None):
+        calls.append((request, Path(base)))
+        return {}
+
+    monkeypatch.setitem(project_workflow.DISPATCH, "calibration", calibrate)
     monkeypatch.setattr(hydromodpy, "run", lambda path, **kw: pytest.fail("hmp.run was called"))
 
     run_cmd._run_toml(config, args=_args(resume="", dry_run=False, verbosity="quiet"))
 
-    assert len(calls) == 1 and calls[0][1] == {"resume": True, "environment": None}
+    ((request, base),) = calls
+    assert request.resume is not None and not request.resume, "a bare --resume reaches the runner"
+    assert (Path(request.source), base) == (config.resolve(), workspace.resolve())
 
     with pytest.raises(SystemExit) as exit_info:
         run_cmd._run_toml(config, args=_args(resume="other", dry_run=False))
@@ -178,3 +183,12 @@ def test_a_run_out_of_a_calibration_says_how_to_reopen_its_session(
 
     assert stopped.value.code == EXIT_CONFIG
     assert "hmp run <file>.toml --resume" in capsys.readouterr().err
+
+
+def test_a_bare_resume_names_the_run_a_file_without_a_name_made(tmp_path) -> None:
+    """The run of ``Config Winter.toml`` is ``config_winter``, and a bare --resume names it."""
+    from hydromodpy.project.request import RunRequest
+
+    config = tmp_path / "Config Winter.toml"
+
+    assert run_cmd._case_name(RunRequest(config={}, form="toml"), {}, config) == "config_winter"

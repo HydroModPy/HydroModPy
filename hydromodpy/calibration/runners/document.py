@@ -23,7 +23,9 @@ from hydromodpy.calibration.protocols import (
 )
 from hydromodpy.calibration.runners.session import (
     calibration_case_name,
+    case_named_by,
     project_root_for,
+    report_of_session,
 )
 from hydromodpy.core.exceptions import (
     CalibrationError,
@@ -32,14 +34,22 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 
 if TYPE_CHECKING:
-    pass
+    from hydromodpy.calibration.report import CalibrationReport
 
 
 logger = get_logger(__name__)
 
 
-def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
+def load_toml_calibration(
+    path: Path, *, document: Mapping[str, Any] | None = None
+) -> tuple[CalibrationConfig, dict]:
     """Return the validated ``[calibration]`` section of ``path`` and the raw TOML.
+
+    *document*, when given, is the document of ``path`` already read with its
+    overlays and its ``--set`` changes, and stands for the file; ``path`` still
+    names the file in messages and anchors its relative paths. Only the section is
+    validated, so a file that writes nothing but ``[calibration]`` reads the same
+    with or without changes.
 
     Read through ``base_config`` resolution, the same way the pipeline reads the
     file. Reading it raw instead made a ``[calibration]`` section inherited from
@@ -56,10 +66,13 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.error_locator import format_validation_error
 
-    try:
-        raw = trial_pipeline().load_document(path)
-    except ValueError as exc:
-        raise ConfigError(f"{path}: {exc}") from None
+    if document is not None:
+        raw = dict(document)
+    else:
+        try:
+            raw = trial_pipeline().load_document(path)
+        except ValueError as exc:
+            raise ConfigError(f"{path}: {exc}") from None
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     try:
@@ -326,3 +339,51 @@ def site_name(raw: Mapping[str, Any]) -> str | None:
     site = raw.get("site")
     name = site.get("name") if isinstance(site, Mapping) else None
     return str(name) if name else None
+
+
+def identical_session(
+    key: str | None,
+    *,
+    project_root: Path,
+    case: str | None = None,
+    source: Path | None = None,
+    document: Mapping[str, Any] | None = None,
+) -> CalibrationReport | None:
+    """Return the report of the completed session that answers a calibration, or None.
+
+    A session answers when it carries the case and the solution *key*, search
+    kept; a key told as ``None`` answers nothing, so the calibration runs. The case
+    is *case*, else the one the file *source* names, else the ``[simulation]
+    name`` of *document*, as the runners name it. The newest version of the case
+    that answers is read back by
+    :func:`~hydromodpy.calibration.runners.session.report_of_session`, its
+    ``extra["identical_to"]`` naming the session folder.
+    """
+    from hydromodpy.core.state.layout import sessions_dir_for
+    from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
+    from hydromodpy.results.storage.json_io import readable
+
+    sessions = sessions_dir_for(Path(project_root))
+    if key is None or not sessions.is_dir():
+        return None
+    if case is None:
+        case = (
+            calibration_case_name(Path(source))
+            if source is not None
+            else case_named_by(document or {}, "calibration_base")
+        )
+    for entry in sorted(sessions.iterdir(), reverse=True):
+        if (
+            split_stem_version(entry.name)[0] != case
+            or not session_descriptor_path(entry).is_file()
+        ):
+            continue
+        descriptor = readable(read_session, entry)
+        if (
+            descriptor is not None
+            and descriptor.status == "completed"
+            and descriptor.config_hash == key
+        ):
+            return report_of_session(entry, project_root=Path(project_root))
+    return None

@@ -26,7 +26,6 @@ from __future__ import annotations
 import importlib
 import platform
 import shutil
-from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,7 +33,7 @@ from hydromodpy.core.version import __version__
 
 if TYPE_CHECKING:
     import os
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
     from datetime import date
 
     import geopandas as gpd
@@ -60,8 +59,9 @@ if TYPE_CHECKING:
 
     # A file or folder path, as text or as a pathlib.Path.
     PathLike = str | os.PathLike[str]
-    # A configuration: the path of its TOML file, or the validated object.
-    ConfigLike = str | os.PathLike[str] | HydroModPyConfig
+    # A configuration: the path of its TOML file, a document as a mapping, JSON text, or
+    # the validated object. A mapping and JSON text are read against ``base=``.
+    ConfigLike = str | os.PathLike[str] | Mapping[str, Any] | HydroModPyConfig
     Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
@@ -214,23 +214,33 @@ def _projects_hint(folder: Path) -> str:
     return f" This folder holds projects: {names}{more}. Open one of them."
 
 
-@contextmanager
-def _materialized_config(config: HydroModPyConfig) -> Iterator[Path]:
-    """Write a resolved config to a temp TOML in its project_root and yield it.
+def _is_a_path(config: Any) -> bool:
+    """Whether *config* is the path of a file, not a document, JSON text or an object."""
+    import os
 
-    Lets a config object reach the path-based overview launcher. The temp file lives
-    inside ``project_root`` so relative paths resolve identically; it is removed
-    afterwards.
+    from hydromodpy.config.loading import is_json_text
+
+    if isinstance(config, str):
+        return not is_json_text(config)
+    return isinstance(config, os.PathLike)
+
+
+def _held(config: Any, base: Any) -> Any:
+    """Return *config* as a runner reads it: a path as it is, a document validated, an object as is.
+
+    A path with no base goes to its runner as it is, and reads from the project root
+    above it. A path with a base, a mapping and JSON text are validated against the
+    base, by the one loader of a configuration. A configuration object comes back
+    unchanged.
     """
-    import uuid
+    from collections.abc import Mapping
 
-    root = Path(config.workspace.project_root).expanduser().resolve()
-    materialized = root / f".hmp_effective_{uuid.uuid4().hex[:8]}.toml"
-    config.to_toml(materialized)
-    try:
-        yield materialized
-    finally:
-        materialized.unlink(missing_ok=True)
+    from hydromodpy.config.loading import is_json_text, load
+
+    is_document = isinstance(config, Mapping) or (isinstance(config, str) and is_json_text(config))
+    if _is_a_path(config):
+        return load(config, base) if base is not None else Path(config).expanduser().resolve()
+    return load(config, base) if is_document else config
 
 
 def _report_identical_run(name: str | None, sim_id: str) -> None:
@@ -253,10 +263,15 @@ def _refuse_a_calibration(source: str) -> None:
     )
 
 
-def _refuse_a_sites_project(source: Path) -> None:
+def _refuse_a_sites_project(source: Path | None) -> None:
     """Refuse a ``[sites]`` project at the door of :func:`run`, saying what launches it."""
     from hydromodpy.core.exceptions import ConfigError
 
+    if source is None:
+        raise ConfigError(
+            "This document declares [sites]: its cases are launched one process each, from the "
+            "project that holds it, by hmp.open(<project folder>).launch()."
+        )
     raise ConfigError(
         f"{source} declares [sites]: its cases are launched one process each, by "
         f"hmp.open({str(source.parent)!r}).launch(). hmp.run(..., dry_run=True) shows its plan."
@@ -266,6 +281,7 @@ def _refuse_a_sites_project(source: Path) -> None:
 def run(
     config: ConfigLike,
     *,
+    base: PathLike | None = None,
     set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
     name: str | None = None,
     force: bool = False,
@@ -303,8 +319,14 @@ def run(
     Parameters
     ----------
     config
-        Path of the TOML file (``str`` or :class:`pathlib.Path`), or a
-        validated :class:`~hydromodpy.config.HydroModPyConfig`.
+        Path of the TOML file (``str`` or :class:`pathlib.Path`), path of a JSON run
+        request, a document as a mapping, JSON text that holds one, or a validated
+        :class:`~hydromodpy.config.HydroModPyConfig`.
+    base
+        The folder the relative paths of the document are read from, and the project
+        the run is written in. A file reads them from the project root above it, and
+        a mapping or JSON text is refused without one: the current folder is never
+        used.
     set
         Changes of the configuration of this run. A key is a dotted path, the grammar
         of ``--set`` (``{"flow.param.K.field.value": 2e-5}``), or a name of ``hmp config
@@ -345,7 +367,9 @@ def run(
         If the TOML path does not exist.
     hydromodpy.core.exceptions.ConfigError
         If the TOML payload fails validation, or if the configuration declares a
-        calibration or a ``[sites]`` project, or if an option does not go with its workflow.
+        calibration or a ``[sites]`` project, or if an option does not go with its
+        workflow, or if a mapping or JSON text comes without ``base``, or if a run
+        name breaks the rule of a name.
     hydromodpy.core.exceptions.PipelineError
         If a workflow step raises during execution.
     hydromodpy.core.exceptions.SolverError
@@ -373,6 +397,7 @@ def run(
     hydromodpy.project.Project.simulate
         Object-oriented form for repeated runs from one project.
     """
+    from hydromodpy.config.sites import is_sites_project
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project.dispatch.workflow import (
         completed_run_view,
@@ -380,31 +405,48 @@ def run(
         run_overview,
         run_simulation,
     )
+    from hydromodpy.project.request import base_of, request_of, workflow_of
 
-    is_path = isinstance(config, (str, Path))
-    source: Any = Path(config).expanduser().resolve() if is_path else config
-    if is_path:
-        from hydromodpy.config.sites import is_sites_project
-        from hydromodpy.workflow.dispatch import load_raw_toml, resolve_workflow
-
-        workflow = resolve_workflow(source, cli_workflow=None)
-        sites = is_sites_project(load_raw_toml(source))
-    else:
-        workflow, sites = _workflow_of_config(config), False
+    # Nothing is refused here but what a document cannot be: the options a
+    # workflow does not take are told below, in the words of this verb.
+    is_path = _is_a_path(config)
+    given = Path(config).expanduser().resolve() if is_path else config
+    # The request is read once, whatever the workflow. It is made as a draft, with no
+    # option refused, because this verb tells in its own words what a workflow does not take.
+    request = request_of(
+        given,
+        base=base,
+        set=set,
+        name=name,
+        force=force,
+        fresh=fresh,
+        resume=resume,
+        from_step=from_step,
+        until_step=until_step,
+        frozen=frozen,
+        no_display=no_display,
+        headless=headless,
+        dry_run=True,
+    )
+    workflow = workflow_of(request)
+    run_base = base_of(given, base)
+    source = given if is_path else None
 
     if workflow == "calibration":
-        _refuse_a_calibration(source.name if is_path else "This configuration")
+        _refuse_a_calibration(source.name if source is not None else "This configuration")
     if dry_run:
         return draft_of_a_file_or_config(
-            source,
+            given if is_path else _held(config, base),
             workflow=workflow,
+            base=base,
             set_changes=set,
             name=name,
             resume=resume,
             from_step=from_step,
             until_step=until_step,
         )
-    if sites:
+    request = request.model_copy(update={"dry_run": False})
+    if is_sites_project(request.config):
         _refuse_a_sites_project(source)
     if workflow == "overview":
         asked = {
@@ -422,51 +464,21 @@ def run(
             raise ConfigError(
                 f"An overview takes none of {', '.join(written)}: they steer a simulation."
             )
-        if is_path:
-            return run_overview(source, environment=environment)
-        with _materialized_config(config) as materialized_path:
-            return run_overview(materialized_path, environment=environment)
+        return run_overview(request, base=run_base, environment=environment)
 
-    summary = run_simulation(
-        source,
-        changes=set,
-        name=name,
-        force=force,
-        fresh=fresh,
-        resume=resume,
-        from_step=from_step,
-        until_step=until_step,
-        frozen=frozen,
-        no_display=no_display,
-        headless=headless,
-        environment=environment,
-    )
-    if not summary.get("sim_id"):
+    outcome = run_simulation(request, base=run_base, environment=environment)
+    if outcome is None or not outcome.sim_id:
         return None
-    run_view = completed_run_view(summary)
-    if summary.get("skipped"):
-        _report_identical_run(summary.get("name"), str(summary["sim_id"]))
+    run_view = completed_run_view(outcome)
+    if outcome.identical_to is not None:
+        _report_identical_run(outcome.identical_to, str(outcome.sim_id))
     return run_view
-
-
-def _workflow_of_config(config: Any) -> str:
-    """Return the workflow a config object runs: its mode, or what its sections imply."""
-    from hydromodpy.workflow.dispatch import infer_workflow
-
-    declared = getattr(getattr(config, "workflow", None), "mode", None)
-    if declared:
-        return str(declared)
-    written = set(getattr(config, "model_fields_set", ()))
-    return infer_workflow(
-        calibration=getattr(config, "calibration", None) is not None,
-        overview=getattr(config, "overview", None) is not None,
-        simulation="simulation" in written,
-    )
 
 
 def calibrate(
     config: ConfigLike,
     *,
+    base: PathLike | None = None,
     phase: str | None = None,
     environment: Environment | None = None,
     **kwargs: Any,
@@ -495,7 +507,13 @@ def calibrate(
     ----------
     config
         Path of the calibration TOML file (``str`` or :class:`pathlib.Path`),
-        or a validated :class:`~hydromodpy.config.HydroModPyConfig`.
+        a document as a mapping, JSON text that holds one, or a validated
+        :class:`~hydromodpy.config.HydroModPyConfig`.
+    base
+        The folder the relative paths of the document are read from, and the project
+        the sessions are written in. A mapping or JSON text is refused without one. A
+        path with a base is read against it and run as a configuration held in
+        memory, like a mapping.
     phase
         Run only the named phase of a staged calibration.
     environment
@@ -549,10 +567,11 @@ def calibrate(
     from hydromodpy.project.calibrate import calibrate_a_file
     from hydromodpy.project.dispatch.workflow import no_such_phase
 
-    if isinstance(config, (str, Path)):
+    if _is_a_path(config) and base is None:
         kwargs.pop("headless", None)
         return calibrate_a_file(config, phase=phase, environment=environment, **kwargs)
 
+    config = _held(config, base)
     calibration = getattr(config, "calibration", None)
     declared = getattr(calibration, "phases", None)
     if not declared and phase is not None:
@@ -566,7 +585,7 @@ def calibrate(
 
 
 def calibration_phases(
-    config: ConfigLike,
+    config: str | os.PathLike[str] | HydroModPyConfig,
     *,
     workspace: str | Path | None = None,
     check: bool = False,
@@ -750,6 +769,7 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
 def spinup(
     config: ConfigLike,
     *,
+    base: PathLike | None = None,
     spinup: SpinupConfig | None = None,
     name_prefix: str = "spinup",
     then_run: bool = False,
@@ -766,8 +786,12 @@ def spinup(
     Parameters
     ----------
     config
-        Path of the TOML file (``str`` or :class:`pathlib.Path`), or a
-        validated :class:`~hydromodpy.config.HydroModPyConfig`.
+        Path of the TOML file (``str`` or :class:`pathlib.Path`), a document as a
+        mapping, JSON text that holds one, or a validated
+        :class:`~hydromodpy.config.HydroModPyConfig`.
+    base
+        The folder the relative paths of the document are read from, and the project
+        the runs are written in. A mapping or JSON text is refused without one.
     spinup
         Settings that replace the ``[spinup]`` section of the configuration.
     name_prefix
@@ -797,10 +821,9 @@ def spinup(
     import dataclasses
 
     from hydromodpy.project import Project
-    from hydromodpy.project.facade import resolve_config
     from hydromodpy.project.spinup import run_spinup
 
-    source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
+    source = _held(config, base)
     if isinstance(source, Path) and source.is_file():
         from hydromodpy.config.sites import is_sites_project
         from hydromodpy.workflow.dispatch import load_raw_toml
@@ -813,11 +836,11 @@ def spinup(
     prod_cfg = None
     if then_run:
         if isinstance(source, Path):
-            from hydromodpy.config import HydroModPyConfig
+            from hydromodpy.config.loading import load
 
-            prod_cfg = HydroModPyConfig.from_toml(source)
+            prod_cfg = load(source)
         else:
-            prod_cfg = copy.deepcopy(resolve_config(source))
+            prod_cfg = copy.deepcopy(source)
 
     with Project(source, headless=headless, no_display=True, environment=environment) as project:
         result = run_spinup(project, spinup=spinup, name_prefix=name_prefix)

@@ -12,12 +12,12 @@ without writing its end, ``refuse`` exits 14 before any claim. The
 the worker opens ``sessions/<case>/`` as the real one does (a bare
 ``--resume`` reopens the latest session, else a new version is reserved),
 writes its descriptor and outcome, then dies or completes. A prepare
-child (``--until``) registers one cache entry when ``fake.json`` asks for
-``register``, through the data catalog of the package, so the layered cache
-is exercised for real; it records when it started and ended, sleeps
-``prepare_sleep`` seconds, fails with a scratch left behind (``prepare =
-"fail"``) or writes a private cache that cannot be read (``prepare =
-"corrupt_cache"``).
+child (``--until``) writes one file and its sidecar into the shared
+``data/`` folder when ``fake.json`` asks for ``register``, through the cache
+index of the package under the lock of the chronicle, so the shared folder is
+exercised for real; it records when it started and ended, sleeps
+``prepare_sleep`` seconds, and fails with a scratch left behind (``prepare =
+"fail"``).
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ record = {
     "flags": flags,
     "pid": os.getpid(),
     "env": {key: os.environ.get(key) for key in (
-        "HMP_RUN_SCRATCH", "HMP_THREADS_PER_CASE", "HMP_DATA_CACHE_PRIVATE",
+        "HMP_RUN_SCRATCH", "HMP_THREADS_PER_CASE",
         "HMP_LAUNCHED_CASE", "HMP_SET_flow__param__K__field__value",
     )},
 }
@@ -129,28 +129,21 @@ if phase == "prepare":
         (scratch / "dem.tif").write_bytes(b"0" * 64)
         (seen / f"{case_id}.prepare.json").write_text(json.dumps(record))
         sys.exit(16)
-    if behavior.get("prepare") == "corrupt_cache":
-        private = Path(os.environ["HMP_DATA_CACHE_PRIVATE"])
-        private.parent.mkdir(parents=True, exist_ok=True)
-        private.write_bytes(b"not a duckdb file")
     if behavior.get("register"):
-        import hashlib
-        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+        from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE, CacheIndex
 
-        shared = root / "data" / "cache.duckdb"
-        before = hashlib.sha256(shared.read_bytes()).hexdigest() if shared.is_file() else None
-        payload = root / "data" / "fake" / f"{case_id}.csv"
-        payload.parent.mkdir(parents=True, exist_ok=True)
-        payload.write_text("date,value\n2000-01-01,1\n")
-        with DataCatalogDuckDB(shared) as catalog:
-            record["layered"] = catalog.layered
-            record["database"] = [
-                row[2] for row in catalog.connection.execute("PRAGMA database_list").fetchall()
-            ]
-            catalog.register(variable="discharge", source="fake", station_id=case_id,
-                             file_path=payload)
-        after = hashlib.sha256(shared.read_bytes()).hexdigest() if shared.is_file() else None
-        record["shared_untouched"] = before == after
+        data = root / "data"
+        index = CacheIndex(data)
+        folder = data / "discharge"
+        stem = f"discharge_fake_{case_id}"
+        with index.chronicle(folder, stem):
+            payload = folder / f"{stem}_D.csv"
+            payload.write_text("date,value\n2000-01-01,1\n")
+            index.record(payload, variable="discharge", source="fake", station_id=case_id)
+        record["payload"] = payload.relative_to(root).as_posix()
+        record["sidecar"] = payload.with_name(payload.name + ".json").is_file()
+        record["lock"] = (folder / f".{stem}.lock").is_file()
+        record["database"] = (data / FORMER_CACHE_DATABASE).exists()
     record["ended"] = time.time()
     (seen / f"{case_id}.prepare.json").write_text(json.dumps(record))
     sys.exit(0)

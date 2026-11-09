@@ -1,6 +1,10 @@
 """The generic ``url`` data source downloading a single remote file.
 
-Caches downloaded files under data/<variable>/ with a sidecar describing provenance.
+Caches downloaded files under ``data/<variable>/``. The sidecar written next to
+each one is its row of the data cache: it names the variable, the URL it came
+from, its ETag and its licence. The data folder is the one of the
+:class:`~hydromodpy.data.provenance.sidecars.CacheIndex` the caller hands in,
+or else the parent of ``out_dir``.
 """
 
 from __future__ import annotations
@@ -15,12 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.fetch import download, guard_url, resolve_final_url
 from hydromodpy.core.io.file_digest import sha256_of
-from hydromodpy.data.provenance.sidecars import (
-    Sidecar,
-    data_path_for_sidecar,
-    load_sidecar,
-    write_sidecar,
-)
+from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -83,6 +82,7 @@ class UrlSource:
         url: str = "",
         sha256: str | None = None,
         license: str | None = None,
+        index: CacheIndex | None = None,
         **kwargs: object,
     ) -> None:
         # url defaults to "" so the contract suite can build the class with no
@@ -90,6 +90,7 @@ class UrlSource:
         self.url = str(url)
         self.sha256 = sha256.strip().lower() if sha256 else None
         self.license = license
+        self._index = index
         self.variables = (self.section,) if self.section else ("url",)
         host = urlsplit(self.url).hostname
         self.hosts = (host.lower(),) if host else ()
@@ -107,6 +108,8 @@ class UrlSource:
 
         out_dir = Path(request.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
+        index = self._index if self._index is not None else CacheIndex(out_dir.parent)
+        variable = self.section or out_dir.name
 
         parsed = urlsplit(self.url)
         host = (parsed.hostname or "unknown").lower().replace(".", "-")[:32]
@@ -134,36 +137,33 @@ class UrlSource:
                         )
 
         if not self.sha256:
-            for sidecar_path in out_dir.glob(f"{self.section}_url_*.json"):
-                data_file = data_path_for_sidecar(sidecar_path)
-                if data_file and data_file.exists():
-                    try:
-                        sc = load_sidecar(data_file)
-                        if sc.origin == self.url:
-                            try:
-                                final_info = resolve_final_url(self.url, bounds=request.bounds)
-                                if (
-                                    (final_info.etag and sc.etag and final_info.etag == sc.etag)
-                                    or (
-                                        final_info.last_modified
-                                        and sc.last_modified
-                                        and final_info.last_modified == sc.last_modified
-                                    )
-                                    or (not final_info.etag and not final_info.last_modified)
-                                ):
-                                    rec = FileRecord.of(data_file, state=None, origin="url")
-                                    return FetchResult(
-                                        source_id=self.source_id,
-                                        kind=self.payload_kind,
-                                        variables=self.variables,
-                                        extent=request.extent,
-                                        period=request.period,
-                                        files=(rec,),
-                                    )
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
+            for row in index.rows(variable=variable, source="url"):
+                if row.origin != self.url or not row.path.is_file():
+                    continue
+                if row.path.parent != out_dir.resolve():
+                    continue
+                try:
+                    final_info = resolve_final_url(self.url, bounds=request.bounds)
+                except Exception:
+                    continue
+                if (
+                    (final_info.etag and row.etag and final_info.etag == row.etag)
+                    or (
+                        final_info.last_modified
+                        and row.last_modified
+                        and final_info.last_modified == row.last_modified
+                    )
+                    or (not final_info.etag and not final_info.last_modified)
+                ):
+                    rec = FileRecord.of(row.path, state=None, origin="url")
+                    return FetchResult(
+                        source_id=self.source_id,
+                        kind=self.payload_kind,
+                        variables=self.variables,
+                        extent=request.extent,
+                        period=request.period,
+                        files=(rec,),
+                    )
 
         # Otherwise download
         sha8 = (
@@ -174,16 +174,16 @@ class UrlSource:
         dest = out_dir / f"{self.section}_url_{host}_{sha8}{suffix}"
 
         fetched = download(self.url, dest, bounds=request.bounds, sha256=self.sha256)
-        sidecar = Sidecar(
+        index.record(
+            dest,
+            variable=variable,
             source="url",
             origin=self.url,
-            sha256=fetched.sha256,
             etag=fetched.etag,
             last_modified=fetched.last_modified,
             license=self.license,
             state="raw",
         )
-        write_sidecar(dest, sidecar)
         rec = FileRecord.of(dest, state=None, origin="url")
 
         return FetchResult(

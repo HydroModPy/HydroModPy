@@ -1,4 +1,4 @@
-"""A path of the configuration enters the run identity relative to the project root."""
+"""A path of the configuration enters the request id relative to the project root."""
 
 from __future__ import annotations
 
@@ -6,7 +6,9 @@ import shutil
 from pathlib import Path
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.results.catalog.registration import config_identity_hash, run_identity_hash
+from hydromodpy.data.loading.inputs import ResolvedInputs
+from hydromodpy.results.request_identity import request_id
+from hydromodpy.workflow.solution_key import request_id_of
 
 PROJECT = """\
 [geographic]
@@ -28,9 +30,13 @@ def _project(root: Path) -> Path:
     return root / "project.toml"
 
 
-def _config_hash(path: Path) -> str | None:
+EDITION = "2.1"
+
+
+def _config_hash(path: Path) -> str:
+    """Return the request id of the file, its inputs read from the files they name."""
     cfg = HydroModPyConfig.from_toml(path)
-    return config_identity_hash(cfg)
+    return request_id_of(cfg, ResolvedInputs(), search=True)
 
 
 def test_two_copies_of_one_project_give_one_config_hash(tmp_path: Path) -> None:
@@ -43,6 +49,10 @@ def test_two_copies_of_one_project_give_one_config_hash(tmp_path: Path) -> None:
     assert _config_hash(first) == _config_hash(copy / "project.toml")
 
 
+def request_id_of_document(document: dict) -> str:
+    return request_id(document, {}, edition=EDITION)
+
+
 def test_a_path_outside_the_project_stays_what_it_names() -> None:
     def config(root: str, data: str) -> dict:
         return {
@@ -50,11 +60,11 @@ def test_a_path_outside_the_project_stays_what_it_names() -> None:
             "data": {"recharge": {"sources": [{"path": data}]}},
         }
 
-    inside = run_identity_hash(config("/a/proj", "/a/proj/in.csv"))
-    assert inside == run_identity_hash(config("/b/c/proj", "/b/c/proj/in.csv"))
-    outside = run_identity_hash(config("/a/proj", "/shared/in.csv"))
-    assert outside == run_identity_hash(config("/b/c/proj", "/shared/in.csv"))
-    assert outside != run_identity_hash(config("/a/proj", "/other/in.csv"))
+    inside = request_id_of_document(config("/a/proj", "/a/proj/in.csv"))
+    assert inside == request_id_of_document(config("/b/c/proj", "/b/c/proj/in.csv"))
+    outside = request_id_of_document(config("/a/proj", "/shared/in.csv"))
+    assert outside == request_id_of_document(config("/b/c/proj", "/shared/in.csv"))
+    assert outside != request_id_of_document(config("/a/proj", "/other/in.csv"))
 
 
 WORKSPACE_PROJECT = """\

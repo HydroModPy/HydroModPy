@@ -1,9 +1,9 @@
 """``hmp calibrate`` takes ``--set``, ``--overlay`` and ``--case`` as ``hmp run`` does.
 
-A variant of a calibration (another seed, another budget, another name) no
-longer needs a copy of the file. The command runs an effective copy written
-beside the file and removes it afterwards; the case is named after the file
-the user named, or after ``--case``.
+A variant of a calibration (another seed, another budget, another name) needs
+no copy of the file, and the command writes none: the verbs that only read take
+the ``[calibration]`` section of the changed document. The case is named after
+the file the user named, or after ``--case``.
 """
 
 from __future__ import annotations

@@ -29,7 +29,7 @@ def run_boussinesq_divide_fixed_head_piecewise_k_case(
         timeout=timeout,
         public_solver_label=public_solver_label,
         process_id="flow_validation",
-        simulation_name="Boussinesq divide validation",
+        simulation_name="boussinesq_divide_validation",
         simulation_description="Steady piecewise-K west-divide strip",
         initial_head_m=7.0,
         east_head_m=EAST_HEAD_M,

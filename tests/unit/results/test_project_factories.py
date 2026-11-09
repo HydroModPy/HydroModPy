@@ -38,8 +38,21 @@ def stub_project_phases(monkeypatch, tmp_path):
 
     captured: dict[str, Any] = {}
 
-    def _fake_configure(project, config, *, solver, headless, no_display, environment=None):
+    def _fake_configure(
+        project,
+        config,
+        *,
+        solver,
+        headless,
+        no_display,
+        environment=None,
+        base=None,
+        document=None,
+        source=None,
+    ):
         captured["config"] = config
+        captured["base"] = base
+        captured["document"] = document
         captured["solver"] = solver
         captured["headless"] = headless
         captured["no_display"] = no_display
@@ -67,10 +80,7 @@ def _write_minimal_toml(tmp_path: Path) -> Path:
 def _build_payload(tmp_path: Path) -> dict:
     return {
         "workflow": {"mode": "simulation"},
-        "workspace": {
-            "project_root": str(tmp_path),
-            "root": str(tmp_path),
-        },
+        "workspace": {"root": str(tmp_path)},
         "geographic": {"source_mode": "synthetic"},
     }
 
@@ -94,8 +104,22 @@ def test_project_constructor_validates_dict(
     from hydromodpy.project import Project
 
     payload = _build_payload(tmp_path)
-    Project(payload)
+    Project(payload, base=tmp_path)
     assert isinstance(stub_project_phases["config"], HydroModPyConfig)
+    assert stub_project_phases["config"].workspace.project_root == tmp_path.resolve()
+    assert stub_project_phases["document"] == payload, "the planner reads the document as given"
+
+
+def test_project_constructor_refuses_a_dict_without_a_base(
+    tmp_path: Path,
+    stub_project_phases: dict,
+) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project import Project
+
+    with pytest.raises(ConfigError, match="needs base="):
+        Project(_build_payload(tmp_path))
+    assert "config" not in stub_project_phases
 
 
 def test_project_constructor_validates_json_string(
@@ -106,8 +130,9 @@ def test_project_constructor_validates_json_string(
     from hydromodpy.project import Project
 
     payload = json.dumps(_build_payload(tmp_path))
-    Project(payload)
+    Project(payload, base=tmp_path)
     assert isinstance(stub_project_phases["config"], HydroModPyConfig)
+    assert stub_project_phases["base"] == tmp_path.resolve()
 
 
 def test_project_rerun_builds_from_snapshot_and_delegates_parent(

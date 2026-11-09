@@ -1,7 +1,7 @@
 """Single source of truth for ``variable_name -> (config, manager)`` dispatch.
 
 Used by both the user-facing :class:`DataStore` facade (``store.py``) and the
-plan-driven :class:`DataManagersRuntimeLoader` (``loader.py``). Adding a new
+plan-driven :class:`DataLoader` (``loader.py``). Adding a new
 variable means adding one entry to :data:`VARIABLE_SPECS`, then the lists that
 ``loading/README.md`` names.
 """
@@ -28,15 +28,15 @@ class VariableSpec:
     ``core.state.scratch.preprocessing_dir(<workspace>) / <subdir>`` (currently intermittency).
 
     ``loader_method`` names a dedicated method on
-    :class:`DataManagersRuntimeLoader` for variables with unique side-effects
+    :class:`DataLoader` for variables with unique side-effects
     (``dem``, ``geology``, ``hydrography``). Generic variables leave it
     ``None`` and go through the standard generic load path.
     """
 
     config_module: str
     config_class: str
-    manager_module: str
-    manager_class: str
+    variable_module: str
+    variable_class: str
     apply_simulation_window: bool = True
     period_source: str = "config"
     export_stable_subdir: str | None = None
@@ -47,182 +47,182 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
     "dem": VariableSpec(
         config_module="hydromodpy.data.variables.dem.config",
         config_class="DemConfig",
-        manager_module="hydromodpy.data.variables.dem.manager",
-        manager_class="DemManager",
+        variable_module="hydromodpy.data.variables.dem.variable",
+        variable_class="DemVariable",
         loader_method="_load_dem_data",
     ),
     "geology": VariableSpec(
         config_module="hydromodpy.data.variables.geology.config",
         config_class="GeologyConfig",
-        manager_module="hydromodpy.data.variables.geology.manager",
-        manager_class="GeologyManager",
+        variable_module="hydromodpy.data.variables.geology.variable",
+        variable_class="GeologyVariable",
         loader_method="_load_geology_data",
     ),
     "hydrography": VariableSpec(
         config_module="hydromodpy.data.variables.hydrography.config",
         config_class="HydrographyConfig",
-        manager_module="hydromodpy.data.variables.hydrography.manager",
-        manager_class="HydrographyManager",
+        variable_module="hydromodpy.data.variables.hydrography.variable",
+        variable_class="HydrographyVariable",
         loader_method="_load_hydrography_data",
     ),
     "oceanic": VariableSpec(
         config_module="hydromodpy.data.variables.oceanic.config",
         config_class="OceanicConfig",
-        manager_module="hydromodpy.data.variables.oceanic.manager",
-        manager_class="OceanicManager",
+        variable_module="hydromodpy.data.variables.oceanic.variable",
+        variable_class="OceanicVariable",
     ),
     "intermittency": VariableSpec(
         config_module="hydromodpy.data.variables.intermittency.config",
         config_class="IntermittencyConfig",
-        manager_module="hydromodpy.data.variables.intermittency.manager",
-        manager_class="IntermittencyManager",
+        variable_module="hydromodpy.data.variables.intermittency.variable",
+        variable_class="IntermittencyVariable",
         export_stable_subdir="intermittency",
     ),
     "hydrometry": VariableSpec(
         config_module="hydromodpy.data.variables.hydrometry.config",
         config_class="HydrometryConfig",
-        manager_module="hydromodpy.data.variables.hydrometry.manager",
-        manager_class="HydrometryManager",
+        variable_module="hydromodpy.data.variables.hydrometry.variable",
+        variable_class="HydrometryVariable",
     ),
     "piezometry": VariableSpec(
         config_module="hydromodpy.data.variables.piezometry.config",
         config_class="PiezometryConfig",
-        manager_module="hydromodpy.data.variables.piezometry.manager",
-        manager_class="PiezometryManager",
+        variable_module="hydromodpy.data.variables.piezometry.variable",
+        variable_class="PiezometryVariable",
     ),
     "water_quality": VariableSpec(
         config_module="hydromodpy.data.variables.water_quality.config",
         config_class="WaterQualityConfig",
-        manager_module="hydromodpy.data.variables.water_quality.manager",
-        manager_class="WaterQualityManager",
+        variable_module="hydromodpy.data.variables.water_quality.variable",
+        variable_class="WaterQualityVariable",
         apply_simulation_window=False,
         period_source="simulation_or_overview",
     ),
     "recharge": VariableSpec(
         config_module="hydromodpy.data.variables.recharge.config",
         config_class="RechargeConfig",
-        manager_module="hydromodpy.data.variables.recharge.manager",
-        manager_class="RechargeManager",
+        variable_module="hydromodpy.data.variables.recharge.variable",
+        variable_class="RechargeVariable",
     ),
     "runoff": VariableSpec(
         config_module="hydromodpy.data.variables.runoff.config",
         config_class="RunoffConfig",
-        manager_module="hydromodpy.data.variables.runoff.manager",
-        manager_class="RunoffManager",
+        variable_module="hydromodpy.data.variables.runoff.variable",
+        variable_class="RunoffVariable",
     ),
     "precipitation": VariableSpec(
         config_module="hydromodpy.data.variables.precipitation.config",
         config_class="PrecipitationConfig",
-        manager_module="hydromodpy.data.variables.precipitation.manager",
-        manager_class="PrecipitationManager",
+        variable_module="hydromodpy.data.variables.precipitation.variable",
+        variable_class="PrecipitationVariable",
     ),
     "etp": VariableSpec(
         config_module="hydromodpy.data.variables.etp.config",
         config_class="EtpConfig",
-        manager_module="hydromodpy.data.variables.etp.manager",
-        manager_class="EtpManager",
+        variable_module="hydromodpy.data.variables.etp.variable",
+        variable_class="EtpVariable",
     ),
     "temperature": VariableSpec(
         config_module="hydromodpy.data.variables.temperature.config",
         config_class="TemperatureConfig",
-        manager_module="hydromodpy.data.variables.temperature.manager",
-        manager_class="TemperatureManager",
+        variable_module="hydromodpy.data.variables.temperature.variable",
+        variable_class="TemperatureVariable",
     ),
     "wind": VariableSpec(
         config_module="hydromodpy.data.variables.wind.config",
         config_class="WindConfig",
-        manager_module="hydromodpy.data.variables.wind.manager",
-        manager_class="WindManager",
+        variable_module="hydromodpy.data.variables.wind.variable",
+        variable_class="WindVariable",
     ),
     "humidity": VariableSpec(
         config_module="hydromodpy.data.variables.humidity.config",
         config_class="HumidityConfig",
-        manager_module="hydromodpy.data.variables.humidity.manager",
-        manager_class="HumidityManager",
+        variable_module="hydromodpy.data.variables.humidity.variable",
+        variable_class="HumidityVariable",
     ),
     "radiation": VariableSpec(
         config_module="hydromodpy.data.variables.radiation.config",
         config_class="RadiationConfig",
-        manager_module="hydromodpy.data.variables.radiation.manager",
-        manager_class="RadiationManager",
+        variable_module="hydromodpy.data.variables.radiation.variable",
+        variable_class="RadiationVariable",
     ),
     "soil_moisture": VariableSpec(
         config_module="hydromodpy.data.variables.soil_moisture.config",
         config_class="SoilMoistureConfig",
-        manager_module="hydromodpy.data.variables.soil_moisture.manager",
-        manager_class="SoilMoistureManager",
+        variable_module="hydromodpy.data.variables.soil_moisture.variable",
+        variable_class="SoilMoistureVariable",
     ),
     "lake_geometry": VariableSpec(
         config_module="hydromodpy.data.variables.lake_geometry.config",
         config_class="LakeGeometryConfig",
-        manager_module="hydromodpy.data.variables.lake_geometry.manager",
-        manager_class="LakeGeometryManager",
+        variable_module="hydromodpy.data.variables.lake_geometry.variable",
+        variable_class="LakeGeometryVariable",
         apply_simulation_window=False,
     ),
     "lake_bathymetry": VariableSpec(
         config_module="hydromodpy.data.variables.lake_bathymetry.config",
         config_class="LakeBathymetryConfig",
-        manager_module="hydromodpy.data.variables.lake_bathymetry.manager",
-        manager_class="LakeBathymetryManager",
+        variable_module="hydromodpy.data.variables.lake_bathymetry.variable",
+        variable_class="LakeBathymetryVariable",
         apply_simulation_window=False,
     ),
     "lake_abacus": VariableSpec(
         config_module="hydromodpy.data.variables.lake_abacus.config",
         config_class="LakeAbacusConfig",
-        manager_module="hydromodpy.data.variables.lake_abacus.manager",
-        manager_class="LakeAbacusManager",
+        variable_module="hydromodpy.data.variables.lake_abacus.variable",
+        variable_class="LakeAbacusVariable",
         apply_simulation_window=False,
     ),
     "lake_levels": VariableSpec(
         config_module="hydromodpy.data.variables.lake_levels.config",
         config_class="LakeLevelsConfig",
-        manager_module="hydromodpy.data.variables.lake_levels.manager",
-        manager_class="LakeLevelsManager",
+        variable_module="hydromodpy.data.variables.lake_levels.variable",
+        variable_class="LakeLevelsVariable",
     ),
     "lake_inflow": VariableSpec(
         config_module="hydromodpy.data.variables.lake_inflow.config",
         config_class="LakeInflowConfig",
-        manager_module="hydromodpy.data.variables.lake_inflow.manager",
-        manager_class="LakeInflowManager",
+        variable_module="hydromodpy.data.variables.lake_inflow.variable",
+        variable_class="LakeInflowVariable",
     ),
     "lake_outflow": VariableSpec(
         config_module="hydromodpy.data.variables.lake_outflow.config",
         config_class="LakeOutflowConfig",
-        manager_module="hydromodpy.data.variables.lake_outflow.manager",
-        manager_class="LakeOutflowManager",
+        variable_module="hydromodpy.data.variables.lake_outflow.variable",
+        variable_class="LakeOutflowVariable",
     ),
     "lake_withdrawal": VariableSpec(
         config_module="hydromodpy.data.variables.lake_withdrawal.config",
         config_class="LakeWithdrawalConfig",
-        manager_module="hydromodpy.data.variables.lake_withdrawal.manager",
-        manager_class="LakeWithdrawalManager",
+        variable_module="hydromodpy.data.variables.lake_withdrawal.variable",
+        variable_class="LakeWithdrawalVariable",
     ),
     "substratum": VariableSpec(
         config_module="hydromodpy.data.variables.substratum.config",
         config_class="SubstratumConfig",
-        manager_module="hydromodpy.data.variables.substratum.manager",
-        manager_class="SubstratumManager",
+        variable_module="hydromodpy.data.variables.substratum.variable",
+        variable_class="SubstratumVariable",
         apply_simulation_window=False,
     ),
     "layer_base": VariableSpec(
         config_module="hydromodpy.data.variables.layer_base.config",
         config_class="LayerBaseConfig",
-        manager_module="hydromodpy.data.variables.layer_base.manager",
-        manager_class="LayerBaseManager",
+        variable_module="hydromodpy.data.variables.layer_base.variable",
+        variable_class="LayerBaseVariable",
         apply_simulation_window=False,
     ),
     "soil_capacity": VariableSpec(
         config_module="hydromodpy.data.variables.soil_capacity.config",
         config_class="SoilCapacityConfig",
-        manager_module="hydromodpy.data.variables.soil_capacity.manager",
-        manager_class="SoilCapacityManager",
+        variable_module="hydromodpy.data.variables.soil_capacity.variable",
+        variable_class="SoilCapacityVariable",
         apply_simulation_window=False,
     ),
     "crossings": VariableSpec(
         config_module="hydromodpy.data.variables.crossings.config",
         config_class="CrossingsConfig",
-        manager_module="hydromodpy.data.variables.crossings.manager",
-        manager_class="CrossingsManager",
+        variable_module="hydromodpy.data.variables.crossings.variable",
+        variable_class="CrossingsVariable",
         apply_simulation_window=False,
     ),
 }
@@ -236,11 +236,11 @@ def get_spec(variable_name: str) -> VariableSpec:
     return spec
 
 
-def get_manager_class(variable_name: str) -> Any:
+def variable_class_for(variable_name: str) -> Any:
     """Resolve and return the manager class for ``variable_name``."""
     spec = get_spec(variable_name)
-    mod = importlib.import_module(spec.manager_module)
-    return getattr(mod, spec.manager_class)
+    mod = importlib.import_module(spec.variable_module)
+    return getattr(mod, spec.variable_class)
 
 
 def get_config_class(variable_name: str) -> Any:

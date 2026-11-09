@@ -39,10 +39,17 @@ from tests.unit.project.launch._helpers import (
     planned_project,
 )
 
+CASES = ("j001-base", "j002-base", "j003-calage")
+"""The cases of the plan, named as the plan names them: folded to a run name."""
+
+
+def _planned(root: Path, **kwargs):
+    return planned_project(root, cases=CASES, **kwargs)
+
 
 def test_the_job_holds_two_scripts_and_the_cases_of_the_plan(tmp_path: Path) -> None:
     root = tmp_path / "bretagne"
-    stored = planned_project(root)
+    stored = _planned(root)
 
     job = write_slurm_array(root, stamp=STAMP)
 
@@ -63,7 +70,7 @@ def test_the_job_holds_two_scripts_and_the_cases_of_the_plan(tmp_path: Path) -> 
 
 def test_a_job_directory_is_written_once(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     job = write_slurm_array(root, stamp=STAMP)
     before = job.cases_txt.read_bytes()
 
@@ -76,7 +83,7 @@ def test_a_job_directory_is_written_once(tmp_path: Path) -> None:
 
 def test_a_later_plan_leaves_the_cases_of_a_waiting_job_alone(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     job = write_slurm_array(root, stamp=STAMP)
     first = read_case_list(job.directory)
 
@@ -98,7 +105,7 @@ def test_without_a_plan_nothing_is_written(tmp_path: Path) -> None:
 
 def test_a_plan_older_than_its_project_file_is_refused(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     with (root / "project.toml").open("a") as handle:
         handle.write("# edited after the plan\n")
 
@@ -120,7 +127,7 @@ def test_a_plan_older_than_its_project_file_is_refused(tmp_path: Path) -> None:
 )
 def test_invalid_options_are_refused(tmp_path: Path, kwargs: dict, message: str) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
 
     with pytest.raises(ConfigError, match=message):
         write_slurm_array(root, stamp=STAMP, **kwargs)
@@ -129,22 +136,22 @@ def test_invalid_options_are_refused(tmp_path: Path, kwargs: dict, message: str)
 
 def test_a_stamp_and_a_project_path_are_checked(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     with pytest.raises(JobUsageError, match="stamp"):
         write_slurm_array(root, stamp="today")
 
     spaced = tmp_path / "with space"
-    planned_project(spaced)
+    _planned(spaced)
     with pytest.raises(ConfigError, match="#SBATCH"):
         write_slurm_array(spaced, stamp=STAMP)
 
 
-CALIBRATION = "J003-calage"
+CALIBRATION = "j003-calage"
 
 
 def _project(tmp_path: Path) -> tuple[Path, Path]:
     root = tmp_path / "p"
-    stored = planned_project(root, calibration_parallel={CALIBRATION: 2})
+    stored = _planned(root, calibration_parallel={CALIBRATION: 2})
     return root, stored.directory
 
 
@@ -156,10 +163,10 @@ def _parsed(case: Path, flags: list[str]) -> argparse.Namespace:
 def test_the_prepare_phase_stops_after_load_data(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
 
-    flags = task_flags(root, plan / "J001-base.toml", phase="prepare")
+    flags = task_flags(root, plan / "j001-base.toml", phase="prepare")
 
     assert flags == ["--until", "load_data"]
-    args = _parsed(plan / "J001-base.toml", flags)
+    args = _parsed(plan / "j001-base.toml", flags)
     steps = standard_steps()
     assert resolve_step_index(args.until_step, steps) < model_phase_index(steps)
 
@@ -176,7 +183,7 @@ def test_a_calibration_case_is_prepared_as_a_simulation(tmp_path: Path) -> None:
 
 def test_a_first_solve_resumes_nothing_and_freezes_only_with_a_lock(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
-    case = plan / "J001-base.toml"
+    case = plan / "j001-base.toml"
 
     assert task_flags(root, case, phase="solve") == []
     (root / "hydromodpy.lock").write_text("pinned\n")
@@ -186,13 +193,13 @@ def test_a_first_solve_resumes_nothing_and_freezes_only_with_a_lock(tmp_path: Pa
 def test_a_simulation_left_failed_resumes_in_place(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
     (root / "hydromodpy.lock").write_text("pinned\n")
-    claim = claim_run_directory(root, "J001-base", case_id="J001-base", project="p")
+    claim = claim_run_directory(root, "j001-base", case_id="j001-base", project="p")
     finish_attempt(claim.run_dir, status="failed", exit_code=1, error=RuntimeError("x"))
 
-    flags = task_flags(root, plan / "J001-base.toml", phase="solve")
+    flags = task_flags(root, plan / "j001-base.toml", phase="solve")
 
-    assert flags == ["--frozen", "--resume", "J001-base"]
-    assert _parsed(plan / "J001-base.toml", flags).resume == "J001-base"
+    assert flags == ["--frozen", "--resume", "j001-base"]
+    assert _parsed(plan / "j001-base.toml", flags).resume == "j001-base"
 
 
 def test_a_calibration_never_takes_resume(tmp_path: Path) -> None:
@@ -206,13 +213,13 @@ def test_a_calibration_never_takes_resume(tmp_path: Path) -> None:
 
 def test_a_case_outside_the_plan_or_a_bad_phase_is_refused(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
-    stray = plan / "J999-base.toml"
-    stray.write_text('[site]\nname = "J999"\n')
+    stray = plan / "j999-base.toml"
+    stray.write_text('[site]\nname = "j999"\n')
 
     with pytest.raises(JobUsageError, match="not a case of plan"):
         task_flags(root, stray, phase="solve")
     with pytest.raises(JobUsageError, match="phase"):
-        task_flags(root, plan / "J001-base.toml", phase="data")
+        task_flags(root, plan / "j001-base.toml", phase="data")
 
 
 def test_the_lock_is_written_from_the_workspace_of_the_case(
@@ -232,24 +239,24 @@ def test_the_lock_is_written_from_the_workspace_of_the_case(
     monkeypatch.setattr(slurm, "workspace_data_dir", data_dir)
     monkeypatch.setattr("hydromodpy.project.launch.lockfile.write_project_lockfile", write)
 
-    path = write_lock(root, Path("plan") / plan.name / "J001-base.toml")
+    path = write_lock(root, Path("plan") / plan.name / "j001-base.toml")
 
     assert path == root.resolve() / "hydromodpy.lock"
-    assert seen["case"] == root.resolve() / "plan" / plan.name / "J001-base.toml"
+    assert seen["case"] == root.resolve() / "plan" / plan.name / "j001-base.toml"
     assert seen["data"] == tmp_path / "workspace" / "data"
 
 
 def _claimed(tmp_path: Path, *, pid: int, host: str | None = None) -> tuple[Path, Path]:
     root = tmp_path / "p"
-    stored = planned_project(root)
-    claim = claim_run_directory(root, "J001-base", case_id="J001-base", project="p")
+    stored = _planned(root)
+    claim = claim_run_directory(root, "j001-base", case_id="j001-base", project="p")
     outcome = read_outcome(claim.run_dir)
     assert outcome is not None
     update: dict[str, object] = {"pid": pid}
     if host is not None:
         update["host"] = host
     write_outcome(claim.run_dir, outcome.model_copy(update=update))
-    return root, stored.directory / "J001-base.toml"
+    return root, stored.directory / "j001-base.toml"
 
 
 @pytest.mark.allow_subprocess
@@ -271,14 +278,14 @@ def test_finish_task_reads_the_signal_and_the_tail_of_the_log(tmp_path: Path) ->
 def test_finish_task_leaves_a_live_or_foreign_worker_alone(tmp_path: Path) -> None:
     root, case_toml = _claimed(tmp_path / "alive", pid=os.getpid())
     assert finish_task(root, case_toml, exit_code=1) is None
-    outcome = read_outcome(root / "runs" / "J001-base")
+    outcome = read_outcome(root / "runs" / "j001-base")
     assert outcome is not None and outcome.status == "running"
 
     root, case_toml = _claimed(
         tmp_path / "foreign", pid=dead_pid(), host="not-" + socket.gethostname()
     )
     assert finish_task(root, case_toml, exit_code=1) is None
-    outcome = read_outcome(root / "runs" / "J001-base")
+    outcome = read_outcome(root / "runs" / "j001-base")
     assert outcome is not None and outcome.status == "running"
 
 
@@ -286,9 +293,9 @@ def test_finish_task_leaves_a_live_or_foreign_worker_alone(tmp_path: Path) -> No
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_finish_task_without_a_run_directory_writes_nothing(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    stored = planned_project(root)
+    stored = _planned(root)
 
-    assert finish_task(root, stored.directory / "J001-base.toml", exit_code=2) is None
+    assert finish_task(root, stored.directory / "j001-base.toml", exit_code=2) is None
     assert not (root / "runs").exists()
 
 
@@ -296,14 +303,14 @@ def test_finish_task_without_a_run_directory_writes_nothing(tmp_path: Path) -> N
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    stored = planned_project(root)
-    session = root / "sessions" / "J003-calage"
+    stored = _planned(root)
+    session = root / "sessions" / "j003-calage"
     session.mkdir(parents=True)
     started = datetime(2026, 10, 20, 15, 0, tzinfo=UTC)
     write_session(
         session,
         session_descriptor(
-            "J003-calage",
+            "j003-calage",
             session_id="s1",
             config_hash="h",
             hydromodpy_version="test",
@@ -314,7 +321,7 @@ def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> Non
     write_outcome(
         session,
         Outcome(
-            case_id="J003-calage",
+            case_id="j003-calage",
             attempt=1,
             attempt_id="a1",
             status="running",
@@ -328,7 +335,7 @@ def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> Non
     log.write_text("trial 12 diverged\n")
 
     outcome = finish_task(
-        root, stored.directory / "J003-calage.toml", exit_code=137, log_path=log, job_id="9_3"
+        root, stored.directory / "j003-calage.toml", exit_code=137, log_path=log, job_id="9_3"
     )
 
     assert outcome is not None and outcome.written_by == "trap" and outcome.signal == 9

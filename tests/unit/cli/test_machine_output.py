@@ -39,8 +39,8 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.cli.main import _build_parser
 from hydromodpy.cli.output import OUTPUTS, emit, output_of, plain, stdout_for_a_program
 from hydromodpy.core.exceptions import NothingThereError, SolverDivergedError, StepError
-from hydromodpy.core.state.layout import data_cache_path_for
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import CacheIndex
+from hydromodpy.project.data_cache import DataLock
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 from tests.unit.cli._tree import leaves
@@ -434,23 +434,93 @@ def test_a_removal_without_y_is_refused_when_nobody_can_answer(project: Path) ->
     assert "-y" in result.stderr
 
 
-def test_lock_verify_reports_each_mismatch_and_exits_on_the_validation_code(monkeypatch) -> None:
-    mismatch = SimpleNamespace(
-        kind="missing", variable="dem", source="ign", station_id=None, path="x"
-    )
-    result = {
-        "ok": False,
-        "mismatches": [mismatch],
-        "schema_diverged": False,
-        "locked_schema": "a",
-        "current_schema": "a",
+def _checked(mismatches: list, *, diverged: bool = False) -> dict:
+    return {
+        "ok": not mismatches,
+        "mismatches": mismatches,
+        "schema_diverged": diverged,
+        "locked_schema": "a" * 64,
+        "current_schema": "b" * 64 if diverged else "a" * 64,
     }
-    monkeypatch.setattr("hydromodpy.project.lock.lock_verify", lambda *a, **k: result)
 
-    table = CliRunner().invoke(["lock", "verify"])
 
-    assert table.exit_code == EXIT_VALIDATION
-    assert "[missing] dem/ign/None -> x" in table.stdout
+MISMATCH = SimpleNamespace(kind="missing", variable="dem", source="ign", station_id=None, path="x")
+
+
+@pytest.mark.parametrize(
+    ("result", "flags", "code", "said"),
+    [
+        (_checked([MISMATCH]), [], EXIT_VALIDATION, "[missing] dem/ign/None -> x"),
+        (_checked([MISMATCH]), ["--strict"], EXIT_VALIDATION, "ERROR: 1 mismatch(es)"),
+        (_checked([]), [], 0, "OK: the data cache matches the lockfile"),
+        (_checked([], diverged=True), [], 0, "OK"),
+        (_checked([], diverged=True), ["--strict"], EXIT_VALIDATION, "OK"),
+    ],
+    ids=["mismatch", "mismatch strict", "match", "schema changed", "schema changed strict"],
+)
+def test_data_lock_check_reports_each_mismatch_and_exits_on_the_validation_code(
+    monkeypatch, result: dict, flags: list[str], code: int, said: str
+) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_verify(workspace, *, project, lockfile, strict):
+        calls.update({"project": project, "lockfile": lockfile, "strict": strict})
+        return result
+
+    monkeypatch.setattr("hydromodpy.project.data_cache.verify_data_lock", fake_verify)
+
+    table = CliRunner().invoke(["data", "lock", "--check", *flags])
+
+    assert table.exit_code == code, table.stderr
+    assert said in table.stdout
+    assert calls["strict"] is bool(flags)
+
+
+def test_data_lock_check_json_is_one_envelope(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.project.data_cache.verify_data_lock", lambda *a, **k: _checked([])
+    )
+
+    out = CliRunner().invoke(["data", "lock", "--check", "--format", "json"])
+
+    document = json.loads(out.stdout)
+    assert document["schema"] == output_of("data lock check").schema
+    assert set(document["data"]) == set(output_of("data lock check").fields)
+
+
+@pytest.mark.parametrize(
+    ("flags", "said"),
+    [(["--strict"], "--strict goes with --check"), (["--lockfile", "x"], "--lockfile goes with")],
+)
+def test_data_lock_refuses_a_check_option_when_it_writes(flags: list[str], said: str) -> None:
+    result = CliRunner().invoke(["data", "lock", *flags])
+    assert result.exit_code == EXIT_USAGE
+    assert said in result.stderr
+
+
+def test_data_lock_check_refuses_a_destination() -> None:
+    result = CliRunner().invoke(["data", "lock", "--check", "--to", "x.lock"])
+    assert result.exit_code == EXIT_USAGE
+    assert "--lockfile" in result.stderr
+
+
+def test_data_lock_writes_and_names_the_configurations_it_could_not_lock(monkeypatch) -> None:
+    written = DataLock(
+        path=Path("hydromodpy.lock"),
+        inputs=3,
+        user_files=1,
+        refused_configs=((Path("configs/bad.toml"), "no [workflow]"),),
+    )
+    monkeypatch.setattr("hydromodpy.project.data_cache.lock_data", lambda *a, **k: written)
+
+    table = CliRunner().invoke(["data", "lock"])
+    as_json = CliRunner().invoke(["data", "lock", "--format", "json"])
+
+    assert table.exit_code == 0, table.stderr
+    assert "3 input(s), 1 of them user files" in table.stdout
+    assert "configs/bad.toml is not locked" in table.stderr
+    data = json.loads(as_json.stdout)["data"]
+    assert data["refused_configs"] == [{"path": "configs/bad.toml", "reason": "no [workflow]"}]
 
 
 def test_config_check_says_which_workspace_the_file_resolves_to(project: Path) -> None:
@@ -476,13 +546,12 @@ def test_config_check_machine_output_is_ok_diagnostics_and_workspace(project: Pa
     assert {"pointer", "code", "severity", "phrase", "msg"} <= set(data["diagnostics"][0])
 
 
-def test_a_cache_entry_is_counted_and_kept_under_dry_run(tmp_path: Path) -> None:
-    (tmp_path / "data").mkdir()
+def test_a_cache_row_is_counted_and_kept_under_dry_run(tmp_path: Path) -> None:
+    (tmp_path / "data" / "dem").mkdir(parents=True)
     (tmp_path / "projects").mkdir()
-    served = tmp_path / "data" / "dem.tif"
+    served = tmp_path / "data" / "dem" / "dem_ign_a.tif"
     served.write_bytes(b"x")
-    with DataCatalogDuckDB(data_cache_path_for(tmp_path / "data")) as catalog:
-        catalog.register(variable="dem", source="ign", station_id=None, file_path=str(served))
+    CacheIndex(tmp_path / "data").record(served, variable="dem", source="ign")
 
     for words in (
         ["data", "remove", "--variable", "dem", "--dry-run"],
@@ -492,9 +561,9 @@ def test_a_cache_entry_is_counted_and_kept_under_dry_run(tmp_path: Path) -> None
         assert result.exit_code == 0, result.stderr
         data = json.loads(result.stdout)["data"]
         assert data["applied"] is False
+        assert data["removed"] == 1
 
-    with DataCatalogDuckDB(data_cache_path_for(tmp_path / "data")) as catalog:
-        assert catalog.backend.fetch_all("SELECT count(*) FROM entries") == [(1,)]
+    assert [row.path for row in CacheIndex(tmp_path / "data").rows()] == [served.resolve()]
 
 
 _SPINUP_TOML = """\

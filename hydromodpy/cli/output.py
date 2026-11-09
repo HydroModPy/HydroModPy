@@ -68,8 +68,8 @@ class Output:
         return f"hmp.{self.verb.replace(' ', '.')}.v{self.version}"
 
 
-def _rows(verb: str, *fields: str, open_fields: bool = False) -> Output:
-    return Output(verb, fields, rows=True, open_fields=open_fields)
+def _rows(verb: str, *fields: str, open_fields: bool = False, version: int = 1) -> Output:
+    return Output(verb, fields, rows=True, open_fields=open_fields, version=version)
 
 
 def _object(verb: str, *fields: str, experimental: bool = False) -> Output:
@@ -353,17 +353,33 @@ OUTPUTS: tuple[Output, ...] = (
         "registry_id",
     ),
     # Data
-    _rows("data ls", "variable", "source", "station_id", "file_path", open_fields=True),
+    _rows(
+        "data ls",
+        "variable",
+        "source",
+        "station_id",
+        "product",
+        "path",
+        "license",
+        open_fields=True,
+        version=2,
+    ),
     _object("data get", "files", "failures", "report"),
-    _object("data add", "variable", "provider", "station_id", "dest"),
     _object("data remove", "applied", "removed"),
-    _object("data prune", "applied", "older_than_days", "removed"),
+    _object(
+        "data prune",
+        "applied",
+        "older_than_days",
+        "removed",
+        "kept",
+        "orphans",
+        "user_files",
+    ),
     _object("data archive", "path"),
     _object("data restore", "source", "path"),
-    # Lockfile
-    _object("lock update", "path"),
+    _object("data lock", "path", "inputs", "user_files", "refused_configs"),
     _object(
-        "lock verify",
+        "data lock check",
         "ok",
         "schema_diverged",
         "locked_schema",

@@ -18,8 +18,8 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import (
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import (
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
 )

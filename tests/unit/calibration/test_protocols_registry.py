@@ -14,8 +14,9 @@ from hydromodpy.calibration.protocols import expand_calibration_protocol, regist
 from hydromodpy.calibration.protocols.registry import _as_the_load_reads_it
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.results.catalog.registration import config_identity_hash, solve_identity_hash
+from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.results.storage.contract import RUN_SEARCH_TABLE
+from hydromodpy.workflow.solution_key import request_id_of
 from hydromodpy.workflow.steps.prepare_solver.freeze import (
     frozen_config_of,
     portable_config_document,
@@ -195,8 +196,12 @@ def test_a_run_of_a_calibration_seals_its_own_solve(tmp_path: Path) -> None:
     assert document["workflow"]["mode"] == "simulation"
     replay = HydroModPyConfig.from_toml(path)
     assert replay.calibration is None
-    assert solve_identity_hash(replay) == solve_identity_hash(cfg)
-    assert config_identity_hash(cfg) != solve_identity_hash(cfg), "a session compares its search"
+
+    def asked(config: HydroModPyConfig, *, search: bool) -> str:
+        return request_id_of(config, ResolvedInputs(), search=search)
+
+    assert asked(replay, search=False) == asked(cfg, search=False)
+    assert asked(cfg, search=True) != asked(cfg, search=False), "a session compares its search"
     assert config_drift(replay, run_dir, project_root=project) == ()
     resolved = tomllib.loads((run_dir / "config.resolved.toml").read_text(encoding="utf-8"))
     assert resolved[RUN_SEARCH_TABLE]["outputs"]["seepage_network"]["support"] == "network"

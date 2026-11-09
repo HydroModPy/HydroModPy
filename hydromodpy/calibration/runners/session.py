@@ -21,18 +21,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, window_bounds
+from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import resolve_project_root
-from hydromodpy.results.catalog.registration import (
-    config_identity_hash,
-    reserve_version_dirname,
-    run_identity_hash,
-)
+from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, VALIDATION_ROLE, PeriodWindow
 from hydromodpy.results.session.descriptor import ParameterBound, latest_session_dir
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.parameters import ParameterSpace
+    from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
 
@@ -41,21 +39,24 @@ def calibration_case_name(cfg_path: Path) -> str:
 
     The file that carries ``[calibration]`` is found along the ``base_config``
     chain, starting at ``cfg_path``. Its own ``[simulation] name`` wins when it
-    writes one; otherwise its stem is the case.
+    writes one; otherwise its stem, folded into the letters of a name, is the case.
     """
     carrier = _carrier_of_calibration(Path(cfg_path).expanduser().resolve())
     return case_named_by(_own_document(carrier), carrier.stem)
 
 
 def case_named_by(document: Mapping[str, Any], stem: str) -> str:
-    """Return the case a document names: its ``[simulation] name``, else *stem*.
+    """Return the case a document names: its ``[simulation] name``, else *stem* folded.
 
     A file goes through :func:`calibration_case_name`, from the CLI or from a project
     built on it. Only a project with no file names its case from its configuration.
+    A name the document writes is kept as written, and the session refuses it when
+    it breaks the rule of a name. The stem is a name the code makes, so it is
+    folded into the letters of a name, as the run of the same file is.
     """
     simulation = document.get("simulation")
     name = simulation.get("name") if isinstance(simulation, Mapping) else None
-    return name.strip() if isinstance(name, str) and name.strip() else stem
+    return name.strip() if isinstance(name, str) and name.strip() else fold_name(stem)
 
 
 def _own_document(path: Path) -> dict[str, Any]:
@@ -143,19 +144,20 @@ def _with_anchored_geometry(
 
 
 def session_config_hash(raw: Mapping[str, Any], trial_ctx: TrialContext | None) -> str:
-    """Return the identity hash of the resolved case the session calibrates.
+    """Return the solution key of the resolved case the session calibrates.
 
-    The same hash a run records: the resolved configuration and the digests
-    of its input files. A session with no prepared model (an evaluator that
-    runs no HydroModPy model) hashes the document it read.
+    The key a run records, with the search kept: the request of the case, the
+    digests of its inputs, the code, the solver binaries and the numeric packages.
+    A plan and a calibration compare a key to a key, never a request id to one. A
+    session with no prepared model (an evaluator that runs no HydroModPy model)
+    hashes the document it read.
     """
+    from hydromodpy.calibration.runners.trial import trial_pipeline
+
     if trial_ctx is not None and hasattr(trial_ctx.base_cfg, "model_dump"):
-        digest = config_identity_hash(trial_ctx.base_cfg)
-        if digest is not None:
-            return digest
-    digest = run_identity_hash(dict(raw))
-    if digest is not None:
-        return digest
+        key = trial_pipeline().session_key(trial_ctx.base_cfg)
+        if key is not None:
+            return key
     return hashlib.sha256(json.dumps(dict(raw), sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -227,11 +229,48 @@ def session_bounds(space: ParameterSpace, case_id: str) -> dict[str, ParameterBo
     }
 
 
+def report_of_session(directory: Path, *, project_root: Path) -> CalibrationReport:
+    """Return the report of the completed session in *directory*, read from the disk.
+
+    A calibration identical to a completed session is given back by this report
+    instead of searching again. Every field comes from ``session.json``, the count
+    of trials from ``trials.jsonl``; nothing ran, so the duration is 0 and nothing
+    was promoted. ``extra["identical_to"]`` names the session folder.
+    """
+    from hydromodpy.calibration.report import CalibrationReport
+    from hydromodpy.results.session.descriptor import read_session
+    from hydromodpy.results.session.journal import read_trials
+
+    folder = Path(directory)
+    descriptor = read_session(folder)
+    best = descriptor.best
+    return CalibrationReport(
+        session_id=descriptor.session_id,
+        method=descriptor.method,
+        n_trials=len({line.trial for line in read_trials(folder)}),
+        best_cost=None if best is None else best.cost,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        status=descriptor.status,
+        cost_name=descriptor.cost_name,
+        cost_label=descriptor.cost_label,
+        best_trial=None if best is None else best.trial,
+        best_parameters=None if best is None else dict(best.parameters),
+        best_cases={} if best is None else dict(best.cases),
+        windows=dict(descriptor.windows),
+        workspace=Path(project_root),
+        session_dir=folder,
+        extra={"identical_to": folder.name},
+    )
+
+
 __all__ = [
     "calibration_case_name",
     "freeze_session_config",
     "open_session_dir",
     "project_root_for",
+    "report_of_session",
     "search_windows",
     "session_bounds",
     "session_config_hash",

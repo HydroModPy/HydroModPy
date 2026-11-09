@@ -541,8 +541,11 @@ def _warn_about_undeclared_identity(sid: str, attrs: dict, root: Path | None) ->
 
 
 def sealed_config_hash(run_dir: Path) -> str | None:
-    """Return ``identity.config_hash`` of a sealed run, or None.
+    """Return ``identity.config_hash`` of a sealed run, the solution key it computed under, or None.
 
+    The field keeps its name until the seal v4 renames it. Its value is the solution
+    key of the run (:func:`~hydromodpy.results.request_identity.solution_key`): the
+    request, the inputs, the code, the solver binaries and the numeric packages.
     None when the directory is unsealed, and None when its manifest cannot be
     read: a run whose seal is unreadable matches nothing, which errs on the
     side of computing.

@@ -117,3 +117,46 @@ def test_the_seal_step_ends_a_real_pipeline_and_the_bracket_closes_the_run(
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
     assert effective_status(run_dir) == "completed"
     assert not (project / INTERNAL_DIRNAME / "index.duckdb").exists()
+
+
+# A handle marked by withdraw() closes nothing: the pulse stops, the run log is
+# detached, and the claim is undone. That is how an identical run gives the
+# completed run back without leaving a directory.
+
+
+@pytest.mark.parametrize("raised", [False, True], ids=["returns", "raises"])
+def test_a_withdrawn_attempt_leaves_no_directory(tmp_path: Path, raised: bool) -> None:
+    project = _project(tmp_path)
+
+    with pytest.raises(RuntimeError) if raised else _no_error():
+        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
+            assert (handle.run_dir / "logs").is_dir()
+            handle.withdraw()
+            if raised:
+                raise RuntimeError("after the withdrawal")
+
+    assert not handle.heartbeat.is_alive()
+    assert not (project / "runs" / CASE).exists()
+
+
+def test_a_withdrawn_retry_gives_back_the_failed_attempt(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    with pytest.raises(RuntimeError):
+        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as first:
+            raise RuntimeError("the first attempt fails")
+    failed = read_outcome(first.run_dir)
+
+    with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as retry:
+        assert retry.claim.attempt == 2
+        retry.start_over_if_changed("a" * 64)
+        retry.withdraw()
+
+    assert read_outcome(first.run_dir) == failed
+    assert not (first.run_dir / "attempts").exists()
+    assert effective_status(first.run_dir) == "failed"
+
+
+def _no_error():
+    from contextlib import nullcontext
+
+    return nullcontext()

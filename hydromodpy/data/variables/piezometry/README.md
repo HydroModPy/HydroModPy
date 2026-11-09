@@ -5,7 +5,7 @@ from custom CSV files or from the Hub'Eau API.
 
 ## Current layout
 
-- `manager.py`: `PiezometryManager`, orchestrator that dispatches to the
+- `variable.py`: `PiezometryVariable`, orchestrator that dispatches to the
   configured source (`custom` or `hubeau`).
 - `config.py`: `PiezometrySourceConfig` and `PiezometryConfig` (Pydantic v2,
   `extra="forbid"`).

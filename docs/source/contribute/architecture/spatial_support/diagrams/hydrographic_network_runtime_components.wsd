@@ -5,7 +5,7 @@ skinparam componentStyle rectangle
 skinparam wrapWidth 180
 
 package "Input and preprocessing" {
-  component "HydrographyManager\nloaded reference input" as HydrographyManager
+  component "HydrographyVariable\nloaded reference input" as HydrographyVariable
   component "LoadResult\nFieldRecord hydrography_streams" as HydrographyLoadResult
   component "build_river_network_products(...)\nDEM-derived preprocessing" as RiverBuild
   component "RiverNetworkProducts" as RiverNetworkProducts
@@ -31,7 +31,7 @@ package "Consumers" {
   component "Comparison exports\nhydrographic_network_metrics.csv" as ComparisonExports
 }
 
-HydrographyManager --> HydrographyLoadResult
+HydrographyVariable --> HydrographyLoadResult
 RiverBuild --> RiverNetworkProducts
 
 HydrographyLoadResult --> HydrographicNetwork : from_hydrography_load_result(...)

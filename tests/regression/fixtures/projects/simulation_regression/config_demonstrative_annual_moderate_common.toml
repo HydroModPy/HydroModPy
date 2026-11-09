@@ -14,7 +14,7 @@ base_config = "hydromodpy.toml"
 mode = "simulation"
 
 [simulation]
-name = "Example 12 moderate annual flow-only comparison"
+name = "example_12_moderate_annual_flow_only"
 
 [simulation.time]
 start_datetime = "2003-01-01 00:00:00"

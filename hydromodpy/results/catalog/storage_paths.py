@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
@@ -32,12 +31,10 @@ from hydromodpy.results.storage.contract import (
 if TYPE_CHECKING:
     from hydromodpy.results.catalog.ports import CatalogBackend
 
-_UNSAFE_CHAR_RE = re.compile(r"[^A-Za-z0-9._-]+")
 _COLLAPSE_UNDERSCORE_RE = re.compile(r"_+")
 _SAFE_CHAR_RE = re.compile(r"[^a-z0-9_-]+")
 
 MAX_SEGMENT_LEN = 32
-MAX_DIRNAME_LEN = 96
 UNNAMED = "unnamed"
 
 
@@ -58,42 +55,6 @@ def sanitize_segment(value: str | None, *, max_len: int = MAX_SEGMENT_LEN) -> st
     if not slug:
         return UNNAMED
     return slug[:max_len].rstrip("_-") or UNNAMED
-
-
-class RunNameTooLongError(ConfigError, ValueError):
-    """A run name maps to a directory name longer than the filesystem budget."""
-
-    def __init__(self, name: str, length: int) -> None:
-        super().__init__(
-            f"Run name {name!r} maps to a {length}-character directory name; "
-            f"the maximum is {MAX_DIRNAME_LEN} characters. Shorten the name."
-        )
-        self.name = name
-        self.length = length
-
-
-def run_dirname(name: str | None) -> str:
-    """Return the directory name of a run from its human name.
-
-    Case is preserved (the directory is meant to be recognized at a glance)
-    and the ``.vN`` version suffix survives; only characters a filesystem
-    cannot carry are folded to ASCII and replaced by an underscore.
-
-    A name that would need more than :data:`MAX_DIRNAME_LEN` characters is
-    refused with :class:`RunNameTooLongError` rather than truncated: two names
-    sharing a prefix would otherwise resolve to the same directory and the
-    second run would die on a collision it never asked for.
-    """
-    if not name:
-        return UNNAMED
-    folded = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii")
-    cleaned = _UNSAFE_CHAR_RE.sub("_", folded.strip())
-    cleaned = _COLLAPSE_UNDERSCORE_RE.sub("_", cleaned).strip("._-")
-    if not cleaned:
-        return UNNAMED
-    if len(cleaned) > MAX_DIRNAME_LEN:
-        raise RunNameTooLongError(str(name), len(cleaned))
-    return cleaned
 
 
 class StoragePathResolver:

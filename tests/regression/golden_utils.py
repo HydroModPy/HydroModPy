@@ -972,9 +972,8 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into the per-test output directory via project root override.
+    # Redirect outputs into the per-test output directory.
     env[out_env_var] = str(out_path)
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -1025,12 +1024,14 @@ def run_hmp_cli(
     the config path on the command line (``--until export``).
     """
     env = os.environ.copy()
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
+    # The run is written in the folder of the outputs, named by argument.
+    out_path.mkdir(parents=True, exist_ok=True)
+    base = ["--base", str(out_path)]
     if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [
@@ -1040,6 +1041,7 @@ def run_hmp_cli(
             "hydromodpy",
             "run",
             str(config_path),
+            *base,
             *extra_args,
         ]
     else:
@@ -1049,6 +1051,7 @@ def run_hmp_cli(
             "hydromodpy",
             "run",
             str(config_path),
+            *base,
             *extra_args,
         ]
 

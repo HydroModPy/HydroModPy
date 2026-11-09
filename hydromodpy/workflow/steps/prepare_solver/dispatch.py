@@ -15,11 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.registration import (
-    portable_config_source,
-    solve_identity_hash,
-    split_stem_version,
-)
+from hydromodpy.results.catalog.registration import portable_config_source, split_stem_version
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
@@ -234,8 +230,8 @@ def bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
     The reference (a run name, a ``sim_id`` or a path) becomes the path the
     solver builder reads, so the frozen configuration writes it relative to
     the project, and the lineage of the run names the ``sim_id`` of the
-    source. The identity hash of the run was taken on the reference before
-    this call, so the same reference hashes the same on every machine.
+    source. The request id of the run took the digest of the state it reads from
+    that source before this call, so its name and its ``sim_id`` count for nothing.
     Returns the ``sim_id`` of the source, which the frozen configuration
     writes beside its path.
     """
@@ -350,6 +346,69 @@ def planned_recipe(project_root: Path, case_id: str) -> str | None:
     return None if case is None else case.recipe
 
 
+def solver_binaries(
+    cfg: Any, *, bin_path: str | Path | None = None, fetch: bool = True
+) -> dict[str, Path | None]:
+    """Return the binary each solver of the simulation of *cfg* calls, by solver name.
+
+    A solver that has no binary maps to ``None``. The path is the one the run
+    would execute: the shared library for a MODFLOW 6 run driven through its API,
+    the executable otherwise. This asks for no version and runs nothing. A binary
+    that is absent is looked for the way the run looks for it, and maps to
+    ``None`` when it cannot be found. *bin_path* is the folder of the binaries, the
+    one a workspace resolves when not given. A run asks to *fetch* a managed binary
+    that is absent, as its solve would; a plan or a dry run only looks.
+    """
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
+    from hydromodpy.solver.base.planner import SimulationPlanner
+
+    simulation = getattr(cfg, "simulation", None)
+    if simulation is None:
+        return {}
+    if bin_path is None:
+        bin_path = resolve_bin_path()
+    plan = SimulationPlanner().build(simulation)
+    found: dict[str, Path | None] = {}
+    for run in plan.runs:
+        if run.process_type == "mesh" or run.solver in found:
+            continue
+        try:
+            options = cfg.solver.options_of(run.solver)
+        except ValueError:
+            options = None
+        runner = getattr(options, "runner", None)
+        mode = "subprocess" if runner is None else str(runner)
+        found[run.solver] = _solver_path(run.solver, mode, bin_path, fetch=fetch)
+    return found
+
+
+def _solver_path(
+    solver: str, mode: str, bin_path: str | Path | None, *, fetch: bool
+) -> Path | None:
+    """Return the file *solver* executes in *mode*, or None when it has none or none is found."""
+    from hydromodpy.solver.modflow_common.binaries import (
+        SOLVER_EXECUTABLES,
+        SOLVER_LIBRARIES,
+        ensure_solver_binary,
+        ensure_solver_library,
+        locate_solver_binary,
+    )
+
+    library = mode == "api" and solver in SOLVER_LIBRARIES
+    name = SOLVER_LIBRARIES[solver] if library else SOLVER_EXECUTABLES.get(solver)
+    if name is None:
+        return None
+    try:
+        if not fetch:
+            return locate_solver_binary(bin_path, name) if bin_path else None
+        if library:
+            return Path(ensure_solver_library(name, bin_path))
+        return Path(ensure_solver_binary(name, bin_path))
+    except Exception:  # noqa: BLE001 - a binary that cannot be found only leaves the key without it
+        logger.debug("No binary found for solver %s", solver, exc_info=True)
+        return None
+
+
 def _solver_category(process_type: str, solver: str) -> str | None:
     """Return the category the backend of the primary run declares, or None for a mesh-only plan."""
     if process_type == "mesh":
@@ -357,11 +416,13 @@ def _solver_category(process_type: str, solver: str) -> str | None:
     return solvers.get(process_type, solver).category
 
 
-def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> RunFacts:
+def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> RunFacts:
     """Return the facts of the attempt as the context knows them at opening.
 
-    *config_hash* is the identity hash the caller computed for the claim; it
-    is computed here from the configuration when the caller has none.
+    *solution_key* is what the runner computed once the inputs were resolved
+    (:func:`~hydromodpy.results.request_identity.solution_key`). It is sealed as
+    ``identity.config_hash``. A run opened by other means than the runner, a kept
+    trial, has none, and no later run is told identical to it.
     """
     workspace = ctx.setup.workspace
     assert workspace is not None and ctx.run_dir is not None and ctx.sim_id is not None
@@ -372,7 +433,7 @@ def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> Ru
     plan = ctx.execution.simulation_plan
     process_type, primary_solver = primary_run_for_simulation(plan)
     facts = collect_run_facts(ctx)
-    facts["config_hash"] = config_hash or solve_identity_hash(ctx.cfg)
+    facts["config_hash"] = solution_key
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
     return RunFacts(
         sim_id=ctx.sim_id,
@@ -431,5 +492,6 @@ __all__ = (
     "initial_facts",
     "planned_recipe",
     "refresh_run_environment",
+    "solver_binaries",
     "step_open_run",
 )

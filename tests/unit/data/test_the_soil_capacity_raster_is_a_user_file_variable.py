@@ -1,7 +1,7 @@
 """Soil capacity (RU raster) config and manager.
 
 Mirrors the substratum tests: ``soil_capacity`` is another custom-only raster
-variable built on ``RasterFileManager``, in mm instead of m.
+variable built on ``RasterFileVariable``, in mm instead of m.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from hydromodpy.data.variables.soil_capacity.config import (
     FileSoilCapacitySource,
     SoilCapacityConfig,
 )
-from hydromodpy.data.variables.soil_capacity.manager import SoilCapacityManager
+from hydromodpy.data.variables.soil_capacity.variable import SoilCapacityVariable
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 150.0) -> Path:
@@ -68,7 +68,7 @@ def test_the_path_field_carries_the_soil_capacity_role() -> None:
 def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
     config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
-    manager = SoilCapacityManager(config=config, catalog=None, data_dir=tmp_path)
+    manager = SoilCapacityVariable(config=config, index=None, data_dir=tmp_path)
 
     result = manager.load()
 
@@ -79,13 +79,13 @@ def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
 
 
 def test_manager_internal_unit_is_millimetres() -> None:
-    assert SoilCapacityManager.INTERNAL_UNIT == "mm"
+    assert SoilCapacityVariable.INTERNAL_UNIT == "mm"
 
 
 def test_manager_labels_the_record_in_millimetres(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
     config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
-    manager = SoilCapacityManager(config=config, catalog=None, data_dir=tmp_path)
+    manager = SoilCapacityVariable(config=config, index=None, data_dir=tmp_path)
 
     record = manager.load().fields[0]
 

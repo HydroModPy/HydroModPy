@@ -91,6 +91,50 @@ class TestCreateProject:
         assert (project_dir / "project.toml").exists()
         assert (project_dir / "run_demo.toml").exists()
 
+    def test_creates_the_folders_of_the_files_the_project_keeps(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
+        project_dir = create_project(root, "my_project")
+
+        assert (project_dir / "inputs").is_dir()
+        assert (project_dir / "configs").is_dir()
+
+    def test_the_example_project_has_its_folders(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+
+        example = root / "projects" / "example"
+        assert (example / "inputs").is_dir()
+        assert (example / "configs").is_dir()
+
+    @pytest.mark.parametrize(
+        ("name", "said"),
+        [
+            ("My Project", "Write 'my_project'"),
+            ("Canut", "Write 'canut'"),
+            ("a" * 41, "41 characters"),
+            ("con", "Windows reserves"),
+            ("COM1", "is refused"),
+            ("nul", "Windows reserves"),
+            ("", "cannot be empty"),
+            ("a/b", "is refused"),
+            ("é", "is refused"),
+        ],
+    )
+    def test_a_name_that_breaks_the_rule_is_refused_and_creates_nothing(self, tmp_path, name, said):
+        from hydromodpy.core.exceptions import ConfigError
+
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
+
+        with pytest.raises(ConfigError, match=said):
+            create_project(root, name)
+
+        assert [path.name for path in (root / "projects").iterdir()] == ["README.md"]
+
+    @pytest.mark.parametrize("name", ["canut", "a" * 40, "k_1-b", "com10", "console"])
+    def test_a_name_that_follows_the_rule_is_taken(self, tmp_path, name):
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
+
+        assert create_project(root, name).name == name
+
     def test_project_toml_content(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "canut")

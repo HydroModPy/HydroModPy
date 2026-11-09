@@ -352,9 +352,7 @@ NEW_NWT = "[solver.modflow_nwt.process_specific]\nvka = {}\n"
 def test_each_file_is_migrated_before_the_merge(
     tmp_path: Path, first: str, second: str, written: str, solver: str, expected: float
 ) -> None:
-    from argparse import Namespace
-
-    from hydromodpy.cli.effective_toml import materialize_effective_toml
+    from hydromodpy.config.loading import read_document
     from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 
     base = tmp_path / "base.toml"
@@ -366,45 +364,40 @@ def test_each_file_is_migrated_before_the_merge(
             payload = load_toml_with_base_config(other, root=ROOT_CONFIG)
         else:
             other.write_text(second, encoding="utf-8")
-            effective, payload, _ = materialize_effective_toml(
-                base, args=Namespace(overlay=[other], set_overrides=[], case=None)
-            )
-            assert effective is not None
-            effective.unlink()
+            payload = read_document(base, overlays=[other], root=ROOT_CONFIG)
 
     assert payload["solver"][solver]["process_specific"]["vka"] == expected
     assert "modflow6" not in payload
     assert "modflownwt" not in payload
 
 
-def test_a_set_and_a_variable_written_under_an_old_name_win(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from argparse import Namespace
-
-    from hydromodpy.cli.effective_toml import materialize_effective_toml
+def test_a_set_and_a_variable_written_under_an_old_name_win(tmp_path: Path) -> None:
+    from hydromodpy.config.loading import read_document
     from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+    from hydromodpy.core.toml_io.loader import merge_toml_layers, read_toml_chain
+    from hydromodpy.core.toml_io.overrides import env_overrides
+    from hydromodpy.project.request import request_of
 
     base = tmp_path / "base.toml"
     base.write_text(NEW_MF6.format(3.0), encoding="utf-8")
-    args = Namespace(overlay=[], set_overrides=["modflow6.process_specific.vka=5.0"], case=None)
+    changes = {"modflow6.process_specific.vka": 5.0}
 
     with pytest.warns(ConfigKeyRenamedWarning, match="--set: .*write the new name") as told:
-        effective, payload, lineage = materialize_effective_toml(base, args=args)
-    assert effective is not None
-    effective.unlink()
+        payload = read_document(base, changes=changes, root=ROOT_CONFIG)
 
     assert payload["solver"]["modflow6"]["process_specific"]["vka"] == 5.0
-    assert lineage == {"solver.modflow6.process_specific.vka": 5.0}
+    assert request_of(base, set=changes).overrides() == {
+        "solver.modflow6.process_specific.vka": 5.0
+    }
     assert "fix-config" not in str(told[0].message)
 
-    monkeypatch.setenv("HMP_SET_modflow6__process_specific__vka", "7.0")
+    variables = {"HMP_SET_modflow6__process_specific__vka": "7.0"}
     with pytest.warns(ConfigKeyRenamedWarning, match=r"HMP_SET_\*"):
-        effective, payload, lineage = materialize_effective_toml(
-            base, args=Namespace(overlay=[], set_overrides=[], case=None)
+        payload = merge_toml_layers(
+            [read_toml_chain(base, root=None)],
+            root=ROOT_CONFIG,
+            env_overrides=env_overrides(variables),
         )
-    assert effective is not None
-    effective.unlink()
     assert payload["solver"]["modflow6"]["process_specific"]["vka"] == 7.0
 
 
@@ -460,9 +453,7 @@ def test_a_table_two_files_fill_key_by_key_waits_for_the_merge(tmp_path: Path) -
 
 def test_an_overlay_keeps_its_directives_until_it_meets_the_file(tmp_path: Path) -> None:
     """An overlay merged on nothing first would turn ``__append`` into a plain list."""
-    from argparse import Namespace
-
-    from hydromodpy.cli.effective_toml import materialize_effective_toml
+    from hydromodpy.config.loading import read_document
 
     base = tmp_path / "base.toml"
     base.write_text(
@@ -476,11 +467,7 @@ def test_an_overlay_keeps_its_directives_until_it_meets_the_file(tmp_path: Path)
         encoding="utf-8",
     )
 
-    effective, payload, _ = materialize_effective_toml(
-        base, args=Namespace(overlay=[overlay], set_overrides=[], case=None)
-    )
-    assert effective is not None
-    effective.unlink()
+    payload = read_document(base, overlays=[overlay], root=ROOT_CONFIG)
 
     assert payload["export"] == [{"variables": "head"}, {"variables": "budget"}]
     assert payload["simulation"]["process"] == [{"id": "flow", "solvers": ["b"]}]

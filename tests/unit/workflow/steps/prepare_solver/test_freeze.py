@@ -13,6 +13,7 @@ from shapely.geometry import box
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.refinement_zones import (
     CriterionInputs,
@@ -20,18 +21,19 @@ from hydromodpy.mesh.planning.refinement_zones import (
     load_refinement_zones,
 )
 from hydromodpy.mesh.refinement_config import RefinementZoneConfig
-from hydromodpy.results.catalog.registration import config_identity_hash
 from hydromodpy.results.run.field_envelope import read_run_fields
-from hydromodpy.results.storage.attempt import _config_changed
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.workflow.solution_key import request_id_of
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import step_mesh, zone_runs
 from hydromodpy.workflow.steps.prepare_solver.freeze import (
     freeze_run_config,
     frozen_config_document,
     portable_config_document,
+    write_claim_config,
 )
+from hydromodpy.workflow.steps.prepare_solver.restart import source_state_digests, zone_run_ids
 from tests._helpers.mesh_cases import grid_spec, planning_inputs
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.sealed_runs import sealed_search
@@ -148,6 +150,12 @@ def _project(root: Path, text: str = PROJECT) -> Path:
     return project
 
 
+def _identity(cfg: HydroModPyConfig, project: Path | None = None) -> str:
+    """The request id of *cfg*, with the state of each earlier run it reads when it reads one."""
+    states = None if project is None else source_state_digests(cfg, project) or None
+    return request_id_of(cfg, ResolvedInputs(), search=True, source_states=states)
+
+
 def _frozen(project: Path, cfg: HydroModPyConfig | None = None) -> tuple[HydroModPyConfig, Path]:
     cfg = cfg or HydroModPyConfig.from_toml(project / "project.toml")
     run_dir = project / "runs" / "soil_frozen"
@@ -204,7 +212,7 @@ def test_an_offset_written_at_its_default_is_another_computation(tmp_path: Path)
 
     assert "surface_offset" in written.flow.sinks_sources.etp.model_fields_set
     assert "surface_offset" not in silent.flow.sinks_sources.etp.model_fields_set
-    assert config_identity_hash(silent) != config_identity_hash(written)
+    assert _identity(silent) != _identity(written)
 
 
 @pytest.mark.parametrize("text", [PROJECT, OFFSET_WRITTEN], ids=["no-key", "key-at-its-default"])
@@ -222,9 +230,9 @@ def test_the_frozen_file_reads_back_to_the_identity_of_the_run(
     _, frozen = _frozen(project, cfg)
 
     if changes:
-        assert config_identity_hash(cfg) != config_identity_hash(base)
+        assert _identity(cfg) != _identity(base)
     for replay in _replays(project, frozen):
-        assert config_identity_hash(replay) == config_identity_hash(cfg)
+        assert _identity(replay) == _identity(cfg)
 
 
 def test_an_inferred_data_type_stays_out_of_the_frozen_file(tmp_path: Path) -> None:
@@ -362,7 +370,7 @@ GRID = grid_spec(8, 8, 25.0)
 ZONE = {"where": "watertable_depth", "below": 0.5, "run": "coarse", "cell_size": 25.0}
 
 
-def _source_run(project: Path, name: str) -> str:
+def _source_run(project: Path, name: str, *, head: float = 99.75) -> str:
     """Seal a run of four cells whose water table is 0.25 m deep in the first one."""
     store = open_run_store(project, name, n_cells=4, n_layers=1, n_timesteps=1)
     sim_id = store.sim_id
@@ -377,7 +385,7 @@ def _source_run(project: Path, name: str) -> str:
             np.array([100.0, 50.0]),
             topography=np.full(4, 100.0),
         )
-        handle.write_field_stack("head", np.array([[[99.75, 95.0, 95.0, 95.0]]]).transpose(0, 2, 1))
+        handle.write_field_stack("head", np.array([[[head, 95.0, 95.0, 95.0]]]).transpose(0, 2, 1))
     finally:
         handle.close()
     seal_completed(store)
@@ -388,7 +396,6 @@ def _config(project: Path, *zones: dict) -> HydroModPyConfig:
     return HydroModPyConfig.from_dict(
         {
             "workflow": {"mode": "simulation"},
-            "workspace": {"project_root": str(project)},
             "site": {"name": "site_a"},
             "geographic": {
                 "catchment": {"kind": "dem"},
@@ -547,38 +554,124 @@ def test_only_the_zones_that_read_a_run_are_rewritten(project: Path) -> None:
     assert zones[0]["where"] == "height_above_stream" and zones[2]["path"] == "layer.gpkg"
 
 
-def _identity(cfg: HydroModPyConfig) -> str | None:
-    """The identity hash a run records and a retry compares."""
-    return config_identity_hash(cfg)
-
-
-def test_a_resume_of_the_frozen_config_keeps_the_identity_of_the_first_attempt(
+def test_a_resume_of_the_frozen_config_keeps_the_request_id_of_the_first_attempt(
     project: Path,
 ) -> None:
     _source_run(project, "coarse")
     cfg = _config(project, ZONE)
-    recorded = _identity(cfg)
-    first = open_run_store(project, "production", n_cells=4, config_hash=recorded)
-    first.close()
+    recorded = _identity(cfg, project)
     frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "frozen")
     _source_run(project, "coarse")
 
     replayed = _replayed(project, frozen)
 
     assert replayed.mesh.refinement_zone[0].run != "coarse"
-    assert _identity(replayed) == recorded
-    assert not _config_changed(first.run_dir, _identity(replayed)), "the retry resumes"
+    assert _identity(replayed, project) == recorded, "the retry resumes"
 
 
-def test_a_new_run_from_the_bare_name_after_a_later_version_is_another_computation(
+def test_a_later_version_that_left_the_same_state_asks_the_same_thing(project: Path) -> None:
+    _source_run(project, "coarse")
+    cfg = _config(project, ZONE)
+    recorded = _identity(cfg, project)
+
+    _source_run(project, "coarse")
+
+    assert _identity(cfg, project) == recorded
+
+
+def test_a_new_run_from_the_bare_name_after_a_version_of_another_state_asks_otherwise(
     project: Path,
 ) -> None:
     _source_run(project, "coarse")
     cfg = _config(project, ZONE)
-    recorded = _identity(cfg)
-    first = open_run_store(project, "production", n_cells=4, config_hash=recorded)
-    first.close()
-    _source_run(project, "coarse")
+    recorded = _identity(cfg, project)
 
-    assert _identity(cfg) != recorded
-    assert _config_changed(first.run_dir, _identity(cfg)), "the retry starts over"
+    _source_run(project, "coarse", head=99.5)
+
+    assert _identity(cfg, project) != recorded, "the retry starts over"
+
+
+# --- The claim freezes what the run was given, and the step that opens it freezes what it resolved ---
+
+
+def test_the_claim_freezes_the_run_it_reads_before_any_step_runs(project: Path) -> None:
+    sim_id = _source_run(project, "coarse")
+    cfg = _config(project, ZONE)
+    run_dir = project / "runs" / "production.v2"
+    run_dir.mkdir(parents=True)
+    ctx = SimpleNamespace(cfg=cfg, run_dir=run_dir)
+
+    ids = zone_run_ids(cfg, project)
+    path = write_claim_config(ctx, project_root=project, zone_runs=ids)
+
+    document = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert ids == {"coarse": sim_id}
+    assert document["mesh"]["refinement_zone"] == [{**ZONE, "run": sim_id}]
+    assert document["simulation"]["name"] == "production", (
+        "the name of the run, without its version"
+    )
+    assert not (run_dir / RUN_RESOLVED_CONFIG_FILENAME).exists()
+    assert sorted(entry.name for entry in run_dir.iterdir()) == [RUN_CONFIG_FILENAME]
+
+
+def test_a_zone_that_names_no_sealed_run_is_left_as_written_by_the_claim(project: Path) -> None:
+    cfg = _config(project, ZONE)
+
+    assert zone_run_ids(cfg, project) == {}
+
+
+def test_the_step_that_opens_a_run_keeps_the_config_the_claim_wrote(project: Path) -> None:
+    _source_run(project, "coarse")
+    cfg = _config(project, ZONE)
+    store = open_run_store(project, "production", n_cells=4)
+    claimed = "# written at the claim\n"
+    (store.run_dir / RUN_CONFIG_FILENAME).write_text(claimed, encoding="utf-8")
+    ctx = SimpleNamespace(
+        cfg=cfg,
+        run_dir=store.run_dir,
+        loaded_data=None,
+        setup=SimpleNamespace(domain=None, flow=None, mesh_summary={}),
+    )
+
+    freeze_run_config(ctx, store=store)
+    store.close()
+
+    assert (store.run_dir / RUN_CONFIG_FILENAME).read_text(encoding="utf-8") == claimed
+    assert (store.run_dir / RUN_RESOLVED_CONFIG_FILENAME).is_file()
+
+
+def test_a_run_claimed_by_other_means_gets_its_config_from_the_step(project: Path) -> None:
+    """A kept trial of a calibration has no claim of the runner: the step writes both files."""
+    cfg = _config(project)
+    store = open_run_store(project, "trial", n_cells=4)
+    ctx = SimpleNamespace(
+        cfg=cfg,
+        run_dir=store.run_dir,
+        loaded_data=None,
+        setup=SimpleNamespace(domain=None, flow=None, mesh_summary={}),
+    )
+
+    freeze_run_config(ctx, store=store)
+    store.close()
+
+    assert (store.run_dir / RUN_CONFIG_FILENAME).is_file()
+    assert (store.run_dir / RUN_RESOLVED_CONFIG_FILENAME).is_file()
+
+
+def test_the_state_a_zone_reads_is_told_by_its_arrays_and_not_by_the_run(project: Path) -> None:
+    _source_run(project, "coarse")
+    cfg = _config(project, ZONE)
+    key = "mesh.refinement_zone.0.run"
+
+    before = source_state_digests(cfg, project)
+    _source_run(project, "coarse")  # another run, the same state
+    assert source_state_digests(cfg, project) == before
+    _source_run(project, "coarse", head=99.5)  # the bare name now reads another state
+
+    after = source_state_digests(cfg, project)
+    assert list(before) == list(after) == [key]
+    assert after[key] != before[key]
+
+
+def test_a_configuration_that_reads_no_earlier_run_has_no_state_to_tell(project: Path) -> None:
+    assert source_state_digests(_config(project), project) == {}

@@ -160,7 +160,7 @@ def test_where_an_input_file_sits_is_no_drift_and_its_digest_answers_for_it(tmp_
         return HydroModPyConfig.from_dict(
             {
                 "workflow": {"mode": "simulation"},
-                "workspace": {"project_root": str(tmp_path), "root": str(tmp_path)},
+                "workspace": {"root": str(tmp_path)},
                 "site": {"name": "s"},
                 "geographic": {"catchment": {"kind": "dem"}},
                 "data": {"types": ["dem"], "dem": {"sources": [{"source": "file", "path": path}]}},

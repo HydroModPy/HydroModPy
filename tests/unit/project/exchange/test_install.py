@@ -10,11 +10,14 @@ another workspace follows three rules the tests below read out loud:
 * every conflict (same path with other bytes, a station declared with another
   position, a data cache key served by other bytes, a site with another
   outlet) is collected, named, and refused as a whole: nothing is written;
+* a delivered file whose sidecar lacks its row of the data cache gets it from
+  the cache table of the package;
 * ``dry_run`` runs every check and reports what a real install would do.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import tarfile
 from pathlib import Path
@@ -25,7 +28,12 @@ from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index, stored_name
 from hydromodpy.core.site import SiteRow
-from hydromodpy.data.registry import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import (
+    FORMER_CACHE_DATABASE,
+    CacheIndex,
+    empty_path_for,
+    load_sidecar,
+)
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import (
     ImportedProject,
@@ -98,11 +106,9 @@ def _install(folder: Path, workspace: Path, project: Path | None = None, **kwarg
 
 
 def _snapshot(root: Path) -> dict[str, bytes]:
-    """Every file under *root* with its bytes; the cache database is a binary journal, only named."""
+    """Every file under *root* with its bytes."""
     return {
-        str(p.relative_to(root)): b"" if p.suffix == ".duckdb" else p.read_bytes()
-        for p in sorted(root.rglob("*"))
-        if p.is_file()
+        str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()
     }
 
 
@@ -170,7 +176,7 @@ def test_a_dry_run_reports_what_would_land_and_writes_nothing(tmp_path) -> None:
     assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
     assert report.sites_added == ["J0014010"]
     assert _snapshot(workspace) == before
-    assert not (workspace / "data" / "cache.duckdb").exists()
+    assert not (workspace / "data" / FORMER_CACHE_DATABASE).exists()
 
 
 def test_a_dry_run_still_refuses_a_conflict(tmp_path) -> None:
@@ -220,11 +226,9 @@ def test_a_data_cache_key_served_by_other_bytes_is_refused_by_name(tmp_path) -> 
     theirs = workspace / "data" / "hydrometry" / "hydrometry_hubeau_J0014010_theirs.csv"
     theirs.parent.mkdir(parents=True)
     theirs.write_text("datetime,value\n1990-01-01,9.9\n", encoding="utf-8")
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
-    catalog.register(
-        variable="hydrometry", source="hubeau", station_id="J0014010", file_path=theirs
+    CacheIndex(workspace / "data").record(
+        theirs, variable="hydrometry", source="hubeau", station_id="J0014010"
     )
-    catalog.close()
 
     with pytest.raises(PayloadConflictError) as refused:
         _install(folder, workspace)
@@ -241,9 +245,9 @@ def test_a_data_cache_key_served_by_the_same_bytes_elsewhere_is_left_alone(tmp_p
     same = workspace / "data" / "hydrometry" / "hydrometry_hubeau_J0014010_other_name.csv"
     same.parent.mkdir(parents=True)
     same.write_bytes((tmp_path / "author" / "data/hydrometry" / HUBEAU_FILE).read_bytes())
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
-    catalog.register(variable="hydrometry", source="hubeau", station_id="J0014010", file_path=same)
-    catalog.close()
+    CacheIndex(workspace / "data").record(
+        same, variable="hydrometry", source="hubeau", station_id="J0014010"
+    )
 
     report = _install(folder, workspace)
 
@@ -260,22 +264,47 @@ def test_a_data_cache_entry_at_the_destination_itself_is_registered_again(tmp_pa
     assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
 
 
-def test_a_cache_entry_that_names_no_file_does_not_block_the_install(tmp_path) -> None:
+def test_an_empty_row_for_the_station_does_not_block_the_install(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
-    catalog.register(
-        variable="hydrometry",
-        source="hubeau",
-        station_id="J0014010",
-        file_path=Path("custom"),
-        is_custom=True,
+    hydrometry = workspace / "data" / "hydrometry"
+    hydrometry.mkdir(parents=True)
+    empty = empty_path_for(hydrometry, "hydrometry_hubeau_J0014010")
+    CacheIndex(workspace / "data").record_empty(
+        empty, variable="hydrometry", source="hubeau", station_id="J0014010"
     )
-    catalog.close()
 
     report = _install(folder, workspace)
 
     assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
+    assert not empty.with_name(empty.name + ".json").exists()
+
+
+def test_a_sidecar_without_the_row_is_completed_from_the_cache_table(tmp_path) -> None:
+    folder = _shared_run_folder(tmp_path)
+    workspace, _ = _colleague(tmp_path)
+    index = read_index(folder)
+    bare = dataclasses.replace(
+        index,
+        files=tuple(dataclasses.replace(item, sidecar_sha256=None) for item in index.files),
+    )
+
+    report = install_index(bare, blobs=folder / INPUTS_DIRNAME, workspace=workspace)
+
+    assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
+    delivered = workspace / "data" / "hydrometry" / HUBEAU_FILE
+    sidecar = load_sidecar(delivered)
+    assert (sidecar.variable, sidecar.source, sidecar.station_id) == (
+        "hydrometry",
+        "hubeau",
+        "J0014010",
+    )
+    assert sidecar.frequency == "D"
+    assert sidecar.asked_window == ("2000-01-01T00:00:00", "2002-12-31T00:00:00")
+    assert (sidecar.sha256, sidecar.bytes) == (sha256_of(delivered), delivered.stat().st_size)
+    row = CacheIndex(workspace / "data").find("hydrometry", "hubeau", station_id="J0014010")
+    assert row is not None
+    assert row.path == delivered.resolve()
 
 
 @pytest.mark.parametrize(

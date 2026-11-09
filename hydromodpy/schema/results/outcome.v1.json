@@ -145,6 +145,20 @@
       "title": "Project",
       "x-hmp-profile": "user"
     },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the attempt asks for, the sha256 of its request once its inputs are resolved. Absent before then, and in an outcome written before this field existed.",
+      "title": "Request Id",
+      "x-hmp-profile": "user"
+    },
     "scheduler_job_id": {
       "anyOf": [
         {

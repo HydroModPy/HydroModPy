@@ -10,6 +10,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -653,17 +654,77 @@ def test_a_case_sealed_after_the_plan_leaves_the_plan_unchanged(tmp_path: Path) 
     assert {p.name for p in (project / "plan").iterdir()} == {"current", plan_dir.name}
 
 
-def test_the_config_hash_of_a_case_is_the_hash_of_the_worker(tmp_path: Path) -> None:
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.results.catalog.registration import config_identity_hash
+def test_the_config_hash_of_a_case_is_the_solution_key_of_the_worker(tmp_path: Path) -> None:
+    """The case file read back gives the key the plan holds: a plan and a run compare one key."""
+    from hydromodpy.config.loading import load
+    from hydromodpy.workflow.solution_key import planned_solution_key
 
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     plan_dir = write_plan_draft(project, draft)
 
     for case in draft.cases:
-        cfg = HydroModPyConfig.from_toml(plan_dir / f"{case.case_id}.toml")
-        assert config_identity_hash(cfg) == case.config_hash, case.case_id
+        cfg = load(plan_dir / f"{case.case_id}.toml")
+        key = planned_solution_key(cfg, search=case.kind == "calibration")
+        assert key is not None, case.case_id
+        assert key == case.config_hash, case.case_id
+
+
+@pytest.mark.parametrize(
+    ("site", "recipe", "case_id"),
+    [
+        ("nancon", "base", "nancon-base"),
+        ("Nancon", "Base", "nancon-base"),
+        ("J0014010", "calage", "j0014010-calage"),
+        ("a_site", "b_recipe", "a_site-b_recipe"),
+    ],
+    ids=["already a name", "capitals folded", "a gauge code folded", "underscores kept"],
+)
+def test_the_case_id_is_the_folded_name_of_the_site_and_the_recipe(
+    site: str, recipe: str, case_id: str
+) -> None:
+    from hydromodpy.project.launch.sites.expansion import _case_id
+
+    taken: dict[str, str] = {}
+    errors: list = []
+
+    found = _case_id(
+        SimpleNamespace(name=site), SimpleNamespace(name=recipe), taken=taken, errors=errors
+    )
+
+    assert (found, errors) == (case_id, [])
+    assert taken == {case_id: f"{site}-{recipe}"}
+
+
+def test_two_cases_that_fold_to_one_name_are_a_refusal_of_the_plan() -> None:
+    from hydromodpy.project.launch.sites.expansion import _case_id
+
+    taken: dict[str, str] = {}
+    errors: list = []
+    first = _case_id(
+        SimpleNamespace(name="Nancon"), SimpleNamespace(name="base"), taken=taken, errors=errors
+    )
+    second = _case_id(
+        SimpleNamespace(name="nancon"), SimpleNamespace(name="base"), taken=taken, errors=errors
+    )
+
+    assert (first, second) == ("nancon-base", None)
+    [issue] = errors
+    assert "fold to the same run name 'nancon-base'" in issue.message
+
+
+def test_a_case_id_longer_than_a_run_name_is_a_refusal_of_the_plan() -> None:
+    from hydromodpy.project.launch.sites.expansion import _case_id
+
+    errors: list = []
+
+    found = _case_id(
+        SimpleNamespace(name="s" * 41), SimpleNamespace(name="base"), taken={}, errors=errors
+    )
+
+    assert found is None
+    [issue] = errors
+    assert "has 46 characters" in issue.message and "keeps to 40" in issue.message
 
 
 def test_a_plan_moves_with_the_code_that_computes_and_with_nothing_else(

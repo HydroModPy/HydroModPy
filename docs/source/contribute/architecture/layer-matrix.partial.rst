@@ -127,7 +127,6 @@ what holds today. The gate refuses an entry that the tree no longer needs.
        ``hydromodpy/cli/commands/example/add.py``,
        ``hydromodpy/cli/commands/export.py``,
        ``hydromodpy/cli/commands/report.py``,
-       ``hydromodpy/cli/commands/run.py``,
        ``hydromodpy/cli/commands/spinup.py``
      - These commands call the verbs through the facade. They call
        project once the verbs live there.

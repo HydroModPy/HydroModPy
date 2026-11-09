@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from hydromodpy.data.variables.hydrography.manager import numeric_raster_field
+from hydromodpy.data.variables.hydrography.variable import numeric_raster_field
 
 
 def test_a_numeric_column_is_kept() -> None:

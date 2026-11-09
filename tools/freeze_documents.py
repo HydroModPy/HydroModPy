@@ -1,34 +1,40 @@
-"""Write the documents of 2.0.0 that ``tests/regression/frozen_documents/`` reads.
+"""Write the documents that ``tests/regression/frozen_documents/`` reads.
 
-Regenerate with one command, from the root of the repository::
+Run it from the root of the repository, on the export of the release tag that the
+corpus names::
 
     python -m tools.freeze_documents
 
 ``tests/regression/frozen_runs/`` holds a run and a session. This holds the other
-documents 2.0.0 stores: the ``published.jsonl`` of a run, a published copy with its
+documents a release stores: the ``published.jsonl`` of a run, a published copy with its
 ``PUBLICATION.json`` and ``INSTALL.toml``, an install index with a station row, the plan
-of a ``[sites]`` project, a lockfile, three sidecars, the shared and the private data
-cache, the trial series of a session, a sealed job with its chain report, and a site
-catalog. Each one comes from its real writer, on a synthetic island, with no network.
-The job comes from a capability ``demo`` that this script declares, because no real
-capability writes a job without a local path in its request.
+of a ``[sites]`` project, a lockfile, three sidecars, the trial series of a session, a
+sealed job with its chain report, and a site catalog. Each one comes from its real
+writer, on a synthetic island, with no network. The job comes from a capability ``demo``
+that this script declares, because no real capability writes a job without a local path
+in its request.
+
+The script writes no data cache database. HydroModPy 2.1 keeps the cache in the sidecars
+and refuses the database of 2.0.0 by name, so no current code can write one. The two databases of
+``v2.0.0/current`` were written by 2.0.0 and stay as they are. For the same reason the
+script refuses to write ``v2.0.0/`` from a version other than 2.0, whose lockfile has
+another schema: that folder is written again only on the export of the tag.
 
 The script restarts itself in a throwaway HOME, state and cache, with the solver
-binaries of the machine linked in. It writes ``v2.0.0/current/`` and
-``v2.0.0/expected.json``, or the same under ``--out``. ``expected.json`` holds the version
-keys, the counts and the values of each document, read from the raw files by ``json``,
-``tomllib``, ``pyarrow`` and ``duckdb`` and never by the readers the test checks, with the
-versions of DuckDB and pyarrow that wrote them and one digest of the tree.
+binaries of the machine linked in. It writes ``<release>/current/`` and
+``<release>/expected.json``, or the same under ``--out``. ``expected.json`` holds the
+version keys, the counts and the values of each document, read from the raw files by
+``json``, ``tomllib`` and ``pyarrow`` and never by the readers the test checks, with the
+version of pyarrow that wrote them and one digest of the tree.
 
 The values of ``expected.json`` come out the same at every run on one binary, apart from
-the digest and the commit it names. The bytes of some files do not: both DuckDB files
-(``applied_at``), the ``created_at`` of the plan, the lockfile (``git_commit``,
-``python_version``, ``generated_at``, ``file_mtime`` and ``fetched_at``), and the
-published copy with ``published.jsonl``, which name the run id and its dates. The chain, the job, the sidecars, the install index, the trial series and
+the digest and the commit it names. The bytes of some files do not: the ``created_at``
+of the plan, the lockfile (``git_commit``, ``python_version``, ``generated_at`` and
+``fetched_at``), and the published copy with ``published.jsonl``, which name the run id
+and its dates. The chain, the job, the sidecars, the install index, the trial series and
 the site catalog come out byte for byte. The one value rewritten after its writer is the
 ``to`` of each published line, a local path, turned into ``<workspace>/...``.
 
-It refuses a development build of DuckDB, whose files no release of DuckDB reads.
 Nothing runs this at test time: the test only reads what this wrote.
 """
 
@@ -49,7 +55,6 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-import duckdb
 import numpy as np
 import pyarrow
 import pyarrow.parquet as pq
@@ -68,12 +73,9 @@ from hydromodpy.core.payload.index import (
     write_index,
 )
 from hydromodpy.core.site.row import SiteRow
-from hydromodpy.core.state.layout import RUN_DATA_CACHE_FILENAME, jobs_dir_for
 from hydromodpy.core.version import __version__
 from hydromodpy.data.provenance.sidecars import Sidecar, compute_sha256, write_sidecar
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.model.domain.job_inputs import output_records
-from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.inputset import build_inputset, inline_resource
@@ -99,9 +101,6 @@ TEXT_SUFFIXES = {".json", ".jsonl", ".toml", ".md", ".csv", ".txt", ".lock"}
 
 FIXED_INSTANT = "2026-01-01T00:00:00+00:00"
 """The instant of every date the chain and the job write, in the spelling of ``now()``."""
-
-JOB_STAMP = "20260101-000000-local"
-PRIVATE_CASE = "alpha-base.run"
 
 CAPABILITY = "demo"
 OUTPUT_PATH = "outputs/value.json"
@@ -172,8 +171,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.inside is not None:
         _write_documents(args.inside)
         return
-    if "dev" in duckdb.__version__:
-        sys.exit(f"duckdb {duckdb.__version__} is a development build; its files are unreadable")
+    if args.out.resolve() == TARGET and not __version__.startswith("2.0"):
+        sys.exit(
+            f"{TARGET} holds the documents of 2.0.0 and is written on the export of that tag "
+            f"only, not by {__version__}. Pass --out to write another folder."
+        )
     with ExitStack() as stack:
         if args.scratch is None:
             scratch = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="hmp-docs-")))
@@ -229,7 +231,7 @@ def _calibrate_lock_and_publish(work: Path) -> Path:
     """Calibrate the island, lock its inputs, and publish its run twice."""
     island = write_project(work / "island", island_files("calage"))
     _hmp("calibrate", "calib.toml", cwd=island)
-    _hmp("lock", "update", "--project", ".", cwd=island)
+    _hmp("data", "lock", "--project", ".", cwd=island)
     _hmp("publish", "calage", "--to", str(work / "pub" / "inputs"), "--with", "inputs", cwd=island)
     tar = str(work / "pub" / "calage.tar")
     _hmp("publish", "calage", "--to", tar, "--container", "tar", cwd=island)
@@ -245,6 +247,7 @@ def _write_sidecars(data: Path) -> None:
         Sidecar(
             source="hubeau",
             sha256=compute_sha256(chronicle),
+            bytes=chronicle.stat().st_size,
             license="etalab-2.0",
             variable="piezometry",
             unit="m",
@@ -272,6 +275,8 @@ def _write_sidecars(data: Path) -> None:
         Sidecar(
             source="ign",
             sha256=compute_sha256(raster),
+            bytes=raster.stat().st_size,
+            variable="dem",
             license="etalab-2.0",
             crs="EPSG:2154",
             bbox=(0.0, 0.0, 610.0, 610.0),
@@ -312,7 +317,7 @@ def _write_install_index(folder: Path) -> None:
 
 
 def _plan_the_campaign(campaign: Path) -> Path:
-    """Plan a two-site, two-recipe project, then open the private cache of one case."""
+    """Plan a two-site, two-recipe project."""
     write_project(
         campaign,
         {"project.toml": CAMPAIGN_PROJECT, "sites.csv": CAMPAIGN_SITES},
@@ -320,9 +325,6 @@ def _plan_the_campaign(campaign: Path) -> Path:
     (campaign / "data").mkdir()
     (campaign / "dem.tif").write_bytes(b"never read by the plan")
     _hmp("project", "plan", ".", cwd=campaign)
-    private = jobs_dir_for(campaign) / JOB_STAMP / CASE_CACHES_DIRNAME / PRIVATE_CASE
-    with DataCatalogDuckDB(private / RUN_DATA_CACHE_FILENAME, layered=False):
-        pass
     return campaign
 
 
@@ -443,11 +445,10 @@ def _write_site_catalog(workspace: Path) -> Path:
 def _gather(work: Path, island: Path, campaign: Path, workspace: Path) -> None:
     """Copy what a reader reads into ``current/``, and nothing that names the machine."""
     target = work / CURRENT
-    machine_files = shutil.ignore_patterns("*.duckdb.lock", "*.duckdb.wal")
     copy = target / "island"
     for name in ("project.toml", "calib.toml", "hydromodpy.lock"):
         _copy_file(island / name, copy / name)
-    shutil.copytree(island / "data", copy / "data", ignore=machine_files)
+    shutil.copytree(island / "data", copy / "data")
     _copy_published(island / "runs" / "calage", copy / "runs" / "calage", work)
     shutil.copytree(
         island / "sessions" / "calage" / "trial_series",
@@ -458,7 +459,6 @@ def _gather(work: Path, island: Path, campaign: Path, workspace: Path) -> None:
     for name in ("project.toml", "sites.csv", "dem.tif"):
         _copy_file(campaign / name, target / "campaign" / name)
     shutil.copytree(campaign / "plan", target / "campaign" / "plan")
-    shutil.copytree(campaign / "jobs", target / "campaign" / "jobs", ignore=machine_files)
     shutil.copytree(work / "chain", target / "chain")
     _copy_file(
         workspace / "data" / "sites" / "catalog.csv",
@@ -550,7 +550,6 @@ def _expected_values(tree: Path) -> dict[str, Any]:
                 _git("status", "--porcelain", "--untracked-files=no", "--", "hydromodpy")
             ),
         },
-        "duckdb_version": duckdb.__version__,
         "pyarrow_version": pyarrow.__version__,
         "capability": CAPABILITY,
         "published": _expected_published(tree / "island" / "runs" / "calage" / "published.jsonl"),
@@ -564,10 +563,6 @@ def _expected_values(tree: Path) -> dict[str, Any]:
         "sidecar": {
             path.relative_to(tree).as_posix(): _json(path)
             for path in sorted((tree / "island" / "data").rglob("*.json"))
-        },
-        "data_cache": {
-            path.relative_to(tree).as_posix(): _expected_cache(path)
-            for path in sorted(tree.rglob("*.duckdb"))
         },
         "trial_series": _expected_trial_series(
             tree / "island" / "sessions" / "calage" / "trial_series"
@@ -623,28 +618,10 @@ def _expected_lockfile(path: Path) -> dict[str, Any]:
     document = _toml(path)
     return {
         "schema": document["schema"],
-        "catalog_schema_version": document["hydromodpy"]["catalog_schema_version"],
         "inputs": [
-            {key: item[key] for key in ("variable", "source", "path", "sha256")}
+            {key: item[key] for key in ("variable", "source", "path", "sha256", "license")}
             for item in document.get("input", [])
         ],
-        "binaries": document.get("binaries", {}),
-    }
-
-
-def _expected_cache(path: Path) -> dict[str, Any]:
-    with duckdb.connect(str(path), read_only=True) as connection:
-        migrations = connection.execute(
-            "SELECT version, component, slug FROM schema_migrations ORDER BY version"
-        ).fetchall()
-        versions = connection.execute(
-            "SELECT component, version FROM _schema_version ORDER BY component"
-        ).fetchall()
-        entries = connection.execute("SELECT COUNT(*) FROM entries").fetchone()
-    return {
-        "migrations": [list(row) for row in migrations],
-        "schema_version": [list(row) for row in versions],
-        "entries": int(entries[0]) if entries is not None else 0,
     }
 
 

@@ -182,7 +182,7 @@ def test_a_file_in_a_sub_folder_of_a_project_reads_its_paths_from_the_root(tmp_p
     assert Path(cfg.workspace.project_root) == tmp_path
 
 
-def test_a_sealed_file_reads_its_paths_from_the_project(tmp_path: Path, monkeypatch) -> None:
+def test_a_sealed_file_reads_its_paths_from_the_project(tmp_path: Path) -> None:
     """A sealed file writes them from the project root, wherever the run sits."""
     flat = tmp_path / "flat" / "runs" / "first"
     copy = tmp_path / "elsewhere" / "base"
@@ -192,9 +192,9 @@ def test_a_sealed_file_reads_its_paths_from_the_project(tmp_path: Path, monkeypa
         (folder / "manifest.json").write_text("{}", encoding="utf-8")
 
     assert config_base_dir(flat / "config.toml") == (tmp_path / "flat").resolve()
+    # A copy outside its project reads from its own folder; a caller names the
+    # project by argument (-w, --base, base=).
     assert config_base_dir(copy / "config.toml") == copy.resolve()
-    monkeypatch.setenv("HMP_PROJECT_ROOT", str(tmp_path / "project"))
-    assert config_base_dir(copy / "config.toml") == (tmp_path / "project").resolve()
 
 
 def test_load_toml_with_base_config_rejects_cycles(tmp_path: Path) -> None:
@@ -242,7 +242,7 @@ def test_from_toml_rejects_scalar_workflow(tmp_path: Path) -> None:
         HydroModPyConfig.from_toml(path)
 
 
-def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
+def test_workspace_rejects_filename_safe_windows_path_tokens(tmp_path: Path) -> None:
     drive_token = chr(0xF03A)
     separator_token = chr(0xF05C)
     encoded_path = (
@@ -253,9 +253,10 @@ def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
         HydroModPyConfig.from_dict(
             {
                 "workflow": {"mode": "simulation"},
-                "workspace": {"project_root": encoded_path},
+                "workspace": {"root": encoded_path},
                 "geographic": {"source_mode": "synthetic"},
-            }
+            },
+            base_dir=tmp_path,
         )
 
 

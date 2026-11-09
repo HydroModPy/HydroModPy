@@ -1,4 +1,4 @@
-"""``hmp data archive`` - thin wrapper around :func:`hydromodpy.archive_data_cache`."""
+"""``hmp data archive`` - thin wrapper around :func:`hydromodpy.data.request.cache_verbs.archive_data_cache`."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.output import emit
 
 NAME: str = "archive"
-HELP: str = "Archive the cache (data + lockfile) to a portable file"
+HELP: str = "Archive the cache (files, sidecars and lockfile) to a portable file"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -36,7 +36,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli.helpers import resolve_workspace
-    from hydromodpy.project.lock import archive_data_cache
+    from hydromodpy.data.request.cache_verbs import archive_data_cache
 
     dest = archive_data_cache(args.to, workspace_root=resolve_workspace(args.workspace))
     emit(args, "data archive", {"path": dest}, table=lambda: print(f"  Archived cache to {dest}"))

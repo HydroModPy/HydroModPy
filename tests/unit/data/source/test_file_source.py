@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.exceptions import BoundsError
+from hydromodpy.core.exceptions import BoundsError, FrozenDataError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
+from hydromodpy.data.provenance import lockfile
 from hydromodpy.data.source.file import DemFile, FileSource
 from hydromodpy.data.source.port import FetchRequest
 from hydromodpy.data.source.registry import data_sources
@@ -87,3 +88,77 @@ def test_every_section_has_registered_file_subclass() -> None:
         assert issubclass(cls, FileSource)
         assert cls.section == var
         assert cls.source_id == "file"
+
+
+# -- frozen mode: a user file must be one the lockfile pins ---------------------------------
+
+
+@pytest.fixture
+def frozen_project(tmp_path: Path):
+    """A project with one pinned user file, and frozen mode on."""
+    project = tmp_path / "project"
+    inputs = project / "inputs"
+    inputs.mkdir(parents=True)
+    pinned = inputs / "dem.tif"
+    pinned.write_bytes(b"pinned bytes")
+    item = lockfile.user_file_input(
+        pinned,
+        variable="dem",
+        project_root=project,
+        sha256=hashlib.sha256(b"pinned bytes").hexdigest(),
+    )
+    lockfile.write_lockfile(
+        project / "hydromodpy.lock", None, user_files=[item], project_root=project
+    )
+    lockfile.set_frozen_mode(True, project_root=project)
+    try:
+        yield inputs
+    finally:
+        lockfile.set_frozen_mode(False)
+
+
+def test_frozen_mode_serves_a_user_file_the_lockfile_pins(frozen_project: Path) -> None:
+    result = DemFile(path=frozen_project / "dem.tif").fetch(FetchRequest(out_dir=frozen_project))
+
+    assert [record.path.name for record in result.files] == ["dem.tif"]
+
+
+def test_frozen_mode_refuses_a_user_file_whose_bytes_changed(frozen_project: Path) -> None:
+    (frozen_project / "dem.tif").write_bytes(b"other bytes")
+
+    with pytest.raises(FrozenDataError, match="SHA-256 does not match"):
+        DemFile(path=frozen_project / "dem.tif").fetch(FetchRequest(out_dir=frozen_project))
+
+
+def test_frozen_mode_refuses_a_user_file_the_lockfile_does_not_name(frozen_project: Path) -> None:
+    unnamed = frozen_project / "other.tif"
+    unnamed.write_bytes(b"unnamed")
+
+    with pytest.raises(FrozenDataError, match="absent from hydromodpy.lock"):
+        DemFile(path=unnamed).fetch(FetchRequest(out_dir=frozen_project))
+
+
+def test_frozen_mode_refuses_a_folder_that_holds_a_file_the_lockfile_does_not_name(
+    frozen_project: Path,
+) -> None:
+    source = FileSource(path=frozen_project)
+    source.section = "dem"
+    assert [r.path.name for r in source.fetch(FetchRequest(out_dir=frozen_project)).files] == [
+        "dem.tif"
+    ]
+
+    (frozen_project / "extra.tif").write_bytes(b"extra")
+
+    with pytest.raises(FrozenDataError, match="extra.tif"):
+        source.fetch(FetchRequest(out_dir=frozen_project))
+
+
+def test_a_user_file_is_read_in_place_and_never_written_to_the_cache(tmp_path: Path) -> None:
+    data_file = tmp_path / "inputs" / "dem.tif"
+    data_file.parent.mkdir()
+    data_file.write_bytes(b"bytes")
+
+    DemFile(path=data_file).fetch(FetchRequest(out_dir=tmp_path / "data" / "dem"))
+
+    assert not (tmp_path / "data").exists()
+    assert not (data_file.parent / "dem.tif.json").exists()

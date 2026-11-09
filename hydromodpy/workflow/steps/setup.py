@@ -81,6 +81,8 @@ def resolve_geographic_inputs(cfg: object, run_state: WorkflowContext) -> Path |
     bounds of the call, before the run is named. The DEM resolution returns a :class:`FileRecord` without writing the
     configuration and ``None`` when the config declares no DEM source; the
     catchment reads its raster through the ``dem_path`` the caller passes on.
+    A runner that resolved the inputs when it claimed the run has put them on the
+    context (``run_state.inputs``), and they are read from there.
     """
     import hydromodpy.data.variables.crossings.resolver as crossings_resolver
     import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
@@ -92,9 +94,12 @@ def resolve_geographic_inputs(cfg: object, run_state: WorkflowContext) -> Path |
     if callable(uses_synthetic) and uses_synthetic():
         run_state.setup.dem_record = None
         return None
-    # Every declared file and url source is resolved here, under the bounds of
-    # the call, before the step names the run (review 4.3, finding 12).
-    dem_record = resolve_inputs(cfg, bounds=run_state.bounds, data_dir=data_path).dem
+    # A runner has resolved every declared file and url source already, under the
+    # bounds of the call. Without one, they are resolved here, before the run is named.
+    resolved = run_state.inputs
+    if resolved is None:
+        resolved = resolve_inputs(cfg, bounds=run_state.bounds, data_dir=data_path)
+    dem_record = resolved.dem
     run_state.setup.dem_record = dem_record
     crossings_resolver.fill_crossings_path(
         cfg,

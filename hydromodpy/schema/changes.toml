@@ -370,3 +370,66 @@ since = "2.1.0"
 effect = "refusal"
 quantities = []
 text = "hmp export --as stac and --as prov, and [[export]] format = \"stac\" or \"prov\", are refused when hydromodpy_annex is not installed, with the module to install. Both views moved to the annex. RO-Crate stays in the wheel."
+
+[[recipe]]
+id = "data_cache_never_in_the_user_cache"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A data request or a call without a data folder no longer caches a DEM, a geology map or a crossings layer under the user cache of the machine. The file goes under the data folder of the call, data/ of a project without a workspace, so a file fetched earlier is fetched again, and a newer product version can change the values read."
+
+[[recipe]]
+id = "data_cache_is_its_sidecars"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The data cache is the sidecar next to each fetched file, and data/cache.duckdb is gone. A sidecar names the variable, the source, the station, the product, the box, the period, the window asked, the sha256, the size and the licence of its file. A station that answered nothing is a sidecar marked empty, without a file. A user file is never a row of the cache."
+
+[[recipe]]
+id = "stale_cache_file_rehashed"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A cached file whose size differs from its sidecar, or that is newer than its sidecar by more than a second, is hashed again, and is fetched again only when its sha256 changed. A copy of a workspace by cp no longer fetches its files again."
+
+[[recipe]]
+id = "prune_keeps_cited_inputs"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp data prune never removes a file whose sha256 a sealed run, a kept trial or a lockfile of the workspace cites, and names each one it keeps. When the inputs of a run or a lockfile cannot be read, it removes nothing."
+
+[[recipe]]
+id = "former_data_cache_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A data folder that still holds data/cache.duckdb of HydroModPy 2.0.0 is refused with a sentence that names hmp workspace clean --data-cache, and a lockfile hydromodpy.lock.v1 is refused with a sentence that names hmp data lock. Neither is read."
+
+[[recipe]]
+id = "frozen_replay_pins_empty_answers"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hydromodpy.lock pins a station that answered nothing as an input with empty = true and no sha256. hmp run --frozen replays such a station when the lockfile pins it, refuses an empty answer the lockfile does not pin, and refuses a file for a station the lockfile pins empty. In 2.0.0 every empty answer was refused under --frozen, because the lockfile could not pin it."
+
+[[recipe]]
+id = "request_identity_composition"
+since = "2.1.0"
+effect = "identity"
+quantities = []
+text = "A run is now told identical to a completed run by its request, the configuration as written with its edition and the digest and state of every input it reads, plus the code, the solver binaries and the numeric packages that compute it. The address of a URL and the path of a file no longer count, their bytes do. A run or a calibration that 2.0 would have skipped runs once again."
+
+[[recipe]]
+id = "json_paths_need_a_base"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A configuration given as a dict or as JSON text reads its relative paths from the base the caller names, never from the current folder, and is refused without one. JSON text is read as a file is, with the same refusals."
+
+[[recipe]]
+id = "run_and_project_names_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A run name or a project name holds lower case letters, digits, _ and -, forty characters at most, and holds neither a doubled underscore nor a device name Windows reserves. A name written otherwise is refused with the folded name to write. A name the code makes, from a file stem or a case of a plan, is folded in silence and still refused when it is too long or reserved."

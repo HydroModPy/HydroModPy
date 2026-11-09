@@ -25,6 +25,7 @@ def _run_state(tmp_path: Path, *, config_path: Path | None = None) -> Any:
         config_path=config_path or tmp_path / "project.toml",
         setup=SimpleNamespace(workspace=None),
         bounds=Bounds(),
+        inputs=None,
     )
 
 

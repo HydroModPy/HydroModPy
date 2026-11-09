@@ -7,6 +7,7 @@ produced it, under a name fixed by its class::
     <project>/.hmp/index.duckdb          index, rebuildable from the disk
     <project>/runs/<name>/               one run, named after the run itself
         outcome.json                     issue of the attempt, written first and last
+        request.json                     the run request as given in JSON or as a dict, never redacted
         config.toml                      frozen configuration: what the run was given
         config.resolved.toml             the same with every default, and what the build decided
         inputs.json                      every loaded input: provider, product, sha256, licence
@@ -103,6 +104,13 @@ RUN_FIGURES_DIRNAME = "figures"
 RUN_OUTCOME_FILENAME = "outcome.json"
 """Issue of the current attempt: status, attempt, host, pid, exit code, error."""
 
+RUN_REQUEST_FILENAME = "request.json"
+"""The request of a run given as JSON or as a dict, written at the claim, never redacted.
+
+It is outside the seal: it says how the run was asked for, and ``config.toml``
+says what the run was given.
+"""
+
 RUN_INPUTS_FILENAME = "inputs.json"
 """Every input the run loaded: provider, product, request, sha256, licence."""
 
@@ -152,6 +160,7 @@ REQUIRED_RUN_ENTRIES: frozenset[str] = frozenset({FIELDS_STORE_NAME, TABLES_DIRN
 UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
     {
         RUN_OUTCOME_FILENAME,
+        RUN_REQUEST_FILENAME,
         RUN_ANNOTATIONS_FILENAME,
         README_FILENAME,
         RUN_PUBLISHED_FILENAME,
@@ -168,7 +177,7 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
 
 Derived (figures, exports, report, README, generated views), mutable after
 the seal (outcome, annotations, published lines), diagnostic (logs, kept
-solver folders) or history (attempts). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
+solver folders), history (attempts) or the request as it came (request). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
 is left out for a different reason: it is not a result.
 """
 
@@ -348,6 +357,7 @@ __all__ = [
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",
+    "RUN_REQUEST_FILENAME",
     "RUN_RESOLVED_CONFIG_FILENAME",
     "RUN_SEARCH_TABLE",
     "RUN_SOLVER_DIRNAME",

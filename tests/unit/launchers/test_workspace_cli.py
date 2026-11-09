@@ -15,6 +15,7 @@ from hydromodpy.core.state.layout import (
     trash_dir_for,
 )
 from hydromodpy.core.state.scratch import scratch_dir_for
+from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE
 from hydromodpy.results.trash import parse_trashed_dirname
 from tests._helpers.sealed_runs import seal_run
 
@@ -24,7 +25,12 @@ def _seed_workspace(root: Path) -> None:
     (root / "data" / "source" / "keep.csv").write_text("value\n1\n", encoding="utf-8")
     (root / "data" / "blobs").mkdir(parents=True)
     (root / "data" / "blobs" / "generated.bin").write_bytes(b"blob")
-    (root / "data" / "cache.duckdb").write_bytes(b"duckdb")
+    for suffix in ("", ".wal", ".lock"):
+        (root / "data" / f"{FORMER_CACHE_DATABASE}{suffix}").write_bytes(b"duckdb")
+    sidecar_file = root / "data" / "dem" / "dem_ign_a.tif"
+    sidecar_file.parent.mkdir(parents=True)
+    sidecar_file.write_bytes(b"tif")
+    sidecar_file.with_name(sidecar_file.name + ".json").write_text("{}", encoding="utf-8")
     (root / INTERNAL_DIRNAME).mkdir()
     project = root / "projects" / "demo"
     project.mkdir(parents=True)
@@ -49,7 +55,7 @@ def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys
     project = tmp_path / "projects" / "demo"
     assert catalog_path_for(project).exists()
     assert runs_dir_for(project).exists()
-    assert (tmp_path / "data" / "cache.duckdb").exists()
+    assert (tmp_path / "data" / FORMER_CACHE_DATABASE).exists()
 
 
 def test_workspace_clean_all_trashes_the_runs_and_deletes_the_caches(
@@ -69,8 +75,11 @@ def test_workspace_clean_all_trashes_the_runs_and_deletes_the_caches(
     assert not (runs_dir_for(project) / "demo_run").exists()
     trashed = [parse_trashed_dirname(path.name)[0] for path in trash_dir_for(project).iterdir()]
     assert "runs/demo_run" in trashed
-    assert not (tmp_path / "data" / "cache.duckdb").exists()
+    for suffix in ("", ".wal", ".lock"):
+        assert not (tmp_path / "data" / f"{FORMER_CACHE_DATABASE}{suffix}").exists()
     assert not (tmp_path / "data" / "blobs").exists()
+    assert (tmp_path / "data" / "dem" / "dem_ign_a.tif").exists(), "a clean keeps the cache rows"
+    assert (tmp_path / "data" / "dem" / "dem_ign_a.tif.json").exists()
     assert not (tmp_path / INTERNAL_DIRNAME).exists()
     assert not scratch_dir_for(project).exists()
     assert (tmp_path / "data" / "source" / "keep.csv").exists()

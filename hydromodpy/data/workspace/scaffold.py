@@ -11,10 +11,10 @@ in the file NAME, never in the directory: ``<variable>_custom_*`` for files the
 user provides, ``<variable>_<api>_*`` for files HydroModPy downloads from an
 API. Both live side by side.
 The runtime data loaders read these folders directly
-(``hydromodpy.data.loading.store.DataStore``). A run indexes in
-``data/cache.duckdb`` the files that a ``[data.<name>]`` source with
-``source = "file"`` reads. A file dropped in a folder is not indexed on its own,
-and ``hmp data add`` indexes one file by hand.
+(``hydromodpy.data.loading.store.DataStore``). The data cache is the sidecar
+``<file>.json`` that a run writes next to each file it fetches. A file read by
+a ``[data.<name>]`` source with ``source = "file"`` is read in place and has no
+sidecar: it is no row of the cache.
 """
 
 from __future__ import annotations
@@ -22,9 +22,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import CONFIGS_DIRNAME, PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.names import check_name
 
 DEFAULT_ROOT = Path.home() / "hydromodpy"
+
+INPUTS_DIRNAME = "inputs"
+"""The folder of a project that holds the files its user brings."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,7 +411,7 @@ taken from the file name.
 _README_FOOTER = """\
 ## Cache listing
 
-- `hmp data ls --variable {name}` - list what is indexed in the cache.
+- `hmp data ls --variable {name}` - list the rows of the cache, one per fetched file.
 """
 
 _README_BODY = {
@@ -579,7 +583,6 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
 
         <workspace>/
         |-- data/
-        |   |-- cache.duckdb              (input cache, created on first run)
         |   |-- hydrometry/
         |   |   |-- README.md
         |   |   |-- hydrometry_custom_LOC.csv
@@ -646,13 +649,21 @@ def create_project(workspace_root: Path, name: str) -> Path:
 
         projects/<name>/
             project.toml   <- base template
-            run_demo.toml     <- executable template
+            run_demo.toml  <- executable template
+            inputs/        <- the files the user brings to the project
+            configs/       <- the configurations the project keeps
 
-    Returns the project directory path.
+    The name is the name of a folder: lower case letters, digits, ``_`` and
+    ``-``, forty characters at most, no name Windows reserves. A name that breaks
+    the rule is refused with a :class:`~hydromodpy.core.exceptions.ConfigError`
+    that proposes one. Returns the project directory path.
     """
+    check_name(name, what="project")
     workspace_root = Path(workspace_root).expanduser().resolve()
     project_dir = workspace_root / "projects" / name
     project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / INPUTS_DIRNAME).mkdir(exist_ok=True)
+    (project_dir / CONFIGS_DIRNAME).mkdir(exist_ok=True)
 
     project_toml = project_dir / PROJECT_MARKER_FILENAME
     if not project_toml.exists():

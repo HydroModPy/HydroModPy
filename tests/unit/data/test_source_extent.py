@@ -4,7 +4,7 @@ Two claims, and the second is the one that used to be false.
 
 **No manager reads a ``geographic`` object to find out where to fetch.** The
 object is project-scoped, and a capability that needs one needs a workspace.
-``DemManager`` and ``GeologyManager`` no longer take the parameter at all, and
+``DemVariable`` and ``GeologyVariable`` no longer take the parameter at all, and
 :func:`test_a_raster_manager_refuses_a_geographic_object` holds that the
 mechanism was removed rather than merely left unused.
 
@@ -37,9 +37,9 @@ from hydromodpy.data.common.source_extent import (
     resolve_source_extent,
 )
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
-from hydromodpy.data.variables.dem.manager import DemManager
-from hydromodpy.data.variables.geology.manager import GeologyManager
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
+from hydromodpy.data.variables.dem.variable import DemVariable
+from hydromodpy.data.variables.geology.variable import GeologyVariable
+from hydromodpy.data.variables.oceanic.variable import OceanicVariable
 
 # A one-kilometer square near Rennes, written twice: in Lambert-93 meters and
 # in the WGS84 degrees the same ground occupies.
@@ -183,11 +183,11 @@ def test_the_project_extent_crs_reads_a_department_box():
 
 
 @pytest.mark.fast
-@pytest.mark.parametrize("manager_cls", [DemManager, GeologyManager, OceanicManager])
+@pytest.mark.parametrize("manager_cls", [DemVariable, GeologyVariable, OceanicVariable])
 def test_a_manager_refuses_a_geographic_object(manager_cls):
     """The parameter is gone, not ignored."""
     with pytest.raises(TypeError, match="geographic"):
-        manager_cls(config=None, catalog=None, geographic=object())
+        manager_cls(config=None, index=None, geographic=object())
 
 
 @pytest.mark.fast
@@ -227,10 +227,10 @@ def test_no_manager_grows_back_a_geographic_parameter():
     """No manager takes one, and the pin is the door a new one would come through."""
     import inspect
 
-    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, variable_class_for
 
     signatures = {
-        name: inspect.signature(get_manager_class(name).__init__).parameters
+        name: inspect.signature(variable_class_for(name).__init__).parameters
         for name in VARIABLE_SPECS
     }
     # Anti-vacuity: an empty pin is only worth something if the walk really
@@ -285,9 +285,9 @@ def test_a_mask_in_its_own_crs_is_reprojected_from_that_crs(tmp_path, monkeypatc
         fake_fetch_ign_dem,
     )
     path = _write_vector_mask(tmp_path / "mask.gpkg", RENNES_4326, "EPSG:4326")
-    DemManager(
+    DemVariable(
         config=DemConfig(sources=[IgnGeoplateformeDemSource(mask_path=path)]),
-        catalog=None,
+        index=None,
         data_dir=tmp_path / "dem",
     ).load()
 
@@ -300,7 +300,7 @@ def test_a_box_in_another_crs_is_measured_on_the_shape_not_on_the_box(tmp_path):
 
     The bounds of a reprojected polygon are the image of its own vertices; the
     bounds of a reprojected box are the image of a rectangle that contains it.
-    On a basin-shaped mask the second is the wider answer, and the catalog
+    On a basin-shaped mask the second is the wider answer, and the cache index
     serves a cached download only when its entry is a superset of the request,
     so the extra width is a download that did not have to happen.
 

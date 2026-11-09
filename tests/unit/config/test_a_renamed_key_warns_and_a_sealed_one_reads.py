@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import copy
 import tomllib
-from argparse import Namespace
 from pathlib import Path
 
 import pytest
@@ -389,7 +388,8 @@ def test_the_end_of_the_delay_refuses_a_file_and_still_reads_a_sealed_config(
     assert sealed == {"geographic": {"late_after": 7}}
 
 
-def test_a_sealed_document_is_read_under_the_new_name_not_a_user_dict(tmp_path: Path) -> None:
+def test_a_sealed_document_and_a_user_dict_read_under_the_new_name(tmp_path: Path) -> None:
+    """A sealed run reads in silence; a dict is read as a file is, with the warning."""
     project = _project(tmp_path)
     document = tomllib.loads(WITH_OLD_TABLE)
     document["workspace"] = {"project_root": str(project)}
@@ -397,8 +397,12 @@ def test_a_sealed_document_is_read_under_the_new_name_not_a_user_dict(tmp_path: 
     config = HydroModPyConfig.from_snapshot(document)
 
     assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
-    with pytest.raises(ConfigValidationError, match="modflow6"):
+    with pytest.raises(ConfigValidationError, match="project_root is not a key"):
         HydroModPyConfig.from_dict(document, base_dir=project)
+    del document["workspace"]
+    with pytest.warns(ConfigKeyRenamedWarning, match=r"modflow6 -> \[solver\.modflow6\]"):
+        as_a_file = HydroModPyConfig.from_dict(document, base_dir=project)
+    assert held_tables_of(as_a_file.solver)["modflow6"].process_specific.vka == 2.0
 
 
 def test_a_frozen_run_with_a_table_under_its_old_name_reads_back(tmp_path: Path) -> None:
@@ -577,19 +581,20 @@ def test_one_row_reaches_the_command_line_and_the_helpers() -> None:
 
 
 def test_a_set_on_the_command_line_follows_the_row(tmp_path: Path) -> None:
-    from hydromodpy.cli.effective_toml import materialize_effective_toml
+    from hydromodpy.config.loading import read_document
+    from hydromodpy.project.request import RunRequest
 
     base = tmp_path / "base.toml"
     base.write_text(NEW_TABLE, encoding="utf-8")
-    args = Namespace(overlay=[], set_overrides=["modflow6.process_specific.vka=3.0"], case=None)
+    changes = {"modflow6.process_specific.vka": 3.0}
 
     with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
-        effective, payload, lineage = materialize_effective_toml(base, args=args)
-    assert effective is not None
-    effective.unlink()
+        payload = read_document(base, changes=changes, root=ROOT_CONFIG)
 
     assert payload == {"solver": {"modflow6": {"process_specific": {"vka": 3.0}}}}
-    assert lineage == {"solver.modflow6.process_specific.vka": 3.0}
+    assert RunRequest(config=payload, set=changes).overrides() == {
+        "solver.modflow6.process_specific.vka": 3.0
+    }
 
 
 def test_the_doctor_follows_the_row_everywhere_and_keeps_the_comments(tmp_path: Path) -> None:

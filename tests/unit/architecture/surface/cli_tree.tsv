@@ -308,21 +308,6 @@ hmp config wizard --profile	choices=['dev', 'expert', 'user'] default='user'
 hmp config wizard --to	
 hmp config wizard --workspace,-w	
 hmp data	command
-hmp data add	command
-hmp data add --crs	
-hmp data add --debug	nargs=0
-hmp data add --format	choices=['csv', 'json', 'table'] default='table'
-hmp data add --frozen	nargs=0
-hmp data add --project	
-hmp data add --provider	default='custom'
-hmp data add --quiet,-q	nargs=0
-hmp data add --station-id	
-hmp data add --type	
-hmp data add --unit	
-hmp data add --verbose,-v	nargs=0
-hmp data add --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
-hmp data add --workspace,-w	
-hmp data add <file>	required
 hmp data archive	command
 hmp data archive --debug	nargs=0
 hmp data archive --format	choices=['csv', 'json', 'table'] default='table'
@@ -350,6 +335,18 @@ hmp data get --verbose,-v	nargs=0
 hmp data get --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp data get --workspace,-w	
 hmp data get <target>	required
+hmp data lock	command
+hmp data lock --check	nargs=0
+hmp data lock --debug	nargs=0
+hmp data lock --format	choices=['csv', 'json', 'table'] default='table'
+hmp data lock --lockfile	
+hmp data lock --project	
+hmp data lock --quiet,-q	nargs=0
+hmp data lock --strict	nargs=0
+hmp data lock --to	
+hmp data lock --verbose,-v	nargs=0
+hmp data lock --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp data lock --workspace,-w	
 hmp data ls	command
 hmp data ls --debug	nargs=0
 hmp data ls --format	choices=['csv', 'json', 'table'] default='table'
@@ -448,18 +445,6 @@ hmp install-binaries --upgrade	nargs=0
 hmp install-binaries --verbose,-v	nargs=0
 hmp install-binaries --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp install-binaries --workspace,-w	
-hmp lock	command
-hmp lock update	command
-hmp lock update --format	choices=['csv', 'json', 'table'] default='table'
-hmp lock update --project	
-hmp lock update --to	
-hmp lock update --workspace,-w	
-hmp lock verify	command
-hmp lock verify --format	choices=['csv', 'json', 'table'] default='table'
-hmp lock verify --lockfile	
-hmp lock verify --project	
-hmp lock verify --strict	nargs=0
-hmp lock verify --workspace,-w	
 hmp privacy	command
 hmp privacy purge	command
 hmp privacy purge --archive-pii	nargs=0
@@ -601,6 +586,7 @@ hmp report render --workspace,-w
 hmp report render <sim_ref>	nargs=?
 hmp run	command
 hmp run --allow-host	default=[]
+hmp run --base	
 hmp run --case	
 hmp run --credentials	
 hmp run --debug	nargs=0

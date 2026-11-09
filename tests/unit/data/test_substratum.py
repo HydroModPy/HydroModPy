@@ -1,7 +1,7 @@
 """Substratum (aquifer-bottom raster) config and manager.
 
 Mirrors the lake-bathymetry tests: ``substratum`` is another custom-only
-raster variable built on ``RasterFileManager``.
+raster variable built on ``RasterFileVariable``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from rasterio.transform import from_origin
 from hydromodpy.data.contracts import FieldRecord
 from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.substratum.config import FileSubstratumSource, SubstratumConfig
-from hydromodpy.data.variables.substratum.manager import SubstratumManager
+from hydromodpy.data.variables.substratum.variable import SubstratumVariable
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 42.0) -> Path:
@@ -61,7 +61,7 @@ def test_config_refuses_two_sources(tmp_path: Path) -> None:
 def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "substratum.tif")
     config = SubstratumConfig.from_raster(src)
-    manager = SubstratumManager(config=config, catalog=None, data_dir=tmp_path)
+    manager = SubstratumVariable(config=config, index=None, data_dir=tmp_path)
 
     result = manager.load()
 
@@ -75,8 +75,8 @@ def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
 
 def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "no_crs.tif", crs=None)
-    refused = SubstratumManager(
-        config=SubstratumConfig.from_raster(src), catalog=None, data_dir=tmp_path
+    refused = SubstratumVariable(
+        config=SubstratumConfig.from_raster(src), index=None, data_dir=tmp_path
     )
     with pytest.raises(Exception, match="declares no CRS"):
         refused.load()
@@ -84,7 +84,7 @@ def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_pat
     written = SubstratumConfig.model_validate(
         {"sources": [{"source": "file", "path": str(src), "default_crs": "EPSG:4326"}]}
     )
-    record = SubstratumManager(config=written, catalog=None, data_dir=tmp_path).load().fields[0]
+    record = SubstratumVariable(config=written, index=None, data_dir=tmp_path).load().fields[0]
     assert record.crs == "EPSG:4326"
 
 

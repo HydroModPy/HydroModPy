@@ -77,7 +77,7 @@ SIMULATED_SERIES: tuple[str, ...] = (
 """Series a solve writes, named by variable."""
 
 # The record variables of the observation families
-# (data/variables/*/manager.py RECORD_VARIABLE and their API readers), stored
+# (data/variables/*/variable.py RECORD_VARIABLE and their API readers), stored
 # with source = observed by data/ingest/observations.py.
 OBSERVED_VARIABLES: tuple[str, ...] = (
     "discharge",

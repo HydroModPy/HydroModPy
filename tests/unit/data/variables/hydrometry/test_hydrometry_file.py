@@ -8,12 +8,12 @@ import pytest
 
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
 
 
 def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the hydrometry manager does."""
-    mgr = HydrometryManager(config=None, catalog=None, project_period=project_period)
+    mgr = HydrometryVariable(config=None, index=None, project_period=project_period)
     fn = getattr(mgr, "load_file", getattr(mgr, "load_file", None))
     return fn(cfg)
 

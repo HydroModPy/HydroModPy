@@ -72,5 +72,5 @@ registry and turned into departments before the Geoplateforme lookup.
 The client tries the Geoplateforme lookup first. If the API is down, the case `bd-alti --resolution 25 --format ASC`
 falls back on the HydroModPy internal index of BD ALTI archives.
 
-RGE ALTI is only supported here as a raw download. The raster assembly in `DemManager` stays limited to BD ALTI 25 m
+RGE ALTI is only supported here as a raw download. The raster assembly in `DemVariable` stays limited to BD ALTI 25 m
 ASC, until the fragmented archives and the RGE ALTI 1 m and 5 m volumes have storage and processing limits.

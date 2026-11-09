@@ -21,8 +21,9 @@ with ``/`` replaced by ``__``, then ``@`` and the UTC instant it was trashed::
     trash/sessions__calibration@20261014T093512/
     trash/sessions__calibration__trials__0004@20261015T080000/
 
-A run or session name never holds ``__`` (``run_dirname`` collapses repeated
-underscores) nor ``@``, so the name decodes back to its relative directory.
+A run or session name never holds ``__`` nor ``@``
+(:func:`~hydromodpy.core.state.names.check_name` refuses both), so the name
+decodes back to its relative directory.
 
 What may be trashed
 -------------------

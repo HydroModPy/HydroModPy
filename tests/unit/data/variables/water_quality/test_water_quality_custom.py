@@ -7,12 +7,12 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.variables.water_quality.config import WaterQualitySourceConfig
-from hydromodpy.data.variables.water_quality.manager import WaterQualityManager
+from hydromodpy.data.variables.water_quality.variable import WaterQualityVariable
 
 
 def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the water_quality manager does."""
-    return WaterQualityManager(config=None, catalog=None, project_period=project_period).load_file(
+    return WaterQualityVariable(config=None, index=None, project_period=project_period).load_file(
         cfg
     )
 

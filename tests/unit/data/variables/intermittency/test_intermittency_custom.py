@@ -10,12 +10,12 @@ from hydromodpy.data.variables.intermittency.config import (
     IntermittencyConfig,
     IntermittencySourceConfig,
 )
-from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
+from hydromodpy.data.variables.intermittency.variable import IntermittencyVariable
 
 
 def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the intermittency manager does."""
-    return IntermittencyManager(config=None, catalog=None, project_period=project_period).load_file(
+    return IntermittencyVariable(config=None, index=None, project_period=project_period).load_file(
         cfg
     )
 
@@ -180,7 +180,7 @@ class TestIntermittencyManagerCustom:
                 IntermittencySourceConfig(source="file", path=sample_intermittency_dir),
             ]
         )
-        manager = IntermittencyManager(config=cfg, catalog=None, project_period=None)
+        manager = IntermittencyVariable(config=cfg, index=None, project_period=None)
         result = manager.load()
 
         assert result.has_points
@@ -192,7 +192,7 @@ class TestIntermittencyManagerCustom:
 class TestIntermittencyStationRequest:
     def test_code_departement_alone_resolves_to_department_extent(self, tmp_path):
         cfg = IntermittencySourceConfig(source="hubeau", code_departement=["35"])
-        manager = IntermittencyManager(config=None, catalog=None, project_extent=None)
+        manager = IntermittencyVariable(config=None, index=None, project_extent=None)
         req = manager._station_request(
             cfg,
             out_dir=tmp_path,

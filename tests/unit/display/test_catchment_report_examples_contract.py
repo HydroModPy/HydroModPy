@@ -80,7 +80,6 @@ def test_generated_report_artifacts_are_ignored_by_git() -> None:
     for pattern in (
         "examples/projects/**/outputs/**",
         "!examples/projects/**/outputs/.gitignore",
-        "examples/projects/**/data/cache.duckdb*",
         "examples/projects/**/web/",
         "examples/projects/**/web_review/",
         "examples/data/etp/etp_sim2_*.nc",

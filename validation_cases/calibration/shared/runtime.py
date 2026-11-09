@@ -17,7 +17,6 @@ import numpy as np
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
-    data_cache_path_for,
     internal_dir,
     runs_dir_for,
     sessions_dir_for,
@@ -178,9 +177,6 @@ def _prune_benchmark_artifacts(
 
     removed: list[str] = []
     data_root = benchmark_root / "data"
-    cache = data_cache_path_for(data_root)
-    for data_artifact in (cache, cache.with_name(f"{cache.name}.wal")):
-        _remove_artifact_path(data_artifact, removed=removed)
     if data_root.is_dir() and not any(data_root.iterdir()):
         _remove_artifact_path(data_root, removed=removed)
 

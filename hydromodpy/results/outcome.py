@@ -16,6 +16,9 @@ Format
 See :class:`Outcome`. ``status`` is what the writer knew; ``exit_code`` and
 ``signal`` are what the process ended with; ``log_tail`` is the end of the
 run log, so a failed case explains itself from its own directory.
+``request_id`` is written once the inputs of the attempt are resolved
+(:mod:`hydromodpy.results.request_identity`); the next attempt compares it
+before it resumes.
 
 Precedence, when reading
 ------------------------
@@ -104,6 +107,14 @@ class Outcome(HydroModelBase):
     attempt: int = Field(ge=1, description="Attempt number, 1 for the first")
     attempt_id: str = Field(description="Id of the attempt, minted at entry")
     sim_id: str | None = Field(default=None, description="Id of the run once it has one")
+    request_id: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "What the attempt asks for, the sha256 of its request once its inputs are resolved. "
+            "Absent before then, and in an outcome written before this field existed."
+        ),
+    )
     status: OutcomeStatus = Field(description="What the writer knew")
     exit_code: int | None = Field(default=None, description="Exit code of the process, at exit")
     signal: int | None = Field(default=None, description="Signal that ended the process, if one")

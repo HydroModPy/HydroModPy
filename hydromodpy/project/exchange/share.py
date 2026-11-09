@@ -3,8 +3,8 @@
 Why here
 --------
 A run names its inputs in ``inputs.json`` and ``manifest.json`` (``results``);
-the bytes, their sidecars, their station rows and the rows of the data cache
-that serve them belong to the workspace (``data``). ``catalog`` is the layer
+the bytes, their sidecars, their station rows and the cache row each sidecar
+holds belong to the workspace (``data``). ``catalog`` is the layer
 that sees both, so the index of a run is built here and handed to
 :func:`hydromodpy.results.export.publish.publish`, which never reads ``data``.
 
@@ -15,7 +15,8 @@ of one sealed run: every file the run read (``inputs.json``, then the files the
 configuration declared), each with its destination relative to the workspace
 (``data/<variable>/<name>``) or to the project, its variable, provider,
 request, licence and the digest of its sidecar; the registry row of every
-station series; the data cache row of every file a provider delivered; the
+station series; the cache row of every file a provider delivered, read from
+its sidecar; the
 ``[site]`` of the run. A declared folder is never copied whole: the files the
 run read in it are.
 """
@@ -23,7 +24,6 @@ run read in it are.
 from __future__ import annotations
 
 import functools
-import json
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Final
@@ -42,6 +42,7 @@ from hydromodpy.core.payload.install import read_registry, sha256_of
 from hydromodpy.core.site import SiteRow
 from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.workspace.resolve import locate_workspace_root
+from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.results.export.publish import MissingInputError
 from hydromodpy.results.manifest import InputEntry, ManifestSite
 from hydromodpy.results.record import read_inputs
@@ -78,39 +79,36 @@ def run_bundle(run_dir: str | Path, *, project_root: str | Path) -> PayloadBundl
     blobs: dict[str, Path] = {}
     stations: dict[tuple[str, str], PayloadStation] = {}
     cache = _CacheRows(workspace)
-    try:
-        for entry in read_inputs(run).inputs:
-            if not entry.path:
-                raise ExportError(
-                    f"input {entry.variable} ({entry.provider}) names no file in inputs.json: "
-                    "its bytes cannot be carried. Run the configuration again to seal it "
-                    "with the file it read."
-                )
-            located = _located(entry.path, entry.variable, workspace, project)
-            item = _payload_file(entry, located, workspace, project, cache)
-            _add(files, blobs, item, located)
-            station = _station_row(item, located, workspace)
-            if station is not None:
-                stations[(station.dest, station.id)] = station
-        seal = read_sealed_manifest(run)
-        for tracked in seal.inputs if seal is not None else ():
-            located = _located(tracked.path, tracked.role, workspace, project)
-            if located.is_dir():
-                continue
-            if located.resolve() in {path.resolve() for path in blobs.values()}:
-                continue
-            _check_digest(located, tracked.sha256, tracked.role)
-            item = _file_entry(
-                located,
-                workspace,
-                project,
-                sha256=tracked.sha256,
-                provider="file",
-                license=None,
+    for entry in read_inputs(run).inputs:
+        if not entry.path:
+            raise ExportError(
+                f"input {entry.variable} ({entry.provider}) names no file in inputs.json: "
+                "its bytes cannot be carried. Run the configuration again to seal it "
+                "with the file it read."
             )
-            _add(files, blobs, item, located)
-    finally:
-        cache.close()
+        located = _located(entry.path, entry.variable, workspace, project)
+        item = _payload_file(entry, located, workspace, project, cache)
+        _add(files, blobs, item, located)
+        station = _station_row(item, located, workspace)
+        if station is not None:
+            stations[(station.dest, station.id)] = station
+    seal = read_sealed_manifest(run)
+    for tracked in seal.inputs if seal is not None else ():
+        located = _located(tracked.path, tracked.role, workspace, project)
+        if located.is_dir():
+            continue
+        if located.resolve() in {path.resolve() for path in blobs.values()}:
+            continue
+        _check_digest(located, tracked.sha256, tracked.role)
+        item = _file_entry(
+            located,
+            workspace,
+            project,
+            sha256=tracked.sha256,
+            provider="file",
+            license=None,
+        )
+        _add(files, blobs, item, located)
     site = None if seal is None else _site_row(seal.site)
     return PayloadBundle(
         index=InstallIndex(
@@ -270,84 +268,36 @@ def _site_row(site: ManifestSite | None) -> SiteRow | None:
 
 
 class _CacheRows:
-    """The data cache of the source workspace, opened read-only on first use."""
-
-    _COLUMNS: Final[tuple[str, ...]] = (
-        "variable",
-        "source",
-        "station_id",
-        "crs",
-        "date_start",
-        "date_end",
-        "frequency",
-        "unit",
-        "source_unit",
-    )
+    """The sidecars of the data folder of the source workspace, read once on first use."""
 
     def __init__(self, workspace: Path) -> None:
-        self._path = workspace / DATA_DIRNAME / "cache.duckdb"
-        self._catalog: Any = None
+        self._index = CacheIndex(workspace / DATA_DIRNAME)
 
     def row_for(self, located: Path) -> dict[str, Any] | None:
-        """Return the cache row that serves *located*, or the key its sidecar states."""
-        entry = self._entry(located)
-        if entry is None:
-            return _row_from_sidecar(located)
-        row: dict[str, Any] = {key: _cell(getattr(entry, key)) for key in self._COLUMNS}
-        bbox = [entry.bbox_xmin, entry.bbox_ymin, entry.bbox_xmax, entry.bbox_ymax]
-        if all(value is not None for value in bbox):
-            row["bbox"] = [float(value) for value in bbox]
-        metadata = entry.fetch_metadata
-        if isinstance(metadata, str) and metadata:
-            row["fetch_metadata"] = json.loads(metadata)
-        elif isinstance(metadata, dict):
-            row["fetch_metadata"] = metadata
-        return {key: value for key, value in row.items() if value is not None}
-
-    def _entry(self, located: Path) -> Any:
-        if not self._path.is_file():
+        """Return the cache row that the sidecar of *located* states, or None."""
+        found = self._index.row_for(located)
+        if found is None or found.empty:
             return None
-        if self._catalog is None:
-            from hydromodpy.data.registry import DataCatalogDuckDB
-
-            self._catalog = DataCatalogDuckDB(self._path, read_only=True)
-        return self._catalog.entry_for_file(located)
-
-    def close(self) -> None:
-        if self._catalog is not None:
-            self._catalog.close()
-            self._catalog = None
-
-
-def _row_from_sidecar(located: Path) -> dict[str, Any] | None:
-    """Return the cache key a sidecar states, for a file its workspace no longer indexes."""
-    from hydromodpy.data.provenance.sidecars import load_sidecar
-
-    try:
-        sidecar = load_sidecar(located)
-    except (OSError, ValueError):  # a missing, torn or invalid sidecar states nothing
-        return None
-    if sidecar is None:
-        return None
-    row: dict[str, Any] = {
-        "variable": sidecar.variable or located.parent.name,
-        "source": sidecar.source,
-        "crs": sidecar.crs,
-        "date_start": sidecar.date_start,
-        "date_end": sidecar.date_end,
-        "frequency": sidecar.frequency,
-        "unit": sidecar.unit,
-        "source_unit": sidecar.source_unit,
-    }
-    if sidecar.bbox is not None:
-        row["bbox"] = [float(value) for value in sidecar.bbox]
-    return {key: value for key, value in row.items() if value is not None}
-
-
-def _cell(value: Any) -> Any:
-    """Return a cache cell as TOML writes it: a date as its ISO text."""
-    isoformat = getattr(value, "isoformat", None)
-    return isoformat() if callable(isoformat) else value
+        row: dict[str, Any] = {
+            "variable": found.variable,
+            "source": found.source,
+            "station_id": found.station_id,
+            "product": found.product,
+            "product_version": found.product_version,
+            "crs": found.crs,
+            "date_start": found.date_start,
+            "date_end": found.date_end,
+            "frequency": found.frequency,
+            "unit": found.unit,
+            "source_unit": found.source_unit,
+        }
+        if found.bbox is not None:
+            row["bbox"] = [float(value) for value in found.bbox]
+        if found.asked_window is not None:
+            row["asked_window"] = list(found.asked_window)
+        if found.fetch_metadata:
+            row["fetch_metadata"] = found.fetch_metadata
+        return {key: value for key, value in row.items() if value is not None}
 
 
 __all__ = [

@@ -239,7 +239,6 @@ def test_lake_and_wall_inputs_hold_still(tmp_path: Path, monkeypatch: pytest.Mon
 
     _prepare_inputs(tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("HMP_PROJECT_ROOT", str(tmp_path))
 
     orig_solve_one = runner_module.solve_one
 

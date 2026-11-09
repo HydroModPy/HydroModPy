@@ -1,8 +1,8 @@
-"""A raw input's sidecar states the licence of its source.
+"""A fetched file's sidecar states the licence of its source.
 
-``Sidecar.license`` was null in every real sidecar: its single construction
-site never passed it. It now comes from the source registry, and a licence the
-user declared for the same bytes survives a rewrite.
+The licence comes from the source registry, a licence given by the caller (a
+``url`` source that declares one) wins, and a licence already determined for
+the same bytes survives a rewrite.
 """
 
 from __future__ import annotations
@@ -11,49 +11,84 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import DataCacheError
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
-from hydromodpy.data.provenance.sidecars import Sidecar, load_sidecar, write_sidecar
-from hydromodpy.data.registry.cache_store import emit_input_sidecar
+from hydromodpy.data.provenance import sidecars
+from hydromodpy.data.provenance.sidecars import (
+    CacheIndex,
+    Sidecar,
+    compute_sha256,
+    load_sidecar,
+    sidecar_path_for,
+    write_sidecar,
+)
 
 
 def _raw(tmp_path: Path) -> Path:
-    path = tmp_path / "geology.gpkg"
+    path = tmp_path / "data" / "geology" / "geology.gpkg"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"geology")
     return path
 
 
-def _emit(path: Path, source: str, sha256: str = "abc") -> Sidecar:
-    emit_input_sidecar(path, sha256=sha256, source=source, crs=None, bbox=(None,) * 4)
+def _record(path: Path, source: str, **fields: object) -> Sidecar:
+    CacheIndex(path.parents[1]).record(path, variable="geology", source=source, **fields)
     return load_sidecar(path)
 
 
+def _declare(path: Path, licence: str, sha256: str | None = None) -> None:
+    write_sidecar(
+        path,
+        Sidecar(
+            source="brgm_1m",
+            variable="geology",
+            sha256=sha256 or compute_sha256(path),
+            bytes=path.stat().st_size,
+            license=licence,
+        ),
+    )
+
+
 def test_a_known_source_stamps_its_licence(tmp_path: Path) -> None:
-    assert _emit(_raw(tmp_path), "brgm_1m").license == "etalab-2.0"
+    assert _record(_raw(tmp_path), "brgm_1m").license == "etalab-2.0"
 
 
-def test_a_user_file_is_stamped_undetermined(tmp_path: Path) -> None:
-    assert _emit(_raw(tmp_path), "custom").license == UNDETERMINED_LICENSE
+def test_an_unknown_source_is_stamped_undetermined(tmp_path: Path) -> None:
+    assert _record(_raw(tmp_path), "nobody_knows").license == UNDETERMINED_LICENSE
+
+
+def test_a_given_licence_wins(tmp_path: Path) -> None:
+    assert _record(_raw(tmp_path), "url", license="CC-BY-4.0").license == "CC-BY-4.0"
 
 
 def test_a_declared_licence_survives_a_rewrite_of_the_same_bytes(tmp_path: Path) -> None:
     path = _raw(tmp_path)
-    write_sidecar(path, Sidecar(source="file", sha256="abc", license="CC0-1.0"))
-    assert _emit(path, "custom").license == "CC0-1.0"
+    _declare(path, "CC0-1.0")
+    assert _record(path, "nobody_knows").license == "CC0-1.0"
 
 
 def test_a_declared_licence_does_not_follow_new_bytes(tmp_path: Path) -> None:
     path = _raw(tmp_path)
-    write_sidecar(path, Sidecar(source="file", sha256="abc", license="CC0-1.0"))
-    assert _emit(path, "custom", sha256="def").license == UNDETERMINED_LICENSE
+    _declare(path, "CC0-1.0", sha256="d" * 64)
+    assert _record(path, "nobody_knows").license == UNDETERMINED_LICENSE
 
 
-def test_a_sidecar_that_cannot_be_written_never_blocks_the_registration(
+def test_a_sidecar_that_cannot_be_written_fails_the_record_and_leaves_no_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from hydromodpy.data.registry import cache_store
-
+    # The sidecar is the row: a record whose sidecar is not written is no record.
     def refuse(*args: object, **kwargs: object) -> None:
         raise OSError("read-only folder")
 
-    monkeypatch.setattr(cache_store, "write_sidecar", refuse)
-    emit_input_sidecar(_raw(tmp_path), sha256="abc", source="file", crs=None, bbox=(None,) * 4)
+    path = _raw(tmp_path)
+    index = CacheIndex(tmp_path / "data")
+    monkeypatch.setattr(sidecars, "write_sidecar", refuse)
+    with pytest.raises(OSError, match="read-only"):
+        index.record(path, variable="geology", source="brgm_1m")
+    assert index.rows() == []
+    assert not sidecar_path_for(path).exists()
+
+
+def test_a_user_file_is_no_row_of_the_cache(tmp_path: Path) -> None:
+    with pytest.raises(DataCacheError, match="user file"):
+        _record(_raw(tmp_path), "file")

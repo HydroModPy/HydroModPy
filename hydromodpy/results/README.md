@@ -27,19 +27,20 @@ layout is `storage/contract.py`; the full contract is
 
 | part | answers |
 |---|---|
-| `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`, the UDUNITS spelling of its units in `udunits.py`), the seal (`sealing.py`), the soil columns and `soil_budget` rows of a soil run (`soil_tables.py`), the attempt protocol (`attempt.py`, `run_log.py`), the emptying of the solver scratch (`scratch.py`), digests, licence and geographic facts, layout diagnostics (`README.md`) |
+| `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`, the UDUNITS spelling of its units in `udunits.py`), the seal (`sealing.py`), the soil columns and `soil_budget` rows of a soil run (`soil_tables.py`), the claim, the restart and the withdrawal of a run directory (`attempt.py`, `run_log.py`), the emptying of the solver scratch (`scratch.py`), digests, licence and geographic facts, layout diagnostics (`README.md`) |
 | `zarr_store/` | the per-run Zarr 3 array store `SimulationZarr`: each write is a function of `zarr_writer.py` and each read one of `zarr_reader.py`, bound on the class as its methods; the schema, the write lock, ACDD and CF metadata, chunk and shard sizes (`README.md`) |
 | `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata. A series a backend declares in `writes` carries the shape `time`, one value per period of the time grid, written at the station `catchment` for the whole catchment |
 | `manifest.py`, `annotations.py`, `trash.py`, `retention.py` | the on-disk side of the rule: the seal, the human sidecars (`annotations.json`), the trash by move, its tombstones and `remove_for_good` (`trash.py`), and what `hmp catalog gc` collects, read from the tree alone (`retention.py`) |
 | `record.py` | `RunRecord`: the seal built in memory by the run and written by it, `simulation.parquet`, `parameters.parquet`, `provenance.json`, `inputs.json`, then `manifest.json` last and durable; never opens the index |
-| `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse) |
+| `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse). The issue carries the `request_id` of the attempt, written as soon as its inputs are resolved, so the next attempt can tell whether it asks for the same thing |
+| `request_identity.py` | what does a run ask for, and what computes the answer? `request_id(document, inputs, edition=)` is the sha256 of the document as a file writes it, without `[workspace]`, `[workflow]`, `simulation.name` and every `deliver_to` key (`REQUEST_EXCLUDED`). Each resolved input enters by the digest and the state of its bytes, and its path or URL leaves the document, so two addresses that give the same bytes ask the same thing. An earlier run the file reads enters by the digest of the arrays the run takes from it, never by its name or its `sim_id`. `solution_key(request_id, ...)` adds the code fingerprint, the mesh engine and its version, the sha256 of each solver binary and the versions of the numeric packages. Two runs with the same key give the same numbers, and a sealed run is given back only on an equal key. The module reads `core` and `results`, so its caller resolves the inputs and passes their digests. A source of an API whose extent comes from the delineated catchment is fetched after the identity is known, so it enters by its declaration, and the skip checks that its cached file still has the sha256 of `inputs.json` |
 | `heartbeat.py` | `logs/heartbeat.json`, the pulse of a running attempt, and the thread that writes it |
 | `checks.py` | the `checks` block of the seal: the measured facts (budget, convergence, coverage, verdicts, promoting session) a label derives from, and their flat columns |
 | `validity_rules.py` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the `[[bug]]` rows of `schema/changes.toml` that declass the runs of the versions they touched |
 | `identity.py` | the `identity` block every exported file carries, posed and read back per format: Zarr attributes, Parquet metadata, `gpkg_metadata`, PNG text chunk, `.meta.json` sidecar |
 | `run_identity.py` | who a run directory is for a file derived from it: the manifest of a sealed run (`read_sealed_manifest`), its label of the day (`label_of`), and the identity block of a run still being computed |
 | `lineage.py` | the `lineage` block of the seal: parent run, session, phase, trial, kind and overrides, by ids |
-| `source_runs.py` | the run a configuration reads (`[flow] restart_from`, the `run` of a `[[mesh.refinement_zone]]`) named by its `sim_id`: `source_run_id()` resolves a reference, `resolve_source_runs()` rewrites a configuration dict with it, and `run_identity_hash` hashes through it |
+| `source_runs.py` | the run a configuration reads (`[flow] restart_from`, the `run` of a `[[mesh.refinement_zone]]`) named by its `sim_id`: `source_run_id()` resolves a reference, and `resolve_source_runs()` rewrites a configuration dict with it for the frozen `config.toml` |
 | `rel_dir.py` | the one validator of every `rel_dir` field of the sealed formats, on `core.state.result_dirs.parse_rel_dir` |
 | `ledger.py` | `figures/index.json` and `exports/index.json`: one entry per derived file, with its producer, options, version, digest and identity; `record_derived_file()` adds the entry of a file just written |
 | `readme.py` | the generated `README.md` of a run, a session or a summary, with the digest of the manifest in its footer |
@@ -99,6 +100,7 @@ hydromodpy/results/
   storage/       contract.py  parquet_io.py  parquet_schemas.py  diagnostics.py
   zarr_store/    simulation_zarr.py  zarr_writer.py  zarr_reader.py  zarr_finalizer.py  chunks.py ...
   field_registry.py  manifest.py  annotations.py  trash.py  retention.py  record.py  outcome.py
+  request_identity.py
   run_identity.py  metric_rule.py  fit_metrics.py ...
   catalog/       index_schema.py  indexer.py  facade.py  reads.py  discovery.py  schema.py
                  views.py  parquet_views.py  federation.py  registration.py  storage_paths.py
@@ -119,37 +121,37 @@ hydromodpy/results/
 
 ## How a run is written and read
 
-1. **Reserve.** `catalog/registration.py` reserves `runs/<name>[.vN]` on
-   disk (`reserve_version_dirname`); the run writes `outcome.json` there
-   before its first step.
-2. **Write.** The solver and extraction code write through the run store of
-   the directory (`storage/run_store.py`): arrays into `fields.zarr`, tables
-   into `tables.parquet/` (each one a `pyarrow` table built on a schema of
-   `storage/parquet_schemas.py`). No index is opened.
-3. **Seal.** The run builds its `RunRecord` (`record.py`) in memory and writes
-   `simulation.parquet`, `parameters.parquet`, `provenance.json`,
-   `inputs.json`, then `manifest.json`, last and durable. A run directory
-   without a manifest never finished.
-4. **Find.** `Catalog.find(**filters)` returns a `RunSet`; `catalog[ref]`
-   returns a `Run`. `hmp.open` is the door from Python: it returns a `Project`
-   whose `store` is the `Catalog`, `proj[ref]` is a `Run` and `proj.runs()` a `RunSet`.
-5. **Read.** `Run` and its providers read the Zarr and Parquet files.
-   `derive/reading.py` is the single dispatch behind `hmp.read` and
-   `Catalog.read`: a Zarr field gives an `xarray.DataArray`, a series a
-   `pandas.Series`, a geographic feature a `GeoDataFrame`. A virtual field of
+1. The run claims `runs/<name>[.vN]` on disk (`storage/attempt.py`, and `reserve_version_dirname`
+   of `catalog/registration.py` for a new version) and writes `outcome.json` and the pulse. The
+   claim holds no identity. Its `sim_id` is a uuid taken here, and it enters no fingerprint.
+2. Once the inputs are resolved, the run computes its `request_id` and writes it into
+   `outcome.json`. A restart of the directory compares it with the one of the last attempt, and
+   starts over when they differ. A run that is not a resume, a window or a forced run then
+   computes its `solution_key`. If a sealed run of the same name, or one of its `.vN` versions, has the same key, the claim is
+   withdrawn without a trace and that run is given back. A run of 2.0 has no key of this kind, so
+   it is computed once again.
+3. The solver and extraction code write through the run store of the directory
+   (`storage/run_store.py`): arrays into `fields.zarr`, tables into `tables.parquet/` (each one a
+   `pyarrow` table built on a schema of `storage/parquet_schemas.py`). No index is opened.
+4. The run builds its `RunRecord` (`record.py`) in memory and writes `simulation.parquet`,
+   `parameters.parquet`, `provenance.json`, `inputs.json`, then `manifest.json`, last and
+   durable. A run directory without a manifest never finished.
+5. `Catalog.find(**filters)` returns a `RunSet`, and `catalog[ref]` returns a `Run`. `hmp.open`
+   is the door from Python: it returns a `Project` whose `store` is the `Catalog`, `proj[ref]` is
+   a `Run` and `proj.runs()` a `RunSet`.
+6. `Run` and its providers read the Zarr and Parquet files. `derive/reading.py` is the single
+   dispatch behind `hmp.read` and `Catalog.read`: a Zarr field gives an `xarray.DataArray`, a
+   series a `pandas.Series`, a geographic feature a `GeoDataFrame`. A virtual field of
    `derive/virtual_fields.py` is computed from stored ones when asked.
-6. **Export.** `exporters/request.py` plans the files of one `[[export]]`
-   request and hands each to the exporter of its kind. The FAIR views and
-   `export/publish.py` carry a whole run.
-7. **Index.** The launcher calls `index_new_runs()` once the worker exited,
-   and `hmp catalog reindex` rebuilds the whole index: `catalog/indexer.py`
-   reads every `runs/<name>/`, `sessions/<name>/` and kept trial into a
-   staging file, computes the label of each sealed run with the rules and
-   the bugs of `schema/changes.toml` in this build, and publishes the file in one rename.
-   The index keeps no seed of its own: the solver category of a run comes
-   from its manifest, `unknown` when the manifest predates it. `cases` lists
-   every directory with its effective status, `simulations` the sealed runs,
-   `sites` the sites they name.
+7. `exporters/request.py` plans the files of one `[[export]]` request and hands each to the
+   exporter of its kind. The FAIR views and `export/publish.py` carry a whole run.
+8. The launcher calls `index_new_runs()` once the worker exited, and `hmp catalog reindex`
+   rebuilds the whole index. `catalog/indexer.py` reads every `runs/<name>/`, `sessions/<name>/`
+   and kept trial into a staging file, computes the label of each sealed run with the rules and
+   the bugs of `schema/changes.toml` in this build, and publishes the file in one rename. The
+   index keeps no seed of its own: the solver category of a run comes from its manifest,
+   `unknown` when the manifest predates it. `cases` lists every directory with its effective
+   status, `simulations` the sealed runs, `sites` the sites they name.
 
 ## Where to add what
 

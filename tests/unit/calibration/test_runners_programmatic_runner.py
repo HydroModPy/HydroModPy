@@ -79,7 +79,9 @@ def _fake_project(cfg_path: Path | None, workspace: Path | None) -> SimpleNamesp
     (shared data root plus project catalog root).
     """
     if cfg_path is None:
-        return SimpleNamespace(_config_path=None, _ctx=None, _cfg=None)
+        # A project built in memory anchors its checks where project.toml would be.
+        ctx = SimpleNamespace(config_path=Path.cwd() / "project.toml", setup=None)
+        return SimpleNamespace(_config_path=None, _ctx=ctx, _cfg=None)
     workspace = SimpleNamespace(root=workspace, project_root=cfg_path.parent)
     ctx = SimpleNamespace(setup=SimpleNamespace(workspace=workspace))
     return SimpleNamespace(_config_path=cfg_path, _cfg=None, _ctx=ctx)

@@ -33,8 +33,8 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     mask_rge_alti,
 )
 from hydromodpy.data.variables.dem.config import IgnGeoplateformeDemSource
-from hydromodpy.data.variables.dem.manager import _resolution_for_ign_geoplateforme
 from hydromodpy.data.variables.dem.resolver import resolve_dem
+from hydromodpy.data.variables.dem.variable import _resolution_for_ign_geoplateforme
 
 SAMPLES = Path(__file__).resolve().parents[2] / "samples" / "rge_alti_wms"
 FLUME = (344000.0, 6806000.0, 344200.0, 6806200.0)

@@ -17,7 +17,7 @@ project root is::
     .hmp/                   strictly rebuildable: index, launcher lease, mesh cache, logs
 
 Inside a run, ``.hmp/`` holds the state of the attempt in progress (scratch,
-locks, checkpoints, private data cache) and is removed when a completed run is
+locks, checkpoints) and is removed when a completed run is
 sealed. The names of the files *inside* one run directory belong to the
 result-storage contract (:mod:`hydromodpy.results.storage.contract`).
 
@@ -99,12 +99,6 @@ RUN_INTERNAL_LOCKS_DIRNAME = "locks"
 RUN_INTERNAL_CHECKPOINTS_DIRNAME = "checkpoints"
 """Step checkpoints of the attempt in progress, ``runs/<case>/.hmp/checkpoints/``."""
 
-RUN_DATA_CACHE_FILENAME = "data-cache.duckdb"
-"""Private data cache of a launched case, merged by the launcher.
-
-``jobs/<stamp>-local/caches/<case>.<phase>/data-cache.duckdb``.
-"""
-
 CATALOG_FILENAME = "index.duckdb"
 """Project index database living at ``<project>/.hmp/index.duckdb``."""
 
@@ -117,9 +111,6 @@ PROJECTS_DIRNAME = "projects"
 WORKSPACE_DATA_DIRNAME = "data"
 """Workspace sub-directory holding the shared input data, ``<workspace>/data/``."""
 
-DATA_CACHE_FILENAME = "cache.duckdb"
-"""Shared input-data cache database, ``<workspace>/data/cache.duckdb``."""
-
 
 def internal_dir(project_root: Path) -> Path:
     """Return ``<project>/.hmp``, the disposable internals directory."""
@@ -129,11 +120,6 @@ def internal_dir(project_root: Path) -> Path:
 def catalog_path_for(project_root: Path) -> Path:
     """Return the project index database ``<project>/.hmp/index.duckdb``."""
     return internal_dir(project_root) / CATALOG_FILENAME
-
-
-def data_cache_path_for(data_dir: Path) -> Path:
-    """Return the shared input-data cache ``<data_dir>/cache.duckdb``."""
-    return Path(data_dir) / DATA_CACHE_FILENAME
 
 
 def runs_dir_for(project_root: Path) -> Path:
@@ -230,7 +216,6 @@ def project_roots_under(root: Path) -> list[Path]:
 __all__ = (
     "CATALOG_FILENAME",
     "CONFIGS_DIRNAME",
-    "DATA_CACHE_FILENAME",
     "INTERNAL_DIRNAME",
     "JOBS_DIRNAME",
     "LAUNCHER_LEASE_FILENAME",
@@ -241,7 +226,6 @@ __all__ = (
     "PROJECTS_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "RUNS_DIRNAME",
-    "RUN_DATA_CACHE_FILENAME",
     "RUN_INTERNAL_CHECKPOINTS_DIRNAME",
     "RUN_INTERNAL_LOCKS_DIRNAME",
     "RUN_INTERNAL_SCRATCH_DIRNAME",
@@ -255,7 +239,6 @@ __all__ = (
     "WORKSPACE_DATA_DIRNAME",
     "WORKSPACE_TOML_FILENAME",
     "catalog_path_for",
-    "data_cache_path_for",
     "internal_dir",
     "is_project_root",
     "is_workspace_root",

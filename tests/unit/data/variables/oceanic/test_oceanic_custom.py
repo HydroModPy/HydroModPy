@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
+from hydromodpy.data.variables.oceanic.variable import OceanicVariable
 
 
 def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the oceanic manager does."""
-    return OceanicManager(config=None, catalog=None, project_period=project_period).load_file(cfg)
+    return OceanicVariable(config=None, index=None, project_period=project_period).load_file(cfg)
 
 
 @pytest.mark.fast

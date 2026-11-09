@@ -32,9 +32,8 @@ The main input-data path is:
    TOML
    -> DataLoadPlan
    -> Variable
-   -> Manager
    -> Source
-   -> DataCatalogDuckDB
+   -> file and sidecar in data/
 
 The first path answers:
 "how does a configuration become a persisted result?"
@@ -120,13 +119,14 @@ Keeping these separate avoids ambiguity between:
 - something that still has to be executed,
 - something that has already been written and can be queried again.
 
-``Catalog`` vs ``DataCatalogDuckDB``
+``Catalog`` vs the sidecars of ``data/``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 HydroModPy keeps two persistent memories because they do not have the same
 lifecycle:
 
-- ``DataCatalogDuckDB`` caches input data that may be reused by many runs.
+- The sidecars of ``data/`` are the cache of input data that many runs may reuse.
+  They are files next to the data, with no database.
 - ``Catalog`` tracks outputs that belong to particular runs.
 
 The important relation between them is provenance, not identity.
@@ -134,10 +134,10 @@ The important relation between them is provenance, not identity.
 Another distinction worth preserving
 ------------------------------------
 
-``Variable``, ``Manager``, and ``Source`` also solve different problems:
+``Variable`` and ``Source`` also solve different problems:
 
-- ``Variable``: what kind of scientific data is needed?
-- ``Manager``: what loading policy should be applied?
+- ``Variable``: what kind of scientific data is needed, and what loading policy
+  applies to it (grids, stations or files)?
 - ``Source``: where does the concrete data come from?
 
 This lets HydroModPy change a provider without renaming the scientific
@@ -173,7 +173,7 @@ may still exist on disk, but they are not feature aliases:
   ``streams_permanent.shp`` the permanent reaches beside it.
 - ``hydrography_streams`` is the canonical reference forcing-raster name.
 
-This split is intentional. A manager may still write a historical filename on
+This split is intentional. A variable may still write a historical filename on
 disk, while the runtime and comparison layers rely on the canonical feature
 names to avoid ambiguity.
 

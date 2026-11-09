@@ -1,20 +1,20 @@
-"""``run_request``: load each asked-for section through its manager, write one file each.
+"""``run_request``: load each asked-for section through its variable, write one file each.
 
 One engine, three entries: ``hmp data get``, the ``data-request@1`` process and
 this function called from Python. Each ``[data.<name>]`` section is loaded the
-way a project run loads it, by its manager, over the extent and period of the
+way a project run loads it, by its variable, over the extent and period of the
 request; what comes back is cut to that extent and period and written to
 ``out_dir``, one file per variable and source, beside the report
 ``request.json``.
 
-**The extent reaches the managers as a mask.** A box is written as a polygon
+**The extent reaches the variables as a mask.** A box is written as a polygon
 in its own CRS, and every source is handed it as ``mask_path``, which is the one
-extent every manager already reads, reprojecting it the way its provider needs
+extent every variable already reads, reprojecting it the way its provider needs
 (WGS84 for Hub'Eau, the grid's own CRS for SIM2, Lambert-93 for the DEM). A box
 handed over as a bare tuple would carry no CRS to any of them.
 
 **Hydrography and installed sources go through the source registry**, never
-through the hydrography manager, whose job is to rasterize the network onto a
+through the hydrography variable, whose job is to rasterize the network onto a
 project grid with Whitebox.
 
 **A variable that fails is listed with its error, never dropped.** The unit
@@ -158,8 +158,9 @@ def run_request(
     """Serve *request* into *out_dir* and return the report written beside the files.
 
     *store* is the :class:`~hydromodpy.data.loading.store.DataStore` whose cache
-    the managers read and fill; by default one in memory, which writes
-    nothing. *bounds* is the :class:`~hydromodpy.core.runtime.bounds.Bounds`
+    the variables read and fill; by default one on a data folder inside the
+    scratch of the call, which goes with it, so nothing reaches the cache of the
+    user. *bounds* is the :class:`~hydromodpy.core.runtime.bounds.Bounds`
     of the call: every request the sections name carries them, and the
     hosts each source declares are refused, through :func:`fetch_within`,
     before any connection.
@@ -175,7 +176,7 @@ def run_request(
     with TemporaryDirectory(prefix="hmp-data-request-") as scratch:
         selector = _selector(request, Path(scratch))
         target_dir.mkdir(parents=True, exist_ok=True)
-        store = store or DataStore(bounds=call_bounds)
+        store = store or DataStore(data_root=Path(scratch) / "data", bounds=call_bounds)
         for variable, section in request.sections().items():
             try:
                 files.extend(
@@ -247,13 +248,13 @@ def _selector(request: DataRequest, scratch: Path) -> _Selector:
 
 
 def _project_extent(variable: str, selector: _Selector) -> tuple | None:
-    """The request's box in the frame this variable's manager reads ``project_extent`` in."""
+    """The request's box in the frame this variable reads ``project_extent`` in."""
     if selector.extent is None:
         return None
-    from hydromodpy.data.loading._dispatch import get_manager_class
-    from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
+    from hydromodpy.data.families.stations import StationVariable
+    from hydromodpy.data.loading._dispatch import variable_class_for
 
-    stations = issubclass(get_manager_class(variable), BaseVariableManager)
+    stations = issubclass(variable_class_for(variable), StationVariable)
     crs = STATION_EXTENT_CRS if stations else PROJECT_EXTENT_CRS
     return selector.extent.to_crs(crs).bbox
 
@@ -477,7 +478,7 @@ def _serve_hydrography(
     failures: list[RequestFailure],
     bounds: Bounds,
 ) -> list[RequestedFile]:
-    """Ask each source for the network over the extent, without the Whitebox manager.
+    """Ask each source for the network over the extent, without the Whitebox backend.
 
     A listed source goes through the store's cache, as in a run: a workspace
     store keeps the answer and serves it again. Every request the section

@@ -27,7 +27,7 @@ from hydromodpy.core.exceptions import (
     StepError,
 )
 from hydromodpy.data.loading.config_schema import DataManagersConfig
-from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.loading.plan import DataLoadPlan
 
 
@@ -36,9 +36,9 @@ def _loader(
     tmp_path: Path,
     plan: DataLoadPlan,
     cause: Exception,
-) -> DataManagersRuntimeLoader:
-    loader = DataManagersRuntimeLoader(config_path=tmp_path / "project.toml", data_plan=plan)
-    monkeypatch.setattr(loader, "_init_catalog", lambda paths: None)
+) -> DataLoader:
+    loader = DataLoader(config_path=tmp_path / "project.toml", data_plan=plan)
+    monkeypatch.setattr(loader, "_init_store", lambda paths: None)
     monkeypatch.setattr(loader, "_workspace_paths", lambda result: None)
 
     def failing_load(result, variable: str) -> None:
@@ -102,7 +102,7 @@ def test_an_inferred_type_under_warn_is_dropped_by_name(monkeypatch, tmp_path, c
 
 @pytest.mark.fast
 def test_a_declared_type_without_its_section_is_a_missing_config(tmp_path):
-    loader = DataManagersRuntimeLoader(
+    loader = DataLoader(
         config_path=tmp_path / "project.toml",
         data_plan=DataLoadPlan(explicit_types=("hydrometry",)),
     )

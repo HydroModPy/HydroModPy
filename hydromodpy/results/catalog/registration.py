@@ -11,20 +11,19 @@ directories between them; it never reads the index.
   name that nothing holds or held.
 - :func:`import_publication` brings a run published by ``hmp publish`` into
   the project under a reserved name, after checking every digest.
-- :func:`run_identity_hash` and :func:`config_identity_hash` say when two runs
-  compute the same thing.
+
+The identity of a run, the request id and the solution key, lives in
+:mod:`hydromodpy.results.request_identity`.
 
 Grammar
 -------
-A name is a directory name (:func:`run_dirname` keeps it as written). The
-version suffix ``.v<N>`` is read by :func:`split_stem_version`; the bare name
+A name follows the rule of :func:`~hydromodpy.core.state.names.check_name`: lower
+case letters, digits, ``_`` and ``-``, forty characters at most. The version suffix ``.v<N>`` is read by :func:`split_stem_version`; the bare name
 is version 1 for good.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 import re
 import shutil
@@ -33,211 +32,20 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-from hydromodpy.core.config_kit.written import written_as_a_file
 from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.names import check_name
 from hydromodpy.core.state.portable import to_workspace_relative
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel, session_dir_rel
-from hydromodpy.core.workspace.resolve import locate_workspace_root
-from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.publication import publication_path, read_publication
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES, RUN_MANIFEST_FILENAME
-from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
+from hydromodpy.results.storage.digests import sha256_streaming
 from hydromodpy.results.trash import check_not_running, identity_of, list_trash, read_tombstones
 
 logger = get_logger(__name__)
-
-_RUN_INPUTS_KEY = "__run_inputs__"
-_RUN_CODE_KEY = "__code__"
-_RUN_MESH_ENGINE_KEY = "__mesh_engine__"
-_WORKSPACE_SECTION = "workspace"
-_WORKFLOW_SECTION = "workflow"
-_SEARCH_SECTION = "calibration"
-
-
-def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = None) -> str | None:
-    """Return the hash that says two runs compute the same thing.
-
-    It is the ``config_hash`` of a run and of a planned case, and what
-    ``hmp run`` and ``hmp.run`` compare to skip an identical completed run.
-    It covers the configuration without its ``[workspace]`` section and without
-    ``simulation.name``, the digests of the input files the configuration names
-    (``inputs``, from :func:`input_file_digests`), the fingerprint of the code
-    that computes (:func:`~hydromodpy.core.code_fingerprint.code_fingerprint`) and
-    the mesh engine with its version (:func:`mesh_engine_identity`). A changed
-    data file, an edit of a solver or another build of the mesh engine is another
-    computation; another machine, workspace, project root or release that leaves
-    the code alone is not. A path under the project root enters the hash relative
-    to it, so two copies of one project hash alike.
-
-    An override of a run is a change of its configuration, so it needs no entry of
-    its own. :func:`config_identity_hash` gives what the configuration wrote: a
-    default that moves is seen by the fingerprint, and a key written at its default
-    value counts, because a validator can tell the two apart (``surface_offset`` of
-    an ETP under a soil reservoir). ``[workflow]`` stays out: it says what ``hmp run``
-    does with the file, and the sections hold what that computes.
-
-    A run the configuration reads (``[flow] restart_from``, the ``run`` of a
-    ``[[mesh.refinement_zone]]``) enters by its ``sim_id``
-    (:func:`~hydromodpy.results.source_runs.resolve_source_runs`): the
-    configuration of a run and the one it froze, which names the ``sim_id``,
-    hash alike, and a later version of the source run is another computation.
-
-    The run name is not part of the hash: it is the directory, which a rename
-    moves.
-    """
-    if not config:
-        return None
-    from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
-    from hydromodpy.results.source_runs import resolve_source_runs
-
-    payload = json.loads(json.dumps(config, default=str))
-    payload.pop(_WORKFLOW_SECTION, None)
-    workspace = payload.pop(_WORKSPACE_SECTION, None)
-    project_root = workspace.get("project_root") if isinstance(workspace, dict) else None
-    if project_root:
-        resolve_source_runs(payload, Path(str(project_root)))
-        payload = _relative_to_project(payload, Path(str(project_root)))
-    simulation = payload.get("simulation")
-    if isinstance(simulation, dict):
-        simulation.pop("name", None)
-        if not simulation:
-            # A section left with nothing is a section left at its defaults.
-            del payload["simulation"]
-    payload[_RUN_INPUTS_KEY] = dict(sorted((inputs or {}).items()))
-    payload[_RUN_CODE_KEY] = code_fingerprint(RUN_LAYERS)
-    payload[_RUN_MESH_ENGINE_KEY] = mesh_engine_identity(payload)
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-
-
-def config_identity_hash(config: Any) -> str | None:
-    """Return the identity hash of a validated configuration and of the files it names.
-
-    The dump is what the configuration wrote, as the ``config.toml`` of its run reads
-    back (:func:`~hydromodpy.core.config_kit.written.written_as_a_file`): a key written
-    at its default value counts, and so does an override. The project root anchors the
-    paths, so it stays even when ``[workspace]`` equals the default the current
-    directory would give it. A ``[calibration]`` section enters: this is what a session
-    and a planned case compare. What a run compares is :func:`solve_identity_hash`.
-    """
-    dump = written_as_a_file(config)
-    root = getattr(getattr(config, "workspace", None), "project_root", None)
-    if root is not None:
-        dump[_WORKSPACE_SECTION] = {"project_root": str(root)}
-    return run_identity_hash(dump, inputs=input_file_digests(config))
-
-
-def solve_identity_hash(config: Any) -> str | None:
-    """Return the identity hash of the solve *config* describes, without its search.
-
-    It is the ``config_hash`` of a run, promoted by a calibration or not: a run seals
-    its own solve and not the search that chose its parameters, so its ``config.toml``
-    reads back to this hash.
-    """
-    if getattr(config, _SEARCH_SECTION, None) is not None:
-        config = config.model_copy(update={_SEARCH_SECTION: None})
-    return config_identity_hash(config)
-
-
-def _relative_to_project(value: Any, project_root: Path) -> Any:
-    """Return ``value`` with every absolute path of the workspace made relative to the project.
-
-    A path under the project root becomes relative to it, a path elsewhere in
-    the workspace of the project relative to the project root
-    (``../../data/dem/dem.tif``), so the same configuration hashes alike in
-    two workspaces. A path outside the workspace is left as it is: no copy of
-    the workspace carries it.
-    """
-    return _relative_paths(value, project_root, locate_workspace_root(project_root))
-
-
-def _relative_paths(value: Any, project_root: Path, workspace: Path | None) -> Any:
-    if isinstance(value, dict):
-        return {key: _relative_paths(item, project_root, workspace) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_relative_paths(item, project_root, workspace) for item in value]
-    if isinstance(value, str):
-        return _portable_path_text(value, project_root, workspace)
-    return value
-
-
-def _portable_path_text(text: str, project_root: Path, workspace: Path | None) -> str:
-    """Return ``text`` relative to ``project_root`` when it is an absolute path of the workspace."""
-    if "://" in text or not Path(text).is_absolute():
-        return text
-    path = Path(text)
-    if path.is_relative_to(project_root):
-        return path.relative_to(project_root).as_posix()
-    if workspace is not None and path.is_relative_to(workspace):
-        return Path(os.path.relpath(path, project_root)).as_posix()
-    return text
-
-
-def mesh_engine_identity(config: dict) -> dict[str, str]:
-    """Return ``{"engine": id, "version": engine_version}`` of the mesh engine ``config`` names.
-
-    The engine is ``[mesh] engine``, or the registry default when the section
-    or the key is absent. Its version bumps when its output changes, so a run
-    meshed by another build is another computation. An id no engine answers
-    to, or an engine that cannot be imported, gets a random salt: the run then
-    matches no other run, which errs on the side of computing.
-    """
-    from hydromodpy.core.exceptions import MeshRequestError
-    from hydromodpy.mesh import registry as mesh_registry
-
-    section = config.get("mesh")
-    engine_id = section.get("engine") if isinstance(section, dict) else None
-    try:
-        engine_cls = mesh_registry.mesh_engines.get(engine_id)
-    except (MeshRequestError, ImportError) as exc:
-        logger.warning("Mesh engine not hashed into the run identity: %s", exc)
-        return {"engine": str(engine_id), "version": uuid.uuid4().hex}
-    return {"engine": engine_cls.engine_id, "version": engine_cls.engine_version}
-
-
-def input_file_digests(config: Any) -> dict[str, str]:
-    """Return ``{"<role>:<path>": sha256}`` for the inputs ``config`` names.
-
-    ``<path>`` is relative to the project root when the file lies under it,
-    so two copies of a project name their inputs alike.
-
-    The files are the ``InputFile`` fields of the configuration
-    (:func:`hydromodpy.core.tracking.collect_input_files`), anchored on the
-    project root, and hashed the way ``tracked_files`` hashes them. A path
-    that does not exist hashes to ``"missing"``. A file that cannot be read,
-    or a configuration that cannot be walked, gets a random salt: the run
-    then matches no other run, which errs on the side of computing, and the
-    error never stops it.
-    """
-    from hydromodpy.core.tracking import collect_input_files
-
-    root = getattr(getattr(config, "workspace", None), "project_root", None)
-    try:
-        entries = collect_input_files(config, base=root)
-    except Exception as exc:  # noqa: BLE001 - identity must never stop a run
-        logger.warning("Input files not hashed into the run identity: %s", exc)
-        return {"__unwalked__": uuid.uuid4().hex}
-    digests: dict[str, str] = {}
-    for entry in entries:
-        path = Path(entry.canonical_path)
-        try:
-            if path.is_file():
-                digest = sha256_streaming(path)
-            elif path.is_dir():
-                digest = sha256_directory(path)
-            else:
-                digest = "missing"
-        except OSError as exc:
-            logger.warning("Input file %s not hashed into the run identity: %s", path, exc)
-            digest = f"unreadable:{uuid.uuid4().hex}"
-        named = str(entry.original_path)
-        if root is not None:
-            named = _portable_path_text(named, Path(root), locate_workspace_root(root))
-        digests[f"{entry.role}:{named}"] = digest
-    return digests
 
 
 def portable_config_source(project_root: Path, config_source: str | Path | None) -> str | None:
@@ -314,8 +122,7 @@ def reserve_version_dirname(
     stem, version = split_stem_version(name)
     if version is not None:
         raise ValueError(f"reserve the bare name {stem!r}, not the version {name!r}")
-    if run_dirname(name) != name:
-        raise ValueError(f"{name!r} is not a directory name; use {run_dirname(name)!r}")
+    check_name(name, what="run")
     root = Path(project_root)
     parent = runs_dir_for(root) if kind == "run" else sessions_dir_for(root)
     parent.mkdir(parents=True, exist_ok=True)
@@ -388,15 +195,20 @@ def _taken_versions(project_root: Path, name: str) -> list[int]:
     return [version for _, version in _holders(project_root, name)]
 
 
-def check_name_free(project_root: Path, name: str) -> None:
+def check_name_free(project_root: Path, name: str, *, excluding: str | None = None) -> None:
     """Refuse ``name`` when any version of it is held; ``if_exists = "fail"`` calls it.
 
     A version is held by a live directory of ``runs/`` or ``sessions/``, a
     trashed one, or a tombstone. ``name`` is a bare name or a version; its
-    stem is checked. Raises :class:`NameTakenError` listing the holders.
+    stem is checked. ``excluding`` names a run directory that does not count,
+    the one an attempt has just claimed for this very name. Raises
+    :class:`NameTakenError` listing the holders.
     """
     stem = split_stem_version(name)[0]
-    holders = _holders(Path(project_root), stem)
+    ignored = None if excluding is None else run_dir_rel(excluding)
+    holders = [
+        held for held in _holders(Path(project_root), stem) if ignored is None or held[0] != ignored
+    ]
     if holders:
         listed = ", ".join(holder for holder, _ in holders)
         raise NameTakenError(
@@ -451,8 +263,9 @@ def rename_case(
     With *dry_run* every check runs and the new directories are returned, nothing moves.
 
     Returns the new relative directories, run first. Raises
-    :class:`NameTakenError` for a taken name, ``ValueError`` for a name that
-    is not a directory name or for a kept trial.
+    :class:`NameTakenError` for a taken name,
+    :class:`~hydromodpy.core.exceptions.ConfigError` for a name that breaks the rule of a
+    run name, ``ValueError`` for a kept trial.
     """
     root = Path(project_root)
     parsed = parse_rel_dir(rel_dir)
@@ -460,8 +273,7 @@ def rename_case(
         raise ValueError(
             f"{rel_dir} is a kept trial; rename its session {session_dir_rel(parsed.name)}"
         )
-    if run_dirname(new_name) != new_name:
-        raise ValueError(f"{new_name!r} is not a directory name; use {run_dirname(new_name)!r}")
+    check_name(new_name, what="run")
     if new_name == parsed.name:
         raise ValueError(f"{rel_dir} is already named {new_name!r}")
     sources = [

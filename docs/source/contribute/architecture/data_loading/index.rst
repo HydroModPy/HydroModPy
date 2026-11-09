@@ -22,7 +22,7 @@ Code map
   (``DataPlanner``) and the immutable ``DataLoadPlan``.
 - ``hydromodpy/data/loading/_dispatch.py``: ``VARIABLE_SPECS``, the one list that maps a
   variable name to its config class and its manager.
-- ``hydromodpy/data/loading/loader.py``: ``DataManagersRuntimeLoader``, the dispatcher
+- ``hydromodpy/data/loading/loader.py``: ``DataLoader``, the dispatcher
   used after planning.
 - ``hydromodpy/core/state/run_state.py``: ``LoadedDataContext``, one field per variable,
   which the loader fills and the project facade and the structure binders read.
@@ -64,7 +64,7 @@ families, except for the geology default.
 Runtime dispatch
 ----------------
 
-``DataManagersRuntimeLoader`` dispatches each activated type through ``VARIABLE_SPECS``.
+``DataLoader`` dispatches each activated type through ``VARIABLE_SPECS``.
 A variable with a side effect of its own (``dem``, ``geology``, ``hydrography``) names a
 dedicated loader method. The others go through the generic load path. Each family keeps
 its own config and manager package, and the root layer only decides activation and calls
@@ -110,7 +110,7 @@ It focuses on:
 
 - data-type inference and normalization (``DataPlanner`` ->
   ``DataLoadPlan``);
-- the loader that fills ``LoadedDataContext`` (``DataManagersRuntimeLoader``);
+- the loader that fills ``LoadedDataContext`` (``DataLoader``);
 - the structural bindings that move loaded data to where it is consumed:
   geology into the ``Domain`` zones (``apply_geology_to_domain``), and oceanic levels,
   recharge, ETP, lakes, barriers and SFR networks into the ``Flow``
@@ -121,7 +121,7 @@ It focuses on:
 Notes:
 
 - ``DataLoadPlan`` defines **which** data families are active.
-- ``DataManagersRuntimeLoader`` and the binders define **where** the
+- ``DataLoader`` and the binders define **where** the
   corresponding objects are stored.
 - Geology is transferred into ``Domain`` as a zone used by the process solvers.
 - Hydrometry stays in the loaded-data state, for the calibration and the diagnostics.
@@ -135,7 +135,7 @@ the transfer of concrete data objects to the right runtime holders.
 It focuses on:
 
 - planning-time activation (``DataPlanner.build``);
-- the loading by ``DataManagersRuntimeLoader``;
+- the loading by ``DataLoader``;
 - the structural bindings of geology, oceanic, recharge and the other loaded data;
 - continuation into simulation execution after data placement is complete.
 

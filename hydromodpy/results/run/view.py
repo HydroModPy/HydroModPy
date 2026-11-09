@@ -599,7 +599,7 @@ class Run(
         one that validates a sealed snapshot, migration included. Raises
         ``ConfigError`` when this handle carries none: open the run through
         ``hmp.open`` or pass ``read_config``, the validation of
-        ``HydroModPyConfig.from_dict(run.config_snapshot, sealed=True)``. With
+        ``HydroModPyConfig.from_snapshot(run.config_snapshot)``. With
         a function, a snapshot this version no longer validates raises
         ``ValueError`` and :attr:`config_snapshot` still gives the raw mapping.
         """
@@ -614,7 +614,7 @@ class Run(
                 f"This run handle does not carry the function that validates a sealed "
                 f"configuration. Open the run with hmp.open({self.dir}) or by its project, "
                 "or pass read_config to open_run_dir, built on "
-                "HydroModPyConfig.from_dict(run.config_snapshot, sealed=True). "
+                "HydroModPyConfig.from_snapshot(run.config_snapshot). "
                 "The raw mapping stays on run.config_snapshot."
             )
         try:

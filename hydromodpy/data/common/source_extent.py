@@ -2,7 +2,7 @@
 
 The mechanism this module replaces
 ----------------------------------
-``DemManager`` and ``GeologyManager`` carried the same pair of methods, byte
+``DemVariable`` and ``GeologyVariable`` carried the same pair of methods, byte
 for byte: a ``_resolve_bbox`` that fell back on ``self.geographic`` when the
 source config named no mask, and a ``_resolve_bbox_2154`` that reprojected the
 result using the CRS it read off ``geographic.watershed_shp``. Both are gone,
@@ -21,7 +21,7 @@ before handing the config to the store, so the path where "the watershed" is a
 ``self.geographic`` *in addition to* that injection, never instead of it. What
 the port calls a mask, the loader was already filling in.
 
-``HydrographyManager`` was the third that read the object, and it needed more
+``HydrographyVariable`` was the third that read the object, and it needed more
 than a box: the project CRS, the polygon it clips to and ``watershed_dem``, the
 grid it rasterizes onto. It is served here through :func:`mask_geometry`, which
 is the same door one level down -- the shape and the box come from one file, so
@@ -46,11 +46,11 @@ its value **is not in one CRS**: the DEM manager reads it in Lambert-93 and
 the observation managers in WGS84 (``_project_extent`` in
 ``data/request/engine.py``). So the constant is what the DEM side actually receives, measured on
 that path and on the unit tests that pin it --
-``tests/unit/data/variables/dem/test_dem_manager.py`` passes ``(650000.0,
+``tests/unit/data/variables/dem/test_dem_variable.py`` passes ``(650000.0,
 6400000.0, 1050000.0, 6650000.0)``, which is Lambert-93 or nothing.
 
 **Geology is served by the same function and by no producer.** Nothing in
-``workflow/`` ever hands ``GeologyManager`` a ``project_extent`` that is not
+``workflow/`` ever hands ``GeologyVariable`` a ``project_extent`` that is not
 ``None``; the branch exists, and today only a caller outside this tree can
 take it. The constant is not wrong for geology, it is untested there by the
 tree itself, and saying otherwise would be exactly the derivation-nobody-checks

@@ -15,12 +15,14 @@ section model, never to the root.
 
 | part | answers |
 |---|---|
-| `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the loading entry points `from_toml`, `from_dict`, `from_json`, `from_snapshot`, and `ROOT_CONFIG`, the root class and its two migrations handed to the core helpers as an argument. The root builds its sections through `section_loader.py` and runs the rows of `CROSS_RULES`, so it holds no rule of its own |
-| `check.py` | what is wrong in this document, and what is left to fill? `check(document, partial=True, inputs=False, base=None, bounds=None)` gives a list of `Diagnostic`, every one at once, section by section. It reads no file unless `inputs` is true. `CHECK_CODES` lists the 22 codes, and `phrase(code, lang)` reads the sentence of a code from `schema/phrases.toml`. `HydroModPyConfig.from_toml` is this check with `partial=False`, followed by the building of the root |
+| `loading.py` | who reads a configuration, and from which folder? `read_document(path, overlays=, changes=, root=)` reads a `.toml` file and its `base_config` chain, each file once, then the overlays and the dotted changes. `load(source, base, changes=, source_path=)` validates a path, a mapping, JSON text or a `HydroModPyConfig` through the one validator, with the same migration and the same refusals for each form. Nothing else reads a TOML file or builds a root |
+| `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the entry points `from_toml` (one line, `load` on the path), `from_dict` and `from_json` (both need `base_dir`, with no default), `from_snapshot`, and `ROOT_CONFIG`, the root class and its two migrations handed to the core helpers as an argument. The root builds its sections through `section_loader.py` and runs the rows of `CROSS_RULES`, so it holds no rule of its own |
+| `check.py` | what is wrong in this document, and what is left to fill? `check(document, *, base, partial=True, inputs=False, bounds=None)` gives a list of `Diagnostic`, every one at once, section by section. `base` has no default, because a document has no folder of its own. It reads no file unless `inputs` is true. `CHECK_CODES` lists the 22 codes, and `phrase(code, lang)` reads the sentence of a code from `schema/phrases.toml`. `HydroModPyConfig.from_toml` is this check with `partial=False`, followed by the building of the root |
 | `cross_checks.py` | which keys of a file spoil each other, and which does the flow solver of the run leave unread? `CROSS_RULES` is the table of every rule that reads several sections, one `CrossRule(rule, reads)` per row, named by its function and run in the order of the table. `reads` names the sections the rule needs, and a test holds it equal to what the function reads. The solver rows read the traits the file uses against the `supports` of the solver, a transport solver against the `requires` it names, and the rows of `CONTAMINATIONS`. They name no solver, so a plugin solver is checked like the shipped ones. The checks of the `[[export]]` names and of the dates of `[[export]]` and `[display]` are rows of the same table |
 | `section_loader.py` | how is a raw document turned into validated sections? `SECTIONS` is the table of the root sections (loader, default, required or not), and `validate_sections` walks it and keeps every fault. The steps that run before it are here too: the old forms of a key, the retired sections, `[workspace]` by default, the calibration defaults. `from_toml` and `check` walk the same table, so they cannot disagree. The loaders (`load_standard_section`, `load_optional_section`, `load_geographic_section`) resolve paths against the project root and serve a TOML file and a mapping alike |
 | `input_headers.py` | do the input files open, and do they hold their contract? `read_input_headers(sections, *, base, bounds)` opens the header of each raster or vector the document names, from a local path or from the final URL of a remote file through `/vsicurl/`, in a `rasterio.Env` of its own. Only `check(inputs=True)` imports it, because rasterio is slow to import |
 | `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/sites/` |
+| `user_files.py` | which user files do the configurations of a project read? `user_file_inputs(project_root)` lists and hashes each `source = "file"` of `project.toml`, of `configs/*.toml` and of each case of the current plan, through `FileSource`, which writes nothing. A configuration that does not load is returned with its reason. `hmp data lock` and the launcher pin these files in `hydromodpy.lock` |
 | `toml_examples.py` | `flow_examples(threshold, section_renderer)`, the commented example blocks of the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` tables. An app that writes the TOML template passes it to `generate_toml` |
 | `config_migration.py` | how does a file written against an earlier schema still load? It applies the `document = "config"` rows of `schema/changes.toml` in the order of the file, and `RULES` holds the three functions a row names when it cannot say the whole change. `migrate_config_doc_on_load` rewrites the parsed payload in memory, with a warning for two minor versions and then a refusal with the new name. `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place, and `migrate_sealed_config_doc` reads the frozen config of a run on disk in silence. The 175 keys and values only a pre-release of 2.0 wrote are listed in `prerelease_forms.txt` and refused with every such key at once, with the way to the doctor of a 2.0.x release. `apply_edition` fills a key a file leaves out with the default of the edition it writes |
 
@@ -85,37 +87,42 @@ Each model honors the rules of the project:
 
 ```
 hmp run file.toml
-  -> HydroModPyConfig.from_toml(path)
-       core/toml_io/loader.load_toml_with_base_config   follows base_config, merges, detects cycles
-       config_migration.migrate_config_doc_on_load      earlier schema, in memory, file untouched
-       (optional) profile check                         a field above the asked profile warns
-       _from_payload(raw, base=<project root>)          core/toml_io/loader.config_base_dir
-         the resolutions on a copy                      old forms, retired sections, [workspace] by default, calibration protocol and defaults, gauge
-         validate_sections                              one loader per section, the walk of config/check.py, every fault kept
-         build the root                                 name from the file name when [simulation].name is empty
-         CROSS_RULES                                    every row once, in the order of the table
-         raise the first fault                          the type and the exit code of today, carrying every diagnostic
+  -> load(path, base)                                  config/loading.py
+       read_document                                   follows base_config, merges, detects cycles
+       config_migration.migrate_config_doc_on_load     earlier schema, in memory, file untouched
+       (optional) profile check                        a field above the asked profile warns
+       _from_payload(raw, base=<folder>)
+         the resolutions on a copy                     old forms, retired sections, [workspace] by default, calibration protocol and defaults, gauge
+         validate_sections                             one loader per section, the walk of config/check.py, every fault kept
+         build the root                                name from the file name when [simulation].name is empty
+         CROSS_RULES                                   every row once, in the order of the table
+         raise the first fault                         the type and the exit code of today, carrying every diagnostic
 ```
 
-The project root is the folder that holds `project.toml` at or above the file;
-outside a project, the folder of the root file of the `base_config` chain. Every
-relative path of every file of a project (`plan/<hash>/<case>.toml`,
-`runs/<case>/config.toml`, `site_overrides/<site>.toml`) is read from it, so a
-file two folders down names the same `path` of a `source = "file"` entry of
-`[data]` as `project.toml` does.
+Relative paths are read from one folder, the base. A file gives its own: the folder that holds
+`project.toml` at or above it, else the folder of the root file of its `base_config` chain, and a
+`base=` given to `load` wins. A mapping or JSON text has no folder, so `load`, `from_dict`,
+`from_json` and `check` refuse it without a base and never read the current folder.
 
-`from_dict` takes the same road from a mapping, with `context="api"`, and so does
-`from_json` when it is given a `base_dir`. Without one, `from_json` validates the
-JSON payload as it is, with `model_validate_json`: no migration, no path
-resolved, and a refusal is a Pydantic error. `from_snapshot` rebuilds a config
-from the JSON snapshot stored with a run.
+Every relative path of every file of a project (`plan/<hash>/<case>.toml`,
+`runs/<case>/config.toml`, `site_overrides/<site>.toml`) is read from that folder, so a file two
+folders down names the same `path` of a `source = "file"` entry of `[data]` as `project.toml` does.
+No environment variable moves the base. `from_dict` and `from_json` read their document as a file is
+read, with `context="api"`, so JSON text goes through the migration and the refusals too, and a
+refusal is never a bare Pydantic error. `from_snapshot` rebuilds a config from the JSON snapshot
+stored with a run, whose paths are absolute.
 
-`[workspace].project_root` is never a key of a file: the loader sets it from
-the location of the file (the environment variable `HMP_PROJECT_ROOT` wins);
-an `api` payload defaults it to the base folder. A refusal leaves
-`_from_payload` as a `ConfigValidationError` that names the section, never as a
-bare Pydantic error. Its `details` hold one entry for every fault of the document,
-and its type and its exit code are those of the first one.
+`[workspace].project_root` is never a key of a file or of a mapping: the loader sets it from the
+base. A refusal leaves `_from_payload` as a `ConfigValidationError` that names the section. Its
+`details` hold one entry for every fault of the document, and its type and its exit code are those
+of the first one.
+
+A run request in JSON is not read here. `project/request.py` holds `RunRequest`, which carries
+the document under `config`, and the runner passes that document to `load` with the base it was
+given. The name of a run is checked when the run takes its folder (`core/state/names.py`), and never
+by the configuration, so a file with a long or capitalised `[simulation] name` still loads. A name
+made from a file name is folded to lower case, and the run is refused when that name is still too
+long or reserved.
 
 A document can be checked before it is whole. `check(document, partial=True)` gives
 a `to_fill` diagnostic for each required key not written yet, and runs a rule across
@@ -130,8 +137,8 @@ of the workspace) rendered through `[sites.bind]`, `site_overrides/<site>.toml`,
 the recipe's own keys, then `--set` and `HMP_SET_*`. Precedence, lowest first:
 defaults < the base of the recipe < the rendered row < the site overlay < the
 recipe's own keys (its file, its inline `set`, its row of `recipes_table`) <
-`--set`. Each case is validated through `HydroModPyConfig.from_dict`, hashed
-by `config_identity_hash` without `[workspace]`, and refused when a site scoped
+`--set`. Each case is loaded by `load(document, base)`, gets the key of its solution from
+`planned_request_id` and `solution_key`, and is refused when a site scoped
 key keeps a literal value (`project/launch/sites/site_scoped.py`). An error names its
 cell: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet: ...`,
 grouped over the cases it touches. `plan.write_plan_draft` writes the plan once
@@ -174,33 +181,29 @@ it. A lower layer receives the root model or class as an argument, and
 
 ## Where to add what
 
-1. **A field in an existing section.** On that section's model, with a `Profile`,
-   a unit alias when it is a quantity, and a description. The parameter
-   reference is computed from the model at the next documentation build
-   (`tools/docs/field_registry.py`). The committed JSON Schema,
+1. A field in an existing section goes on that section's model, with a `Profile`, a unit alias
+   when it is a quantity, and a description. The parameter reference is computed from the model
+   at the next documentation build (`tools/docs/field_registry.py`). The committed JSON Schema,
    `docs/source/_static/hydromodpy-schema.json`, is compared with the model by
    `tests/unit/docs/test_docs_config_consistency.py`.
-   `docs/source/contribute/architecture/how-to/add-a-config-field.rst` has the
-   steps.
-2. **A new top-level section.** A model in the package it configures, a field on
+   `docs/source/contribute/architecture/how-to/add-a-config-field.rst` has the steps.
+2. A new top-level section is a model in the package it configures, a field on
    `HydroModPyConfig`, and its row in `SECTIONS` of `section_loader.py`.
-3. **A renamed or moved key.** A `[[migration]]` row of `schema/changes.toml`, so
-   earlier files still load, with a test. A row names a function of `RULES` only
-   when it cannot say the whole change. A retired key is refused by the model with
-   the key to write: no migration carries it.
-4. **A retired section.** One row of `RETIRED_SECTIONS` in `section_loader.py`,
-   with the sentence that names the replacement.
-5. **A cross-section rule.** One row of `CROSS_RULES` in `cross_checks.py`, with
-   the sections it reads in `reads`, only when the rule needs two sections. A rule
-   on one section belongs in that section's model. A rule that depends on the flow
-   solver is not written by hand: the solver lists the trait in `supports`, and the
-   solver rows of the same table refuse it.
+3. A renamed or moved key is a `[[migration]]` row of `schema/changes.toml`, so earlier files
+   still load, with a test. A row names a function of `RULES` only when it cannot say the whole
+   change. A retired key is refused by the model with the key to write: no migration carries it.
+4. A retired section is one row of `RETIRED_SECTIONS` in `section_loader.py`, with the sentence
+   that names the replacement.
+5. A cross-section rule is one row of `CROSS_RULES` in `cross_checks.py`, with the sections it
+   reads in `reads`, only when the rule needs two sections. A rule on one section belongs in that
+   section's model. A rule that depends on the flow solver is not written by hand: the solver
+   lists the trait in `supports`, and the solver rows of the same table refuse it.
 
 ## Reading path
 
 1. `hydromodpy_config.py`: the fields of the root, then `_from_payload`.
    Then `check.py`, which walks the same sections and keeps every diagnostic.
-2. `core/toml_io/loader.py` for the `base_config` chain.
+2. `loading.py`, then `core/toml_io/loader.py` for the `base_config` chain.
 3. `core/config_kit/profile.py` and `introspect.py` for the visibility model.
 4. One section model, for example `model/flow_config.py`.
 5. `schema/config_schema.py` for what is exported to frontends and IDEs.

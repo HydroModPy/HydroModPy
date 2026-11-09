@@ -46,16 +46,25 @@ def test_a_chain_that_never_writes_the_calibration_stays_on_the_file_it_started_
 
 
 def test_the_identity_of_a_session_follows_the_model_then_the_document(monkeypatch) -> None:
+    from hydromodpy.calibration.runners import trial
+
+    asked: list[object] = []
+
+    class _Pipeline:
+        def session_key(self, cfg: object) -> str | None:
+            asked.append(cfg)
+            return "key-of-the-model"
+
     ctx = SimpleNamespace(base_cfg=SimpleNamespace(model_dump=dict))
-    monkeypatch.setattr(session, "config_identity_hash", lambda cfg: "from-the-model")
-    monkeypatch.setattr(session, "run_identity_hash", lambda raw: "from-the-run")
+    monkeypatch.setattr(trial, "_PIPELINE", _Pipeline())
 
-    assert session.session_config_hash({"a": 1}, ctx) == "from-the-model"
-    assert session.session_config_hash({"a": 1}, None) == "from-the-run"
+    assert session.session_config_hash({"a": 1}, ctx) == "key-of-the-model"
+    assert asked == [ctx.base_cfg]
 
-    monkeypatch.setattr(session, "run_identity_hash", lambda raw: None)
     expected = hashlib.sha256(json.dumps({"a": 1}, sort_keys=True).encode()).hexdigest()
     assert session.session_config_hash({"a": 1}, None) == expected
+    monkeypatch.setattr(_Pipeline, "session_key", lambda self, cfg: None)
+    assert session.session_config_hash({"a": 1}, ctx) == expected
 
 
 _PARAMETERS = {"K": {"bounds": [1e-9, 1e-3], "path": "flow.param.K.field.value"}}
@@ -207,3 +216,85 @@ def test_only_completed_trials_are_checked_against_the_cost_of_today(monkeypatch
     persistence = SimpleNamespace(trials=lambda phase: lines)
 
     assert trials_another_cost_scored(persistence, "flow", cache_context=CONTEXT) == ([2], [3])
+
+
+# A completed session of the same case and key answers a calibration again.
+
+
+def test_a_completed_session_of_the_same_key_is_given_back_as_its_report(tmp_path: Path) -> None:
+    from hydromodpy.calibration.runners.document import identical_session
+    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
+
+    session_id = write_session_dir(tmp_path, "calage", trials=3, best_trial=2)
+
+    report = identical_session(CONFIG_HASH, project_root=tmp_path, case="calage")
+
+    assert report is not None
+    assert report.extra == {"identical_to": "calage"}
+    assert (report.session_id, report.n_trials, report.best_trial) == (session_id, 3, 2)
+    assert (report.duration_s, report.promoted, report.status) == (0.0, 0, "completed")
+    assert report.best_parameters == {"K": pytest.approx(2e-5)}
+    assert report.session_dir == tmp_path / "sessions" / "calage"
+    assert report.to_dict()["extra"] == {"identical_to": "calage"}
+
+
+@pytest.mark.parametrize(
+    ("key", "case", "status"),
+    [
+        pytest.param(None, "calage", "completed", id="a key not told offline"),
+        pytest.param("other", "calage", "completed", id="another key"),
+        pytest.param("same", "other", "completed", id="another case"),
+        pytest.param("same", "calage", "failed", id="a search that failed"),
+    ],
+)
+def test_no_session_answers_another_key_another_case_or_an_unfinished_search(
+    tmp_path: Path, key: str | None, case: str, status: str
+) -> None:
+    from hydromodpy.calibration.runners.document import identical_session
+    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
+
+    write_session_dir(tmp_path, "calage", status=status)
+
+    asked = CONFIG_HASH if key == "same" else key
+    assert identical_session(asked, project_root=tmp_path, case=case) is None
+
+
+def test_the_case_of_the_search_is_the_one_its_file_or_its_document_names(tmp_path: Path) -> None:
+    from hydromodpy.calibration.runners.document import identical_session
+    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
+
+    write_session_dir(tmp_path, "cal")
+    source = tmp_path / "cal.toml"
+    source.write_text("[calibration]\n", encoding="utf-8")
+
+    assert identical_session(CONFIG_HASH, project_root=tmp_path, source=source) is not None
+    named = {"simulation": {"name": "cal"}}
+    assert identical_session(CONFIG_HASH, project_root=tmp_path, document=named) is not None
+    assert identical_session(CONFIG_HASH, project_root=tmp_path, document={}) is None
+
+
+@pytest.mark.parametrize(
+    ("file_name", "text", "case"),
+    [
+        ("Calib Winter.toml", "[calibration]\n", "calib_winter"),
+        ("calage.toml", "[calibration]\n", "calage"),
+        ("Calib Winter.toml", '[simulation]\nname = "kept"\n[calibration]\n', "kept"),
+    ],
+    ids=["a stem the code folds", "a stem already a name", "a name the file writes"],
+)
+def test_the_case_of_a_file_is_its_written_name_or_its_stem_folded(
+    tmp_path: Path, file_name: str, text: str, case: str
+) -> None:
+    """A run of the same file folds its stem the same way, so the two share a name."""
+    path = _write(tmp_path / file_name, text)
+
+    assert session.calibration_case_name(path) == case
+
+
+@pytest.mark.parametrize("name", ["Calib Winter", "aux", "a__b"])
+def test_a_case_that_breaks_the_rule_of_a_name_is_refused_before_the_search(name: str) -> None:
+    from hydromodpy.calibration.runners.promotion import promotion_name_check
+    from hydromodpy.core.exceptions import ConfigError
+
+    with pytest.raises(ConfigError):
+        promotion_name_check(name)

@@ -2,24 +2,24 @@
 
 What this replaces
 ------------------
-Three independent copies of the same four words. ``manager.py`` dispatched
+Three independent copies of the same four words. ``variable.py`` dispatched
 with an ``if``/``elif`` chain on the three names, each branch importing a
 provider function by hand; ``resolver.py`` carried a
 tuple of the three names so it could tell an API source from a
-local file, and imported the manager's chain to run one; and the config model
+local file, and imported the variable module's chain to run one; and the config model
 carried a ``Literal`` of the same list. Nothing made the three agree, and the
 solver registry had already shown what happens when a name exists in two places.
 
 Now the name is resolved by :mod:`hydromodpy.data.source.registry` and the
 source is asked through the port, so this module holds no source name at all.
 The two callers that used to share the dispatch share this instead, and the
-resolver no longer imports the manager to reach a download.
+resolver no longer imports the variable module to reach a download.
 
-Why the manager still owns the cache
-------------------------------------
-A source knows nothing of the DuckDB catalog, which is the whole point of the
-port, so the superset lookup and the registration stay in the manager around
-this call. What moved is only the question "which class, built how".
+Why the variable module still owns the cache
+--------------------------------------------
+A source knows nothing of the data cache, which is the whole point of the
+port, so the superset lookup and the sidecar record stay in the variable
+module around this call. What moved is only the question "which class, built how".
 """
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ def fetch_network(
     pass. *bounds* is the :class:`~hydromodpy.core.runtime.bounds.Bounds` of
     the call: the hosts the source declares are refused, through
     :func:`fetch_within`, before anything connects. Unset, the bounds are
-    read off *source* itself when it carries any: the manager hands the
+    read off *source* itself when it carries any: the variable module hands the
     source built under the bounds of the call down its cache seam, the only
     object that seam receives.
 

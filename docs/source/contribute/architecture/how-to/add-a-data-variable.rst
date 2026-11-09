@@ -15,17 +15,17 @@ publishes, so a variable is a change of HydroModPy and not a plugin.
 Pick a manager base
 -------------------
 
-- ``BaseFieldManager`` for gridded data (``FieldRecord``): it caches grids as
+- ``GridVariable`` for gridded data (``FieldRecord``): it caches grids as
   NetCDF and loads a user's NetCDF, GeoTIFF or folder of chronicles.
-- ``BaseVariableManager`` for station chronicles (``PointRecord``): it caches
+- ``StationVariable`` for station chronicles (``PointRecord``): it caches
   one file per station and asks a provider only for the missing periods.
-- ``BaseFileManager`` for a variable read only from the user's own files
+- ``FileVariable`` for a variable read only from the user's own files
   (``lake_abacus``, ``lake_bathymetry``, ``lake_geometry``, ``substratum``).
-  ``RasterFileManager``, in the same module, is the further-specialized base
+  ``RasterFileVariable``, in the same module, is the further-specialized base
   for a single-band raster read only from the user's own files
   (``lake_bathymetry``, ``substratum``): it needs only ``VARIABLE_NAME``.
 
-All three live in ``hydromodpy/data/managers/``. ``wind`` is the shortest
+All three live in ``hydromodpy/data/families/``. ``wind`` is the shortest
 grid variable to copy, ``hydrometry`` the shortest station variable.
 
 The package
@@ -38,7 +38,7 @@ For a variable called ``evaporation``:
    hydromodpy/data/variables/evaporation/
    |-- __init__.py   a docstring; importing the package loads no manager
    |-- config.py     EvaporationSourceConfig, EvaporationConfig
-   |-- manager.py    EvaporationManager: VARIABLE_NAME, INTERNAL_UNIT, SOURCES
+   |-- variable.py    EvaporationVariable: VARIABLE_NAME, INTERNAL_UNIT, SOURCES
    `-- apis/         one module per network provider, if the variable has one
 
 .. code-block:: python
@@ -49,8 +49,8 @@ For a variable called ``evaporation``:
    from pydantic import Field
 
    from hydromodpy.core.config_kit.profile import Profile
-   from hydromodpy.data.managers.base_config import BaseVariableConfig
-   from hydromodpy.data.managers.timeseries_config import (
+   from hydromodpy.data.families.base_config import BaseVariableConfig
+   from hydromodpy.data.families.timeseries_config import (
        TimeseriesColumnsMixin,
        TimeseriesSelectionMixin,
    )
@@ -84,11 +84,11 @@ For a variable called ``evaporation``:
 
 .. code-block:: python
 
-   # hydromodpy/data/variables/evaporation/manager.py
-   from hydromodpy.data.managers.base_manager_field import BaseFieldManager
+   # hydromodpy/data/variables/evaporation/variable.py
+   from hydromodpy.data.families.grids import GridVariable
 
 
-   class EvaporationManager(BaseFieldManager):
+   class EvaporationVariable(GridVariable):
        VARIABLE_NAME = "evaporation"
        INTERNAL_UNIT = "mm/day"
        SOURCES = {}

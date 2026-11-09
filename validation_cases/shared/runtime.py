@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.state.names import MAX_NAME_LENGTH, fold_name
 from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -40,8 +41,11 @@ _WINDOWS_VALIDATION_PATH_LIMIT = 259
 MAX_PATH is 260 with the terminating NUL. The Fortran runtime of the solvers
 is not long-path aware, even where Python is.
 """
-_VALIDATION_SIM_NAME_LENGTH = 48
-"""Cap of the ``[simulation] name`` a validation run gets, which names its model folder."""
+_VALIDATION_SIM_NAME_LENGTH = MAX_NAME_LENGTH
+"""Cap of the ``[simulation] name`` a validation run gets, which names its model folder.
+
+It is the longest run name the rule of a run name takes.
+"""
 _VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
 
 # What a run writes below its project root, part by part. Every part is the
@@ -404,13 +408,17 @@ class ValidationRunResult:
 
 
 def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
-    """Return a deterministic filesystem-friendly validation folder name."""
+    """Return a deterministic filesystem-friendly validation folder name.
+
+    A cut that ends on ``_`` or ``-`` drops it, so the name never holds ``__``
+    before its digest, which a run name refuses.
+    """
     text = str(value).strip()
     if len(text) <= max_length:
         return text
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
     keep = max_length - len(digest) - 1
-    return f"{text[:keep]}_{digest}"
+    return f"{text[:keep].rstrip('_-')}_{digest}"
 
 
 def _resolve_path_best_effort(path: Path) -> Path:
@@ -663,7 +671,10 @@ def write_validation_fields_to_store(
 
     project_root = Path(out_path)
     project = project_root.name
-    name = f"{project}_{solver_name}"
+    # The code makes this name from a folder name: folded, then held to the rule of a run name.
+    name = _short_validation_name(
+        fold_name(f"{project}_{solver_name}"), max_length=_VALIDATION_SIM_NAME_LENGTH
+    )
     claim = claim_run_directory(project_root, name, case_id=name, project=project)
     facts = RunFacts(
         sim_id=claim.sim_id,
@@ -723,7 +734,6 @@ def run_example_script(
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -910,16 +920,18 @@ def run_launcher_validation_case(
     )
 
     env = os.environ.copy()
-    env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
 
+    out_path.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
         str(run_config_path),
+        "--base",
+        str(out_path),
     ]
 
     try:

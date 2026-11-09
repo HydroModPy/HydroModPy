@@ -236,26 +236,22 @@ class _RunConfig(BaseModel):
     simulation: _Simulation = _Simulation()
 
 
-def test_effective_config_snapshot_is_the_run_config_with_the_runtime_domain() -> None:
-    """Nothing is forced at planning: the results section is the one written."""
+def test_effective_config_snapshot_is_the_run_config_as_it_was_written() -> None:
+    """Nothing is forced at planning, and the build adds nothing: the document is what came in."""
     declared = {
         "workflow": {"mode": "simulation"},
         "domain": {"depth_model": {"kind": "constant_thickness", "thickness": 10.0}},
         "simulation": {"results": {"keep_solver_files": False}},
     }
-    effective_domain = {
-        "depth_model": {"kind": "constant_thickness", "thickness": 25.0},
-    }
+    built = {"depth_model": {"kind": "constant_thickness", "thickness": 25.0}}
     ctx = SimpleNamespace(
         cfg=_RunConfig.model_validate(declared),
-        setup=SimpleNamespace(
-            domain=SimpleNamespace(config=DomainConfig.model_validate(effective_domain))
-        ),
+        setup=SimpleNamespace(domain=SimpleNamespace(config=DomainConfig.model_validate(built))),
     )
 
     snapshot = collect_effective_config_snapshot(ctx)
 
-    assert snapshot["domain"] == effective_domain
+    assert snapshot["domain"] == declared["domain"], "the domain the build made is not written"
     assert snapshot["simulation"] == declared["simulation"]
     assert snapshot["workflow"] == declared["workflow"]
 

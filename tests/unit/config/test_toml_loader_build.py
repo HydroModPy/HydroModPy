@@ -162,7 +162,7 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
     cfg = HydroModPyConfig.from_dict(
         {
             "workflow": {"mode": "simulation"},
-            "workspace": {"root": str(tmp_path), "project_root": ""},
+            "workspace": {"root": str(tmp_path)},
             "site": {"name": "site_a"},
             "geographic": {
                 "catchment": {"kind": "dem"},
@@ -197,7 +197,7 @@ def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
     dem_path.touch()
     payload = {
         "workflow": {"mode": "simulation"},
-        "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
+        "workspace": {"root": str(tmp_path)},
         "site": {"name": "site_a"},
         "geographic": {"catchment": {"kind": "dem"}},
         "data": {"dem": {"sources": [{"source": "file", "path": "dem.tif"}]}},

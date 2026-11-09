@@ -347,9 +347,6 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
                 "Name one with -w, or run 'hmp workspace init <workspace>'",
             )
         ]
-    from hydromodpy.core.state.layout import data_cache_path_for
-
-    cache = data_cache_path_for(ws / "data")
     checks = [
         _check("workspace", "OK", f"{ws}"),
         _path_check("data_dir", ws / "data"),
@@ -361,7 +358,7 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
         # A standalone project owns its index at the root and has no
         # ``projects/`` tree, so reporting one as missing would be noise.
         checks.append(_path_check("projects_dir", projects_dir))
-    checks.append(_path_check("data_cache", cache, required=False))
+    checks.append(_data_cache_check(ws / "data"))
     if projects_dir.is_dir():
         project_roots.extend(p for p in sorted(projects_dir.iterdir()) if p.is_dir())
     elif standalone:
@@ -442,6 +439,37 @@ def probe_toml_workspace(toml_path: Path) -> list[dict]:
         )
     )
     return checks
+
+
+def _data_cache_check(data_dir: Path) -> dict:
+    """Report on the sidecars of ``data/`` and on a database of HydroModPy 2.0.0 left there.
+
+    It reads and never repairs: the database is removed by ``hmp workspace clean
+    --data-cache``, and a sidecar that does not read is named so its file can go.
+    """
+    from hydromodpy.core.exceptions import DataCacheError
+    from hydromodpy.data.provenance.sidecars import scan
+
+    if not data_dir.is_dir():
+        return _check(
+            "data_cache", "WARN", f"{data_dir} (missing)", "Created lazily when first used"
+        )
+    try:
+        report = scan(data_dir)
+    except DataCacheError as exc:
+        return _check(
+            "data_cache",
+            "WARN",
+            str(exc),
+            "hmp workspace clean --data-cache removes it. The doctor does not.",
+        )
+    notes = report.lines()
+    detail = f"{len(report.rows)} row(s), {len(report.user_files)} user file(s)"
+    if notes:
+        return _check(
+            "data_cache", "WARN", f"{detail}. {notes[0]}", f"{len(notes)} sidecar(s) are no row"
+        )
+    return _check("data_cache", "OK", detail)
 
 
 def _path_check(name: str, path: Path, *, required: bool = True) -> dict:

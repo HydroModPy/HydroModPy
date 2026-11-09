@@ -45,7 +45,7 @@ TEXT_KINDS = frozenset({"import_module", "lazy_map"})
 # Parts the scanner must see in each package. An empty scan would make every
 # rule below pass.
 SEEN_PARTS = {
-    "data": {"contracts", "managers", "variables", "loading", "registry"},
+    "data": {"contracts", "families", "variables", "loading", "provenance"},
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
     "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
     "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},

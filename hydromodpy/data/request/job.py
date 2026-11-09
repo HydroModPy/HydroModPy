@@ -8,8 +8,8 @@ wrote under ``outputs/``: one file per variable and source, and the report
 
 Four things the job does that ``hmp data get`` does not.
 
-**It touches no workspace and no user cache.** The managers read and fill a
-cache under a scratch directory in ``$TMPDIR``, indexed in memory, and both
+**It touches no workspace and no user cache.** The variables read and fill a
+cache under a scratch directory in ``$TMPDIR``, sidecars included, and both
 are gone when the job ends.
 
 **It refuses a** ``custom`` **source.** A job has no user files to read; the
@@ -152,7 +152,7 @@ DATA_REQUEST = CapabilityDecl(
         DataProductError,
     ),
     env=("HMP_NO_PROGRESS", "HMP_VERBOSITY", "TMPDIR"),
-    # The managers download into a cache, and a job keeps nothing but its
+    # The variables download into a cache, and a job keeps nothing but its
     # artifacts: that cache, and the polygon a box is written as, live in a
     # scratch directory under $TMPDIR that the job removes.
     writes_outside_jobdir=("$TMPDIR",),
@@ -280,16 +280,12 @@ def _execute(
 ) -> JobOutcome:
     """Serve the request into ``outputs/`` and seal it when every variable was served."""
     from hydromodpy.data.loading.store import DataStore
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.request.engine import run_request
 
     decl = DATA_REQUEST
     job.ensure_workspace()
-    with (
-        TemporaryDirectory(prefix="hmp-data-request-cache-") as scratch,
-        DataCatalogDuckDB() as index,
-    ):
-        store = DataStore(data_root=Path(scratch) / "data", catalog=index)
+    with TemporaryDirectory(prefix="hmp-data-request-cache-") as scratch:
+        store = DataStore(data_root=Path(scratch) / "data")
         report = run_request(resolved.request, job.outputs_dir, store=store)
 
     warnings = list(resolved.warnings)

@@ -82,4 +82,5 @@ public:
   - hydromodpy.calibration.runners.trial
   - hydromodpy.calibration.runners.programmatic_runner
   - hydromodpy.calibration.runners.promotion
+  - hydromodpy.calibration.runners.session
   - hydromodpy.calibration.runners.recap

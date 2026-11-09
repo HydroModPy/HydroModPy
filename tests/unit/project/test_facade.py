@@ -177,3 +177,50 @@ def test_project_keeps_model_phase_verbs() -> None:
         "build_mesh",
     ):
         assert hasattr(Project, name), f"Project lost model-phase verb {name!r}"
+
+
+# --- A document in memory is read against the base the caller names ---
+
+SYNTHETIC = {"workflow": {"mode": "simulation"}, "geographic": {"source_mode": "synthetic"}}
+
+
+def test_a_document_in_memory_is_read_against_the_base_and_never_the_current_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.facade import resolve_config
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    base = tmp_path / "project"
+    base.mkdir()
+
+    loaded = resolve_config(SYNTHETIC, base)
+
+    assert isinstance(loaded, HydroModPyConfig)
+    assert loaded.workspace.project_root == base.resolve()
+    with pytest.raises(ConfigError, match="needs base="):
+        resolve_config(SYNTHETIC, None)
+    with pytest.raises(ConfigError, match="needs base="):
+        resolve_config('{"workflow": {"mode": "simulation"}}', None)
+
+
+def test_a_path_and_a_built_configuration_pass_through_the_resolver(tmp_path: Path) -> None:
+    from hydromodpy.project.facade import resolve_config
+
+    built = object()
+    assert resolve_config(built, None) is built
+    assert resolve_config(tmp_path / "project.toml", None) == tmp_path / "project.toml"
+
+
+def test_a_sealed_snapshot_names_its_own_project_root(tmp_path: Path) -> None:
+    from hydromodpy.project.facade import read_sealed_config
+
+    snapshot = {**SYNTHETIC, "workspace": {"project_root": str(tmp_path)}}
+
+    cfg = read_sealed_config(snapshot)
+
+    assert cfg.workspace.project_root == tmp_path.resolve()
+    assert cfg.read_as_sealed is True

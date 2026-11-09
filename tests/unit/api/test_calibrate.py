@@ -48,6 +48,70 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
     }
 
 
+@pytest.mark.parametrize(
+    ("options", "searches"),
+    [
+        pytest.param({}, False, id="an identical calibration is given back"),
+        pytest.param({"force": True}, True, id="force searches again"),
+        pytest.param({"resume": True}, True, id="resume searches again"),
+    ],
+)
+def test_calibrate_with_path_gives_back_a_completed_session(
+    monkeypatch, tmp_path: Path, options: dict, searches: bool
+) -> None:
+    """A completed session of the case and of the same key answers ``hmp.calibrate``."""
+    config = _write_toml(
+        tmp_path / "calib.toml",
+        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
+    )
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+    answered: list[Path] = []
+    monkeypatch.setattr(
+        "hydromodpy.project.dispatch.workflow.identical_session_of_file",
+        lambda target: answered.append(target) or "the report of the session",
+    )
+
+    result = hmp.calibrate(config, **options)
+
+    assert ("cli_path" in calls) is searches
+    assert result == ({"staged": False} if searches else "the report of the session")
+    assert answered == ([] if searches else [config.resolve()])
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_project_calibrate_gives_back_a_completed_session_of_its_own_section(
+    monkeypatch, tmp_path: Path, force: bool
+) -> None:
+    """The ``[calibration]`` a project carries is answered by the session of its key."""
+    from hydromodpy.project import Project
+
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+    project = _InMemoryPythonProject(tmp_path)
+    project._cfg.calibration = _staged_config()
+    project._cfg.workspace = SimpleNamespace(project_root=tmp_path)
+    asked: dict = {}
+
+    def identical(key, *, project_root, case, source, document):
+        asked.update(key=key, root=project_root, case=case, source=source)
+        return "the report of the session"
+
+    monkeypatch.setattr(
+        "hydromodpy.workflow.solution_key.planned_solution_key", lambda cfg, *, search: "k"
+    )
+    monkeypatch.setattr("hydromodpy.calibration.runners.document.identical_session", identical)
+
+    result = Project.calibrate(project, case="calage", force=force)
+
+    if force:
+        assert asked == {} and "staged_path" in calls
+    else:
+        assert result == "the report of the session"
+        assert asked == {"key": "k", "root": tmp_path, "case": "calage", "source": None}
+        assert calls == {}
+
+
 def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -> None:
     """``headless`` does not reach the CLI runner on the TOML branch."""
     config = _write_toml(
@@ -238,7 +302,8 @@ class _InMemoryPythonProject:
         self._config_path = None
         workspace = SimpleNamespace(root=ws_root, project_root=ws_root)
         setup = SimpleNamespace(workspace=workspace)
-        self._ctx = SimpleNamespace(setup=setup)
+        # A project built in memory anchors its checks where its project.toml would be.
+        self._ctx = SimpleNamespace(setup=setup, config_path=ws_root / "project.toml")
         self.config = self._cfg = SimpleNamespace(
             model_dump=lambda **kwargs: {"workflow": {"mode": "simulation"}}
         )
@@ -691,12 +756,13 @@ def test_dispatch_workflow_calibration_routes_phases_to_staged_runner(
 ) -> None:
     """``hmp run`` on a phased calibration TOML runs it staged."""
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.project.request import request_of
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
 
-    result = dispatch_workflow("calibration", config)
+    result = dispatch_workflow("calibration", request_of(config), base=tmp_path)
 
     # The testbed provider calls dict(run_calibration(...)): the dispatcher owes
     # its callers a mapping, not the report object.

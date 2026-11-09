@@ -242,8 +242,15 @@ def test_a_to_fill_says_the_rules_that_wait() -> None:
     assert "once it is filled" in phrase("to_fill")
 
 
-def test_a_document_that_is_not_a_table_is_one_diagnostic() -> None:
-    assert _seen(check(["geographic"])) == [("", "wrong_type", "error")]  # type: ignore[arg-type]
+def test_a_document_that_is_not_a_table_is_one_diagnostic(tmp_path: Path) -> None:
+    found = check(["geographic"], base=tmp_path)  # type: ignore[arg-type]
+    assert _seen(found) == [("", "wrong_type", "error")]
+
+
+def test_a_check_names_its_base() -> None:
+    """A document has no folder of its own, so the current folder is never its base."""
+    with pytest.raises(TypeError, match="base"):
+        check({"geographic": SYNTHETIC})  # type: ignore[call-arg]
 
 
 def test_the_document_is_not_changed(tmp_path: Path) -> None:
@@ -436,7 +443,10 @@ def test_a_check_of_display_imports_no_figure_module(tmp_path: Path) -> None:
         f"""
         import sys
         from hydromodpy.config.check import check
-        found = check({{"geographic": {SYNTHETIC!r}, "display": {{"figures": ["hydrograph"]}}}})
+        found = check(
+            {{"geographic": {SYNTHETIC!r}, "display": {{"figures": ["hydrograph"]}}}},
+            base={str(tmp_path)!r},
+        )
         assert [d for d in found if d.severity != "warning"] == [], found
         loaded = [name for name in sys.modules if name.startswith("hydromodpy.display.figures.")]
         assert loaded == [], loaded

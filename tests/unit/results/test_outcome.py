@@ -211,3 +211,31 @@ def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
 
     assert effective_status(run_dir, now=NOW + timedelta(days=2)) == "stale"
     assert plan.stale_runs == ()
+
+
+# The request id is written once the inputs of the attempt are resolved. An outcome
+# without it reads, and the field round-trips.
+
+
+@pytest.mark.parametrize(
+    "request_id",
+    [pytest.param(None, id="before the inputs are resolved"), pytest.param("e" * 64, id="after")],
+)
+def test_an_outcome_with_and_without_its_request_id_reads(tmp_path, request_id):
+    outcome = _outcome("running", request_id=request_id)
+    write_outcome(tmp_path, outcome)
+
+    back = read_outcome(tmp_path)
+    assert back == outcome
+    assert back is not None and back.request_id == request_id
+
+
+def test_an_outcome_written_without_the_key_reads_without_request_id(tmp_path):
+    write_outcome(tmp_path, _outcome("running"))
+    payload = json.loads((tmp_path / RUN_OUTCOME_FILENAME).read_text(encoding="utf-8"))
+
+    assert "request_id" not in payload
+    outcome = read_outcome(tmp_path)
+
+    assert outcome is not None
+    assert outcome.request_id is None

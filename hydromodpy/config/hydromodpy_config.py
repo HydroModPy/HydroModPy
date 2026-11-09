@@ -24,8 +24,6 @@ Usage::
 from __future__ import annotations
 
 import copy
-import json
-import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -74,15 +72,13 @@ from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import (
     ConfigError,
-    ConfigValidationError,
-    IncompatibleCapabilitiesError,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.site import SiteConfig
+from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import is_sealed_run_config, resolve_project_root
-from hydromodpy.core.toml_io.loader import config_base_dir, load_toml_with_base_config
-from hydromodpy.core.toml_io.paths import assign, parse, source_of_effective_copy
+from hydromodpy.core.toml_io.paths import assign, parse
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.sites.gauge import apply_site_gauge
@@ -104,7 +100,7 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 logger = get_logger(__name__)
 
 WorkflowMode = Literal["simulation", "calibration", "overview"]
-ValidationContext = Literal["toml", "api", "snapshot"]
+ValidationContext = Literal["toml", "request", "api", "snapshot"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 RETIRED_WORKFLOW_MODES: dict[str, str] = {
@@ -189,14 +185,16 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
-def _derive_name_from_filename(toml_path: Path) -> str:
-    """Derive a simulation name from a TOML filename.
+def run_name_of_file(toml_path: Path) -> str:
+    """Derive a simulation name from a TOML filename, folded into the letters of a name.
 
     ``run_steady_nwt.toml`` -> ``steady_nwt``
-    ``config.toml`` -> ``config``
+    ``Config Winter.toml`` -> ``config_winter``
+
+    The code makes this name, so it is folded and not refused here. The claim of
+    the run directory refuses it when it is still too long or reserved.
     """
-    stem = source_of_effective_copy(toml_path).stem
-    return re.sub(r"^run_", "", stem)
+    return fold_name(re.sub(r"^run_", "", toml_path.stem))
 
 
 def _resolve_calibration_parameter_names(cfg: Any) -> None:
@@ -215,6 +213,27 @@ def _resolve_calibration_parameter_names(cfg: Any) -> None:
     # Not strict: a name that reaches nothing is reported by the preflight, beside
     # the other faults of the file. Refusing here would make it the only one found.
     resolve_parameter_targets(calibration, cfg, strict=False)
+
+
+def _warn_above_profile(
+    model: type[HydroModelBase],
+    toml_path: Path,
+    read_document: Any,
+    validate_profile: ProfileName | Profile,
+) -> None:
+    """Warn about every field the file writes above the *validate_profile* threshold."""
+    raw = read_document(Path(toml_path).expanduser().resolve(), root=ROOT_CONFIG)
+    threshold = resolve_profile(validate_profile)
+    violations = collect_profile_violations(model, raw, threshold)
+    if violations:
+        import warnings
+
+        joined = ", ".join(f"{'.'.join(path)}={level.name.lower()}" for path, level in violations)
+        warnings.warn(
+            f"TOML {toml_path} declares fields above profile {threshold.name.lower()!r}: {joined}",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def _project_root_of(document: Mapping[str, Any]) -> Any:
@@ -554,12 +573,11 @@ class HydroModPyConfig(HydroModelBase):
         """
         Load and validate configuration from a TOML file.
 
-        Relative paths are resolved against the project root: the folder
-        that holds ``project.toml`` above the file, else the folder of the
-        root file of the ``base_config`` chain
-        (:func:`hydromodpy.core.toml_io.loader.config_base_dir`). Absolute
-        paths are left unchanged. Paths starting with ``~`` are expanded to
-        the user's home directory.
+        This is :func:`hydromodpy.config.loading.load` on the path. Relative
+        paths are resolved against the project root: the folder that holds
+        ``project.toml`` above the file, else the folder of the root file of the
+        ``base_config`` chain. Absolute paths are left unchanged. Paths starting
+        with ``~`` are expanded to the user's home directory.
 
         Parameters
         ----------
@@ -569,92 +587,64 @@ class HydroModPyConfig(HydroModelBase):
             Optional profile threshold. When provided, fields whose declared
             :class:`Profile` exceeds the threshold and are present in the TOML
             payload trigger a :class:`UserWarning` (validation still succeeds).
+            The chain is then read once more, for this check.
 
         Returns
         -------
         HydroModPyConfig
             The fully loaded and path-resolved configuration instance.
         """
-        toml_path = Path(toml_path).expanduser().resolve()
-        # A config written against an earlier schema still loads: the loader
-        # migrates each file of the chain in memory. Reading never rewrites a file;
-        # only `hmp doctor` does, and the warning says so.
-        raw = load_toml_with_base_config(toml_path, root=ROOT_CONFIG)
+        # Imported here: loading.py reads this module at import.
+        from hydromodpy.config.loading import load, read_document
 
         if validate_profile is not None:
-            threshold = resolve_profile(validate_profile)
-            violations = collect_profile_violations(cls, raw, threshold)
-            if violations:
-                import warnings
-
-                joined = ", ".join(
-                    f"{'.'.join(path)}={level.name.lower()}" for path, level in violations
-                )
-                warnings.warn(
-                    f"TOML {toml_path} declares fields above profile "
-                    f"{threshold.name.lower()!r}: {joined}",
-                    UserWarning,
-                    stacklevel=2,
-                )
-
-        try:
-            cfg = cls._from_payload(
-                raw, base=config_base_dir(toml_path), context="toml", source_path=toml_path
-            )
-        except IncompatibleCapabilitiesError as exc:
-            # A typed capability error of a rule does not carry the TOML location;
-            # prepend it while keeping the type, the error code and the diagnostics.
-            raise type(exc)(
-                f"{toml_path}: {exc.message or exc}", diagnostics=exc.diagnostics
-            ) from exc
-
-        # Derive the simulation name from the TOML filename if not set explicitly.
-        if not cfg.simulation.name:
-            cfg.simulation.name = _derive_name_from_filename(toml_path)
-
-        return cfg
+            _warn_above_profile(cls, Path(toml_path), read_document, validate_profile)
+        return load(Path(toml_path))
 
     @classmethod
     def from_json(
         cls,
         payload: str | bytes,
         *,
-        base_dir: str | Path | None = None,
+        base_dir: str | Path,
     ) -> HydroModPyConfig:
-        """Load and validate configuration from a JSON payload."""
-        if base_dir is None:
-            return cls.model_validate_json(payload)
-        raw = json.loads(payload)
-        if not isinstance(raw, Mapping):
-            raise ConfigValidationError(
-                "HydroModPyConfig JSON payload must be a mapping",
-                details=(
-                    {
-                        "pointer": "",
-                        "loc": "<root>",
-                        "msg": "Input should be a valid dictionary",
-                        "type": "dict_type",
-                    },
-                ),
-            )
-        return cls.from_dict(raw, base_dir=base_dir)
+        """Load and validate configuration from JSON text, read as a file is.
+
+        *base_dir* is the folder relative paths are read from: JSON text has no
+        folder of its own. The text goes through the same migration and the same
+        refusals as a file.
+        """
+        from hydromodpy.config.loading import json_object
+
+        return cls.from_dict(
+            json_object(payload, where="HydroModPyConfig JSON payload"), base_dir=base_dir
+        )
 
     @classmethod
     def from_dict(
         cls,
         payload: Mapping[str, Any],
         *,
-        base_dir: str | Path | None = None,
+        base_dir: str | Path,
         sealed: bool = False,
     ) -> HydroModPyConfig:
         """Load and validate configuration from a Python mapping.
+
+        *base_dir* is the folder relative paths are read from, the project root;
+        a mapping has no folder of its own. The mapping is read as a file is: it
+        is migrated, refused on what a file is refused on, ``[workspace]
+        project_root`` included (:func:`hydromodpy.config.loading.load`).
 
         ``sealed`` reads the frozen config of a run already on disk: a check that
         refuses what a run cannot be scored on, or what its flow solver would
         ignore, only warns there, and ``read_as_sealed`` is true on the result.
         """
-        base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
-        return cls._from_payload(payload, base=base, context="snapshot" if sealed else "api")
+        base = Path(base_dir).expanduser().resolve()
+        if sealed:
+            return cls._from_payload(payload, base=base, context="snapshot")
+        from hydromodpy.config.loading import load
+
+        return load(payload, base)
 
     @classmethod
     def _from_payload(
@@ -677,9 +667,9 @@ class HydroModPyConfig(HydroModelBase):
         ``ValueError`` nor a raw Pydantic ``ValidationError``, which both map to
         exit code 1, the code of a bug in this process.
 
-        The project root is never a key of a file: it is the folder that holds
-        project.toml above the file, else the folder of the file. A Python caller
-        may pass it. HMP_PROJECT_ROOT wins over both (used by test infra).
+        The project root is never a key of a file nor of a request: it is the
+        project above *base*, else *base*. A sealed snapshot reads the root it
+        names, since its paths were written from there.
         """
         document = copy.deepcopy(dict(payload))
         if context == "snapshot":
@@ -687,19 +677,14 @@ class HydroModPyConfig(HydroModelBase):
             # protocol is expanded: it compares the stages the run froze with the
             # ones it writes, and a stage frozen under an old key would differ.
             migrate_sealed_config_doc(document)
-        env_project_root = os.environ.get("HMP_PROJECT_ROOT")
-        if env_project_root:
-            forced_root: Path | None = Path(env_project_root).expanduser().resolve()
-        elif context == "toml":
-            forced_root = resolve_project_root(base)
-        else:
-            forced_root = None
+        in_a_file = context in ("toml", "request")
+        forced_root = resolve_project_root(base) if in_a_file else None
         resolved = resolve_document(
             cls,
             document,
             base=base,
             forced_root=forced_root,
-            in_a_file=context == "toml",
+            in_a_file=in_a_file,
             source_path=source_path,
         )
         sealed = context == "snapshot" or (

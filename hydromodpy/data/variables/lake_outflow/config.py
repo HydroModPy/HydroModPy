@@ -10,8 +10,8 @@ from pydantic import Field
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import LakeChronicleSourceConfig
+from hydromodpy.data.families.base_config import BaseVariableConfig
+from hydromodpy.data.families.timeseries_config import LakeChronicleSourceConfig
 
 
 class LakeOutflowSourceConfig(LakeChronicleSourceConfig):

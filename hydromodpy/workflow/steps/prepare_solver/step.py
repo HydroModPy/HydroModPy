@@ -104,12 +104,12 @@ class PrepareSolverStep:
     name = "prepare_solver"
     reads: ClassVar[tuple[str, ...]] = (
         "calibrated_by",
-        "config_hash",
         "ctx",
         "lineage",
         "promotion",
         "run_dir",
         "run_overrides",
+        "solution_key",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
@@ -141,7 +141,7 @@ class PrepareSolverStep:
             )
             workspace = ctx.setup.workspace
             persistence = ctx.cfg.simulation.results.persistence
-            facts = initial_facts(ctx, config_hash=state.get("config_hash"))
+            facts = initial_facts(ctx, solution_key=state.get("solution_key"))
             # A promoted run carries what its session says about it.
             promotion = state.get("promotion")
             if promotion is not None:

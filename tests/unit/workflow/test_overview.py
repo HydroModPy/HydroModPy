@@ -101,7 +101,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
         return "features-with-network"
 
     monkeypatch.setattr(
-        "hydromodpy.data.DataManagersRuntimeLoader",
+        "hydromodpy.data.DataLoader",
         FakeLoader,
     )
     monkeypatch.setattr(

@@ -1,34 +1,38 @@
 """A sidecar and its data file live and die together.
 
 The cache removed a data file and left its ``<file>.json`` sidecar behind. The
-orphan was then read as a data file by the next scan.
+orphan was then read as a data file by the next scan. Now a sidecar goes first,
+and a sidecar left without its file is no row.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
 from hydromodpy.data.provenance.sidecars import (
-    Sidecar,
+    CacheIndex,
     data_path_for_sidecar,
+    scan,
     sidecar_path_for,
     unlink_with_sidecar,
-    write_sidecar,
 )
-from hydromodpy.data.registry.cache_store import try_unlink
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+
+def _recorded(data_root: Path, name: str = "geology_brgm_1m_abc.gpkg", **fields: object):
+    variable = name.split("_")[0]
+    path = data_root / variable / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"data")
+    index = CacheIndex(data_root)
+    fields = {"source": "brgm_1m", **fields}
+    return index, index.record(path, variable=variable, **fields)
 
 
 def _file_with_sidecar(folder: Path, name: str = "geology_brgm_1m_abc.gpkg") -> Path:
-    path = folder / name
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"data")
-    write_sidecar(path, Sidecar(source="brgm_1m", sha256="abc"))
-    return path
+    _, row = _recorded(folder, name)
+    return row.path
 
 
 @pytest.mark.parametrize(
@@ -86,44 +90,43 @@ def test_a_data_file_that_refuses_to_go_never_leaves_an_orphan_sidecar(tmp_path:
     assert path.exists()
 
 
-def test_try_unlink_removes_the_sidecar(tmp_path: Path) -> None:
-    path = _file_with_sidecar(tmp_path)
-    try_unlink(str(path))
-    assert not path.exists()
-    assert not sidecar_path_for(path).exists()
+def test_forgetting_a_row_with_its_file_removes_both(tmp_path: Path) -> None:
+    index, row = _recorded(tmp_path / "data")
+    index.forget(row, delete_file=True)
+    assert not row.path.exists()
+    assert not row.sidecar_path.exists()
+    assert index.rows() == []
 
 
-def test_invalidating_a_cache_entry_removes_its_sidecar(tmp_path: Path) -> None:
-    # Outside the workspace, so the catalog stores the absolute path that
-    # the delete reads back.
-    path = tmp_path / "elsewhere" / "geology_brgm_1m_abc.gpkg"
-    path.parent.mkdir(parents=True)
-    path.write_bytes(b"data")
-    catalog = DataCatalogDuckDB(tmp_path / "ws" / "data" / "cache.duckdb")
-    try:
-        catalog.register(
-            variable="geology",
-            source="brgm_1m",
-            file_path=str(path),
-            bbox=(0.0, 0.0, 1.0, 1.0),
-            crs="EPSG:2154",
-        )
-        assert sidecar_path_for(path).is_file()
-        catalog.invalidate(variable="geology", source="brgm_1m", delete_files=True)
-    finally:
-        catalog.close()
-    assert not path.exists()
-    assert not sidecar_path_for(path).exists()
+def test_forgetting_a_row_alone_keeps_its_file(tmp_path: Path) -> None:
+    index, row = _recorded(tmp_path / "data")
+    index.forget(row)
+    assert row.path.exists()
+    assert not row.sidecar_path.exists()
+    assert scan(tmp_path / "data").rows == ()
 
 
-def test_replacing_an_api_download_removes_the_old_sidecar(tmp_path: Path) -> None:
-    old = _file_with_sidecar(tmp_path, "hydrometry_hubeau_X_20200101_20201231_D.csv")
-    catalog = SimpleNamespace(find_cached=lambda **_: SimpleNamespace(file_path=old.name))
-    manager = SimpleNamespace(
-        catalog=catalog,
-        VARIABLE_NAME="hydrometry",
-        _resolve_catalog_path=lambda fp: tmp_path / fp,
+def test_replacing_an_api_download_removes_the_old_file_and_sidecar(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    index, old = _recorded(
+        data_root, "hydrometry_hubeau_X_20200101_20201231_D.csv", source="hubeau", station_id="X"
     )
-    BaseVariableManager._cleanup_old_api_file(manager, "hubeau", "X")
-    assert not old.exists()
-    assert not sidecar_path_for(old).exists()
+    new = data_root / "hydrometry" / "hydrometry_hubeau_X_20200101_20211231_D.csv"
+    new.write_bytes(b"longer data")
+
+    with index.chronicle(new.parent, "hydrometry_hubeau_X"):
+        index.record(new, variable="hydrometry", source="hubeau", station_id="X")
+
+    assert not old.path.exists()
+    assert not old.sidecar_path.exists()
+    assert [row.path for row in scan(data_root).rows] == [new]
+
+
+def test_a_sidecar_whose_file_is_gone_is_an_orphan_not_a_row(tmp_path: Path) -> None:
+    _, row = _recorded(tmp_path / "data")
+    row.path.unlink()
+
+    report = scan(tmp_path / "data")
+
+    assert report.rows == ()
+    assert report.orphans == (row.sidecar_path,)

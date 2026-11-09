@@ -26,7 +26,6 @@ REQUIRED_GROUPS = (
     "campaign",
     "catalog",
     "data",
-    "lock",
     "project",
     "site",
     "viz",
@@ -293,7 +292,8 @@ def test_a_bare_old_group_names_each_of_its_new_forms(capsys: pytest.CaptureFixt
     with pytest.raises(SystemExit):
         _parse(["dev", "lock"])
     err = capsys.readouterr().err
-    assert "hmp lock update" in err and "hmp data archive --to FILE" in err
+    assert "hmp data lock" in err and "hmp data lock --check" in err
+    assert "hmp data archive --to FILE" in err
 
 
 @pytest.mark.parametrize(

@@ -406,8 +406,9 @@ def test_a_file_without_a_name_is_named_after_itself_under_set(demo: Path) -> No
     done = _hmp(demo, str(bare), "--set", f"{K_PATH}=2e-4")
 
     assert done.exit_code == 0, done.stderr
-    assert _manifest(demo / "runs" / "run_unnamed")["config"]["source"] == "run_unnamed.toml"
-    assert _config(demo / "runs" / "run_unnamed")["simulation"]["name"] == "run_unnamed"
+    # The file names its run as a project of it does: the stem without its ``run_``.
+    assert _manifest(demo / "runs" / "unnamed")["config"]["source"] == "run_unnamed.toml"
+    assert _config(demo / "runs" / "unnamed")["simulation"]["name"] == "unnamed"
 
 
 @pytest.mark.parametrize("launch", [{"headless": True}, {"no_display": True}])

@@ -7,14 +7,12 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig
-from hydromodpy.data.variables.piezometry.manager import PiezometryManager
+from hydromodpy.data.variables.piezometry.variable import PiezometryVariable
 
 
 def _load_file(cfg, *, project_period=None):
     """Load one custom source the way the piezometry manager does."""
-    return PiezometryManager(config=None, catalog=None, project_period=project_period).load_file(
-        cfg
-    )
+    return PiezometryVariable(config=None, index=None, project_period=project_period).load_file(cfg)
 
 
 class TestPiezometryCustomCSV:

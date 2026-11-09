@@ -43,7 +43,6 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
         }
     ),
     "campaign": frozenset({"array", "case", "collect", "promote", "prune"}),
-    "lock": frozenset({"update", "verify"}),
     "site": frozenset({"add", "import", "ls", "show"}),
     "catalog": frozenset(
         {
@@ -69,7 +68,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
     "report": frozenset({"render", "compare", "catchment"}),
     "viz": frozenset({"list", "show"}),
     "config": frozenset({"template", "check", "resolve", "schema", "targets", "wizard"}),
-    "data": frozenset({"ls", "get", "add", "remove", "prune", "archive", "restore"}),
+    "data": frozenset({"ls", "get", "lock", "remove", "prune", "archive", "restore"}),
     "example": frozenset({"list", "show", "add"}),
     "privacy": frozenset({"purge", "verify"}),
 }
@@ -90,7 +89,7 @@ TARGET_LEAVES: frozenset[str] = frozenset(
 
 # What the target retired, by verb, by action and by option.
 REMOVED_VERBS: frozenset[str] = frozenset(
-    {"process", "audit", "compare", "testbed", "init", "replay", "test", "dev"}
+    {"process", "audit", "compare", "testbed", "init", "replay", "test", "dev", "lock"}
 )
 REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("viz", "gallery"),
@@ -99,6 +98,7 @@ REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("workspace", "register"),
     ("workspace", "forget"),
     ("data", "import"),
+    ("data", "add"),
     ("project", "run"),
     ("project", "export"),
     ("viz", "regen"),

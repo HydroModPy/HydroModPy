@@ -14,8 +14,7 @@ rest of the code, and where to add what.
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
 | `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, and `OLD_CLI_FORMS`, the forms that moved, among them the refused forms of the old developer verb, each with the `python -m tools.dev` command that replaces it |
 | `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
-| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `resolve_workspace` / `resolve_project` / `project_root_of`, profiling). The lookups they build on, `find_workspace` and its two siblings, live in `core/workspace/resolve.py` because a library may not import `cli` |
-| `effective_toml.py` | what a TOML verb (`run`, `calibrate`, `spinup`) runs: the copy `--set` and `--overlay` write beside the file, the file a verb was given (`toml_target`), and where `--profile` writes its report |
+| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `resolve_workspace` / `resolve_project` / `project_root_of`, profiling, `add_override_arguments` for `--set` and `--overlay`, `toml_target` and `profile_output_of`). The lookups they build on, `find_workspace` and its two siblings, live in `core/workspace/resolve.py` because a library may not import `cli` |
 | `environment.py` | the three options `--credentials`, `--allow-host` and `--max-download-bytes`: `add_environment_arguments(parser)` registers them on the six commands, `environment_from_args(args)` builds the `Environment`, and `environment_flags_of(args)` serializes them onto the command line of a launched case |
 | `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
@@ -33,16 +32,15 @@ from the same parsers.
 | `campaign` | a project of many cases, and what a calibration found: `array`, `case`, `collect`, `promote` (a trial of a session to `runs/`), `prune` (the kept trials but the best to the trash) |
 | `example` | the shipped examples: `list`, `show`, `add` |
 | `catalog` | the run lifecycle: `ls`, `query`, `show`, `point`, `rank`, `gc`, `reindex`, `delete`, `restore`, `trash`, `tag`, `note`, `rename`, `diff`, `watch`, `import`, `rerun` |
-| `data` | the input cache: `ls`, `get`, `check`, `add`, `remove`, `prune`, `archive`, `restore` |
+| `data` | the input cache: `ls`, `get`, `remove`, `prune`, `lock` (write `hydromodpy.lock`, or `--check [--strict]` to compare the files with it), `archive`, `restore` |
 | `export` | write data of one run to files under `runs/<run>/exports/` (fields, series, layers, budget, or the whole run), and write again what its ledgers record (`--regen`) |
 | `publish` | copy a run, the summary or the project out of the tree (directory or tar), with `PUBLICATION.json`; `--package` writes the project with its data, which `hmp project import` installs |
 | `viz` | figures: `list`, `show` |
 | `config` | `template`, `check` (`--partial` accepts a file with keys still to fill, `--inputs` reads the headers of the input files), `resolve`, `schema`, `targets`, `wizard` |
-| `lock` | the lockfile of a project: `update`, `verify` |
 | `completion` | a shell completion script |
 | `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |
-| `run` | execute the workflow a TOML names in `[workflow].mode`, or the one its sections imply |
-| `calibrate` | run a calibration workflow from a TOML |
+| `run` | execute the workflow a TOML file or a JSON run request names in `[workflow].mode`, or the one its sections imply |
+| `calibrate` | run a calibration workflow from a TOML file or a JSON run request |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
 | `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `ls`, `show` |
 | `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
@@ -72,7 +70,7 @@ def run(args: argparse.Namespace) -> None: ...
 `args._handler(args)`.
 
 A verb family is a sub-package (`workspace`, `project`, `campaign`, `example`,
-`catalog`, `data`, `viz`, `lock`, `site`). Its `__init__.py` carries `NAME`, `HELP` and an
+`catalog`, `data`, `viz`, `site`). Its `__init__.py` carries `NAME`, `HELP` and an
 `ACTIONS` tuple, and every action module repeats the same four symbols. The
 group is attached with `add_action_subparsers`, so a bare `hmp catalog` is a
 usage error and exits 2. `config`, `privacy` and `report` are single modules
@@ -88,10 +86,14 @@ holds the current directory, and stops with exit code 10 when it finds none,
 naming `-w`. No verb falls back on `~/hydromodpy`; `hmp workspace init` alone
 creates it when no path is given.
 
+`hmp run`, `calibrate` and `spinup` also read their relative paths from a base, and `-w` gives it when
+it names a project. `hmp run --base DIR` gives it too and wins over `-w`. No environment variable
+carries the base, so a sub-process receives `-w` on its command line.
+
 ## The boundary
 
 - `commands/*.py` parse arguments, call `hydromodpy._api` or the package the
-  verb serves (`results.catalog`, `data.request`, `display`, `project.lock`),
+  verb serves (`results.catalog`, `data.request`, `display`, `project.data_cache`),
   format the output and map errors to exit codes.
 - Reusable behavior belongs in `hydromodpy._api` or in its domain package, and
   the command module calls it. Business logic never lives in `cli/`.
@@ -133,29 +135,43 @@ reference.
 ## How a run starts
 
 ```
-hmp run config.toml
-  -> commands/run.py: apply overrides, resolve verbosity, resolve the workflow
-     (the declared [workflow].mode, or the one the sections imply)
-  -> project/dispatch/workflow.dispatch_workflow(mode, path)
-  -> the launcher of that mode (simulation, overview, calibration)
+hmp run config.toml                      hmp run request.json --base /project
+  -> commands/run.py: request_of builds the RunRequest, --set, --overlay and --case join it
+     (a .json file is the request itself, and --overlay is refused with it)
+  -> project/dispatch/workflow.dispatch_workflow(request, base=, environment=)
+       the workflow is the declared [workflow].mode, or the one the sections imply
+  -> run_simulation: load, check_name, claim, request.json and config.toml, inputs,
+     request_id, restart or skip, then the pipeline
 ```
+
+`request_of` is the one place that reads a TOML file, a JSON request, a dict or a built
+configuration for a run, and it refuses the combinations of options a workflow cannot honour with
+the sentences of `hmp run`. The environment (credentials, allowed hosts, download limit) is built
+from the options of the command line and is never written into the request.
+
+A run identical to a completed one is not computed again. `hmp run` and `hmp calibrate` give back the
+completed run and name it, and `--force` computes anyway. A resume, a partial window and a replay
+never skip.
+
+Docker holds the same program. `docker run <image> run /project/request.json --base /project` plays
+a request found in a mounted project folder.
 
 An exception that leaves the handler goes to `helpers.fail` in `main.py`, which
 prints its code and its message on stderr and exits with the code of its class.
 
 ## Where to add what
 
-1. **A leaf verb.** A module in `commands/` with `NAME`, `HELP`, `register` and
+1. A leaf verb is a module in `commands/` with `NAME`, `HELP`, `register` and
    `run`, and its name in the import list and in `ALL_COMMANDS` of
    `commands/__init__.py`.
-2. **An action of a family.** A module in the family sub-package with the same
+2. An action of a family is a module in the family sub-package with the same
    four symbols, listed in the `ACTIONS` tuple of its `__init__.py`.
-3. **A shared option.** A parser in `conventions.py`, passed through `parents=`.
+3. A shared option is a parser in `conventions.py`, passed through `parents=`.
    A new verb declares what it writes in `OUTPUTS` of `output.py`. A form that
    moved gets its line in `OLD_CLI_FORMS`.
-4. **Work behind a verb.** A function in the package the verb serves, never in
+4. Work behind a verb is a function in the package the verb serves, never in
    `cli/`. Work that a Python user needs too goes in `hydromodpy._api` first.
-5. **An exit code.** A constant and an entry in the mapping of `helpers.py`.
+5. An exit code is a constant and an entry in the mapping of `helpers.py`.
 
 `tests/unit/cli/test_cli_help.py` walks `ALL_COMMANDS` and checks the help of
 each verb. `tests/unit/cli/test_cli_surface_matches_the_target.py` holds the

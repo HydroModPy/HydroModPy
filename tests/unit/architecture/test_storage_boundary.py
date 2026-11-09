@@ -4,9 +4,10 @@ Three guards. An AST guard on ``duckdb.connect``: it is called in a short
 list of modules, the public API and the user-facing commands are not on it,
 and the reader and the indexer of the project index open it through
 ``connect_with_retry``. An AST guard on writing: a DuckDB file is opened
-without ``read_only=True`` by its owner only, the data registry and its
-migration runner for ``data/cache.duckdb``, the indexer for
+without ``read_only=True`` by its owner only, the indexer for
 ``.hmp/index.duckdb``; every other opener, the diagnostics included, reads.
+``hydromodpy/data`` opens no DuckDB file at all: the data cache is the sidecars
+next to the files, and the database of HydroModPy 2.0.0 is refused by name.
 A runtime guard: the verbs that watch a project read its ``outcome.json``
 and ``logs/heartbeat.json`` with ``Catalog.__init__`` patched to raise, so a
 status answers while the index is being rebuilt, or when the project has
@@ -30,18 +31,10 @@ CHECKED_FILES = (
 
 CLI_DIAGNOSTIC_FILES = (
     PACKAGE / "cli" / "commands" / "doctor.py",
-    PACKAGE / "data" / "request" / "cache_verbs.py",
-    PACKAGE / "data" / "workspace" / "folders.py",
     PACKAGE / "display" / "catalog_figures.py",
-    PACKAGE / "project" / "lock.py",
     PACKAGE / "results" / "catalog" / "listing.py",
     PACKAGE / "results" / "catalog" / "liveness.py",
     PACKAGE / "results" / "catalog" / "privacy.py",
-)
-
-DATA_REGISTRY_FILES = (
-    PACKAGE / "data" / "registry" / "backend.py",
-    PACKAGE / "data" / "registry" / "catalog_duckdb.py",
 )
 
 ALLOWED_DIRECT_DUCKDB_FILES = {
@@ -56,8 +49,6 @@ INDEX_OPENERS = {
 
 DUCKDB_CONNECT_FILES = {
     "hydromodpy/core/io/db_retry.py",
-    "hydromodpy/data/registry/migrations/runner.py",
-    "hydromodpy/data/registry/catalog_duckdb.py",
     "hydromodpy/display/catchment_report/context.py",
     "hydromodpy/results/storage/diagnostics.py",
     "hydromodpy/cli/commands/doctor.py",
@@ -68,16 +59,12 @@ RETRY_HELPER = "hydromodpy/core/io/db_retry.py"
 """Where ``connect_with_retry`` wraps ``duckdb.connect``: its own call is the helper, not an opener."""
 
 WRITE_CAPABLE_OPENERS = {
-    "hydromodpy/data/registry/migrations/runner.py",
-    "hydromodpy/data/registry/backend.py",
-    "hydromodpy/data/registry/catalog_duckdb.py",
     "hydromodpy/results/catalog/adapters/duckdb.py",
     "hydromodpy/results/catalog/indexer.py",
 }
 """The modules that may open a DuckDB file without ``read_only=True``.
 
-The data registry and its migration runner own ``data/cache.duckdb``; the
-indexer owns ``.hmp/index.duckdb`` and writes its staging copy;
+The indexer owns ``.hmp/index.duckdb`` and writes its staging copy;
 ``DuckDBBackend(path)`` owns the connection it opens. Nothing else writes.
 """
 
@@ -165,14 +152,23 @@ def test_public_api_and_cli_commands_do_not_open_duckdb_directly() -> None:
     assert offenders == []
 
 
-def test_data_cache_file_connections_use_retry_helper() -> None:
-    """Allow direct in-memory DuckDB only in the data-cache registry."""
+def test_the_data_package_opens_no_duckdb_file_and_does_not_import_it() -> None:
+    """The data cache is the sidecars: nothing under ``data`` knows DuckDB."""
     offenders: list[str] = []
-    for path in DATA_REGISTRY_FILES:
-        rel = _rel(path)
-        for node in _duckdb_connect_calls(_parse(path)):
-            if _opens_a_file(node):
-                offenders.append(f"{rel}:{node.lineno}")
+    for path in sorted((PACKAGE / "data").rglob("*.py")):
+        tree = _parse(path)
+        for node in ast.walk(tree):
+            imported = (
+                [alias.name for alias in node.names]
+                if isinstance(node, ast.Import)
+                else [node.module or ""]
+                if isinstance(node, ast.ImportFrom)
+                else []
+            )
+            if any(name.split(".")[0] == "duckdb" for name in imported):
+                offenders.append(f"{_rel(path)}:{node.lineno}")
+        for line in _duckdb_connect_lines(path):
+            offenders.append(f"{_rel(path)}:{line}")
     assert offenders == []
 
 

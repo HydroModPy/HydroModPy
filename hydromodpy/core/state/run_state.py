@@ -205,7 +205,9 @@ class WorkflowContext:
     ``config.hydromodpy_config.HydroModPyConfig`` and ``data.plan.DataLoadPlan``.
     ``bounds`` carries the :class:`~hydromodpy.core.runtime.bounds.Bounds` of the
     call, set by whoever started the project; left ``None``, a context built
-    without one keeps the all-allowing bounds it holds by itself.
+    without one keeps the all-allowing bounds it holds by itself. ``inputs``
+    carries the files the runner resolved when it claimed the run, so the setup
+    reads them and never resolves a second time.
     """
 
     cfg: Any
@@ -216,6 +218,11 @@ class WorkflowContext:
     # environment was given, the field keeps the all-allowing default its type
     # holds by itself.
     bounds: Any = None
+    # The files the run resolved at its claim, before any step: the
+    # ``ResolvedInputs`` of the data layer, typed ``Any`` because ``core`` cannot
+    # import it. ``None`` until a runner resolves them, and the setup then
+    # resolves for itself.
+    inputs: Any = None
     data_plan: Any = None
     setup: SetupContext = field(default_factory=SetupContext)
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

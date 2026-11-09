@@ -52,7 +52,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Move every run and session to the trash of its project, remove the index",
     )
     parser.add_argument(
-        "--data-cache", action="store_true", dest="data_cache", help="The data cache"
+        "--data-cache",
+        action="store_true",
+        dest="data_cache",
+        help="data/blobs and the data cache database that HydroModPy 2.0.0 left in data/",
     )
     parser.add_argument("--runtime", action="store_true", help="The .hmp/ runtime folder")
     parser.add_argument("--scratch", action="store_true", help="The scratch folders (.hmp/scratch)")

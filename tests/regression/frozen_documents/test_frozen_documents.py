@@ -1,12 +1,18 @@
 """The documents of 2.0.0 that no frozen run holds, read back by the readers of today.
 
 ``v2.0.0/current`` holds a published copy and its ``published.jsonl``, two install
-indexes, a plan, a lockfile, three sidecars, two data caches, the trial series of a
-session, a sealed job with its chain report, and a site catalog. ``expected.json`` holds
-what the raw files say, read without these readers when the tree was written by
+indexes, a plan, a lockfile, three sidecars, two data cache databases, the trial series
+of a session, a sealed job with its chain report, and a site catalog. ``expected.json``
+holds what the raw files say, read without these readers when the tree was written by
 ``python -m tools.freeze_documents``. The job comes from a capability ``demo`` that the
-generator declares. No test writes under ``v2.0.0/``, and a DuckDB file is only opened
-read-only, because opening one for writing migrates it. See ``README.md`` beside it.
+generator declares. No test writes under ``v2.0.0/``: every test reads a copy.
+
+HydroModPy 2.1 reads two of these forms no more. The lockfile is schema v1 and is
+refused with the sentence that names ``hmp data lock``. The data cache database of the
+island is refused by the scan of its data folder with the sentence that names
+``hmp workspace clean --data-cache``. The database of a launched case, kept under
+``jobs/*/caches/``, held a capability that is gone, since a case writes its files and
+sidecars into the shared data folder. See ``README.md`` beside it.
 """
 
 from __future__ import annotations
@@ -20,15 +26,14 @@ from typing import Any
 
 import pytest
 
+from hydromodpy.core.exceptions import DataCacheError, SchemaVersionMismatchError
 from hydromodpy.core.payload.index import read_index
-from hydromodpy.data.provenance.lockfile import (
-    read_lockfile_binaries,
-    read_lockfile_inputs,
-    read_lockfile_meta,
+from hydromodpy.data.provenance.lockfile import read_lockfile_inputs
+from hydromodpy.data.provenance.sidecars import (
+    FORMER_CACHE_DATABASE,
+    load_sidecar,
+    scan,
 )
-from hydromodpy.data.provenance.sidecars import load_sidecar
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.registry.migrations.runner import current_version
 from hydromodpy.data.sites.catalog import read_catalog
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
@@ -133,23 +138,23 @@ def test_plan_and_its_tables(corpus: Path) -> None:
 
 
 def test_lockfile(corpus: Path) -> None:
+    """The lockfile of 2.0.0 is schema v1, which 2.1 refuses and tells how to write again."""
     expected = EXPECTED["lockfile"]
     lockfile = corpus / "island" / "hydromodpy.lock"
-    inputs = [
-        {"variable": item.variable, "source": item.source, "path": item.path, "sha256": item.sha256}
-        for item in read_lockfile_inputs(lockfile)
-    ]
-    assert inputs == expected["inputs"]
-    assert read_lockfile_binaries(lockfile) == expected["binaries"]
-    assert (
-        read_lockfile_meta(lockfile)["catalog_schema_version"] == expected["catalog_schema_version"]
-    )
+    assert tomllib.loads(lockfile.read_text(encoding="utf-8"))["schema"] == expected["schema"]
+    with pytest.raises(SchemaVersionMismatchError) as caught:
+        read_lockfile_inputs(lockfile)
+    message = str(caught.value)
+    assert expected["schema"] in message
+    assert "hydromodpy.lock.v2" in message
+    assert "hmp data lock" in message
 
 
 @pytest.mark.parametrize("sidecar", sorted(EXPECTED["sidecar"]))
 def test_sidecar(corpus: Path, sidecar: str) -> None:
     data_file = corpus / sidecar.removesuffix(".json")
-    read = load_sidecar(data_file).model_dump(mode="json")
+    # A field 2.1 added reads as its default, which the raw file does not state.
+    read = load_sidecar(data_file).model_dump(mode="json", exclude_defaults=True)
     raw = EXPECTED["sidecar"][sidecar]
     expected = {key: value for key, value in raw.items() if value is not None}
     # 2.1.0 renamed the local source: a sidecar of 2.0.0 that says "custom" reads as "file".
@@ -158,12 +163,35 @@ def test_sidecar(corpus: Path, sidecar: str) -> None:
     assert {key: value for key, value in read.items() if value is not None} == expected
 
 
-@pytest.mark.parametrize("cache", sorted(EXPECTED["data_cache"]))
-def test_data_cache(corpus: Path, cache: str) -> None:
-    expected = EXPECTED["data_cache"][cache]
-    with DataCatalogDuckDB(corpus / cache, read_only=True, layered=False) as catalog:
-        assert current_version(catalog.connection) == expected["migrations"][-1][0]
-        assert len(catalog.list_entries()) == expected["entries"]
+ISLAND_CACHE = f"island/data/{FORMER_CACHE_DATABASE}"
+"""The one data cache database of the corpus that a data folder holds."""
+
+
+def test_the_database_of_a_data_folder_is_refused_by_the_scan(corpus: Path) -> None:
+    """The scan names the database and the command that removes it, and reads nothing else."""
+    assert ISLAND_CACHE in EXPECTED["data_cache"]
+    assert (corpus / ISLAND_CACHE).name == FORMER_CACHE_DATABASE
+    with pytest.raises(DataCacheError) as caught:
+        scan(corpus / "island" / "data")
+    message = str(caught.value)
+    assert str(corpus / ISLAND_CACHE) in message
+    assert "hmp workspace clean --data-cache" in message
+
+
+def test_the_island_sidecars_sort_into_rows_user_files_and_the_unnamed(
+    corpus: Path, tmp_path: Path
+) -> None:
+    """Once the database is removed, the sidecars of 2.0.0 are read by the rules of 2.1."""
+    data = tmp_path / "data"
+    shutil.copytree(corpus / "island" / "data", data)
+    (data / FORMER_CACHE_DATABASE).unlink()
+    report = scan(data)
+    assert [(row.variable, row.source, row.station_id) for row in report.rows] == [
+        ("piezometry", "hubeau", None)
+    ]
+    assert [path.name for path in report.user_files] == ["piezometry_custom_W1_D.csv"]
+    assert [path.name for path in report.without_variable] == ["dem_ign.tif.json"]
+    assert any("without its variable" in line for line in report.lines())
 
 
 def test_trial_series(corpus: Path) -> None:

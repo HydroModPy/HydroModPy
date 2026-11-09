@@ -185,35 +185,17 @@ def test_tracked_files_canonical_path_is_relative(tmp_path: Path):
         conn.close()
 
 
-def test_entries_file_path_relative_via_fixture(tmp_path: Path):
-    """Fixture-only check until P4 wires the helper end-to-end in data cache."""
+def test_a_data_file_path_encodes_relative_to_the_workspace(tmp_path: Path):
+    """The path of a file under ``data/`` is stored relative, never absolute."""
     ws = tmp_path / "ws"
-    ws.mkdir()
-    db_path = ws / "data" / "cache.duckdb"
-    db_path.parent.mkdir(parents=True)
     sample = ws / "data" / "dem" / "raw" / "DEM.tif"
     sample.parent.mkdir(parents=True)
     sample.write_bytes(b"r")
 
-    conn = duckdb.connect(str(db_path))
-    try:
-        conn.execute(
-            "CREATE TABLE entries ("
-            " id INTEGER PRIMARY KEY,"
-            " variable VARCHAR NOT NULL,"
-            " source VARCHAR NOT NULL,"
-            " file_path TEXT NOT NULL)"
-        )
-        encoded = encode_workspace_path(ws, sample)
-        conn.execute(
-            "INSERT INTO entries (id, variable, source, file_path) VALUES (?, ?, ?, ?)",
-            [1, "dem", "custom", encoded],
-        )
-        rows = conn.execute("SELECT file_path FROM entries").fetchall()
-        assert rows == [("data/dem/raw/DEM.tif",)]
-        assert not os.path.isabs(rows[0][0])
-    finally:
-        conn.close()
+    encoded = encode_workspace_path(ws, sample)
+
+    assert encoded == "data/dem/raw/DEM.tif"
+    assert not os.path.isabs(encoded)
 
 
 def test_state_dir_paths_helpers_still_resolve(tmp_path: Path, monkeypatch):

@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.config.loading import MEMORY_NEEDS_BASE
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.toml_io.error_locator import locate_loc
 from hydromodpy.core.toml_io.loader import (
@@ -51,6 +52,7 @@ _PROJECT_ROOT_KEYS = ("workspace", "project_root")
 def check(
     source: PathLike | Mapping[str, Any],
     *,
+    base: PathLike | None = None,
     partial: bool = True,
     inputs: bool = False,
     environment: Environment | None = None,
@@ -58,8 +60,10 @@ def check(
     """Check a configuration, a draft or a file, and return every diagnostic it holds.
 
     A document that is a mapping is checked as it stands, as a form that is being
-    filled would be. A path is read as ``hmp run`` reads it: the ``base_config``
-    chain, the project root, the name of the workflow. A ``[sites]`` project is
+    filled would be, against the ``base`` its relative paths are read from: a
+    mapping without one is refused, as :func:`~hydromodpy.config.loading.load` refuses
+    it. A path is read as ``hmp run`` reads it: the ``base_config`` chain, the
+    project root, the name of the workflow. A ``[sites]`` project is
     expanded case by case, and each issue comes back at the key it reaches. A
     calibration with nothing to fix and nothing to fill is also read by its
     preflight, which looks at the calibration maps on the disk, so a mapping,
@@ -69,6 +73,9 @@ def check(
     ----------
     source
         A path to a TOML file, or the document as a mapping of sections.
+    base
+        The folder relative paths are read from. A mapping needs it. A file reads
+        them from the project root above it when it is not given.
     partial
         True reports a required key that is not written yet as ``to_fill``, a
         severity that stops nothing. False reports it as an ``error``, which is
@@ -97,11 +104,24 @@ def check(
             f"check takes a path or a mapping of sections, not {type(source).__name__}."
         )
     bounds = (environment or Environment()).bounds
+    folder = None if base is None else Path(base).expanduser().resolve()
     try:
         if isinstance(source, Mapping):
-            return _check_document(source, partial=partial, inputs=inputs, base=None, bounds=bounds)
+            if folder is None:
+                return [
+                    Diagnostic(
+                        path="", code="refused_value", severity="error", detail=MEMORY_NEEDS_BASE
+                    )
+                ]
+            return _check_document(
+                source, partial=partial, inputs=inputs, base=folder, bounds=bounds
+            )
         return _check_file(
-            Path(source).expanduser().resolve(), partial=partial, inputs=inputs, bounds=bounds
+            Path(source).expanduser().resolve(),
+            partial=partial,
+            inputs=inputs,
+            bounds=bounds,
+            base=folder,
         )
     except Exception as exc:  # noqa: BLE001 - a check reports, an unexpected error is a finding too
         return [
@@ -128,8 +148,10 @@ def _check_document(
     return check_document(document, partial=partial, inputs=inputs, base=base, bounds=bounds)
 
 
-def _check_file(target: Path, *, partial: bool, inputs: bool, bounds: Bounds) -> list[Diagnostic]:
-    """Check the file *target* the way a run reads it."""
+def _check_file(
+    target: Path, *, partial: bool, inputs: bool, bounds: Bounds, base: Path | None
+) -> list[Diagnostic]:
+    """Check the file *target* the way a run reads it, against *base* when it is given."""
     try:
         # As written: the check says the old forms it finds, and does not rewrite them.
         chain = read_toml_chain(target, root=None)
@@ -165,14 +187,14 @@ def _check_file(target: Path, *, partial: bool, inputs: bool, bounds: Bounds) ->
             check_workflow_name(declared)
     except WorkflowError as exc:
         return [Diagnostic(path="workflow", code="unknown_name", severity="error", detail=str(exc))]
-    base = config_base_dir(target)
+    folder = base if base is not None else config_base_dir(target, chain=chain)
     found = [
         *told,
-        *_check_document(document, partial=partial, inputs=inputs, base=base, bounds=bounds),
+        *_check_document(document, partial=partial, inputs=inputs, base=folder, bounds=bounds),
     ]
-    found.extend(_project_root_written(document, base=base))
+    found.extend(_project_root_written(document, base=folder))
     if "calibration" in document and not any(item.severity != "warning" for item in found):
-        found.extend(_preflight(target))
+        found.extend(_preflight(target, folder))
     return _with_lines(found, target.read_text(encoding="utf-8-sig"))
 
 
@@ -291,16 +313,16 @@ def _project_root_written(document: Mapping[str, Any], *, base: Path) -> list[Di
     ]
 
 
-def _preflight(target: Path) -> list[Diagnostic]:
+def _preflight(target: Path, base: Path) -> list[Diagnostic]:
     """Return the preflight of the calibration in *target*, which loads without a fault."""
     from hydromodpy.calibration.preflight import preflight_calibration
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config.loading import load
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
     fill_trial_pipeline()
     try:
-        config = HydroModPyConfig.from_toml(target)
+        config = load(target, base)
     except (ConfigError, ValueError) as exc:
         held = getattr(exc, "diagnostics", ())
         if held:

@@ -21,7 +21,7 @@ from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.site import GaugeConflictError, SiteConfig, resolve_gauge, site_fingerprint
 from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.managers.timeseries_config import TimeseriesSelectionMixin
+from hydromodpy.data.families.timeseries_config import TimeseriesSelectionMixin
 from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.results.metric_rule import MetricsConfig
 from tests._helpers.run_stores import open_run_store

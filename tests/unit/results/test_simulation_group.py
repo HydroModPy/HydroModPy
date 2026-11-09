@@ -91,7 +91,16 @@ class TestSimulationGroup:
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
-        monkeypatch.setattr("hydromodpy.project.runner.solve_identity_hash", lambda _cfg: "h")
+        # The double has no document to freeze and no inputs to resolve: the claim
+        # steps of the runner are the subject of its own tests.
+        monkeypatch.setattr(
+            ProjectRunner,
+            "_claim_documents",
+            lambda self, handle, request, cfg_run, workspace_path, *, name, skip_identical: (
+                "k",
+                None,
+            ),
+        )
 
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",

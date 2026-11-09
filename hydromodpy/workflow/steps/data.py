@@ -81,9 +81,9 @@ def _log_soil_budget(lines: tuple[str, ...]) -> None:
 
 def _build_data_runtime_loader(*args, **kwargs):
     """Import runtime loader lazily to avoid importing the full data stack at module import."""
-    from hydromodpy.data import DataManagersRuntimeLoader
+    from hydromodpy.data import DataLoader
 
-    return DataManagersRuntimeLoader(*args, **kwargs)
+    return DataLoader(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +117,8 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
 def step_data_loading(ctx: WorkflowContext) -> None:
     """Load the external forcings shared by all process runs and bind them to the runtime.
 
-    Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
-    data_managers package. Structural bindings are then applied explicitly
+    Runtime loading is delegated to ``DataLoader`` in the
+    data.loading package. Structural bindings are then applied explicitly
     through domain/process binder modules.
     """
     data_plan = ctx.data_plan

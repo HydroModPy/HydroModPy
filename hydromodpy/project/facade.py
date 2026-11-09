@@ -104,13 +104,13 @@ if TYPE_CHECKING:
     from hydromodpy.project.launch import LaunchReport, StatusReport
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths
+    from hydromodpy.project.request import RunOutcome
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.checks import CalibratedBy
     from hydromodpy.results.lineage import Lineage
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.run import Run
-    from hydromodpy.workflow.record.attempt import SealedRun
 
 logger = get_logger(__name__)
 
@@ -130,6 +130,16 @@ class Project:
     config : str, Path, HydroModPyConfig, dict, or JSON str
         A TOML path, a fully-built :class:`HydroModPyConfig`, a ``dict``
         payload, or a JSON string (auto-detected).
+    base : str or Path, optional
+        The folder the relative paths of the configuration are read from. A TOML
+        path reads them from its project root when ``base`` is not given. A
+        ``dict`` or a JSON string has no folder of its own and is refused without
+        it: the current folder is never used.
+    document : dict, optional
+        The document a built configuration was loaded from, which the planner of the
+        data reads. Without it, the document is what the configuration writes.
+    source : str or Path, optional
+        The file a built configuration was read from, when it came from one.
     solver : str, optional
         Flow solver of a configuration that declares no process. One that declares
         another solver is refused: the plan and the replay read the configuration.
@@ -152,6 +162,9 @@ class Project:
         self,
         config: str | Path | object | dict,
         *,
+        base: str | Path | None = None,
+        document: Mapping[str, Any] | None = None,
+        source: str | Path | None = None,
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
@@ -173,13 +186,17 @@ class Project:
 
             environment = Environment.default()
         object.__setattr__(self, "_state", ProjectState())
+        folder = None if base is None else Path(base).expanduser().resolve()
         project_phases.configure(
             self,
-            resolve_config(config),
+            resolve_config(config, folder),
             solver=solver,
             headless=headless,
             no_display=no_display,
             environment=environment,
+            base=folder,
+            document=document if document is not None else _document_of(config),
+            source=None if source is None else Path(source),
         )
         object.__setattr__(self, "_runner", ProjectRunner(self))
         object.__setattr__(self, "_catalog", ProjectCatalog(self))
@@ -625,13 +642,14 @@ class Project:
         force: bool = False,
         lineage: Lineage | None = None,
         calibrated_by: CalibratedBy | None = None,
-    ) -> SealedRun | None:
+    ) -> RunOutcome | None:
         """Run one attempt of the case and return what its directory says.
 
         The worker verb: it claims ``runs/<case>/``, runs the Pipeline, seals
         the run and closes its outcome, and never opens the index of the
         project. ``hmp run`` stops here and indexes afterwards. The keywords
-        are those of :meth:`simulate`, without ``dry_run``.
+        are those of :meth:`simulate`, without ``dry_run``. A sweep never skips a
+        point: a run identical to a completed one is computed again.
         """
         with self._run_scratch(name, resume):
             return self._runner.execute(
@@ -771,6 +789,7 @@ class Project:
         phase: str | None = None,
         case: str | None = None,
         resume: bool = False,
+        force: bool = False,
         dry_run: bool = False,
         workspace: str | Path | None = None,
         project: str | None = None,
@@ -839,6 +858,11 @@ class Project:
         resume
             Reopen the latest session of the case; the trials already journaled
             preload the cache.
+        force
+            Search again when a completed session of the case holds the same
+            solution key. Without it, a file or the ``[calibration]`` of this
+            project that such a session answers gives back that session's report,
+            ``extra["identical_to"]`` naming its folder, and nothing runs.
         dry_run
             Return the plan a launch would follow, a ``dict``, after the checks of
             ``hmp config check``, and run nothing. A calibration held in memory needs
@@ -884,6 +908,7 @@ class Project:
             phase=phase,
             case=case,
             resume=resume,
+            force=force,
             dry_run=dry_run,
             workspace=workspace,
             project=project,
@@ -981,28 +1006,40 @@ def read_sealed_config(snapshot: Mapping[str, object]) -> object:
     ``results`` never imports this package: whoever opens a run for reading
     hands this function to the ``read_config`` argument of ``Catalog``,
     ``open_run_dir`` or ``Session``, and the run applies it to
-    ``config_snapshot`` only when ``run.hydromodpy_config`` is read.
+    ``config_snapshot`` only when ``run.hydromodpy_config`` is read. The snapshot
+    names its own project root, which anchors its paths.
     """
     from hydromodpy.config import HydroModPyConfig
 
-    return HydroModPyConfig.from_dict(dict(snapshot), sealed=True)
+    return HydroModPyConfig.from_snapshot(snapshot)
 
 
-def resolve_config(config: str | Path | object | dict) -> object:
+def resolve_config(
+    config: str | Path | object | dict, base: Path | None = None
+) -> str | Path | object:
     """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
 
     ``dict`` -> validated config; JSON string (starts with ``{``) -> validated
-    config; a TOML path or an already-built config object passes through.
+    config; a TOML path or an already-built config object passes through. A
+    document in memory has no folder: it is read against *base*, and refused
+    without one.
     """
-    if isinstance(config, Mapping):
-        from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.loading import is_json_text, load
 
-        return HydroModPyConfig.from_dict(dict(config))
-    if isinstance(config, str) and config.lstrip().startswith("{"):
-        from hydromodpy.config import HydroModPyConfig
-
-        return HydroModPyConfig.from_json(config)
+    if isinstance(config, Mapping) or (isinstance(config, str) and is_json_text(config)):
+        return load(config, base)
     return config
+
+
+def _document_of(config: str | Path | object | dict) -> dict[str, Any] | None:
+    """Return the document a mapping or JSON text holds, for the planner of the data."""
+    from hydromodpy.config.loading import is_json_text, json_object
+
+    if isinstance(config, Mapping):
+        return dict(config)
+    if isinstance(config, str) and is_json_text(config):
+        return json_object(config, where="A JSON configuration")
+    return None
 
 
 def configure_opened(project: Project) -> None:

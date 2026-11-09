@@ -323,22 +323,22 @@ def test_the_geology_legend_is_read_from_the_file_the_report_names(tmp_path: Pat
     assert rows[0]["area_km2"] == "1.00"
 
 
-def test_the_geology_legend_falls_back_on_the_user_cache(tmp_path: Path, monkeypatch) -> None:
+def test_the_geology_legend_falls_back_on_the_data_folder(tmp_path: Path) -> None:
     pytest.importorskip("geopandas")
-    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "cache"))
-    cache = tmp_path / "cache" / "geology"
-    cache.mkdir(parents=True)
-    _write_geology(cache / "geology_brgm_50k_abc123.gpkg", "9")
+    data = tmp_path / "data"
+    (data / "geology").mkdir(parents=True)
+    _write_geology(data / "geology" / "geology_brgm_50k_abc123.gpkg", "9")
     scratch = _write_watershed(tmp_path / "geographic")
 
-    assert [path.name for path in geology_cache_candidates()] == ["geology_brgm_50k_abc123.gpkg"]
-    assert [row["code"] for row in geology_legend_rows(scratch)] == ["9"]
+    assert [path.name for path in geology_cache_candidates(data)] == [
+        "geology_brgm_50k_abc123.gpkg"
+    ]
+    assert [row["code"] for row in geology_legend_rows(scratch, data_dir=data)] == ["9"]
 
 
-def test_without_a_geology_file_the_legend_is_empty(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "cache"))
-
+def test_without_a_geology_file_the_legend_is_empty(tmp_path: Path) -> None:
     assert geology_legend_rows(tmp_path / "geographic") == ()
+    assert geology_cache_candidates(None) == []
 
 
 def test_a_relative_dem_is_read_from_the_folder_of_the_simulation_file(tmp_path: Path) -> None:

@@ -59,10 +59,13 @@ from hydromodpy.core.payload import (
 )
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
-from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME, LOCKFILE_SCHEMA, read_lockfile_meta
+from hydromodpy.data.provenance.lockfile import (
+    LOCKFILE_NAME,
+    LOCKFILE_SCHEMA,
+    read_lockfile_meta,
+    write_lockfile,
+)
 from hydromodpy.data.provenance.sidecars import Sidecar
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.registry.freeze import write_lockfile
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
@@ -612,7 +615,7 @@ WRITER = "2.0.0a1"
 TRANSIENT = "It is transient state: delete it and run again."
 
 
-LOCK = "hmp lock update"
+LOCK = "hmp data lock"
 
 
 REINDEX = "hmp catalog reindex"
@@ -730,15 +733,8 @@ def pristine(tmp_path_factory: pytest.TempPathFactory) -> Tree:
     )
     write_index(copy, InstallIndex(hydromodpy_version=WRITER))
     acquire_lease(project)
-    catalog = DataCatalogDuckDB(project / "data" / "cache.duckdb")
     lockfile = project / LOCKFILE_NAME
-    write_lockfile(
-        catalog,
-        lockfile,
-        zarr_schema_version=ZARR_SCHEMA_VERSION,
-        parquet_schema_version=PARQUET_SCHEMA_VERSION,
-    )
-    catalog.close()
+    write_lockfile(lockfile, project / "data")
     rebuild_index(project)
     return Tree(
         project=project,

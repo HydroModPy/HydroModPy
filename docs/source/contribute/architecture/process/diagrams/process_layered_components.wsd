@@ -15,7 +15,7 @@ package "Configuration" {
 }
 
 package "Data and forcing" {
-  component "Data managers\n(hydromodpy.data)" as DataManagers
+  component "Data variables\n(hydromodpy.data)" as DataManagers
   component "Binders\n(model.boundaries)" as Binders
   component "Forcing\n(model.forcing, model.soil.kernel)" as Forcing
 }

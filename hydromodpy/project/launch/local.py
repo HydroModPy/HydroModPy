@@ -8,8 +8,7 @@ runs the prepare phase, then starts one ``hmp run plan/<hash>/<case>.toml
 --frozen`` per case in a process of its own, as many side by side as the
 budget of solves allows. It writes every event to
 ``jobs/<stamp>-local/journal.jsonl``, writes ``failed`` for a child that
-died without writing its outcome, merges the private data cache of each
-child into the shared one, and refreshes the index after every end. The
+died without writing its outcome, and refreshes the index after every end. The
 worker claims its directory, skips an identical sealed run, resumes an
 interrupted attempt in place or starts a new version: none of that is
 decided here.
@@ -59,14 +58,13 @@ from hydromodpy.config.sites import (
 )
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, data_cache_path_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.project.launch.children import (
     Child,
     PlannedCase,
     close_dead_child,
     exit_of,
     log_tail,
-    merge_child_cache,
     planned_cases,
     start_child,
     worker_command,
@@ -304,7 +302,6 @@ def _launch(
     if not chosen:
         return [], None, ()
     data_dir = workspace_data_dir(chosen[0][0].path)
-    shared_cache = data_cache_path_for(data_dir)
     outcomes: list[CaseOutcome] = []
     to_prepare = [case for case, state in chosen if fresh or state.status == "planned"]
     lockfile: Path | None = None
@@ -316,7 +313,6 @@ def _launch(
             job_dir,
             to_prepare,
             journal=journal,
-            shared_cache=shared_cache,
             parallel=prepare_parallel,
             threads_per_case=run_config.threads_per_case,
             environment_flags=environment_flags,
@@ -353,7 +349,6 @@ def _launch(
             job_dir,
             journal,
             runnable,
-            shared_cache=shared_cache,
             parallel=parallel,
             threads_per_case=run_config.threads_per_case,
             stop_on_error=run_config.on_error == "raise",
@@ -372,7 +367,6 @@ def _run_cases(
     journal: Journal,
     chosen: list[tuple[PlannedCase, CaseState]],
     *,
-    shared_cache: Path,
     parallel: int,
     threads_per_case: int,
     stop_on_error: bool,
@@ -416,7 +410,7 @@ def _run_cases(
             for child in reaped:
                 running.remove(child)
                 used -= child.case.solves
-                outcome = _close_case(root, child, journal=journal, shared_cache=shared_cache)
+                outcome = _close_case(root, child, journal=journal)
                 outcomes.append(outcome)
                 if stop_on_error and outcome.status != "completed" and not stopped:
                     stopped = True
@@ -433,13 +427,13 @@ def _run_cases(
             child.process.terminate()
         for child in running:
             child.process.wait()
-            outcomes.append(_close_case(root, child, journal=journal, shared_cache=shared_cache))
+            outcomes.append(_close_case(root, child, journal=journal))
         raise
     return outcomes
 
 
-def _close_case(root: Path, child: Child, *, journal: Journal, shared_cache: Path) -> CaseOutcome:
-    """Close what a reaped worker left: its outcome, its private cache, the index."""
+def _close_case(root: Path, child: Child, *, journal: Journal) -> CaseOutcome:
+    """Close what a reaped worker left: its outcome and the index."""
     from hydromodpy.results.catalog.indexer import index_new_runs
 
     returncode = child.process.returncode
@@ -447,7 +441,6 @@ def _close_case(root: Path, child: Child, *, journal: Journal, shared_cache: Pat
     exit_code, signal = exit_of(returncode)
     if exit_code != 0:
         close_dead_child(root, child, exit_code, signal)
-    merged = merge_child_cache(shared_cache, child, journal=journal)
     try:
         index_new_runs(root)
     except Exception as exc:  # noqa: BLE001 - the run is on disk; the index is derived
@@ -463,10 +456,6 @@ def _close_case(root: Path, child: Child, *, journal: Journal, shared_cache: Pat
     error_text = None if error is None else f"{error.get('type')}: {error.get('message')}"
     if status != "completed" and error_text is None and exit_code != 0:
         error_text = f"exit code {exit_code}"
-    if merged is None:
-        # The run is on disk, but the data it fetched never reached the shared cache.
-        status = "failed"
-        error_text = "its private data cache could not be merged; see the journal"
     journal.append(
         "case_end",
         case_id=child.case.case_id,
@@ -479,7 +468,6 @@ def _close_case(root: Path, child: Child, *, journal: Journal, shared_cache: Pat
         log_tail=[]
         if status == "completed"
         else (outcome.get("log_tail") or log_tail(child.log_path)),
-        merged_entries=merged or 0,
     )
     return CaseOutcome(
         case_id=child.case.case_id,

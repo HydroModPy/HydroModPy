@@ -47,6 +47,7 @@ def test_the_worker_of_hmp_run_never_opens_the_index(
 
     fill_trial_pipeline()
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.project.request import request_of
 
     fill_trial_pipeline()
     project = make_workspace(tmp_path / "workspace")
@@ -56,11 +57,13 @@ def test_the_worker_of_hmp_run_never_opens_the_index(
     monkeypatch.chdir(project)
     _refuse_the_index(monkeypatch)
 
-    summary = dispatch_workflow("simulation", project / "step1_minimal.toml", no_display=True)
+    outcome = dispatch_workflow(
+        "simulation", request_of(project / "step1_minimal.toml", no_display=True), base=project
+    )
 
     run_dir = project / "runs" / RUN_NAME
-    assert summary["name"] == RUN_NAME
-    assert summary["run_dir"] == str(run_dir)
+    assert outcome.name == RUN_NAME
+    assert outcome.run_dir == run_dir
     assert not catalog_path_for(project).exists(), "the run wrote the index"
     assert (run_dir / RUN_MANIFEST_FILENAME).is_file()
     assert (run_dir / RUN_OUTCOME_FILENAME).is_file()
@@ -73,7 +76,7 @@ def test_the_worker_of_hmp_run_never_opens_the_index(
     outcome = read_outcome(run_dir)
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
     manifest = read_manifest(run_dir)
-    assert manifest["run"]["sim_id"] == summary["sim_id"]
+    assert manifest["run"]["sim_id"] == outcome.sim_id
     assert manifest["identity"]["config_hash"]
     assert manifest["site"]["name"] == "nancon"
     assert os.environ.get("HMP_RUN_SCRATCH") is None

@@ -57,7 +57,7 @@ package "hydromodpy.data.loading" {
     +reasons_by_type
   }
 
-  class DataManagersRuntimeLoader {
+  class DataLoader {
     +load_all(run_state)
   }
 }
@@ -93,9 +93,9 @@ ProjectPhases --> DataPlanner : build(...)
 DataPlanner ..> DataLoadPlan : returns
 ProjectPhases --> WorkflowContext : stores data_plan
 LoadDataStep --> DataStepModule : delegates
-DataStepModule --> DataManagersRuntimeLoader : load_all(run_state)
-DataManagersRuntimeLoader --> LoadedDataContext : fills one field per variable
-DataManagersRuntimeLoader ..> GeologyField : builds when geology is active
+DataStepModule --> DataLoader : load_all(run_state)
+DataLoader --> LoadedDataContext : fills one field per variable
+DataLoader ..> GeologyField : builds when geology is active
 
 WorkflowContext *-- SetupContext
 WorkflowContext *-- LoadedDataContext

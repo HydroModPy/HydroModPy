@@ -135,11 +135,16 @@ def test_the_project_root_is_the_folder_holding_project_toml(tmp_path: Path) -> 
     assert cfg.workspace.project_root == tmp_path.resolve()
 
 
-def test_a_python_caller_may_pass_the_project_root(tmp_path: Path) -> None:
-    cfg = HydroModPyConfig.from_dict(
-        {**SYNTHETIC, "workspace": {"project_root": str(tmp_path)}}, base_dir=tmp_path
-    )
+def test_a_python_caller_gives_the_project_root_as_the_base(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(SYNTHETIC, base_dir=tmp_path)
     assert cfg.workspace.project_root == tmp_path.resolve()
+
+
+def test_a_document_in_memory_never_writes_the_project_root(tmp_path: Path) -> None:
+    with pytest.raises(ConfigValidationError, match="project_root is not a key of a file"):
+        HydroModPyConfig.from_dict(
+            {**SYNTHETIC, "workspace": {"project_root": str(tmp_path)}}, base_dir=tmp_path
+        )
 
 
 def test_the_project_root_is_never_written_back_to_toml(tmp_path: Path) -> None:
@@ -153,12 +158,12 @@ def test_the_project_root_is_never_written_back_to_toml(tmp_path: Path) -> None:
     assert HydroModPyConfig.from_toml(frozen).workspace.project_root == tmp_path.resolve()
 
 
-def test_the_project_root_is_out_of_the_config_hash(tmp_path: Path) -> None:
-    from hydromodpy.results.catalog.registration import run_identity_hash
+def test_the_project_root_is_out_of_the_request_id(tmp_path: Path) -> None:
+    from hydromodpy.results.request_identity import request_id
 
     config = HydroModPyConfig.model_validate(SYNTHETIC).model_dump(mode="json")
     moved = {**config, "workspace": {**config["workspace"], "project_root": "/elsewhere"}}
-    assert run_identity_hash(config) == run_identity_hash(moved)
+    assert request_id(config, {}, edition="2.1") == request_id(moved, {}, edition="2.1")
 
 
 def test_the_mesh_catchment_batch_section_stays_refused() -> None:

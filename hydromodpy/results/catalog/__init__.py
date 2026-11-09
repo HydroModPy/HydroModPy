@@ -11,8 +11,7 @@ Public API
   from the run and session directories; never called by a run.
 - :func:`read_workspace_runs`: the sealed runs of several projects, read from
   their ``simulation.parquet`` files without any index.
-- Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`,
-  :class:`RunNameTooLongError`.
+- Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`.
 - :func:`short_id`: Git-style short identifier (first 8 hex chars).
 """
 
@@ -25,13 +24,11 @@ from hydromodpy.results.catalog.discovery import (
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.federation import read_workspace_runs
 from hydromodpy.results.catalog.indexer import IndexReport, index_new_runs, rebuild_index
-from hydromodpy.results.catalog.storage_paths import RunNameTooLongError
 
 __all__ = [
     "AmbiguousReferenceError",
     "Catalog",
     "IndexReport",
-    "RunNameTooLongError",
     "SimulationNotFoundError",
     "index_new_runs",
     "iter_project_catalog_roots",
