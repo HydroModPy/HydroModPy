@@ -84,6 +84,7 @@ class CatchmentReportConfig:
     transient_config: Path
     overview_config: Path
     geology_path: Path | None = None
+    data_dir: Path | None = None
     preset: CatchmentReportPreset = field(default=GENERIC_REPORT_PRESET)
     artifact_specs: tuple[ReportArtifactSpec, ...] | None = None
     block_specs: tuple[ReportBlockSpec, ...] | None = None
@@ -121,6 +122,7 @@ class CatchmentReportConfig:
             transient_config=inputs.transient_config,
             overview_config=inputs.overview_config,
             geology_path=inputs.geology_path,
+            data_dir=inputs.data_dir,
             preset=effective_preset,
             artifact_specs=artifact_specs,
             block_specs=block_specs,
@@ -185,7 +187,9 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         transient_config=config.transient_config,
         overview_config=config.overview_config,
     )
-    geology_rows = geology_legend_rows(config.geographic_scratch, config.geology_path)
+    geology_rows = geology_legend_rows(
+        config.geographic_scratch, config.geology_path, data_dir=config.data_dir
+    )
     level_links = {
         level: output_dir / REVIEW_DIRNAME / level / REPORT_INDEX_FILENAME for level in PAGE_MODES
     }

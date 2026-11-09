@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.project.request import RunOutcome
 from hydromodpy.workflow.overview import OverviewResult
 
 pytestmark = pytest.mark.fast
@@ -24,27 +24,45 @@ def _toml(tmp_path: Path, mode: str, extra: str = "") -> Path:
     return path
 
 
-def _config(mode: str) -> SimpleNamespace:
-    return SimpleNamespace(workflow=SimpleNamespace(mode=mode))
+def _document(mode: str) -> dict:
+    """A document in memory, which reaches the worker against a base."""
+    return {"workflow": {"mode": mode}}
+
+
+def _outcome(**fields) -> RunOutcome:
+    """The outcome of a completed run, as the worker gives it back."""
+    given = {
+        "name": "x",
+        "run_dir": Path("/p/runs/x"),
+        "sim_id": "sid",
+        "request_id": "r" * 64,
+        "status": "completed",
+        "identical_to": None,
+        "project_root": Path("/p"),
+        **fields,
+    }
+    return RunOutcome(**given)
 
 
 @pytest.fixture
 def worker(monkeypatch: pytest.MonkeyPatch) -> dict:
-    """Stand in for the worker: record what it is asked, name one completed run."""
+    """Stand in for the worker: record the request and the base, name one completed run."""
     asked: dict = {}
 
-    def fake(config, **kwargs):
-        asked.update(config=config, kwargs=kwargs)
-        return asked.get("summary", {"name": "x", "sim_id": "sid", "project_root": "/p"})
+    def fake(request, *, base, environment=None, **kwargs):
+        asked.update(request=request, base=base, kwargs=kwargs)
+        return asked["outcome"] if "outcome" in asked else _outcome()
 
     monkeypatch.setattr(f"{WORKFLOW}.run_simulation", fake)
-    monkeypatch.setattr(f"{WORKFLOW}.completed_run_view", lambda summary: ("run", summary["name"]))
+    monkeypatch.setattr(f"{WORKFLOW}.completed_run_view", lambda outcome: ("run", outcome.name))
     return asked
 
 
 def test_an_overview_gives_its_result(monkeypatch, tmp_path: Path) -> None:
     config = _toml(tmp_path, "overview")
-    monkeypatch.setattr(f"{WORKFLOW}.run_overview", lambda path, environment=None: RESULT)
+    monkeypatch.setattr(
+        f"{WORKFLOW}.run_overview", lambda request, *, base, environment=None: RESULT
+    )
 
     assert hmp.run(config) is RESULT
     assert hmp.run(str(config)) is RESULT
@@ -58,9 +76,11 @@ def test_an_overview_refuses_what_steers_a_simulation(tmp_path: Path, option: di
 
 @pytest.mark.parametrize("from_a_file", [True, False])
 def test_a_calibration_is_refused_and_points_to_its_verb(tmp_path: Path, from_a_file: bool) -> None:
-    config = _toml(tmp_path, "calibration") if from_a_file else _config("calibration")
     with pytest.raises(hmp.ConfigError, match=r"hmp\.calibrate"):
-        hmp.run(config)
+        if from_a_file:
+            hmp.run(_toml(tmp_path, "calibration"))
+        else:
+            hmp.run(_document("calibration"), base=tmp_path)
 
 
 def test_a_sites_project_is_refused_and_points_to_its_verb(tmp_path: Path) -> None:
@@ -75,18 +95,23 @@ def test_a_simulation_gives_its_run_and_the_controls_reach_the_worker(
     config = _toml(tmp_path, "simulation")
 
     assert hmp.run(config, name="x", force=True, set={"K": 1e-5}) == ("run", "x")
-    assert worker["config"] == config.resolve()
-    assert worker["kwargs"]["changes"] == {"K": 1e-5}
-    assert (worker["kwargs"]["name"], worker["kwargs"]["force"]) == ("x", True)
+    request = worker["request"]
+    assert (request.form, Path(request.source)) == ("toml", config.resolve())
+    assert worker["base"] == tmp_path.resolve()
+    assert request.set == {"K": 1e-5}
+    assert (request.name, request.force) == ("x", True)
 
-    cfg = _config("simulation")
-    assert hmp.run(cfg, until_step="seal", headless=True) == ("run", "x")
-    assert worker["config"] is cfg
-    assert (worker["kwargs"]["until_step"], worker["kwargs"]["headless"]) == ("seal", True)
+    assert hmp.run(_document("simulation"), base=tmp_path, until_step="seal", headless=True) == (
+        "run",
+        "x",
+    )
+    request = worker["request"]
+    assert (request.form, worker["base"]) == ("dict", tmp_path.resolve())
+    assert (request.until_step, request.no_display) == ("seal", True)
 
 
 def test_a_window_that_keeps_nothing_gives_nothing(worker: dict, tmp_path: Path) -> None:
-    worker["summary"] = {}
+    worker["outcome"] = None
     assert hmp.run(_toml(tmp_path, "simulation"), until_step="load_data") is None
 
 
@@ -100,7 +125,7 @@ def test_a_skipped_run_is_returned_and_said(
 ) -> None:
     said: list[tuple] = []
     monkeypatch.setattr("hydromodpy._api._report_identical_run", lambda *a: said.append(a))
-    worker["summary"] = {"skipped": True, "name": "x", "sim_id": "sid", "project_root": "/p"}
+    worker["outcome"] = _outcome(identical_to="x")
 
     assert hmp.run(_toml(tmp_path, "simulation")) == ("run", "x")
     assert said == [("x", "sid")]

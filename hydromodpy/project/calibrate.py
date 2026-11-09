@@ -35,6 +35,7 @@ def calibrate_a_file(
     metric_fn: Any = None,
     objective: str | None = None,
     resume: bool = False,
+    force: bool = False,
     environment: Environment | None = None,
 ):
     """Run the calibration a TOML file declares. It needs no :class:`Project`.
@@ -43,6 +44,8 @@ def calibrate_a_file(
     of the call: ``None`` builds the default of the machine. It is checked
     here once, so a credentials file the table refuses, or a folder the
     bounds of the call do not allow, stops the calibrate before it starts.
+    A completed session of the case of the file and of the same solution key
+    is given back as its report, unless ``force``, ``resume`` or ``phase``.
     """
     from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
@@ -88,6 +91,12 @@ def calibrate_a_file(
     preflight_launch(target)
     if dry_run:
         return describe_dry_run(load_toml_calibration(target)[0], target, workspace=workspace)
+    if not (force or resume or phase is not None):
+        from hydromodpy.project.dispatch.workflow import identical_session_of_file
+
+        identical = identical_session_of_file(target)
+        if identical is not None:
+            return identical
     options = {
         "workspace": workspace,
         "project": project,
@@ -118,6 +127,7 @@ def calibrate_project(
     phase: str | None = None,
     case: str | None = None,
     resume: bool = False,
+    force: bool = False,
     dry_run: bool = False,
     workspace: str | Path | None = None,
     project: str | None = None,
@@ -157,7 +167,13 @@ def calibrate_project(
     if config_path is not None:
         if case is not None:
             raise ConfigError(FROM_FILE)
-        return calibrate_a_file(config_path, phase=phase, dry_run=dry_run, project=label, **options)
+        return calibrate_a_file(
+            config_path, phase=phase, dry_run=dry_run, project=label, force=force, **options
+        )
+    if not (parameters or protocol is not None or dry_run or force or resume or phase is not None):
+        identical = _identical_session(proj, case)
+        if identical is not None:
+            return identical
     run = _in_memory_runner(
         proj, dry_run=dry_run, label=label, phase=phase, case=case, options=options
     )
@@ -168,6 +184,28 @@ def calibrate_project(
             proj, run, phase=phase, case=case, dry_run=dry_run, label=label, options=options
         )
     return run(_declared_calibration(proj, parameters, python_mode, phase=phase))
+
+
+def _identical_session(proj: Project, case: str | None):
+    """Return the report of a completed session identical to the calibration this project carries.
+
+    The case is the one the runner would name: *case*, else the case of the file the
+    project was built from, else the ``[simulation] name`` the configuration writes.
+    ``None`` when the project carries no ``[calibration]`` or no session answers.
+    """
+    from hydromodpy.calibration.runners.document import identical_session
+    from hydromodpy.workflow.solution_key import planned_solution_key
+
+    if getattr(proj._cfg, "calibration", None) is None:
+        return None
+    source = proj._config_path
+    return identical_session(
+        planned_solution_key(proj._cfg, search=True),
+        project_root=Path(proj._cfg.workspace.project_root),
+        case=case,
+        source=None if source is None else Path(source),
+        document=proj.config.model_dump(mode="json", exclude_none=True, exclude_unset=True),
+    )
 
 
 def _refuse_misplaced_arguments(
@@ -360,6 +398,6 @@ def _preflight_in_memory(project: Project, calibration: Any) -> None:
     config = getattr(project, "config", None)
     source = getattr(project, "_config_path", None)
     if source is None:
-        root = getattr(getattr(config, "workspace", None), "project_root", None)
-        source = Path(root if root is not None else Path.cwd()) / "project.toml"
+        # A project with no file anchors its checks on its root, where project.toml would be.
+        source = project._ctx.config_path
     preflight_launch(source, config=config, calibration=with_project_defaults(calibration, project))

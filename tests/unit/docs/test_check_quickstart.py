@@ -78,8 +78,8 @@ def test_the_commands_never_see_a_real_workspace(tmp_path: Path, monkeypatch) ->
 
 
 def test_the_commands_see_only_what_a_fresh_user_has(tmp_path: Path, monkeypatch) -> None:
-    """A project root, a verbosity or a state folder of the developer stays out."""
-    monkeypatch.setenv("HMP_PROJECT_ROOT", "/home/someone/hydromodpy/projects/example")
+    """A scratch root, a verbosity or a state folder of the developer stays out."""
+    monkeypatch.setenv("HMP_SCRATCH_ROOT", "/home/someone/scratch")
     monkeypatch.setenv("HMP_VERBOSITY", "debug")
     monkeypatch.setenv("HMP_STATE_HOME", "/home/someone/.local/state/hydromodpy")
     monkeypatch.setenv("HMP_CACHE_HOME", "/cache")

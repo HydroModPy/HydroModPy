@@ -115,9 +115,9 @@ def scratch_env(workspace: Path) -> dict[str, str]:
     ``HOME`` makes ``~/hydromodpy`` the scratch workspace. The state folder (the
     index of runs) is scratch too: a run an earlier check left in it would answer
     "nothing to do" instead of ending as the page shows. A fresh user has no
-    ``HMP_*`` variable: ``HMP_WORKSPACE`` or ``HMP_PROJECT_ROOT`` would point the
-    commands at a real project, so none is passed on but the download cache and
-    the solver folder (``KEPT_HMP_VARIABLES``), which only save a download.
+    ``HMP_*`` variable: ``HMP_WORKSPACE`` would point the commands at a real
+    workspace, so none is passed on but the download cache and the solver folder
+    (``KEPT_HMP_VARIABLES``), which only save a download.
     """
     env = {
         key: value

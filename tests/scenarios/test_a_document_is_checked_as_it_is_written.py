@@ -29,10 +29,13 @@ def said(found):
 
 document = tomllib.loads(Path("project.toml").read_text(encoding="utf-8"))
 draft = {name: table for name, table in document.items() if name != "geographic"}
+# A document in memory has no folder: the check is told where its paths are read from.
+base = Path(".").resolve()
 result = {
-    "empty": said(hmp.check({})),
-    "draft": said(hmp.check(draft, partial=True)),
-    "whole": said(hmp.check(document)),
+    "empty": said(hmp.check({}, base=base)),
+    "draft": said(hmp.check(draft, partial=True, base=base)),
+    "whole": said(hmp.check(document, base=base)),
+    "no_base": said(hmp.check(document)),
     "figures": sorted(m for m in sys.modules if m.startswith("hydromodpy.display.figures")),
 }
 Path("check.json").write_text(json.dumps(result), encoding="utf-8")
@@ -74,7 +77,7 @@ def _command(tmp_path: Path, env: dict[str, str], cache: Path, name: str, *argv:
 def test_a_draft_is_checked_in_python_as_it_is_written(tmp_path, scenario_env, scenario_cache):
     scenario = Scenario(
         name="island",
-        covers="hmp.check on an empty document, a draft and the whole island",
+        covers="hmp.check on an empty document, a draft, the whole island, and one without base",
         files=_island(),
         python=API,
         needs=(),
@@ -87,6 +90,7 @@ def test_a_draft_is_checked_in_python_as_it_is_written(tmp_path, scenario_env, s
     assert result["empty"] == [["geographic", "to_fill", "to_fill"]]
     assert result["draft"] == [["geographic", "to_fill", "to_fill"]]
     assert result["whole"] == []
+    assert result["no_base"] == [["", "refused_value", "error"]]
     assert result["figures"] == []
 
 

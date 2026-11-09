@@ -83,6 +83,9 @@ RELEASE_ASSETS: dict[str, dict[str, str]] = {
 SOLVER_EXECUTABLES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
 """Catalog solver code -> canonical executable this module can fetch."""
 
+SOLVER_LIBRARIES: dict[str, str] = {"modflow6": "libmf6"}
+"""The shared library a solver runs from in ``api`` mode, by solver name."""
+
 
 def ensure_platform_executable(path: str | Path) -> Path:
     """Ensure one bundled solver binary is executable on POSIX checkouts."""
@@ -573,6 +576,7 @@ __all__ = [
     "MANIFEST_FILENAME",
     "RELEASE_ASSETS",
     "SOLVER_EXECUTABLES",
+    "SOLVER_LIBRARIES",
     "SolverEngine",
     "asset_url",
     "available_solvers",

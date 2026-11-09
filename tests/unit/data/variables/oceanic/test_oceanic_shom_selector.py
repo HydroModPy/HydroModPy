@@ -28,10 +28,10 @@ from shapely.geometry import Polygon
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.fetch import HTTPClient
-from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.variables.oceanic.apis import shom
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
+from hydromodpy.data.variables.oceanic.variable import OceanicVariable
 
 PERIOD = (datetime(2003, 1, 1), datetime(2003, 1, 30))
 
@@ -52,10 +52,10 @@ def _mask(tmp_path: Path) -> Path:
     return path
 
 
-def _manager(source_cfg: OceanicSourceConfig, *, data_dir: Path | None = None) -> OceanicManager:
-    return OceanicManager(
+def _manager(source_cfg: OceanicSourceConfig, *, data_dir: Path | None = None) -> OceanicVariable:
+    return OceanicVariable(
         config=OceanicConfig(sources=[source_cfg]),
-        catalog=None,
+        index=None,
         project_period=PERIOD,
         data_dir=data_dir,
     )
@@ -99,12 +99,12 @@ def test_a_named_station_survives_the_mask_the_loader_injects(tmp_path, monkeypa
         setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=watershed))
     )
 
-    DataManagersRuntimeLoader._apply_default_masks(config, result)
+    DataLoader._apply_default_masks(config, result)
     source = config.sources[0]
     assert source.mask_path == watershed, "the loader stopped injecting; this test is now vacuous"
 
-    OceanicManager(
-        config=config, catalog=None, project_period=PERIOD, data_dir=None
+    OceanicVariable(
+        config=config, index=None, project_period=PERIOD, data_dir=None
     )._fetch_from_source(source)
 
     assert captured["station_id"] == "152"

@@ -21,7 +21,7 @@ def test_simulation_regression_fast_boussinesq_divide_regression(update_goldens)
         config_stem="run_fast_boussinesq_divide",
         simulation_run_id="simulation_regression_fast_boussinesq_divide",
         process_id="flow_main",
-        simulation_name="Launcher fast Boussinesq divide regression",
+        simulation_name="launcher_fast_boussinesq_divide",
         simulation_description="Fast steady Boussinesq divide regression on a precomputed strip bundle",
         initial_head_m=7.0,
         west_head_m=None,

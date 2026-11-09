@@ -25,7 +25,6 @@ from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
 from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.catalog.registration import run_identity_hash
 from hydromodpy.results.checks import BUDGET_RULE, FROZE_BUDGET_ONLY, CalibratedBy
 from hydromodpy.results.derive import views
 from hydromodpy.results.derive.config_flags import config_option_for
@@ -43,6 +42,7 @@ from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.field_registry import FIELD_REGISTRY
 from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.readme import _checks_section, render_session_readme
+from hydromodpy.results.request_identity import RESTART_KEY, ZONE_RUN_KEY, request_id
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.contracts import Mesh, polygon_areas
 from hydromodpy.results.run.descent import (
@@ -2273,10 +2273,9 @@ def test_a_budget_only_search_promotes_a_calibrated_run_and_never_a_failed_one()
 
 # ``[flow] restart_from`` and the ``run`` of a ``[[mesh.refinement_zone]]`` name an
 # earlier run, and a bare name is its latest version. The frozen ``config.toml``
-# writes the sim_id instead. Hashing the text as written made the original and
-# its frozen copy hash apart, so ``hmp run --resume`` of an interrupted run
-# started over, and made two runs that read two versions of one source run hash
-# alike, so the second was skipped as identical.
+# writes the sim_id instead. The request id tells such a run by the state the new run
+# reads from it, so the original and its frozen copy ask alike, and two runs that
+# read two versions of one source run ask alike when the versions left the same state.
 ZONE = {"where": "watertable_depth", "below": 0.5, "cell_size": 25.0}
 
 
@@ -2300,8 +2299,20 @@ def _config(project_2: Path, *, zone_run: str | None = None, restart: Any = None
     return config
 
 
-def _hash(project_2: Path, **kwargs: Any) -> str | None:
-    return run_identity_hash(_config(project_2, **kwargs))
+ZONE_KEY = ZONE_RUN_KEY.format(index=0)
+
+
+def _hash(project_2: Path, *, state: str | None = None, **kwargs: Any) -> str:
+    """Return the request id of the configuration, the earlier run it reads told by *state*.
+
+    The name of the earlier run, its version and its ``sim_id`` count for nothing: the
+    digest of the state the run reads from it stands in their place.
+    """
+    states: dict[str, str] = {}
+    if state is not None:
+        key = ZONE_KEY if kwargs.get("zone_run") is not None else RESTART_KEY
+        states[key] = state
+    return request_id(_config(project_2, **kwargs), {}, edition="2.1", source_states=states or None)
 
 
 def test_a_reference_resolves_to_the_sim_id_of_a_sealed_run(project_2: Path) -> None:
@@ -2355,29 +2366,30 @@ def test_a_reference_to_nothing_is_left_as_written(project_2: Path) -> None:
     assert payload["flow"]["restart_from"] == "elsewhere"
 
 
-def test_a_zone_hashes_alike_by_name_and_by_sim_id(project_2: Path) -> None:
+def test_a_zone_is_told_by_the_state_it_reads_and_not_by_the_name_of_its_run(
+    project_2: Path,
+) -> None:
     sim_id = _sealed_3(project_2, "coarse")
 
-    assert _hash(project_2, zone_run="coarse") == _hash(project_2, zone_run=sim_id)
-    assert _hash(project_2, zone_run="coarse") == _hash(project_2, zone_run="coarse")
+    same = _hash(project_2, zone_run="coarse", state="d1")
+    assert same == _hash(project_2, zone_run=sim_id, state="d1")
+    assert same == _hash(project_2, zone_run="coarse.v2", state="d1")
+    assert same != _hash(project_2, zone_run="coarse", state="d2")
 
 
-def test_a_later_version_of_the_source_changes_the_hash_of_a_new_run(project_2: Path) -> None:
-    first = _sealed_3(project_2, "coarse")
-    before = _hash(project_2, zone_run="coarse")
+def test_a_later_version_of_the_source_changes_the_id_only_when_its_state_moves(
+    project_2: Path,
+) -> None:
+    _sealed_3(project_2, "coarse")
+    before = _hash(project_2, zone_run="coarse", state="d1")
 
-    second = _sealed_3(project_2, "coarse.v2")
+    _sealed_3(project_2, "coarse.v2")
 
-    assert _hash(project_2, zone_run="coarse") != before, "the bare name now reads the .v2"
-    assert _hash(project_2, zone_run="coarse") == _hash(project_2, zone_run=second)
-    assert _hash(project_2, zone_run=first) == before, "the sim_id of the first run still does not"
-
-
-def test_a_zone_on_a_run_that_does_not_exist_still_hashes(project_2: Path) -> None:
-    assert _hash(project_2, zone_run="nowhere") != _hash(project_2, zone_run="elsewhere")
+    assert _hash(project_2, zone_run="coarse", state="d1") == before
+    assert _hash(project_2, zone_run="coarse", state="d2") != before
 
 
-def test_a_hotstart_hashes_alike_in_every_form_that_names_one_run(project_2: Path) -> None:
+def test_a_hotstart_is_told_alike_in_every_form_that_names_one_state(project_2: Path) -> None:
     from hydromodpy.core.state.result_dirs import run_dir_rel
 
     sim_id = _sealed_3(project_2, "spinup")
@@ -2385,35 +2397,22 @@ def test_a_hotstart_hashes_alike_in_every_form_that_names_one_run(project_2: Pat
     table = {"sim_id": sim_id, "path": store}
     forms = ["spinup", sim_id, store, str(project_2 / store), table]
 
-    assert len({_hash(project_2, restart=form) for form in forms}) == 1
-    assert _hash(project_2, restart="spinup") != _hash(project_2, restart=None)
+    assert len({_hash(project_2, restart=form, state="d1") for form in forms}) == 1
+    assert _hash(project_2, restart="spinup", state="d1") != _hash(project_2, restart=None)
 
 
-def test_a_table_of_a_run_outside_this_project_hashes_by_its_sim_id(project_2: Path) -> None:
-    sim_id = "c" * 32
+def test_a_hotstart_moves_the_id_with_its_state(project_2: Path) -> None:
+    _sealed_3(project_2, "spinup")
 
-    table = {"sim_id": sim_id, "path": "runs/gone/fields.zarr"}
-
-    assert _hash(project_2, restart=table) == _hash(project_2, restart=sim_id)
-
-
-def test_a_later_version_of_the_hotstart_source_changes_the_hash(project_2: Path) -> None:
-    first = _sealed_3(project_2, "spinup")
-    before = _hash(project_2, restart="spinup")
-
-    second = _sealed_3(project_2, "spinup.v2")
-
-    assert _hash(project_2, restart="spinup") != before
-    assert _hash(project_2, restart="spinup") == _hash(project_2, restart=second)
-    assert _hash(project_2, restart={"sim_id": first, "path": "runs/spinup/fields.zarr"}) == before
-
-
-def test_a_configuration_without_a_project_root_hashes_as_written() -> None:
-    config = {"mesh": {"engine": "voronoi", "refinement_zone": [{**ZONE, "run": "coarse"}]}}
-
-    assert run_identity_hash(config) == run_identity_hash(
-        {"mesh": {"engine": "voronoi", "refinement_zone": [{**ZONE, "run": "coarse"}]}}
+    assert _hash(project_2, restart="spinup", state="d1") != _hash(
+        project_2, restart="spinup", state="d2"
     )
-    assert run_identity_hash(config) != run_identity_hash(
-        {"mesh": {"engine": "voronoi", "refinement_zone": [{**ZONE, "run": "other"}]}}
-    )
+
+
+def test_a_configuration_without_a_project_root_is_told_as_written() -> None:
+    def told(run: str) -> str:
+        document = {"mesh": {"engine": "voronoi", "refinement_zone": [{**ZONE, "run": run}]}}
+        return request_id(document, {}, edition="2.1")
+
+    assert told("coarse") == told("coarse")
+    assert told("coarse") != told("other")

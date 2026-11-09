@@ -2,7 +2,7 @@
 
 Twin of :mod:`~hydromodpy.data.variables.hydrography.resolver`, on the
 structures instead of the network. The notch is cut inside the geographic
-step, before any data manager, so it cannot read what ``LoadDataStep`` later
+step, before any data variable, so it cannot read what ``LoadDataStep`` later
 produces: it needs a concrete file on disk. Users therefore had to declare the
 crossings twice. This resolver fills ``[geographic.crossings] path`` from the
 data declaration when the geographic one is left empty.
@@ -13,7 +13,7 @@ twin it never hands back the user's own file: a custom file is read and
 normalized like the others, so the notch can rely on the columns.
 
 - A downloading source is asked over a bootstrap box around the outlet,
-  intersected with the DEM footprint, because the watershed the data manager
+  intersected with the DEM footprint, because the watershed the data variable
   clips against does not exist yet at this point in the pipeline.
 - A custom source resolves ``path`` against the TOML directory, and a folder
   gives its first vector file.
@@ -25,9 +25,10 @@ normalized like the others, so the notch can rely on the columns.
   and every source (a custom file by its path, size and modification time), so
   a changed input is a new file.
 
-The file is deliberately not registered in the data catalog, for the reasons
-the hydrography resolver gives: registering costs a ``hydromodpy.lock`` entry in
-frozen mode, and ``subsume_entries`` deletes what a box contains.
+The file has no sidecar, so it is no row of the data cache, for the reasons
+the hydrography resolver gives: a row costs a ``hydromodpy.lock`` entry in
+frozen mode, and ``subsume`` deletes what a box contains. It needs the data
+folder of the call (``cache_dir``), and is refused without one.
 """
 
 from __future__ import annotations
@@ -42,7 +43,6 @@ from typing import Any
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 
 logger = get_logger(__name__)
 
@@ -157,7 +157,12 @@ def resolve_crossings_path_from_data_sources(
         if str(source.source) in ("file", "custom")
     }
 
-    output_dir = Path(cache_dir) if cache_dir is not None else Path(_hmp_cache_dir()) / "crossings"
+    if cache_dir is None:
+        raise ConfigError(
+            "[data.crossings] merges its sources into one file and has no data folder to put "
+            "it in. Run it from a workspace or a project, whose data/ folder holds the cache."
+        )
+    output_dir = Path(cache_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / _file_name(sources, custom_files, bbox, str(crs_project))
     refresh = any(bool(getattr(source, "force_refresh", False)) for source in api_sources)
@@ -237,9 +242,6 @@ def _custom_file(source: Any, config_dir: Path) -> Path:
     if not candidate.is_absolute():
         candidate = (config_dir / candidate).resolve()
     return custom.vector_file(candidate)
-
-
-_file_source_file = _custom_file
 
 
 def _file_name(

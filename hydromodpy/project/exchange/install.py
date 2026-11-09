@@ -7,9 +7,9 @@ project for ``root = "project"``). Identical bytes already there cost
 nothing; an absent file is copied with its sidecar; the same path with other
 bytes is refused by name with both sha256. Station rows are merged into
 ``data/<variable>/<prefix>_<provider>_LOC.csv``. A file a provider delivered
-is registered in ``data/cache.duckdb`` with its provider and its key, so a
-run finds it instead of fetching it again; a station the cache already
-serves from other bytes is refused. Each site is merged into
+gets its sidecar completed with its provider and its key, so a run finds it
+instead of fetching it again; a station the cache already serves from other
+bytes is refused. Each site is merged into
 ``data/sites/catalog.csv``: a name the catalog holds with another outlet,
 or an outlet close to a site of another name, is refused by name.
 
@@ -39,8 +39,10 @@ from hydromodpy.core.payload import (
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.site import SiteRow
 from hydromodpy.core.workspace.resolve import locate_workspace_root
+from hydromodpy.data.provenance.lockfile import USER_FILE_SOURCE
+from hydromodpy.data.provenance.sidecars import CacheIndex
 
-DATA_CACHE_FILENAME: Final[str] = "cache.duckdb"
+DATA_DIRNAME: Final[str] = "data"
 
 _ADVICE: Final[str] = (
     "Nothing of the package was written. Move the file of your workspace aside, or import "
@@ -59,7 +61,7 @@ class InstallReport:
     stations_written: list[str] = field(default_factory=list)
     """Station rows added to a registry."""
     cache_registered: list[str] = field(default_factory=list)
-    """Destinations registered in ``data/cache.duckdb``."""
+    """Destinations whose sidecar now states their row of the data cache."""
     sites_added: list[str] = field(default_factory=list)
     """Sites added to ``data/sites/catalog.csv``."""
 
@@ -144,10 +146,22 @@ def _check_blobs(index: InstallIndex, blobs: Path) -> None:
                 )
 
 
+def _cache_problem(row: _CacheRow, data_root: Path) -> str | None:
+    """Return why the cache table of *row* cannot become a sidecar row, or None."""
+    values = row.row
+    if not values.get("variable") or not values.get("source"):
+        return f"{row.item.dest}: its cache table names no variable or no source"
+    if str(values["source"]) == USER_FILE_SOURCE:
+        return f"{row.item.dest}: a user file is no row of the data cache"
+    if not Path(row.path).resolve().is_relative_to(data_root):
+        return f"{row.item.dest}: a row of the data cache lies under data/ only"
+    return None
+
+
 def _plan_cache(
     workspace: Path, placements: Sequence[Placement]
 ) -> tuple[list[_CacheRow], list[str]]:
-    """Return the data cache rows to register, and the keys served by other bytes."""
+    """Return the cache rows to complete, and the keys served by other bytes."""
     rows = [
         _CacheRow(placement.item, placement.path, placement.item.cache)
         for placement in placements
@@ -155,86 +169,90 @@ def _plan_cache(
     ]
     if not rows:
         return [], []
-    catalog_path = workspace / "data" / DATA_CACHE_FILENAME
-    if not catalog_path.is_file():
-        return rows, []
-    from hydromodpy.data.registry import DataCatalogDuckDB
-
+    data_root = (workspace / DATA_DIRNAME).resolve()
+    index = CacheIndex(data_root)
     kept: list[_CacheRow] = []
     conflicts: list[str] = []
-    catalog = DataCatalogDuckDB(catalog_path, read_only=True)
-    try:
-        for row in rows:
-            station = row.row.get("station_id")
-            if station is None:
-                kept.append(row)
-                continue
-            entry = catalog.find_cached(
-                variable=str(row.row["variable"]), source=str(row.row["source"]), station_id=station
+    for row in rows:
+        problem = _cache_problem(row, data_root)
+        if problem is not None:
+            conflicts.append(problem)
+            continue
+        station = row.row.get("station_id")
+        if station is None:
+            kept.append(row)
+            continue
+        held = [
+            found
+            for found in index.rows(
+                variable=str(row.row["variable"]),
+                source=str(row.row["source"]),
+                station_id=str(station),
             )
-            served = None if entry is None else _served_file(catalog, entry, row.row)
-            if served is None or served.resolve() == row.path:
-                kept.append(row)
-                continue
-            found = sha256_of(served) if served.is_file() else entry.sha256
-            if found == row.item.sha256:
-                continue
-            conflicts.append(
-                f"{row.row['source']} {row.row['variable']} station {station}: the data cache "
-                f"serves {served.name} (sha256 {found}), the package brings {row.item.dest} "
-                f"(sha256 {row.item.sha256})"
-            )
-    finally:
-        catalog.close()
+            if not found.empty
+        ]
+        if not held or any(found.path == Path(row.path).resolve() for found in held):
+            kept.append(row)
+            continue
+        served = held[0]
+        found_sha256 = sha256_of(served.path) if served.path.is_file() else served.sha256
+        if found_sha256 == row.item.sha256:
+            continue
+        conflicts.append(
+            f"{row.row['source']} {row.row['variable']} station {station}: the data cache "
+            f"serves {served.path.name} (sha256 {found_sha256}), the package brings "
+            f"{row.item.dest} (sha256 {row.item.sha256})"
+        )
     return kept, conflicts
 
 
-def _served_file(catalog: Any, entry: Any, row: Mapping[str, Any]) -> Path | None:
-    """Return the file a cache entry names, or None for a sentinel."""
-    from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
-
-    if entry.file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
-        return None
-    return catalog.resolve_path(entry.file_path, variable=str(row["variable"]))
-
-
 def _register(workspace: Path, rows: Sequence[_CacheRow]) -> list[str]:
-    """Register each delivered file in ``data/cache.duckdb``, its own sidecar kept."""
+    """Complete the sidecar of each delivered file that lacks the row its package states."""
     if not rows:
         return []
-    from hydromodpy.data.registry import DataCatalogDuckDB
-
+    index = CacheIndex(workspace / DATA_DIRNAME)
     registered: list[str] = []
-    catalog = DataCatalogDuckDB(workspace / "data" / DATA_CACHE_FILENAME)
-    try:
-        for row in rows:
-            values = row.row
-            bbox = values.get("bbox")
-            catalog.register(
-                variable=str(values["variable"]),
-                source=str(values["source"]),
-                file_path=row.path,
-                station_id=values.get("station_id"),
-                bbox=tuple(float(value) for value in bbox) if bbox else None,
-                crs=values.get("crs"),
-                date_start=values.get("date_start"),
-                date_end=values.get("date_end"),
-                frequency=values.get("frequency"),
-                unit=values.get("unit"),
-                source_unit=values.get("source_unit"),
-                is_custom=False,
-                file_sha256=row.item.sha256,
-                fetch_metadata=_plain(values.get("fetch_metadata")),
-                write_sidecar=False,
-            )
+    for row in rows:
+        values = row.row
+        held = index.row_for(row.path)
+        if (
+            held is not None
+            and held.variable == str(values["variable"])
+            and held.source == str(values["source"])
+            and held.station_id == values.get("station_id")
+        ):
+            # The sidecar the package carried already holds the row: its bytes stay as shipped.
+            # One station keeps one row, so any other row of it leaves.
+            for other in index.rows(held.variable, held.source, held.station_id):
+                if other.path != held.path and held.station_id is not None:
+                    index.forget(other, delete_file=True)
             registered.append(row.item.dest)
-    finally:
-        catalog.close()
+            continue
+        bbox = values.get("bbox")
+        window = values.get("asked_window")
+        index.record(
+            row.path,
+            variable=str(values["variable"]),
+            source=str(values["source"]),
+            station_id=values.get("station_id"),
+            product=values.get("product"),
+            product_version=values.get("product_version"),
+            bbox=tuple(float(value) for value in bbox) if bbox else None,
+            crs=values.get("crs"),
+            date_start=values.get("date_start"),
+            date_end=values.get("date_end"),
+            asked_window=tuple(window) if window else None,
+            frequency=values.get("frequency"),
+            unit=values.get("unit"),
+            source_unit=values.get("source_unit"),
+            fetch_metadata=_plain(values.get("fetch_metadata")),
+        )
+        registered.append(row.item.dest)
     return registered
 
 
 def _plain(value: Any) -> Any:
-    """Return a TOML table as plain dicts and lists, the form the cache stores as JSON."""
+    """Return a TOML table as plain dicts and lists, the form a sidecar stores as JSON."""
     if isinstance(value, Mapping):
         return {str(key): _plain(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

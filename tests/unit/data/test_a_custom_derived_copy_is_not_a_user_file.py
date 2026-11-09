@@ -1,11 +1,10 @@
-"""A copy derived from a custom DEM or lake file never lands among the user's files.
+"""A copy derived from a DEM or lake file of the user is no file of the user and no row.
 
 The DEM converted from an ASC file, the lake-abacus Parquet pivot, the
-lake-bathymetry COG and the lake-geometry GeoParquet were written as
-``data/<var>/<var>_custom_<stem>.<ext>``: the name of a user drop-in file,
-which auto_scan ingests as user data, and one name per source stem whatever
-produced it. They now live under ``data/blobs/<var>/custom/`` with a name
-keyed on their inputs, and their sidecar lives and dies with them.
+lake-bathymetry COG and the lake-geometry GeoParquet live under
+``data/blobs/<var>/file/`` with a name keyed on their inputs. That folder is a
+place the scan of the data cache never enters, so a copy has no sidecar and
+is no row, and the folder of the variable keeps only what a download wrote.
 """
 
 from __future__ import annotations
@@ -16,23 +15,22 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.data.provenance.derived import custom_derived_dir, derived_path
-from hydromodpy.data.provenance.sidecars import load_sidecar, sidecar_path_for, unlink_with_sidecar
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.derived import derived_dir, derived_path
+from hydromodpy.data.provenance.sidecars import CacheIndex, scan, sidecar_path_for
 from hydromodpy.data.variables.dem.config import DemConfig, FileDemSource
 from hydromodpy.data.variables.dem.custom import load_custom_dem
-from hydromodpy.data.variables.dem.manager import DemManager
+from hydromodpy.data.variables.dem.variable import DemVariable
 from hydromodpy.data.variables.lake_abacus.config import (
     FileLakeAbacusSource,
     LakeAbacusConfig,
 )
 from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
-from hydromodpy.data.variables.lake_abacus.manager import LakeAbacusManager
+from hydromodpy.data.variables.lake_abacus.variable import LakeAbacusVariable
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-from hydromodpy.data.variables.lake_bathymetry.manager import LakeBathymetryManager
+from hydromodpy.data.variables.lake_bathymetry.variable import LakeBathymetryVariable
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.lake_geometry.custom import load_custom_lake_geometry
-from hydromodpy.data.variables.lake_geometry.manager import LakeGeometryManager
+from hydromodpy.data.variables.lake_geometry.variable import LakeGeometryVariable
 
 
 def _write_asc(path: Path, value: float = 82.0) -> Path:
@@ -79,7 +77,7 @@ class _Case:
         variable: str,
         file_name: str,
         write: Callable[[Path], Path],
-        manager: Callable[..., Any],
+        variable_class: Callable[..., Any],
         config: Callable[[Path], Any],
         kind: str,
         suffix: str,
@@ -88,7 +86,7 @@ class _Case:
         self.variable = variable
         self.file_name = file_name
         self.write = write
-        self.manager = manager
+        self.variable_class = variable_class
         self.config = config
         self.kind = kind
         self.suffix = suffix
@@ -100,7 +98,7 @@ _CASES = [
         "dem",
         "dem_custom_valley.asc",
         _write_asc,
-        DemManager,
+        DemVariable,
         lambda p: DemConfig(sources=[FileDemSource(path=p)]),
         "geotiff",
         ".tif",
@@ -110,7 +108,7 @@ _CASES = [
         "lake_abacus",
         "lake_abacus_custom_lac0.csv",
         _write_abacus,
-        LakeAbacusManager,
+        LakeAbacusVariable,
         lambda p: LakeAbacusConfig.from_csv(p, lake_id="lac0"),
         "pivot",
         ".parquet",
@@ -120,7 +118,7 @@ _CASES = [
         "lake_bathymetry",
         "lake_bathymetry_custom_lac0.asc",
         _write_asc,
-        LakeBathymetryManager,
+        LakeBathymetryVariable,
         LakeBathymetryConfig.from_raster,
         "cog",
         ".tif",
@@ -130,7 +128,7 @@ _CASES = [
         "lake_geometry",
         "lake_geometry_custom_lac0.gpkg",
         _write_lake_polygon,
-        LakeGeometryManager,
+        LakeGeometryVariable,
         LakeGeometryConfig.from_vector,
         "geoparquet",
         ".parquet",
@@ -140,7 +138,7 @@ _CASES = [
 
 
 @pytest.mark.parametrize("case", _CASES, ids=[c.variable for c in _CASES])
-def test_the_manager_writes_the_copy_under_blobs_and_the_sidecar_follows_it(
+def test_the_variable_writes_the_copy_under_blobs_and_it_is_no_row(
     tmp_path: Path, case: _Case
 ) -> None:
     data_root = tmp_path / "ws" / "data"
@@ -148,25 +146,23 @@ def test_the_manager_writes_the_copy_under_blobs_and_the_sidecar_follows_it(
     user_file = case.write(var_dir / case.file_name)
     before = sorted(p.name for p in var_dir.iterdir())
 
-    catalog = DataCatalogDuckDB(data_root / "cache.duckdb")
-    try:
-        manager = case.manager(config=case.config(user_file), catalog=catalog, data_dir=var_dir)
-        record = getattr(manager.load(), case.records)[0]
-        copy = Path(record.data)
+    index = CacheIndex(data_root)
+    variable = case.variable_class(config=case.config(user_file), index=index, data_dir=var_dir)
+    record = getattr(variable.load(), case.records)[0]
+    copy = Path(record.data)
 
-        assert copy.parent == data_root / "blobs" / case.variable / "custom"
-        assert copy.name.startswith(f"{user_file.stem}_{case.kind}_")
-        assert copy.suffix == case.suffix
-        assert sorted(p.name for p in var_dir.iterdir()) == before
-        assert load_sidecar(copy).source == "file"
-        assert sidecar_path_for(copy).parent == copy.parent
-    finally:
-        catalog.close()
+    assert copy.parent == data_root / "blobs" / case.variable / "file"
+    assert copy.name.startswith(f"{user_file.stem}_{case.kind}_")
+    assert copy.suffix == case.suffix
+    assert sorted(p.name for p in var_dir.iterdir()) == before
+    # Neither the user's file nor its copy is a row of the data cache.
+    assert not sidecar_path_for(copy).exists()
+    assert index.rows() == []
+    assert scan(data_root).rows == ()
 
-    unlink_with_sidecar(copy)
+    copy.unlink()
 
     assert not copy.exists()
-    assert not sidecar_path_for(copy).exists()
     assert user_file.is_file()
 
 
@@ -201,9 +197,9 @@ def test_two_lake_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
     rasters = [_write_asc(tmp_path / d / "lac0.asc") for d in ("a", "b")]
     vectors = [_write_lake_polygon(tmp_path / d / "lac0.gpkg") for d in ("a", "b")]
 
-    bathy_manager = LakeBathymetryManager(config=None, catalog=None)
+    bathy_variable = LakeBathymetryVariable(config=None, index=None)
     bathy = [
-        bathy_manager.read_file_source(
+        bathy_variable.read_file_source(
             LakeBathymetryConfig.from_raster(p).sources[0], derived_dir=derived
         )[0].data
         for p in rasters
@@ -234,5 +230,5 @@ def test_the_same_inputs_give_the_same_path(tmp_path: Path) -> None:
 def test_the_derived_dir_sits_under_blobs_beside_the_variable_folders(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
 
-    assert custom_derived_dir(data_root / "dem", "dem") == data_root / "blobs" / "dem" / "custom"
-    assert custom_derived_dir(None, "dem") is None
+    assert derived_dir(data_root / "dem", "dem") == data_root / "blobs" / "dem" / "file"
+    assert derived_dir(None, "dem") is None

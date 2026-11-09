@@ -14,10 +14,10 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.variables.geology.config import FileGeologySource, GeologyConfig
 from hydromodpy.data.variables.geology.custom import load_custom_geology
-from hydromodpy.data.variables.geology.manager import GeologyManager
+from hydromodpy.data.variables.geology.variable import GeologyVariable
 
 # Two units side by side near Rennes, drawn in Lambert-93.
 _UNITS_L93 = [
@@ -34,28 +34,22 @@ def _write_units_in_wgs84(path: Path) -> Path:
     return path
 
 
-def test_the_manager_clips_a_wgs84_file_with_a_lambert_mask(tmp_path: Path) -> None:
+def test_the_variable_clips_a_wgs84_file_with_a_lambert_mask(tmp_path: Path) -> None:
     data_root = tmp_path / "ws" / "data"
     user_file = _write_units_in_wgs84(data_root / "geology" / "units.gpkg")
     mask = tmp_path / "mask.gpkg"
     gpd.GeoDataFrame(geometry=[box(*_MASK_L93)], crs="EPSG:2154").to_file(str(mask))
 
-    catalog = DataCatalogDuckDB(data_root / "cache.duckdb")
-    try:
-        manager = GeologyManager(
-            config=GeologyConfig(
-                sources=[
-                    FileGeologySource(
-                        source="file", path=user_file, code_field="CODE", mask_path=mask
-                    )
-                ]
-            ),
-            catalog=catalog,
-            data_dir=data_root / "geology",
-        )
-        record = manager.load().fields[0]
-    finally:
-        catalog.close()
+    variable = GeologyVariable(
+        config=GeologyConfig(
+            sources=[
+                FileGeologySource(source="file", path=user_file, code_field="CODE", mask_path=mask)
+            ]
+        ),
+        index=CacheIndex(data_root),
+        data_dir=data_root / "geology",
+    )
+    record = variable.load().fields[0]
 
     clipped = gpd.read_file(str(record.data))
     assert sorted(clipped["CODE"]) == ["A", "B"]

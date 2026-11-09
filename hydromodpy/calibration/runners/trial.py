@@ -150,6 +150,14 @@ class TrialPipeline(Protocol):
     def load_document(self, path: Path | str) -> dict[str, Any]:
         """Load the merged TOML document with base_config resolved."""
 
+    def session_key(self, cfg: BaseModel) -> str | None:
+        """Return the solution key of the case *cfg* describes, its search kept.
+
+        The key a session seals and a plan compares: the request of the case with the
+        digests of its inputs, then the code, the solver binaries and the numeric
+        packages. ``None`` when the case cannot be told.
+        """
+
 
 _PIPELINE: TrialPipeline | None = None
 _INITIALIZER: str | None = None

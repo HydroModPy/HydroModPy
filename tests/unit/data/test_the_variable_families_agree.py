@@ -220,7 +220,7 @@ def test_a_local_source_answers_no_host() -> None:
 
 def test_an_opened_section_refuses_a_name_nothing_serves() -> None:
     """The registry check a config runs, read on one section of each opened family."""
-    from hydromodpy.data.managers.timeseries_config import registered_section_source
+    from hydromodpy.data.families.timeseries_config import registered_section_source
 
     with pytest.raises(ValueError, match="serves"):
         registered_section_source("not-a-source", "hydrometry")

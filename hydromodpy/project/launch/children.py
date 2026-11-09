@@ -8,14 +8,12 @@ it. This module reads what the launcher needs from each case file (its
 workflow and how many solves it runs side by side), starts the child with
 the environment of a launched case and its own log file, and closes what
 the child left behind: the outcome of a child that died without writing
-one (and the descriptor of its session, for a calibration), and its
-private data cache.
+one (and the descriptor of its session, for a calibration).
 """
 
 from __future__ import annotations
 
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -26,10 +24,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.layout import RUN_DATA_CACHE_FILENAME
 from hydromodpy.project.launch.env import LAUNCHED_ENV, child_environment
-from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME, CASE_LOGS_DIRNAME, Journal
+from hydromodpy.project.launch.journal import CASE_LOGS_DIRNAME
 from hydromodpy.project.launch.status import CaseState, case_state
 from hydromodpy.results.outcome import Outcome, OutcomeError, WrittenBy, read_outcome, write_outcome
 from hydromodpy.results.plan_store import StoredPlan
@@ -40,9 +36,6 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.storage.json_io import readable
 from hydromodpy.workflow.dispatch import WorkflowName, workflow_of_sections
-
-logger = get_logger(__name__)
-
 
 LOG_TAIL_LINES = 20
 """Lines of a child log kept in the journal when the run log says nothing."""
@@ -144,12 +137,6 @@ class Child:
     phase: str
     process: subprocess.Popen[bytes]
     log_path: Path
-    private_cache: Path
-
-
-def _private_cache_of(job_dir: Path, case: PlannedCase, phase: str) -> Path:
-    """Return the private data cache of one child: ``caches/<case>.<phase>/data-cache.duckdb``."""
-    return job_dir / CASE_CACHES_DIRNAME / f"{case.case_id}.{phase}" / RUN_DATA_CACHE_FILENAME
 
 
 def start_child(
@@ -165,11 +152,9 @@ def start_child(
     logs = job_dir / CASE_LOGS_DIRNAME
     logs.mkdir(parents=True, exist_ok=True)
     log_path = logs / f"{case.case_id}.{phase}.log"
-    cache = _private_cache_of(job_dir, case, phase)
     env = child_environment(
         os.environ if base_env is None else base_env,
         threads_per_case=threads_per_case,
-        private_cache=cache,
     )
     env[LAUNCHED_ENV] = "local"
     with log_path.open("ab") as log:
@@ -181,7 +166,7 @@ def start_child(
             stdout=log,
             stderr=subprocess.STDOUT,
         )
-    return Child(case=case, phase=phase, process=process, log_path=log_path, private_cache=cache)
+    return Child(case=case, phase=phase, process=process, log_path=log_path)
 
 
 def exit_of(returncode: int) -> tuple[int, int | None]:
@@ -286,36 +271,6 @@ def close_dead_child(project_root: Path, child: Child, exit_code: int, signal: i
     )
 
 
-def merge_child_cache(shared_cache: Path | None, child: Child, *, journal: Journal) -> int | None:
-    """Merge the private cache of a reaped child into the shared cache; remove it.
-
-    Return the entries merged, or ``None`` when the merge failed. A failed
-    merge fails this case only: it is journaled (``merge_failed``) and the
-    private cache stays on disk for a later look, so the launch goes on with
-    the other cases.
-    """
-    from hydromodpy.data.registry.catalog_duckdb import merge_private_cache
-
-    private = child.private_cache
-    merged = 0
-    if shared_cache is not None and private.is_file():
-        try:
-            merged = merge_private_cache(shared_cache, private)
-        except Exception as exc:  # noqa: BLE001 - one unreadable cache must not end the launch
-            logger.warning("Private cache of %s not merged: %s", child.case.case_id, exc)
-            journal.append(
-                "merge_failed",
-                case_id=child.case.case_id,
-                phase=child.phase,
-                private_cache=str(private),
-                error=f"{type(exc).__name__}: {exc}",
-            )
-            return None
-    # The folder holds the private file, its write-ahead log and its backups only.
-    shutil.rmtree(private.parent, ignore_errors=True)
-    return merged
-
-
 def state_of(project_root: Path, case: PlannedCase) -> CaseState:
     """Return what the directories of *case* say now."""
     return case_state(project_root, case.case_id)
@@ -330,7 +285,6 @@ __all__ = [
     "dead_worker_message",
     "exit_of",
     "log_tail",
-    "merge_child_cache",
     "planned_cases",
     "prepare_command",
     "start_child",

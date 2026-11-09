@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.exceptions import ImportConflictError
+from hydromodpy.core.exceptions import ConfigError, ImportConflictError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.catalog.registration import (
     NameTakenError,
@@ -22,7 +22,6 @@ from hydromodpy.results.catalog.registration import (
     import_publication,
     rename_case,
     run_dir_holding,
-    run_identity_hash,
     split_stem_version,
 )
 from hydromodpy.results.outcome import Outcome, write_outcome
@@ -31,6 +30,7 @@ from hydromodpy.results.publication import (
     PublicationSource,
     write_publication,
 )
+from hydromodpy.results.request_identity import request_id
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
 from hydromodpy.results.trash import DirectoryInUseError, gc_trash, read_tombstones, trash_run
 from tests._helpers.sealed_runs import manifest_document
@@ -91,16 +91,20 @@ def _publish(source: Path, destination: Path, *, rel_dir: str, sim_id: str) -> P
     return destination
 
 
-def test_the_identity_hash_leaves_the_workspace_out() -> None:
+def _request_id(document: dict) -> str:
+    return request_id(document, {}, edition="2.1")
+
+
+def test_the_request_id_leaves_the_workspace_out() -> None:
     base = {"flow": {"k": 1e-5}, "workspace": {"project_root": "/a", "root": "/ws"}}
     moved = {"flow": {"k": 1e-5}, "workspace": {"project_root": "/b", "catalog_path": "/x"}}
     other = {"flow": {"k": 2e-5}, "workspace": {"project_root": "/a"}}
-    assert run_identity_hash(base) == run_identity_hash(moved)
-    assert run_identity_hash(base) != run_identity_hash(other)
+    assert _request_id(base) == _request_id(moved)
+    assert _request_id(base) != _request_id(other)
 
 
-def test_the_name_is_not_part_of_the_identity() -> None:
-    assert run_identity_hash({"simulation": {"name": "a"}, "flow": {"k": 1}}) == run_identity_hash(
+def test_the_name_is_not_part_of_the_request_id() -> None:
+    assert _request_id({"simulation": {"name": "a"}, "flow": {"k": 1}}) == _request_id(
         {"simulation": {"name": "b"}, "flow": {"k": 1}}
     )
 
@@ -164,8 +168,10 @@ def test_a_rename_refuses_a_trial_and_a_name_that_is_no_directory(tmp_path: Path
     _make_run(project, "a")
     with pytest.raises(ValueError, match="kept trial"):
         rename_case(project, "sessions/cal/trials/0004", "x")
-    with pytest.raises(ValueError, match="not a directory name"):
+    with pytest.raises(ConfigError, match="Write 'two_words'"):
         rename_case(project, "runs/a", "two words")
+    with pytest.raises(ConfigError, match="device name"):
+        rename_case(project, "runs/a", "con")
 
 
 def test_a_published_directory_is_imported_under_the_next_version(tmp_path: Path) -> None:

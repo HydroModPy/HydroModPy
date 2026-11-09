@@ -127,7 +127,7 @@ kind = "constant_thickness"
 thickness = "30.0 m"
 
 [simulation]
-name = "sfr cheze e2e"
+name = "sfr_cheze_e2e"
 
 [simulation.results]
 keep_solver_files = true

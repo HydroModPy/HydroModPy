@@ -38,9 +38,6 @@ CASES_FILENAME = "cases.txt"
 CASE_LOGS_DIRNAME = "logs"
 """Standard output of each child process, ``jobs/<stamp>-local/logs/<case>.log``."""
 
-CASE_CACHES_DIRNAME = "caches"
-"""Private data caches of the children, ``jobs/<stamp>-local/caches/<case>/``, until merged."""
-
 FAILED_STATUSES = frozenset({"failed", "aborted", "stale"})
 """Statuses ``hmp project log --failed`` keeps."""
 
@@ -228,7 +225,6 @@ def _case_end_of(
 
 __all__ = [
     "CASES_FILENAME",
-    "CASE_CACHES_DIRNAME",
     "CASE_LOGS_DIRNAME",
     "FAILED_STATUSES",
     "JOURNAL_FILENAME",

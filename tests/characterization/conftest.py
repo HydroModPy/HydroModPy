@@ -99,15 +99,16 @@ def live_project(tmp_path_factory: pytest.TempPathFactory):
     because the CLI already destroyed everything by the time it returns. This
     one keeps the runtime state alive after a real simulation.
     """
+    from hydromodpy.config.loading import load
     from hydromodpy.project.facade import Project
 
     assert_required_executables(require_modflow=True, require_modpath=False)
     workspace = tmp_path_factory.mktemp("characterization_live")
     with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("HMP_PROJECT_ROOT", str(workspace))
         patch.setenv("HMP_WORKSPACE", str(workspace))
         patch.setenv("MPLBACKEND", "Agg")
-        project = Project(CHARACTERIZATION_PROJECT, headless=True, no_display=True)
+        # The project is the folder named by argument, as `hmp run --base` names it.
+        project = Project(load(CHARACTERIZATION_PROJECT, workspace), headless=True, no_display=True)
         project.simulate(name="characterization_live")
         try:
             yield project

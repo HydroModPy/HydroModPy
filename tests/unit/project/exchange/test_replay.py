@@ -182,7 +182,7 @@ def test_a_file_a_provider_delivered_refuses_the_replay_and_names_the_import(
     assert "hmp catalog import" in str(refused.value)
 
 
-def test_hmp_run_frozen_on_a_copy_replays_into_the_project_named_by_w(tmp_path: Path) -> None:
+def test_hmp_run_frozen_on_a_copy_replays_into_the_project_w_names(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     before = sorted(path.name for path in copy.iterdir())
     project = tmp_path / "replay"

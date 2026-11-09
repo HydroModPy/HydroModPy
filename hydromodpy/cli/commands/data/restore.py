@@ -1,4 +1,4 @@
-"""``hmp data restore`` - thin wrapper around :func:`hydromodpy.restore_data_cache`."""
+"""``hmp data restore`` - thin wrapper around :func:`hydromodpy.data.request.cache_verbs.restore_data_cache`."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument("input", help="Archive produced by 'hmp data archive'")
     add_destination(
         parser,
-        help="Folder to restore into (default: data/imported of the workspace)",
+        help="Folder to restore into (default: data/ of the workspace)",
         metavar="DIR",
     )
     parser.set_defaults(_handler=run)
@@ -36,7 +36,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli.helpers import resolve_workspace
-    from hydromodpy.project.lock import restore_data_cache
+    from hydromodpy.data.request.cache_verbs import restore_data_cache
 
     src = args.input
     dest = restore_data_cache(src, workspace_root=resolve_workspace(args.workspace), to=args.to)

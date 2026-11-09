@@ -1,4 +1,4 @@
-"""``hmp data prune`` - thin wrapper around :func:`hydromodpy.prune_data_cache`."""
+"""``hmp data prune`` - drop the old rows of the cache, never a file a run or a lockfile cites."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from hydromodpy.cli.helpers import confirm
 from hydromodpy.cli.output import emit
 
 NAME: str = "prune"
-HELP: str = "Drop cache entries older than N days"
+HELP: str = "Drop cache rows older than N days, except the files a run or a lockfile cites"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -35,31 +35,54 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--older-than", type=int, default=30, help="Age threshold in days (default: 30)"
     )
-    parser.add_argument("--delete-files", action="store_true", help="Also delete the files on disk")
+    parser.add_argument(
+        "--delete-files",
+        action="store_true",
+        help="Also delete the files. Without it only the sidecars go, and the files are no rows",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli.helpers import resolve_workspace
-    from hydromodpy.data.request.cache_verbs import prune_data_cache
+    from hydromodpy.project.data_cache import prune_data
 
+    workspace = resolve_workspace(args.workspace)
+    options = {"older_than_days": args.older_than, "delete_files": args.delete_files}
     if not args.dry_run:
+        # The dry run reads every run and lockfile first, so one that cannot be read
+        # refuses here, before anything is asked or removed.
+        preview = prune_data(workspace, dry_run=True, **options)
         confirm(
             args,
-            f"Drop the cache entries older than {args.older_than} day(s)?",
+            f"Drop {len(preview.removed)} cache row(s) older than {args.older_than} day(s)?",
             doing="prune the cache",
         )
-    n = prune_data_cache(
-        resolve_workspace(args.workspace),
-        older_than_days=args.older_than,
-        delete_files=args.delete_files,
-        dry_run=args.dry_run,
-    )
+    report = prune_data(workspace, dry_run=args.dry_run, **options)
+    removed, kept = len(report.removed), [str(path) for path in report.kept_cited]
     verb = "Would prune" if args.dry_run else "Pruned"
+
+    def table() -> None:
+        print(f"  {verb} {removed} row(s) older than {args.older_than} day(s).")
+        if report.orphans:
+            leaves = "would leave" if args.dry_run else "left"
+            print(f"  {len(report.orphans)} sidecar(s) without a file {leaves} the cache.")
+        if kept:
+            print(f"  Kept {len(kept)} file(s) that a run or a lockfile cites:")
+            for path in kept:
+                print(f"    {path}")
+
     emit(
         args,
         "data prune",
-        {"applied": not args.dry_run, "older_than_days": args.older_than, "removed": n},
-        table=lambda: print(f"  {verb} {n} entry(ies) older than {args.older_than} day(s)."),
+        {
+            "applied": not args.dry_run,
+            "older_than_days": args.older_than,
+            "removed": removed,
+            "kept": kept,
+            "orphans": len(report.orphans),
+            "user_files": report.user_files,
+        },
+        table=table,
     )

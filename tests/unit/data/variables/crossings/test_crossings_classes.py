@@ -29,7 +29,7 @@ from hydromodpy.data.variables.crossings import records  # noqa: E402
 from hydromodpy.data.variables.crossings.apis import bdtopo, roe  # noqa: E402
 from hydromodpy.data.variables.crossings.apis.bdtopo import BdTopoCrossings  # noqa: E402
 from hydromodpy.data.variables.crossings.apis.roe import RoeCrossings  # noqa: E402
-from hydromodpy.data.variables.crossings.manager import cache_file_name  # noqa: E402
+from hydromodpy.data.variables.crossings.variable import cache_file_name  # noqa: E402
 
 BOX = (340000.0, 6800000.0, 350000.0, 6810000.0)
 EXTENT = Extent(xmin=BOX[0], ymin=BOX[1], xmax=BOX[2], ymax=BOX[3], crs="EPSG:2154")

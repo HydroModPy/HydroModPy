@@ -79,6 +79,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp.check(source, partial=True, inputs=False, environment=None)` checks a project file or a document from Python and returns its list of `Diagnostic`. On a file it gives the line of each key, and once the file has no error and nothing left to fill it adds the findings of the calibration preflight.
 - `hmp config check --partial` checks a draft, where a missing required key is `to_fill` and refuses nothing. `--inputs` reads the header of each input file, of every case of a `[sites]` project too, and `--lang fr` writes the phrases in French.
 - `hmp.check(..., inputs=True)` reads the header of each input file the document names. A local file is opened in a rasterio `Env` of the call. A URL goes through the head-only resolution of `core.io.fetch` under the bounds of the call, then GDAL reads the final URL by `/vsicurl/`, so GDAL never sees the first URL, and a URL without bounds is refused. A DEM must declare a projected CRS in metres, a square pixel and a grid that is not rotated, and the outlet must fall on a valid cell.
+- `hmp run` accepts a `.json` request, the serialized form of `RunRequest` (schema `hydromodpy.request.v1`), and takes `--base`, the folder its relative paths are read from. A Docker run is the same command inside the image.
+- `hmp.run`, `hmp.calibrate` and `hmp.spinup` take a dict or JSON text with `base=`, through the same loader as a TOML file, and `Project(config, base=)` does the same.
+- `hmp.calibrate` and `Project.calibrate` take `force=`. Without it, a calibration that a completed session of its case and of the same solution key answers gives back the report of that session, read from its folder, `extra["identical_to"]` naming it, and nothing runs. `hmp run` on a calibration file does the same and says so, and `hmp run --force` searches again.
+- `hmp project new` creates `inputs/` and `configs/` in the project.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -417,6 +421,39 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp doctor --fix-config` reads the retired keys from the check codes, and says which old forms it cannot rewrite.
 - `preflight_calibration`, `preflight_launch` and `refuse_what_the_preflight_refuses` give `Diagnostic` objects of code `calibration_preflight` in place of `PreflightFinding`, which is removed. The key sits in `path` as a dotted key such as `calibration.parameters.K`, and the text that followed a key in brackets, a phase name or the word bounds, opens `detail`. The refusal of a launch carries its error diagnostics in `ConfigError.diagnostics`, with the same message.
 
+- The modules of the data variables are `variable.py`, and their classes end in `Variable` instead of `Manager`. `hydromodpy.data.managers`, which was private, is `hydromodpy.data.families`, and `DataManagersRuntimeLoader` is `DataLoader`. The old module path of a variable is refused with the new one named.
+- `hydromodpy.lock` records the source, the product and the licence of each input, and the user files the configurations declare, the cases of the current plan of a `[sites]` project included (schema `hydromodpy.lock.v2`). It has no `[binaries]` and no `file_mtime`. A lockfile `hydromodpy.lock.v1` is refused. Write it again with `hmp data lock`.
+- `hmp lock update` is now `hmp data lock`, and `hmp lock verify` is `hmp data lock --check [--strict]`. The old forms are refused with the new one named.
+- `hmp data prune` never removes a file that a sealed run, a kept trial or a lockfile cites, and names it. It reads the digests from the runs of every project of the workspace, and it removes nothing when the inputs of a run or a lockfile cannot be read. The guarantee is held by `hydromodpy.project.data_cache.prune_data`.
+- A cached file whose size or date changed is fetched again only when its sha256 changed, so a copy of a workspace by `cp` no longer fetches its files again.
+- A data request, and a call of a DEM, geology or crossings variable without a data folder, no longer cache a download under the user cache of the machine. The file goes under the data folder of the call, `data/` of a project without a workspace, and a call that has none is refused with a sentence that says so. The user cache (`HMP_CACHE_HOME`) holds no input data any more, only the solver binaries, the downloaded examples and the code fingerprints.
+- A file of the user is read where it lies and is no row of the data cache. A copy made from it goes under `data/blobs/<variable>/file/` (it was `blobs/<variable>/custom/`) and has no sidecar. The sidecar a user writes beside such a file may name only its source and its licence.
+- In frozen mode, a user file that `hydromodpy.lock` does not pin by path and digest is refused when it is read.
+- A station chronicle is written beside its name and renamed in place under the file lock of its station, so two cases of a `[sites]` launch that fetch one station leave one file and one sidecar.
+- The machine output of `hmp data ls` is `hmp.data.ls.v2`. It has no `id`, `file_mtime`, `is_custom` or `file_path`, and gains `product`, `path` and `license`.
+- `hmp data restore` puts the files and their sidecars into `data/` of the workspace by default, not `data/imported/`.
+- `hmp workspace clean --data-cache` removes `data/blobs` and the data cache database of 2.0.0 with its journal and lock. It never removes the sidecars or the files they describe.
+- The geology legend of the catchment report falls back on the GeoPackages of the BRGM in the data folder of the run, no longer in the user cache.
+- Two runs are identical when their request, the digest and state of every input, the code, the solver binaries and the numeric packages agree. The address of a URL and the path of a file no longer count. A run that 2.0 would have skipped runs once again.
+- `identity.config_hash` of a seal and the hash of a calibration session now hold the solution key (request, inputs, code, solver binaries, numeric packages).
+- A configuration given as a dict or JSON text needs `base=`, and the current folder is never used. JSON text is read as a file is, with the same refusals.
+- `HMP_PROJECT_ROOT` is no longer read. Pass `-w`, `--base` or `base=` instead.
+- Project and run names follow one rule: lower case letters, digits, `_` and `-`, forty characters at most, no doubled `_` and no name Windows reserves. A name written otherwise is refused with the name to write. A name the code makes from a file stem, a validation case or a site and a recipe is folded to it.
+- A run claims its directory first, then writes `request.json` and `config.toml`, resolves its inputs and writes its request id in `outcome.json`, and only then looks for an identical completed run. A run given back as identical leaves no directory behind, and `if_exists = "fail"` is read after that search.
+- A run asked to resume whose configuration changed since its checkpoint is refused with `ResumeError`, which names the sections that moved. A plain relaunch under the same name starts over.
+- `outcome.json` of a calibration session omits `request_id` while it has none.
+- `hmp run` names the run of a file without `[simulation].name` from the file name, as the API does (`run_unnamed.toml` gives `unnamed`).
+- `--set export=[]`, a top-level section given without a dot, is applied as a path again.
+- `outcome.json` carries `request_id` once the inputs of an attempt are resolved, and a retry whose request changed starts over. A retry that is given back as identical puts back what the attempt before it was asked.
+- `config.toml` of a run is written once, at the claim, so a run that fails before the mesh can be resumed. `config.resolved.toml` is written by the prepare step.
+- `hmp spinup`, `hmp calibrate`, `hmp config check` and `hmp config targets` take the project `-w` names as their base by argument, and `hmp run` also takes `--base`. `-w` and `--base` are passed to the sub-processes that run a case.
+- A plan names its cases after the site and the recipe folded to a run name. Two cases that fold to one name, or a name over forty characters, refuse the plan.
+- `hmp report catchment` accepts `-w` and does not read it. The runs it starts take the project of their own file.
+- `hmp calibrate` with `--set`, `--overlay` or `--case` reads the changed document once and writes no copy of the file. `--dry-run`, `--list-phases` and `--expand` read its `[calibration]` section only, as they read the file.
+- `hmp.check` takes `base=`, and a document in memory is refused without one.
+- Validation run names are forty characters at most.
+- `hmp run --format json` gives the mesh summary of a run that built a mesh in `result` again, as 2.0 did.
+- The documentation describes the run request, the base of relative paths, `request.json`, the request id in `outcome.json`, the claim at the start of a run, the run name rule and the Docker command.
 ### Removed
 
 - The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds; `pip install "hydromodpy~=2.0.0"` then `hmp doctor --fix-config` rewrites it. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.3.0.
@@ -510,6 +547,14 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.config.export_checks`: its two checks are rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`. `require_site_for_real_catchment` and `REAL_CATCHMENT_DEFINITIONS` moved there from `hydromodpy.config.hydromodpy_config`.
 - `hmp config validate-field`, which had no handler. Use `hmp config check --partial`, or `hmp.check` from Python.
 - `hydromodpy.project.check` (`check_project`, `CheckReport`), replaced by `hydromodpy.project.api.check`, which returns a list of `Diagnostic`.
+- The data cache database `data/cache.duckdb` and `hydromodpy.data.registry`. The sidecar next to each fetched file is the cache entry. A data folder that still holds a `cache.duckdb` of 2.0.0 is refused with a sentence that names `hmp workspace clean --data-cache`.
+- The private data cache of each case of a `[sites]` launch. A case writes its files and their sidecars in the shared data folder, one station at a time under a file lock.
+- `hmp data add`. A user file goes under `inputs/` and is named by a `source = "file"` block, and an ASC raster is converted when it is read. `hydromodpy.data.ingest.convert_timeseries_csv_to_parquet` and `hydromodpy.data.request.cache_verbs.add_data_entry` leave with it.
+- `hydromodpy.project.lock`. Its verbs are `lock_data`, `verify_data_lock` and `prune_data` in `hydromodpy.project.data_cache`, and `hydromodpy.data.request.cache_verbs.prune_data_cache` leaves for `prune_data`.
+- `HMP_AUTO_MIGRATE` and `HMP_DATA_CACHE_PRIVATE`.
+- `hydromodpy.core.contracts.data_cache_backend`, `DATA_CACHE_FILENAME`, `RUN_DATA_CACHE_FILENAME` and `data_cache_path_for` of `hydromodpy.core.state.layout`, and `CACHE_INDEX` of `hydromodpy.schema.sources`. The data cache has no database.
+- The temporary `.hmp_effective_*.toml` copy that `--set` and `--overlay` wrote beside the file, and `hydromodpy.cli.effective_toml`, whose parts live in `hydromodpy.config.loading` and `hydromodpy.cli.helpers`.
+- `run_dirname`, `MAX_DIRNAME_LEN` and `RunNameTooLongError`, replaced by `check_name` and `MAX_NAME_LENGTH` of `hydromodpy.core.state.names`.
 ### Fixed
 
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.
@@ -521,6 +566,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   a first run. Before, only a path worked there.
 - The frozen config of a run whose catchment reads its DEM from `[[data.dem.sources]]` validates again.
 - MODPATH and MT3DMS build their deck again, and the `seepage_clip` release raster reads the water table cell by cell.
+- `hmp run --frozen` replays a station that answered nothing. `hydromodpy.lock` pins it as an input with `empty = true` and no sha256, and an empty answer the lockfile does not pin is refused. In 2.0.0 every such station was refused, because the lockfile could not pin it.
 
 ### Numbers
 

@@ -24,9 +24,9 @@ scripts in `templates/*.sh` (and the copies users keep in `jobs/`) call it with
 | `lease.py` | who holds the project right now: `.hmp/launcher.lease`, one launcher per project (`acquire_lease`, `launcher_lease`) |
 | `selection.py` | which cases start, with which worker flags, within which budget of solves (`select_cases`, `worker_flags`, `effective_parallel`) |
 | `env.py` | the environment and thread budget of a case process (`child_environment`, `apply_thread_budget`) |
-| `children.py` | the cases as the launcher sees them (`planned_cases`), the worker processes it starts (`start_child`), the three environment options each worker line carries (`worker_command`), and what a silent death leaves (`close_dead_child`, `merge_child_cache`) |
-| `prepare.py` | the data of every case, fetched before any solve; the private caches merged into the shared one (`prepare_cases`, `write_lockfile_once`) |
-| `lockfile.py` | `write_project_lockfile`: the `hydromodpy.lock` written once after the prepare phase |
+| `children.py` | the cases as the launcher sees them (`planned_cases`), the worker processes it starts (`start_child`), the three environment options each worker line carries (`worker_command`), and what a silent death leaves (`close_dead_child`) |
+| `prepare.py` | the data of every case, fetched before any solve into the one `data/` folder of the project, where each station is written under its own lock (`prepare_cases`, `write_lockfile_once`) |
+| `lockfile.py` | `write_project_lockfile`: the `hydromodpy.lock` written once after the prepare phase, from the sidecars |
 | `local.py` | the local launcher: plan, prepare, one process per case, count, index (`plan_project`, `run_plan`) |
 | `journal.py` | `jobs/<stamp>-<scheduler>/`, its `journal.jsonl` and the frozen `cases.txt` (`new_job_dir`, `Journal`, `read_journal`, `case_for_task`) |
 | `slurm.py` | the SLURM array of a plan: `write_slurm_array`, and the commands the scripts call (`task_flags`, `write_lock`, `finish_task`, `main`) |

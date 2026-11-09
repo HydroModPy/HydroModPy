@@ -2,6 +2,9 @@
 
 Serves user-provided files or directories across all data sections.
 A path is verified against execution bounds and sealed into FileRecord instances.
+The files are read where they lie: this source writes nothing, and a file of the
+user is no row of the data cache. In frozen mode each file must be one that
+``hydromodpy.lock`` pins, by its path and then its digest.
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.data.provenance.lockfile import USER_FILE_SOURCE, reject_frozen_user_file
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -27,7 +31,7 @@ if TYPE_CHECKING:
 class FileSource:
     """Generic DataSource reading user-provided local files or directories."""
 
-    source_id: ClassVar[str] = "file"
+    source_id: ClassVar[str] = USER_FILE_SOURCE
     section: ClassVar[str] = ""
     payload_kind: ClassVar[PayloadKind] = "files"
     extent_crs: ClassVar[str] = "EPSG:2154"
@@ -72,6 +76,9 @@ class FileSource:
             records = tuple(FileRecord.of(f, state=None, origin="file") for f in files)
         else:
             records = ()
+
+        for record in records:
+            reject_frozen_user_file(variable=self.section, path=Path(record.path))
 
         return FetchResult(
             source_id=self.source_id,

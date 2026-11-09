@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
+from hydromodpy.data.variables.oceanic.variable import OceanicVariable
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
-from hydromodpy.data.variables.recharge.manager import RechargeManager
+from hydromodpy.data.variables.recharge.variable import RechargeVariable
 
 PERIOD = (datetime(2020, 1, 1), datetime(2020, 1, 31))
 MISSING_MASK = Path("/nonexistent/watershed.shp")
@@ -21,7 +21,7 @@ MISSING_MASK = Path("/nonexistent/watershed.shp")
 
 def test_a_constant_sea_level_ignores_a_missing_mask() -> None:
     cfg = OceanicSourceConfig(source="constant", value=0.3, mask_path=MISSING_MASK)
-    manager = OceanicManager(config=None, catalog=None, project_period=PERIOD)
+    manager = OceanicVariable(config=None, index=None, project_period=PERIOD)
 
     records = manager._fetch_from_source(cfg)
 
@@ -30,7 +30,7 @@ def test_a_constant_sea_level_ignores_a_missing_mask() -> None:
 
 def test_a_synthetic_recharge_ignores_a_missing_mask() -> None:
     cfg = RechargeSourceConfig(source="synthetic", values=[1.0], mask_path=MISSING_MASK)
-    manager = RechargeManager(config=None, catalog=None, project_period=PERIOD)
+    manager = RechargeVariable(config=None, index=None, project_period=PERIOD)
 
     records = manager._fetch_from_source(cfg)
 

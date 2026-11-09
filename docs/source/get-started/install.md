@@ -125,6 +125,27 @@ import hydromodpy
 print(hydromodpy.__version__)
 ```
 
+## Run in Docker
+
+The `Dockerfile` of the repository builds a slim image whose entry point is `hmp`, so a container
+runs the same program as the command line. Build it from a clone:
+
+```bash
+docker build -t hydromodpy .
+```
+
+A run request is one JSON file that holds the configuration under `config`. A container plays it
+from a project folder you mount, and `--base` names the folder its relative paths are read from:
+
+```bash
+docker run --rm -v "$PWD/project:/project" hydromodpy run /project/request.json --base /project
+```
+
+The image ships no solver binary. They download into `/home/hmp/.cache/hydromodpy/bin/` at the
+first run and are lost when the container stops, so add `-v hmp-cache:/home/hmp/.cache/hydromodpy`
+to keep them. The run folder, `request.json` included, is written under `/project/runs/`. The
+request itself is described in {doc}`../contribute/architecture/how-to/build-a-frontend`.
+
 ## Tested platforms
 
 The continuous integration of the repository runs these jobs. A platform that is not listed

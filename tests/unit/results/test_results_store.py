@@ -85,9 +85,9 @@ class TestFullCycle:
             sz.close()
 
     def test_list_simulations(self, runs):
-        runs.open("run_A")
+        runs.open("run_a")
         df = runs.catalog().list_simulations()
-        assert list(df["name"]) == ["run_A"]
+        assert list(df["name"]) == ["run_a"]
         assert runs.catalog().list_simulations(solver="gr4j").empty
 
     def test_every_version_of_a_name_stays_listed(self, runs):

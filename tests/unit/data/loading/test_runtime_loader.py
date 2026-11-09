@@ -11,12 +11,12 @@ import pytest
 
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.loading.plan import DataLoadPlan
 
 
-def _plain_loader(tmp_path: Path) -> DataManagersRuntimeLoader:
-    return DataManagersRuntimeLoader(
+def _plain_loader(tmp_path: Path) -> DataLoader:
+    return DataLoader(
         config_path=tmp_path / "launcher.toml",
         data_plan=DataLoadPlan(),
     )
@@ -50,8 +50,8 @@ def _ctx(**kwargs: Any) -> WorkflowContext:
     return cast(WorkflowContext, SimpleNamespace(**kwargs))
 
 
-def _build_loader(tmp_path: Path, window: tuple[str, str] | None) -> DataManagersRuntimeLoader:
-    loader = DataManagersRuntimeLoader(
+def _build_loader(tmp_path: Path, window: tuple[str, str] | None) -> DataLoader:
+    loader = DataLoader(
         config_path=tmp_path / "launcher.toml",
         data_plan=DataLoadPlan(),
     )
@@ -143,8 +143,8 @@ def test_config_spec_without_dates_has_no_period(tmp_path: Path) -> None:
     assert period is None
 
 
-def _geology_loader() -> DataManagersRuntimeLoader:
-    return DataManagersRuntimeLoader(
+def _geology_loader() -> DataLoader:
+    return DataLoader(
         config_path=__file__,
         data_plan=DataLoadPlan(explicit_types=("geology",)),
     )
@@ -203,7 +203,7 @@ def test_geology_request_mask_covers_the_buffered_domain_box(tmp_path):
         watershed_box_buff_dem=str(box_dem),
         watershed_shp=str(tmp_path / "watershed.shp"),
     )
-    assert DataManagersRuntimeLoader._geology_request_mask(geographic) == box_dem
+    assert DataLoader._geology_request_mask(geographic) == box_dem
 
 
 def test_geology_request_mask_falls_back_to_the_watershed(tmp_path):
@@ -212,6 +212,4 @@ def test_geology_request_mask_falls_back_to_the_watershed(tmp_path):
         watershed_box_buff_dem=str(tmp_path / "absent.tif"),
         watershed_shp=str(tmp_path / "watershed.shp"),
     )
-    assert DataManagersRuntimeLoader._geology_request_mask(geographic) == (
-        tmp_path / "watershed.shp"
-    )
+    assert DataLoader._geology_request_mask(geographic) == (tmp_path / "watershed.shp")

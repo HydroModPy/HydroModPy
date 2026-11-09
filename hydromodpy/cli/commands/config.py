@@ -30,7 +30,7 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
-    project_named_by_w,
+    base_named_by_w,
     refuse,
 )
 from hydromodpy.cli.output import emit
@@ -224,15 +224,15 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
         replaced_recharge_rate,
     )
     from hydromodpy.calibration.targets import calibration_targets
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.loading import load
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
         refuse(f"File not found: {path}", EXIT_NOT_FOUND)
 
+    base = base_named_by_w(getattr(args, "workspace", None))
     try:
-        with project_named_by_w(getattr(args, "workspace", None)):
-            cfg = HydroModPyConfig.from_toml(path)
+        cfg = load(path, base)
     except Exception as exc:  # noqa: BLE001 - any load failure says the file is invalid
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
 
@@ -380,8 +380,7 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
     if not path.is_file():
         refuse(f"File not found: {path}", EXIT_NOT_FOUND)
     try:
-        with project_named_by_w(args.workspace):
-            payload = load_toml_with_base_config(path, root=ROOT_CONFIG)
+        payload = load_toml_with_base_config(path, root=ROOT_CONFIG)
     except tomllib.TOMLDecodeError as exc:
         refuse(f"Invalid TOML syntax: {exc}", EXIT_CONFIG, cause=exc)
     except (TypeError, ValueError) as exc:
@@ -408,12 +407,12 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
 
     verbosity = current_verbosity()
     verbose = verbosity in ("verbose", "debug")
-    with project_named_by_w(args.workspace):
-        diagnostics = check(path, partial=args.partial, inputs=args.inputs)
-        if verbosity != "quiet":
-            for line in _calibration_notes(path, verbose=verbose):
-                print(line, file=sys.stderr)
-        where = probe_toml_workspace(path) if verbose or args.format != "table" else []
+    base = base_named_by_w(args.workspace)
+    diagnostics = check(path, partial=args.partial, inputs=args.inputs, base=base)
+    if verbosity != "quiet":
+        for line in _calibration_notes(path, verbose=verbose):
+            print(line, file=sys.stderr)
+    where = probe_toml_workspace(path) if verbose or args.format != "table" else []
     ok = not any(item.severity == "error" for item in diagnostics)
     experimental = [item.path for item in diagnostics if item.code == "experimental_key"]
     if experimental and verbosity != "quiet":

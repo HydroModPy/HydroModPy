@@ -1,13 +1,12 @@
-"""Where a copy derived from a custom user file lives, and what it is named.
+"""Where a copy derived from a user file lives, and what it is named.
 
-A custom loader may write a copy of the user's file: a clip, a Voronoi
-tessellation, a format conversion. That copy never goes into
-``data/<variable>/``. That folder holds the files the user drops, named
-``<variable>_custom_*``, and auto_scan takes every such file for user data.
-The copy goes under ``data/blobs/<variable>/custom/``, the home of the
-normalized copies of ingested files. Its name carries the source stem and a
-key of the inputs that produced it, so two projects that derive different
-copies from one file never overwrite each other.
+A loader of a user file may write a copy of it: a clip, a Voronoi
+tessellation, a format conversion. That copy is no fetched file, so it never
+goes into ``data/<variable>/``, where every sidecar is a row of the data cache.
+The copy goes under ``data/blobs/<variable>/file/``, a folder the scan of the
+cache never enters. Its name carries the source stem and a key of the inputs
+that produced it, so two projects that derive different copies from one file
+never overwrite each other.
 """
 
 from __future__ import annotations
@@ -17,15 +16,15 @@ from collections.abc import Sequence
 from pathlib import Path
 
 
-def custom_derived_dir(data_dir: Path | None, variable: str) -> Path | None:
-    """Return ``data/blobs/<variable>/custom/`` for the variable folder ``data_dir``.
+def derived_dir(data_dir: Path | None, variable: str) -> Path | None:
+    """Return ``data/blobs/<variable>/file/`` for the variable folder ``data_dir``.
 
     ``data_dir`` is ``data/<variable>/``. The answer is None when there is no
     data folder, and the loader then references the user file as it is.
     """
     if data_dir is None:
         return None
-    return Path(data_dir).parent / "blobs" / variable / "custom"
+    return Path(data_dir).parent / "blobs" / variable / "file"
 
 
 def derived_path(
@@ -47,4 +46,4 @@ def derived_path(
     return Path(derived_dir) / f"{Path(source).stem}_{kind}_{key}{suffix}"
 
 
-__all__ = ["custom_derived_dir", "derived_path"]
+__all__ = ["derived_dir", "derived_path"]

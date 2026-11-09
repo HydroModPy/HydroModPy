@@ -36,6 +36,7 @@ from hydromodpy.display.overview.web import (
 )
 from hydromodpy.display.style import apply_theme
 from hydromodpy.project.dispatch.workflow import run_overview
+from hydromodpy.project.request import request_of
 from hydromodpy.results.outcome import effective_status, read_outcome
 
 # ``[overview]`` is the date declaration of overview mode, so it validates like one.
@@ -857,7 +858,7 @@ def test_an_overview_claims_writes_and_seals_its_run_directory(
     seen: dict = {}
     _draw_one_panel(monkeypatch, seen)
 
-    summary = run_overview(project / "overview.toml").to_dict()
+    summary = run_overview(request_of(project / "overview.toml"), base=project).to_dict()
 
     run_dir = project / "runs" / "nancon"
     assert summary["run_dir"] == str(run_dir)
@@ -881,9 +882,9 @@ def test_a_second_overview_of_the_same_site_takes_the_next_version(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _draw_one_panel(monkeypatch, {})
-    run_overview(project / "overview.toml")
+    run_overview(request_of(project / "overview.toml"), base=project)
 
-    second = run_overview(project / "overview.toml").to_dict()
+    second = run_overview(request_of(project / "overview.toml"), base=project).to_dict()
 
     assert second["run_dir"] == str(project / "runs" / "nancon.v2")
     assert overview_run_dir(project, "nancon") == project / "runs" / "nancon.v2"
@@ -901,7 +902,7 @@ def test_a_failed_overview_leaves_a_failed_outcome_and_no_manifest(
     )
 
     with pytest.raises(RuntimeError, match="no panel today"):
-        run_overview(project / "overview.toml")
+        run_overview(request_of(project / "overview.toml"), base=project)
 
     run_dir = project / "runs" / "nancon"
     outcome = read_outcome(run_dir)

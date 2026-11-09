@@ -8,6 +8,9 @@ Jupyter widget, a desktop app) can use without importing the package:
 1. a JSON Schema export of the whole configuration;
 2. a check of the document the form holds, which may still be incomplete.
 
+A third piece plays the run: the run request, one JSON object that ``hmp run`` reads, that the
+Python call ``hmp.run`` takes as a mapping, and that a Docker container receives as a file.
+
 The code is in ``hydromodpy/schema/config_schema.py`` and
 ``hydromodpy/config/check.py``. The pattern behind it is a Pydantic model plus
 an exported schema: the structure is declared once, in Python, and the UI never
@@ -73,10 +76,12 @@ reads the model schema instead: ``hmp config schema``, or the three files of
 The check of a document
 -----------------------
 
-``check(document, partial=True)`` is the call your form makes each time the
+``check(document, base=folder, partial=True)`` is the call your form makes each time the
 document changes. It takes the document as a mapping, the same tree a TOML file
 gives, reads no file and asks no network, and it is meant to answer in under
-10 ms when warm. From Python:
+10 ms when warm. The ``base`` is the folder the relative paths of the document are read from.
+A document in memory has no folder of its own, so the call has no default for it and never
+reads the current folder. From Python:
 
 .. code-block:: python
 
@@ -84,7 +89,7 @@ gives, reads no file and asks no network, and it is meant to answer in under
 
 
    def on_change(document: dict):
-       for d in check(document):
+       for d in check(document, base=project_dir):
            show(d.path, d.severity, phrase(d.code, "fr"), d.detail)
 
 It walks the sections one by one with the validator the loader uses, so it
@@ -141,14 +146,53 @@ React, with ``@rjsf/core``:
 A custom widget can switch on the ``widget_type`` annotation to choose between
 an input, a select and a checkbox.
 
+The run request
+---------------
+
+A request is the unit of work of a run, whether it comes from a TOML file, a Python call, a
+server or a container. It is a JSON object of the schema ``hydromodpy.request.v1``, and
+``RunRequest.model_json_schema()`` of ``hydromodpy.project.request`` describes it.
+
+.. code-block:: text
+
+   {
+     "schema": "hydromodpy.request.v1",
+     "config": {"workflow": {"mode": "simulation"}, "geographic": {...}, "flow": {...}},
+     "set": {"flow.param.K.field.value": 2e-5},
+     "name": "baseline"
+   }
+
+``schema`` and ``config`` are required. ``config`` holds the whole document, the same tree a TOML
+file gives, with its ``base_config`` chain and its overlays already merged: a ``base_config`` key
+in it is refused. ``set`` holds dotted changes applied once at the load, and the other members
+are the options of ``hmp run`` (``name``, ``resume``, ``from_step``, ``until_step``, ``force``,
+``fresh``, ``frozen``, ``dry_run``, ``phase``). A JSON file without ``schema`` is refused with a
+sentence that says to put the document under ``config``.
+
+The request does not hold the base of the relative paths, and it does not hold the environment
+(credentials, allowed hosts, download limit). Both are arguments of the call, so the same request
+plays on any machine. The base is ``--base DIR`` on the command line and ``base=`` in Python. A
+request read from a file under a project folder takes that project as its base when none is
+given. A request given as a mapping or as text needs a base, and without one it is refused.
+Relative paths never read the current folder.
+
+The run writes the request it played as ``request.json`` in its folder, whole and never
+redacted, and writes its ``request_id`` in ``outcome.json``. Two requests with the same
+``request_id`` ask the same thing, whatever the paths and the names they use. A run identical to a
+completed one is given back instead of computed, and the answer names that run.
+
 Submission flow
 ---------------
 
-1. The frontend builds a TOML payload from the form values, keeping the section
-   structure (``[flow]``, ``[geographic]``, ...).
-2. A thin service you write receives it, writes it to a file and calls
-   ``hmp.run`` on that file.
-3. The service returns the simulation id to the frontend, which polls it.
+1. The frontend builds the document from the form values, keeping the section structure
+   (``[flow]``, ``[geographic]``, ...), and puts it under ``config`` of a request.
+2. A thin service you write receives the request and writes it into the project folder. It then
+   calls ``hmp run request.json --base <project>``, or ``hmp.run(document, base=<project>)`` from
+   Python. In a container the command is
+   ``docker run <image> run /project/request.json --base /project``, with the project mounted at
+   ``/project``.
+3. The service returns the run name and its ``request_id`` to the frontend, which polls the
+   ``outcome.json`` of the run.
 4. Results come back through the project: open it with
    ``hmp.open(project_dir)`` and read its runs with ``proj.runs()``. Expose the
    metrics, figures and exports the UI needs.

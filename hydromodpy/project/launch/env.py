@@ -16,10 +16,11 @@ it a launched case is its environment, built here:
   worker applies it at its entry (:func:`apply_thread_budget`): the native
   thread pools of the process through ``threadpoolctl``, and the usual
   variables for the processes it starts itself.
-- ``HMP_DATA_CACHE_PRIVATE`` names the private data cache of the child. The
-  child then opens the shared workspace cache read-only, one request at a
-  time, and writes what it registers into its private cache, which the
-  launcher merges once the child has ended.
+
+A child has no data cache of its own. It writes its files and their sidecars in
+the shared ``data/`` folder, one station at a time under the file lock of the
+chronicle (:meth:`hydromodpy.data.provenance.sidecars.CacheIndex.chronicle`), so
+the launcher has nothing to merge.
 
 The same variables are what a scheduler script sets for each task.
 """
@@ -28,11 +29,9 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from pathlib import Path
 
 from hydromodpy.core.state.scratch import RUN_SCRATCH_ENV
 from hydromodpy.core.toml_io.overrides import ENV_SET_PREFIX
-from hydromodpy.data.registry.catalog_duckdb import PRIVATE_CACHE_ENV
 
 LAUNCHED_ENV = "HMP_LAUNCHED_CASE"
 """Who launched the case (``local``, ``slurm``); the launcher indexes, not the case."""
@@ -54,7 +53,6 @@ def child_environment(
     base: Mapping[str, str],
     *,
     threads_per_case: int,
-    private_cache: Path | None,
 ) -> dict[str, str]:
     """Return the environment of one launched case, built from *base*."""
     env = {
@@ -63,10 +61,6 @@ def child_environment(
         if key != RUN_SCRATCH_ENV and not key.startswith(ENV_SET_PREFIX)
     }
     env[THREADS_ENV] = str(int(threads_per_case))
-    if private_cache is None:
-        env.pop(PRIVATE_CACHE_ENV, None)
-    else:
-        env[PRIVATE_CACHE_ENV] = str(private_cache)
     return env
 
 

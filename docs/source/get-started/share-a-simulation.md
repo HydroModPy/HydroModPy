@@ -36,7 +36,7 @@ Every file the run read, as `inputs.json` names it, and nothing else:
 |---|---|
 | A station series of your own (`hydrometry_custom_NANCON_..._D.csv`) | `data/hydrometry/`, with its row in `hydrometry_custom_LOC.csv` |
 | The DEM of `[[data.dem.sources]]` (`source = "file"`), a GeoPackage of `[[data.hydrography.sources]]` | `data/dem/`, `data/hydrography/` |
-| A file Hub'Eau, SIM2 or BD Topage delivered | the same folder, with its sidecar `<file>.json`, its station row, and its row in `data/cache.duckdb` |
+| A file Hub'Eau, SIM2 or BD Topage delivered | the same folder, with its sidecar `<file>.json` and its station row |
 | The `[site]` of the run | a row of `data/sites/catalog.csv` |
 
 A declared folder is never copied whole: from `data/hydrometry/` the run takes the files of
@@ -44,8 +44,9 @@ the stations it read. The archive stores each file once, under its sha256, and l
 `INSTALL.toml`: the destination, the size, the sha256, the variable, the provider, the request,
 the licence and the digest of the sidecar. The examples of `hmp example add` use the same index.
 
-A file a provider delivered is registered in the data cache of the other workspace, so a rerun
-reads it there instead of downloading it again. A run of example 04 that read Hub'Eau and BD
+A file a provider delivered is installed with its sidecar, which `INSTALL.toml` completes, so the
+file is a row of the data cache of the other workspace and a rerun reads it there instead of
+downloading it again. A run of example 04 that read Hub'Eau and BD
 Topage reruns with no network at all.
 
 ## The rules of an import
@@ -57,7 +58,7 @@ Topage reruns with no network at all.
 | Other bytes at that path | Refuses, naming the path and both sha256 |
 | The station with the same values | Nothing |
 | The station with other values | Refuses, naming the registry and the station |
-| A data cache entry for the same station, from other bytes | Refuses, naming both files |
+| A file of the data cache for the same station, from other bytes | Refuses, naming both files |
 | A site of the same name with another outlet, or another name at the same outlet | Refuses, naming the site |
 
 A refused import writes nothing: no file, no row, no run. Move your file aside, or import into
@@ -99,7 +100,7 @@ the same `INSTALL.toml`. On demand:
 | `--with runs` | the sealed runs, with their results and the files of your own they read |
 | `--with sessions` | the calibration sessions |
 | `--with mesh` | the cached meshes the runs read (`.hmp/mesh_cache/`): gmsh does not draw the same mesh twice, this keeps the one the runs were computed on |
-| `--with fetched` | the files the providers delivered to the runs, with their data cache rows |
+| `--with fetched` | the files the providers delivered to the runs, with their sidecars |
 
 The project lands as `projects/<name>` of the workspace, with the same rules for its data. A
 name the workspace already holds is refused; `--name` gives another one. The runs keep their

@@ -25,15 +25,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.result_dirs import run_dir_rel
+from hydromodpy.mesh.refinement_config import RUN_FIELDS
 from hydromodpy.model.flow_config import RestartReference
+from hydromodpy.model.initial.state import PriorState
 from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.request_identity import (
+    RESTART_KEY,
+    ZONE_RUN_KEY,
+    array_digest,
+    prior_state_digest,
+)
+from hydromodpy.results.run.field_envelope import read_run_field
+from hydromodpy.results.source_runs import source_run_id
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.prior_state import read_final_head, read_restart_lake_stages
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +90,63 @@ def resolve_restart_source(project_root: Path, reference: str | RestartReference
             f"flow.restart_from = {text!r}: {run_dir.name} has no {FIELDS_STORE_NAME}."
         )
     return RestartSource(sim_id=_sim_id_of(run_dir), path=store, rel_dir=run_dir_rel(run_dir.name))
+
+
+def source_state_digests(cfg: Any, project_root: Path) -> dict[str, str]:
+    """Return ``{key: digest}`` of the state a run reads from each earlier run it names.
+
+    ``[flow] restart_from`` enters by the digest of its last head and its lake
+    stages, and each ``[[mesh.refinement_zone]]`` that reads a run by the digest
+    of the field it draws from it. The name of the run and its ``sim_id`` count
+    for nothing: two runs that leave the same state give the same digest. The
+    keys are those the request id replaces in the document
+    (:data:`~hydromodpy.results.request_identity.RESTART_KEY`,
+    :data:`~hydromodpy.results.request_identity.ZONE_RUN_KEY`).
+
+    Raises :class:`~hydromodpy.core.exceptions.ConfigError` when a reference
+    names no run or no store, as the run itself would when it reads it.
+    """
+    found: dict[str, str] = {}
+    reference = getattr(getattr(cfg, "flow", None), "restart_from", None)
+    if reference:
+        source = resolve_restart_source(project_root, reference)
+        path = str(source.path)
+        found[RESTART_KEY] = prior_state_digest(
+            PriorState(
+                head=read_final_head(path),
+                lake_stages=read_restart_lake_stages(path),
+                path=path,
+                sim_id=source.sim_id,
+            )
+        )
+    zones = getattr(getattr(cfg, "mesh", None), "refinement_zone", None) or ()
+    for index, zone in enumerate(zones):
+        if zone.run is None or zone.where not in RUN_FIELDS:
+            continue
+        envelope = read_run_field(project_root, zone.run, zone.where)
+        found[ZONE_RUN_KEY.format(index=index)] = array_digest(
+            {
+                "vertices": envelope.vertices,
+                "connectivity": envelope.connectivity,
+                "minimum": envelope.minimum,
+                "maximum": envelope.maximum,
+            }
+        )
+    return found
+
+
+def zone_run_ids(cfg: Any, project_root: Path) -> dict[str, str]:
+    """Return ``{reference: sim_id}`` of each earlier run a refinement zone reads.
+
+    A reference that names no sealed run is left out, as the frozen configuration
+    leaves it as written.
+    """
+    zones = getattr(getattr(cfg, "mesh", None), "refinement_zone", None) or ()
+    found: dict[str, str] = {}
+    for zone in zones:
+        if zone.run is not None and (sim_id := source_run_id(project_root, zone.run)) is not None:
+            found[zone.run] = sim_id
+    return found
 
 
 def _from_reference(root: Path, reference: RestartReference) -> RestartSource:
@@ -141,4 +210,4 @@ def _sim_id_of(run_dir: Path) -> str | None:
     return None if sim_id is None else str(sim_id)
 
 
-__all__ = ["RestartSource", "resolve_restart_source"]
+__all__ = ["RestartSource", "resolve_restart_source", "source_state_digests", "zone_run_ids"]

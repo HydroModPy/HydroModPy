@@ -324,14 +324,14 @@ class TestCompletenessReport:
             HydrometryConfig,
             HydrometrySourceConfig,
         )
-        from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+        from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
 
         cfg = HydrometryConfig(
             sources=[HydrometrySourceConfig(source="file", path=sample_hydro_dir)]
         )
-        mgr = HydrometryManager(
+        mgr = HydrometryVariable(
             config=cfg,
-            catalog=None,
+            index=None,
             project_period=project_period,
         )
         records = mgr.load()
@@ -382,16 +382,16 @@ class TestCompletenessReport:
             date_end=project_period[1],
             is_constant=True,
         )
-        from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
+        from hydromodpy.data.families.stations import StationVariable
 
-        class DummyManager(BaseVariableManager):
+        class DummyManager(StationVariable):
             VARIABLE_NAME = "test"
 
             def _fetch_from_source(self, source_cfg):
                 return []
 
         mgr = DummyManager(
-            config=type("C", (), {"sources": []})(), catalog=None, project_period=project_period
+            config=type("C", (), {"sources": []})(), index=None, project_period=project_period
         )
         report = mgr.get_completeness_report([rec])
         assert bool(report.iloc[0]["is_constant"]) is True
@@ -407,14 +407,14 @@ class TestManagerExport:
             HydrometryConfig,
             HydrometrySourceConfig,
         )
-        from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
+        from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
 
         cfg = HydrometryConfig(
             sources=[HydrometrySourceConfig(source="file", path=sample_hydro_dir)]
         )
-        mgr = HydrometryManager(
+        mgr = HydrometryVariable(
             config=cfg,
-            catalog=None,
+            index=None,
             project_period=project_period,
         )
         records = mgr.load()

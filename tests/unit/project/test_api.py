@@ -69,9 +69,22 @@ def test_a_source_that_is_neither_a_path_nor_a_mapping_is_refused(source: object
     ids=["a draft", "to run"],
 )
 def test_an_empty_document_has_one_key_to_fill(
-    partial: bool, expected: list[tuple[str, str, str]]
+    tmp_path: Path, partial: bool, expected: list[tuple[str, str, str]]
 ) -> None:
-    assert _summary(check({}, partial=partial)) == expected
+    assert _summary(check({}, base=tmp_path, partial=partial)) == expected
+
+
+@pytest.mark.parametrize("given", [{}, {"flow": {"flow_regime": "steady"}}], ids=["empty", "draft"])
+def test_a_document_without_a_base_is_refused_as_the_loader_refuses_it(given: dict) -> None:
+    from hydromodpy.config.loading import MEMORY_NEEDS_BASE
+
+    [found] = check(given)
+
+    assert (found.code, found.severity, found.detail) == (
+        "refused_value",
+        "error",
+        MEMORY_NEEDS_BASE,
+    )
 
 
 def test_a_draft_is_the_default_for_a_document_and_for_a_file(tmp_path: Path) -> None:
@@ -119,8 +132,8 @@ def test_a_fault_of_a_file_carries_the_line_of_its_key(tmp_path: Path) -> None:
     assert found.line_number == 2
 
 
-def test_a_document_given_in_memory_has_no_line() -> None:
-    found = check({"flow": {"flow_regime": "nope"}})
+def test_a_document_given_in_memory_has_no_line(tmp_path: Path) -> None:
+    found = check({"flow": {"flow_regime": "nope"}}, base=tmp_path)
 
     assert {item.line_number for item in found if item.path == "flow.flow_regime"} == {None}
 
@@ -135,7 +148,7 @@ def test_a_project_root_written_in_a_file_is_refused_at_its_key(tmp_path: Path) 
 
 
 def test_the_same_root_written_in_a_document_is_taken(tmp_path: Path) -> None:
-    found = check({"workspace": {"project_root": str(tmp_path)}})
+    found = check({"workspace": {"project_root": str(tmp_path)}}, base=tmp_path)
 
     assert [item for item in found if item.parts == ("workspace", "project_root")] == []
 
@@ -175,17 +188,33 @@ def test_the_bounds_of_the_environment_and_the_project_root_reach_the_check(
 
 
 def test_the_default_environment_gives_the_default_bounds(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     seen: dict[str, object] = {}
     monkeypatch.setattr(
         "hydromodpy.config.check.check", lambda document, **kwargs: seen.update(kwargs) or []
     )
 
-    check({}, inputs=True)
+    check({}, base=tmp_path, inputs=True)
 
     assert seen["bounds"] == Bounds()
-    assert seen["base"] is None
+    assert seen["base"] == tmp_path.resolve()
+
+
+def test_a_base_named_for_a_file_wins_over_the_folder_of_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        "hydromodpy.config.check.check", lambda document, **kwargs: seen.update(kwargs) or []
+    )
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    path = _write(tmp_path, '[workflow]\nmode = "simulation"\n')
+
+    check(path, base=elsewhere)
+
+    assert seen["base"] == elsewhere.resolve()
 
 
 def test_a_check_that_fails_unexpectedly_is_a_finding_not_a_crash(

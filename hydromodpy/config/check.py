@@ -87,9 +87,9 @@ def phrase(code: str, lang: str = "en") -> str:
 def check(
     document: Mapping[str, Any],
     *,
+    base: Path,
     partial: bool = True,
     inputs: bool = False,
-    base: Path | None = None,
     bounds: Bounds | None = None,
 ) -> list[Diagnostic]:
     """Check a configuration document and return every diagnostic it holds.
@@ -105,15 +105,16 @@ def check(
     ----------
     document
         The document as written: one table per section, a draft or a whole file.
+    base
+        The folder relative paths are read from, the project root. A document has
+        no folder of its own, so the caller names it; the current folder is never
+        used.
     partial
         True reports a required key not written yet as ``to_fill``. False reports
         it as an ``error``, which is what ``hmp run`` refuses.
     inputs
         True also reads the header of each input file the document names, local or
         by its final URL, and downloads nothing.
-    base
-        The folder relative paths are read from, the project root. The current
-        folder when not given.
     bounds
         The hosts and roots an input header may be read from. Without it, an input
         given by URL is ``input_unreachable``.
@@ -135,7 +136,7 @@ def check(
             )
         ]
     root = HydroModPyConfig
-    base = Path.cwd() if base is None else Path(base).expanduser().resolve()
+    base = Path(base).expanduser().resolve()
     raw = copy.deepcopy(dict(document))
     found = _old_forms(raw)
     with warnings.catch_warnings(record=True) as caught:

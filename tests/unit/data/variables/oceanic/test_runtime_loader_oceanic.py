@@ -16,13 +16,13 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.data.loading import loader as loader_module
-from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.variables.oceanic.config import OceanicConfig
 
 
-def _build_loader(tmp_path: Path) -> DataManagersRuntimeLoader:
-    return DataManagersRuntimeLoader(
+def _build_loader(tmp_path: Path) -> DataLoader:
+    return DataLoader(
         config_path=tmp_path / "launcher.toml",
         data_plan=DataLoadPlan(explicit_types=("oceanic",)),
     )
@@ -51,7 +51,7 @@ def _run_generic_oceanic(monkeypatch, tmp_path: Path, captured: dict) -> object:
         loader_module, "importlib", SimpleNamespace(import_module=fake_import_module)
     )
     monkeypatch.setattr(
-        "hydromodpy.data.loading.store.get_manager_class", lambda variable: FakeManager
+        "hydromodpy.data.loading.store.variable_class_for", lambda variable: FakeManager
     )
 
     result = SimpleNamespace(
@@ -79,7 +79,7 @@ def test_the_generic_path_hands_the_manager_no_project_object(monkeypatch, tmp_p
     result, load_result, _ = _run_generic_oceanic(monkeypatch, tmp_path, captured)
 
     assert "geographic" not in captured, captured
-    assert set(captured) == {"config", "catalog", "project_extent", "project_period", "data_dir"}
+    assert set(captured) == {"config", "index", "project_extent", "project_period", "data_dir"}
     assert result.loaded_data.oceanic is load_result
 
 

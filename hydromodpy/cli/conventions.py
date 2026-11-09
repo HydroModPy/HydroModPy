@@ -93,8 +93,8 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp project prune", "hmp campaign prune"),
     ("hmp project promote", "hmp campaign promote"),
     ("hmp dev completion", "hmp completion"),
-    ("hmp dev lock update", "hmp lock update"),
-    ("hmp dev lock verify", "hmp lock verify"),
+    ("hmp dev lock update", "hmp data lock"),
+    ("hmp dev lock verify", "hmp data lock --check"),
     ("hmp dev rank", "hmp catalog rank --project PROJECT"),
     ("hmp dev schema export", "hmp config schema --bundle --to DIR"),
     ("hmp dev schema validate-field", "hmp config check --partial"),
@@ -136,6 +136,15 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     ("hmp dev examples", "python -m tools.dev examples manifest"),
     ("hmp dev manage", "(no replacement yet)"),
     ("hmp data check", "hmp data ls"),
+    # The lockfile belongs to the data cache, and a user file is named by a source, not added.
+    ("hmp lock", "hmp data lock"),
+    ("hmp lock update", "hmp data lock"),
+    ("hmp lock verify", "hmp data lock --check"),
+    (
+        "hmp data add",
+        'a source = "file" block in [[data.VARIABLE.sources]] that names the path of the file, '
+        "kept under inputs/",
+    ),
     ("hmp config validate-field", "hmp config check --partial"),
 )
 

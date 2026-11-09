@@ -4,14 +4,14 @@ The port's docstring promises a third-party source that it needs no import of
 HydroModPy beyond the port module and ``data.contracts``. The reconnaissance of
 F5 measured what that promise is worth: the fetch functions under
 ``data/variables/*/apis/`` are already clean, and everything a capability is
-forbidden to touch -- the DuckDB catalog, the project workspace, the lock
+forbidden to touch -- the data cache index, the project workspace, the lock
 file, the ``geographic`` object -- lives in the manager constructors and in
-the station cache of ``BaseVariableManager``, which wrap them. An adapter that
+the station cache of ``StationVariable``, which wrap them. An adapter that
 reached for a manager to get at its provider would drag all four back in, one
 import at a time.
 
 ``layer_matrix.yaml`` cannot see that: it declares ``data`` as one layer, so
-``data.source -> data.managers`` and ``data.source -> data.registry`` are
+``data.source -> data.families`` and ``data.source -> data.loading`` are
 intra-layer edges it allows. This module is the gate for the promise instead,
 on the pattern D46 set for the terrain port, and it reads the same scanner the
 matrix uses -- so an import deferred inside a method is caught like a top-level
@@ -64,8 +64,7 @@ keeps, deferred inside the function so a third-party source that never asks for
 its hosts pays nothing for it."""
 
 FORBIDDEN_NEIGHBOURS = (
-    "hydromodpy.data.managers",
-    "hydromodpy.data.registry",
+    "hydromodpy.data.families",
     "hydromodpy.data.loading",
     "hydromodpy.workflow",
     "hydromodpy.project",

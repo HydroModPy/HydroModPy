@@ -4,7 +4,10 @@
 returns a :class:`PlanDraft`: one :class:`DraftCase` per (site, recipe) with
 its resolved document, its ``config_hash`` and whether a sealed run already
 holds it, plus the errors and warnings of the plan, each pointing at the cell
-or the file it comes from. Nothing is written: :mod:`hydromodpy.project.launch.sites.plan`
+or the file it comes from. The ``config_hash`` of a case is the solution key of
+its request, computed offline
+(:func:`~hydromodpy.workflow.solution_key.planned_solution_key`), the key its
+run seals. Nothing is written: :mod:`hydromodpy.project.launch.sites.plan`
 writes a draft under ``plan/<hash>/``.
 
 The precedence of a case, lowest first: the defaults of the schema, the base
@@ -40,6 +43,7 @@ from hydromodpy.core.config_kit.written import written_experimental_keys, writte
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.site import SITE_NAME_PATTERN
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.names import check_name, fold_name
 from hydromodpy.core.toml_io.loader import (
     ChainFile,
     load_toml_with_base_config,
@@ -77,7 +81,6 @@ from hydromodpy.project.launch.sites.tables import (
     read_table,
     table_from_site_rows,
 )
-from hydromodpy.results.catalog.storage_paths import MAX_DIRNAME_LEN
 
 CaseKind = Literal["simulation", "calibration", "overview"]
 
@@ -174,7 +177,7 @@ class DraftCase:
     """The resolved TOML document of the case, replayable alone."""
 
     config_hash: str | None
-    """Identity hash of the case; None when the case did not validate."""
+    """Solution key of the case; None when the case did not validate or needs the network."""
 
     kind: CaseKind
     solves: int
@@ -342,11 +345,16 @@ def expand_plan(
     env_payload = env_overrides(os.environ if env is None else env)
     migrate_layers([(SET_SOURCE, cli_payload), (ENV_SOURCE, env_payload)])
     cases: list[DraftCase] = []
+    taken: dict[str, str] = {}
     for site in sites:
         for recipe in selected:
+            case_id = _case_id(site, recipe, taken=taken, errors=errors)
+            if case_id is None:
+                continue
             case = _resolve_case(
                 site,
                 recipe,
+                case_id=case_id,
                 root=root,
                 schema=HydroModPyConfig,
                 cli=cli_payload,
@@ -382,7 +390,7 @@ def single_case_draft(
     done: bool = False,
 ) -> PlanDraft:
     """Return the plan of one configuration, already validated: one case, no table."""
-    from hydromodpy.results.catalog.registration import solve_identity_hash
+    from hydromodpy.workflow.solution_key import planned_solution_key
 
     site = getattr(getattr(config, "site", None), "name", None)
     case = DraftCase(
@@ -390,7 +398,7 @@ def single_case_draft(
         site=str(site or ""),
         recipe="",
         document=written_payload(config),
-        config_hash=solve_identity_hash(config),
+        config_hash=planned_solution_key(config, search=kind == "calibration"),
         kind=kind,
         solves=1,
         kept_solves=1,
@@ -726,10 +734,46 @@ def _select_recipes(
 # -- cases --------------------------------------------------------------------
 
 
+def _case_id(
+    site: ResolvedSite,
+    recipe: ResolvedRecipe,
+    *,
+    taken: dict[str, str],
+    errors: list[PlanIssue],
+) -> str | None:
+    """Return the run name of the case of *site* and *recipe*, or ``None`` when it has none.
+
+    The code makes the name from two texts that are no run names, so the name is
+    folded: lower case, and ``_`` for what a name does not hold. It is then held to
+    the rule of a run name, and two cases that fold to one name are refused, since
+    they would be versions of one run.
+    """
+    label = f"{site.name}{CASE_SEPARATOR}{recipe.name}"
+    case_id = fold_name(label)
+    try:
+        check_name(case_id, what="run")
+    except ConfigError as exc:
+        errors.append(PlanIssue(message=f"case {label!r}: {exc}", case_id=label))
+        return None
+    if taken.setdefault(case_id, label) != label:
+        errors.append(
+            PlanIssue(
+                message=(
+                    f"cases {taken[case_id]!r} and {label!r} fold to the same run name "
+                    f"{case_id!r}. Rename a site or a recipe."
+                ),
+                case_id=case_id,
+            )
+        )
+        return None
+    return case_id
+
+
 def _resolve_case(
     site: ResolvedSite,
     recipe: ResolvedRecipe,
     *,
+    case_id: str,
     root: Path,
     schema: Any,
     cli: Mapping[str, Any],
@@ -738,15 +782,6 @@ def _resolve_case(
     recipes_table: Table | None,
     errors: list[PlanIssue],
 ) -> DraftCase | None:
-    case_id = f"{site.name}{CASE_SEPARATOR}{recipe.name}"
-    if len(case_id) > MAX_DIRNAME_LEN:
-        errors.append(
-            PlanIssue(
-                message=f"case id {case_id!r} is longer than {MAX_DIRNAME_LEN} characters",
-                case_id=case_id,
-            )
-        )
-        return None
     bound: list[BoundValue] = list(site.bound)
     site_payload: dict[str, Any] = dict(site.payload)
     row_payload: Mapping[str, Any] = {}
@@ -818,8 +853,10 @@ def _resolve_case(
     )
     if cfg is None:
         return None
-    config_hash = _config_hash(cfg)
+    from hydromodpy.workflow.solution_key import planned_solution_key
+
     kind: CaseKind = "calibration" if cfg.calibration is not None else "simulation"
+    config_hash = planned_solution_key(cfg, search=kind == "calibration")
     solves = _calibration_width(cfg.calibration) if cfg.calibration is not None else 1
     kept = int(cfg.calibration.save_best_n) if kind == "calibration" else 1
     return DraftCase(
@@ -912,15 +949,8 @@ def _owner_of(
     return None
 
 
-def _config_hash(cfg: Any) -> str | None:
-    """Return the identity hash of a case, the one its run records."""
-    from hydromodpy.results.catalog.registration import config_identity_hash
-
-    return config_identity_hash(cfg)
-
-
 def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKind) -> bool:
-    """Whether a sealed run (or a completed session) of this case holds this hash.
+    """Whether a sealed run (or a completed session) of this case holds this solution key.
 
     A calibration compares the hash of its sessions, never the one of the run
     it promoted, whose parameters the best trial replaced. ``--dry-run`` and

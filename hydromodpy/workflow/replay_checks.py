@@ -16,7 +16,6 @@ from typing import Any
 from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import decode_workspace_path
-from hydromodpy.core.toml_io.paths import source_of_effective_copy
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.record import read_inputs, read_provenance
@@ -27,6 +26,7 @@ from hydromodpy.results.storage.contract import (
     RUN_RESOLVED_CONFIG_FILENAME,
 )
 from hydromodpy.results.storage.digests import sha256_streaming
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.workflow.steps.prepare_solver.resolved import (
     build_drift,
     compare_with_sealed,
@@ -58,17 +58,45 @@ def warn_replay_differences(source_run: Path, replay_run: Path) -> None:
 
 
 def sealed_run_of(config_path: Path) -> Path | None:
-    """Return the sealed run *config_path* is the frozen configuration of, or None.
-
-    The effective copy that ``--set`` writes beside the file stands for that file.
-    """
-    path = source_of_effective_copy(Path(config_path).resolve())
+    """Return the sealed run *config_path* is the frozen configuration of, or None."""
+    path = Path(config_path).resolve()
     folder = path.parent
     if path.name != RUN_CONFIG_FILENAME:
         return None
     if (folder / RUN_MANIFEST_FILENAME).is_file() and (folder / RUN_INPUTS_FILENAME).is_file():
         return folder
     return None
+
+
+USER_PROVIDERS = frozenset({"file", "url"})
+"""The providers of ``inputs.json`` whose bytes the request id already holds."""
+
+
+def api_inputs_intact(run_dir: Path, project_root: Path) -> bool:
+    """Whether each file of an API the sealed run read is in the cache with the digest it recorded.
+
+    A file of an API whose extent comes from the delineated catchment is fetched after
+    the request id is told, so the id holds its declaration and not its bytes. A run is
+    given back for an identical request only when each such file is still where the run
+    read it, with the same sha256: a provider that refreshed it, or a cache that
+    dropped it, leaves the request to compute again. A run whose ``inputs.json`` cannot
+    be read is not intact. A file of the user or of a URL is covered by the request id
+    and is not read here.
+    """
+    document = readable(read_inputs, run_dir)
+    if document is None:
+        return False
+    root = Path(project_root).resolve()
+    workspace = locate_workspace_root(root) or root
+    for entry in document.inputs:
+        if entry.provider in USER_PROVIDERS or not entry.path or not entry.sha256:
+            continue
+        located = decode_workspace_path(workspace, entry.path)
+        if located.is_dir():
+            continue
+        if not located.is_file() or sha256_streaming(located) != entry.sha256:
+            return False
+    return True
 
 
 def _loaded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
@@ -212,6 +240,7 @@ def replay_differences(source_run: Path, replay_run: Path) -> list[str]:
 
 
 __all__ = [
+    "api_inputs_intact",
     "check_replay",
     "refuse_changed_inputs",
     "replay_differences",

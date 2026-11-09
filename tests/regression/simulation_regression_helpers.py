@@ -220,7 +220,7 @@ def run_simulation_regression_boussinesq(
     config_stem: str = "run_fast_boussinesq",
     simulation_run_id: str = "simulation_regression_fast_boussinesq",
     process_id: str = "flow_main",
-    simulation_name: str = "Simulation regression fast Boussinesq",
+    simulation_name: str = "simulation_regression_fast_boussinesq",
     simulation_description: str = "Fast steady Boussinesq regression on a precomputed strip bundle",
     initial_head_m: float = 6.0,
     west_head_m: float | None = 5.0,

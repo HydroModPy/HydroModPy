@@ -24,7 +24,7 @@ Pick the tier
      - May write to ``tmp_path``. Timeout 300 s.
    * - ``e2e``
      - One full user scenario through ``hmp run``, ``hmp export`` or
-       ``hmp data add``.
+       ``hmp data lock``.
      - Reads back what was persisted. Timeout 1800 s.
    * - ``regression``
      - Detect drift in a known workflow output.

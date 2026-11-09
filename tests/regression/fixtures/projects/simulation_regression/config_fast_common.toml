@@ -5,7 +5,7 @@ base_config = "hydromodpy.toml"
 mode = "simulation"
 
 [simulation]
-name = "Example 12 launcher fast"
+name = "example_12_launcher_fast"
 
 [simulation.time]
 start_datetime = "2003-01-01 00:00:00"

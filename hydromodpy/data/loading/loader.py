@@ -1,12 +1,12 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`,
+stays focused on orchestration order. It exposes :class:`DataLoader`,
 and that is the whole surface: a second, module-level ``load_variable`` used to
 sit at the bottom as "a thin pure helper for per-variable dispatch", with no
 importer anywhere in the tree and its own divergent copy of the dem / geology /
 hydrography branch. It was the last caller that passed ``geographic`` to a
-raster manager without first filling ``mask_path`` in, and it went with that
+raster variable without first filling ``mask_path`` in, and it went with that
 parameter rather than being repaired.
 """
 
@@ -29,14 +29,12 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
-from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.loading.store import DataStore
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -45,12 +43,12 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class DataManagersRuntimeLoader:
-    """Load data products for the resolved active manager families.
+class DataLoader:
+    """Load data products for the resolved active variable families.
 
-    The loader owns the shared DuckDB data catalog, resolves each configured
-    variable section, applies the simulation time window when relevant, and
-    stores loaded products on the workflow context.
+    The loader holds one :class:`DataStore` on the data folder of the run,
+    resolves each configured variable section, applies the simulation time
+    window when relevant, and stores loaded products on the workflow context.
     """
 
     def __init__(
@@ -59,26 +57,16 @@ class DataManagersRuntimeLoader:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
         self.bounds = bounds if bounds is not None else Bounds()
-        self._catalog: DataCatalogDuckDB | None = None
-        self._cache_root: Path | None = None
         self._store: DataStore | None = None
 
-    def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
-        """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
-        if self._catalog is not None:
-            if self._store is None:
-                self._store = DataStore(
-                    catalog=self._catalog,
-                    data_root=self._cache_root,
-                    bounds=self.bounds,
-                )
+    def _init_store(self, workspace_paths: WorkspacePathRegistry) -> None:
+        """Create the store on the data folder of the run, once."""
+        if self._store is not None:
             return
-        self._cache_root = workspace_paths.data_dir
-        self._cache_root.mkdir(parents=True, exist_ok=True)
-        self._catalog = DataCatalogDuckDB(data_cache_path_for(self._cache_root))
+        data_root = workspace_paths.data_dir
+        data_root.mkdir(parents=True, exist_ok=True)
         self._store = DataStore(
-            catalog=self._catalog,
-            data_root=self._cache_root,
+            data_root=data_root,
             workspace_root=workspace_paths.root,
             bounds=self.bounds,
         )
@@ -95,9 +83,9 @@ class DataManagersRuntimeLoader:
         try:
             workspace_paths = self._workspace_paths(result)
         except (AttributeError, ValueError):
-            self._store = DataStore(catalog=self._catalog, bounds=self.bounds)
+            self._store = DataStore(bounds=self.bounds)
             return
-        self._init_catalog(workspace_paths)
+        self._init_store(workspace_paths)
 
     @classmethod
     def known_variables(cls) -> set[str]:
@@ -105,12 +93,12 @@ class DataManagersRuntimeLoader:
         return set(VARIABLE_SPECS)
 
     def load_all(self, result: WorkflowContext) -> None:
-        """Load active data-manager families into ``result``.
+        """Load active data variable families into ``result``.
 
         Sequential types (dem, geology, hydrography) are loaded first in
         order, then the remaining independent types (observation + climatic).
-        Everything runs sequentially: the shared DuckDB catalog connection is
-        not thread-safe, so a thread pool would corrupt result sets.
+        Everything runs sequentially: the store holds one in-memory index of the
+        data cache, and two writers of one station would meet at its file lock.
 
         A variable that cannot be loaded stops the run with a typed error,
         whatever its family. Only a type the planner inferred, under
@@ -118,7 +106,7 @@ class DataManagersRuntimeLoader:
         names it.
         """
         workspace_paths = self._workspace_paths(result)
-        self._init_catalog(workspace_paths)
+        self._init_store(workspace_paths)
 
         sequential = []
         independent = []
@@ -135,13 +123,8 @@ class DataManagersRuntimeLoader:
                 self._load_single(result, type_name)
                 bar.advance()
 
-            # Phase 2: independent types. The shared DuckDB catalog connection
-            # is not thread-safe (single internal cursor); concurrent loaders
-            # corrupt one another's result sets, e.g. dropping the runoff
-            # series mid-fetch with "Invalid Input Error: No open result set".
-            # Loading the rest sequentially is the simplest correct fix and
-            # the speed cost is negligible (only a handful of data managers
-            # per project, each < 1 s). A failure here stops the run as it
+            # Phase 2: independent types, loaded one after the other (a handful
+            # of variables per project, each under a second). A failure here stops the run as it
             # does for the first phase: a run that goes on without its gauge
             # or its forcing, and exits 0, is a wrong result nobody sees.
             for type_name in independent:
@@ -149,7 +132,7 @@ class DataManagersRuntimeLoader:
                 bar.advance()
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
-        """Load a single data-manager type."""
+        """Load a single data variable."""
         spec = VARIABLE_SPECS.get(type_name)
         if spec is None:
             logger.warning("Unsupported data type '%s' in plan.", type_name)
@@ -169,7 +152,7 @@ class DataManagersRuntimeLoader:
         1. Fetch the ``[data.<variable>]`` section, bail out if absent.
         2. Apply the simulation time window (unless the spec opts out).
         3. Validate the config, resolve period/masks.
-        4. Instantiate the manager and stash the result on ``loaded_data``.
+        4. Instantiate the variable and stash the result on ``loaded_data``.
         5. Run an optional post-load export hook (intermittency).
         """
         self._ensure_store(result)
@@ -266,7 +249,7 @@ class DataManagersRuntimeLoader:
         return None
 
     def _load_dem_data(self, result: WorkflowContext) -> None:
-        """Load DEM data via DemManager."""
+        """Load DEM data via DemVariable."""
         self._ensure_store(result)
         from hydromodpy.data.variables.dem.config import DemConfig
 
@@ -294,7 +277,7 @@ class DataManagersRuntimeLoader:
             self._handle_data_loading_error(result, "dem", exc)
 
     def _load_geology_data(self, result: WorkflowContext) -> None:
-        """Load geology data via GeologyManager, then build GeologyField."""
+        """Load geology data via GeologyVariable, then build GeologyField."""
         self._ensure_store(result)
         from hydromodpy.data.variables.geology.config import GeologyConfig
         from hydromodpy.data.variables.geology.field import build_geology_field
@@ -335,7 +318,7 @@ class DataManagersRuntimeLoader:
                 self._handle_data_loading_error(
                     result,
                     "geology",
-                    ValueError("GeologyManager returned no field records"),
+                    ValueError("GeologyVariable returned no field records"),
                 )
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)

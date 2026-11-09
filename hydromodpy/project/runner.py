@@ -8,26 +8,45 @@ returns; :meth:`ProjectRunner.draft` says what a run would do and runs nothing.
 The worker side (``hmp run``) stops at ``execute``: it never opens the index, the
 launcher indexes after it.
 
+An attempt takes its directory first, and only then learns what it asks for. Once
+``runs/<name>/`` is claimed it writes ``request.json`` and ``config.toml``,
+resolves its inputs, writes its request id into ``outcome.json``, starts over when
+the previous attempt asked for something else, and, for a run that may be skipped,
+looks for a completed run of the same solution key. A run that one answers undoes
+its claim without a trace and gives that run back.
+
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
 :mod:`hydromodpy.workflow.record.attempt`; the seal is the last step of the pipeline.
 """
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ValidationError
+
 from hydromodpy.core.config_kit.written import log_experimental_keys
-from hydromodpy.core.exceptions import ResumeError
+from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.project.request import RunOutcome, RunRequest, write_request_file
 from hydromodpy.project.run_overrides import override_changes
-from hydromodpy.results.catalog.registration import solve_identity_hash
-from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
-from hydromodpy.workflow.record.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
+from hydromodpy.results.catalog.registration import check_name_free
+from hydromodpy.results.storage.attempt import record_request_id, scratch_dir_for_attempt
+from hydromodpy.workflow.record.attempt import AttemptHandle, run_attempt
 from hydromodpy.workflow.record.resume import resolve_resume_step_index
+from hydromodpy.workflow.solution_key import request_id_of, solution_key_of
 from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+from hydromodpy.workflow.steps.prepare_solver.freeze import write_claim_config
+from hydromodpy.workflow.steps.prepare_solver.restart import (
+    resolve_restart_source,
+    source_state_digests,
+    zone_run_ids,
+)
 from hydromodpy.workflow.window import model_phase_index, step_window
 
 if TYPE_CHECKING:
@@ -79,16 +98,14 @@ def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None
     return Run(sim_id, store)
 
 
-def _attempt_bracket(
-    workspace_path: Path,
-    name: str,
-    cfg_run: Any,
-    config_hash: str | None,
-    *,
-    fresh: bool,
-    force: bool,
-):
-    """Return the context manager that claims ``runs/<name>/`` and closes its outcome."""
+def _attempt_bracket(workspace_path: Path, name: str, cfg_run: Any, *, fresh: bool, force: bool):
+    """Return the context manager that claims ``runs/<name>/`` and closes its outcome.
+
+    The claim always takes the next version of a completed name. ``if_exists = "fail"``
+    is checked once the run knows it is not identical to a completed one
+    (:meth:`ProjectRunner._claim_documents`), so an identical run is given back before
+    that refusal is read.
+    """
     return run_attempt(
         workspace_path,
         name,
@@ -97,8 +114,7 @@ def _attempt_bracket(
         site=getattr(getattr(cfg_run, "site", None), "name", None),
         fresh=fresh,
         force=force,
-        config_hash=config_hash,
-        if_exists=cfg_run.simulation.if_exists,
+        if_exists="version",
     )
 
 
@@ -148,43 +164,46 @@ class ProjectRunner:
 
     # -- High-level workflow entry points ---------------------------------
 
+    def request_of(self, **options: Any) -> RunRequest:
+        """Return the request a call of :meth:`run` or :meth:`execute` makes by keywords.
+
+        The document is the one this project was loaded from. The request is made
+        for a configuration already built, so ``request.json`` is not written for it.
+        The keywords are the members of :class:`~hydromodpy.project.request.RunRequest`:
+        ``set``, ``name``, ``resume``, ``from_step``, ``until_step``, ``frozen``,
+        ``no_display``, ``fresh`` and ``force``. A name that breaks the rule of a run
+        name is refused with :class:`~hydromodpy.core.exceptions.ConfigError`.
+        """
+        document = copy.deepcopy(dict(getattr(self._project._ctx, "raw_toml", None) or {}))
+        given = {key: value for key, value in options.items() if value is not None}
+        given["set"] = dict(given.get("set") or {})
+        try:
+            return RunRequest(config=document, form="object", **given)
+        except ValidationError as exc:
+            message = "; ".join(
+                str(error["msg"]).removeprefix("Value error, ") for error in exc.errors()
+            )
+            raise ConfigError(message) from exc
+
     def run(
         self,
+        request: RunRequest | None = None,
         *,
-        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
-        name: str | None = None,
-        resume: str | None = None,
-        from_step: str | None = None,
-        until_step: str | None = None,
-        frozen: bool = False,
-        no_display: bool = False,
-        fresh: bool = False,
-        force: bool = False,
         lineage: Any = None,
         calibrated_by: Any = None,
+        **options: Any,
     ) -> Run | None:
         """Run one attempt and return the :class:`Run` view of its directory.
 
-        The index of the project is refreshed from the run directory, but the
-        view reads the directory itself: a sealed run through its seal, a run
-        that stopped before its seal (``until_step``) through its store. An
-        index handle opened earlier in this process keeps the snapshot it
-        opened on, so it may not hold the run yet. A run that wrote no
-        directory, or no facts to read, returns ``None``.
+        *request* is what to run, or the keywords of :meth:`request_of` make one. The
+        index of the project is refreshed from the run directory, but the view reads
+        the directory itself: a sealed run through its seal, a run that stopped
+        before its seal (``until_step``) through its store. An index handle opened
+        earlier in this process keeps the snapshot it opened on, so it may not hold
+        the run yet. A run that wrote no directory, or no facts to read, returns
+        ``None``.
         """
-        sealed = self.execute(
-            set=set,
-            name=name,
-            resume=resume,
-            from_step=from_step,
-            until_step=until_step,
-            frozen=frozen,
-            no_display=no_display,
-            fresh=fresh,
-            force=force,
-            lineage=lineage,
-            calibrated_by=calibrated_by,
-        )
+        sealed = self.execute(request, lineage=lineage, calibrated_by=calibrated_by, **options)
         if sealed is None:
             return None
         from hydromodpy.project import phases as project_phases
@@ -194,15 +213,19 @@ class ProjectRunner:
         index_new_runs(sealed.project_root)
         project_phases.open_catalog(project)
         run_view = run_view_of(
-            sealed.run_dir, project_root=sealed.project_root, sim_id=sealed.sim_id
+            sealed.run_dir, project_root=sealed.project_root, sim_id=str(sealed.sim_id)
         )
         if run_view is not None:
             project._run_history.append(run_view)
         return run_view
 
     def _run_name(self, name: str | None, resume: str | None) -> str | None:
-        """Return the name of a run: asked, or what the configuration calls it."""
-        if resume is not None:
+        """Return the name of a run: asked, or what the configuration calls it.
+
+        A bare resume (``""``) names no run of its own: it continues the run the
+        request names, so the name comes from ``name`` or the configuration.
+        """
+        if resume:
             return resume
         if name is not None:
             return name
@@ -227,6 +250,7 @@ class ProjectRunner:
         """
         from hydromodpy.project.dispatch.workflow import completed_identical_run
         from hydromodpy.project.launch.sites.expansion import single_case_draft
+        from hydromodpy.workflow.solution_key import planned_solution_key
         from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
@@ -245,54 +269,61 @@ class ProjectRunner:
             name=run_name,
             config_path=project._config_path,
             steps=tuple(step.name for step in window),
-            done=completed_identical_run(cfg_run, name=run_name) is not None,
+            done=completed_identical_run(
+                Path(cfg_run.workspace.project_root), run_name, planned_solution_key(cfg_run)
+            )
+            is not None,
         )
 
     def execute(
         self,
+        request: RunRequest | None = None,
         *,
-        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
-        name: str | None = None,
-        resume: str | None = None,
-        from_step: str | None = None,
-        until_step: str | None = None,
-        frozen: bool = False,
-        no_display: bool = False,
-        fresh: bool = False,
-        force: bool = False,
         lineage: Any = None,
         calibrated_by: Any = None,
-    ) -> SealedRun | None:
+        frozen: bool | None = None,
+        skip_identical: bool = False,
+        **options: Any,
+    ) -> RunOutcome | None:
         """Run one attempt of the case through the workflow Pipeline.
 
-        Returns what the run directory says once the attempt is closed, or
-        ``None`` for a window that owns no run record. Never opens the index: the
-        worker writes its directory, the caller indexes it afterwards.
+        *request* is what to run, or the keywords of :meth:`request_of` make one. Returns
+        what the run directory says once the attempt is closed, or ``None`` for a window
+        that owns no run record. Never opens the index: the worker writes its
+        directory, the caller indexes it afterwards.
 
         ``resume`` names the case to continue; the attempt resumes in place
         from the journal of its directory. ``fresh`` files everything the
         previous attempt left under ``attempts/<k>/`` and starts over.
         ``force`` claims a stale case whose death cannot be proven. ``lineage``
         and ``calibrated_by`` are the blocks a promotion seals its run with.
+        ``frozen`` wins over the member of the request when given: a replay that
+        checked its record runs unfrozen. ``skip_identical`` lets the attempt give back a
+        completed run of the same solution key instead of computing: the caller says so for
+        a plain run, never for a resume, a window or a replay.
         """
         from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
+        request = request if request is not None else self.request_of(**options)
+        frozen_inputs = request.frozen if frozen is None else frozen
 
         # What the launch asks of the figures. It reaches the display step and
         # nothing else: it is no part of the identity or of the sealed config.
-        skip_display = bool(project._no_display or project._headless or no_display)
+        skip_display = bool(project._no_display or project._headless or request.no_display)
 
-        changes = override_changes(project._cfg, set or {})
+        changes = override_changes(project._cfg, request.set)
 
-        name = self._run_name(name, resume)
+        name = self._run_name(request.name, request.resume)
         if name is None:
             project._run_counter += 1
             name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=project._run_counter)
 
         all_steps = standard_steps()
         steps = all_steps
-        from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
+        from_idx, until_idx, head_only = step_window(
+            all_steps, request.from_step, request.until_step, request.resume
+        )
         if until_idx is not None:
             steps = tuple(all_steps[: until_idx + 1])
 
@@ -307,40 +338,148 @@ class ProjectRunner:
         cfg_run = self._load_run_context(name, changes)
         # The lineage belongs to one run: a later point of a sweep starts without it.
         project._ctx.lineage = None
-        if lineage is not None and changes:
-            lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **changes}})
+        overrides = request.overrides(changes)
+        if lineage is None and overrides:
+            from hydromodpy.results.lineage import Lineage
 
-        # The identity of this run, computed once: the claim compares it to
-        # the one of the previous attempt, the facts of the run record it.
-        config_hash = solve_identity_hash(cfg_run) if claims else None
+            lineage = Lineage(overrides=overrides)
+        elif lineage is not None and overrides:
+            lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **overrides}})
+
         bracket = (
-            _attempt_bracket(workspace_path, name, cfg_run, config_hash, fresh=fresh, force=force)
+            _attempt_bracket(
+                workspace_path, name, cfg_run, fresh=request.fresh, force=request.force
+            )
             if claims
             else nullcontext(None)
         )
-        with bracket as handle:
-            sim_id = self._execute_attempt(
-                handle,
-                name=name,
-                steps=steps,
-                all_steps=all_steps,
-                cfg_run=cfg_run,
-                workspace_path=workspace_path,
-                resume=resume,
-                from_idx=from_idx,
-                model_phase_ready=model_phase_ready,
-                model_phase_index=model_phase_index(all_steps),
-                skip_display=skip_display,
-                frozen=frozen,
-                run_overrides=changes or None,
-                config_hash=config_hash,
-                lineage=lineage,
-                calibrated_by=calibrated_by,
+        identical: Path | None = None
+        sim_id: str | None = None
+        try:
+            with bracket as handle:
+                solution_key = None
+                if handle is not None:
+                    solution_key, identical = self._claim_documents(
+                        handle,
+                        request,
+                        cfg_run,
+                        workspace_path,
+                        name=name,
+                        skip_identical=skip_identical,
+                    )
+                if identical is not None:
+                    handle.withdraw()
+                else:
+                    sim_id = self._execute_attempt(
+                        handle,
+                        name=name,
+                        steps=steps,
+                        all_steps=all_steps,
+                        cfg_run=cfg_run,
+                        workspace_path=workspace_path,
+                        resume=request.resume,
+                        from_idx=from_idx,
+                        model_phase_ready=model_phase_ready,
+                        model_phase_index=model_phase_index(all_steps),
+                        skip_display=skip_display,
+                        frozen=frozen_inputs,
+                        run_overrides=changes or None,
+                        solution_key=solution_key,
+                        lineage=lineage,
+                        calibrated_by=calibrated_by,
+                    )
+        finally:
+            # The inputs belong to the run that resolved them: a later phase of this
+            # project resolves its own.
+            project._ctx.inputs = None
+        if identical is not None:
+            project._ctx.run_dir = None
+            return RunOutcome.read(
+                identical, project_root=workspace_path, identical_to=identical.name
             )
         # The bracket has closed the outcome: what the directory says is final.
         if handle is None or sim_id is None:
             return None
-        return sealed_run_of(handle.claim, workspace_path)
+        return RunOutcome.read(handle.claim.run_dir, project_root=workspace_path)
+
+    def _claim_documents(
+        self,
+        handle: AttemptHandle,
+        request: RunRequest,
+        cfg_run: Any,
+        workspace_path: Path,
+        *,
+        name: str,
+        skip_identical: bool,
+    ) -> tuple[str, Path | None]:
+        """Say what the claimed attempt asks for, and whether a completed run already answers.
+
+        In the order of the module: ``request.json`` and ``config.toml`` are written, the
+        inputs are resolved and put on the context, the request id goes into
+        ``outcome.json``, an attempt ``k + 1`` that is no asked resume starts over when the
+        previous attempt asked for something else, then the solution key is told and, for a run that may be
+        skipped, a completed run of that key is looked for. ``if_exists = "fail"`` is
+        checked last, so a run identical to a completed one is given back and not refused.
+        Returns the solution key and the directory of the identical run, or ``None``.
+        """
+        from hydromodpy.data.loading.inputs import resolve_inputs
+        from hydromodpy.project.dispatch.workflow import completed_identical_run
+
+        project = self._project
+        ctx = project._ctx
+        project_root = Path(cfg_run.workspace.project_root)
+        self._write_claim_documents(handle, request, cfg_run, project_root)
+        # A download that fails closes the outcome as failed: the claim came first.
+        resolved = resolve_inputs(
+            cfg_run, bounds=ctx.bounds, data_dir=Path(cfg_run.workspace.data_path)
+        )
+        ctx.inputs = resolved
+        request_id = request_id_of(
+            cfg_run,
+            resolved,
+            search=False,
+            window_state=None,
+            source_states=source_state_digests(cfg_run, project_root),
+        )
+        record_request_id(handle.run_dir, request_id)
+        # Starting over keeps config.toml and request.json: they are already this attempt's.
+        # A resume the caller asked for never starts over: the checkpoint refuses a
+        # configuration that moved and names the sections that did.
+        if request.resume is None:
+            handle.start_over_if_changed(request_id)
+        key = solution_key_of(cfg_run, request_id, binaries=solver_binaries(cfg_run))
+        if skip_identical and not request.force:
+            identical = completed_identical_run(project_root, name, key)
+            if identical is not None:
+                return key, identical
+        if cfg_run.simulation.if_exists == "fail" and handle.claim.created:
+            try:
+                check_name_free(workspace_path, name, excluding=handle.run_dir.name)
+            except Exception:
+                # The refusal leaves nothing behind: the claim goes with it.
+                handle.withdraw()
+                raise
+        return key, None
+
+    def _write_claim_documents(
+        self, handle: AttemptHandle, request: RunRequest, cfg_run: Any, project_root: Path
+    ) -> None:
+        """Write ``request.json`` and ``config.toml`` into the directory the attempt claimed."""
+        ctx = self._project._ctx
+        ctx.run_dir = handle.run_dir
+        write_request_file(handle.run_dir, request)
+        restart_sim_id = restart_path = None
+        reference = getattr(getattr(cfg_run, "flow", None), "restart_from", None)
+        if reference:
+            source = resolve_restart_source(project_root, reference)
+            restart_sim_id, restart_path = source.sim_id, str(source.path)
+        write_claim_config(
+            ctx,
+            project_root=project_root,
+            restart_sim_id=restart_sim_id,
+            restart_path=restart_path,
+            zone_runs=zone_run_ids(cfg_run, project_root),
+        )
 
     def _load_run_context(self, name: str, changes: Mapping[str, Any]) -> Any:
         """Put the configuration of this run on the context and return it.
@@ -387,7 +526,7 @@ class ProjectRunner:
         skip_display: bool,
         frozen: bool,
         run_overrides: dict[str, Any] | None,
-        config_hash: str | None,
+        solution_key: str | None,
         lineage: Any,
         calibrated_by: Any,
     ) -> str | None:
@@ -421,7 +560,14 @@ class ProjectRunner:
             resume_from = None
 
         initial = self._initial_state(
-            name, cfg_run, skip_display, run_overrides, config_hash, run_dir, lineage, calibrated_by
+            name,
+            cfg_run,
+            skip_display,
+            run_overrides,
+            solution_key,
+            run_dir,
+            lineage,
+            calibrated_by,
         )
 
         # A head-only window owns no run record: handing it a directory would
@@ -456,7 +602,7 @@ class ProjectRunner:
         cfg_run: Any,
         skip_display: bool,
         run_overrides: dict[str, Any] | None,
-        config_hash: str | None,
+        solution_key: str | None,
         run_dir: Path | None,
         lineage: Any,
         calibrated_by: Any,
@@ -485,7 +631,8 @@ class ProjectRunner:
                 # What this run changes on top of the configuration of the project,
                 # by dotted path: the lineage of the seal records it.
                 "run_overrides": run_overrides,
-                "config_hash": config_hash,
+                # What the seal records as the identity of the run.
+                "solution_key": solution_key,
                 "run_dir": run_dir,
                 "lineage": lineage,
                 "calibrated_by": calibrated_by,
@@ -535,4 +682,4 @@ class ProjectRunner:
             return Path(declared_root)
         if project._config_path is not None:
             return project._config_path.parent
-        return Path.cwd()
+        return Path(project._ctx.config_path).parent

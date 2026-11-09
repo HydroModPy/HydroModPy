@@ -125,8 +125,7 @@ def is_sealed_run_config(path: str | Path) -> bool:
 
     A run directory is ``runs/<name>`` or a kept trial
     ``sessions/<name>/trials/<nnnn>[/<case_id>]`` (:func:`parse_rel_dir`). The frozen file
-    is its ``config.toml``, and ``hmp run --set`` writes its effective copy
-    next to it.
+    is its ``config.toml``.
     """
     parts = Path(path).expanduser().resolve().parent.parts
     for depth in (2, 4, 5):

@@ -32,9 +32,10 @@ changes. A checksum that matches is a strong sign that the file is the one that 
 ## What the project keeps
 
 At the root of a project, the {term}`lockfile` `hydromodpy.lock` pins what fed the runs: the
-version of the code, the versions of the file formats, and every cached input with its checksum
-and size. It is written once the data of a launch are fetched, not by every run. Each run records
-the solver binary it used, with its checksum.
+version of the code, and every cached input with its source, licence, checksum and size, read
+from the sidecar that sits next to each file. The files you provide yourself, under `inputs/`,
+are listed too. You write it with `hmp data lock`, and a launch of many cases writes it once the
+data are fetched, not every run. Each run records the solver binary it used, with its checksum.
 
 The lockfile answers a wider question than the manifest of one run: in what state was the whole
 data cache before the run?
@@ -45,7 +46,7 @@ data cache before the run?
 |---|---|---|
 | What exactly was run? | The summary of the run: solver, status, duration, size of the grid, parameters, scores and the start of the configuration fingerprint. The frozen configuration and the provenance record are files of the run folder, which you can open. | `hmp catalog show <run>` |
 | What differs between two runs? | The comparison of the two. | `hmp catalog diff <run A> <run B>` |
-| Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp lock verify` |
+| Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp data lock --check` |
 | To replay a stored run with exactly the same data and settings | A run that checks each input against the record of the run, and refuses a file or a setting that moved, a default included, naming it. A run a calibration promoted replays as one solve. The new run goes to the project that holds the file. For a copy outside any project, name it with `-w <project>`. | `hmp run <run>/config.toml --frozen` |
 | To replay a project file on its pinned data | A run that refuses any fresh download and stops on a checksum that does not match the lockfile. | `hmp run --frozen <file>` |
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. A default that moved since gets a warning and a line in the lineage of the new run. | `hmp catalog rerun <run> --set path=value` |

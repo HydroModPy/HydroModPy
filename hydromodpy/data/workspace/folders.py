@@ -12,14 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.io.filesystem import path_size
-from hydromodpy.core.state.layout import (
-    DATA_CACHE_FILENAME,
-    PROJECT_MARKER_FILENAME,
-    data_cache_path_for,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.scratch import scratch_root_for
 from hydromodpy.core.workspace.resolve import find_workspace_root
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
+from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE
 from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT, scaffold
 from hydromodpy.data.workspace.scaffold import create_project as scaffold_project
 
@@ -84,7 +81,12 @@ CLEAN_GROUPS: tuple[str, ...] = (
     "runtime",
     "scratch",
 )
-"""Rebuildable families ``clean_workspace`` removes; results go to the trash, never here."""
+"""Rebuildable families ``clean_workspace`` removes; results go to the trash, never here.
+
+``data_cache`` is ``data/blobs/`` and the database file of HydroModPy 2.0.0 with its journal
+and lock. The sidecars and the files they describe are the cache itself: ``hmp data remove``
+and ``hmp data prune`` drop them, a clean never does.
+"""
 
 
 def init_workspace(
@@ -123,8 +125,9 @@ def clean_workspace(
 ) -> dict:
     """Remove what a workspace can rebuild.
 
-    ``groups`` selects which families to remove: ``data_cache``, ``runtime``
-    (``.hmp/``) and ``scratch`` (``.hmp/scratch``). Runs and sessions are
+    ``groups`` selects which families to remove: ``data_cache`` (``data/blobs/`` and the
+    database of HydroModPy 2.0.0, which ``scan`` refuses), ``runtime`` (``.hmp/``) and
+    ``scratch`` (``.hmp/scratch``). Runs and sessions are
     never removed here: ``hmp workspace clean --results`` moves them to the
     trash. Default is empty (the caller passes at least one group, or
     ``{"all"}``).
@@ -146,13 +149,14 @@ def clean_workspace(
 
     targets: list[Path] = []
     if "data_cache" in selected:
+        data_dir = workspace_root / "data"
         targets.extend(
             [
-                data_cache_path_for(workspace_root / "data"),
-                data_cache_path_for(workspace_root / "data").with_name(
-                    f"{DATA_CACHE_FILENAME}.wal"
+                *(
+                    data_dir / f"{FORMER_CACHE_DATABASE}{suffix}"
+                    for suffix in ("", ".wal", ".lock")
                 ),
-                workspace_root / "data" / "blobs",
+                data_dir / "blobs",
             ]
         )
     if "runtime" in selected:

@@ -30,7 +30,7 @@ def run_boussinesq_uniform_recharge_piecewise_k_case(
         timeout=timeout,
         public_solver_label=public_solver_label,
         process_id="flow_validation",
-        simulation_name="Boussinesq uniform-recharge validation",
+        simulation_name="boussinesq_uniform_recharge_validation",
         simulation_description="Steady piecewise-K recharge strip",
         initial_head_m=6.0,
         west_head_m=WEST_HEAD_M,

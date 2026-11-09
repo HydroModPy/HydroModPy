@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import (
     RUNS_DIRNAME,
     SESSIONS_DIRNAME,
@@ -122,7 +123,7 @@ def test_a_name_with_a_version_suffix_is_refused(tmp_path):
 
 
 def test_a_name_that_is_not_a_directory_name_is_refused(tmp_path):
-    with pytest.raises(ValueError, match="nancon_amont"):
+    with pytest.raises(ConfigError, match="nancon_amont"):
         reserve_version_dirname(tmp_path, "run", "nancon amont")
 
 

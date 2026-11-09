@@ -38,27 +38,6 @@ if TYPE_CHECKING:
     from pydantic.fields import FieldInfo
 
 
-_EFFECTIVE_COPY_MARK = ".effective."
-
-
-def effective_copy_prefix(stem: str) -> str:
-    """Return how the temporary effective copy of a file ``<stem>.toml`` starts."""
-    return f".{stem}{_EFFECTIVE_COPY_MARK}"
-
-
-def source_of_effective_copy(path: Path) -> Path:
-    """Return the file the temporary effective copy *path* stands for; any other path as it is.
-
-    ``--set`` and ``--overlay`` run a temporary copy beside the file the user
-    named, and delete it after the run. What a run records and what it is named
-    after come from the file the user named.
-    """
-    name = path.name
-    if name.startswith(".") and name.endswith(".toml") and _EFFECTIVE_COPY_MARK in name:
-        return path.with_name(f"{name[1 : name.rindex(_EFFECTIVE_COPY_MARK)]}.toml")
-    return path
-
-
 _SCHEME_PATTERN = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.\-]*):")
 
 

@@ -51,12 +51,6 @@ The same value as ``hydromodpy.data.provenance.sidecars.SIDECAR_SUFFIX``. ``sche
 not import ``data``, so a test holds the two equal.
 """
 
-CACHE_INDEX = "data/cache.duckdb"
-"""The DuckDB index of the downloaded files, under the workspace root.
-
-The files and their sidecars stay the truth; the index is derived.
-"""
-
 LICENCES_CHECKED = "2026-10-09"
 """The day the licences below were read on the publishers' pages."""
 
@@ -420,7 +414,7 @@ _ENTRIES: tuple[SourceEntry, ...] = (
                 note=(
                     "hydrography_bdtopage_<bbox hash>.gpkg is the full answer, in EPSG:2154. "
                     "hydrography_bdtopage_permanent_<bbox hash>.gpkg holds only its "
-                    "permanent reaches and is not registered in the index. " + _WORKSPACE_NOTE
+                    "permanent reaches and is not a row of the data cache. " + _WORKSPACE_NOTE
                 ),
             ),
         ),
@@ -906,7 +900,6 @@ def declared_source_tokens(config_text: str) -> tuple[str, ...]:
 
 
 __all__ = [
-    "CACHE_INDEX",
     "COPERNICUS_LICENCE_ID",
     "LICENCES_CHECKED",
     "SIDECAR_SUFFIX",

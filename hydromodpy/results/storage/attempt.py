@@ -31,8 +31,25 @@ Rules
   a directory nobody made this way, and the worker says what to do with it.
 - By default the attempt resumes in place: ``outcome.json`` and ``logs/`` of
   attempt ``k`` go under ``attempts/<k>/``, the checkpoints, the partial
-  field store and the scratch stay. ``fresh``, or a configuration hash that
-  differs from the one the previous attempt recorded, moves everything.
+  field store and the scratch stay. ``fresh`` moves everything, and so does
+  :func:`start_over_if_changed` once the request id of the new attempt is known
+  and differs from the one attempt ``k`` recorded.
+- Every name a claim creates or resumes follows the rule of a run name
+  (:func:`~hydromodpy.core.state.names.check_name`). A folder of another rule is
+  read and opened, never claimed.
+
+The claim carries no identity: the request id is written into the outcome by
+:func:`record_request_id` once the inputs are resolved, after the claim, so an
+attempt that fails while it fetches its inputs still leaves its outcome.
+
+Withdrawing a claim
+-------------------
+A run identical to a completed one is not computed: the attempt gives the
+completed run back and :func:`withdraw_claim` undoes its claim without a
+trace. A directory the claim created goes as a whole. An attempt ``k + 1``
+puts the outcome, the logs and what else it filed back from ``attempts/<k>/``,
+removes what it wrote itself, and removes ``attempts/<k>/``, and
+``attempts/`` when that is empty.
 
 How an attempt ends
 -------------------
@@ -54,7 +71,7 @@ import shutil
 import signal as signals
 import socket
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -67,6 +84,7 @@ from hydromodpy.core.state.layout import (
     RUN_INTERNAL_SCRATCH_DIRNAME,
     runs_dir_for,
 )
+from hydromodpy.core.state.names import check_name
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.state.scratch import (
     PREPROCESSING_DIRNAME,
@@ -95,12 +113,13 @@ from hydromodpy.results.outcome import (
 from hydromodpy.results.readme import render_unsealed_run_readme, write_readme
 from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,
+    RUN_CONFIG_FILENAME,
     RUN_LOGS_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
+    RUN_REQUEST_FILENAME,
 )
 from hydromodpy.results.storage.json_io import readable
-from hydromodpy.results.storage.run_facts import read_facts
 
 logger = get_logger(__name__)
 
@@ -133,6 +152,10 @@ class RunClaim:
     started_at: datetime
     host: str
     pid: int
+    created: bool = False
+    """True when this attempt created the directory, by its ``mkdir`` or a reserved version."""
+    kept: frozenset[str] = frozenset()
+    """The entries of the directory an attempt ``k + 1`` found once attempt ``k`` was filed."""
 
     @property
     def rel_dir(self) -> str:
@@ -194,7 +217,6 @@ def claim_run_directory(
     site: str | None = None,
     fresh: bool = False,
     force: bool = False,
-    config_hash: str | None = None,
     if_exists: Literal["version", "fail"] = "version",
     now: datetime | None = None,
     stale_after_s: float = DEFAULT_STALE_AFTER_S,
@@ -219,10 +241,10 @@ def claim_run_directory(
     version of *name* is held. A retry of an unfinished attempt reuses its
     directory and gives out no name.
 
-    *config_hash* is the identity hash of the configuration this attempt
-    runs. A retry whose hash differs from the one the previous attempt
-    recorded in its facts starts fresh, as if ``fresh`` had been passed.
+    A name that breaks the rule of a run name is refused with
+    :class:`~hydromodpy.core.exceptions.ConfigError` before anything is written.
     """
+    check_name(name, what="run")
     root = Path(project_root)
     when = now if now is not None else datetime.now(UTC)
     host = socket.gethostname()
@@ -234,22 +256,29 @@ def claim_run_directory(
             check_name_free(root, name)
         if next_version_dirname(root, name) != name:
             target = reserve_version_dirname(root, "run", name)
-            return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
+            return _first_attempt(
+                target, case_id=case_id, project=project, site=site, when=when, created=True
+            )
         runs = runs_dir_for(root)
         runs.mkdir(parents=True, exist_ok=True)
         target = runs / name
         try:
             os.mkdir(target)
         except FileExistsError as exc:
+            _refuse_a_name_the_disk_folds(runs, name)
             raise AttemptClaimedError(f"{CLAIMED_ELSEWHERE}: {name}") from exc
-        return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
+        return _first_attempt(
+            target, case_id=case_id, project=project, site=site, when=when, created=True
+        )
     status = effective_status(latest, now=when, stale_after_s=stale_after_s)
     # A directory this code cannot read is left as it is: the case takes a new version.
     if status in ("completed", "unreadable"):
         if if_exists == "fail":
             check_name_free(root, stem)
         target = reserve_version_dirname(root, "run", stem)
-        return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
+        return _first_attempt(
+            target, case_id=case_id, project=project, site=site, when=when, created=True
+        )
     if status == "unknown":
         _refuse_directory_without_outcome(latest, when, stale_after_s)
     previous = read_outcome(latest)
@@ -272,8 +301,25 @@ def claim_run_directory(
                 f"{previous.pid}): its pulse is stale but its death is not proven. "
                 "Pass --force once the process is known to be dead."
             )
-    starts_over = fresh or _config_changed(latest, config_hash)
-    return _next_attempt(latest, previous, fresh=starts_over, when=when, host=host, pid=pid)
+    return _next_attempt(latest, previous, fresh=fresh, when=when, host=host, pid=pid)
+
+
+def _refuse_a_name_the_disk_folds(runs: Path, name: str) -> None:
+    """Refuse a claim whose ``mkdir`` met a folder of another case on a disk that ignores case.
+
+    A folder of 2.0 named ``J0014010-base`` holds the name ``j0014010-base`` on
+    such a disk. No entry of ``runs/`` carries *name* exactly, so no worker
+    claimed it: the folder is in the way and the sentence names it.
+    """
+    entries = [entry.name for entry in runs.iterdir()]
+    if name in entries:
+        return
+    others = sorted(entry for entry in entries if entry.lower() == name.lower())
+    held = others[0] if others else "another folder"
+    raise WriteConflictError(
+        f"runs/{name} cannot be created: the disk ignores case and runs/{held} holds the "
+        "name. Rename or move that folder, then run this case again."
+    )
 
 
 def _refuse_directory_without_outcome(directory: Path, when: datetime, grace_s: float) -> None:
@@ -291,22 +337,6 @@ def _refuse_directory_without_outcome(directory: Path, when: datetime, grace_s: 
         f"{directory} carries neither {RUN_OUTCOME_FILENAME} nor {RUN_MANIFEST_FILENAME}: "
         "trash it, or rename it, before running this case again."
     )
-
-
-def _config_changed(run_dir: Path, config_hash: str | None) -> bool:
-    """Return whether the previous attempt ran another configuration than *config_hash*."""
-    if config_hash is None:
-        return False
-    facts = read_facts(run_dir)
-    if facts is None or facts.config_hash is None:
-        return False
-    changed = facts.config_hash != config_hash
-    if changed:
-        logger.info(
-            "The configuration of %s changed since its last attempt: starting over.",
-            run_dir.name,
-        )
-    return changed
 
 
 def claim_reserved_directory(
@@ -349,6 +379,7 @@ def _first_attempt(
     site: str | None,
     when: datetime,
     sim_id: str | None = None,
+    created: bool = False,
 ) -> RunClaim:
     """Claim *run_dir* as attempt 1 of this process and write its running outcome."""
     claim = RunClaim(
@@ -361,6 +392,7 @@ def _first_attempt(
         started_at=when,
         host=socket.gethostname(),
         pid=os.getpid(),
+        created=created,
     )
     write_outcome(run_dir, _running_outcome(claim, case_id=case_id, project=project, site=site))
     return claim
@@ -395,6 +427,7 @@ def _next_attempt(
         started_at=when,
         host=host,
         pid=pid,
+        kept=frozenset(entry.name for entry in run_dir.iterdir()),
     )
     write_outcome(
         run_dir,
@@ -405,11 +438,108 @@ def _next_attempt(
     return claim
 
 
+def record_request_id(run_dir: Path, request_id: str) -> Outcome:
+    """Write *request_id* into the outcome of the attempt running in *run_dir*.
+
+    Called once per attempt, as soon as its inputs are resolved, so the next
+    attempt can compare before it resumes.
+    """
+    previous = read_outcome(run_dir)
+    if previous is None:
+        raise FileNotFoundError(f"{run_dir} carries no {RUN_OUTCOME_FILENAME} to complete")
+    outcome = previous.model_copy(update={"request_id": request_id})
+    write_outcome(run_dir, outcome)
+    return outcome
+
+
+def start_over_if_changed(claim: RunClaim, request_id: str) -> RunClaim:
+    """Start attempt ``k + 1`` over when attempt ``k`` asked for something else.
+
+    The request id is compared with the one the outcome of attempt ``k`` recorded
+    under ``attempts/<k>/``. When they differ, or when that outcome recorded none,
+    everything attempt ``k`` left is filed under ``attempts/<k>/``, as ``fresh``
+    does, and the attempt takes a new ``sim_id``. ``config.toml`` and
+    ``request.json`` stay in place: they are already those of the new attempt, and
+    the claim filed copies of attempt ``k``. Returns the claim to work with: the
+    same one when nothing changed or when the attempt is a first or a fresh one.
+    """
+    if not claim.resumed:
+        return claim
+    archive = claim.run_dir / RUN_ATTEMPTS_DIRNAME / str(claim.attempt - 1)
+    previous = readable(read_outcome, archive)
+    if previous is not None and previous.request_id == request_id:
+        return claim
+    logger.info(
+        "The request of %s changed since its last attempt: starting over.", claim.run_dir.name
+    )
+    for entry in list(claim.run_dir.iterdir()):
+        if entry.name in (RUN_ATTEMPTS_DIRNAME, RUN_OUTCOME_FILENAME, RUN_LOGS_DIRNAME):
+            continue
+        if entry.name in _CLAIM_DOCUMENTS:
+            continue
+        shutil.move(str(entry), str(archive / entry.name))
+    started = replace(
+        claim,
+        sim_id=str(uuid.uuid4()),
+        resumed=False,
+        kept=frozenset({RUN_OUTCOME_FILENAME}),
+    )
+    current = read_outcome(claim.run_dir)
+    if current is not None:
+        write_outcome(claim.run_dir, current.model_copy(update={"sim_id": started.sim_id}))
+    return started
+
+
+def withdraw_claim(claim: RunClaim) -> None:
+    """Undo *claim* without a trace; the pulse of the attempt is stopped before.
+
+    A directory the claim created is removed as a whole. An attempt ``k + 1``
+    removes what it wrote, puts back what it filed under ``attempts/<k>/``,
+    outcome and logs included, and removes ``attempts/<k>/``, then ``attempts/``
+    when it is empty. A first attempt of a directory someone else reserved
+    removes its outcome and its logs and leaves the directory reserved.
+    """
+    run_dir = claim.run_dir
+    if claim.created:
+        shutil.rmtree(run_dir, ignore_errors=True)
+        return
+    if claim.attempt == 1:
+        (run_dir / RUN_OUTCOME_FILENAME).unlink(missing_ok=True)
+        shutil.rmtree(run_dir / RUN_LOGS_DIRNAME, ignore_errors=True)
+        return
+    attempts = run_dir / RUN_ATTEMPTS_DIRNAME
+    archive = attempts / str(claim.attempt - 1)
+    for entry in list(run_dir.iterdir()):
+        if entry.name == RUN_ATTEMPTS_DIRNAME:
+            continue
+        if entry.name in claim.kept and not (archive / entry.name).exists():
+            continue
+        _remove(entry)
+    for entry in list(archive.iterdir()):
+        os.replace(entry, run_dir / entry.name)
+    archive.rmdir()
+    if not any(attempts.iterdir()):
+        attempts.rmdir()
+
+
+def _remove(entry: Path) -> None:
+    if entry.is_dir() and not entry.is_symlink():
+        shutil.rmtree(entry)
+    else:
+        entry.unlink()
+
+
+_CLAIM_DOCUMENTS: tuple[str, ...] = (RUN_CONFIG_FILENAME, RUN_REQUEST_FILENAME)
+"""What the claim of every attempt writes again: what the attempt was asked."""
+
+
 def _file_previous_attempt(run_dir: Path, archive: Path, *, fresh: bool) -> None:
     """File what attempt ``k`` left under ``attempts/<k>/``.
 
     The outcome is copied, not moved: it stays in place until the outcome of
     the new attempt replaces it, so the directory never reads as unknown.
+    ``config.toml`` and ``request.json`` are copied too, because the new attempt
+    writes its own over them, and a withdrawn attempt puts those of ``k`` back.
     """
     outcome = run_dir / RUN_OUTCOME_FILENAME
     if outcome.is_file():
@@ -418,6 +548,9 @@ def _file_previous_attempt(run_dir: Path, archive: Path, *, fresh: bool) -> None
     if logs.exists():
         shutil.move(str(logs), str(archive / RUN_LOGS_DIRNAME))
     if not fresh:
+        for document in _CLAIM_DOCUMENTS:
+            if (run_dir / document).is_file():
+                shutil.copy2(run_dir / document, archive / document)
         return
     for entry in list(run_dir.iterdir()):
         if entry.name in (RUN_ATTEMPTS_DIRNAME, RUN_OUTCOME_FILENAME):
@@ -609,8 +742,11 @@ __all__ = [
     "finish_dead_attempt",
     "is_run_product",
     "latest_version_dir",
+    "record_request_id",
     "run_dir_for_name",
     "scheduler_job_id_from_env",
     "scratch_dir_for_attempt",
     "signal_of",
+    "start_over_if_changed",
+    "withdraw_claim",
 ]

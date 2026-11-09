@@ -105,7 +105,7 @@ class DataManagersConfig(HydroModelBase):
     - the other data families are kept as validated mappings for now.
 
     Use this model for validation only. Runtime activation order is represented
-    by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
+    by ``DataLoadPlan`` and loaded by ``DataLoader``.
     """
 
     types: Annotated[list[str], Profile.USER] = Field(

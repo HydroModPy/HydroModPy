@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
+from hydromodpy.core.state.names import MAX_NAME_LENGTH
 from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.catalog.storage_paths import (
-    MAX_DIRNAME_LEN,
-    RunNameTooLongError,
-    StoragePathResolver,
-    run_dirname,
-)
+from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
@@ -59,10 +56,10 @@ def test_the_resolver_reads_the_relative_directory_of_the_index(tmp_path):
     run_sid = "00000000-0000-4000-8000-000000000001"
     trial_sid = "00000000-0000-4000-8000-000000000002"
     resolver = StoragePathResolver(
-        _Backend({run_sid: "runs/Run_One", trial_sid: "sessions/cal/trials/0004"}), project
+        _Backend({run_sid: "runs/run_one", trial_sid: "sessions/cal/trials/0004"}), project
     )
 
-    run_dir = project / RUNS_DIRNAME / "Run_One"
+    run_dir = project / RUNS_DIRNAME / "run_one"
     assert resolver.run_dir_for(run_sid) == run_dir
     assert resolver.fields_path_for(run_sid) == run_dir / FIELDS_STORE_NAME
     assert resolver.tables_dir_for(run_sid) == run_dir / TABLES_DIRNAME
@@ -74,23 +71,23 @@ def test_the_resolver_reads_the_relative_directory_of_the_index(tmp_path):
         resolver.run_dir_for("00000000-0000-4000-8000-00000000000f")
 
 
-def test_an_over_long_name_is_refused_instead_of_truncated():
-    too_long = "a" * (MAX_DIRNAME_LEN + 1)
+def test_an_over_long_name_is_refused_instead_of_truncated(tmp_path):
+    too_long = "a" * (MAX_NAME_LENGTH + 1)
 
-    with pytest.raises(RunNameTooLongError) as excinfo:
-        run_dirname(too_long)
+    with pytest.raises(ConfigError, match=str(MAX_NAME_LENGTH)):
+        reserve_version_dirname(tmp_path / "project", "run", too_long)
 
-    assert str(MAX_DIRNAME_LEN) in str(excinfo.value)
-    assert run_dirname("a" * MAX_DIRNAME_LEN) == "a" * MAX_DIRNAME_LEN
+    kept = reserve_version_dirname(tmp_path / "project", "run", "a" * MAX_NAME_LENGTH)
+    assert kept.name == "a" * MAX_NAME_LENGTH
 
 
 def test_a_reservation_refuses_two_long_names_sharing_a_prefix(tmp_path):
     """Truncation used to map both names onto one directory: the second died."""
     project = tmp_path / "project"
-    stem = "cheze_preretenue_chronicle_" * 4
+    stem = "cheze_preretenue_chronicle_" * 2
 
     for suffix in ("alpha", "beta"):
-        with pytest.raises(RunNameTooLongError):
+        with pytest.raises(ConfigError):
             reserve_version_dirname(project, "run", f"{stem}{suffix}")
     assert not (project / RUNS_DIRNAME).exists() or list((project / RUNS_DIRNAME).iterdir()) == []
 

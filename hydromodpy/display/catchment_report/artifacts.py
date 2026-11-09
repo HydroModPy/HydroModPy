@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
@@ -402,15 +401,17 @@ def outlet_xy_from_config(config: dict[str, Any]) -> tuple[float, float] | None:
 def geology_legend_rows(
     geographic_scratch: Path,
     geology_path: Path | None = None,
+    *,
+    data_dir: Path | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Return the geology legend of the catchment, one row per geological code.
 
     ``geology_path`` is the vector file named by the report file. Without it the
-    GeoPackages the geology loader cached are tried, newest first, until one covers
-    the catchment.
+    GeoPackages the geology loader cached in ``data_dir`` are tried, newest
+    first, until one covers the catchment.
     """
     watershed_path = geographic_scratch / "watershed.shp"
-    candidates = [geology_path] if geology_path is not None else geology_cache_candidates()
+    candidates = [geology_path] if geology_path is not None else geology_cache_candidates(data_dir)
     if not candidates:
         logger.info(
             "Catchment report: no geology file to build the legend from; "
@@ -486,9 +487,15 @@ def _legend_rows_from(
     return tuple(rows)
 
 
-def geology_cache_candidates() -> list[Path]:
-    """BRGM GeoPackages in the geology cache of the user, 1:50k first, newest first."""
-    root = cache_dir() / "geology"
+def geology_cache_candidates(data_dir: Path | None) -> list[Path]:
+    """BRGM GeoPackages in ``geology/`` of a data folder, 1:50k first, newest first.
+
+    Found by their names: this package reads only ``core`` and ``results``, so it
+    does not read the sidecars. A data folder of ``None`` has none.
+    """
+    if data_dir is None:
+        return []
+    root = Path(data_dir) / "geology"
     detailed = sorted(
         (path for path in root.glob("geology_brgm_50k_*.gpkg") if path.is_file()),
         key=_modified,

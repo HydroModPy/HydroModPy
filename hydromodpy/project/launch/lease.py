@@ -2,8 +2,8 @@
 
 Why
 ---
-Two launchers on one project would start the same case twice and merge
-their private caches into the shared one at the same moment. The first act
+Two launchers on one project would start the same case twice and write the
+same files of the shared data folder at the same moment. The first act
 of a launcher is to take ``<project>/.hmp/launcher.lease`` with
 ``O_CREAT | O_EXCL``: the file names its host, its process and the instant.
 A second launcher reads it and stops with that host and that process.

@@ -26,6 +26,13 @@ from hydromodpy.project.launch.slurm_script import TERM_GRACE_S, walltime_second
 from hydromodpy.results.outcome import read_outcome
 from tests.unit.project.launch._helpers import STAMP, planned_project
 
+CASES = ("j001-base", "j002-base", "j003-calage")
+"""The cases of the plan, named as the plan names them: folded to a run name."""
+
+
+def _planned(root: Path, **kwargs):
+    return planned_project(root, cases=CASES, **kwargs)
+
 
 def _directive(text: str, key: str) -> str:
     match = re.search(rf"^#SBATCH --{key}=(.+)$", text, flags=re.MULTILINE)
@@ -37,7 +44,7 @@ def _directive(text: str, key: str) -> str:
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_both_scripts_parse_under_bash_and_are_executable(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     job = write_slurm_array(root, stamp=STAMP, partition="normal", walltime="12:00:00")
 
     for script in (job.prepare_sh, job.array_sh):
@@ -51,7 +58,7 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2)
+    _planned(root, threads=2)
     job = write_slurm_array(root, stamp=STAMP)
     text = job.array_sh.read_text()
 
@@ -83,7 +90,7 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2)
+    _planned(root, threads=2)
     job = write_slurm_array(
         root,
         stamp=STAMP,
@@ -119,7 +126,7 @@ def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_a_task_flag_the_shell_would_read_is_quoted(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2)
+    _planned(root, threads=2)
     tricky = 'a "b" $HOME `id`'
     job = write_slurm_array(root, stamp=STAMP, environment_flags=["--credentials", tricky])
 
@@ -133,7 +140,7 @@ def test_a_task_flag_the_shell_would_read_is_quoted(tmp_path: Path) -> None:
 
 def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2, prepare=3)
+    _planned(root, threads=2, prepare=3)
     job = write_slurm_array(root, stamp=STAMP)
     text = job.prepare_sh.read_text()
 
@@ -153,7 +160,7 @@ def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -
 
 def test_a_calibration_case_sizes_the_cpus_of_every_task(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2, calibration_parallel={"J003-calage": 5})
+    _planned(root, threads=2, calibration_parallel={"j003-calage": 5})
 
     job = write_slurm_array(root, stamp=STAMP)
 
@@ -164,7 +171,7 @@ def test_a_calibration_case_sizes_the_cpus_of_every_task(tmp_path: Path) -> None
 
 def test_options_reach_the_directives(tmp_path: Path) -> None:
     root = tmp_path / "p"
-    planned_project(root, threads=2, prepare=3)
+    _planned(root, threads=2, prepare=3)
 
     job = write_slurm_array(
         root,
@@ -296,7 +303,7 @@ def _env(tmp_path: Path, mode: str) -> dict[str, str]:
 
 def _job(tmp_path: Path) -> tuple[Path, Path]:
     root = tmp_path / "p"
-    planned_project(root)
+    _planned(root)
     return root, write_slurm_array(root, stamp=STAMP).directory
 
 
@@ -325,7 +332,7 @@ def test_a_crashed_worker_is_closed_as_failed_by_the_trap(tmp_path: Path) -> Non
     root, proc = _task(tmp_path, "crash")
     assert proc.wait(timeout=50) == 137
 
-    run_dir = root / "runs" / "J001-base"
+    run_dir = root / "runs" / "j001-base"
     outcome = read_outcome(run_dir)
     assert outcome is not None
     assert outcome.status == "failed"
@@ -352,7 +359,7 @@ def test_the_scheduler_warning_reaches_the_worker_through_the_shell(tmp_path: Pa
     proc.send_signal(signal.SIGTERM)
 
     assert proc.wait(timeout=40) == 128 + signal.SIGTERM
-    outcome = read_outcome(root / "runs" / "J001-base")
+    outcome = read_outcome(root / "runs" / "j001-base")
     assert outcome is not None
     assert outcome.status == "failed" and outcome.written_by == "trap"
     assert outcome.signal == signal.SIGTERM
@@ -364,7 +371,7 @@ def test_a_worker_that_wrote_its_exit_is_left_alone(tmp_path: Path) -> None:
     root, proc = _task(tmp_path, "finish")
     assert proc.wait(timeout=50) == 15
 
-    run_dir = root / "runs" / "J001-base"
+    run_dir = root / "runs" / "j001-base"
     outcome = read_outcome(run_dir)
     assert outcome is not None
     assert outcome.written_by == "worker" and outcome.exit_code == 15

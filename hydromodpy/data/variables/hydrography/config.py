@@ -12,7 +12,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import DataCapabilityError, DataRequestError
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.data.managers.timeseries_config import UrlSourceFieldsMixin
+from hydromodpy.data.families.timeseries_config import UrlSourceFieldsMixin
 from hydromodpy.data.source import registry
 from hydromodpy.data.variables.hydrography.api_source import NETWORK_PAYLOAD_KIND
 

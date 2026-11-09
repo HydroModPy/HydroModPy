@@ -37,7 +37,9 @@ from hydromodpy.core.state.layout import (
     TRASH_DIRNAME,
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
+from hydromodpy.data.workspace.scaffold import INPUTS_DIRNAME, create_project
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
+from hydromodpy.project.request import RunRequest, read_request, write_request_file
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.manifest import MetricRow, read_manifest
 from hydromodpy.results.record import sealed_artifacts
@@ -51,6 +53,7 @@ from hydromodpy.results.storage.contract import (
     RUN_INPUTS_FILENAME,
     RUN_LOGS_DIRNAME,
     RUN_OUTCOME_FILENAME,
+    RUN_REQUEST_FILENAME,
     RUN_RESOLVED_CONFIG_FILENAME,
     TABLES_DIRNAME,
     UNSEALED_RUN_ENTRIES,
@@ -84,6 +87,9 @@ ALLOWED_PROJECT_ENTRIES = OUTPUT_ROOTS | frozenset(
         PROJECT_MARKER_FILENAME,
         README_FILENAME,
         CONFIGS_DIRNAME,
+        INPUTS_DIRNAME,
+        # Written once by `hmp project new`, the author's file from then on.
+        ".gitignore",
         SITE_OVERRIDES_DIRNAME,
         # Pin of the workspace input cache, an input of the project verified by
         # `hmp run --frozen` (hydromodpy/project/launch/lockfile.py).
@@ -224,6 +230,47 @@ def test_the_whole_configuration_of_a_run_is_a_sealed_entry_of_its_directory(sol
     (run_dir / RUN_RESOLVED_CONFIG_FILENAME).write_text("[flow]\n", encoding="utf-8")
     roles = {entry.path: entry.role for entry in sealed_artifacts(run_dir)}
     assert roles[RUN_RESOLVED_CONFIG_FILENAME] == "config_resolved"
+
+
+def test_the_request_of_a_run_is_kept_whole_and_never_sealed(solved_run):
+    """``request.json`` is the request as it came: an entry of the run outside the seal."""
+    assert RUN_REQUEST_FILENAME == "request.json"
+    assert RUN_REQUEST_FILENAME in UNSEALED_RUN_ENTRIES
+    project, _sim_id, _author = solved_run
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    request = RunRequest(
+        config={"simulation": {"name": RUN_NAME}, "data": {"token": "kept as written"}},
+        form="json",
+        set={"flow.param.K.field.value": 2e-5},
+    )
+
+    written = write_request_file(run_dir, request)
+
+    assert written == run_dir / RUN_REQUEST_FILENAME
+    assert read_request(written) == request, "the request is written whole, never redacted"
+    assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
+    assert RUN_REQUEST_FILENAME not in {entry.path for entry in sealed_artifacts(run_dir)}
+    assert RUN_REQUEST_FILENAME not in {
+        artifact["path"] for artifact in read_manifest(run_dir)["artifacts"]
+    }
+
+
+def test_a_request_from_a_file_writes_no_request_json(tmp_path):
+    """A TOML file says what it asked in ``config.toml``; only JSON and a mapping are written."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    for form in ("toml", "object"):
+        assert write_request_file(run_dir, RunRequest(config={}, form=form)) is None
+    assert list(run_dir.iterdir()) == []
+
+
+def test_a_new_project_holds_its_inputs_and_configs_folders_and_nothing_else(tmp_path):
+    project = create_project(tmp_path / "workspace", "nancon")
+
+    assert (project / INPUTS_DIRNAME).is_dir()
+    assert (project / CONFIGS_DIRNAME).is_dir()
+    assert unexpected_project_entries(project) == set()
 
 
 def test_a_completed_run_keeps_no_internal_directory(solved_run):

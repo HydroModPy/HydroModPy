@@ -1,4 +1,4 @@
-"""The managers of the lake variables."""
+"""The variables of the lakes read a user file in place and record no cache row."""
 
 from __future__ import annotations
 
@@ -11,26 +11,25 @@ from shapely.geometry import box
 
 from hydromodpy.data.contracts import FieldRecord, TableRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.provenance.sidecars import CacheIndex, sidecar_path_for
 from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
-from hydromodpy.data.variables.lake_abacus.manager import LakeAbacusManager
+from hydromodpy.data.variables.lake_abacus.variable import LakeAbacusVariable
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-from hydromodpy.data.variables.lake_bathymetry.manager import LakeBathymetryManager
+from hydromodpy.data.variables.lake_bathymetry.variable import LakeBathymetryVariable
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
-from hydromodpy.data.variables.lake_geometry.manager import LakeGeometryManager
+from hydromodpy.data.variables.lake_geometry.variable import LakeGeometryVariable
 from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
-from hydromodpy.data.variables.lake_levels.manager import LakeLevelsManager
+from hydromodpy.data.variables.lake_levels.variable import LakeLevelsVariable
 
 
-class _RecordingCatalog:
-    def __init__(self) -> None:
-        self.registrations: list[dict] = []
-
-    def register(self, **kwargs) -> int:
-        self.registrations.append(kwargs)
-        return len(self.registrations)
+def _no_cache_row(index: CacheIndex, *files) -> None:
+    """A user file is no row of the data cache, and nothing writes a sidecar beside it."""
+    assert index.rows() == []
+    for path in files:
+        assert not sidecar_path_for(path).exists()
 
 
-def test_load_emits_table_record_and_registers_once(tmp_path) -> None:
+def test_load_emits_table_record_and_records_no_cache_row(tmp_path) -> None:
     src = tmp_path / "lake_abacus_custom_lac0.csv"
     src.write_text(
         "stage,volume,sarea\n85.0,0.0,0.0\n90.0,1.0e6,4.0e5\n",
@@ -40,8 +39,8 @@ def test_load_emits_table_record_and_registers_once(tmp_path) -> None:
     data_dir.mkdir()
 
     config = LakeAbacusConfig.from_csv(src, lake_id="lac0")
-    catalog = _RecordingCatalog()
-    manager = LakeAbacusManager(config=config, catalog=catalog, data_dir=data_dir)
+    index = CacheIndex(tmp_path)
+    manager = LakeAbacusVariable(config=config, index=index, data_dir=data_dir)
 
     result = manager.load()
 
@@ -61,12 +60,7 @@ def test_load_emits_table_record_and_registers_once(tmp_path) -> None:
     assert frame["lake_id"].unique().tolist() == ["lac0"]
     assert frame["stage"].tolist() == [85.0, 90.0]
 
-    assert len(catalog.registrations) == 1
-    reg = catalog.registrations[0]
-    assert reg["variable"] == "lake_abacus"
-    assert reg["source"] == "file"
-    assert reg["is_custom"] is True
-    assert reg["station_id"] == "lac0"
+    _no_cache_row(index, src)
 
 
 def _write_lake_bathymetry(path) -> None:
@@ -86,15 +80,15 @@ def _write_lake_bathymetry(path) -> None:
         dst.write(data, 1)
 
 
-def test_bathymetry_load_emits_field_record_and_registers_custom(tmp_path) -> None:
+def test_bathymetry_load_emits_field_record_and_records_no_cache_row(tmp_path) -> None:
     src = tmp_path / "lac0.tif"
     _write_lake_bathymetry(src)
     data_dir = tmp_path / "lake_bathymetry"
     data_dir.mkdir()
 
     config = LakeBathymetryConfig.from_raster(src)
-    catalog = _RecordingCatalog()
-    manager = LakeBathymetryManager(config=config, catalog=catalog, data_dir=data_dir)
+    index = CacheIndex(tmp_path)
+    manager = LakeBathymetryVariable(config=config, index=index, data_dir=data_dir)
 
     result = manager.load()
 
@@ -110,11 +104,7 @@ def test_bathymetry_load_emits_field_record_and_registers_custom(tmp_path) -> No
     assert rec.crs.upper().endswith("2154")
     assert rec.bbox == (0.0, 0.0, 100.0, 100.0)
 
-    assert len(catalog.registrations) == 1
-    reg = catalog.registrations[0]
-    assert reg["variable"] == "lake_bathymetry"
-    assert reg["source"] == "file"
-    assert reg["is_custom"] is True
+    _no_cache_row(index, src)
 
 
 def _write_lake_polygon(path) -> None:
@@ -126,15 +116,15 @@ def _write_lake_polygon(path) -> None:
     gdf.to_file(str(path), driver="GPKG")
 
 
-def test_geometry_load_emits_field_record_and_registers_custom(tmp_path) -> None:
+def test_geometry_load_emits_field_record_and_records_no_cache_row(tmp_path) -> None:
     src = tmp_path / "lac0.gpkg"
     _write_lake_polygon(src)
     data_dir = tmp_path / "lake_geometry"
     data_dir.mkdir()
 
     config = LakeGeometryConfig.from_vector(src)
-    catalog = _RecordingCatalog()
-    manager = LakeGeometryManager(config=config, catalog=catalog, data_dir=data_dir)
+    index = CacheIndex(tmp_path)
+    manager = LakeGeometryVariable(config=config, index=index, data_dir=data_dir)
 
     result = manager.load()
 
@@ -149,11 +139,7 @@ def test_geometry_load_emits_field_record_and_registers_custom(tmp_path) -> None
     assert str(rec.data).endswith(".parquet")
     assert rec.crs.upper().endswith("2154")
 
-    assert len(catalog.registrations) == 1
-    reg = catalog.registrations[0]
-    assert reg["variable"] == "lake_geometry"
-    assert reg["source"] == "file"
-    assert reg["is_custom"] is True
+    _no_cache_row(index, src)
 
 
 def _write_lake_levels(data_dir, lake_id: str) -> None:
@@ -184,8 +170,8 @@ def test_load_emits_point_record_keyed_by_lake_id(tmp_path) -> None:
     _write_lake_levels(data_dir, "lac0")
 
     config = LakeLevelsConfig.from_csv_directory(data_dir)
-    catalog = _RecordingCatalog()
-    manager = LakeLevelsManager(config=config, catalog=catalog, data_dir=data_dir)
+    index = CacheIndex(tmp_path)
+    manager = LakeLevelsVariable(config=config, index=index, data_dir=data_dir)
 
     result = manager.load()
 
@@ -203,9 +189,4 @@ def test_load_emits_point_record_keyed_by_lake_id(tmp_path) -> None:
 
     assert rec.data["value"].tolist() == [85.0, 85.5, 86.0]
 
-    assert len(catalog.registrations) == 1
-    reg = catalog.registrations[0]
-    assert reg["variable"] == "lake_levels"
-    assert reg["source"] == "file"
-    assert reg["is_custom"] is True
-    assert reg["station_id"] == "lac0"
+    _no_cache_row(index, *sorted(data_dir.glob("*.csv")))

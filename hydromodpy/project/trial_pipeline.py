@@ -79,15 +79,24 @@ class WorkflowTrialPipeline:
         apply_structural_updates_from_data(ctx)
 
     def load_config(self, path: Path | str) -> BaseModel:
-        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config.loading import load
 
-        return HydroModPyConfig.from_toml(path)
+        return load(Path(path))
 
     def load_document(self, path: Path | str) -> dict[str, Any]:
         from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+        from hydromodpy.config.loading import read_document
 
-        return load_toml_with_base_config(path, root=ROOT_CONFIG)
+        return read_document(path, root=ROOT_CONFIG)
+
+    def session_key(self, cfg: BaseModel) -> str | None:
+        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.workflow.solution_key import session_solution_key
+
+        # An evaluator that runs no HydroModPy model has no key: its document is hashed.
+        if not isinstance(cfg, HydroModPyConfig):
+            return None
+        return session_solution_key(cfg)
 
 
 def fill_trial_pipeline() -> None:

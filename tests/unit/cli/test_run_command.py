@@ -71,9 +71,8 @@ def test_a_head_only_window_prints_one_line_and_exits_zero(
 ) -> None:
     config = tmp_path / "run.toml"
     config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
-    monkeypatch.setattr(
-        "hydromodpy.project.dispatch.workflow.dispatch_workflow", lambda *a, **k: {}
-    )
+    # A window that stops before the model keeps no run: the runner gives nothing back.
+    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.run_simulation", lambda *a, **k: None)
 
     code = _run(monkeypatch, ["hmp", "run", str(config), "--until", "build_mesh", "--case", "x"])
 
@@ -87,9 +86,7 @@ def test_a_window_that_reaches_the_model_phase_says_nothing_of_it(
 ) -> None:
     config = tmp_path / "run.toml"
     config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
-    monkeypatch.setattr(
-        "hydromodpy.project.dispatch.workflow.dispatch_workflow", lambda *a, **k: {}
-    )
+    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.run_simulation", lambda *a, **k: None)
 
     code = _run(monkeypatch, ["hmp", "run", str(config), "--until", "run_solver"])
 
@@ -153,7 +150,7 @@ def test_an_overview_receives_the_environment_of_the_command(monkeypatch, tmp_pa
 
     asked: dict = {}
 
-    def fake_overview(path, *, environment=None):
+    def fake_overview(request, *, base, environment=None):
         asked["environment"] = environment
         raise HydroModPyError("sentinel-of-the-overview")
 
@@ -220,7 +217,6 @@ def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
         step="run_solver",
     )
     before = read_outcome(run_dir)
-    monkeypatch.setenv("HMP_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     monkeypatch.setenv("MPLBACKEND", "Agg")
     monkeypatch.chdir(tmp_path)
@@ -239,3 +235,17 @@ def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
     assert after.written_by == "worker"
     assert not (run_dir / "attempts").exists()
     assert [entry.name for entry in (tmp_path / "runs").iterdir()] == [CASE], "no .v2"
+
+
+def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) -> None:
+    """The attempt of this process is still closed, past a folder whose outcome cannot be read."""
+    broken = tmp_path / "runs" / "a_broken"
+    broken.mkdir(parents=True)
+    (broken / "outcome.json").write_text("{not json", encoding="utf-8")
+    run_dir = write_attempt(
+        tmp_path, "runs/case", status="running", host=socket.gethostname(), pid=os.getpid()
+    )
+
+    run_command._close_dead_attempt(tmp_path, RuntimeError("the error of the run"))
+
+    assert read_outcome(run_dir).status == "failed"

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hydromodpy.data.provenance.sidecars import Sidecar, load_sidecar, write_sidecar
+from hydromodpy.data.provenance.sidecars import CacheIndex, Sidecar, load_sidecar, write_sidecar
 from hydromodpy.data.source.port import FetchRequest
 from hydromodpy.data.source.registry import data_sources
 from hydromodpy.data.source.url import DemUrl, RechargeUrl, UrlSource
@@ -53,8 +53,10 @@ def test_etag_matches_without_redownload(tmp_path: Path, monkeypatch: pytest.Mon
     data_file.write_bytes(content)
     sidecar = Sidecar(
         source="url",
+        variable="dem",
         origin="https://example.com/dem.tif",
         sha256=sha,
+        bytes=len(content),
         etag='"etag-v1"',
         last_modified="Wed, 21 Oct 2025 07:28:00 GMT",
     )
@@ -90,7 +92,14 @@ def test_etag_changed_triggers_redownload_and_writes_sidecar(
     old_file.write_bytes(b"old")
     write_sidecar(
         old_file,
-        Sidecar(source="url", origin="https://example.com/r.tif", sha256="old", etag='"v1"'),
+        Sidecar(
+            source="url",
+            variable="recharge",
+            origin="https://example.com/r.tif",
+            sha256="old",
+            bytes=3,
+            etag='"v1"',
+        ),
     )
 
     new_content = b"new recharge raster"
@@ -132,6 +141,73 @@ def test_etag_changed_triggers_redownload_and_writes_sidecar(
     assert sc.license == "ODbL-1.0"
     assert sc.sha256 == new_sha
     assert sc.state == "raw"
+    # The sidecar is the row of the cache: it names the variable and the size.
+    assert sc.variable == "recharge"
+    assert sc.bytes == len(new_content)
+    row = CacheIndex(tmp_path).row_for(new_path)
+    assert row is not None
+    assert (row.variable, row.source, row.origin) == (
+        "recharge",
+        "url",
+        "https://example.com/r.tif",
+    )
+
+
+def test_a_download_is_a_row_of_the_index_it_is_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A store hands its own index to the source, which then holds the new row."""
+    data_root = tmp_path / "data"
+    out_dir = data_root / "dem"
+    content = b"raster"
+    get_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    get_resp.iter_content = MagicMock(return_value=iter([content]))
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    monkeypatch.setattr("requests.Session.request", lambda *_a, **_k: get_resp)
+
+    index = CacheIndex(data_root)
+    res = DemUrl(url="https://example.com/dem.tif", index=index).fetch(
+        FetchRequest(out_dir=out_dir)
+    )
+
+    (row,) = index.rows(variable="dem", source="url")
+    assert row.path == res.files[0].path.resolve()
+    assert row.sha256 == hashlib.sha256(content).hexdigest()
+    assert row.etag == '"v1"'
+
+
+def test_a_sidecar_without_a_variable_is_no_row_so_the_url_is_asked_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sidecar written without its variable is no row, so the URL is asked again."""
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+    old = out_dir / "dem_url_example-com_12345678.tif"
+    old.write_bytes(b"old")
+    (out_dir / (old.name + ".json")).write_text(
+        '{"source": "url", "origin": "https://example.com/dem.tif", "sha256": "x", "etag": "\\"v1\\""}'
+    )
+    head_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    head_resp.iter_content = MagicMock(return_value=iter([]))
+    get_resp = MagicMock(status_code=200, headers={"ETag": '"v1"'})
+    get_resp.iter_content = MagicMock(return_value=iter([b"new"]))
+    monkeypatch.setattr(
+        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
+    )
+    calls: list[str] = []
+
+    def fake_request(_self: Any, method: str, *_a: Any, **_k: Any) -> MagicMock:
+        calls.append(method)
+        return head_resp if method == "HEAD" else get_resp
+
+    monkeypatch.setattr("requests.Session.request", fake_request)
+
+    res = DemUrl(url="https://example.com/dem.tif").fetch(FetchRequest(out_dir=out_dir))
+
+    assert "GET" in calls
+    assert res.files[0].path.read_bytes() == b"new"
 
 
 def test_url_subclasses_registered_for_single_file_sections() -> None:

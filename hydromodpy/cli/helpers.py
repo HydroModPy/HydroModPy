@@ -1,7 +1,8 @@
-"""Shared CLI helpers: exit codes, error formatting, workspace lookups."""
+"""Shared CLI helpers: exit codes, error formatting, workspace lookups, override flags."""
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from collections.abc import Iterator, Mapping
@@ -49,9 +50,6 @@ EXIT_CATALOG_UNREADABLE = 22
 # failed. Apart from a crash (1), so a CI job can tell the two.
 EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
-
-PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
-"""Project root every resolver honors first; ``-w`` sets it for a TOML verb."""
 
 
 def exit_code_for(exc: BaseException) -> int:
@@ -304,26 +302,13 @@ def project_root_of(args: Any) -> Path:
     return resolve_project_root(Path(named or Path.cwd()).expanduser().resolve())
 
 
-@contextmanager
-def project_named_by_w(workspace_arg: str | None) -> Iterator[None]:
-    """Make the project ``-w`` names the project of a TOML verb, for the block.
+def base_named_by_w(workspace_arg: str | None) -> Path | None:
+    """Return the project ``-w`` names, the base of a TOML verb, or ``None`` without ``-w``.
 
-    A run, its checks and its frozen-mode verification all resolve the project
-    root through ``HMP_PROJECT_ROOT``. It is set for the block and put back as
-    it was after.
+    A verb passes it to the loader as an argument. Without ``-w`` the base is the
+    one the file gives: the project root above it.
     """
-    if not workspace_arg:
-        yield
-        return
-    previous = os.environ.get(PROJECT_ROOT_ENV)
-    os.environ[PROJECT_ROOT_ENV] = str(resolve_project(workspace_arg))
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop(PROJECT_ROOT_ENV, None)
-        else:
-            os.environ[PROJECT_ROOT_ENV] = previous
+    return resolve_project(workspace_arg) if workspace_arg else None
 
 
 def resolve_project_ref(workspace_arg: str | None, ref: str | None) -> Path:
@@ -386,6 +371,99 @@ def apply_verbosity(args: Any, raw_toml: Mapping[str, Any]) -> str:
         return set_verbosity(level or DEFAULT_VERBOSITY)
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
+
+
+# ---------------------------------------------------------------------------
+# Overrides of a TOML verb: --overlay, --set and HMP_SET_*
+# ---------------------------------------------------------------------------
+
+
+def add_override_arguments(parser: argparse.ArgumentParser) -> None:
+    """Register ``--overlay`` and ``--set``, the flags that change a document on its way in."""
+    parser.add_argument(
+        "--overlay",
+        action="append",
+        default=[],
+        type=Path,
+        help="TOML overlay applied after base_config inheritance. Repeatable.",
+    )
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        dest="set_overrides",
+        metavar="PATH=VALUE",
+        help="Dotted TOML override applied after overlays, e.g. flow.param.K.field.value=2e-5.",
+    )
+
+
+def changes_of_args(args: Any, env: Mapping[str, str]) -> dict[str, Any]:
+    """Return what ``--set`` and the ``HMP_SET_*`` variables of *env* change, by dotted path.
+
+    The items of ``--set`` come first, in the order written, then the variables,
+    which win, as they always did. A key is told in the form it was written, so
+    an old name is told when the document is loaded.
+
+    Raises
+    ------
+    ValueError
+        On an item that is not ``PATH=VALUE`` or whose path does not parse.
+    """
+    from hydromodpy.core.toml_io.overrides import (
+        ENV_PATH_SEPARATOR,
+        ENV_SET_PREFIX,
+        env_set_names,
+        parse_override_value,
+    )
+    from hydromodpy.core.toml_io.paths import parse
+
+    changes: dict[str, Any] = {}
+    for item in getattr(args, "set_overrides", None) or []:
+        if "=" not in item:
+            raise ValueError(f"--set expects PATH=VALUE, got {item!r}")
+        dotted, raw = item.split("=", 1)
+        changes[str(parse(dotted.strip()))] = parse_override_value(raw)
+    for name in env_set_names(env):
+        # The case after the prefix is the case of the key, as it always was.
+        dotted = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
+        changes[str(parse(dotted))] = parse_override_value(env[name])
+    return changes
+
+
+def with_changes(document: Mapping[str, Any], changes: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a copy of *document* with *changes*, a mapping of dotted paths to values, set on it.
+
+    It is the document a verb looks at (its sections, its verbosity); the loader
+    applies the same changes again, as a layer of their own, when it validates.
+    """
+    import copy
+
+    from hydromodpy.core.toml_io.paths import assign
+
+    changed = copy.deepcopy(dict(document))
+    for dotted, value in changes.items():
+        assign(changed, dotted, value)
+    return changed
+
+
+def toml_target(config: str | Path) -> Path:
+    """Return the TOML file a verb was given, or stop: missing is 10, another suffix is 14."""
+    target = Path(config).expanduser().resolve()
+    if not target.is_file():
+        refuse(f"File not found: {target}", EXIT_NOT_FOUND)
+    if target.suffix != ".toml":
+        refuse(f"Expected a .toml file, got: {target.suffix}", EXIT_CONFIG)
+    return target
+
+
+def profile_output_of(
+    args: argparse.Namespace, raw_toml: Mapping[str, Any], target: Path
+) -> Path | None:
+    """Return where ``--profile``, else ``[workflow] profile``, writes its report, or ``None``."""
+    profile_arg = getattr(args, "profile", None)
+    if profile_arg is None and raw_toml:
+        profile_arg = profile_arg_from_toml(raw_toml)
+    return resolve_profile_output(profile_arg, target)
 
 
 # ---------------------------------------------------------------------------
@@ -484,19 +562,23 @@ __all__ = (
     "EXIT_CATALOG_UNREADABLE",
     "EXIT_CASES_FAILED",
     "EXIT_SIGINT",
-    "PROJECT_ROOT_ENV",
     "confirm",
     "error_code",
     "exit_code_for",
     "exit_if_session_unfinished",
     "fail",
-    "project_named_by_w",
+    "base_named_by_w",
     "project_root_of",
     "refuse",
     "resolve_workspace",
     "resolve_project",
+    "add_override_arguments",
     "apply_verbosity",
+    "changes_of_args",
     "profile_arg_from_toml",
+    "profile_output_of",
     "resolve_profile_output",
     "profile_run",
+    "toml_target",
+    "with_changes",
 )

@@ -2,7 +2,7 @@
 
 A reorganisation of the package moves modules, never what a user writes or
 imports. These tests pin that: the JSON schema of
-the ``[data]`` section, every public name, and the two data files the wheel
+the ``[data]`` section, every public name, and the data file the wheel
 must ship. The source classes of ``hydromodpy.data.source`` are resolved
 through its registry and not re-exported by the package, so their names are
 pinned where they are read: at the registry, by ``test_data_source_registry``.
@@ -22,18 +22,8 @@ import pytest
 from hydromodpy._lazy import LAZY_IMPORTS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CACHE_MIGRATION_SHA256 = "d49fa9377e3baf9f1df94c553992132c39e97185f6f833304b192075e133a25d"
 
-DATA_SCHEMA_SHA256 = "7ffb09563eb99eebca1c6923f5f5b9c1712560d06a6b5ecd97e9aac3a5696769"
-
-
-def test_the_shipped_cache_migration_keeps_its_checksum() -> None:
-    """A cache records the checksum of the migration it applied and refuses any other."""
-    migration = REPO_ROOT / "hydromodpy/data/registry/migrations/0001_initial.sql"
-    assert hashlib.sha256(migration.read_bytes()).hexdigest() == CACHE_MIGRATION_SHA256, (
-        "A shipped migration never changes, not even a comment, or every existing cache is "
-        "refused. Write the change as a new migration."
-    )
+DATA_SCHEMA_SHA256 = "92353b932353f39fb0002c3e717a1d28d73cc4f8964199387fdd3eb1af78dbcc"
 
 
 def test_the_data_config_schema_keeps_its_fingerprint() -> None:
@@ -73,10 +63,7 @@ def test_every_public_data_name_resolves(module: str, name: str) -> None:
 
 @pytest.mark.parametrize(
     "shipped",
-    [
-        "hydromodpy/data/registry/migrations/0001_initial.sql",
-        "hydromodpy/catchment/administrative/departement.gpkg",
-    ],
+    ["hydromodpy/catchment/administrative/departement.gpkg"],
 )
 def test_the_wheel_ships_the_data_files(shipped: str) -> None:
     path = REPO_ROOT / shipped

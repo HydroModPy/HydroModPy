@@ -235,7 +235,7 @@ class BdTopoCrossings:
         require_period(self, request)
         extent = extent_for(self, request)
         request.out_dir.mkdir(parents=True, exist_ok=True)
-        from hydromodpy.data.variables.crossings.manager import cache_file_name
+        from hydromodpy.data.variables.crossings.variable import cache_file_name
 
         out_path = request.out_dir / cache_file_name(self.source_id, extent.bbox)
         started = time.perf_counter()

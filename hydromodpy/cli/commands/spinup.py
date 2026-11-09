@@ -21,17 +21,19 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.effective_toml import profile_output_of, toml_target
 from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     apply_verbosity,
+    base_named_by_w,
+    profile_output_of,
     profile_run,
-    project_named_by_w,
     refuse,
+    toml_target,
 )
 from hydromodpy.cli.output import emit
+from hydromodpy.core.exceptions import ConfigError
 
 NAME: str = "spinup"
 HELP: str = "Cyclic spin-up: restart each cycle until heads and lake stage converge"
@@ -81,14 +83,16 @@ def run(args: argparse.Namespace) -> None:
         return
 
     profile_output = profile_output_of(args, raw_toml, target)
+    base = base_named_by_w(args.workspace)
+    named = {} if base is None else {"base": base}
     try:
         with profile_run(profile_output, description=f"hmp spinup {target.name}"):
-            with project_named_by_w(args.workspace):
-                result = hmp.spinup(
-                    target,
-                    then_run=args.then_run,
-                    environment=environment_from_args(args),
-                )
+            result = hmp.spinup(
+                target,
+                then_run=args.then_run,
+                environment=environment_from_args(args),
+                **named,
+            )
     except ValidationError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:
@@ -146,12 +150,12 @@ def run(args: argparse.Namespace) -> None:
 
 def _dry_run(args: argparse.Namespace, target: Path) -> None:
     """Check the TOML as the spin-up reads it, say what the loop would do, run nothing."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.loading import load
     from hydromodpy.model.initial_config import SpinupConfig
 
     try:
-        config = HydroModPyConfig.from_toml(target)
-    except ValidationError as exc:
+        config = load(target)
+    except (ConfigError, ValidationError) as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     settings = config.spinup or SpinupConfig()
     plan = {

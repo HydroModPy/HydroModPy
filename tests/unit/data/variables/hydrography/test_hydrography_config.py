@@ -428,9 +428,9 @@ class TestDocumentedContracts:
         assert not dataclasses.is_dataclass(HydrographyConfig)
 
     def test_manager_variable_name(self):
-        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
 
-        assert HydrographyManager.VARIABLE_NAME == "hydrography"
+        assert HydrographyVariable.VARIABLE_NAME == "hydrography"
 
     def test_package_exports(self):
         import hydromodpy.data.variables.hydrography as pkg

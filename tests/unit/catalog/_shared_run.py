@@ -1,7 +1,7 @@
 """A sealed run of a workspace that read a user station file, a Hub'Eau series and a DEM.
 
 The Hub'Eau series sits in ``data/hydrometry/`` with its sidecar, its row in
-``hydrometry_hubeau_LOC.csv`` and its row in ``data/cache.duckdb``; the user
+``hydrometry_hubeau_LOC.csv``, the cache row the sidecar holds; the user
 series has its row in ``hydrometry_custom_LOC.csv``; the DEM is a file the
 configuration declared. The folder ``data/hydrometry`` also holds a station
 the run never read.
@@ -55,7 +55,7 @@ def make_shared_run(root: Path) -> Path:
     dem = root / "data" / "dem" / "dem.tif"
     dem.parent.mkdir(parents=True)
     dem.write_bytes(b"II*\x00 a DEM the configuration declared")
-    _register_hubeau(root, hubeau)
+    _record_hubeau(root, hubeau)
     run_dir = project / "runs" / RUN_NAME
     run_dir.mkdir(parents=True)
     record = make_record(
@@ -105,27 +105,23 @@ def make_shared_run(root: Path) -> Path:
     return run_dir
 
 
-def _register_hubeau(root: Path, hubeau: Path) -> None:
-    """Register the Hub'Eau series in ``data/cache.duckdb`` as the manager does."""
-    from hydromodpy.data.registry import DataCatalogDuckDB
+def _record_hubeau(root: Path, hubeau: Path) -> None:
+    """Write the sidecar of the Hub'Eau series, as the variable does when it fetches."""
+    from hydromodpy.data.provenance.sidecars import CacheIndex
 
-    catalog = DataCatalogDuckDB(root / "data" / "cache.duckdb")
-    try:
-        catalog.register(
-            variable="hydrometry",
-            source="hubeau",
-            station_id="J0014010",
-            file_path=hubeau,
-            bbox=(-1.19645, 48.37558, -1.19645, 48.37558),
-            crs="EPSG:4326",
-            date_start=datetime(2000, 1, 1),
-            date_end=datetime(2002, 12, 31),
-            frequency="D",
-            unit="m3/s",
-            fetch_metadata={"asked_window": ["2000-01-01T00:00:00", "2002-12-31T00:00:00"]},
-        )
-    finally:
-        catalog.close()
+    CacheIndex(root / "data").record(
+        hubeau,
+        variable="hydrometry",
+        source="hubeau",
+        station_id="J0014010",
+        bbox=(-1.19645, 48.37558, -1.19645, 48.37558),
+        crs="EPSG:4326",
+        date_start=datetime(2000, 1, 1),
+        date_end=datetime(2002, 12, 31),
+        frequency="D",
+        unit="m3/s",
+        asked_window=("2000-01-01T00:00:00", "2002-12-31T00:00:00"),
+    )
     sidecar = hubeau.with_name(hubeau.name + ".json")
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
     assert payload["source"] == "hubeau"

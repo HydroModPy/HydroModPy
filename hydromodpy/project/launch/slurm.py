@@ -11,7 +11,7 @@ written again while the job waits in the queue changes nothing it runs.
 
 - ``prepare.sh`` runs the prepare command of each case, ``prepare_parallel``
   side by side (``%N`` throttle): the geography and the data, the only phase
-  that writes the shared data cache. The task that completes the phase
+  that writes the shared data folder. The task that completes the phase
   writes ``hydromodpy.lock``.
 - ``array.sh`` runs the worker of each case, submitted with
   ``--dependency=afterok`` on the prepare job. ``--cpus-per-task`` is
@@ -40,14 +40,15 @@ trap; :func:`hydromodpy.project.launch.sacct.scheduler_states` then reads ``sacc
 
 Not handled (CIBLE §14)
 -----------------------
-The prepare tasks do not get ``HMP_DATA_CACHE_PRIVATE``: a private cache
-needs a merge, and no launcher sits between the tasks to do it, so up to
-``prepare_parallel`` tasks write the shared ``cache.duckdb`` themselves,
-behind the DuckDB lock (unsafe on NFS). The local launcher never prepares two
-cases of one site side by side; an array cannot hold a task back, so two
-cases of one site may be prepared at once and write the same files of
-``data/``. Keep ``prepare_parallel = 1``, or one recipe per site, until both
-are handled.
+Up to ``prepare_parallel`` prepare tasks write the shared ``data/`` folder
+themselves. Each writes a file by ``.part`` and ``os.replace`` and its sidecar
+after it, and a station chronicle under its file lock, which a POSIX file
+system honours but NFS may not. The local launcher never prepares two cases
+of one site side by side; an array cannot hold a task back, so two cases of
+one site may be prepared at once and write the same grid or file of
+``data/`` twice, each as a whole file, the later one winning. Keep
+``prepare_parallel = 1``, or one recipe per site, until a task can wait for
+its site.
 
 Not verified on a cluster. The tests check the scripts with ``bash -n`` and
 run them under a stand-in ``hmp`` and a stand-in ``sacct``, never under a
@@ -289,7 +290,7 @@ def task_flags(project_root: str | Path, case_toml: str | Path, *, phase: str) -
 
 
 def write_lock(project_root: str | Path, case_toml: str | Path) -> Path | None:
-    """Write ``hydromodpy.lock`` from the workspace cache the case resolves to.
+    """Write ``hydromodpy.lock`` from the data folder the case resolves to.
 
     The workspace is the case's ``workspace.data_dir``, as the local
     launcher reads it, not the one around the project folder.
@@ -440,7 +441,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "write-lock":
         if write_lock(args.project, args.case_toml) is None:
             # As the local launcher: the solves then run without --frozen.
-            print("hydromodpy.lock not written: the workspace has no data cache", file=sys.stderr)
+            print(
+                "hydromodpy.lock not written: the data folder holds no cached file and no user file",
+                file=sys.stderr,
+            )
         return 0
     outcome = finish_task(
         args.project,

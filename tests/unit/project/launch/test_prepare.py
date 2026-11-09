@@ -1,11 +1,10 @@
-"""The prepare phase is the one writer of the shared ``cache.duckdb``.
+"""The prepare phase writes the shared ``data/`` folder and locks it once.
 
-A case started by the launcher reads the shared cache read-only, one query at
-a time, and registers what it fetches in a private cache; the launcher merges
-that private cache into the shared one once the case has ended, and writes
-``hydromodpy.lock`` once, at the end of the prepare phase. The workers then
-run ``--frozen``. ``hmp data`` reads and the ``--frozen`` check open the
-cache read-only.
+A case started by the launcher writes its files and their sidecars straight into the
+shared data folder, a station chronicle under its file lock, so the launcher has no
+cache to merge. It writes ``hydromodpy.lock`` once, from the sidecars, at the end of
+the prepare phase. The workers then run ``--frozen``. A reader is never blocked by a
+writer: the sidecars are plain files.
 
 Two cases of one site ask for the same data, so they are never prepared side by
 side; a case whose prepare failed is failed and leaves no scratch.
@@ -13,92 +12,22 @@ side; a case whose prepare failed is failed and leaves no scratch.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
-import duckdb
 import pytest
 
-from hydromodpy.data.registry.catalog_duckdb import (
-    PRIVATE_CACHE_ENV,
-    DataCatalogDuckDB,
-    merge_private_cache,
-)
+from hydromodpy.data.provenance.lockfile import read_lockfile_inputs
+from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE, CacheIndex, scan
 from hydromodpy.project.launch import plan_project, project_status, run_plan
 from tests.unit.project.launch._launch_fakes import CASES, seen, write_behaviour, write_project
 
 
-def _register(catalog: DataCatalogDuckDB, payload: Path, station: str) -> None:
-    payload.parent.mkdir(parents=True, exist_ok=True)
-    payload.write_text("date,value\n2000-01-01,1\n", encoding="utf-8")
-    catalog.register(variable="discharge", source="fake", station_id=station, file_path=payload)
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def test_a_launched_case_writes_its_private_cache_and_reads_the_shared_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    data = tmp_path / "ws" / "data"
-    shared_path = data / "cache.duckdb"
-    with DataCatalogDuckDB(shared_path) as shared:
-        _register(shared, data / "discharge" / "A.csv", "A")
-    before = _digest(shared_path)
-    private_path = tmp_path / "jobs" / "x" / "data-cache.duckdb"
-    monkeypatch.setenv(PRIVATE_CACHE_ENV, str(private_path))
-
-    with DataCatalogDuckDB(shared_path) as layered:
-        assert layered.layered
-        assert layered.find_cached(variable="discharge", source="fake", station_id="A")
-        _register(layered, data / "discharge" / "B.csv", "B")
-        found = layered.find_cached(variable="discharge", source="fake", station_id="B")
-        assert found is not None
-        assert layered.resolve_path(found.file_path) == data / "discharge" / "B.csv"
-        listed = set(layered.list_entries(variable="discharge")["station_id"])
-        assert listed == {"A", "B"}
-        # The shared file is not held between queries: a writer gets in at once.
-        duckdb.connect(str(shared_path)).close()
-
-    assert _digest(shared_path) == before
-    assert private_path.is_file()
-
-
-def test_the_launcher_merges_a_private_cache_into_the_shared_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    data = tmp_path / "ws" / "data"
-    shared_path = data / "cache.duckdb"
-    private_path = tmp_path / "jobs" / "x" / "data-cache.duckdb"
-    monkeypatch.setenv(PRIVATE_CACHE_ENV, str(private_path))
-    with DataCatalogDuckDB(shared_path) as layered:
-        _register(layered, data / "discharge" / "B.csv", "B")
-    monkeypatch.delenv(PRIVATE_CACHE_ENV)
-
-    assert merge_private_cache(shared_path, private_path) == 1
-
-    with DataCatalogDuckDB(shared_path, read_only=True) as shared:
-        entry = shared.find_cached(variable="discharge", source="fake", station_id="B")
-        assert entry is not None
-        assert shared.resolve_path(entry.file_path) == data / "discharge" / "B.csv"
-        (data / "discharge" / "C.csv").write_text("date,value\n", encoding="utf-8")
-        refused = shared.register(
-            variable="discharge",
-            source="fake",
-            station_id="C",
-            file_path=data / "discharge" / "C.csv",
-        )
-        assert refused == -1
-        assert shared.find_cached(variable="discharge", source="fake", station_id="C") is None
-
-
 @pytest.mark.allow_subprocess
-def test_prepare_fills_the_shared_cache_through_the_launcher_and_locks_it_once(
+def test_prepare_fills_the_shared_folder_through_the_cases_and_locks_it_once(
     tmp_path: Path, fake_worker: Path
 ) -> None:
-    # One prepare child at a time: the shared file may then change only between children.
+    # One prepare child at a time: the two cases of a site never write side by side.
     project = write_project(tmp_path, sites_extra="[sites.run]\nprepare_parallel = 1\n")
     write_behaviour(project, {case_id: {"register": True} for case_id in CASES})
     plan_project(project)
@@ -107,13 +36,14 @@ def test_prepare_fills_the_shared_cache_through_the_launcher_and_locks_it_once(
 
     for case_id in CASES:
         record = seen(project, case_id, "prepare")
-        assert record["layered"] is True
-        assert record["shared_untouched"] is True
-        assert record["database"] == [record["env"]["HMP_DATA_CACHE_PRIVATE"]]
+        assert (project / record["payload"]).is_file()
+        assert record["sidecar"] is True
+        assert record["lock"] is True
+        assert record["database"] is False
         assert "--frozen" in seen(project, case_id)["flags"]
-    with DataCatalogDuckDB(project / "data" / "cache.duckdb", read_only=True) as shared:
-        stations = set(shared.list_entries(variable="discharge")["station_id"])
-    assert stations == set(CASES)
+    assert not (project / "data" / FORMER_CACHE_DATABASE).exists()
+    rows = scan(project / "data").rows
+    assert {row.station_id for row in rows} == set(CASES)
     events = [json.loads(line) for line in report.journal.read_text().splitlines()]
     lockfiles = [event for event in events if event["event"] == "lockfile"]
     assert len(lockfiles) == 1
@@ -121,22 +51,31 @@ def test_prepare_fills_the_shared_cache_through_the_launcher_and_locks_it_once(
     assert report.lockfile == project / "hydromodpy.lock"
     first_case = next(i for i, event in enumerate(events) if event["event"] == "case_start")
     assert events.index(lockfiles[0]) < first_case
-    assert not any((report.journal.parent / "caches").glob("*/data-cache.duckdb"))
+    locked = read_lockfile_inputs(report.lockfile)
+    rows_locked = [item for item in locked if item.source != "file"]
+    assert {item.station_id for item in rows_locked} == set(CASES)
+    # The DEM every case of the plan declares as a user file is pinned once, by path.
+    assert [(item.variable, item.path) for item in locked if item.source == "file"] == [
+        ("dem", "dem.tif")
+    ]
+    assert all(item.license for item in locked)
+    assert not (report.journal.parent / "caches").exists()
+    assert "merged_entries" not in report.journal.read_text(encoding="utf-8")
 
 
-def test_hmp_data_reads_open_the_cache_read_only(tmp_path: Path) -> None:
-    from hydromodpy.data.request import cache_verbs
+def test_a_reader_is_not_blocked_by_a_writer_holding_a_chronicle_lock(tmp_path: Path) -> None:
+    data = tmp_path / "ws" / "data"
+    folder = data / "discharge"
+    folder.mkdir(parents=True)
+    payload = folder / "discharge_fake_A_D.csv"
+    payload.write_text("date,value\n2000-01-01,1\n", encoding="utf-8")
+    writer = CacheIndex(data)
+    writer.record(payload, variable="discharge", source="fake", station_id="A")
 
-    workspace = tmp_path / "ws"
-    with DataCatalogDuckDB(workspace / "data" / "cache.duckdb") as cache:
-        _register(cache, workspace / "data" / "discharge" / "A.csv", "A")
-    holder = duckdb.connect(str(workspace / "data" / "cache.duckdb"), read_only=True)
-    try:
-        rows = cache_verbs.list_data_cache(workspace, variable="discharge", provider=None)
-    finally:
-        holder.close()
+    with writer.chronicle(folder, "discharge_fake_A"):
+        rows = CacheIndex(data).rows(variable="discharge")
 
-    assert list(rows["station_id"]) == ["A"]
+    assert [row.station_id for row in rows] == ["A"]
 
 
 @pytest.mark.allow_subprocess

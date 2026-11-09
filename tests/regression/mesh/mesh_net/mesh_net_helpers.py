@@ -273,14 +273,16 @@ def geometry_metrics(mesh, probes: np.ndarray | None = None) -> dict[str, Any]:
 def run_fixture(config_name: str, out_dir: Path, *, timeout: int = 600) -> None:
     """Run ``hydromodpy run <fixture>`` in a subprocess, as the regression tier does."""
     env = os.environ.copy()
-    env["HMP_PROJECT_ROOT"] = str(out_dir)
     env.setdefault("MPLBACKEND", "Agg")
+    out_dir.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
         str(FIXTURE_DIR / config_name),
+        "--base",
+        str(out_dir),
     ]
     completed = subprocess.run(
         command,

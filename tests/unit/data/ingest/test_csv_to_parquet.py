@@ -1,4 +1,4 @@
-"""Tests for the CSV -> Parquet drag-and-drop adapter."""
+"""Tests for the readers of user CSV files."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import pytest
 
 from hydromodpy.data.ingest.tables import (
     TimeSeriesValidationError,
-    convert_timeseries_csv_to_parquet,
     infer_station_id_from_filename,
     iter_chronicle_files,
     read_locations_csv,
@@ -71,18 +70,6 @@ def test_read_timeseries_csv_rejects_missing_columns(tmp_path):
 def test_infer_station_id_from_filename_rejects_invalid(tmp_path):
     with pytest.raises(TimeSeriesValidationError):
         infer_station_id_from_filename(tmp_path / "bad station.csv")
-
-
-def test_convert_timeseries_csv_to_parquet_writes_file(tmp_path):
-    src = _write(
-        tmp_path / "P01.csv",
-        "datetime,value\n2020-01-01,1.5\n2020-01-02,2.5\n",
-    )
-    dest = tmp_path / "out" / "P01.parquet"
-    written = convert_timeseries_csv_to_parquet(src, dest)
-    assert written == dest
-    assert dest.exists()
-    assert dest.stat().st_size > 0
 
 
 def test_read_locations_csv_ok(tmp_path):

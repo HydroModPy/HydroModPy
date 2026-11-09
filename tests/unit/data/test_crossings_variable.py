@@ -1,7 +1,7 @@
-"""``[data.crossings]``: the config, the custom file, the manager and the resolver.
+"""``[data.crossings]``: the config, the file of the user, the variable and the resolver.
 
 No network: both downloading sources have their provider replaced by a function
-that answers with a recorded sample, so the class of the port, the manager and
+that answers with a recorded sample, so the class of the port, the variable and
 the resolver all run against the same pages the real WFS would hand out.
 """
 
@@ -19,9 +19,9 @@ from pydantic import ValidationError
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point
 
-from hydromodpy.core.exceptions import DataRequestError
+from hydromodpy.core.exceptions import ConfigError, DataRequestError
 from hydromodpy.data import DataManagersConfig
-from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import Extent, FetchRequest
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import bdtopo, roe
@@ -32,10 +32,10 @@ from hydromodpy.data.variables.crossings.config import (
     FileCrossingsSource,
     RoeCrossingsSource,
 )
-from hydromodpy.data.variables.crossings.manager import CrossingsManager, cache_file_name
 from hydromodpy.data.variables.crossings.resolver import (
     resolve_crossings_path_from_data_sources,
 )
+from hydromodpy.data.variables.crossings.variable import CrossingsVariable, cache_file_name
 
 SAMPLES = Path(__file__).parent / "samples" / "crossings"
 
@@ -145,40 +145,40 @@ def test_the_section_needs_a_source() -> None:
 
 def test_a_custom_file_without_kind_is_refused_by_name(tmp_path: Path) -> None:
     path = _custom_file(tmp_path / "roads.gpkg", name=["a"])
-    manager = CrossingsManager(
+    variable = CrossingsVariable(
         config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
-        catalog=None,
+        index=None,
         data_dir=tmp_path / "data" / "crossings",
     )
 
     with pytest.raises(ValueError, match=r"roads\.gpkg has no 'kind' column"):
-        manager.load()
+        variable.load()
 
 
 def test_a_custom_file_with_a_kind_outside_the_list_is_refused_by_name(tmp_path: Path) -> None:
     path = _custom_file(tmp_path / "roads.gpkg", kind=["road", "ford", "tunnel"])
-    manager = CrossingsManager(
+    variable = CrossingsVariable(
         config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
-        catalog=None,
+        index=None,
         data_dir=tmp_path / "data" / "crossings",
     )
 
     with pytest.raises(ValueError, match=r"\['ford', 'tunnel'\]"):
-        manager.load()
+        variable.load()
 
 
-def test_a_custom_file_is_normalised_and_indexed(tmp_path: Path) -> None:
+def test_a_custom_file_is_normalised_into_a_copy_that_is_no_row(tmp_path: Path) -> None:
     path = _custom_file(
         tmp_path / "roads.gpkg", kind=["Road", " weir"], name=["a", None], drop_m=[None, 0.8]
     )
-    catalog = DataCatalogDuckDB()
-    manager = CrossingsManager(
+    index = CacheIndex(tmp_path / "data")
+    variable = CrossingsVariable(
         config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
-        catalog=catalog,
+        index=index,
         data_dir=tmp_path / "data" / "crossings",
     )
 
-    (record,) = manager.load().fields
+    (record,) = variable.load().fields
 
     frame = gpd.read_parquet(record.data)
     assert list(frame.columns) == [*records.ATTRIBUTES, "geometry"]
@@ -186,27 +186,45 @@ def test_a_custom_file_is_normalised_and_indexed(tmp_path: Path) -> None:
     assert frame["name"].tolist() == ["a", ""]
     assert frame["drop_m"].isna().tolist() == [True, False]
     assert set(frame["source"]) == {"file"}
-    assert "blobs" in record.data.parts
+    assert record.data.parent == tmp_path / "data" / "blobs" / "crossings" / "file"
     assert record.source == "file"
-    assert catalog.find_cached(variable="crossings", source="file", bbox=record.bbox) is not None
+    # The user's file and its copy are no row of the data cache.
+    assert index.rows() == []
+    assert not Path(str(record.data) + ".json").exists()
+
+
+def test_a_custom_file_without_a_data_folder_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "user-cache"))
+    path = _custom_file(tmp_path / "roads.gpkg", kind=["road"])
+    variable = CrossingsVariable(
+        config=CrossingsConfig(sources=[FileCrossingsSource(path=path)]),
+        index=None,
+        data_dir=None,
+    )
+
+    with pytest.raises(ConfigError, match="no data folder"):
+        variable.load()
+    assert not (tmp_path / "user-cache").exists()
 
 
 @pytest.mark.filterwarnings("ignore:.crs. was not provided")
 def test_a_custom_file_without_crs_takes_default_crs(tmp_path: Path) -> None:
     path = tmp_path / "bare.shp"
     gpd.GeoDataFrame({"kind": ["road"]}, geometry=[Point(1.0, 2.0)]).to_file(path)
-    manager = CrossingsManager(
+    variable = CrossingsVariable(
         config=CrossingsConfig(sources=[FileCrossingsSource(path=path, default_crs="EPSG:27572")]),
-        catalog=None,
+        index=None,
         data_dir=tmp_path / "data" / "crossings",
     )
 
-    (record,) = manager.load().fields
+    (record,) = variable.load().fields
 
     assert record.crs == "EPSG:27572"
 
 
-# --- manager ----------------------------------------------------------------
+# --- variable ---------------------------------------------------------------
 
 
 def _mask(tmp_path: Path) -> Path:
@@ -223,12 +241,14 @@ def test_a_download_is_cached_under_its_source_prefix_and_served_again(
     config = CrossingsConfig(
         sources=[BdtopoCrossingsSource(), RoeCrossingsSource()], mask_path=_mask(tmp_path)
     )
-    manager = CrossingsManager(
-        config=config, catalog=DataCatalogDuckDB(), data_dir=tmp_path / "data" / "crossings"
+    variable = CrossingsVariable(
+        config=config,
+        index=CacheIndex(tmp_path / "data"),
+        data_dir=tmp_path / "data" / "crossings",
     )
 
-    first = manager.load().fields
-    second = manager.load().fields
+    first = variable.load().fields
+    second = variable.load().fields
 
     assert [r.source for r in first] == ["bdtopo", "roe"]
     names = [Path(r.data).name for r in first]
@@ -236,7 +256,10 @@ def test_a_download_is_cached_under_its_source_prefix_and_served_again(
     assert names[1].startswith("crossings_roe_")
     assert names[0] == cache_file_name("bdtopo", offline[0])
     assert all(Path(r.data).exists() for r in first)
-    assert len(offline) == 2, "the second load must come from the catalog"
+    assert len(offline) == 2, "the second load must come from the cache"
+    rows = CacheIndex(tmp_path / "data").rows(variable="crossings")
+    assert sorted(row.source for row in rows) == ["bdtopo", "roe"]
+    assert all(row.crs and row.bbox and row.sha256 for row in rows)
     assert [r.data for r in second] == [r.data for r in first]
     assert gpd.read_file(first[0].data).shape[0] == 9
 
@@ -245,10 +268,10 @@ def test_force_refresh_downloads_again(tmp_path: Path, offline: list[tuple]) -> 
     config = CrossingsConfig(
         sources=[RoeCrossingsSource(force_refresh=True)], mask_path=_mask(tmp_path)
     )
-    manager = CrossingsManager(config=config, catalog=DataCatalogDuckDB(), data_dir=tmp_path)
+    variable = CrossingsVariable(config=config, index=CacheIndex(tmp_path), data_dir=tmp_path)
 
-    manager.load()
-    manager.load()
+    variable.load()
+    variable.load()
 
     assert len(offline) == 2
 
@@ -260,13 +283,13 @@ def test_the_box_is_the_mask_bounds_in_the_crs_the_providers_answer_in(
     gpd.GeoDataFrame(geometry=[Point(345000.0, 6805000.0).buffer(2000.0)], crs="EPSG:2154").to_crs(
         "EPSG:4326"
     ).to_file(mask, driver="GPKG")
-    manager = CrossingsManager(
+    variable = CrossingsVariable(
         config=CrossingsConfig(sources=[RoeCrossingsSource()], mask_path=mask),
-        catalog=None,
+        index=None,
         data_dir=tmp_path,
     )
 
-    manager.load()
+    variable.load()
 
     xmin, ymin, xmax, ymax = offline[0]
     assert xmin == pytest.approx(343000.0, abs=1.0)
@@ -276,13 +299,26 @@ def test_the_box_is_the_mask_bounds_in_the_crs_the_providers_answer_in(
 
 
 def test_a_download_without_a_box_is_refused(tmp_path: Path, offline: list[tuple]) -> None:
-    manager = CrossingsManager(
-        config=CrossingsConfig(sources=[RoeCrossingsSource()]), catalog=None, data_dir=tmp_path
+    variable = CrossingsVariable(
+        config=CrossingsConfig(sources=[RoeCrossingsSource()]), index=None, data_dir=tmp_path
     )
 
     with pytest.raises(DataRequestError, match="mask_path"):
-        manager.load()
+        variable.load()
     assert offline == []
+
+
+def test_a_download_without_a_data_folder_is_refused_and_asks_nothing(
+    tmp_path: Path, offline: list[tuple], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "user-cache"))
+    config = CrossingsConfig(sources=[RoeCrossingsSource()], mask_path=_mask(tmp_path))
+    variable = CrossingsVariable(config=config, index=CacheIndex(None), data_dir=None)
+
+    with pytest.raises(ConfigError, match="no data folder"):
+        variable.load()
+    assert offline == []
+    assert not (tmp_path / "user-cache").exists()
 
 
 # --- resolver ---------------------------------------------------------------
@@ -345,6 +381,18 @@ def test_a_custom_source_is_resolved_against_the_toml_and_normalised(tmp_path: P
     frame = gpd.read_file(path)
     assert list(frame.columns) == [*records.ATTRIBUTES, "geometry"]
     assert frame["kind"].tolist() == ["road", "bridge"]
+
+
+def test_the_resolver_without_a_data_folder_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "user-cache"))
+    _custom_file(tmp_path / "roads.gpkg", kind=["road"])
+    cfg = _cfg([FileCrossingsSource(path=Path("roads.gpkg"))])
+
+    with pytest.raises(ConfigError, match="no data folder"):
+        resolve_crossings_path_from_data_sources(cfg, config_path=tmp_path / "p.toml")
+    assert not (tmp_path / "user-cache").exists()
 
 
 def test_a_folder_gives_its_first_vector_file(tmp_path: Path) -> None:

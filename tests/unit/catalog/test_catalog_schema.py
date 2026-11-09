@@ -1,4 +1,4 @@
-"""Schema discovery of the reader, and ``InputCache``, the input cache of a workspace."""
+"""Schema discovery of the reader, and the data cache of a workspace read by its sidecars."""
 
 from __future__ import annotations
 
@@ -62,9 +62,10 @@ def test_describe_is_human_readable(project) -> None:
         assert cat.variables()
 
 
-def test_inputs_namespace_via_catalog_package(tmp_path: Path) -> None:
-    from hydromodpy.data.registry.input_cache import InputCache
+def test_the_data_cache_of_a_workspace_without_data_has_no_rows(tmp_path: Path) -> None:
+    from hydromodpy.data.provenance.sidecars import scan
 
-    inputs = InputCache(tmp_path)
-    assert inputs.has_cache() is False
-    assert inputs.db_path == (tmp_path.resolve() / "data" / "cache.duckdb")
+    report = scan(tmp_path / "data")
+
+    assert report.rows == ()
+    assert report.data_root == (tmp_path / "data").resolve()

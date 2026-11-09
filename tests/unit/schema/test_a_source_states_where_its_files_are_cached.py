@@ -14,15 +14,15 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.managers.base_manager_field import BaseFieldManager
-from hydromodpy.data.managers.base_manager_variable import _VAR_FILE_PREFIX
-from hydromodpy.data.variables.crossings.manager import cache_file_name as crossings_name
-from hydromodpy.data.variables.hydrography.manager import (
+from hydromodpy.data.families.grids import GridVariable
+from hydromodpy.data.families.stations import _VAR_FILE_PREFIX
+from hydromodpy.data.variables.crossings.variable import cache_file_name as crossings_name
+from hydromodpy.data.variables.hydrography.variable import (
     _cache_file_name as hydrography_name,
 )
-from hydromodpy.data.variables.hydrography.manager import _permanent_copy_path
+from hydromodpy.data.variables.hydrography.variable import _permanent_copy_path
 from hydromodpy.data.variables.oceanic.apis.shom import _cache_file as shom_name
-from hydromodpy.schema.sources import CACHE_INDEX, SOURCES, CacheLayout
+from hydromodpy.schema.sources import SOURCES, CacheLayout
 
 BBOX = (100000.0, 6800000.0, 110000.0, 6810000.0)
 START = datetime(2020, 1, 1)
@@ -59,7 +59,7 @@ def test_a_crossing_is_named_as_the_crossings_manager_names_it(slug: str) -> Non
     ],
 )
 def test_a_grid_is_named_as_the_field_manager_names_it(slug: str, variable: str) -> None:
-    name = BaseFieldManager._nc_filename(variable, slug, BBOX, START, END)
+    name = GridVariable._nc_filename(variable, slug, BBOX, START, END)
     assert _matches(slug, "data/<variable>", name)
 
 
@@ -113,8 +113,7 @@ def test_a_name_built_inline_is_still_written_by_its_module(
     assert _layouts(slug)[folder].pattern.startswith(literal)
 
 
-def test_the_index_sits_next_to_the_data_folders() -> None:
-    assert CACHE_INDEX == "data/cache.duckdb"
+def test_every_layout_sits_under_a_data_folder() -> None:
     for entry in SOURCES.values():
         for layout in entry.cache:
             assert layout.folder.startswith("data/")

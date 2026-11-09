@@ -4,9 +4,9 @@ Walks the chain a new user would follow:
 1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
 3. Get a DEM into the workspace: ``hmp data get`` refuses a box without
-   its CRS, ``hmp data add`` ingests a local file
-   dropped in ``data/dem/`` under the naming convention, and a request
-   document serves that DEM cut to a smaller box.
+   its CRS, ``hmp data add`` is refused and names the ``source = "file"`` block
+   that replaces it, and a request document serves a DEM kept under ``inputs/``
+   cut to a smaller box. A user file is read in place, so it is no row of the cache.
 4. Seed a minimal run through the store of a run, seal it and index it, so
    the project carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
@@ -155,16 +155,15 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert "crs" in refused.stderr
     assert not refused_out.exists(), "a refused request writes nothing"
 
-    # ----- Step 4b: the supported path - drop zone + hmp data add -----------
-    dem_dir = workspace / "data" / "dem"
-    assert dem_dir.is_dir(), "hmp workspace init must scaffold data/<variable>/"
-    dem_file = dem_dir / "dem_custom_valley.tif"
+    # ----- Step 4b: a user file is kept under inputs/, and hmp data add is gone ----
+    dem_file = tmp_path / "inputs" / "dem" / "valley.tif"
+    dem_file.parent.mkdir(parents=True)
     shutil.copyfile(_FIXTURE_DEM, dem_file)
 
     added = _run_hmp("data", "add", str(dem_file), "--type", "dem", "--workspace", str(workspace))
-    assert added.returncode == 0, f"`hmp data add` failed.\nstderr:\n{added.stderr}"
-    blob = workspace / "data" / "blobs" / "dem" / "custom" / dem_file.name
-    assert blob.is_file(), "hmp data add must pivot the raster into data/blobs/"
+    assert added.returncode == 2, f"stderr:\n{added.stderr}"
+    assert "inputs/" in added.stderr and "source = " in added.stderr
+    assert not (workspace / "data" / "blobs").exists(), "a refused verb writes nothing"
 
     # ----- Step 4c: a request document serves the DEM cut to its box ---------
     request = tmp_path / "request.json"
@@ -188,7 +187,8 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
     listed = _run_hmp("data", "ls", "--workspace", str(workspace))
     assert listed.returncode == 0, f"`hmp data ls` failed.\nstderr:\n{listed.stderr}"
-    assert dem_file.name in listed.stdout
+    assert "(empty cache" in listed.stdout, "a user file read in place is no row of the cache"
+    assert dem_file.name not in listed.stdout
 
     # ----- Step 5: seed a minimal simulation via the Python API -------------
     # We do not invoke the solver here. A real ``hmp run`` on
@@ -292,10 +292,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
 
     out_path = tmp_path / "run_out"
     out_path.mkdir(parents=True, exist_ok=True)
-    env = {
-        "HMP_PROJECT_ROOT": str(out_path),
-        "MPLBACKEND": "Agg",
-    }
+    env = {"MPLBACKEND": "Agg"}
     # Filter out any env that would lock to a host-bound output, then merge.
     import os
 
@@ -303,7 +300,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
     merged.update(env)
 
     completed = subprocess.run(
-        [sys.executable, "-m", "hydromodpy", "run", str(run_toml)],
+        [sys.executable, "-m", "hydromodpy", "run", str(run_toml), "--base", str(out_path)],
         cwd=str(out_path),
         env=merged,
         capture_output=True,

@@ -8,14 +8,12 @@ layer that owns them, and an instance travels as an argument of the caller.
 
 1. `solver_model.py` is `SolverModel`, the little that every solver model shares.
 2. `observables.py` names what a solver adapter can read back during a trial (`ObservableRequest`, `ObservableResult`, `ObservableSupport`).
-3. `data_cache_backend.py` is the `DataCacheBackend` protocol of the data cache catalog.
-4. `overview.py` is `DataOverviewState`, the state passed between the phases of the data overview.
+3. `overview.py` is `DataOverviewState`, the state passed between the phases of the data overview.
 
 ## What other layers import from it
 
-`solver` (`SolverModel`), `calibration` (`observables`) and `display` (`overview`). `data` says the
-surface of its cache catalog against the `DataCacheBackend` protocol, and its own caches in
-`data/registry/backend.py` carry the SQL-level copies.
+`solver` (`SolverModel`), `calibration` (`observables`) and `display` (`overview`). The data cache has
+no protocol here: it has one implementation, the sidecars of `data/provenance/sidecars.py`.
 
 ## Where to add what
 

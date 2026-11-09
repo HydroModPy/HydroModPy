@@ -492,9 +492,9 @@ def _snapshot() -> dict:
 
 
 @pytest.mark.unit
-def test_a_user_document_with_the_window_is_still_refused() -> None:
+def test_a_user_document_with_the_window_is_still_refused(tmp_path: Path) -> None:
     with pytest.raises(ConfigValidationError, match=r"\[metrics\] window"):
-        HydroModPyConfig.from_dict(_snapshot())
+        HydroModPyConfig.from_dict(_snapshot(), base_dir=tmp_path)
 
 
 @pytest.mark.unit
@@ -507,12 +507,14 @@ def test_a_snapshot_reads_with_a_warning(caplog) -> None:
 
 
 @pytest.mark.unit
-def test_a_sealed_run_rebuilds_its_config(monkeypatch, caplog) -> None:
+def test_a_sealed_run_rebuilds_its_config(monkeypatch, caplog, tmp_path: Path) -> None:
     snapshot = _snapshot()
     monkeypatch.setattr(Run, "config_snapshot", property(lambda self: snapshot))
     run = Run.__new__(Run)
     run._sim_id = "0123456789abcdef"
-    run._read_config = lambda payload: HydroModPyConfig.from_dict(payload, sealed=True)
+    run._read_config = lambda payload: HydroModPyConfig.from_dict(
+        payload, base_dir=tmp_path, sealed=True
+    )
 
     with caplog.at_level(logging.WARNING):
         cfg = run.hydromodpy_config
@@ -522,8 +524,8 @@ def test_a_sealed_run_rebuilds_its_config(monkeypatch, caplog) -> None:
 
 
 @pytest.mark.unit
-def test_a_sealed_document_is_read_by_the_class_with_the_sealed_rule() -> None:
-    cfg = HydroModPyConfig.from_dict(_snapshot(), sealed=True)
+def test_a_sealed_document_is_read_by_the_class_with_the_sealed_rule(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(_snapshot(), base_dir=tmp_path, sealed=True)
 
     assert cfg.simulation.time.end_datetime.year == 2020
 

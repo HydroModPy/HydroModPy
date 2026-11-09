@@ -337,14 +337,14 @@ def test_a_directory_claimed_before_the_pipeline_is_read_not_claimed_again(tmp_p
     assert read_outcome(claim.run_dir).attempt == 1
 
 
-def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) -> None:
+def test_the_initial_facts_name_the_run_its_solver_and_its_solution_key(tmp_path: Path) -> None:
     project = _project(tmp_path)
     ctx = _bind_ctx(project)
     bind_run_directory(
         ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides={"K": 1e-5}
     )
 
-    facts = initial_facts(ctx)
+    facts = initial_facts(ctx, solution_key="k" * 64)
 
     assert facts.sim_id == ctx.sim_id
     assert facts.name == "requested_name"
@@ -352,9 +352,20 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) 
     assert facts.project == "demo_project"
     assert facts.solver == "boussinesq"
     assert facts.solver_category == "integrated"
-    assert facts.config_hash
+    assert facts.config_hash == "k" * 64
     assert facts.config_source == "requested_name.toml"
     assert facts.lineage.kind == "rerun"
+
+
+def test_a_run_opened_without_a_solution_key_seals_none(tmp_path: Path) -> None:
+    """No later run is told identical to a run that no runner keyed."""
+    project = _project(tmp_path)
+    ctx = _bind_ctx(project)
+    bind_run_directory(
+        ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides={"K": 1e-5}
+    )
+
+    assert initial_facts(ctx).config_hash is None
 
 
 # --- test_a_restart_reference_is_resolved_to_a_run ---
@@ -410,3 +421,99 @@ def test_the_step_returns_the_sim_id_the_frozen_config_writes(tmp_path: Path) ->
     assert returned == sid
     assert flow.restart_from == str(project / "runs" / "spinup" / FIELDS_STORE_NAME)
     store.close()
+
+
+# --- The binary each solver of a run calls, which its solution key reads ---
+
+
+def _plan_of(monkeypatch: pytest.MonkeyPatch, *runs: tuple[str, str]) -> None:
+    from hydromodpy.solver.base import planner
+
+    plan = SimpleNamespace(
+        runs=[SimpleNamespace(process_type=kind, solver=solver) for kind, solver in runs]
+    )
+    monkeypatch.setattr(planner.SimulationPlanner, "build", lambda self, simulation: plan)
+
+
+def _cfg_with_runner(runner: str | None) -> SimpleNamespace:
+    def options_of(solver: str) -> SimpleNamespace:
+        if solver == "unknown":
+            raise ValueError(solver)
+        return SimpleNamespace(runner=runner)
+
+    return SimpleNamespace(simulation=object(), solver=SimpleNamespace(options_of=options_of))
+
+
+@pytest.mark.parametrize(
+    ("runner", "wanted"),
+    [(None, "mf6"), ("subprocess", "mf6"), ("api", "libmf6")],
+    ids=["default", "subprocess", "api"],
+)
+def test_a_modflow_6_run_names_the_executable_or_the_library_it_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: str | None, wanted: str
+) -> None:
+    from hydromodpy.solver.modflow_common.binaries import exe_filename
+    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+
+    for name in ("mf6", "libmf6"):
+        (tmp_path / exe_filename(name)).write_bytes(b"binary")
+    _plan_of(monkeypatch, ("mesh", "catchment"), ("flow", "modflow6"), ("transport", "modflow6"))
+
+    found = solver_binaries(_cfg_with_runner(runner), bin_path=tmp_path, fetch=False)
+
+    assert found == {"modflow6": tmp_path / exe_filename(wanted)}, "a mesh step has no binary"
+
+
+def test_a_solver_with_no_binary_maps_to_none_and_a_missing_one_is_not_fetched_by_a_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+
+    _plan_of(monkeypatch, ("flow", "boussinesq"), ("flow", "modflow6"))
+
+    found = solver_binaries(_cfg_with_runner(None), bin_path=tmp_path, fetch=False)
+
+    assert found == {"boussinesq": None, "modflow6": None}
+    assert list(tmp_path.iterdir()) == [], "a plan only looks"
+
+
+def test_a_configuration_with_no_simulation_calls_no_binary() -> None:
+    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+
+    assert solver_binaries(SimpleNamespace(simulation=None)) == {}
+
+
+def test_a_run_fetches_the_managed_binary_it_is_about_to_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.solver.modflow_common import binaries
+    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+
+    _plan_of(monkeypatch, ("flow", "modflow6"))
+    asked: list[str] = []
+    monkeypatch.setattr(
+        binaries,
+        "ensure_solver_binary",
+        lambda name, bin_path=None: asked.append(name) or tmp_path / name,
+    )
+
+    found = solver_binaries(_cfg_with_runner(None), bin_path=tmp_path)
+
+    assert asked == ["mf6"]
+    assert found == {"modflow6": tmp_path / "mf6"}
+
+
+def test_a_binary_that_cannot_be_found_leaves_the_key_without_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.solver.modflow_common import binaries
+    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
+
+    _plan_of(monkeypatch, ("flow", "modflow6"))
+
+    def refuse(name: str, bin_path=None):
+        raise FileNotFoundError(name)
+
+    monkeypatch.setattr(binaries, "ensure_solver_binary", refuse)
+
+    assert solver_binaries(_cfg_with_runner(None), bin_path=tmp_path) == {"modflow6": None}

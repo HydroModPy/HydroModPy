@@ -38,7 +38,9 @@ A project with one catchment, two runs and a calibration:
    ├── README.md               written by the author, never rewritten
    ├── daily.toml              a variant, base_config = "project.toml"
    ├── calibration.toml        base_config = "project.toml" + [calibration]
-   ├── hydromodpy.lock         pin of the workspace input cache
+   ├── hydromodpy.lock         pin of the data cache and of the files of the user
+   ├── inputs/                 the author's input files, made by hmp project new
+   ├── configs/                the author's variants and overlays, made by hmp project new
    ├── runs/
    │   ├── baseline/           hmp run project.toml
    │   ├── baseline.v2/        hmp run project.toml --set flow.param.K.field.value=2e-5
@@ -85,12 +87,21 @@ with a recipe, named ``<site>-<recipe>``:
 **The guard is on outputs, not on the author's files.** A gesture of HydroModPy writes only under
 ``runs/``, ``sessions/``, ``summary/``, ``plan/``, ``jobs/``, ``trash/`` and ``.hmp/``. Every
 ``.toml``, ``.csv`` and ``.md`` file at the project root belongs to the author, as do
-``configs/`` and ``site_overrides/``. The entries of the older layouts never exist at a project
+``inputs/``, ``configs/`` and ``site_overrides/``. ``hmp project new`` creates ``inputs/`` and
+``configs/`` next to ``project.toml``, and the name of the project follows the rule of the names
+of runs, given below. The entries of the older layouts never exist at a project
 root: ``outputs/``, ``catalog.duckdb``, ``simulations/``, ``exports/``, ``figures/``,
 ``reports/``, ``.solver_scratch/`` and the old publication folder, all listed in
 ``FORBIDDEN_PROJECT_ENTRIES`` of ``tests/unit/results/test_run_layout_contract.py``. No path
 carries the ``.parquet.d`` or ``.zarr.zip`` suffix, and no directory is named after an
 identifier.
+
+**The data folder is its sidecars.** ``data/`` of the workspace, or ``<project>/data/`` for a
+project with no workspace, holds the files that providers delivered. Each has a sidecar
+``<file>.json`` that records its variable, source, extent, period, digest and licence, and nothing
+else records them: there is no database, and a ``cache.duckdb`` found there is refused. The files
+of the user stay under ``inputs/`` and are no row of the cache. :doc:`data-scopes` gives the
+rules of the scan.
 
 The project config file is ``project.toml``, and
 :func:`~hydromodpy.core.state.result_dirs.resolve_project_root` anchors on it, never on a database file:
@@ -111,8 +122,7 @@ attempts of a case, and ``plan/`` keeps the immutable plans. None of them is und
 deleting the internals never empties the trash nor loses an attempt.
 
 **A run** ``.hmp/`` **is the state of the attempt in progress**: its solver scratch (``scratch/``),
-its file locks (``locks/``), its step checkpoints (``checkpoints/``) and its private data cache
-(``data-cache.duckdb``). It is outside the seal, never packaged and never published. The seal of
+its file locks (``locks/``) and its step checkpoints (``checkpoints/``). It is outside the seal, never packaged and never published. The seal of
 a ``completed`` run removes it. It is never touched on a ``failed``, ``aborted`` or ``stale`` run
 until a new attempt or a ``gc`` decides so, because the next attempt resumes from it.
 ``HMP_SCRATCH_ROOT`` (an environment variable, never an author key and never part of the config
@@ -194,9 +204,10 @@ A run folder
 .. code-block:: text
 
    runs/<case>/
-   ├── outcome.json        attempt, attempt_id, host, pid, status, sim_id; written before any step
+   ├── outcome.json        attempt, attempt_id, host, pid, status, sim_id, request_id; written before any step
+   ├── request.json        the request as given in JSON or as a dict; written at the claim, never redacted
    ├── README.md           generated at the seal: site, period, version, checks, label, sha256
-   ├── config.toml         what the run was given, overrides included; paths relative to the project root
+   ├── config.toml         what the run was given, overrides included; written at the claim; paths relative to the project root
    ├── config.resolved.toml  the same with every default, and what the build decided; a replay compares to it
    ├── inputs.json         sealed: provider, product, version, request, fetched_at, sha256, licence
    ├── provenance.json     environment, versions, git, solver binaries; host and user stay here
@@ -216,6 +227,17 @@ A run folder
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
 ``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artifact.
+
+``request.json`` is the run request of a run given as JSON or as a dict, the object that
+``hmp run x.json`` reads. It is written whole at the claim, by one rename, and it is never
+redacted: it holds the document, the ``set`` changes and the options exactly as they came, and
+neither the base of the relative paths nor the environment of the call. A run given as a TOML file
+or as a built configuration writes none, because its ``config.toml`` already says what it was
+given. The file is outside the seal, so ``manifest.json`` does not list it.
+
+``outcome.json`` carries the ``request_id`` of the attempt, written as soon as the inputs are
+resolved. It is a sha256 and the field is optional, so an outcome written before the inputs are
+resolved has none. The ``sim_id`` is a uuid taken at the claim and is part of no identity.
 
 ``manifest.json`` is written last, through a temporary file, ``fsync`` of the file and of the
 directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``config``, ``site``,
@@ -349,17 +371,27 @@ The directory under ``runs/`` **is** the run name, with its ``.vN`` version suff
 is named by the stem of the file that holds ``[calibration]``, unless that file writes
 ``[simulation] name`` itself; a name inherited through ``base_config`` never names a calibration.
 With ``[sites]`` the name is ``case_id = "<site>-<recipe>"``: site and recipe are each
-``[A-Za-z0-9_]+``, ``-`` is the separator and nothing else, a recipe ending in ``.v<N>`` is
-refused, and a name holds 96 characters at most. ``run_dirname`` folds accents to ASCII, keeps the
-case and refuses a longer name with ``RunNameTooLongError`` instead of truncating it. No output
-path carries the ``sim_id`` or a part of it.
+``[A-Za-z0-9_]+``, ``-`` is the separator and nothing else, and a recipe ending in ``.v<N>`` is
+refused.
+
+A run name and a project name follow one rule, ``check_name`` in ``hydromodpy/core/state/names.py``. A name holds ``[a-z0-9_-]``, forty characters at most without
+its ``.vN`` suffix, and is not a name Windows reserves for a device (``con``, ``prn``, ``aux``,
+``nul``, ``com1`` to ``com9``, ``lpt1`` to ``lpt9``, alone or before a dot). A name that a person
+writes (``[simulation] name``, ``name=``, ``--case``, ``hmp project new``, the target of a
+rename) and that breaks the rule is refused with an error of code 14, and the sentence proposes
+the folded name. A name the code makes from a text that is not a run name (a file stem, the
+``case_id`` of a plan, a name of the validation cases) is folded to ASCII and lower case, then
+refused when it is still too long or reserved, and a plan whose two cases fold to one name is
+refused. Nothing is cut, because two long names with one prefix would fall into one folder. The
+rule holds for every name a run takes or continues, so a folder written by 2.0 with capital
+letters can still be read and opened, and cannot be continued. No output path carries the
+``sim_id`` or a part of it.
 
 **A run launched with** ``--set`` **or** ``--overlay`` **keeps its name.** The override is written
 in the frozen ``config.toml`` and in ``manifest.lineage.overrides``, and the version suffix takes
 the collision. ``--case <name>`` names the variant for whoever prefers a telling name.
 ``hmp calibrate`` takes the same three flags: its session and promoted run keep the name of the
-file the user named (or ``--case``), never the name of the effective copy the command writes
-beside it.
+file the user named, or ``--case``.
 
 **The version is computed on disk and never given out twice.**
 :func:`~hydromodpy.results.catalog.registration.reserve_version_dirname` takes ``N`` as one more
@@ -381,27 +413,50 @@ and the index row; the links by identifier do not move, and a stale hint is neve
 ``sessions/<name>/trials/<nnnn>``, are spelled and read only by the relative-directory functions
 of :mod:`hydromodpy.core.state.result_dirs`.
 
-**An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in
-``runs/<case>/manifest.json``, never the index. ``if_exists`` is ``version`` or ``fail``.
+**An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in the
+``manifest.json`` of the versions of ``runs/<case>``, never the index. The field holds the solution
+key, and ``config.hash`` of the same block holds the same value. A plain run, which is not a
+resume, a partial window, a forced run or a replay, whose solution key equals the key of a sealed
+run of the same stem, is not computed: the claim is withdrawn without a trace and that run is
+given back. ``hmp run`` and ``hmp calibrate`` skip, and no other verb does. Before it gives the
+run back, the skip checks that each file of an API source that the ``inputs.json`` of that run
+cites is still in the cache with the same sha256, because such a source is fetched after the
+identity is known and enters the request by its declaration. ``if_exists`` is ``version`` or
+``fail``, and ``fail`` is tested after the skip, so an identical run is always given back.
 
-**The hash says that two runs compute the same thing.** It covers the configuration without
-``[workspace]``, ``simulation.name`` and the values that equal a default, the digests of the input
-files, the mesh engine with its version, and the fingerprint of the code that computes
-(``hydromodpy/core/code_fingerprint.py``): one digest per layer that changes a number, over the
-tokens of each module, so a comment, a docstring or a reflow moves nothing and a figure or a
-command is out of its scope. A default that moves is seen through that fingerprint. The table is
-in ``provenance.json``, block ``tool``, so two runs that differ say in which layer.
+Two fingerprints say whether two runs compute the same thing
+(``hydromodpy/results/request_identity.py``). The request id says what a run asks for. It is the
+sha256 of the document as a file writes it, so a key written at its default value is another
+request than no key. It leaves out ``[workspace]``, ``[workflow]``, ``simulation.name``, every
+``deliver_to`` key, the mesh the run builds and ``[resolved_at_build]``. Each input enters by the
+digest and the state of its bytes in place of its path, a URL by its pinned sha256 in place of its
+address, and a window that starts from an earlier state adds the digest of the ``final_state/`` of
+the window before. The edition of the defaults enters too, and a run leaves its ``[calibration]``
+out while a session keeps it. The solution key says what computes the answer. It is the sha256 of
+the request id, the fingerprint of the code that computes
+(``hydromodpy/core/code_fingerprint.py``), the mesh engine with its version, the sha256 of each
+solver binary and the versions of the numeric packages. The code fingerprint holds one digest per
+layer that changes a number, over the tokens of each module, so a comment, a docstring or a
+reflow moves nothing and a figure or a command is out of its scope. A default that moves is seen
+through that fingerprint. The table is in ``provenance.json``, block ``tool``, so two runs that
+differ say in which layer. The sha256 of a binary is kept in memory by resolved path, size and
+time, so a plan of thousands of cases reads each binary once.
 
-**The hash reads the run a case starts from.** A ``restart_from``, and a ``run`` of a
-``[[mesh.refinement_zone]]``, name an earlier run. Before it hashes the configuration, the code
-replaces that name by the ``sim_id`` of the sealed run it designates
-(``hydromodpy/results/source_runs.py``, ``resolve_source_runs``). A reference is a store path, a
-run name with or without ``.vN``, a full ``sim_id`` or a prefix of eight characters at least. So a
-later version of the source run gives another hash, and the frozen ``config.toml``, which holds the
-``sim_id``, hashes like the configuration it came from. A reference that names no sealed run is
-hashed as written. The frozen ``config.toml`` of a run whose mesh read an earlier run writes the
-``sim_id`` of that run in the zone, taken from the ``zone_runs`` of the mesh summary, so a replay
-reads the same run. It stops with a message when that run is no longer in the project.
+The composition is the one of 2.1. A run or a session sealed by 2.0 carries a key made another way,
+so the first identical request that 2.1 meets is computed once more.
+
+The request id reads the run a case starts from by the arrays it takes. A ``restart_from``, and a
+``run`` of a ``[[mesh.refinement_zone]]``, name an earlier run. The request id takes the sha256 of
+what the step reads from that run, never its name or its ``sim_id``: for a restart the head and
+the lake stages of its last step, as float64 values with their shape, and for a zone the fields
+the mesh reads. So two runs that leave the same state give the same request, and a later version
+of the source run that changes its state gives another one. A reference is a store path, a run
+name with or without ``.vN``, a full ``sim_id`` or a prefix of eight characters at least. The
+frozen ``config.toml`` keeps the pin ``{sim_id, path}`` of the run, and the lineage keeps its
+``parent_sim_id``, because ``sim_id`` carries the lineage and is part of no identity. The frozen
+``config.toml`` of a run whose mesh read an earlier run writes the ``sim_id`` of that run in the
+zone, taken from the ``zone_runs`` of the mesh summary, so a replay reads the same run. It stops
+with a message when that run is no longer in the project.
 
 Trash and tombstones
 --------------------
@@ -451,7 +506,7 @@ version that wrote it when known, what this code reads and what to do:
 
 - newer than the window: upgrade HydroModPy to read it;
 - older than the window, or with no version: a pre-release wrote it, so it must be run again;
-- the lockfile: ``hmp lock update`` writes it again.
+- the lockfile: ``hmp data lock`` writes it again.
 
 Two kinds of document keep one exact version, because what they hold can be made again:
 
@@ -511,8 +566,13 @@ Attempt protocol
 A case is run by one worker process, ``hmp run <case>.toml``, which decides alone, from the disk,
 to skip, resume or version.
 
-1. **The first act of the worker** creates ``runs/<case>/`` and writes the initial
-   ``outcome.json`` (``running``), before validation, geography, data or mesh.
+1. The worker first loads the document with its base, checks the environment and checks the run
+   name. A refusal there leaves nothing on the disk. Its first act after that creates
+   ``runs/<case>/`` and writes the initial ``outcome.json`` (``running``), before geography, data
+   or mesh. The claim carries a uuid ``sim_id`` and no identity.
+   Then the worker writes ``request.json`` when the request came as JSON or as a dict, writes
+   ``config.toml``, resolves the inputs to files with a digest, and writes the ``request_id`` into
+   ``outcome.json``.
 2. **The heartbeat starts at the entry of the process**, on a thread that writes only
    ``logs/heartbeat.json`` through ``os.replace``.
 3. ``stale`` (an old heartbeat) is display only. A new attempt requires a proven death: same host
@@ -523,8 +583,9 @@ to skip, resume or version.
    identical configuration.
 5. **Attempt** ``k+1`` **resumes in place by default**: ``outcome.json`` and ``logs/`` of attempt
    ``k`` move under ``attempts/<k>/``; the checkpoints, the partial store, the scratch and
-   ``trials.jsonl`` stay. ``--fresh``, or a changed config hash, moves the whole content under
-   ``attempts/<k>/`` and starts over.
+   ``trials.jsonl`` stay. ``--fresh``, or a changed request id, moves the whole content under
+   ``attempts/<k>/`` and starts over. An asked ``--resume`` never starts over: its checkpoint
+   refuses a configuration that moved and names the sections that did.
 6. **A parent writes the outcome of a child that died without writing it** (a native abort, an
    out-of-memory kill, a wall-time ``SIGKILL``): ``failed`` with ``exit_code``, ``signal``,
    ``log_tail`` and ``written_by = "launcher"`` or ``"trap"``.
@@ -903,10 +964,10 @@ Concurrency and atomic writes
 - A run directory and an attempt are claimed with ``os.mkdir``, which fails for the loser.
 - The launcher of a project holds ``.hmp/launcher.lease``, created with ``O_EXCL``; a lease of a
   dead process is taken over by the same proof of death as an attempt.
-- The workspace input cache has one writer, the launcher. A case, in its ``prepare`` phase or in
-  its solve, opens it read-only, one request at a time, and registers what it fetched in a
-  private cache (``runs/<case>/.hmp/data-cache.duckdb`` for a worker), which the launcher merges
-  when the case ends.
+- A fetched file is written through ``<name>.part`` and ``os.replace``, then its sidecar the
+  same way. A station chronicle is written under a ``filelock`` named after the station
+  (``.<prefix>_<source>_<id>.lock`` in the folder of the variable), so two cases that fetch the
+  same station write the same bytes in turn and no case needs a private cache.
 - The index is written as a staging file next to it and installed with one atomic rename. The
   invariant is that ``index.duckdb`` is never absent nor half-written: a reader that was reading
   keeps reading the file it opened, and the next opener gets the new one. ``os.replace`` delivers
@@ -919,18 +980,22 @@ Concurrency and atomic writes
 Lockfile and reproducibility
 ----------------------------
 
-``hydromodpy.lock`` pins the workspace input cache of a project. It is a TOML document with the
-id ``schema = "hydromodpy.lock.v1"``, read by the same version rule as the other documents, and it
-is meant to be committed and to travel, so it holds no path of the machine that wrote it.
+``hydromodpy.lock`` pins the data cache and the files of the user of a project. It is a TOML
+document with the id ``schema = "hydromodpy.lock.v2"``, read by the same version rule as the other
+documents, and it is meant to be committed and to travel, so it holds no path of the machine that
+wrote it. It is read from the sidecars of ``data/`` by ``hmp data lock``, and a file written under
+``hydromodpy.lock.v1`` is refused with the order to write it again.
 
-- ``[hydromodpy]`` holds the ``hydromodpy`` version, the git commits, the Python version, the
-  catalog, Zarr and Parquet schema versions and the sha256 of the config schema.
-- ``[binaries]`` holds the SHA-256 and the version text of the solver binaries a writer names. The
-  launcher and ``hmp lock update`` name none, and each run records the binary it used.
-- ``[[input]]`` is one record per entry of the cache: ``variable``, ``source``, ``station_id``, the
-  workspace-relative ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``, the instant
-  of the snapshot. Everything that reads the lock reads this record: the check of ``--frozen``,
-  ``hmp lock verify``, a restored archive and the frozen matching of the data cache.
+- ``[hydromodpy]`` holds the ``hydromodpy`` version, the git commits, the Python version and the
+  sha256 of the config schema.
+- ``[[input]]`` is one record per row of the cache, and one per file of the user that the project
+  declares: ``variable``, ``source``, ``station_id``, ``product``, the ``path``, ``sha256``,
+  ``bytes``, ``license`` and ``fetched_at``, the instant of the snapshot. The path of a row of the
+  cache is relative to ``data/``, the path of a file of the user is relative to the project root.
+  A station that answered nothing is a record with ``empty = true`` and no ``sha256`` nor
+  ``bytes``, whose path is the name its sidecar describes, so a frozen replay serves it too.
+  Everything that reads the lock reads this record: the check of ``--frozen``,
+  ``hmp data lock --check``, a restored archive and the frozen matching of the data cache.
 
 The ``prepare`` phase writes it once per plan, never each run.
 ``hmp run --frozen`` refuses any source whose fingerprint changed since, and checks the lockfile
@@ -957,7 +1022,8 @@ copy of a run outside any project is refused, and the refusal names the way out,
 its inputs there.
 
 The configuration of a sealed run is two files. ``config.toml`` holds what the run was given,
-overrides included, and a validator that tells a written key from its default answers on it as it
+overrides included, written once at the claim from the loaded configuration, so a run that fails
+before the mesh can be resumed. It holds the keys as written, so a validator that tells a written key from its default answers on it as it
 did on the run. ``config.resolved.toml`` holds every key with its value, ``edition`` included, and is never read
 back as a configuration. A resolved file without ``edition`` reads as edition 2.0. Its body adds what a rule derives from the configuration alone, by the rule the
 builders use: ``geographic.terrain_engine``, ``mesh.lake_refinement.shoreline_band`` and
@@ -989,8 +1055,8 @@ never leave: one function redacts every copy.
 The portable package **is** ``hmp publish --with results --with inputs --container tar``. Importing
 it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the
 workspace (identical bytes cost nothing, other bytes at one path are refused by name), merges the
-station rows, registers the delivered files in ``data/cache.duckdb`` and the site in
-``data/sites/catalog.csv``, then extracts the run under ``runs/`` and runs an incremental
+station rows, completes the sidecar of each delivered file from the table of the index and
+writes the site in ``data/sites/catalog.csv``, then extracts the run under ``runs/`` and runs an incremental
 reindex. ``hmp publish --package`` writes a whole project on the same index, and
 ``hmp project import`` installs it as ``projects/<name>``.
 

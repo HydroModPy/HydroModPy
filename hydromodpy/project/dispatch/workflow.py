@@ -1,9 +1,19 @@
 """Workflow dispatch adapters that bind launchers to ``Project``.
 
 Wires the user-facing entry points (``run_simulation``, ``run_overview``,
-``run_calibration``) to the matching workflow launchers. Lives under :mod:`hydromodpy.project.dispatch` because
-it depends on :class:`hydromodpy.project.Project`; the lower
-``hydromodpy.workflow`` package stays independent from that facade.
+``run_calibration``) to the matching workflow launchers. Each takes a
+:class:`~hydromodpy.project.request.RunRequest` and the ``base`` its relative
+paths are read from, and loads it through :func:`hydromodpy.config.loading.load`.
+Lives under :mod:`hydromodpy.project.dispatch` because it depends on
+:class:`hydromodpy.project.Project`; the lower ``hydromodpy.workflow`` package
+stays independent from that facade.
+
+The order of a run is the one of the request: load the configuration, check the
+environment and the name, claim ``runs/<name>/``, write ``request.json`` and
+``config.toml``, resolve the inputs, write the request id into ``outcome.json``,
+start over when the previous attempt asked for something else, then look for a
+completed run with the same solution key and, when one answers, undo the claim
+and give that run back (:func:`run_simulation`).
 
 It also owns the staged-calibration routing question
 (:func:`declared_calibration_phases`, :func:`calibration_phases_or_raise`),
@@ -12,19 +22,24 @@ which every calibration entry point asks before choosing a runner.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch.sites.expansion import PlanDraft
+    from hydromodpy.project.request import RunOutcome, RunRequest
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.overview import OverviewResult
 
 
-def run_overview(config_path: str | Path, environment: Environment | None = None) -> OverviewResult:
-    """Generate a watershed identity card from a TOML file, as a run of the project.
+def run_overview(
+    request: RunRequest, *, base: str | Path, environment: Environment | None = None
+) -> OverviewResult:
+    """Generate a watershed identity card from a request, as a run of the project.
 
     The overview claims ``runs/<name>/`` through the attempt protocol like any
     run (``<name>`` is ``[site] name``, else ``[overview] name``): outcome,
@@ -32,24 +47,33 @@ def run_overview(config_path: str | Path, environment: Environment | None = None
     directory, a seal without solver tables, and a completed outcome. A run
     of the same name already sealed takes the next version. ``environment`` is the
     Environment of the call, ``None`` the default of the machine: it is checked
-    against the folder of the file, and its bounds reach the launcher.
+    against *base*, and its bounds reach the launcher. An overview is never
+    skipped, so its key is only what the seal records.
     """
     from hydromodpy.core.config_kit.written import log_experimental_keys
+    from hydromodpy.core.state.names import check_name
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.display.overview import overview_name
-    from hydromodpy.results.catalog.registration import config_identity_hash
+    from hydromodpy.project.request import write_request_file
+    from hydromodpy.results.storage.attempt import record_request_id
     from hydromodpy.workflow.overview import DataOverviewLauncher
     from hydromodpy.workflow.record.attempt import run_attempt
 
-    environment = _checked_environment(environment, Path(config_path).expanduser().resolve().parent)
-    launcher = DataOverviewLauncher(config_path, bounds=environment.bounds)
-    cfg = launcher.cfg
+    root = Path(base).expanduser().resolve()
+    environment = _checked_environment(environment, root)
+    cfg = _changed(_loaded(request, root), request.set)
+    launcher = DataOverviewLauncher(
+        cfg, base=root, source=_source_path(request, root), bounds=environment.bounds
+    )
     site = cfg.site.name if getattr(cfg, "site", None) is not None else None
     overview = getattr(cfg, "overview", None)
-    name = overview_name(site, getattr(overview, "name", None) if overview is not None else None)
+    name = request.name or overview_name(
+        site, getattr(overview, "name", None) if overview is not None else None
+    )
+    check_name(name, what="run")
     project_root = Path(cfg.workspace.project_root)
     refuse_a_sealed_run_as_project(project_root)
-    config_hash = config_identity_hash(cfg)
+    request_id, key = _overview_identity(cfg)
     simulation = getattr(cfg, "simulation", None)
     log_experimental_keys(cfg)
     with run_attempt(
@@ -58,10 +82,11 @@ def run_overview(config_path: str | Path, environment: Environment | None = None
         case_id=name,
         project=project_root.name,
         site=site,
-        config_hash=config_hash,
         if_exists=getattr(simulation, "if_exists", "version"),
     ) as handle:
-        return launcher.run(handle.claim, config_hash=config_hash)
+        write_request_file(handle.run_dir, request)
+        record_request_id(handle.run_dir, request_id)
+        return launcher.run(handle.claim, config_hash=key)
 
 
 def declared_calibration_phases(config_path: str | Path) -> list[str]:
@@ -122,20 +147,26 @@ def _checked_environment(environment: Environment | None, project_root: Path) ->
 
 
 def run_calibration(
-    config_path: str | Path,
-    *,
-    phase: str | None = None,
-    environment: Environment | None = None,
+    request: RunRequest, *, base: str | Path, environment: Environment | None = None
 ) -> dict[str, Any]:
-    """Run a parameter calibration campaign from a TOML file.
+    """Run a parameter calibration campaign from a request.
 
-    Routes to the staged runner when the file declares
+    Routes to the staged runner when the document declares
     ``[[calibration.phases]]``, so a phased configuration is never flattened
     into a single calibration over the union of its parameters. The report is
     summarized as a mapping, because every caller of this dispatcher expects one.
     ``environment`` is the Environment of the call, ``None`` the default of the
-    machine: it is checked against the folder of the file before anything runs,
-    and its bounds reach the trials.
+    machine: it is checked against *base* before anything runs, and its bounds
+    reach the trials.
+
+    A request that is a plain TOML file, with no ``set``, no overlay and no case of its
+    own, reaches the runners by the path of the file. Any other
+    (a request in JSON, a mapping, a file with changes, ``--case``) is loaded and runs
+    as a project held in memory, under the case the request names, else the case of
+    its TOML file, else its ``[simulation] name``. A completed session
+    of the same case and the same solution key is given back as its report instead of
+    searching again, unless the request asks to ``force``, to resume or to run one
+    ``phase``.
     """
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
@@ -144,70 +175,157 @@ def run_calibration(
     # that enters here without a pipeline must refuse, naming the fill.
     fill_trial_pipeline()
 
-    target = Path(config_path).expanduser().resolve()
-    environment = _checked_environment(environment, target.parent)
+    root = Path(base).expanduser().resolve()
+    environment = _checked_environment(environment, root)
+    path = _source_path(request, root)
+    held = bool(request.form != "toml" or request.set or request.overlays or request.name)
+    if path is None or held:
+        return _calibrate_in_memory(request, root, environment)
+    target = path
     runner_options: dict[str, Any] = {"bounds": environment.bounds}
+    if request.resume is not None:
+        runner_options["resume"] = True
     # A caller naming a phase gets the reading that raises: answering "declares
     # no phases" for a file that declares them but fails to validate sends the
     # user to a block that is present and correct while the real error is lost.
     declared = (
         calibration_phases_or_raise(target)
-        if phase is not None
+        if request.phase is not None
         else declared_calibration_phases(target)
     )
     from hydromodpy.calibration.preflight import preflight_launch
 
     preflight_launch(target)
+    if request.phase is None and request.resume is None and not request.force:
+        done = _completed_session(target)
+        if done is not None:
+            return done
     if declared:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        return run_staged_calibration(target, phase=phase, **runner_options).to_dict()
-    if phase is not None:
-        raise CalibrationError(no_such_phase(target.name, phase))
+        return run_staged_calibration(target, phase=request.phase, **runner_options).to_dict()
+    if request.phase is not None:
+        raise CalibrationError(no_such_phase(target.name, request.phase))
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
     return run_calibration_cli(target, **runner_options).to_dict()
 
 
-def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str] | None:
-    """Return ``(name, sim_id)`` of a completed run identical to this one, or None.
+def _calibrate_in_memory(
+    request: RunRequest, base: Path, environment: Environment
+) -> dict[str, Any]:
+    """Run the ``[calibration]`` a request carries as a project held in memory.
 
-    Identical means the same run identity hash
-    (:func:`~hydromodpy.results.catalog.registration.run_identity_hash`): the
-    resolved configuration, without the per-run members, the contents of the
-    input files it names and the fingerprint of the code that computes. It is the
+    The project never keeps the file of the request. Its configuration holds the
+    changes, and a runner handed the file would read it from disk without them, or
+    read a request in JSON as TOML. So the case is passed by name: the one the
+    request names (``--case``), else the case a TOML file declares, else the
+    ``[simulation] name`` of the document.
+    """
+    from hydromodpy.calibration.runners.session import calibration_case_name
+    from hydromodpy.project import Project
+
+    cfg = _changed(_loaded(request, base), request.set)
+    # The project root of the configuration, which its sessions/ lives under: a
+    # project held in memory has no file to find it from.
+    options: dict[str, Any] = {
+        "phase": request.phase,
+        "resume": request.resume is not None,
+        "workspace": Path(cfg.workspace.project_root),
+    }
+    if request.force:
+        options["force"] = True
+    path = _source_path(request, base)
+    case = request.name
+    if case is None and request.form == "toml" and path is not None:
+        case = calibration_case_name(path)
+    if case is not None:
+        options["case"] = case
+    with Project(
+        cfg,
+        base=base,
+        document=request.config,
+        source=None,
+        environment=environment,
+    ) as project:
+        report = project.calibrate(**options)
+    return report.to_dict()
+
+
+def _completed_session(target: Path) -> dict[str, Any] | None:
+    """Return the report of the completed session that answers the file *target*, as a mapping."""
+    report = identical_session_of_file(target)
+    return None if report is None else report.to_dict()
+
+
+def identical_session_of_file(target: Path) -> Any:
+    """Return the report of the completed session that answers the calibration file *target*, or None.
+
+    A session answers when it carries the case of the file and the solution key of
+    its configuration, search kept. The key is told offline: an input that needs the
+    network leaves the case to run. A file that does not load as a project (a
+    ``[calibration]`` section alone, an evaluator that runs no model) has no key a
+    session could hold, so nothing answers it and the runner reads it as before.
+    """
+    from pydantic import ValidationError
+
+    from hydromodpy.calibration.runners.document import identical_session
+    from hydromodpy.config.loading import load
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.workflow.solution_key import planned_solution_key
+
+    try:
+        cfg = load(target)
+    except (HydroModPyError, ValidationError, ValueError):
+        return None
+    return identical_session(
+        planned_solution_key(cfg, search=True),
+        project_root=Path(cfg.workspace.project_root),
+        source=target,
+    )
+
+
+def completed_identical_run(project_root: Path, name: str, key: str | None) -> Path | None:
+    """Return the directory of a completed run of *name* sealed with the solution key *key*, or None.
+
+    Identical means the same solution key
+    (:func:`~hydromodpy.results.request_identity.solution_key`): the request, the
+    digest and state of every input it reads, the fingerprint of the code that
+    computes, the solver binaries and the numeric packages. It is the
     ``identity.config_hash`` a run seals, so two runs of an unchanged file on
     unchanged data match. The run must carry the name ``name`` or be a
     version of it (``name.v2``): every version is looked at, newest first,
-    because the user asks for this configuration and any sealed run of it
+    because the user asks for this request and any sealed run of it
     answers, whichever version last ran it. Read from the manifests under
     ``runs/``, never from the index; a directory without a seal, or whose
-    seal cannot be read, never matches.
+    seal cannot be read, never matches. A run that read a file of an API whose
+    extent came from the catchment (declared, not resolved before the key) is given
+    back only when each such file is still in the cache with the digest the run
+    recorded: a provider that refreshed it leaves the run to compute again.
     """
     from hydromodpy.core.state.layout import runs_dir_for
-    from hydromodpy.results.catalog.registration import solve_identity_hash, split_stem_version
-    from hydromodpy.results.manifest import read_manifest
+    from hydromodpy.results.catalog.registration import split_stem_version
     from hydromodpy.results.storage.sealing import sealed_config_hash
+    from hydromodpy.workflow.replay_checks import api_inputs_intact
 
-    root = Path(config.workspace.project_root)
-    runs = runs_dir_for(root)
-    if not runs.is_dir():
+    if key is None:
         return None
-    config_hash = solve_identity_hash(config)
-    if config_hash is None:
+    runs = runs_dir_for(Path(project_root))
+    if not runs.is_dir():
         return None
     versions: list[tuple[int, Path]] = []
     for entry in runs.iterdir():
         if not entry.is_dir():
             continue
         stem, version = split_stem_version(entry.name)
-        if stem == name:
+        if stem == split_stem_version(name)[0]:
             versions.append((1 if version is None else version, entry))
     for _version, run_dir in sorted(versions, reverse=True):
-        if sealed_config_hash(run_dir) != config_hash:
+        if sealed_config_hash(run_dir) != key:
             continue
-        sim_id = str(read_manifest(run_dir)["run"]["sim_id"])
-        return (run_dir.name, sim_id)
+        if not api_inputs_intact(run_dir, Path(project_root)):
+            continue
+        return run_dir
     return None
 
 
@@ -217,93 +335,141 @@ def identical_run_message(name: str | None, sim_id: str) -> str:
     return f"Config identical to completed run '{label}' [{sim_id[:8]}]; nothing to do."
 
 
+def _overview_identity(cfg: HydroModPyConfig) -> tuple[str, str]:
+    """Return the request id and the key an overview of *cfg* records."""
+    from hydromodpy.data.loading.inputs import ResolvedInputs
+    from hydromodpy.workflow.solution_key import (
+        planned_request_id,
+        request_id_of,
+        solution_key_of,
+    )
+
+    request_id = planned_request_id(cfg, search=True)
+    if request_id is None:
+        request_id = request_id_of(cfg, ResolvedInputs(), search=True)
+    return request_id, solution_key_of(cfg, request_id, binaries={})
+
+
+def _source_path(request: RunRequest, base: Path) -> Path | None:
+    """Return the file *request* was read from, absolute, or ``None`` when it has none."""
+    if request.source is None:
+        return None
+    named = Path(request.source)
+    return named if named.is_absolute() else Path(base) / named
+
+
+def _loaded(request: RunRequest, base: Path) -> HydroModPyConfig:
+    """Return the configuration of *request*, its document read against *base*."""
+    from hydromodpy.config.loading import load
+
+    return load(request.config, base, source_path=_source_path(request, base))
+
+
+def _changed(cfg: HydroModPyConfig, overrides: Mapping[str, Any]) -> HydroModPyConfig:
+    """Return *cfg* with the ``set`` of a request applied, the way a run applies it."""
+    from hydromodpy.project.run_overrides import override_changes
+
+    changes = override_changes(cfg, overrides)
+    return cfg.with_changes(changes) if changes else cfg
+
+
 def run_simulation(
-    config: Any,
+    request: RunRequest,
     *,
-    changes: Mapping[str, Any] | None = None,
-    name: str | None = None,
-    resume: str | None = None,
-    from_step: str | None = None,
-    until_step: str | None = None,
-    no_display: bool = False,
-    frozen: bool = False,
-    force: bool = False,
-    fresh: bool = False,
-    overrides: Mapping[str, Any] | None = None,
-    headless: bool = False,
-    replay_of: Path | None = None,
+    base: str | Path,
     environment: Environment | None = None,
-) -> dict[str, Any]:
+    lineage: Any = None,
+    calibrated_by: Any = None,
+    replay_of: Path | None = None,
+) -> RunOutcome | None:
     """Execute one attempt of a case, the worker verb.
 
-    *config* is the TOML file of the case, or a validated configuration. The run is
-    named ``name``, else ``[simulation] name`` (which a TOML file defaults to its own
-    stem). A plain run identical to an already completed run
-    (:func:`completed_identical_run`) is skipped and returns a ``{"skipped": True,
-    "name", "sim_id", "project_root"}`` summary, unless ``force`` is set. Resume and
-    partial runs always proceed, and so does a replay: it is identical to the run it
-    replays by construction. The index is never opened here: the summary comes from
-    the run directory, and the caller indexes it afterwards. ``changes`` is the ``set=``
-    of ``hmp.run``, applied to the configuration of the run. ``overrides`` are the dotted
-    paths a ``--set`` or an overlay wrote in the file, sealed in ``lineage.overrides``.
-    The frozen configuration of a run with ``frozen`` replays from the record of
-    that run and not from a lockfile (:mod:`hydromodpy.workflow.replay_checks`): other
-    bytes or another configuration are refused before anything runs, and what the
-    replay did otherwise is said once it has run. ``replay_of`` names a published copy,
-    which replays the same way, its inputs checked already. ``environment`` is the
-    Environment of the call: only its bounds cross into the setup context,
-    and ``None`` keeps the default of the machine.
-    """
-    from hydromodpy.project import Project
-    from hydromodpy.results.lineage import Lineage
+    *request* carries the document of the case and the options that steer the run;
+    *base* is the folder its relative paths are read from. The run is named by
+    ``request.name``, else ``[simulation] name`` (which a TOML file defaults to its
+    own stem). The order is the one of the module: load, environment, name, claim of
+    ``runs/<name>/``, ``request.json`` and ``config.toml``, resolved inputs, request id
+    in ``outcome.json``, restart over when the previous attempt asked for something
+    else, then the search for a completed run of the same solution key. A plain run
+    that one answers is not computed: its claim is undone and the outcome of the
+    completed run comes back with ``identical_to`` naming it, unless ``force`` is set.
+    ``if_exists = "fail"`` is checked after that, so an identical run is still given
+    back. Resume and partial runs always proceed, and so does a replay: it is
+    identical to the run it replays by construction.
 
-    config_path = Path(config) if isinstance(config, (str, Path)) else None
+    The index is never opened here: the outcome comes from the run directory, and the
+    caller indexes it afterwards. The frozen configuration of a run with ``frozen``
+    replays from the record of that run and not from a lockfile
+    (:mod:`hydromodpy.workflow.replay_checks`): other bytes or another configuration
+    are refused before anything runs, and what the replay did otherwise is said once
+    it has run. ``replay_of`` names a published copy, which replays the same way, its
+    inputs checked already. ``lineage`` and ``calibrated_by`` are the blocks a
+    promotion seals its run with. ``environment`` is the Environment of the call: only
+    its bounds cross into the setup context, and ``None`` keeps the default of the
+    machine. Returns ``None`` for a window that owns no run record.
+    """
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.state.names import check_name
+    from hydromodpy.project import Project
+
+    root = Path(base).expanduser().resolve()
+    environment = _checked_environment(environment, root)
+    cfg = _loaded(request, root)
+    config_path = _source_path(request, root)
+    run_name = request.resume or request.name or cfg.simulation.name
+    if request.resume == "":
+        # A bare resume continues the run the request names: its case, else the
+        # [simulation] name, which a TOML file folds from its own stem.
+        if not run_name:
+            raise ConfigError(
+                "A bare --resume continues the run the request names, and this request "
+                "names none. Pass --resume NAME, or name the run with --case."
+            )
+        request = request.model_copy(update={"resume": run_name})
+    if run_name:
+        check_name(run_name, what="run")
     with Project(
-        config,
-        no_display=no_display,
-        headless=headless,
+        cfg,
+        base=root,
+        document=request.config,
+        source=config_path,
+        no_display=request.no_display,
         environment=environment,
     ) as project:
-        cfg = project._cfg
-        run_name = name or cfg.simulation.name or (config_path.stem if config_path else None)
-        project_root = str(Path(cfg.workspace.project_root))
+        project_root = Path(cfg.workspace.project_root)
         source_run = replay_of
+        frozen = request.frozen
         if frozen or replay_of is not None:
-            source_run = checked_replay_source(cfg, config_path, replay_of, Path(project_root))
+            source_run = checked_replay_source(project._cfg, config_path, replay_of, project_root)
             if source_run is not None:
                 frozen = False
         plain_run = (
-            not force
+            not request.force
             and bool(run_name)
-            and resume is None
-            and from_step is None
-            and until_step is None
+            and request.resume is None
+            and request.from_step is None
+            and request.until_step is None
             and source_run is None
         )
-        if plain_run:
-            skipped = skipped_identical_run(cfg, changes, str(run_name), project_root)
-            if skipped is not None:
-                return skipped
-        lineage = Lineage(overrides=dict(overrides)) if overrides else None
-        result = project._execute(
-            set=changes,
-            name=run_name,
-            resume=resume,
-            from_step=from_step,
-            until_step=until_step,
-            frozen=frozen,
-            no_display=no_display,
-            fresh=fresh,
-            force=force,
+        result = project._runner.execute(
+            request,
             lineage=lineage,
+            calibrated_by=calibrated_by,
+            frozen=frozen,
+            skip_identical=plain_run,
         )
         if result is None:
-            return {}
+            return None
+        if result.identical_to is not None:
+            return result
         if source_run is not None:
             from hydromodpy.workflow.replay_checks import warn_replay_differences
 
             warn_replay_differences(source_run, Path(result.run_dir))
-        return _run_summary(result, project_root, project)
+        mesh_summary = mesh_summary_of(project)
+        if mesh_summary:
+            result = dataclasses.replace(result, mesh_summary=mesh_summary)
+        return result
 
 
 def checked_replay_source(
@@ -327,39 +493,6 @@ def checked_replay_source(
     return source_run
 
 
-def skipped_identical_run(
-    cfg: Any, changes: Mapping[str, Any] | None, run_name: str, project_root: str
-) -> dict[str, Any] | None:
-    """The summary of a skipped run, when a completed run is identical to this one."""
-    from hydromodpy.project.run_overrides import override_changes
-
-    asked = override_changes(cfg, changes or {})
-    effective = cfg.with_changes(asked) if asked else cfg
-    existing = completed_identical_run(effective, name=run_name)
-    if existing is None:
-        return None
-    exist_name, exist_sid = existing
-    return {
-        "skipped": True,
-        "name": exist_name,
-        "sim_id": exist_sid,
-        "project_root": project_root,
-    }
-
-
-def _run_summary(result: Any, project_root: str, project: Any) -> dict[str, Any]:
-    """The summary of a sealed run: its name, id, directory, status and mesh summary."""
-    summary: dict[str, Any] = {
-        "name": result.name,
-        "sim_id": result.sim_id,
-        "project_root": project_root,
-        "run_dir": str(result.run_dir),
-        "status": result.status,
-    }
-    summary.update(mesh_summary_of(project))
-    return summary
-
-
 def mesh_summary_of(project: Any) -> dict[str, Any]:
     """The mesh summary of a project whose plan runs a mesh process, else nothing."""
     project_ctx = getattr(project, "_ctx", None)
@@ -375,28 +508,28 @@ def mesh_summary_of(project: Any) -> dict[str, Any]:
     return {}
 
 
-def completed_run_view(summary: Mapping[str, Any]) -> Run | None:
-    """Return the run a summary of :func:`run_simulation` names, with the index up to date.
+def completed_run_view(outcome: RunOutcome) -> Run | None:
+    """Return the run an outcome of :func:`run_simulation` names, with the index up to date.
 
     The worker never opens the index, so it is refreshed here, for the readers that list
     runs. The run itself is read from its directory: an index handle opened earlier in
     this process keeps the snapshot it opened on, so a run indexed since is not found
     through it.
     """
-    from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.project.runner import run_view_of
     from hydromodpy.results.catalog.indexer import index_new_runs
 
-    root = Path(summary["project_root"])
-    run_dir = Path(summary.get("run_dir") or runs_dir_for(root) / str(summary["name"]))
-    index_new_runs(root)
-    return run_view_of(run_dir, project_root=root, sim_id=str(summary["sim_id"]))
+    index_new_runs(outcome.project_root)
+    return run_view_of(
+        outcome.run_dir, project_root=outcome.project_root, sim_id=str(outcome.sim_id)
+    )
 
 
 def draft_of_a_file_or_config(
     source: Any,
     *,
     workflow: str,
+    base: str | Path | None = None,
     set_changes: Mapping[str, Any] | None = None,
     name: str | None = None,
     resume: str | None = None,
@@ -406,7 +539,9 @@ def draft_of_a_file_or_config(
     """Return the plan of a TOML file or a configuration, with nothing run or written.
 
     A ``[sites]`` file gives every case of its plan. Any other gives one case: the
-    steps of a simulation, none for an overview, which is one piece.
+    steps of a simulation, none for an overview, which is one piece. *base* is the
+    folder the relative paths of a file are read from, the project root above it when
+    not given.
     """
     from hydromodpy.config.sites import is_sites_project
     from hydromodpy.core.state.result_dirs import resolve_project_root
@@ -430,7 +565,7 @@ def draft_of_a_file_or_config(
         overview = getattr(cfg, "overview", None)
         label = overview_name(site, getattr(overview, "name", None))
         return single_case_draft(cfg, name=label, config_path=path, steps=(), kind="overview")
-    with Project(source) as project:
+    with Project(source, base=base) as project:
         return project.simulate(
             dry_run=True,
             set=set_changes,
@@ -448,21 +583,25 @@ DISPATCH: dict[str, Callable[..., Any]] = {
 }
 
 
-def dispatch_workflow(workflow: str, config_path: Path, **kwargs: Any) -> Any:
-    """Dispatch to the adapter for a resolved workflow name."""
+def dispatch_workflow(
+    workflow: str, request: RunRequest, *, base: str | Path, **kwargs: Any
+) -> Any:
+    """Dispatch *request* to the adapter for a resolved workflow name."""
     runner = DISPATCH[workflow]
-    return runner(config_path, **kwargs)
+    return runner(request, base=base, **kwargs)
 
 
 __all__ = [
     "DISPATCH",
     "calibration_phases_or_raise",
     "completed_identical_run",
+    "identical_session_of_file",
     "completed_run_view",
     "declared_calibration_phases",
     "dispatch_workflow",
     "draft_of_a_file_or_config",
     "identical_run_message",
+    "mesh_summary_of",
     "no_such_phase",
     "run_calibration",
     "run_overview",

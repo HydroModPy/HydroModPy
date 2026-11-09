@@ -207,8 +207,9 @@ intermittent flow
   some time steps of the year, not at all of them.
 
 lockfile
-  The file `hydromodpy.lock` at the root of a project. It pins the input data by checksum and
-  records the version of the code. Each {term}`run` also seals the inputs it read in its own
+  The file `hydromodpy.lock` at the root of a project. It pins the fetched data and your own
+  files by checksum, gives the licence of each, and records the version of the code. `hmp data
+  lock` writes it. Each {term}`run` also seals the inputs it read in its own
   `inputs.json`. See {doc}`can-i-check-what-was-run`.
 
 mapped network
@@ -332,6 +333,12 @@ seepage threshold
   default. Another threshold changes the network maps.
 
   *In the file:* {toml}`calibration.outputs.<name>.model.seepage_threshold`.
+
+sidecar
+  The small file `<file>.json` that sits next to a file a provider delivered. It records the
+  variable, the source, the area and period, the checksum, the licence and where the file came
+  from. The sidecars are the data cache: there is no database. A file you provide yourself,
+  under `inputs/`, is not part of the cache, even if it has a sidecar to state its licence.
 
 SIM2
   Météo-France reanalysis on an 8 km grid, which supplies rainfall and potential

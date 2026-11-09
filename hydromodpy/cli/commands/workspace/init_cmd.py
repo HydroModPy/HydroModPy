@@ -66,7 +66,7 @@ def _print_layout(result: dict[str, str]) -> None:
     print()
     print("Layout:")
     print(f"  {target}/{WORKSPACE_TOML_FILENAME}    workspace metadata")
-    print(f"  {target}/data/                 input data + cache.duckdb (created on first run)")
+    print(f"  {target}/data/                 input data and the data cache (a sidecar by file)")
     print(f"  {target}/data/<variable>/      {len(VARIABLES)} folders, drop your files here")
     print(f"  {target}/projects/             one subfolder per project (work inside them)")
     print(f"  {target}/projects/{EXAMPLE_PROJECT_NAME}/     ready-to-run synthetic demo project")

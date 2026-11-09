@@ -105,8 +105,8 @@ allowed, and its ``SourceCase`` pins the unit it writes today.
 A source must **not** know the DuckDB catalog, the project workspace, a
 lock or a cache. The manager of the variable builds the request (a family of
 stations from the station list or the extent, a family of grids from the
-project extent) and owns the cache: ``BaseFieldManager`` keeps grids,
-``BaseVariableManager`` keeps chronicles per station and asks only for the
+project extent) and owns the cache: ``GridVariable`` keeps grids,
+``StationVariable`` keeps chronicles per station and asks only for the
 missing periods. Use ``get_json`` (``hydromodpy/data/common/api_client.py``)
 or ``open_client`` / ``HTTPClient`` (``hydromodpy/core/io/fetch.py``) rather
 than raw ``requests``: they handle retry, backoff, host guards, byte caps and

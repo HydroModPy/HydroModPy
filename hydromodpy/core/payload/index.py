@@ -93,7 +93,7 @@ class PayloadFile:
     request: Mapping[str, Any] | None = field(default=None, compare=False)
     """What the run asked of the file: station, period, box."""
     cache: Mapping[str, Any] | None = field(default=None, compare=False)
-    """Row of ``data/cache.duckdb`` that serves a file a provider delivered."""
+    """Row of the data cache, the sidecar of the file, for a file a provider delivered."""
 
     def to_table(self) -> dict[str, Any]:
         """Return the ``[[file]]`` table, keys without a value left out."""

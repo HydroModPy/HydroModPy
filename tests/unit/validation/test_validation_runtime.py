@@ -4,6 +4,7 @@ import os
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -104,7 +105,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     for config_file in config_files:
         (case_dir / config_file).write_text(MINIMAL_SIMULATION_WORKFLOW, encoding="utf-8")
 
-    captured: dict[str, str] = {}
+    captured: dict[str, Any] = {}
 
     def _resolve_results_dir(*, test_file, run_name):
         del test_file
@@ -121,7 +122,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     )
 
     def _fake_subprocess_run(*args, **kwargs):
-        del args
+        captured["command"] = list(args[0])
         return SimpleNamespace(
             returncode=0,
             stdout="ok",
@@ -145,6 +146,8 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     assert captured["run_name"] == expected_run_name
     assert result.solver_name == expected_solver_name
     assert result.model_ws == model_ws
+    # The run is written in the folder of its outputs, named by argument.
+    assert captured["command"][-2:] == ["--base", str(tmp_path / "outputs")]
 
 
 @pytest.mark.parametrize(
@@ -508,7 +511,7 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
     return max(len(candidate) for candidate in candidates)
 
 
-@pytest.mark.parametrize("model_name_length", [4, 16, 35, 48])
+@pytest.mark.parametrize("model_name_length", [4, 16, 35, 40, 48])
 def test_run_generated_path_length_matches_the_paths_the_product_builds(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -520,6 +523,23 @@ def test_run_generated_path_length_matches_the_paths_the_product_builds(
     assert runtime.run_generated_path_length(model_name_length) == _longest_run_path_suffix(
         tmp_path, model_name
     )
+
+
+def test_a_validation_run_name_is_a_run_name() -> None:
+    """The name the runtime injects is the longest the rule of a run name takes, and passes it."""
+    from hydromodpy.core.state.names import MAX_NAME_LENGTH, check_name
+
+    assert runtime._VALIDATION_SIM_NAME_LENGTH == MAX_NAME_LENGTH
+    cut_on_an_underscore = "a" * 28 + "_tail_of_a_long_case_name"
+    for text in (
+        "c" * 80,
+        "short_case_mf6",
+        "a_case_of_exactly_forty_characters_x_y",
+        cut_on_an_underscore,
+    ):
+        name = runtime._short_validation_name(text, max_length=runtime._VALIDATION_SIM_NAME_LENGTH)
+        assert len(name) <= MAX_NAME_LENGTH
+        assert check_name(name, what="run") == name
 
 
 def test_validation_headroom_covers_the_longest_validation_model_name(
@@ -538,7 +558,7 @@ def test_validation_headroom_covers_the_longest_validation_model_name(
 
 @pytest.mark.parametrize(
     ("root_length", "component_length"),
-    [(40, 24), (60, 12), (90, None)],
+    [(52, 24), (76, 12), (90, None)],
 )
 def test_budgeted_validation_dir_keeps_every_run_path_under_the_windows_limit(
     monkeypatch: pytest.MonkeyPatch,

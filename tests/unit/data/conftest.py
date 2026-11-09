@@ -1,4 +1,4 @@
-"""Shared fixtures for data_managers tests."""
+"""Shared fixtures for the tests of hydromodpy.data."""
 
 from __future__ import annotations
 

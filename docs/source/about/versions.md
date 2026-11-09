@@ -80,13 +80,23 @@ the only edition.
 
 ### What makes two runs the same
 
-Two runs are the same computation when their configurations, the bytes of their input files,
-the mesh engine and the code that computes agree. A release that only touches figures, commands
-or this documentation keeps that identity, so an identical run is not computed again, and an edit
-of a solver changes it. A configuration counts by what it writes: a key written at its default value
-is another identity than no key, because a validator can tell the two apart, and it costs one more
-computation at worst. A calibration is not part of the identity of the run it promotes, whose file
-holds its own solve.
+Two runs are the same computation when they ask for the same thing and the same code and tools
+compute it. A run asks for its configuration as a file writes it, the bytes and the state of every
+input file it reads, and the edition of its defaults. A URL counts by its pinned sha256 and a file
+by its bytes, so the address or the path of an input does not count. What computes is the code of
+the layers that change a number, the mesh engine with its version, the sha256 of each solver
+binary and the versions of the numeric packages. `[workspace]`, `[workflow]`, `simulation.name`,
+every `deliver_to` key, the name of the run and its `sim_id` are not part of the identity.
+
+A release that only touches figures, commands or this documentation keeps that identity, so an
+identical run is not computed again, and an edit of a solver changes it. A configuration counts by
+what it writes: a key written at its default value is another identity than no key, because a
+validator can tell the two apart, and it costs one more computation at worst. A calibration is not
+part of the identity of the run it promotes, whose file holds its own solve.
+
+A run or a calibration session stored by 2.0 carries an identity made another way. The first time
+2.1 meets the same request, it computes it once more, and the new run carries the new identity.
+Its numbers are the same.
 
 ### What a sealed run keeps
 

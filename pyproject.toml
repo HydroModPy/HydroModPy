@@ -212,7 +212,6 @@ hydromodpy = ["py.typed"]
 # The example catalog ships in the wheel so `hmp example list` answers offline
 # and can only promise what the installed version knows about.
 "hydromodpy.project.examples" = ["catalog.toml"]
-"hydromodpy.data.registry.migrations" = ["*.sql"]
 # The register of changes is read by schema/changes.py: the bugs that label a run,
 # the defaults of each edition and the rows of the migration. The phrases of the
 # check codes, in English and in French, are read by config/check.py.

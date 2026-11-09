@@ -57,14 +57,6 @@ class EnvVar:
 ENV_VARS: tuple[EnvVar, ...] = (
     # -- user -----------------------------------------------------------------
     EnvVar(
-        "HMP_AUTO_MIGRATE",
-        "on",
-        "user",
-        "``0``, ``false``, ``no`` or ``off`` forbids the automatic schema upgrade of a "
-        "DuckDB file when it is opened. A needed upgrade then raises "
-        "``AutoMigrationDisabled``.",
-    ),
-    EnvVar(
         "HMP_BIN",
         "``bin/`` under the cache folder",
         "user",
@@ -74,7 +66,7 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "HMP_CACHE_HOME",
         "the user cache folder of the platform",
         "user",
-        "Root of the machine cache: solver binaries and downloaded data.",
+        "Root of the machine cache: solver binaries and the downloaded examples.",
     ),
     EnvVar(
         "HMP_EXAMPLES_SOURCE",
@@ -96,12 +88,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "user",
         "Path of an NDJSON file. Each progress event is appended to it as one JSON "
         "line, for a supervisor that reads the file while the run goes on.",
-    ),
-    EnvVar(
-        "HMP_PROJECT_ROOT",
-        "``[workspace] project_root``, then the folder of the config file",
-        "user",
-        "Project root of a run. Wins over ``[workspace] project_root`` of the TOML.",
     ),
     EnvVar(
         "HMP_SET_",
@@ -154,15 +140,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "dev",
         "``1`` lets the loaders of the validation cases read results saved as legacy "
         "``.npy`` files.",
-    ),
-    EnvVar(
-        "HMP_DATA_CACHE_PRIVATE",
-        "unset, a process opens the workspace data cache itself",
-        "dev",
-        "Set by the launcher of a ``[sites]`` project for each case it starts, never by "
-        "hand: the private data cache of that case. The case then reads the shared "
-        "``data/cache.duckdb`` read-only, one query at a time, and registers what it "
-        "fetches in this file, which the launcher merges once the case has ended.",
     ),
     EnvVar(
         "HMP_DETERMINISTIC_FETCHED_AT",

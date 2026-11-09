@@ -5,7 +5,7 @@ actor User
 participant "HydroModPyLauncher" as Launcher
 participant "DomainConfig" as DomainCfg
 participant "DataPlanner" as Planner
-participant "DataManagersRuntimeLoader" as Loader
+participant "DataLoader" as Loader
 participant "Domain" as Domain
 participant "Structure binders" as Binders
 participant "SpatialSupportProviderRegistry" as Registry

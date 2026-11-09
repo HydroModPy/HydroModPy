@@ -3,8 +3,8 @@
 ``HMP_RUN_SCRATCH`` names the scratch folder of the run the current process is
 inside; a child that inherited it would work in the folder of its parent. The
 launcher removes it, and the ``HMP_SET_*`` the plan already rendered, from the
-environment of every case, and gives each case its thread budget and its
-private data cache.
+environment of every case, and gives each case its thread budget. A case has no
+data cache of its own: it writes the shared ``data/`` folder.
 
 A launched case also inherits the machine scratch root ``HMP_SCRATCH_ROOT``.
 """
@@ -35,13 +35,13 @@ def test_the_environment_of_a_case_drops_the_scratch_of_the_parent() -> None:
         "PATH": "/usr/bin",
     }
 
-    env = child_environment(parent, threads_per_case=2, private_cache=Path("/jobs/x/cache.duckdb"))
+    env = child_environment(parent, threads_per_case=2)
 
     assert RUN_SCRATCH_ENV not in env
     assert "HMP_SET_flow__param__K__field__value" not in env
     assert env["PATH"] == "/usr/bin"
     assert env[THREADS_ENV] == "2"
-    assert env["HMP_DATA_CACHE_PRIVATE"] == "/jobs/x/cache.duckdb"
+    assert set(env) == {"PATH", THREADS_ENV}
 
 
 @pytest.mark.allow_subprocess
@@ -62,7 +62,6 @@ def test_a_case_launched_from_inside_a_run_does_not_inherit_its_scratch(
             assert env["HMP_RUN_SCRATCH"] is None
             assert env["HMP_SET_flow__param__K__field__value"] is None
             assert env["HMP_THREADS_PER_CASE"] == "1"
-            assert env["HMP_DATA_CACHE_PRIVATE"].endswith(f"{case_id}.{phase}/data-cache.duckdb")
 
 
 def test_the_worker_applies_the_thread_budget_of_its_case(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,7 +84,6 @@ def test_a_launched_case_inherits_the_machine_scratch_root(tmp_path: Path) -> No
     env = child_environment(
         {SCRATCH_ROOT_ENV: str(tmp_path), "HMP_RUN_SCRATCH": "parent.p1"},
         threads_per_case=1,
-        private_cache=None,
     )
 
     assert env[SCRATCH_ROOT_ENV] == str(tmp_path)

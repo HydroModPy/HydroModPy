@@ -146,39 +146,30 @@ def test_an_old_directory_without_outcome_is_refused_with_what_to_do(tmp_path):
         claim_run_directory(project, CASE, case_id=CASE, project="demo")
 
 
-def test_a_retry_whose_configuration_changed_starts_fresh(tmp_path):
-    from hydromodpy.results.storage.run_facts import RunFacts, write_facts
+def test_a_retry_whose_request_changed_starts_fresh(tmp_path):
+    from hydromodpy.results.storage.attempt import (
+        finish_attempt,
+        record_request_id,
+        start_over_if_changed,
+    )
 
     project = make_project(tmp_path / "demo")
     run_dir = write_attempt(project, f"{RUNS_DIRNAME}/{CASE}", status="failed", attempt=1)
-    previous = read_outcome(run_dir)
+    record_request_id(run_dir, "a" * 64)
     (run_dir / "fields.zarr").mkdir()
-    write_facts(
-        run_dir,
-        RunFacts(
-            sim_id=previous.sim_id or "0" * 32,
-            name=CASE,
-            case_id=CASE,
-            project="demo",
-            attempt=1,
-            attempt_id=previous.attempt_id,
-            created_at=previous.started_at,
-            started_at=previous.started_at,
-            config_hash="a" * 64,
-        ),
-    )
 
-    same = claim_run_directory(project, CASE, case_id=CASE, project="demo", config_hash="a" * 64)
+    claim = claim_run_directory(project, CASE, case_id=CASE, project="demo")
+    same = start_over_if_changed(claim, "a" * 64)
     assert same.resumed and same.attempt == 2
     assert (run_dir / "fields.zarr").is_dir(), "a resume in place keeps the partial store"
+    record_request_id(run_dir, "a" * 64)
 
-    # Attempt 2 is closed as failed, then a third one comes with another configuration.
-    from hydromodpy.results.storage.attempt import finish_attempt
-
+    # Attempt 2 is closed as failed, then a third one comes asking for something else.
     finish_attempt(run_dir, status="failed", error=RuntimeError("again"))
-    changed = claim_run_directory(project, CASE, case_id=CASE, project="demo", config_hash="b" * 64)
+    third = claim_run_directory(project, CASE, case_id=CASE, project="demo")
+    changed = start_over_if_changed(third, "b" * 64)
     assert not changed.resumed and changed.attempt == 3
-    assert not (run_dir / "fields.zarr").exists(), "a changed configuration moves everything"
+    assert not (run_dir / "fields.zarr").exists(), "a changed request moves everything"
     assert (run_dir / RUN_ATTEMPTS_DIRNAME / "2" / "fields.zarr").is_dir()
 
 

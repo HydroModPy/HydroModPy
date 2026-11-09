@@ -1,8 +1,11 @@
 """Concern 4 of PrepareSolverStep: freezing the configuration a run was built from.
 
-Writes ``config.toml`` (what the run was given) and ``config.resolved.toml``
-(what it resolved to) into the run directory, each in one rename, and offers
-the same documents as text for callers that write them elsewhere.
+``config.toml`` says what the run was given. It is written once, when the run
+claims its directory (:func:`write_claim_config`), from the configuration and
+the earlier runs it reads, before any input is resolved or any step runs, so a
+run that fails early can still be resumed. ``config.resolved.toml`` says what it
+resolved to, and is written by this step, in one rename, once the build is known.
+The same documents are offered as text for callers that write them elsewhere.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ def frozen_config_of(
     ctx: WorkflowContext,
     *,
     restart_sim_id: str | None = None,
+    restart_path: str | None = None,
     zone_runs: Mapping[str, str] | None = None,
 ) -> Any:
     """Return the configuration a run freezes, as a replay reads it back.
@@ -40,15 +44,16 @@ def frozen_config_of(
     It holds what the run was given, not the defaults it took: a validator that
     tells a written key from its default (``values`` beside
     ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
-    answers on the replay as it did on the run. The domain section is the one
-    the built domain carries. A hotstart whose source has a ``sim_id`` is written
-    as the table ``{sim_id, path}``. A refinement zone that read an earlier run
-    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
-    gave) in place of its name, so a replay reads the run the mesh came from
-    and not a later ``.vN`` of it. ``simulation.name`` is the name of the run, so
-    a replay of the file answers to that run, whatever name the file it came from
-    gave. A run describes its own solve: a trial of a calibration writes the
-    parameters it ran with and no ``[calibration]``, so a replay solves once and
+    answers on the replay as it did on the run. A hotstart whose source has a
+    ``sim_id`` is written as the table ``{sim_id, path}``, the path being
+    *restart_path* when the caller resolved the source, else the reference as the
+    configuration holds it. A refinement zone that
+    read an earlier run writes the ``sim_id`` of that run (*zone_runs*, by the
+    reference the zone gave) in place of its name, so a replay reads the run the
+    mesh came from and not a later ``.vN`` of it. ``simulation.name`` is the name of
+    the run, so a replay of the file answers to that run, whatever name the file it
+    came from gave. A run describes its own solve: a trial of a calibration writes
+    the parameters it ran with and no ``[calibration]``, so a replay solves once and
     searches nothing. Its lineage and its checks name the session.
     """
     snapshot = collect_effective_config_snapshot(ctx)
@@ -58,7 +63,10 @@ def frozen_config_of(
         snapshot["workflow"] = {**(snapshot.get("workflow") or {}), "mode": "simulation"}
     flow = snapshot.get("flow")
     if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
-        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
+        flow["restart_from"] = {
+            "sim_id": restart_sim_id,
+            "path": restart_path if restart_path is not None else str(flow["restart_from"]),
+        }
     mesh = snapshot.get("mesh")
     if zone_runs and isinstance(mesh, dict):
         for zone in mesh.get("refinement_zone") or ():
@@ -97,17 +105,47 @@ def search_of(cfg: Any, run_dir: Path, project_root: Path) -> Mapping[str, Any] 
     return written.get(_SEARCH_SECTION)
 
 
+def write_claim_config(
+    ctx: WorkflowContext,
+    *,
+    project_root: Path,
+    restart_sim_id: str | None = None,
+    restart_path: str | None = None,
+    zone_runs: Mapping[str, str] | None = None,
+) -> Path:
+    """Write ``config.toml`` into ``ctx.run_dir``, the run this context claimed, in one rename.
+
+    This is the document the run was given, frozen at the claim from the
+    configuration of the context. *restart_sim_id*, *restart_path* and *zone_runs*
+    pin the earlier runs the configuration reads (:func:`frozen_config_of`).
+    """
+    assert ctx.run_dir is not None
+    frozen = frozen_config_of(
+        ctx, restart_sim_id=restart_sim_id, restart_path=restart_path, zone_runs=zone_runs
+    )
+    target = ctx.run_dir / RUN_CONFIG_FILENAME
+    with staged_path(target) as staged:
+        staged.write_text(
+            portable_config_document(frozen, ctx.run_dir, project_root), encoding="utf-8"
+        )
+    return target
+
+
 def freeze_run_config(
     ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
 ) -> None:
-    """Write ``config.toml`` and ``config.resolved.toml`` of the run, each in one rename."""
+    """Write ``config.resolved.toml`` of the run in one rename, and ``config.toml`` when it is absent.
+
+    The claim of a run writes ``config.toml`` (:func:`write_claim_config`). A run
+    that was claimed by other means, a kept trial of a calibration, has none yet
+    and gets it here, so every run directory carries both.
+    """
     project_root = Path(store.workspace_path or store.run_dir.parent.parent)
     summary = getattr(ctx.setup, "mesh_summary", None) or {}
     frozen = frozen_config_of(
         ctx, restart_sim_id=restart_sim_id, zone_runs=summary.get("zone_runs")
     )
     documents = {
-        RUN_CONFIG_FILENAME: portable_config_document(frozen, store.run_dir, project_root),
         RUN_RESOLVED_CONFIG_FILENAME: resolved_config_document(
             frozen,
             project_root,
@@ -115,6 +153,10 @@ def freeze_run_config(
             search=search_of(ctx.cfg, store.run_dir, project_root),
         ),
     }
+    if not (store.run_dir / RUN_CONFIG_FILENAME).is_file():
+        documents[RUN_CONFIG_FILENAME] = portable_config_document(
+            frozen, store.run_dir, project_root
+        )
     for name, document in documents.items():
         with staged_path(store.run_dir / name) as staged:
             staged.write_text(document, encoding="utf-8")
@@ -127,4 +169,5 @@ __all__ = (
     "frozen_config_of",
     "portable_config_document",
     "search_of",
+    "write_claim_config",
 )

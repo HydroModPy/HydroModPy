@@ -14,7 +14,7 @@ from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index, sidecar_name, stored_name
 from hydromodpy.core.site import SiteRow
-from hydromodpy.data.registry import DataCatalogDuckDB
+from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import import_project, import_run
 from hydromodpy.project.exchange.share import inputs_of, run_bundle
@@ -238,8 +238,8 @@ def test_the_commands_export_and_import_a_project(tmp_path) -> None:
 
 # Each file is named by its destination relative to the workspace, with its
 # variable, provider, request, licence and the digest of its sidecar. A station
-# series brings its registry row, a file a provider delivered the row of the
-# data cache that serves it, the run its ``[site]``. A declared folder is never
+# series brings its registry row, a file a provider delivered the cache row its
+# sidecar holds, the run its ``[site]``. A declared folder is never
 # taken whole: a station the run did not read stays out.
 def test_the_index_lists_every_file_the_run_read_and_nothing_else(tmp_path) -> None:
     run_dir = make_shared_run(tmp_path / "ws")
@@ -259,7 +259,7 @@ def test_the_index_lists_every_file_the_run_read_and_nothing_else(tmp_path) -> N
         assert bundle.blobs[stored_name(item.sha256, item.dest)].is_file()
 
 
-def test_a_delivered_file_brings_its_sidecar_and_its_data_cache_row(tmp_path) -> None:
+def test_a_delivered_file_brings_its_sidecar_and_the_cache_row_it_holds(tmp_path) -> None:
     workspace = tmp_path / "ws"
     run_dir = make_shared_run(workspace)
     sidecar = workspace / "data" / "hydrometry" / f"{HUBEAU_FILE}.json"
@@ -275,9 +275,7 @@ def test_a_delivered_file_brings_its_sidecar_and_its_data_cache_row(tmp_path) ->
     assert item.cache["station_id"] == "J0014010"
     assert item.cache["frequency"] == "D"
     assert item.cache["bbox"] == [-1.19645, 48.37558, -1.19645, 48.37558]
-    assert item.cache["fetch_metadata"] == {
-        "asked_window": ["2000-01-01T00:00:00", "2002-12-31T00:00:00"]
-    }
+    assert item.cache["asked_window"] == ["2000-01-01T00:00:00", "2002-12-31T00:00:00"]
     assert bundle.index.file_at(f"data/hydrometry/{CUSTOM_FILE}").cache is None
 
 
@@ -300,7 +298,7 @@ def test_each_station_series_brings_its_registry_row_and_the_run_its_site(tmp_pa
 # Identical bytes already there cost nothing, an absent file comes with its
 # sidecar, the same path with other bytes is refused by name with both digests
 # and nothing is written. Station rows merge into their registry, a delivered
-# file is registered in ``data/cache.duckdb`` so a run finds it, the ``[site]``
+# file has its sidecar complete so a run finds it in the cache, the ``[site]``
 # merges into the site catalog, and a conflict on any of them refuses the import.
 def _copy(tmp_path: Path) -> Path:
     run_dir = make_shared_run(tmp_path / "source")
@@ -416,24 +414,22 @@ def test_a_delivered_file_is_registered_so_a_run_finds_it_in_the_cache(tmp_path)
     imported = import_run(project, copy)
 
     assert imported.install.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb", read_only=True)
-    try:
-        entry = catalog.find_cached(
-            variable="hydrometry",
-            source="hubeau",
-            station_id="J0014010",
-            date_start=datetime(2000, 1, 1),
-            date_end=datetime(2002, 12, 31),
-        )
-        served = catalog.resolve_path(entry.file_path, variable="hydrometry")
-    finally:
-        catalog.close()
+    entry = CacheIndex(workspace / "data").find(
+        "hydrometry",
+        "hubeau",
+        station_id="J0014010",
+        date_start=datetime(2000, 1, 1),
+        date_end=datetime(2002, 12, 31),
+    )
+    assert entry is not None
+    served = entry.path
     assert served == (workspace / "data" / "hydrometry" / HUBEAU_FILE).resolve()
     assert entry.sha256 == sha256_of(served)
     assert entry.frequency == "D"
-    assert entry.bbox_xmin == pytest.approx(-1.19645)
-    assert '"asked_window"' in entry.fetch_metadata
-    assert abs(entry.file_mtime - served.stat().st_mtime) < 1e-6
+    assert entry.bbox is not None
+    assert entry.bbox[0] == pytest.approx(-1.19645)
+    assert entry.asked_window == ("2000-01-01T00:00:00", "2002-12-31T00:00:00")
+    assert entry.bytes == served.stat().st_size
 
 
 def test_a_station_the_cache_serves_from_other_bytes_refuses_the_import(tmp_path) -> None:
@@ -444,11 +440,9 @@ def test_a_station_the_cache_serves_from_other_bytes_refuses_the_import(tmp_path
     )
     theirs.parent.mkdir(parents=True)
     theirs.write_text("datetime,value\n1990-01-01,9.9\n", encoding="utf-8")
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
-    catalog.register(
-        variable="hydrometry", source="hubeau", station_id="J0014010", file_path=theirs
+    CacheIndex(workspace / "data").record(
+        theirs, variable="hydrometry", source="hubeau", station_id="J0014010"
     )
-    catalog.close()
 
     with pytest.raises(PayloadConflictError, match="hubeau hydrometry station J0014010"):
         import_run(project, copy)

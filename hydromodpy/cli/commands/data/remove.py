@@ -1,4 +1,4 @@
-"""``hmp data remove`` - thin wrapper around :func:`hydromodpy.remove_data_entries`."""
+"""``hmp data remove`` - thin wrapper around :func:`hydromodpy.data.request.cache_verbs.remove_data_entries`."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from hydromodpy.cli.helpers import confirm
 from hydromodpy.cli.output import emit
 
 NAME: str = "remove"
-HELP: str = "Remove cache entries for a variable/provider/station"
+HELP: str = "Remove cache rows for a variable/provider/station"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -32,15 +32,19 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Example:\n  hmp data remove --variable precipitation --provider sim2 --delete-files -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--variable", default=None, help="Remove the entries of this variable")
-    parser.add_argument("--provider", default=None, help="Remove the entries of this provider")
+    parser.add_argument("--variable", default=None, help="Remove the rows of this variable")
+    parser.add_argument("--provider", default=None, help="Remove the rows of this provider")
     parser.add_argument(
         "--station-id",
         default=None,
         dest="station_id",
-        help="Remove the entries of this station",
+        help="Remove the rows of this station",
     )
-    parser.add_argument("--delete-files", action="store_true", help="Also delete files on disk")
+    parser.add_argument(
+        "--delete-files",
+        action="store_true",
+        help="Also delete the files. Without it only the sidecar goes, and the file is no row",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -50,7 +54,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.data.request.cache_verbs import remove_data_entries
 
     if not args.dry_run:
-        confirm(args, "Remove these cache entries?", doing="remove cache entries")
+        confirm(args, "Remove these cache rows?", doing="remove cache rows")
     n = remove_data_entries(
         resolve_workspace(args.workspace),
         variable=args.variable,
@@ -64,5 +68,5 @@ def run(args: argparse.Namespace) -> None:
         args,
         "data remove",
         {"applied": not args.dry_run, "removed": n},
-        table=lambda: print(f"  {verb} {n} entry(ies)."),
+        table=lambda: print(f"  {verb} {n} row(s)."),
     )

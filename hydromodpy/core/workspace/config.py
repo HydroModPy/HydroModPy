@@ -54,7 +54,7 @@ class WorkspaceConfig(HydroModelBase):
         <workspace>/
             workspace.toml
             data/
-                cache.duckdb
+                <variable>/<file> and its <file>.json sidecar
             projects/
                 <name>/
                     project.toml   <- TOML lives here when using scaffold

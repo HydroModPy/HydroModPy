@@ -1,7 +1,8 @@
 """The ``set=`` of a run, as changes of its configuration.
 
 ``simulate(set={"K": 3.3e-3, "first_clim": "first"})`` is shorthand for dotted paths,
-the grammar of ``--set``, and a dotted path is written as it is. A name is the one
+the grammar of ``--set``, and a dotted path is written as it is. So is the name of a
+top-level section, as ``--set export=[]`` writes it. A name is the one
 ``hmp config targets`` lists for this project, so a run and a calibration call a value
 alike, and a number is read in the unit the configuration declares for it, as in the
 file. The changes are what the run applies to its configuration before its plan is
@@ -22,8 +23,8 @@ _NOT_A_TARGET: dict[str, str] = {"first_clim": "flow.sinks_sources.recharge.firs
 def override_changes(config: Any, overrides: Mapping[str, Any]) -> dict[str, Any]:
     """Return the dotted paths and values the *overrides* of a run stand for.
 
-    A dotted path stands for itself, and the configuration validates it when it takes
-    the change. A name nothing answers to is refused with the names this project offers.
+    A dotted path stands for itself, and so does the name of a top-level section: the
+    configuration validates it when it takes the change. A name nothing answers to is refused with the names this project offers.
     """
     if not overrides:
         return {}
@@ -38,6 +39,8 @@ def override_changes(config: Any, overrides: Mapping[str, Any]) -> dict[str, Any
             changes[_NOT_A_TARGET[name]] = value
         elif name in targets:
             changes[targets[name].path] = value
+        elif name in type(config).model_fields:
+            changes[name] = value
         else:
             raise ConfigError(_unknown_override(config, name, targets))
     return changes

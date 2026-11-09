@@ -15,13 +15,12 @@ allowed:
   source:     [contracts, provenance]
   common:     [contracts, schemas, source]
   ingest:     [contracts, schemas, common]
-  registry:   [provenance]
-  managers:   [contracts, common, ingest, provenance, registry, source]
-  variables:  [contracts, schemas, source, common, ingest, provenance, registry, managers]
+  families:   [contracts, common, ingest, provenance, source]
+  variables:  [contracts, schemas, source, common, ingest, provenance, families]
   sites:      [variables, source]
-  loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
-  workspace:  [schemas, common, ingest, provenance, registry]
-  request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
+  loading:    [contracts, schemas, source, common, ingest, provenance, families, variables]
+  workspace:  [schemas, common, ingest, provenance]
+  request:    [contracts, schemas, source, common, ingest, provenance, families, variables, loading, workspace]
   "<init>":   [loading, request]
 
 # Rule 6: the source registry names the built-in source classes by a dotted
@@ -34,20 +33,19 @@ text_paths:
 # Rule 2: what another layer of hydromodpy may import from hydromodpy/data.
 # A pattern ending in ".*" names a package and every module under it; a "*"
 # anywhere else stands for exactly one name. Everything else is private to
-# hydromodpy/data: managers, common, schemas but the DEM contract, and the inside
+# hydromodpy/data: families, common, schemas but the DEM contract, and the inside
 # of loading and of the variables.
 public:
   - hydromodpy.data
   - hydromodpy.data.contracts.*
   - hydromodpy.data.source.*
-  - hydromodpy.data.registry.*
   - hydromodpy.data.provenance.*
   - hydromodpy.data.ingest.*
   - hydromodpy.data.workspace.*
   - hydromodpy.data.request.*
   - hydromodpy.data.sites.*
   - hydromodpy.data.variables.*.config
-  - hydromodpy.data.variables.*.manager
+  - hydromodpy.data.variables.*.variable
   - hydromodpy.data.variables.dem.resolver
   - hydromodpy.data.variables.hydrography.resolver
   - hydromodpy.data.variables.crossings.resolver

@@ -59,11 +59,6 @@ def document_says_legacy(doc: Any) -> bool:
     return isinstance(doc, dict) and doc.get("legacy") is not None and "current" not in doc
 
 
-@pytest.fixture(autouse=True)
-def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HMP_PROJECT_ROOT", raising=False)
-
-
 def _write(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -218,6 +213,20 @@ def test_outside_a_project_the_root_file_of_the_chain_gives_the_base_dir(tmp_pat
 def test_a_file_alone_is_its_own_base_dir(tmp_path: Path) -> None:
     path = _write(tmp_path / "case.toml", "x = 1\n")
     assert config_base_dir(path) == tmp_path.resolve()
+
+
+def test_a_chain_already_read_gives_the_base_dir_without_a_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(tmp_path / "shared" / "base.toml", "x = 1\n")
+    child = _write(tmp_path / "work" / "case.toml", 'base_config = "../shared/base.toml"\n')
+    chain = read_toml_chain(child, root=None)
+
+    def no_read(path: Path) -> dict[str, Any]:
+        raise AssertionError(f"{path} read again")
+
+    monkeypatch.setattr("hydromodpy.core.toml_io.loader.read_toml", no_read)
+    assert config_base_dir(child, chain=chain) == (tmp_path / "shared").resolve()
 
 
 class _Flow(BaseModel):

@@ -197,16 +197,21 @@ def select_trials_to_promote(
 
 
 def promotion_name_check(name: str) -> None:
-    """Refuse a case name too long for a run directory, before the search."""
-    from hydromodpy.results.catalog.storage_paths import MAX_DIRNAME_LEN
+    """Refuse a case name that cannot name a run directory, before the search.
 
-    longest = len(name) + len(".v99")
-    if longest > MAX_DIRNAME_LEN:
+    The version suffix of the promoted run is not part of the forty characters.
+    A name too long is told in the words of a calibration; any other break of the
+    rule of a name is refused by :func:`~hydromodpy.core.state.names.check_name`.
+    """
+    from hydromodpy.core.state.names import MAX_NAME_LENGTH, check_name
+
+    if len(name) > MAX_NAME_LENGTH:
         raise CalibrationError(
-            f"The calibrated run of this case would be named {name!r} plus a version, "
-            f"{longest} characters where a run folder holds {MAX_DIRNAME_LEN}. Shorten the "
-            "file name or the [simulation] name."
+            f"The calibrated run of this case would be named {name!r}, {len(name)} characters "
+            f"where a run folder holds {MAX_NAME_LENGTH}. Shorten the file name or the "
+            "[simulation] name."
         )
+    check_name(name, what="run")
 
 
 NO_CATALOG_NO_RUN = (

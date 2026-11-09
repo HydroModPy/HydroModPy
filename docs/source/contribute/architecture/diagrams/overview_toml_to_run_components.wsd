@@ -20,9 +20,9 @@ package "Facade and planning" {
 
 package "Input data loading" {
   component "DataLoadPlan" as DataLoadPlan
-  component "Variable / Manager layer" as Managers
+  component "Variable layer" as Managers
   component "Sources\nAPIs / files / custom" as Sources
-  database "DataCatalogDuckDB\ninput cache" as DataCatalog
+  database "sidecars\n(data cache)" as DataCatalog
 }
 
 package "Solver execution" {

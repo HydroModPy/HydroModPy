@@ -15,6 +15,7 @@ import pytest
 
 import hydromodpy.results.outcome as outcome_module
 import hydromodpy.results.storage.attempt as attempt_module
+from hydromodpy.core.exceptions import ConfigError, WriteConflictError
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUNS_DIRNAME
 from hydromodpy.core.state.scratch import (
     SCRATCH_ROOT_ENV,
@@ -24,7 +25,15 @@ from hydromodpy.core.state.scratch import (
 )
 from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome, write_outcome
-from hydromodpy.results.storage.attempt import CaseAliveError, claim_run_directory, finish_attempt
+from hydromodpy.results.storage.attempt import (
+    CaseAliveError,
+    claim_reserved_directory,
+    claim_run_directory,
+    finish_attempt,
+    record_request_id,
+    start_over_if_changed,
+    withdraw_claim,
+)
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     README_FILENAME,
@@ -35,7 +44,7 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
 from hydromodpy.results.storage.run_store import RunStore
 from tests._helpers.run_stores import claim_run
-from tests._helpers.sealed_runs import make_project
+from tests._helpers.sealed_runs import make_project, seal_run
 
 # An OOM kill writes nothing: the outcome still says ``running`` with a fresh
 # pulse. On the host of the worker the process table proves the death, so the
@@ -292,3 +301,211 @@ def test_a_slurm_task_records_its_job_in_the_outcome(
 
     outcome = read_outcome(claim.run_dir)
     assert outcome is not None and outcome.scheduler_job_id == "80_3"
+
+
+# The claim carries no identity. It says whether it created the directory, it can be
+# withdrawn without a trace, an attempt k + 1 starts over when the request id of
+# attempt k differs, and every name it creates or resumes follows the rule.
+
+
+def _failed(run_dir: Path, *, request_id: str | None = None) -> None:
+    """Close the attempt in *run_dir* as failed, with *request_id* in its outcome."""
+    if request_id is not None:
+        record_request_id(run_dir, request_id)
+    (run_dir / "logs").mkdir(exist_ok=True)
+    (run_dir / "logs" / "run.log").write_text("attempt log\n", encoding="utf-8")
+    finish_attempt(run_dir, status="failed", error=RuntimeError("stop"))
+
+
+def _tree(folder: Path) -> dict[str, bytes | None]:
+    """Every entry under *folder*, files with their bytes."""
+    return {
+        entry.relative_to(folder).as_posix(): entry.read_bytes() if entry.is_file() else None
+        for entry in sorted(folder.rglob("*"))
+    }
+
+
+@pytest.mark.parametrize(
+    ("before", "created", "attempt"),
+    [
+        pytest.param("nothing", True, 1, id="a new directory"),
+        pytest.param("sealed", True, 1, id="a new version after a sealed one"),
+        pytest.param("failed", False, 2, id="a retry of a failed attempt"),
+    ],
+)
+def test_a_claim_says_whether_it_created_its_directory(
+    tmp_path: Path, before: str, created: bool, attempt: int
+) -> None:
+    project = make_project(tmp_path / "demo")
+    if before == "sealed":
+        seal_run(project, "case")
+    if before == "failed":
+        _failed(claim_run_directory(project, "case", case_id="case", project="demo").run_dir)
+
+    claim = claim_run_directory(project, "case", case_id="case", project="demo")
+
+    assert claim.created is created
+    assert claim.attempt == attempt
+    assert claim.run_dir.name == ("case.v2" if before == "sealed" else "case")
+
+
+@pytest.mark.parametrize("before", ["nothing", "sealed"])
+def test_a_withdrawn_new_directory_leaves_nothing(tmp_path: Path, before: str) -> None:
+    project = make_project(tmp_path / "demo")
+    if before == "sealed":
+        seal_run(project, "case")
+    runs_before = sorted(path.name for path in (project / RUNS_DIRNAME).glob("*"))
+    claim = claim_run_directory(project, "case", case_id="case", project="demo")
+    (claim.run_dir / "request.json").write_text("{}", encoding="utf-8")
+
+    withdraw_claim(claim)
+
+    assert sorted(path.name for path in (project / RUNS_DIRNAME).glob("*")) == runs_before
+
+
+@pytest.mark.parametrize("starts_over", [False, True], ids=["resumed", "started over"])
+def test_a_withdrawn_retry_puts_back_the_attempt_it_followed(
+    tmp_path: Path, starts_over: bool
+) -> None:
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    (first.run_dir / "fields.zarr").mkdir()
+    (first.run_dir / "fields.zarr" / "chunk").write_bytes(b"partial")
+    _failed(first.run_dir, request_id="a" * 64)
+    before = _tree(first.run_dir)
+
+    retry = claim_run_directory(project, "case", case_id="case", project="demo")
+    if starts_over:
+        retry = start_over_if_changed(retry, "b" * 64)
+        assert not (retry.run_dir / "fields.zarr").exists()
+    (retry.run_dir / "request.json").write_text("{}", encoding="utf-8")
+    (retry.run_dir / "logs").mkdir(exist_ok=True)
+    (retry.run_dir / "logs" / "run.log").write_text("retry log\n", encoding="utf-8")
+
+    withdraw_claim(retry)
+
+    assert _tree(first.run_dir) == before
+    assert not (first.run_dir / "attempts").exists()
+
+
+@pytest.mark.parametrize("request_b", ["a" * 64, "b" * 64], ids=["same request", "another request"])
+def test_a_withdrawn_retry_puts_back_what_attempt_k_was_asked(
+    tmp_path: Path, request_b: str
+) -> None:
+    """The order of a run: the claim writes its documents, then compares, then withdraws."""
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    (first.run_dir / "config.toml").write_text("asked = 'A'\n", encoding="utf-8")
+    (first.run_dir / "request.json").write_text('{"asked": "A"}', encoding="utf-8")
+    _failed(first.run_dir, request_id="a" * 64)
+    before = _tree(first.run_dir)
+
+    retry = claim_run_directory(project, "case", case_id="case", project="demo")
+    (retry.run_dir / "config.toml").write_text("asked = 'B'\n", encoding="utf-8")
+    (retry.run_dir / "request.json").write_text('{"asked": "B"}', encoding="utf-8")
+    record_request_id(retry.run_dir, request_b)
+    retry = start_over_if_changed(retry, request_b)
+    assert (retry.run_dir / "config.toml").read_text(encoding="utf-8") == "asked = 'B'\n"
+
+    withdraw_claim(retry)
+
+    assert _tree(first.run_dir) == before
+    assert not (first.run_dir / "attempts").exists()
+
+
+def test_a_withdrawn_first_attempt_of_a_reserved_directory_keeps_the_reservation(
+    tmp_path: Path,
+) -> None:
+    run_dir = make_project(tmp_path / "demo") / RUNS_DIRNAME / "promoted"
+    run_dir.mkdir(parents=True)
+    claim = claim_reserved_directory(run_dir, case_id="promoted", project="demo")
+
+    withdraw_claim(claim)
+
+    assert run_dir.is_dir() and list(run_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("recorded", "now", "starts_over"),
+    [
+        pytest.param("a" * 64, "a" * 64, False, id="the same request resumes"),
+        pytest.param("a" * 64, "b" * 64, True, id="another request starts over"),
+        pytest.param(None, "a" * 64, True, id="an outcome without request id starts over"),
+    ],
+)
+def test_a_retry_starts_over_when_its_request_changed(
+    tmp_path: Path, recorded: str | None, now: str, starts_over: bool
+) -> None:
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    (first.run_dir / "fields.zarr").mkdir()
+    _failed(first.run_dir, request_id=recorded)
+    retry = claim_run_directory(project, "case", case_id="case", project="demo")
+
+    after = start_over_if_changed(retry, now)
+
+    assert after.resumed is not starts_over
+    assert (after.sim_id != retry.sim_id) is starts_over
+    assert (retry.run_dir / "fields.zarr").exists() is not starts_over
+    assert (retry.run_dir / "attempts" / "1" / "fields.zarr").exists() is starts_over
+    outcome = read_outcome(retry.run_dir)
+    assert outcome is not None and outcome.sim_id == after.sim_id
+
+
+def test_a_first_attempt_never_starts_over(tmp_path: Path) -> None:
+    claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
+
+    assert start_over_if_changed(claim, "a" * 64) is claim
+
+
+def test_the_request_id_is_written_into_the_running_outcome(tmp_path: Path) -> None:
+    claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
+
+    record_request_id(claim.run_dir, "c" * 64)
+
+    outcome = read_outcome(claim.run_dir)
+    assert outcome is not None
+    assert (outcome.request_id, outcome.status, outcome.sim_id) == (
+        "c" * 64,
+        "running",
+        claim.sim_id,
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("Case A", id="capital and space"),
+        pytest.param("con", id="reserved on Windows"),
+        pytest.param("c" * 41, id="forty-one characters"),
+        pytest.param("COM1.v2", id="a version of a refused stem"),
+    ],
+)
+def test_a_claim_refuses_a_name_off_the_rule_and_writes_nothing(tmp_path: Path, name: str) -> None:
+    project = make_project(tmp_path / "demo")
+
+    with pytest.raises(ConfigError, match="name"):
+        claim_run_directory(project, name, case_id=name, project="demo")
+
+    assert not (project / RUNS_DIRNAME).exists()
+
+
+def test_a_claim_names_the_folder_a_disk_without_case_holds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On a disk that ignores case, a folder of 2.0 in capitals holds the folded name."""
+    project = make_project(tmp_path / "demo")
+    (project / RUNS_DIRNAME / "J0014010-base").mkdir(parents=True)
+    real_mkdir = os.mkdir
+
+    def mkdir_without_case(path, *args, **kwargs):
+        if Path(path).name == "j0014010-base":
+            raise FileExistsError(path)
+        return real_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "mkdir", mkdir_without_case)
+
+    with pytest.raises(WriteConflictError, match="runs/J0014010-base holds the name"):
+        claim_run_directory(project, "j0014010-base", case_id="j0014010-base", project="demo")
+
+    assert sorted(path.name for path in (project / RUNS_DIRNAME).iterdir()) == ["J0014010-base"]

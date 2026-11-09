@@ -63,7 +63,7 @@ This page is not legal advice. Cite the producer of the data that a result relie
 ## Can I check which data were used?
 
 Yes. Each run lists its input files with their checksums, and the project can pin the whole data
-cache. See {doc}`can-i-check-what-was-run`.
+cache with `hmp data lock`. See {doc}`can-i-check-what-was-run`.
 
 ## Where to go next
 

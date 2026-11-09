@@ -19,12 +19,12 @@ from pyproj import Transformer
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.common.clients import explore2_files as explore2
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-from hydromodpy.data.variables.etp.manager import EtpManager
+from hydromodpy.data.variables.etp.variable import EtpVariable
 from hydromodpy.data.variables.precipitation.config import (
     PrecipitationConfig,
     PrecipitationSourceConfig,
 )
-from hydromodpy.data.variables.precipitation.manager import PrecipitationManager
+from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
 
 _NATIVE_X0 = 60000.0
 _NATIVE_Y0 = 1610000.0
@@ -212,7 +212,7 @@ def test_explore2_source_requires_a_path() -> None:
         PrecipitationSourceConfig(source="explore2")
 
 
-def test_the_precipitation_manager_reaches_explore2_through_its_sources_table(
+def test_the_precipitation_variable_reaches_explore2_through_its_sources_table(
     tmp_path: Path,
 ) -> None:
     path = _write_drias_file(tmp_path, variable="prtotAdjust")
@@ -221,26 +221,26 @@ def test_the_precipitation_manager_reaches_explore2_through_its_sources_table(
         sources=[PrecipitationSourceConfig(source="explore2", path=path, extent="watershed")]
     )
     period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
-    manager = PrecipitationManager(
-        config=config, catalog=None, project_extent=bbox, project_period=period, data_dir=None
+    variable = PrecipitationVariable(
+        config=config, index=None, project_extent=bbox, project_period=period, data_dir=None
     )
 
-    result = manager.load()
+    result = variable.load()
 
     assert len(result.fields) == 1
     assert result.fields[0].variable == "precipitation"
 
 
-def test_the_etp_manager_reaches_explore2_through_its_sources_table(tmp_path: Path) -> None:
+def test_the_etp_variable_reaches_explore2_through_its_sources_table(tmp_path: Path) -> None:
     path = _write_drias_file(tmp_path, variable="evspsblpotAdjust")
     bbox = _bbox_around_native_cell(5, 5)
     config = EtpConfig(sources=[EtpSourceConfig(source="explore2", path=path, extent="watershed")])
     period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
-    manager = EtpManager(
-        config=config, catalog=None, project_extent=bbox, project_period=period, data_dir=None
+    variable = EtpVariable(
+        config=config, index=None, project_extent=bbox, project_period=period, data_dir=None
     )
 
-    result = manager.load()
+    result = variable.load()
 
     assert len(result.fields) == 1
     assert result.fields[0].variable == "etp"
@@ -249,28 +249,28 @@ def test_the_etp_manager_reaches_explore2_through_its_sources_table(tmp_path: Pa
 def test_a_second_file_over_the_same_box_is_read_not_taken_from_the_cache(
     tmp_path: Path,
 ) -> None:
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.provenance.sidecars import CacheIndex
 
     (tmp_path / "rcp45").mkdir()
     (tmp_path / "rcp85").mkdir()
     first = _write_drias_file(tmp_path / "rcp45", value=2.0e-5)
     second = _write_drias_file(tmp_path / "rcp85", value=8.0e-5)
     bbox = _bbox_around_native_cell(5, 5)
-    catalog = DataCatalogDuckDB(tmp_path / "cache.duckdb")
+    index = CacheIndex(tmp_path / "data")
 
     def mean_precipitation(path: Path) -> float:
         config = PrecipitationConfig(
             sources=[PrecipitationSourceConfig(source="explore2", path=path, extent="watershed")]
         )
         period = (datetime(2015, 1, 1), datetime(2015, 1, 5))
-        manager = PrecipitationManager(
+        variable = PrecipitationVariable(
             config=config,
-            catalog=catalog,
+            index=index,
             project_extent=bbox,
             project_period=period,
             data_dir=tmp_path / "data" / "precipitation",
         )
-        record = manager.load().fields[0]
+        record = variable.load().fields[0]
         return float(np.asarray(record.data["precipitation"].values).mean())
 
     mean_precipitation(first)

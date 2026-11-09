@@ -1,0 +1,646 @@
+"""Hydrography variable: fetch, clip, rasterize.
+
+What this variable needs, and where each piece comes from
+---------------------------------------------------------
+It used to read a ``geographic`` object for **three** distinct things, only one
+of which was an extent: the project CRS, the polygon it clips to, and the
+reference grid it rasterizes onto. The object is gone and the three are named:
+
+- the clip shape and the request box are one file, ``config.mask_path``, read
+  through :func:`~hydromodpy.data.common.source_extent.mask_geometry`;
+- the project CRS is **not an input at all** -- the mask says which frame the
+  clip happens in, and the network is reprojected into it. On a project run
+  that is the same answer, the delineated watershed being written in the
+  project CRS; off a project run it is the only answer that means anything,
+  because a box and a polygon in two different frames do not intersect;
+- the reference grid is ``base_raster``, a constructor argument beside
+  ``out_path``, because it is not something a user configures: it is the grid
+  the project already has.
+
+**Which CRS the request leaves in is no longer written here either.** The
+variable used to compute a WGS84 box, because the three fetch functions it
+dispatched to happened to want degrees. It now resolves the source the section
+names through :mod:`~hydromodpy.data.source.registry` and reads the CRS off it,
+so the literal is gone and a source answering in another frame is asked in that
+frame. What stayed is the cache: the superset lookup and the sidecar
+are the variable's, because a source knows nothing of the data cache and must not.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import warnings
+from pathlib import Path
+from typing import Any
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
+import xarray as xr
+
+from hydromodpy.catchment.algorithms.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
+)
+from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.geo_helpers import bbox_hash
+from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
+from hydromodpy.data.families.common import SourceTable
+from hydromodpy.data.provenance.sidecars import CacheIndex
+from hydromodpy.data.source.permanence import PERMANENCE_COLUMN, PERMANENT, UNKNOWN
+from hydromodpy.data.variables.hydrography.api_source import fetch_network, source_from_section
+from hydromodpy.data.variables.hydrography.config import (
+    HydrographyConfig,
+    HydrographySourceConfig,
+)
+from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR
+
+logger = get_logger(__name__)
+
+
+class HydrographyVariable(SourceTable):
+    """Load, clip, and rasterize hydrography vector data."""
+
+    VARIABLE_NAME = "hydrography"
+    """Name of the data type, as ``[data.hydrography]`` writes it."""
+
+    def __init__(
+        self,
+        *,
+        config: HydrographyConfig,
+        out_path: str | Path,
+        base_raster: str | Path | None = None,
+        index: CacheIndex | None = None,
+        data_dir: Path | None = None,
+        stable_folder: str | Path | None = None,
+    ) -> None:
+        self.config = config
+        self._base_raster = base_raster
+        from hydromodpy.catchment.delineation import get_whitebox_backend
+        from hydromodpy.core.state.scratch import preprocessing_dir
+
+        base = Path(stable_folder) if stable_folder else preprocessing_dir(Path(out_path))
+        self._data_folder = base / "hydrography"
+        self._data_folder.mkdir(parents=True, exist_ok=True)
+        self._backend = get_whitebox_backend()
+        self._index = index
+        self._data_dir = data_dir
+
+    def load(self) -> LoadResult:
+        """Execute the full pipeline: fetch -> reproject -> clip -> rasterize."""
+        # 1. Fetch from each source
+        vector_gdfs: list[gpd.GeoDataFrame] = []
+        tif_path: Path | None = None
+        inputs: list[dict[str, str]] = []
+
+        for src in self.config.sources:
+            result = self._fetch_from_source(src)
+            if isinstance(result, Path):
+                tif_path = result
+                inputs.append({"provider": str(src.source), "path": str(result)})
+                continue
+            read_from = result.attrs.get(SOURCE_PATH_ATTR)
+            if read_from:
+                inputs.append({"provider": str(src.source), "path": str(read_from)})
+            if not result.empty:
+                vector_gdfs.append(result)
+
+        # TIF custom shortcut - skip vector pipeline
+        if tif_path is not None:
+            return self._load_from_tif(tif_path, inputs=inputs)
+
+        if not vector_gdfs:
+            raise ValueError("All hydrography sources returned empty results.")
+
+        # 2. Reproject each source into the frame the mask is in, then clip to its shape.
+        # Per source, before the concat: BD Topage answers in Lambert-93, OSM and
+        # EU-Hydro in WGS84, and frames in two CRS do not concatenate.
+        mask_shape, mask_crs = mask_geometry(self._require_mask_path())
+        combined = gpd.GeoDataFrame(
+            pd.concat([_in_crs(gdf, mask_crs) for gdf in vector_gdfs], ignore_index=True),
+            crs=mask_crs,
+        )
+        if PERMANENCE_COLUMN in combined.columns:
+            # A source that did not say is unknown, never permanent by default.
+            combined[PERMANENCE_COLUMN] = combined[PERMANENCE_COLUMN].fillna(UNKNOWN)
+        clipped = cut_network(combined, mask_shape, mask_crs)
+
+        # 3. Save clipped vector, and its permanent part when the network says which
+        streams_path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME
+        _write_shapefile(clipped, streams_path)
+        permanent_path = self._write_permanent_network(clipped)
+
+        # 4. Rasterize
+        rasterize_field = self.config.sources[0].rasterize_field
+        tif_out = self._rasterize(streams_path, rasterize_field)
+
+        # 5. Read array
+        raster_values = self._read_tif_array(tif_out)
+
+        return self._build_load_result(
+            raster_values,
+            raster_path=tif_out,
+            vector_path=streams_path,
+            permanent_vector_path=permanent_path,
+            inputs=inputs,
+        )
+
+    def _write_permanent_network(self, network: gpd.GeoDataFrame) -> Path | None:
+        """Write the reaches that flow all year, or remove a stale copy and return None.
+
+        Written only when the network carries the ``permanence`` column. A
+        network that does not say which reaches are permanent has no permanent
+        part, and a file left by an earlier run on another source would be read
+        as if it did.
+        """
+        path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME
+        _remove_shapefile(path)
+        if PERMANENCE_COLUMN not in network.columns:
+            return None
+        lengths_km = network.geometry.length / 1000.0
+        by_class = lengths_km.groupby(network[PERMANENCE_COLUMN]).sum().round(1).to_dict()
+        logger.info("Hydrography: network length by permanence (km, in the mask CRS): %s", by_class)
+        permanent = network[network[PERMANENCE_COLUMN] == PERMANENT]
+        if permanent.empty:
+            logger.warning(
+                "Hydrography: the network says which reaches are permanent and none is; "
+                "no permanent network is written."
+            )
+            return None
+        _write_shapefile(permanent, path)
+        return path
+
+    # ------------------------------------------------------------------
+    # TIF pipeline
+    # ------------------------------------------------------------------
+
+    def _load_from_tif(self, tif_path: Path, *, inputs: list[dict[str, str]]) -> LoadResult:
+        """Clip a pre-rasterized TIF to the mask and return the result."""
+        from rasterio.mask import mask as rio_mask
+
+        mask_shape, mask_crs = mask_geometry(self._require_mask_path())
+
+        # Reproject the mask geometry into the CRS of the TIF
+        with rasterio.open(str(tif_path)) as src:
+            tif_crs = src.crs
+
+        mask_gdf = gpd.GeoDataFrame(geometry=[mask_shape], crs=mask_crs)
+        if str(mask_crs) != str(tif_crs):
+            mask_gdf = mask_gdf.to_crs(tif_crs)
+
+        geom = [mask_gdf.geometry.iloc[0]]
+
+        with rasterio.open(str(tif_path)) as src:
+            out_image, out_transform = rio_mask(
+                src,
+                geom,
+                crop=True,
+                nodata=-32768,
+            )
+            out_meta = src.meta.copy()
+            out_meta.update(
+                height=out_image.shape[1],
+                width=out_image.shape[2],
+                transform=out_transform,
+                nodata=-32768,
+            )
+
+        out_tif = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME
+        with rasterio.open(str(out_tif), "w", **out_meta) as dst:
+            dst.write(out_image)
+
+        arr = out_image[0].astype(float)
+        arr[arr < 0] = np.nan
+
+        return self._build_load_result(
+            arr,
+            raster_path=out_tif,
+            vector_path=None,
+            inputs=inputs,
+        )
+
+    def _build_load_result(
+        self,
+        raster_values: np.ndarray,
+        *,
+        raster_path: Path,
+        vector_path: Path | None,
+        permanent_vector_path: Path | None = None,
+        inputs: list[dict[str, str]],
+    ) -> LoadResult:
+        """Build the standard hydrography load result.
+
+        *inputs* names the files the network was read from, each with its
+        provider: the raster and the clipped vector are products of the run.
+        """
+        bbox, crs = self._raster_bbox_crs(raster_path)
+        data = xr.Dataset(
+            data_vars={
+                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME: (
+                    ("y", "x"),
+                    raster_values,
+                )
+            }
+        )
+        record = FieldRecord(
+            variable=HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+            source=self.VARIABLE_NAME,
+            unit="",
+            data=data,
+            bbox=bbox,
+            crs=crs,
+            metadata={
+                "raster_path": str(raster_path),
+                "vector_path": str(vector_path) if vector_path is not None else None,
+                "permanent_vector_path": (
+                    str(permanent_vector_path) if permanent_vector_path is not None else None
+                ),
+                "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                INPUT_FILES_KEY: inputs,
+            },
+        )
+        return LoadResult(fields=[record])
+
+    @staticmethod
+    def _raster_bbox_crs(raster_path: Path) -> tuple[tuple[float, float, float, float], str]:
+        with rasterio.open(str(raster_path)) as ds:
+            bounds = ds.bounds
+            crs = str(ds.crs) if ds.crs is not None else ""
+        return (bounds.left, bounds.bottom, bounds.right, bounds.top), crs
+
+    # ------------------------------------------------------------------
+    # Source resolution
+    # ------------------------------------------------------------------
+
+    def load_file(self, source_cfg: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
+        """Load the user's own network file."""
+        from hydromodpy.data.variables.hydrography import custom
+
+        return custom.load_file(source_cfg)
+
+    def _fetch_listed_source(
+        self,
+        source: object,
+        source_cfg: HydrographySourceConfig,
+    ) -> gpd.GeoDataFrame:
+        """Ask the source the section names for the box, or reuse the cached network.
+
+        The source arrives built from the section by the shared table, and the
+        seam that resolves one from a section alone is
+        :func:`~hydromodpy.data.variables.hydrography.api_source.source_from_section`;
+        passing the instance down keeps each name resolved once.
+        """
+        return fetch_network_through_cache(
+            source_cfg,
+            self._require_mask_path(),
+            index=self._index,
+            data_dir=self._data_dir,
+            source=source,
+        )
+
+    # ------------------------------------------------------------------
+    # Cache helpers
+    # ------------------------------------------------------------------
+
+    def _try_load_cached(
+        self,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> gpd.GeoDataFrame | None:
+        """Return the cached network of *source* over *bbox*, or None (see ``NetworkCache``)."""
+        return NetworkCache(self._index, self._data_dir).load(source, bbox, question)
+
+    def _persist_and_register(
+        self,
+        gdf: gpd.GeoDataFrame,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> None:
+        """Save and register the answer of *source* (see ``NetworkCache``)."""
+        NetworkCache(self._index, self._data_dir).store(gdf, source, bbox, question)
+
+    # ------------------------------------------------------------------
+    # Rasterize / read helpers
+    # ------------------------------------------------------------------
+
+    def _rasterize(self, streams_path: Path, field: str) -> Path:
+        """Rasterize the clipped vector layer using the WhiteBox backend."""
+        shp_base = gpd.read_file(streams_path)
+        shp_type = shp_base.geometry.type.iloc[0] if not shp_base.empty else "LineString"
+
+        tif_path = self._data_folder / "streams.tif"
+
+        shp_base[field] = numeric_raster_field(shp_base, field)
+        _write_shapefile(shp_base, streams_path)
+
+        if self._base_raster is None:
+            raise ValueError(
+                "Rasterising a hydrography network needs a reference grid; pass "
+                "base_raster to HydrographyVariable."
+            )
+        watershed_dem = str(self._base_raster)
+
+        if shp_type in ("MultiPolygon", "Polygon"):
+            logger.debug("Rasterising polygon geometry: %s", shp_type)
+            self._backend.raster.vector_polygons_to_raster(
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
+            )
+        elif shp_type in ("MultiLineString", "LineString", "Line"):
+            logger.debug("Rasterising line geometry: %s", shp_type)
+            self._backend.raster.vector_lines_to_raster(
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
+            )
+        elif shp_type in ("Point", "MultiPoint"):
+            logger.debug("Rasterising point geometry: %s", shp_type)
+            self._backend.raster.vector_points_to_raster(
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
+            )
+        else:
+            raise ValueError(f"Unsupported geometry type: {shp_type}")
+
+        self._backend.raster.set_nodata_value(str(tif_path), str(tif_path), back_value=-32768)
+
+        # Also create a point shapefile from the raster (used downstream)
+        pt_streams = self._data_folder / "streams_pt.shp"
+        self._backend.delineation.raster_to_vector_points(str(tif_path), str(pt_streams))
+
+        return tif_path
+
+    @staticmethod
+    def _read_tif_array(tif_path: Path) -> np.ndarray:
+        with rasterio.open(str(tif_path)) as ds:
+            arr = ds.read(1).astype(float)
+        arr[arr < 0] = np.nan
+        return arr
+
+    def _require_mask_path(self) -> Path:
+        """The one file that says where this request is, or a refusal naming it."""
+        mask_path = getattr(self.config, "mask_path", None)
+        if not mask_path:
+            raise ValueError(
+                "Hydrography clips its network to a mask and asks its sources over the "
+                "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
+            )
+        return Path(mask_path)
+
+
+def numeric_raster_field(frame: pd.DataFrame, field: str) -> pd.Series:
+    """Return the values burned into the stream raster for *field*.
+
+    A raster cell holds a number. A column the layer lacks, or a column of text
+    such as a BD Topage reach code, is replaced by a sequential number per
+    feature, starting at 1.
+    """
+    sequential = pd.Series(range(1, len(frame) + 1), index=frame.index)
+    if field not in frame.columns:
+        logger.debug("Rasterize field %r not found; numbering the features instead.", field)
+        return sequential
+    try:
+        return pd.to_numeric(frame[field])
+    except ValueError:
+        logger.debug("Rasterize field %r holds text; numbering the features instead.", field)
+        return sequential
+
+
+class NetworkCache:
+    """The workspace cache of the river networks a source answered with.
+
+    A run and ``hmp data get --workspace`` share it: both key an answer on the
+    source and on the mask's box in the CRS the source declares.
+    """
+
+    VARIABLE_NAME = "hydrography"
+
+    def __init__(self, index: CacheIndex | None, data_dir: Path | None) -> None:
+        self._index = index
+        self._data_dir = data_dir
+
+    def load(
+        self,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> gpd.GeoDataFrame | None:
+        """Return cached GeoDataFrame if the cache has a superset row.
+
+        *bbox* is the box in the CRS the source declares, and the row carries
+        no CRS of its own for the lookup. The lookup is keyed on the source as
+        well, so one source's rows are all in one frame; two sources in two
+        frames never compare their boxes to each other.
+
+        *question* is what the source reports it was asked (the BD Topage
+        layer and vintage, the OSM waterway types). A row recorded with
+        another answer is a miss: without it, a new BD Topage vintage over a
+        cached box would serve the old one. A row recorded before the
+        question was is taken as before.
+        """
+        if self._index is None:
+            return None
+        row = self._index.find(self.VARIABLE_NAME, source, bbox=bbox)
+        if row is None:
+            return None
+        if not _row_answers(row, question):
+            logger.debug("Cache row for hydrography/%s answers another question", source)
+            return None
+        cached_path = row.path
+        if self._index.is_stale(row):
+            return None
+        logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
+        cached = gpd.read_file(cached_path)
+        cached.attrs[SOURCE_PATH_ATTR] = str(cached_path)
+        # A download cached before the permanent copy existed gets it now.
+        _write_permanent_copy(cached, cached_path, overwrite=False)
+        return cached
+
+    def store(
+        self,
+        gdf: gpd.GeoDataFrame,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> None:
+        """Save the answer as ``hydrography_<source>_<bbox hash>.gpkg`` and write its sidecar.
+
+        Named as every variable names what it fetched (``geology_brgm_1m_<hash>``,
+        ``dem_ign_geoplateforme_bdalti_25m_<hash>``), and kept in the CRS the
+        source answered in. When the answer says which reaches are permanent,
+        they go beside it as ``hydrography_<source>_permanent_<bbox hash>.gpkg``.
+        That copy has no sidecar: the cache serves the full answer, and a
+        permanent copy whose full answer was subsumed is removed with it.
+        """
+        if self._index is None or self._data_dir is None:
+            return
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        out_path = self._data_dir / _cache_file_name(source, bbox)
+        if gdf.crs is None:
+            gdf = gdf.set_crs("EPSG:4326")
+
+        # Written beside the name and renamed in place: a second case that
+        # reads the same box never opens half a file.
+        part = out_path.with_name(f".{out_path.stem}.{os.getpid()}.part{out_path.suffix}")
+        try:
+            gdf.to_file(part, driver="GPKG", layer=out_path.stem)
+            os.replace(part, out_path)
+        finally:
+            part.unlink(missing_ok=True)
+        gdf.attrs[SOURCE_PATH_ATTR] = str(out_path)
+        _write_permanent_copy(gdf, out_path, overwrite=True)
+
+        row = self._index.record(
+            out_path,
+            variable=self.VARIABLE_NAME,
+            source=source,
+            bbox=bbox,
+            crs=str(gdf.crs),
+            fetch_metadata=question or None,
+        )
+        self._index.subsume(row)
+        _remove_orphan_permanent_copies(self._data_dir)
+
+
+def fetch_network_through_cache(
+    source_cfg: HydrographySourceConfig,
+    mask_path: Path,
+    *,
+    index: CacheIndex | None,
+    data_dir: Path | None,
+    source: object | None = None,
+) -> gpd.GeoDataFrame:
+    """Return the network a listed source answers over the box of *mask_path*.
+
+    The cached answer is reused unless the source asks ``force_refresh``. A
+    new answer is stored with its sidecar when a workspace *data_dir* is given;
+    an index with no folder writes nothing.
+
+    *source* is the source already built from *source_cfg*, which the variable
+    hands down so a name is resolved once. A caller that only has a section --
+    the workspace store -- leaves it unset and the seam builds it.
+    """
+    network_source = source if source is not None else source_from_section(source_cfg)
+    extent = mask_extent_in(Path(mask_path), network_source.extent_crs)
+    question = _fetch_question(network_source)
+    cache = NetworkCache(index, data_dir)
+    if not source_cfg.force_refresh:
+        cached = cache.load(source_cfg.source, extent.bbox, question)
+        if cached is not None:
+            return cached
+    gdf = fetch_network(network_source, extent)
+    cache.store(gdf, source_cfg.source, extent.bbox, question)
+    return gdf
+
+
+_SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
+
+
+def network_mask(path: str | Path) -> tuple[Any, Any]:
+    """Return the shape a network is cut to, and its CRS, from the file of a mask."""
+    return mask_geometry(path)
+
+
+def cut_network(network: gpd.GeoDataFrame, shape: Any, crs: object) -> gpd.GeoDataFrame:
+    """Return a network cut to a mask shape, in the CRS of the mask.
+
+    The one cut of the hydrography variable. The network criterion cuts a file it reads
+    with it, so a file and this variable draw the same map. A line that only touches the
+    outline leaves no line: its point is dropped rather than kept in a network of lines.
+    """
+    return gpd.clip(_in_crs(network, crs), shape, keep_geom_type=True)
+
+
+def _in_crs(frame: gpd.GeoDataFrame, crs: object) -> gpd.GeoDataFrame:
+    """*frame* in *crs*; a frame that declares none is taken as WGS84."""
+    if frame.crs is None:
+        frame = frame.set_crs("EPSG:4326")
+    if str(frame.crs) != str(crs):
+        frame = frame.to_crs(crs)
+    return frame
+
+
+def _fetch_question(source: object) -> dict[str, object]:
+    """What *source* reports it was asked, in the shape the sidecar stores it."""
+    metadata = getattr(source, "metadata", None)
+    reported = metadata() if callable(metadata) else {}
+    return json.loads(json.dumps(reported or {}, sort_keys=True, default=str))
+
+
+def _row_answers(row: Any, question: dict[str, object] | None) -> bool:
+    """Whether a cached *row* was fetched for the same *question*."""
+    recorded = row.fetch_metadata
+    if not recorded:
+        return True
+    return recorded == (question or {})
+
+
+_CACHE_PREFIX = "hydrography"
+_PERMANENT_PRODUCT = "permanent"
+
+
+def _cache_file_name(source: str, bbox: tuple[float, float, float, float]) -> str:
+    """``hydrography_<source>_<bbox hash>.gpkg``, the data naming of a fetched file."""
+    return f"{_CACHE_PREFIX}_{source}_{bbox_hash(bbox)}.gpkg"
+
+
+def _permanent_copy_path(cache_path: Path) -> Path:
+    """``hydrography_<source>_permanent_<hash>.gpkg`` beside ``hydrography_<source>_<hash>``."""
+    source_and_hash = cache_path.name.removeprefix(f"{_CACHE_PREFIX}_")
+    source, _, token = source_and_hash.rpartition("_")
+    return cache_path.with_name(f"{_CACHE_PREFIX}_{source}_{_PERMANENT_PRODUCT}_{token}")
+
+
+def _write_permanent_copy(frame: gpd.GeoDataFrame, cache_path: Path, *, overwrite: bool) -> None:
+    """Write the permanent reaches of a cached answer beside it, when it says which."""
+    if not cache_path.name.startswith(f"{_CACHE_PREFIX}_"):
+        return
+    path = _permanent_copy_path(cache_path)
+    if path.exists() and not overwrite:
+        return
+    path.unlink(missing_ok=True)
+    if PERMANENCE_COLUMN not in frame.columns:
+        return
+    permanent = frame[frame[PERMANENCE_COLUMN] == PERMANENT]
+    if not permanent.empty:
+        permanent.to_file(path, driver="GPKG")
+
+
+def _remove_orphan_permanent_copies(data_dir: Path) -> None:
+    """Delete the permanent copies whose full answer the cache removed."""
+    for path in data_dir.glob(f"{_CACHE_PREFIX}_*_{_PERMANENT_PRODUCT}_*.gpkg"):
+        full = path.with_name(path.name.replace(f"_{_PERMANENT_PRODUCT}_", "_", 1))
+        if not full.exists():
+            path.unlink(missing_ok=True)
+
+
+def _write_shapefile(frame: gpd.GeoDataFrame, path: Path) -> None:
+    """Write *frame* as a shapefile, quiet about the names cut to ten letters.
+
+    BD Topage names run to 33 letters and its dates carry a time; the cut to
+    ten letters and the dates stored as text are the shapefile's, and expected.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
+        warnings.filterwarnings("ignore", message="Normalized/laundered field name")
+        warnings.filterwarnings("ignore", message=".*created as String field")
+        frame.to_file(path)
+
+
+def _remove_shapefile(path: Path) -> None:
+    """Delete the shapefile at *path* and every sidecar written with it."""
+    for suffix in _SHAPEFILE_SIDECARS:
+        path.with_suffix(suffix).unlink(missing_ok=True)

@@ -30,6 +30,7 @@ from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
 from hydromodpy.project.api import check
 from hydromodpy.project.dispatch.workflow import run_overview
+from hydromodpy.project.request import request_of
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
 from tests._helpers.cli_runner import CliRunner
@@ -317,7 +318,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
     class _Launcher:
         """The overview without its downloads and its report."""
 
-        def __init__(self, config_path: Path, bounds: object = None) -> None:
+        def __init__(self, config: object, *, base: Path, source=None, bounds=None) -> None:
             self.cfg = cfg
 
         def run(self, claim: object, *, config_hash: str) -> dict[str, str]:
@@ -325,7 +326,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
 
     monkeypatch.setattr("hydromodpy.workflow.overview.DataOverviewLauncher", _Launcher)
     with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
-        run_overview(path)
+        run_overview(request_of(path), base=tmp_path)
 
     assert _said(caplog) == [experimental_keys_line(("geographic.domain_extent",))]
 

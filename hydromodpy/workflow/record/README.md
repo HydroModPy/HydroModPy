@@ -19,7 +19,7 @@ In the order a run meets them.
 
 | module | what it answers |
 |---|---|
-| `attempt.py` | one attempt of a run, from the claim of its directory to its outcome (`run_attempt`, `AttemptHandle`, `SealedRun`) |
+| `attempt.py` | one attempt of a run, from the claim of its directory to its outcome (`run_attempt`, `AttemptHandle`, `SealedRun`). The claim holds no identity. The handle restarts a resumed attempt when the `request_id` changed (`start_over_if_changed`), and `withdraw()` marks an attempt to be undone instead of closed, so a run identical to a sealed one leaves no directory and no outcome behind |
 | `run_store.py` | the `RunStore` of a run, opened for the span of one caller (`run_store`, `run_is_persisted`, `run_dir_of_state`) |
 | `journal.py` | the step journal `<run>/.hmp/checkpoints/steps.json` (`WorkflowJournal`, `WorkflowStepRow`) |
 | `manifest.py` | the resolved run manifest: the step blueprint and the config digest that a resume must match (`ResolvedRunManifest`) |
@@ -43,5 +43,5 @@ record/
 | a column of the step journal | `WorkflowStepRow` in `journal.py` (and `JOURNAL_SCHEMA` if the format changes) |
 | something the manifest must match at resume | `manifest.py` |
 | a rule for choosing the resume step | `resume.py` |
-| a state of the attempt (claim, heartbeat, outcome) | `attempt.py` |
+| a state of the attempt (claim, heartbeat, outcome, withdrawal) | `attempt.py` |
 | a new kind of artifact a step can name | `collect_artifacts` in `workflow/runner.py` |

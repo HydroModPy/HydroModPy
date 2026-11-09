@@ -11,14 +11,16 @@ interactive phase verbs (``prepare`` and the per-phase builders).
 
 from __future__ import annotations
 
+import copy
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
@@ -28,20 +30,36 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _read_config(project: Project, config: str | Path | HydroModPyConfig) -> dict:
-    """Set the configuration of *project* from a built object or a TOML file; return the raw TOML."""
+def _read_config(
+    project: Project,
+    config: str | Path | HydroModPyConfig,
+    *,
+    base: Path | None,
+    document: Mapping[str, Any] | None,
+    source: Path | None,
+) -> dict:
+    """Set the configuration of *project* from a built object or a TOML file; return its document.
+
+    A TOML file is read through :func:`~hydromodpy.config.loading.load`, relative
+    paths against *base* or the project root above the file. A built object is
+    copied. Its *document* is the one it was loaded from, which the planner of the
+    data reads for the sections the configuration does not hold; without it, the
+    document is what the configuration writes as a file. *source* is the file an
+    object was read from, when it came from one.
+    """
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+    from hydromodpy.config.loading import load, read_document
     from hydromodpy.core.config_kit.base import thawed_copy
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.core.config_kit.written import written_as_a_file
 
     if isinstance(config, HydroModPyConfig):
-        project._config_path = None
+        project._config_path = None if source is None else Path(source).resolve()
         # A frozen copy opens a project of its own: the phases below write in this object.
         project._cfg = thawed_copy(config)
-        return {}
+        return copy.deepcopy(dict(document)) if document is not None else written_as_a_file(config)
     project._config_path = Path(config).resolve()
-    project._cfg = HydroModPyConfig.from_toml(project._config_path)
-    return load_toml_with_base_config(project._config_path, root=ROOT_CONFIG)
+    project._cfg = load(project._config_path, base)
+    return read_document(project._config_path, root=ROOT_CONFIG)
 
 
 def configure(
@@ -52,9 +70,13 @@ def configure(
     headless: bool,
     no_display: bool,
     environment: Environment | None = None,
+    base: Path | None = None,
+    document: Mapping[str, Any] | None = None,
+    source: Path | None = None,
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx.
 
+    ``base``, ``document`` and ``source`` are those of :func:`_read_config`.
     ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
     of the call that opened the project. Only its bounds cross here: they ride
     on the workflow context, and the object itself stays on the project state.
@@ -75,7 +97,7 @@ def configure(
     from hydromodpy.model.forcing.soil_config import soil_reservoir_of
     from hydromodpy.workflow.steps.data import log_data_plan
 
-    raw_toml = _read_config(project, config)
+    raw_toml = _read_config(project, config, base=base, document=document, source=source)
     refuse_a_sealed_run_as_project(project._cfg.workspace.project_root)
     _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
@@ -108,7 +130,8 @@ def configure(
 
     project._ctx = WorkflowContext(
         cfg=project._cfg,
-        config_path=project._config_path or Path.cwd(),
+        config_path=project._config_path
+        or Path(project._cfg.workspace.project_root) / PROJECT_MARKER_FILENAME,
         raw_toml=raw_toml,
         bounds=environment.bounds if environment is not None else None,
     )
@@ -332,7 +355,6 @@ def _ensure_simulation_block(project: Project) -> None:
     if project._cfg.simulation.has_processes():
         return
 
-    from hydromodpy.core.toml_io.paths import source_of_effective_copy
     from hydromodpy.solver.base.simulation_config import (
         FlowProcessConfig,
         SimulationConfig,
@@ -350,7 +372,7 @@ def _ensure_simulation_block(project: Project) -> None:
         )
 
     default_name = (
-        re.sub(r"^run_", "", source_of_effective_copy(project._config_path).stem)
+        re.sub(r"^run_", "", project._config_path.stem)
         if project._config_path is not None
         else "simulation"
     )

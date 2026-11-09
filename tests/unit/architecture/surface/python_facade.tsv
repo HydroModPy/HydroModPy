@@ -24,7 +24,7 @@ MigrationFailedError	class	(message: str = '', *, sim_id: str | None = None, run
 NothingThereError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 OldNameError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-Project	class	(config: str | Path | object | dict, *, solver: str | None = None, headless: bool = False, no_display: bool = False, environment: Environment | None = None) -> None
+Project	class	(config: str | Path | object | dict, *, base: str | Path | None = None, document: Mapping[str, Any] | None = None, source: str | Path | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False, environment: Environment | None = None) -> None
 ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 Run	class	(sim_id: str, catalog: Catalog, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
@@ -40,9 +40,9 @@ TerrainError	class	(message: str = '', *, sim_id: str | None = None, run_id: str
 Workspace	class	(root: str | Path) -> None
 WriteConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 __version__	str	
-calibrate	function	(config: ConfigLike, *, phase: str | None = None, environment: Environment | None = None, **kwargs: Any) -> CalibrationReport
-calibration_phases	function	(config: ConfigLike, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
-check	function	(source: PathLike | Mapping[str, Any], *, partial: bool = True, inputs: bool = False, environment: Environment | None = None) -> list[Diagnostic]
+calibrate	function	(config: ConfigLike, *, base: PathLike | None = None, phase: str | None = None, environment: Environment | None = None, **kwargs: Any) -> CalibrationReport
+calibration_phases	function	(config: str | os.PathLike[str] | HydroModPyConfig, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
+check	function	(source: PathLike | Mapping[str, Any], *, base: PathLike | None = None, partial: bool = True, inputs: bool = False, environment: Environment | None = None) -> list[Diagnostic]
 compare	function	(refs: Sequence[str], *, variables: Sequence[str] | None = None, out: PathLike | None = None, workspace: PathLike | None = None) -> Comparison
 compare_pair	function	(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame
 doctor	function	() -> dict
@@ -55,5 +55,5 @@ index	function	(workspace: PathLike | None = None) -> Workspace
 open	function	(path: PathLike) -> Project | Run | Session | Workspace
 read	function	(run: Run, variable: str, *, time: int | str | date | np.datetime64 | np.integer | slice | None = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Readable
 report	function	(session: str | None = None, *, workspace: PathLike | None = None) -> Path
-run	function	(config: ConfigLike, *, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> Run | OverviewResult | PlanDraft | None
-spinup	function	(config: ConfigLike, *, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult
+run	function	(config: ConfigLike, *, base: PathLike | None = None, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> Run | OverviewResult | PlanDraft | None
+spinup	function	(config: ConfigLike, *, base: PathLike | None = None, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult

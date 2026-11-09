@@ -25,6 +25,7 @@ from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.run_state import SetupContext, WorkflowContext
 from hydromodpy.results.storage.attempt import RunClaim
 from hydromodpy.workflow.steps.setup import resolve_geographic_inputs
@@ -58,11 +59,30 @@ class OverviewResult:
 
 
 class DataOverviewLauncher:
-    """Generate a "watershed identity card" from a TOML configuration file."""
+    """Generate a "watershed identity card" from a loaded configuration.
 
-    def __init__(self, config_path: str | Path, bounds: Bounds | None = None) -> None:
-        self.config_path = Path(config_path).resolve()
-        self.cfg = HydroModPyConfig.from_toml(self.config_path)
+    *base* is the folder the relative paths of the configuration were read from.
+    *source* is the file the configuration came from, when it came from one: it
+    is recorded in the seal. A configuration with no file anchors its relative
+    paths on the project root, where ``project.toml`` would be.
+    """
+
+    def __init__(
+        self,
+        cfg: HydroModPyConfig,
+        *,
+        base: str | Path,
+        source: str | Path | None = None,
+        bounds: Bounds | None = None,
+    ) -> None:
+        self.cfg = cfg
+        self.base = Path(base).resolve()
+        self.source = None if source is None else Path(source).resolve()
+        self.config_path = (
+            self.source
+            if self.source is not None
+            else Path(cfg.workspace.project_root) / PROJECT_MARKER_FILENAME
+        )
         # The bounds of the call that asked for the overview, or the
         # default of the machine: every context this launcher builds
         # carries them.
@@ -157,7 +177,11 @@ class DataOverviewLauncher:
             started_at=claim.started_at,
             solver=OVERVIEW_SOLVER,
             config_hash=config_hash,
-            config_source=portable_config_source(project_root, str(self.config_path)),
+            config_source=(
+                None
+                if self.source is None
+                else portable_config_source(project_root, str(self.source))
+            ),
             config_file=RUN_CONFIG_FILENAME,
             description=getattr(overview, "name", None) if overview is not None else None,
             period_start=_instant(getattr(overview, "date_start", None)),
@@ -260,14 +284,14 @@ class DataOverviewLauncher:
     def _load_data(self, state: DataOverviewState) -> None:
         """Load every data family declared in ``[data].types`` into ``state.loaded_data``.
 
-        Uses :class:`DataManagersRuntimeLoader` on a ``WorkflowContext`` built
+        Uses :class:`DataLoader` on a ``WorkflowContext`` built
         from the overview state. Overview dates from ``[overview]`` are
         injected into data sections that have no explicit dates of their own.
         """
         from hydromodpy.catchment.algorithms.derived_features import (
             attach_reference_hydrographic_network,
         )
-        from hydromodpy.data import DataLoadPlan, DataManagersRuntimeLoader
+        from hydromodpy.data import DataLoader, DataLoadPlan
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
@@ -281,7 +305,7 @@ class DataOverviewLauncher:
         context = self._context(state, state.cfg.model_copy(update={"simulation": None}))
         context.data_plan = data_plan
 
-        loader = DataManagersRuntimeLoader(
+        loader = DataLoader(
             config_path=self.config_path,
             data_plan=data_plan,
             bounds=self.bounds,

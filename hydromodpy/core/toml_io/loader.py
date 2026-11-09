@@ -22,7 +22,6 @@ relative paths as ``project.toml`` does.
 
 from __future__ import annotations
 
-import os
 import re
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
@@ -33,7 +32,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
-from hydromodpy.core.state.result_dirs import is_sealed_run_dir, resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
@@ -254,24 +253,23 @@ def load_toml_with_base_config(toml_path: str | Path, *, root: RootConfig | None
     return merge_toml_chain(read_toml_chain(toml_path, root=root), root=root)
 
 
-def config_base_dir(toml_path: str | Path) -> Path:
+def config_base_dir(toml_path: str | Path, *, chain: Sequence[ChainFile] | None = None) -> Path:
     """Return the folder relative paths of *toml_path* are read from.
 
     It is the project root: the folder holding ``project.toml`` at or above
-    the file, or the project of the run that froze the file. A sealed file writes
-    its paths from the project root, so ``HMP_PROJECT_ROOT`` (``-w``) answers for a
-    copy of a run. Outside a project it is the folder of the root file of the
-    ``base_config`` chain, so a file that inherits another reads its paths
-    where that other file does.
+    the file, or the project of the run that froze the file. Outside a project
+    it is the folder of the root file of the ``base_config`` chain, so a file
+    that inherits another reads its paths where that other file does. A caller
+    that already read the chain passes it as *chain*, and no file is read again.
+    A copy of a run outside its project names its project by argument (``-w``,
+    ``--base``, ``base=``), never through this function.
     """
     resolved = Path(toml_path).resolve()
-    named = os.environ.get("HMP_PROJECT_ROOT")
-    if named and is_sealed_run_dir(resolved.parent):
-        return Path(named).expanduser().resolve()
     root = resolve_project_root(resolved.parent)
     if root != resolved.parent or (root / PROJECT_MARKER_FILENAME).is_file():
         return root
-    return read_toml_chain(resolved, root=None)[0].path.parent
+    files = chain if chain is not None else read_toml_chain(resolved, root=None)
+    return files[0].path.parent
 
 
 def validate_toml(

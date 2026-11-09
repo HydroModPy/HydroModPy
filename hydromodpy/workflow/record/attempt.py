@@ -19,6 +19,10 @@ journal row. A window that stopped before the seal ends ``completed``
 without a manifest, which reads as ``partial``, and keeps its attempt state
 for a later resume. An exception ends the attempt ``failed``, a signal
 ``aborted``, both with the signal number and the end of the run log.
+A handle marked by :meth:`AttemptHandle.withdraw` closes nothing: the pulse
+stops, the run log is detached, and the claim is undone without a trace
+(:func:`~hydromodpy.results.storage.attempt.withdraw_claim`). That is how a
+run identical to a completed one gives the completed run back.
 
 The scratch of the attempt is under the run, ``runs/<case>/.hmp/scratch/``,
 or under ``$HMP_SCRATCH_ROOT/<project>/<case>.a<attempt>/`` when that root
@@ -43,6 +47,8 @@ from hydromodpy.results.storage.attempt import (
     close_sealed_attempt,
     finish_attempt,
     signal_of,
+    start_over_if_changed,
+    withdraw_claim,
 )
 from hydromodpy.results.storage.run_log import attach_run_log, detach_run_log, read_log_tail
 
@@ -60,12 +66,22 @@ class SealedRun:
     status: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class AttemptHandle:
     """The claim of an attempt and the pulse that says it is alive."""
 
     claim: RunClaim
     heartbeat: HeartbeatThread
+    withdrawn: bool = False
+
+    def withdraw(self) -> None:
+        """Mark the attempt to be undone, not closed, when its block exits."""
+        self.withdrawn = True
+
+    def start_over_if_changed(self, request_id: str) -> RunClaim:
+        """Start over when the previous attempt asked for something else, and keep the claim."""
+        self.claim = start_over_if_changed(self.claim, request_id)
+        return self.claim
 
     @property
     def run_dir(self) -> Path:
@@ -101,14 +117,14 @@ def run_attempt(
     site: str | None,
     fresh: bool = False,
     force: bool = False,
-    config_hash: str | None = None,
     if_exists: Literal["version", "fail"] = "version",
     heartbeat_interval_s: float = 30.0,
 ) -> Iterator[AttemptHandle]:
     """Claim the directory of *name*, pulse, log, and close the outcome on exit.
 
     ``if_exists`` is ``[simulation] if_exists``: ``fail`` refuses a name any
-    version of which is held, before anything is written.
+    version of which is held, before anything is written. The claim carries no
+    identity: the caller writes the request id once the inputs are resolved.
     """
     claim = claim_run_directory(
         project_root,
@@ -118,7 +134,6 @@ def run_attempt(
         site=site,
         fresh=fresh,
         force=force,
-        config_hash=config_hash,
         if_exists=if_exists,
     )
     log_handler = attach_run_log(claim.run_dir)
@@ -130,21 +145,27 @@ def run_attempt(
         pid=claim.pid,
     )
     heartbeat.start()
+    handle = AttemptHandle(claim, heartbeat)
     try:
-        yield AttemptHandle(claim, heartbeat)
+        yield handle
     except KeyboardInterrupt as exc:
         # SIGINT and SIGTERM both unwind as KeyboardInterrupt (core.runtime.interrupts).
-        _close_if_running(claim.run_dir, status="aborted", step=heartbeat.step, error=exc)
+        if not handle.withdrawn:
+            _close_if_running(claim.run_dir, status="aborted", step=heartbeat.step, error=exc)
         raise
     except BaseException as exc:
         # Any exit of the run, even an exit not meant as an error, seals the outcome as failed.
-        _close_if_running(claim.run_dir, status="failed", step=heartbeat.step, error=exc)
+        if not handle.withdrawn:
+            _close_if_running(claim.run_dir, status="failed", step=heartbeat.step, error=exc)
         raise
     else:
-        _close_if_running(claim.run_dir, status="completed", step=heartbeat.step, error=None)
+        if not handle.withdrawn:
+            _close_if_running(claim.run_dir, status="completed", step=heartbeat.step, error=None)
     finally:
         heartbeat.stop()
         detach_run_log(log_handler)
+        if handle.withdrawn:
+            withdraw_claim(handle.claim)
 
 
 def _close_if_running(

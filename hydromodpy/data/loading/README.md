@@ -11,7 +11,7 @@ decides which variables to load, and calls their managers.
 2. `planner.py` (`DataPlanner`) builds the plan: the variables listed in `[data].types`, plus the
    ones another section implies, such as the rain and the evapotranspiration the soil reservoir
    reads. The plan is an immutable `DataLoadPlan` (`plan.py`).
-3. `loader.py` (`DataManagersRuntimeLoader`) runs the plan inside a project run. For each variable
+3. `loader.py` (`DataLoader`) runs the plan inside a project run. For each variable
    it builds the manager from `VARIABLE_SPECS`, gives it the extent and the period, and collects
    the `LoadResult`.
 4. `store.py` (`DataStore`) is the same thing for a user who loads data by hand, outside a project.

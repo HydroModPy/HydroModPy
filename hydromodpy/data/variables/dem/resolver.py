@@ -1,7 +1,7 @@
 """Resolve the DEM raster file from ``[[data.dem.sources]]``.
 
 The geographic delineation pipeline needs a concrete DEM file path before any
-data manager runs. A user declares the DEM under ``[[data.dem.sources]]``
+data variable runs. A user declares the DEM under ``[[data.dem.sources]]``
 (with source = "file", source = "url", or an API provider such as
 "ign_geoplateforme_dem").
 
@@ -21,7 +21,6 @@ from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.runtime.bounds import Bounds
-from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.source.port import Extent, FetchRequest, fetch_within
@@ -70,7 +69,7 @@ def resolve_dem(
     else:
         config_dir = Path.cwd()
 
-    output_dir = Path(data_dir) / "dem" if data_dir is not None else (_hmp_cache_dir() / "dem")
+    output_dir = Path(data_dir) / "dem" if data_dir is not None else None
 
     for source_cfg in sources:
         source_kind = str(
@@ -130,9 +129,14 @@ def _resolve_registered_source(
     *,
     source_kind: str,
     cfg: Any,
-    output_dir: Path,
+    output_dir: Path | None,
     bounds: Bounds | None,
 ) -> FileRecord:
+    if output_dir is None:
+        raise ConfigError(
+            f"[data.dem] source {source_kind!r} downloads a DEM and has no data folder to put "
+            "it in. Run it from a workspace or a project, whose data/ folder holds the cache."
+        )
     source_cls = data_sources.get("dem", source_kind)
     source = build_from_section(source_cls, source_cfg)
 
@@ -209,7 +213,7 @@ def _resolve_registered_source(
 def require_dem_crs(path: Path | str) -> None:
     """Refuse a DEM raster that declares no CRS, before the terrain tools read it.
 
-    The catchment is cut out of the DEM file before any data manager runs,
+    The catchment is cut out of the DEM file before any data variable runs,
     and the terrain engine stops on such a file with no word on the cause.
     Only the formats rasterio opens as a georeferenced grid are looked at;
     any other file is left to the step that reads it.
