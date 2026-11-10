@@ -155,7 +155,8 @@ Classes of artifacts
      - Regenerable
    * - raw result
      - ``fields.zarr/``, ``final_state/``, ``tables.parquet/``, ``config.toml``,
-       ``config.resolved.toml``, ``inputs.json``, ``provenance.json``, ``manifest.json``
+       ``config.resolved.toml``, ``inputs.json``, ``provenance.json``, ``products.json``,
+       ``mesh/``, ``manifest.json``
      - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
      - ``plan/<hash>/``
      - yes
@@ -209,6 +210,16 @@ Classes of artifacts
      - no
      - rebuilt (project) or consumed by the seal (run)
 
+``CERTIFIED_RUN_ENTRIES`` in ``hydromodpy/results/storage/contract.py`` is the closed list the
+seal certifies, one role each: ``config.toml``, ``config.resolved.toml``, ``inputs.json``,
+``products.json``, ``provenance.json``, ``final_state/``, ``fields.zarr/``, every file of
+``tables.parquet/`` and ``mesh/`` when the run built one. ``UNSEALED_RUN_ENTRIES`` names what it
+never inventories: ``outcome.json``, ``request.json``, ``annotations.json``, ``README.md``,
+``profile.json``, ``published.jsonl``, ``figures/``, ``exports/``, ``report/``, ``logs/``,
+``attempts/``, ``solver/`` and the generated views. A name found in a run folder that is on
+neither list is inventoried under the role ``other``, with its sha256, so no file of a run is
+invisible to the reader of the seal and the seal judges nothing.
+
 A run folder
 ------------
 
@@ -223,6 +234,7 @@ A run folder
    ├── inputs.json         sealed: provider, product, version, request, fetched_at, sha256, licence
    ├── provenance.json     environment, versions, git, solver binaries; host and user stay here
    ├── products.json       the products the run read from the store, one per kind, in first-demand order
+   ├── mesh/               the mesh the run built, when its engine caches one: mesh.json, mesh.npz
    ├── manifest.json       the seal, written last
    ├── annotations.json    tags and notes, written after the seal
    ├── fields.zarr/        the array store
@@ -240,7 +252,14 @@ A run folder
    └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
-``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artifact.
+``hydromodpy/results/storage/contract.py`` lists them as the union of the certified entries and
+the unsealed ones, and no other name is a run artifact.
+
+``mesh/`` holds the product ``mesh`` of a run whose engine caches one, copied at the seal from
+the product store into the run, as ``mesh.json`` and ``mesh.npz`` and certified by the digest of
+its tree. It weighs 28 kB on the Boussinesq reference. A replay reads it instead of asking the
+store, compares its identity as the product store does, and rebuilds when the identity differs.
+A run of 2.0 has no such folder and rebuilds.
 
 ``request.json`` is the run request of a run given as JSON or as a dict, the object that
 ``hmp run x.json`` reads. It is written whole at the claim, by one rename, and it is never
@@ -277,15 +296,37 @@ resolved. It is a sha256 and the field is optional, so an outcome written before
 resolved has none. The ``sim_id`` is a uuid taken at the claim and is part of no identity.
 
 ``manifest.json`` is written last, through a temporary file, ``fsync`` of the file and of the
-directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``config``, ``site``,
-``lineage`` (by identifiers), ``identity``, ``checks`` and ``artifacts`` (which lists
-``inputs.json``), plus the run's ``parameters`` and ``metrics`` summaries.
+directory, and a rename. It is the run profile of the one seal of
+:mod:`hydromodpy.schema.seal`: ``manifest_version`` 4, ``profile = "run"``, ``sealed_at`` in UTC,
+and the blocks ``run``, ``geometry``, ``period``, ``config``, ``site``, ``lineage`` (by
+identifiers), ``identity``, ``checks``, ``artifacts`` and ``values``, plus the run's
+``parameters`` and ``metrics`` summaries. ``config`` holds ``file`` and ``source`` and no hash of
+its own, because the identity already carries the solution key. ``artifacts`` lists each
+certified entry with its role, its size and the sha256 of its bytes or of its directory tree.
 ``geometry.catchment`` carries the catchment area and the outlet: a discharge derived from runoff
 is scaled by that area. It also records the DEM correction method (``fill``, ``breach``,
 ``capped_breach`` or ``provided`` for a DEM declared conditioned elsewhere) and, for a conditioned
 DEM, the two counts ``dem_cells_without_descent`` and ``dem_strict_pits``.
 ``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the engine that built the mesh.
 A run received alone says its catchment and its facts.
+
+``values`` holds the digests the seal compared, under the one rule ``values/1``: one per Zarr array,
+keyed ``fields/<path of the array>``, one per column of a quantity, keyed
+``tables/<table>/<column>``, and one per array of ``final_state/``, keyed ``final_state/<array>``.
+Every table counts, ``simulation`` and ``parameters`` included. The columns of identity, clock and
+name are left out by ``IDENTITY_COLUMNS`` in ``parquet_schemas.py``, and the solve-time row of
+``metrics`` by ``CLOCK_ROWS``. A field rounded for storage is hashed in double precision before the
+rounding of 2^-17, taken by the writer and kept in the checkpoints of the attempt, so the digest
+covers the values as calculated. A seal of the references weighs 24 to 36 kB, of which 14 to 19 kB
+are these digests.
+
+``lineage.replay`` says what a replay compared and what it found: the ``sim_id`` of its source,
+whether it read ``run`` or ``copy``, the version that sealed the source, the ``basis`` of the
+comparison (``float64``, ``stored`` or ``none``), its ``class`` (``bit`` or ``deviation``, and
+none without a basis), each key that ``differs`` with ``max_abs``, ``rel_l2`` and the precision
+of the values it read, the keys ``added`` and ``removed``, the ``producer`` fields that differ
+with both values, the ``changes`` of the register the source crossed, and whether ``--strict``
+asked.
 
 ``products.json`` names the products the run read from the product store, one entry per kind, in
 the order the steps first asked for them, under the schema ``hydromodpy.products.v1``. A run of
@@ -303,10 +344,15 @@ convergence, observation coverage, score window, the validities of the calibrati
 the bounds hit, whether the code was reproducible. The label (``exploratory``, ``calibrated``,
 ``evaluated``, ``failed``) is derived on read by :mod:`hydromodpy.results.validity_rules` and the
 ``[[bug]]`` rows of the register of changes, ``hydromodpy/schema/changes.toml``, shipped in the
-wheel, so a run sealed by a version with a known defect is downgraded without rewriting its seal. Every file that leaves a run carries the ``identity`` block
-(site, case, ``sim_id``, period, score window, label, label date, rule version, version): root
-attributes of the Zarr store, ``schema.metadata`` of each Parquet file, ``gpkg_metadata`` of a
-GeoPackage, metadata and a visible footer of a figure, and a ``<file>.meta.json`` next to a CSV.
+wheel, so a run sealed by a version with a known defect is downgraded without rewriting its
+seal. Every file that leaves a run carries the ``identity`` block (site, case, ``sim_id``,
+period, score window, label, label date, rule version, version, ``request_id``,
+``solution_key`` and ``solver``): root attributes of the Zarr store, ``schema.metadata`` of each
+Parquet file, ``gpkg_metadata`` of a GeoPackage, metadata and a visible footer of a figure, and a
+``<file>.meta.json`` next to a CSV. The block keeps the schema id ``hydromodpy.identity.v1`` and
+loses ``config_hash``: ``solution_key`` holds what that field held, ``request_id`` groups the runs
+of one base, and ``solver`` names the flow backend. A block of 2.0 carries ``config_hash``, which
+the reader ignores, and the GeoPackage reader still finds it by ``md_standard_uri``.
 
 A session folder
 ----------------
@@ -459,9 +505,8 @@ and the index row; the links by identifier do not move, and a stale hint is neve
 ``sessions/<name>/trials/<nnnn>``, are spelled and read only by the relative-directory functions
 of :mod:`hydromodpy.core.state.result_dirs`.
 
-**An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in the
-``manifest.json`` of the versions of ``runs/<case>``, never the index. The field holds the solution
-key, and ``config.hash`` of the same block holds the same value. A plain run, which is not a
+**An identical case is skipped from disk**: the worker reads ``identity.solution_key`` in the
+``manifest.json`` of the versions of ``runs/<case>``, never the index. A plain run, which is not a
 resume, a partial window, a forced run or a replay, whose solution key equals the key of a sealed
 run of the same stem, is not computed: the claim is withdrawn without a trace and that run is
 given back. ``hmp run`` and ``hmp calibrate`` skip, and no other verb does. Before it gives the
@@ -471,7 +516,7 @@ identity is known and enters the request by its declaration. ``if_exists`` is ``
 ``fail``, and ``fail`` is tested after the skip, so an identical run is always given back.
 
 Two fingerprints say whether two runs compute the same thing
-(``hydromodpy/results/request_identity.py``). The request id says what a run asks for. It is the
+(``hydromodpy/results/record/request_identity.py``). The request id says what a run asks for. It is the
 sha256 of the document as a file writes it, so a key written at its default value is another
 request than no key. It leaves out ``[workspace]``, ``[workflow]``, ``simulation.name``, every
 ``deliver_to`` key, the mesh the run builds and ``[resolved_at_build]``. Each input enters by the
@@ -531,9 +576,11 @@ and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``inde
 ``annotations_version``), ``schema`` on the ``checks`` block of a manifest,
 ``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
 ``schema_version`` row of the index. The documents of a job directory carry a ``schema`` id of
-their own, such as ``hmp-outcome/v1`` (``manifest.json``, ``inputset.json``, ``provenance.json``,
-``outcome.json``, and ``chain-outcome.json`` at the root of a chain, which the annex writes), and
-follow the same rule.
+their own, such as ``hmp-outcome/v1`` (``inputset.json``, ``provenance.json``, ``outcome.json``,
+and ``chain-outcome.json`` at the root of a chain, which the annex writes), and follow the same
+rule. The seal of a job is the other profile of the run seal, at ``manifest_version`` 4 with
+``profile = "job"``, and its ``request_id`` is the content address of the request.
+``outcome.json`` keeps that value under its field ``job_id``.
 
 The rule is written once, in :mod:`hydromodpy.core.io.document_version`. Every later 2.x reads
 every 2.0.0 document. Each family of sealed documents declares a window next to its current
@@ -542,6 +589,16 @@ change that a reader can ignore (a new optional key, column or array) does not c
 version. A change it cannot ignore raises the current version, keeps the oldest one and brings
 the reader of the old version with it. Nothing upgrades a stored document to another version:
 a sealed file stays as it was written.
+
+A seal of the 2.0.0 converts on read, one row per key that moved, and the file keeps its form.
+The seal of a run at ``manifest_version`` 3 loses ``identity.config_hash`` and ``config.hash`` in
+memory, and its ``inputs.json`` entry of role ``other`` reads as ``inputs``. The block
+``identity`` loses ``config_hash``. A seal of a job that wrote ``schema = "hmp-manifest/v2"``
+reads ``job_id`` as ``request_id`` and ``mediaType`` as ``media_type``, and its entries take the
+role a job gives them. ``read_manifest`` still returns the document as the file carries it, keys
+that left included. The ``provenance.json``, ``inputs.json`` and ``outcome.json`` of a run need
+no row. A seal of a pre-release, at ``manifest_version`` 1 or 2, is refused with its sentence,
+decided on the version of the format and never on the version of the code.
 
 ``tests/regression/frozen_runs/`` holds this promise. It keeps a run and a calibration session as
 2.0.0 stored them, and the same with a key, a column and an array that a later 2.x could add. Each
@@ -957,7 +1014,10 @@ index and bloom filters on the primary-key columns where the linked
 pyarrow build supports them. Each file carries
 ``hmp.schema_version = "v3"`` plus its schema name, primary key and the
 run's ``identity`` block in Parquet key-value metadata, and is exposed as a DuckDB
-view named after the payload.
+view named after the payload. The column ``config_hash`` left ``simulation`` at 2.1, and no
+column entered: the index reads ``solution_key`` and ``request_id`` in the seal. The version
+stays ``v3``, because a reader ignores a column a table of 2.0 carries and that this code does
+not declare.
 
 The container directory is ``tables.parquet/`` and the payloads inside
 are plain ``.parquet`` files. No suffix marks a container.
@@ -1051,21 +1111,35 @@ The inputs of one run are sealed in its own ``inputs.json``: one entry per loade
 its provider, product, product version, the full request (extent, period, stations, step),
 ``fetched_at``, path, SHA-256, size and licence. A replay never depends on the project-wide file.
 
-``hmp run <run>/config.toml --frozen`` replays from that record alone. Before anything runs it
-refuses an input whose digest differs from ``inputs.json`` or from ``manifest.json``, naming the
-file and both digests, and a configuration that differs from ``config.resolved.toml``, naming each
-key and both values. A key that this version added, absent from ``config.resolved.toml`` and
-at the default of the edition the run sealed, is no difference: the sealed file writes every
-default its version knew, so the key is one that version did not know. ``lineage.drift`` lists
-such keys under ``new_at_default``. It warns when the solver binary is not the one ``provenance.json`` records,
-naming both versions. Once it has run, it says what its build decided otherwise and which file it
-read that the source did not. ``hydromodpy.lock`` keeps its role for a project TOML.
+A replay is its own verb, ``hmp replay REF`` and ``hmp.replay(ref)``. ``REF`` is a sealed run
+directory or a published copy, and a folder without a seal is refused. The verb plays the run again
+from the bytes the seal certifies, then classes what it compared. Its inputs come from
+``inputs.json`` with their digests pinned: an input whose digest differs is refused, naming the file
+and both digests, and a URL is contacted only to fill an absent cache; its bytes are not pinned, so
+values that move with them show in the class. A configuration that differs from
+``config.resolved.toml`` runs, and the keys that moved are written in ``lineage.drift``, because the
+edition the source sealed gives its defaults back. A key this version added, absent from the sealed
+file and at the default of that edition, is no difference. A solver binary that differs is written
+in ``lineage.replay.producer`` with an advising line, and it refuses nothing.
 
-A replay never writes into the run it replays. A ``config.toml`` under ``<project>/runs/<name>/``,
-or in a kept trial of a session, answers for ``<project>``, with or without a ``project.toml``. A
-copy of a run outside any project is refused, and the refusal names the way out,
-``hmp run <copy>/config.toml --frozen -w <project>``: the new run goes to that project and reads
-its inputs there.
+The class says whether the replay reproduced the values. On a seal of 2.1 the basis is
+``float64``: the digests of the source seal against those of the replay. On a seal of 2.0 the
+basis is ``stored``: the stored values of both sides, read again, so ``bit`` there means bit to
+the rounding of 2^-17 on a compact source, and to the last bit on an exact one. The flat
+``concentration`` of 2.0 is compared with the one species of the replay, and a ``final_state/``
+array 2.0 could not write is listed under ``added`` without making a deviation. A copy that
+carries no values gives ``none`` and no class. Each key that differs is listed with ``max_abs``
+and ``rel_l2`` of the whole field, never per cell, and with the precision of the values it read;
+two shapes, two NaN masks or a zero norm leave both measures null and say why in ``reason``;
+the entries of the register the source crossed are listed by id. ``--strict`` refuses a class
+that is not ``bit``, before the seal: the attempt ends ``failed``, its fields and tables stay
+readable, and no seal is written.
+
+A replay never writes into the run it replays. It is a new version of the same stem,
+``runs/<name>.vN``, and a copy gives a run of the project that holds it, or of the project that
+``-w`` names. ``hydromodpy.lock`` and ``hmp run --frozen`` keep their role for a project TOML.
+``hmp run <run>/config.toml --frozen`` and ``hmp run <copy>/config.toml --frozen`` are refused
+with a sentence that names ``hmp replay``.
 
 The configuration of a sealed run is two files. ``config.toml`` holds what the run was given,
 overrides included, written once at the claim from the loaded configuration, so a run that fails

@@ -6,7 +6,7 @@ real pipeline.
 
 A file in that shape loads with a warning that names the doctor, and the run it makes
 writes today's names and the edition of its defaults. A run sealed by 2.0.0 replays under
-``--frozen`` with no key that drifts, so a table that moved since the seal, and an
+``hmp replay`` with no key that drifts, so a table that moved since the seal, and an
 ``edition`` the seal never wrote, change nothing in the numbers. A project that writes a
 key only a pre-release of 2.0 wrote is refused before any solve, with the configuration
 exit code and the way out.
@@ -85,9 +85,7 @@ def _as_sealed_by_2_0_0(text: str, *, edition: bool) -> str:
     return "".join(kept)
 
 
-def test_a_run_sealed_by_2_0_0_replays_under_frozen_with_no_drift(
-    first_run, tmp_path: Path
-) -> None:
+def test_a_run_sealed_by_2_0_0_replays_with_no_drift(first_run, tmp_path: Path) -> None:
     played, env = first_run
     assert played.returncode == 0, played.log.read_text(encoding="utf-8")[-2000:]
     project = tmp_path / "project"
@@ -107,10 +105,8 @@ def test_a_run_sealed_by_2_0_0_replays_under_frozen_with_no_drift(
             sys.executable,
             "-m",
             "hydromodpy",
-            "run",
-            str(source / "config.toml"),
-            "--frozen",
-            "--no-display",
+            "replay",
+            str(source),
         ],
         cwd=project,
         env=env,
@@ -124,11 +120,13 @@ def test_a_run_sealed_by_2_0_0_replays_under_frozen_with_no_drift(
     assert "ConfigKeyRenamedWarning" not in replay.stderr
     replayed = project / "runs" / f"{RUN}.v2"
     assert replayed.is_dir()
-    # The version suffix of the name and the folder of the project differ by construction.
+    # The version suffix of the name, the folder of the project, the lineage of a replay
+    # and the request it keeps differ by construction.
     assert [
         (verdict.target, verdict.detail)
         for verdict in compare_run_dirs(source, replayed).drifted
-        if not verdict.target.endswith((":version_int", ":project"))
+        if not verdict.target.endswith((":version_int", ":project", ":lineage_kind"))
+        and verdict.detail != "only in A [], only in B ['request.json']"
     ] == []
 
     config = HydroModPyConfig.from_toml(source / "config.toml")

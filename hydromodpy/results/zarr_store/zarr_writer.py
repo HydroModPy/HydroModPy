@@ -29,6 +29,7 @@ from hydromodpy.core.fields.precision import (
     to_storage_precision,
 )
 from hydromodpy.core.fields.vertical_column import IDOMAIN_VALUES
+from hydromodpy.core.io.value_digest import value_digest
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
@@ -919,11 +920,62 @@ def _stamp_quantization(store_obj: SimulationZarr, array: zarr.Array) -> None:
     )
 
 
-def _to_stored_field(store_obj: SimulationZarr, values: np.ndarray) -> tuple[np.ndarray, bool]:
-    """Mask sentinels, then cast to the store precision; say whether it rounded."""
+def _field_path(variable: str, subgroup: str | None) -> str:
+    """Return the path of the array inside the store, the key of its value digests."""
+    return variable if not subgroup else f"{subgroup.strip('/')}/{variable}"
+
+
+def _digest_registry(store_obj: SimulationZarr) -> dict[str, dict[str, str]]:
+    """Return the registry of value digests of a handle, attached on first use.
+
+    A run hands the registry of its facts to the handle, so the digests
+    survive the close and a resume. A handle opened alone keeps its own.
+    """
+    registry = getattr(store_obj, "field_digests", None)
+    if registry is None:
+        registry = {}
+        store_obj.field_digests = registry
+    return registry
+
+
+def _record_step_digests(
+    store_obj: SimulationZarr, path: str, first_step: int, values: np.ndarray, *, stack: bool
+) -> None:
+    """Keep the digest of the float64 values received, one per step, before any rounding.
+
+    The registry lives in the facts of the run, so it survives a resume that
+    does not read the extraction again. A step never written is folded from
+    the store at the seal.
+    """
+    digests = _digest_registry(store_obj).setdefault(path, {})
+    if stack:
+        for index in range(int(values.shape[0])):
+            digests[str(first_step + index)] = value_digest(values[index])
+    else:
+        digests[str(first_step)] = value_digest(values)
+
+
+def _to_stored_field(
+    store_obj: SimulationZarr,
+    values: np.ndarray,
+    *,
+    path: str,
+    first_step: int = 0,
+    stack: bool = False,
+) -> tuple[np.ndarray, bool]:
+    """Mask sentinels, digest the float64 values a rounded field rounds, then cast.
+
+    The digest is taken here because this is the one place the masked values
+    exist before ``to_storage_precision``: a rounded array hashes what the run
+    computed, not the rounded bytes a replay cannot reproduce on another
+    processor.
+    """
     cleaned = mask_sentinels(np.asarray(values))
     stored = to_storage_precision(cleaned, store_obj.field_precision)
-    return stored, stored is not cleaned
+    quantized = stored is not cleaned
+    if quantized:
+        _record_step_digests(store_obj, path, first_step, cleaned, stack=stack)
+    return stored, quantized
 
 
 def _field_target(store_obj: SimulationZarr, subgroup: str | None) -> zarr.Group:
@@ -1015,12 +1067,16 @@ def write_field(
 
     The values are written in the handle's ``field_precision``.
     """
+    if np.ndim(values) not in (1, 2):
+        raise ValueError(f"Expected 1D or 2D values, got shape {np.shape(values)}")
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values, quantized = _to_stored_field(store_obj, values)
-        if values.ndim not in (1, 2):
-            raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
-
+        values, quantized = _to_stored_field(
+            store_obj,
+            values,
+            path=_field_path(variable, subgroup),
+            first_step=int(timestep),
+        )
         if variable not in target:
             if n_timesteps is None:
                 raise ValueError(f"n_timesteps required on first write of '{variable}'")
@@ -1086,19 +1142,24 @@ def write_field_stack(
     time slabs without holding the full stack in memory. The values are
     written in the handle's ``field_precision``.
     """
+    if np.ndim(values) not in (2, 3):
+        raise ValueError(f"Expected a (time, ...) stack, got shape {np.shape(values)}")
+    offset = int(timestep_offset)
+    total = int(n_timesteps) if n_timesteps is not None else offset + int(values.shape[0])
+    if offset + int(values.shape[0]) > total:
+        raise ValueError(
+            f"Stack slab [{offset}:{offset + int(values.shape[0])}] exceeds "
+            f"n_timesteps={total} for '{variable}'."
+        )
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values, quantized = _to_stored_field(store_obj, values)
-        if values.ndim not in (2, 3):
-            raise ValueError(f"Expected a (time, ...) stack, got shape {values.shape}")
-
-        offset = int(timestep_offset)
-        total = int(n_timesteps) if n_timesteps is not None else offset + int(values.shape[0])
-        if offset + int(values.shape[0]) > total:
-            raise ValueError(
-                f"Stack slab [{offset}:{offset + int(values.shape[0])}] exceeds "
-                f"n_timesteps={total} for '{variable}'."
-            )
+        values, quantized = _to_stored_field(
+            store_obj,
+            values,
+            path=_field_path(variable, subgroup),
+            first_step=offset,
+            stack=True,
+        )
 
         per_step_shape = tuple(int(s) for s in values.shape[1:])
         full_shape = (total, *per_step_shape)

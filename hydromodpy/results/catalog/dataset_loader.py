@@ -29,7 +29,8 @@ _SIM_META_SELECT = (
     "sv.code AS solver, sv.category AS solver_category, "
     "fr.code AS flow_regime, st.code AS status, "
     "s.n_cells, s.n_layers, s.n_timesteps, "
-    "s.config_hash, s.scientific_objective, s.nse, s.score_station, s.score_variable, "
+    "s.solution_key, s.request_id, s.scientific_objective, s.nse, s.score_station, "
+    "s.score_variable, "
     "s.created_at, s.duration_s"
 )
 

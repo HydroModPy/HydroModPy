@@ -2,7 +2,7 @@
 
 A plain ``hmp run`` that is identical to a completed run gives that run back, read from the
 manifests under ``runs/`` (no index is opened). The run is told by its solution key, sealed as
-``identity.config_hash``: the request, the digest and state of its inputs, the code, the solver
+``identity.solution_key``: the request, the digest and state of its inputs, the code, the solver
 binaries and the numeric packages.
 """
 
@@ -22,8 +22,8 @@ from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
 from hydromodpy.project.request import RunRequest
-from hydromodpy.results.manifest import ManifestConfig, ManifestRun
-from hydromodpy.results.request_identity import request_id, solution_key
+from hydromodpy.results.record.manifest import ManifestConfig, ManifestRun
+from hydromodpy.results.record.request_identity import request_id, solution_key
 from tests._helpers.run_records import make_identity, make_record
 from tests._helpers.sealed_runs import write_attempt
 
@@ -284,82 +284,54 @@ def test_run_simulation_returns_nothing_when_no_run_was_made(
     assert wf.run_simulation(_request(), base=tmp_path) is None
 
 
-def test_run_simulation_checks_then_warns_about_a_replayed_run(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_run_simulation_hands_the_replay_to_the_runner(
+    fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
-    import hydromodpy.workflow.replay_checks as rc
-
-    seen: dict[str, Any] = {}
-    monkeypatch.setattr(
-        rc, "check_replay", lambda cfg, src, *, project_root, inputs_checked: seen.update(c=src)
-    )
-    monkeypatch.setattr(rc, "warn_replay_differences", lambda src, run: seen.update(w=(src, run)))
+    """The dispatch names the source and the strictness; the seal classes the values."""
     published = tmp_path / "copy"
 
-    wf.run_simulation(_request(), base=tmp_path, replay_of=published)
+    wf.run_simulation(_request(), base=tmp_path, replay_of=published, strict=True)
 
-    assert seen["c"] == published
-    assert seen["w"] == (published, Path("/r/case"))
     sent = fake_project.instances[0].executed[0]
+    assert sent["replay_of"] == published
+    assert sent["strict"] is True
     assert sent["frozen"] is False
     assert sent["skip_identical"] is False
 
 
-def test_a_replay_that_was_given_back_as_identical_is_not_compared_to_its_source(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_a_replay_that_was_given_back_as_identical_comes_back_untouched(
+    fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
-    import hydromodpy.workflow.replay_checks as rc
-
-    monkeypatch.setattr(rc, "check_replay", lambda *a, **k: None)
-    monkeypatch.setattr(
-        rc, "warn_replay_differences", lambda *a: pytest.fail("nothing ran, nothing differs")
-    )
     fake_project.result = SimpleNamespace(
         name="case", sim_id="s", run_dir=Path("/r/case"), status="completed", identical_to="case"
     )
 
-    wf.run_simulation(_request(), base=tmp_path, replay_of=tmp_path / "copy")
+    outcome = wf.run_simulation(_request(), base=tmp_path, replay_of=tmp_path / "copy")
+
+    assert outcome.identical_to == "case"
+    assert fake_project.instances[0].executed[0]["replay_of"] == tmp_path / "copy"
 
 
-def test_a_frozen_replay_of_a_completed_run_is_never_skipped_as_identical(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_a_frozen_run_no_longer_implies_a_replay(
+    fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
-    import hydromodpy.workflow.replay_checks as rc
-
-    sealed = tmp_path / "runs" / "case"
-    monkeypatch.setattr(rc, "sealed_run_of", lambda path: sealed)
-    monkeypatch.setattr(rc, "check_replay", lambda cfg, src, *, project_root, inputs_checked: None)
-    monkeypatch.setattr(rc, "warn_replay_differences", lambda src, run: None)
-
+    """``--frozen`` of a sealed configuration is refused by the command: the dispatch runs it."""
     wf.run_simulation(
         _request(frozen=True, source="runs/case/config.toml", form="toml"), base=tmp_path
     )
 
     sent = fake_project.instances[0].executed[0]
-    assert (sent["frozen"], sent["skip_identical"], sent["request"].force) == (False, False, False)
+    assert (sent["frozen"], sent["skip_identical"], sent["request"].force) == (True, True, False)
+    assert sent["replay_of"] is None
 
 
-def test_a_frozen_run_with_no_record_to_replay_may_still_be_given_back_as_identical(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_a_frozen_run_may_still_be_given_back_as_identical(
+    fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
-    import hydromodpy.workflow.replay_checks as rc
-
-    monkeypatch.setattr(rc, "sealed_run_of", lambda path: None)
-
     wf.run_simulation(_request(frozen=True, source="case.toml", form="toml"), base=tmp_path)
 
     sent = fake_project.instances[0].executed[0]
     assert (sent["frozen"], sent["skip_identical"]) == (True, True)
-
-
-def test_checked_replay_source_is_none_without_a_sealed_record(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    import hydromodpy.workflow.replay_checks as rc
-
-    monkeypatch.setattr(rc, "sealed_run_of", lambda path: None)
-    assert wf.checked_replay_source(object(), tmp_path / "a.toml", None, tmp_path) is None
-    assert wf.checked_replay_source(object(), None, None, tmp_path) is None
 
 
 def test_mesh_summary_is_given_only_when_the_plan_runs_a_mesh_process() -> None:
@@ -883,7 +855,7 @@ def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_n
         (runs / name).mkdir(parents=True)
     (runs / "stray.txt").write_text("x", encoding="utf-8")
     sealed = {"case": "H", "case.v2": "H", "case.v3": "unsealed-or-other", "other": "H"}
-    monkeypatch.setattr(sealing, "sealed_config_hash", lambda run_dir: sealed[run_dir.name])
+    monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: sealed[run_dir.name])
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: True)
 
     assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case.v2"
@@ -900,7 +872,7 @@ def test_a_run_whose_api_file_left_the_cache_is_not_given_back(
     import hydromodpy.workflow.replay_checks as replay_checks
 
     (tmp_path / "runs" / "case").mkdir(parents=True)
-    monkeypatch.setattr(sealing, "sealed_config_hash", lambda run_dir: "K")
+    monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: "K")
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: False)
 
     assert wf.completed_identical_run(tmp_path, "case", "K") is None
@@ -941,14 +913,14 @@ def _seal(root: Path, key: str, *, name: str = "demo") -> str:
                 created_at=base.run.created_at,
             ),
             "site": None,
-            "config": ManifestConfig(file="config.toml", hash=key, source="project.toml"),
+            "config": ManifestConfig(file="config.toml", source="project.toml"),
             "identity": make_identity(
                 site=None,
                 site_fingerprint=None,
                 case_id=stem,
                 sim_id=sid,
                 attempt_id="a" * 32,
-                config_hash=key,
+                solution_key=key,
                 mesh_hash=None,
             ),
             "geometry": base.geometry.model_copy(update={"mesh_hash": None}),
@@ -1194,8 +1166,8 @@ def test_the_sidecar_of_a_station_file_leaves_the_key_as_it_was(tmp_path: Path) 
 
 def _run_that_read(tmp_path: Path, *entries: dict[str, Any]) -> Path:
     """A run directory whose ``inputs.json`` lists *entries*, under a project with no workspace."""
-    from hydromodpy.results.manifest import InputEntry
-    from hydromodpy.results.record import InputsDocument
+    from hydromodpy.results.record.manifest import InputEntry
+    from hydromodpy.results.record.record import InputsDocument
 
     run_dir = tmp_path / "runs" / "demo"
     run_dir.mkdir(parents=True)
@@ -1205,9 +1177,9 @@ def _run_that_read(tmp_path: Path, *entries: dict[str, Any]) -> Path:
 
 
 def _digest(path: Path) -> str:
-    from hydromodpy.results.storage.digests import sha256_streaming
+    from hydromodpy.core.io.file_digest import sha256_of
 
-    return sha256_streaming(path)
+    return sha256_of(path)
 
 
 @pytest.mark.parametrize(

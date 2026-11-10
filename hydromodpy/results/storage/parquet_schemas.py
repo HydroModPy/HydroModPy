@@ -34,6 +34,45 @@ PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v3", current=PARQ
 PARQUET_CONVENTIONS: Final[str] = "CF-1.11"
 """CF convention version embedded in schema metadata."""
 
+IDENTITY_COLUMNS: Final[frozenset[str]] = frozenset(
+    {
+        "sim_id",
+        "parent_sim_id",
+        "attempt_id",
+        "session_id",
+        "calibrated_by_session_id",
+        "created_at",
+        "started_at",
+        "ended_at",
+        "duration_s",
+        "valid_from",
+        "fetched_at",
+        "name",
+        "name_stem",
+        "version_int",
+        "project",
+        "case_id",
+        "rel_dir",
+        "attempt",
+        "config_source",
+        "hydromodpy_version",
+        "site_fingerprint",
+        "mesh_hash",
+        "code_reproducible",
+    }
+)
+"""Columns that carry an identity, a clock or a name, never a quantity.
+
+The value digests of a seal read every floating column of every table except
+these. The list is the one ``refhash/1`` excludes, one set because a digest
+skips a column by its name whatever table holds it.
+"""
+
+CLOCK_ROWS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("metrics", "metric", "flow_solve_time_seconds"),
+)
+"""Rows that carry a wall clock, as (table, column, value); no value digest reads them."""
+
 
 def _schema_metadata(
     name: str,
@@ -428,7 +467,7 @@ PARAMETERS_SCHEMA: Final[pa.Schema] = pa.schema(
 )
 """Per-run parameter values, one row per parameter and present zone.
 
-Written once at seal time from the :class:`~hydromodpy.results.record.RunRecord`,
+Written once at seal time from the :class:`~hydromodpy.results.record.record.RunRecord`,
 not appended to during the run, so it is not a Parquet *view*: it stays out of
 :data:`VIEW_SCHEMAS` and of ``PARQUET_VIEW_NAMES``.
 """
@@ -620,14 +659,13 @@ SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
         pa.field("period_start", pa.timestamp("ms", tz="UTC"), nullable=True),
         pa.field("period_end", pa.timestamp("ms", tz="UTC"), nullable=True),
         pa.field("time_unit", pa.string(), nullable=True),
-        pa.field("config_hash", pa.string(), nullable=True),
         pa.field("config_source", pa.string(), nullable=True),
         pa.field("parent_sim_id", pa.string(), nullable=True),
         pa.field(
             "lineage_kind",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(allowed="rerun|promoted|trial|version"),
+            metadata=_field_meta(allowed="rerun|promoted|trial|version|replay|published"),
         ),
         pa.field("session_id", pa.string(), nullable=True),
         pa.field("hydromodpy_version", pa.string(), nullable=False),
@@ -1306,6 +1344,8 @@ __all__ = [
     "BUDGETS_SCHEMA",
     "PARQUET_CONVENTIONS",
     "CHECK_COLUMNS",
+    "CLOCK_ROWS",
+    "IDENTITY_COLUMNS",
     "MASS_BALANCE_SCHEMA",
     "MESH_CELL_FAMILIES_SCHEMA",
     "MESH_FACE_FAMILIES_SCHEMA",

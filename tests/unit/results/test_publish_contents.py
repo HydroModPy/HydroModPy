@@ -358,8 +358,8 @@ def test_a_refused_member_leaves_nothing_of_the_project(tmp_path) -> None:
 
 def _declare_a_folder(run_dir, folder) -> str:
     """Add ``folder`` to the tracked inputs of the seal of ``run_dir``; return its digest."""
-    from hydromodpy.results.manifest import TrackedInput
-    from hydromodpy.results.record import RunRecord
+    from hydromodpy.results.record.manifest import TrackedInput
+    from hydromodpy.results.record.record import RunRecord
     from hydromodpy.results.storage.digests import sha256_directory
 
     record = RunRecord.read(run_dir)

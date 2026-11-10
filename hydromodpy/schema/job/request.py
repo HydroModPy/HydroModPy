@@ -20,9 +20,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from hydromodpy.core.exceptions import CapabilityVersionMismatchError, ConfigValidationError
+from hydromodpy.core.io.canonical_json import sha256_value
 from hydromodpy.core.toml_io.error_locator import format_validation_error, validation_error_details
 from hydromodpy.schema.capability import CAPABILITY_VERSION_PATTERN, CapabilityDecl, OutputDecl
-from hydromodpy.schema.job.digest import sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.refusal import refuse_request
 

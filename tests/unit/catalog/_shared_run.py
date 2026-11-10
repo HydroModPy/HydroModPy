@@ -14,7 +14,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from hydromodpy.results.manifest import InputEntry, TrackedInput
+from hydromodpy.results.record.manifest import InputEntry, TrackedInput
 from tests._helpers.run_records import make_record
 
 RUN_NAME = "nancon_step5_export"

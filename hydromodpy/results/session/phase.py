@@ -28,8 +28,8 @@ from pydantic import ConfigDict, Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.record.checks import StopState
 from hydromodpy.results.session.descriptor import (
     BestTrial,
     ParameterWidth,

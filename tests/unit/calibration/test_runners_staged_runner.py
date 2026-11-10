@@ -62,7 +62,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
 from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.run_state import ExecutionRegistry
-from hydromodpy.results.checks import BUDGET_RULE, FROZE_BUDGET_ONLY
+from hydromodpy.results.record.checks import BUDGET_RULE, FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases, read_phase

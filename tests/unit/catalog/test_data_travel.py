@@ -284,6 +284,28 @@ def test_the_index_lists_every_file_the_run_read_and_nothing_else(tmp_path) -> N
         assert bundle.blobs[stored_name(item.sha256, item.dest)].is_file()
 
 
+def test_the_row_of_a_sealed_mesh_is_not_a_file_of_the_workspace(tmp_path) -> None:
+    import json
+
+    run_dir = make_shared_run(tmp_path / "ws")
+    path = run_dir / "inputs.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["inputs"].append(
+        {
+            "variable": "mesh",
+            "provider": "store",
+            "product": "mesh",
+            "path": "mesh",
+            "sha256": "f" * 64,
+        }
+    )
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    bundle = run_bundle(run_dir, project_root=run_dir.parent.parent)
+
+    assert "mesh" not in [item.variable for item in bundle.index.files]
+
+
 def test_a_delivered_file_brings_its_sidecar_and_the_cache_row_it_holds(tmp_path) -> None:
     workspace = tmp_path / "ws"
     run_dir = make_shared_run(workspace)

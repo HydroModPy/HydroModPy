@@ -20,8 +20,8 @@ from hydromodpy.core.toml_io.writer import dumps as dump_toml
 from hydromodpy.results.annotations import add_tag
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed

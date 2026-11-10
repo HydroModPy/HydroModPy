@@ -52,7 +52,6 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.fit_metrics import score_timeseries
-from hydromodpy.results.manifest import MetricRow, ParameterRow
 from hydromodpy.results.metric_rule import (
     HEADLINE_WINDOW,
     METRIC_RULE_VERSION,
@@ -60,6 +59,7 @@ from hydromodpy.results.metric_rule import (
     MetricRule,
     score,
 )
+from hydromodpy.results.record.manifest import MetricRow, ParameterRow
 from hydromodpy.results.run import Run, ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
 from hydromodpy.results.storage.parquet_schemas import primary_key_for

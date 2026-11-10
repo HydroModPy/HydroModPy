@@ -1,88 +1,42 @@
 # `hydromodpy/core`
 
-The kernel leaf. Every other layer may import `core`, and `core` imports no sibling layer, not even
-under `TYPE_CHECKING`. It holds what several layers need and none should own: the base of every config
-model, units, workspace and path rules, runtime state, I/O primitives, the typed exceptions, and a few
-numerical kernels (scores and the defaults of the stream criterion) that two layers must compute the
-same way. The root keeps only the words every layer shares: the exceptions, the logger, the version, the
-step names, the table words, the licence token. Everything else sits in a sub-package that answers one
-question, and each sub-package has its own `README.md`.
-
-## Root modules
+The kernel leaf. Every layer may read `core`, and `core` reads no sibling layer, not even under
+`TYPE_CHECKING`. It holds what several layers need and none should own: the base of every config
+model, units, workspace and path rules, runtime state, I/O primitives, the typed exceptions and a
+few numerical kernels that two layers must compute the same way. The root keeps the words every
+layer shares, and a sub-package answers one question and has its own README. `io/value_digest.py`
+holds the rule `values/1` of the seal, one digest for a block of values whatever their dtype, with
+`-0.0` read as `0.0` and one canonical NaN. Keep the package light: importing
+`hydromodpy.core` loads neither the configuration nor the data stack. A helper used by one layer
+stays in that layer, and moves here when a second layer needs it and the matrix forbids the edge.
+The answers column below is the first line of each module or sub-package docstring.
 
 | module | answers |
 |---|---|
-| `exceptions.py` | what can go wrong, by name? The typed `HydroModPyError` hierarchy the CLI maps to exit codes |
-| `diagnostic.py` | what did a check find in a document? `Diagnostic` and `Severity` (`error`, `warning`, `to_fill`), the one shape that the check of a document, the refusal of the loader, the preflight of a calibration and the expansion of a `[sites]` project all give. `HydroModPyError` carries them. The phrase of a code is not here, it is read from `schema/phrases.toml` when a diagnostic is written for a reader |
-| `logging.py` | how loud is a run? The console and file logging policy (`LogManager`, `get_logger`, verbosity) |
-| `version.py` | which release is this? The one source of `__version__` |
-| `pipeline_steps.py` | how are the steps of a simulation called? `STEP_NAMES`, shared by every layer |
-| `scope.py` | which words do the stored tables share? `catchment`, `domain`, `observed`, `simulated`, and the checks on station and zone names |
-| `licensing.py` | which licence is written when nobody declared one? `UNDETERMINED_LICENSE` |
-| `old_members.py` | what did this name become? The members that left before the first stable version, each refused with its new name (`refuse_old_member`) |
-| `code_fingerprint.py` | which code computes? `code_fingerprint()`: one digest per layer that changes a number, the same from Python 3.11 to 3.13. The identity of a run and the calibration cache read it |
-| `__init__.py` | lazily exposes `WorkspaceConfig`, `WorkspacePathRegistry`, `ExecutionRegistry`, `WorkflowContext`, `LoadedDataContext`, `SetupContext` and `ResolvedSimulationTimeWindow` |
-
-## Sub-packages
-
-| folder | answers |
-|---|---|
-| `config_kit/` | what do all config models share? The strict base, the `Profile` visibility, the calibrable marker, the persistence switch, what a config was given versus its defaults, the root sections |
-| `units/` | what unit is this number in? Pint registry, annotated aliases (`Length`, `HydraulicConductivity`, ...), conversions to SI, physical bounds, axis labels |
-| `toml_io/` | how is a TOML config read, merged and written? Loader with `base_config`, overrides, path resolution, commented templates, error lines |
-| `tracking/` | which files does a config read? `InputFile` and the walker that feeds the manifest |
-| `workspace/` | where does a workspace live, and what are its paths? `WorkspaceConfig`, `WorkspaceLayout`, the path registry, `workspace.toml` |
-| `state/` | where do things live in a project, and what does a run carry between steps? Path helpers, run contexts, the seed manager, and the one rule of a project name and a run name (`names.py`) |
-| `site/` | what is a site? `SiteConfig`, `SiteRow`, the site fingerprint, the gauge rule |
-| `payload/` | what does a package install, and where? `INSTALL.toml` and the one installer |
-| `contracts/` | what do two layers agree on without importing each other? Protocols, solver and cache contracts |
-| `time/` | when does a run start, stop and step? The time window, period aggregation, date-to-period selection (`time/README.md`) |
-| `io/` | how do I read, write and fetch files safely? JSON, rasters, vectors, Parquet, HTTP, DuckDB open, atomic replace |
-| `runtime/` | how does the process behave? `HMP_*` variables, SIGTERM as an interrupt |
-| `console/` | what does a run show while it works? Live progress and its NDJSON sink |
-| `budget/` | what sign has a budget flux, and which terms does a run keep? |
-| `scoring/` | how well does a simulation match observations? Efficiency metrics, the cost margin and the numeric defaults of the stream-network criterion |
-| `plugin_registry.py` | how does an id resolve to a class? One engine carries every plugin surface, with `register`, `get` and `names`. Each surface is an instance in its own module: `solvers` and `extractors` (`solver/base/registry.py`), `data_sources` (`data/source/registry.py`), `evaluators` (`calibration/evaluation/`), `mesh_engines` (`mesh/registry.py`) and `terrain_engines` (`catchment/terrain/registry.py`) |
-| `fields/` | how is a grid or a field array described? Nodata, grid reference, vertical column, storage precision |
-
-## What left core
-
-`bed_regularization` is now in `catchment/algorithms/`; `solver_diagnostics` is
-`solver/boussinesq/runtimes/diagnostic_files.py`; `administrative_france` is
-`catchment/administrative/regions.py`; `units/udunits` is `results/storage/udunits.py`;
-`config_kit/export_spec` is `results/exporters/export_spec.py`. The drainage kernels (receiver graph, depression filling, descent D,
-downslope distance) are in `catchment/drainage/`, the mean recharge of the stream criterion is in
-`model/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
-
-## Import rules
-
-`core` imports only `core`. The layer matrix (`tests/unit/architecture/layer_matrix.yaml`) gives it one
-allowed target, itself, and the layer test counts every import: module level, inside a function, under
-`TYPE_CHECKING`. Every other layer lists `core` among its targets.
-
-A kernel module that needs something from a higher layer receives it as an argument from its caller.
-`config_kit` and `toml_io` receive the root config class as an argument of the functions that read and
-write the configuration.
-No kernel module reaches for a global: the bootstrap hooks are gone, and `TrialPipeline` in
-`calibration/runners` is the only provider left in the library. A new sibling edge is a regression unless
-the YAML is updated with its rationale.
-
-Keep `core` light: importing `hydromodpy.core` does not load the configuration or the data stack.
-
-## Where to add what
-
-1. A helper used by one layer only goes in that layer. It moves to `core` when a second layer needs it and the layer matrix forbids one importing the other.
-2. A word every layer shares (a step name, a table word) goes in a root module. Anything else goes in the sub-package that answers its question, never in the root.
-3. A unit alias goes in `units/types.py`, with its canonical unit.
-4. A field visibility rule goes in `config_kit/profile.py` and `config_kit/introspect.py`.
-5. An exception the CLI should map to an exit code goes in `exceptions.py`, then in `exit_code_for` of `hydromodpy/cli/helpers.py`.
-6. The project index is the one DuckDB file of the library, and it is never migrated: a schema change there is a rebuild (`results/catalog/index_schema.py`). The data cache has no database, its sidecars are the cache (`data/provenance/sidecars.py`).
-7. A metric goes in `scoring/metrics.py`, pure NumPy, JSON-friendly floats.
-
-## Reading path
-
-1. `units/types.py` for the unit aliases used in every model.
-2. `config_kit/profile.py` and `config_kit/introspect.py` for the visibility model.
-3. `workspace/config.py`, then `state/layout.py` for where things live.
-4. `state/run_state.py` for the cross-layer contexts.
-5. `scoring/metrics.py` for the metric contract.
+| `budget/` | Per-cell water budgets: the sign of each flux, the terms a field reads and the terms a store keeps. |
+| `code_fingerprint.py` | The fingerprint of the code that computes: one digest per layer of the package. |
+| `config_kit/` | Pydantic helpers shared by every HydroModPy configuration model. |
+| `console/` | What a run shows while it works: the live progress display and its NDJSON sink. |
+| `contracts/` | Neutral contracts shared across pipeline layers. |
+| `diagnostic.py` | One finding of a check on a configuration document, in the shape every producer gives. |
+| `exceptions.py` | Typed exception hierarchy for HydroModPy. |
+| `fields/` | Plain descriptions of grids and field arrays: nodata, grid geometry, columns, storage precision. |
+| `io/` | Low-level I/O helpers: raster, vector, CRS, JSON, HTTP. |
+| `io/value_digest.py` | The `values/1` rule: one digest for a block of values, whatever their dtype. |
+| `licensing.py` | The SPDX token this repository writes when nobody declared a licence. |
+| `logging.py` | Console and file logging policy for HydroModPy. |
+| `old_members.py` | Members of the public objects that left before the first stable version. |
+| `payload/` | What a package installs into a workspace, and the one installer that places it. |
+| `pipeline_steps.py` | The names of the steps of a simulation, the words every layer shares. |
+| `plugin_registry.py` | One registry engine, shared by every `id -> class` plugin surface. |
+| `runtime/` | The running process: environment variables and signal handling. |
+| `scope.py` | The words the stored tables share. |
+| `scoring/` | Goodness-of-fit scores between simulated and observed series, and the margin that ties two costs. |
+| `site/` | The site: one catchment, declared once and recognized everywhere. |
+| `state/` | Runtime state models shared by launchers and simulation execution. |
+| `time/` | Shared simulation time-window resolution helpers. |
+| `toml_io/` | TOML I/O and path-resolution helpers shared by every config layer. |
+| `tracking/` | Input-file tracking primitives used across HydroModPy configs. |
+| `units/` | Unit parsing and formatting helpers. |
+| `version.py` | Canonical source of the HydroModPy version string. |
+| `workspace/` | WorkspaceLayout structures used by simulation and launchers. |

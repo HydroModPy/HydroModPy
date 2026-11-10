@@ -88,9 +88,10 @@ from hydromodpy.results.annotations import add_note, add_tag, read_annotations, 
 from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.ledger import Ledger
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.label import label_of
+from hydromodpy.results.record.manifest import is_sealed
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.run.array import RunArrayProvider
 from hydromodpy.results.run.descent import RunDescent
 from hydromodpy.results.run.geographic import RunGeographicMixin
@@ -99,7 +100,6 @@ from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import read_record
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
-from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_EXPORTS_DIRNAME,
@@ -116,8 +116,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.checks import Checks
-    from hydromodpy.results.manifest import InputEntry
+    from hydromodpy.results.record.checks import Checks
+    from hydromodpy.results.record.manifest import InputEntry
 
 _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
 """``[workspace]`` members that derive from ``project_root`` and name outputs."""
@@ -192,7 +192,7 @@ def _store_row(store: RunStore) -> dict:
         "period_start": facts.period_start,
         "period_end": facts.period_end,
         "time_unit": facts.time_unit,
-        "config_hash": facts.config_hash,
+        "solution_key": facts.solution_key,
         "config_snapshot": snapshot,
         "tags": list(tags) or None,
     }

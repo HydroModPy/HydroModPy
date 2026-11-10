@@ -147,8 +147,8 @@ def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_
     import pandas as pd
 
     from hydromodpy.core.site import SiteConfig
-    from hydromodpy.results.manifest import ManifestSite
     from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
+    from hydromodpy.results.record.manifest import ManifestSite
     from tests._helpers.run_stores import open_run_store
 
     index = pd.date_range("2020-01-02", periods=10, freq="D")

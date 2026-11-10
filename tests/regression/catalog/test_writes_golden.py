@@ -21,7 +21,7 @@ import pyarrow.parquet as pq
 
 from hydromodpy import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.manifest import MetricRow
+from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.run_stores import open_run_store

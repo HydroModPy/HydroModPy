@@ -1,12 +1,13 @@
-"""The frozen configuration of a published copy replays from the bytes the copy carries.
+"""A published copy replays from the bytes the copy carries.
 
-``hmp run <copy>/config.toml --frozen`` checks every file of the install index
+``hmp replay <copy> -w <project>`` checks every file of the install index
 against ``inputs/`` and points the field of each recorded role at those bytes:
 a declared file is read where it is stored, a declared folder is rebuilt from
 the files of the index that sit in it, with its station rows, and never holds
 a station the run did not read. A missing file, bytes with another digest or
 a file a provider delivered refuse the replay before anything runs. The run
-goes to the project ``-w`` names. The full chain, a solve included, is
+goes to the project ``-w`` names; ``hmp run --frozen`` on the same file is
+refused and names the verb. The full chain, a solve included, is
 ``tests/e2e/test_replay_from_archive_without_workspace.py``.
 """
 
@@ -26,7 +27,7 @@ from hydromodpy.project.exchange.replay import (
 )
 from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish
-from hydromodpy.results.manifest import InputEntry, TrackedInput
+from hydromodpy.results.record.manifest import InputEntry, TrackedInput
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.run_records import make_record
 from tests.unit.catalog._shared_run import (
@@ -182,7 +183,7 @@ def test_a_file_a_provider_delivered_refuses_the_replay_and_names_the_import(
     assert "hmp catalog import" in str(refused.value)
 
 
-def test_hmp_run_frozen_on_a_copy_replays_into_the_project_w_names(tmp_path: Path) -> None:
+def test_hmp_run_frozen_on_a_copy_is_refused_and_names_the_replay_verb(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     before = sorted(path.name for path in copy.iterdir())
     project = tmp_path / "replay"
@@ -190,25 +191,23 @@ def test_hmp_run_frozen_on_a_copy_replays_into_the_project_w_names(tmp_path: Pat
     (project / "project.toml").write_text("", encoding="utf-8")
 
     result = CliRunner().invoke(
-        ["run", str(copy / "config.toml"), "--frozen", "--dry-run", "-q", "-w", str(project)]
+        ["run", str(copy / "config.toml"), "--frozen", "-q", "-w", str(project)]
     )
 
-    assert result.exit_code == 0, result.stderr
-    assert f"config  : {project / '.hmp' / 'replay' / f'{RUN_NAME}.toml'}" in result.stdout
-    assert not (project / ".hmp" / "replay").exists()
+    assert result.exit_code == EXIT_CONFIG
+    assert "hmp replay" in result.stderr
+    assert not (project / "runs").exists()
     assert sorted(path.name for path in copy.iterdir()) == before
 
 
-def test_hmp_run_frozen_on_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> None:
+def test_hmp_replay_of_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     (copy / INSTALL_FILENAME).unlink()
     project = tmp_path / "replay"
     project.mkdir()
     (project / "project.toml").write_text("", encoding="utf-8")
 
-    result = CliRunner().invoke(
-        ["run", str(copy / "config.toml"), "--frozen", "-q", "-w", str(project)]
-    )
+    result = CliRunner().invoke(["replay", str(copy), "-q", "-w", str(project)])
 
     assert result.exit_code == EXIT_CONFIG
     assert "--with inputs" in result.stderr
@@ -222,8 +221,8 @@ def test_two_inputs_of_one_role_keep_their_own_bytes(
     from types import SimpleNamespace
 
     import hydromodpy.project.exchange.replay as replay
-    import hydromodpy.results.manifest as manifest
     import hydromodpy.results.publication as publication
+    import hydromodpy.results.record.manifest as manifest
 
     items = [
         SimpleNamespace(dest=f"data/{name}.tif", sha256=name * 4, root="workspace", provider=None)

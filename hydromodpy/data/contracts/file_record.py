@@ -8,7 +8,7 @@ had answered. A :class:`FileRecord` carries what the seal and the licence pages
 need, in one place, read once.
 
 :func:`FileRecord.of` is the constructor a source calls. It hashes the file
-through :func:`hydromodpy.schema.job.digest.sha256_file`, in blocks, without
+through :func:`hydromodpy.core.io.file_digest.sha256_of`, in blocks, without
 writing anything: the file is sealed as it was answered.
 """
 
@@ -89,10 +89,10 @@ class FileRecord:
         The file is read and never written: a fetch answers with the bytes it
         received, and the digest is computed over exactly those.
         """
-        from hydromodpy.schema.job.digest import sha256_file
+        from hydromodpy.core.io.file_digest import sha256_and_size
 
         try:
-            sha256, _bytes = sha256_file(path)
+            sha256, _bytes = sha256_and_size(path)
         except OSError as exc:
             raise DataProductError(
                 f"A fetch cannot seal {Path(path)!r}: reading it for its digest failed ({exc})."

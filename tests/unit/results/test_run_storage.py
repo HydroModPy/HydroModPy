@@ -92,7 +92,6 @@ from hydromodpy.results.catalog.liveness import (
     ABANDONED_SESSION_MINUTES,
     abandoned_calibration_session_count,
 )
-from hydromodpy.results.checks import CHECKS_SCHEMA
 from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.exporters.request import (
     export_data_requests,
@@ -107,13 +106,6 @@ from hydromodpy.results.identity import (
     read_identity_from,
 )
 from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger, LedgerEntry, ledger_path
-from hydromodpy.results.manifest import (
-    RUN_RECORD_MANIFEST_VERSION,
-    Manifest,
-    ManifestRun,
-    read_manifest,
-    read_seal,
-)
 from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome, effective_status, read_outcome
 from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan, PlanCase, read_plan, write_plan
 from hydromodpy.results.publication import (
@@ -129,7 +121,15 @@ from hydromodpy.results.publication import (
     read_published,
     write_publication,
 )
-from hydromodpy.results.record import (
+from hydromodpy.results.record.checks import CHECKS_SCHEMA
+from hydromodpy.results.record.manifest import (
+    RUN_RECORD_MANIFEST_VERSION,
+    ManifestRun,
+    RunSeal,
+    read_manifest,
+    read_seal,
+)
+from hydromodpy.results.record.record import (
     INPUTS_SCHEMA,
     PROVENANCE_VERSION,
     InputsDocument,
@@ -174,7 +174,7 @@ from hydromodpy.results.storage.run_facts import (
     write_facts,
 )
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.results.storage.sealing import seal_completed, sealed_config_hash
+from hydromodpy.results.storage.sealing import seal_completed, sealed_solution_key
 from hydromodpy.results.trash import identity_of, is_protected
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
@@ -188,7 +188,7 @@ from hydromodpy.schema.job.documents import read_versioned
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS as JOB_OUTCOME_VERSIONS
 from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
-from hydromodpy.schema.job.seal import MANIFEST_VERSIONS as JOB_MANIFEST_VERSIONS
+from hydromodpy.schema.job.seal import JOB_SEAL_V2_SCHEMA
 from hydromodpy.solver.modflow6.extractors.flow import _reach_row
 from hydromodpy.solver.modflow6.extractors.sfr import SfrObsSpec, SfrReachGeometry
 from hydromodpy.workflow.record.journal import JOURNAL_SCHEMA, WorkflowJournal, journal_path
@@ -1061,9 +1061,9 @@ SEALED_DOCUMENTS = [document for document in DOCUMENTS if document.remedy is Non
 
 
 WINDOWS: dict[str, tuple[str, str]] = {
-    "manifest.json": ("hydromodpy.results.manifest", "MANIFEST_VERSIONS"),
-    "provenance.json": ("hydromodpy.results.record", "PROVENANCE_VERSIONS"),
-    "inputs.json": ("hydromodpy.results.record", "INPUTS_VERSIONS"),
+    "manifest.json": ("hydromodpy.results.record.manifest", "MANIFEST_VERSIONS"),
+    "provenance.json": ("hydromodpy.results.record.record", "PROVENANCE_VERSIONS"),
+    "inputs.json": ("hydromodpy.results.record.record", "INPUTS_VERSIONS"),
     "outcome.json": ("hydromodpy.results.outcome", "OUTCOME_VERSIONS"),
     "annotations.json": ("hydromodpy.results.annotations", "ANNOTATIONS_VERSIONS"),
     "figures/index.json": ("hydromodpy.results.ledger", "LEDGER_VERSIONS"),
@@ -1082,13 +1082,27 @@ OTHER_WINDOWS: tuple[tuple[str, str, object], ...] = (
     ("hydromodpy.results.zarr_store.constants", "ZARR_VERSIONS", ZARR_SCHEMA_VERSION),
     ("hydromodpy.results.storage.parquet_schemas", "PARQUET_VERSIONS", PARQUET_SCHEMA_VERSION),
     ("hydromodpy.data.provenance.lockfile", "LOCKFILE_VERSIONS", LOCKFILE_SCHEMA),
-    ("hydromodpy.results.checks", "CHECKS_VERSIONS", CHECKS_SCHEMA),
+    ("hydromodpy.results.record.checks", "CHECKS_VERSIONS", CHECKS_SCHEMA),
 )
 
 
 def _window_of(document: Document) -> VersionWindow:
     module, name = WINDOWS[document.name]
     return getattr(import_module(module), name)
+
+
+def _reads(document: Document) -> str:
+    """What the reader of *document* says it reads: its window, or its one version."""
+    if document.name in WINDOWS:
+        return _window_of(document).reads(document.key)
+    return f"{document.key} = {document.version!r}"
+
+
+def _oldest(document: Document) -> object:
+    """The oldest version the reader of *document* reads; a run seal of 2.0.0 still reads."""
+    if document.name in WINDOWS:
+        return _window_of(document).oldest
+    return document.version
 
 
 def _older(version: object) -> object:
@@ -1113,7 +1127,7 @@ def test_a_version_above_what_the_reader_reads_is_refused_naming_its_writer(
 
     message = str(refused.value)
     assert f"{document.key} = {bumped!r}" in message
-    assert f"HydroModPy {HYDROMODPY_VERSION} reads {document.key} = {document.version!r}" in message
+    assert f"HydroModPy {HYDROMODPY_VERSION} reads {_reads(document)}" in message
     if document.remedy is None:
         assert NEWER_REMEDY in message
         assert f"written by HydroModPy {document.writer}" in message
@@ -1125,7 +1139,7 @@ def test_a_version_above_what_the_reader_reads_is_refused_naming_its_writer(
 def test_a_version_below_the_window_says_a_pre_release_wrote_it(
     document: Document, tree: Tree
 ) -> None:
-    older = _older(document.version)
+    older = _older(_oldest(document))
     _rewrite(document, tree, older)
 
     with pytest.raises(SchemaVersionMismatchError) as refused:
@@ -1181,7 +1195,9 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
     module: str, name: str, current: object
 ) -> None:
     window = getattr(import_module(module), name)
-    assert window.oldest == window.current
+    # The run seal reads the manifest_version 3 of the 2.0.0 beside its own 4.
+    oldest = 3 if name == "MANIFEST_VERSIONS" else window.current
+    assert window.oldest == oldest
     assert current is None or window.current == current
 
 
@@ -1391,7 +1407,7 @@ def test_the_index_keeps_the_words_a_later_version_wrote(tree: Tree) -> None:
 
 
 STORED_MODELS: tuple[type[BaseModel], ...] = (
-    Manifest,
+    RunSeal,
     Outcome,
     RunProvenance,
     InputsDocument,
@@ -1443,8 +1459,9 @@ def test_no_stored_model_holds_a_closed_vocabulary() -> None:
         for name, field in model.model_fields.items()
         if _closed_literals(field.annotation)
     }
-    # A seal certifies a completed run: no later word can mean anything else.
-    assert closed == {f"{ManifestRun.__name__}.status"}
+    # A seal certifies a completed run, and a run seal is the run profile of the
+    # common seal: no later word can mean anything else for either.
+    assert closed == {f"{ManifestRun.__name__}.status", f"{RunSeal.__name__}.profile"}
 
 
 def test_every_read_of_a_stored_model_goes_through_the_one_helper() -> None:
@@ -1512,8 +1529,8 @@ def _future_session(tree: Tree) -> None:
     _rewrite(document, tree, _bumped(SESSION_SCHEMA))
 
 
-def _config_hash(tree: Tree) -> str:
-    return str(read_manifest(tree.run)["identity"]["config_hash"])
+def _solution_key(tree: Tree) -> str:
+    return str(read_manifest(tree.run)["identity"]["solution_key"])
 
 
 def _summary_of(tree: Tree) -> dict[str, Any]:
@@ -1525,7 +1542,7 @@ RUN_LISTINGS: tuple[tuple[str, Callable[[Tree, str], Any], Any], ...] = (
     ("effective_status", lambda t, h: effective_status(t.run), "unreadable"),
     ("case_state", lambda t, h: case_state(t.project, RUN).status, "planned"),
     ("running_cases", lambda t, h: running_cases(t.project, [RUN]), []),
-    ("sealed_config_hash", lambda t, h: sealed_config_hash(t.run), None),
+    ("sealed_solution_key", lambda t, h: sealed_solution_key(t.run), None),
     ("project show", lambda t, h: _summary_of(t)["runs"].get("unreadable"), 1),
     (
         "gc plan",
@@ -1552,12 +1569,12 @@ def test_a_listing_with_one_unreadable_run_leaves_it_out(
     tree: Tree,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    config_hash = _config_hash(tree)
-    assert case_is_done(tree.project, RUN, config_hash, "simulation")
+    solution_key = _solution_key(tree)
+    assert case_is_done(tree.project, RUN, solution_key, "simulation")
     spoil(tree)
 
     with caplog.at_level(logging.WARNING):
-        assert ask(tree, config_hash) == answer
+        assert ask(tree, solution_key) == answer
 
     warned = [
         record
@@ -1905,6 +1922,9 @@ def test_a_model_still_refuses_an_unknown_key_when_it_writes() -> None:
     with pytest.raises(ValidationError):
         Annotations(**{FUTURE_KEY: 1})
 
+
+JOB_MANIFEST_VERSIONS = VersionWindow(oldest=JOB_SEAL_V2_SCHEMA, current=JOB_SEAL_V2_SCHEMA)
+"""The seal a job of the 2.0.0 wrote, the only job manifest with a ``schema`` key."""
 
 JOB_WINDOWS = pytest.mark.parametrize(
     "window",

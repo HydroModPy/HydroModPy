@@ -14,10 +14,10 @@ from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.project.launch import plan_project
 from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.modflow_common.binaries import SolverEngine
 from hydromodpy.workflow.steps.prepare_solver import dispatch as dispatch_module
@@ -352,7 +352,7 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_solution_key(tmp_path
     assert facts.project == "demo_project"
     assert facts.solver == "boussinesq"
     assert facts.solver_category == "integrated"
-    assert facts.config_hash == "k" * 64
+    assert facts.solution_key == "k" * 64
     assert facts.config_source == "requested_name.toml"
     assert facts.lineage.kind == "rerun"
 
@@ -365,7 +365,7 @@ def test_a_run_opened_without_a_solution_key_seals_none(tmp_path: Path) -> None:
         ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides={"K": 1e-5}
     )
 
-    assert initial_facts(ctx).config_hash is None
+    assert initial_facts(ctx).solution_key is None
 
 
 # --- test_a_restart_reference_is_resolved_to_a_run ---

@@ -63,6 +63,7 @@ RETIRED_COLUMNS = frozenset(
     | {"nse_station", "nse_variable", "nse_window_start", "nse_window_end", "nse_n"}
     | {"objective_name", "objective_value", "objective_window_start", "objective_window_end"}
     | {"cost_name", "cost"}
+    | {"config_hash"}
 )
 
 SESSION_TABLE_COLUMNS = {
@@ -207,6 +208,8 @@ def test_simulations_carries_the_site_case_attempt_label_and_rule_columns(connec
         "calibrated_by_metric",
         "calibrated_by_cost",
         "config_snapshot",
+        "solution_key",
+        "request_id",
     } <= columns
     assert not (RETIRED_COLUMNS & columns)
 
@@ -217,7 +220,7 @@ def test_the_session_and_metric_tables_hold_one_row_per_case_and_period(connecti
 
 
 def test_the_schema_version_is_stamped_and_read_back(connection):
-    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION == "11"
+    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION == "12"
 
 
 def test_a_file_without_the_stamp_has_no_version():

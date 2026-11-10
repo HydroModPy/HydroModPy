@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,8 +21,14 @@ from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import smoothed_catchment
 from hydromodpy.mesh.planning.refinement_zones import RefinementZone
 from hydromodpy.mesh.refinement_config import RefinementZoneConfig
-from hydromodpy.mesh.stored import library_versions
+from hydromodpy.mesh.stored import (
+    ARRAYS_FILENAME,
+    DESCRIPTION_FILENAME,
+    library_versions,
+)
 from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.storage.contract import MESH_DIRNAME
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh, zone_runs
@@ -424,3 +431,138 @@ def test_the_summary_of_the_mesh_step_carries_the_zone_runs(tmp_path: Path, monk
     step_mesh(ctx)
 
     assert ctx.setup.mesh_summary["zone_runs"] == {"coarse": "3" * 32}
+
+
+# --- test_a_replay_reads_the_mesh_sealed_beside_its_source ---
+# An engine that cannot rebuild its mesh bit for bit reads the one the source sealed.
+#
+# The source of a replay holds ``mesh/`` beside its seal. A replay of such an
+# engine reads it, its identity compared to the request as the store's is; a
+# miss builds again through the store. An engine that rebuilds the same cells in
+# every process never reads the sealed copy.
+
+SEALED_RUN = "probe.v2"
+
+
+def _seal(tmp_path: Path, mesh_cfg: MeshConfig) -> tuple[Path, str]:
+    """Build *mesh_cfg* in a project and copy its stored mesh beside a sealed run.
+
+    Returns the sealed run directory, as ``hmp replay`` would see it, and the
+    product key of the mesh that was built.
+    """
+    step_mesh(_context(tmp_path, mesh_cfg))
+    store = ProductStore(products_root(tmp_path))
+    (only,) = store.entries()
+    stored = store.path(only.key)
+    sealed = tmp_path / "runs" / SEALED_RUN
+    sealed.mkdir(parents=True)
+    (sealed / MESH_DIRNAME).mkdir()
+    shutil.copy(stored / ARRAYS_FILENAME, sealed / MESH_DIRNAME / ARRAYS_FILENAME)
+    shutil.copy(stored / DESCRIPTION_FILENAME, sealed / MESH_DIRNAME / DESCRIPTION_FILENAME)
+    _write_mesh_row(sealed)
+    return sealed, only.key
+
+
+def _write_mesh_row(sealed: Path) -> None:
+    """Write the ``mesh`` row of ``inputs.json`` the seal writes, with the digest of ``mesh/``."""
+    import json
+
+    from hydromodpy.results.record.manifest import InputEntry
+    from hydromodpy.results.record.record import InputsDocument
+    from hydromodpy.results.storage.digests import sha256_directory
+
+    row = InputEntry(
+        variable=MESH_DIRNAME,
+        provider="store",
+        product=MESH_DIRNAME,
+        path=MESH_DIRNAME,
+        sha256=sha256_directory(sealed / MESH_DIRNAME),
+    )
+    document = InputsDocument(sim_id="s" * 32, inputs=[row])
+    (sealed / "inputs.json").write_text(
+        json.dumps(document.model_dump(mode="json", by_alias=True)), encoding="utf-8"
+    )
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_replay_reads_the_mesh_sealed_beside_the_source_run(tmp_path, cached_engine) -> None:
+    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
+    sealed, key = _seal(tmp_path, mesh_cfg)
+    replay = _context(tmp_path / "replay_project", mesh_cfg)
+    replay.run_dir = tmp_path / "replay" / "runs" / "probe.v3"
+    replay.run_dir.mkdir(parents=True)
+
+    step_mesh(replay, sealed)
+
+    assert cached_engine.builds == 1
+    assert replay.setup.mesh_summary["product_key"] == key
+    assert replay.setup.cell_mesh is not None
+    line = read_profile(replay.run_dir).lines[-1]
+    assert (line.name, line.reused, line.key) == ("mesh", "sealed", None)
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_replay_of_an_engine_that_rebuilds_bit_for_bit_ignores_the_seal(
+    tmp_path, cached_engine
+) -> None:
+    sealed, _key = _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+    replay = _context(tmp_path / "replay_project", MeshConfig())
+
+    step_mesh(replay, sealed)
+
+    assert replay.setup.mesh_summary["engine"] == "regular"
+    assert replay.setup.cell_mesh.identity.engine_id == "regular"
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_sealed_mesh_of_another_request_is_a_miss_and_the_step_builds_again(
+    tmp_path, cached_engine, caplog
+) -> None:
+    sealed, key = _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=100.0))
+    replay = _context(
+        tmp_path / "replay_project", MeshConfig(engine=cached_engine.engine_id, cell_size=125.0)
+    )
+
+    with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
+        step_mesh(replay, sealed)
+
+    assert cached_engine.builds == 2
+    assert "does not read for this request" in caplog.text
+    assert replay.setup.mesh_summary["product_key"] != key
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_sealed_mesh_changed_after_its_seal_is_a_miss(tmp_path, cached_engine, caplog) -> None:
+    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
+    sealed, _key = _seal(tmp_path, mesh_cfg)
+    arrays = sealed / MESH_DIRNAME / ARRAYS_FILENAME
+    arrays.write_bytes(arrays.read_bytes() + b"\0")
+    replay = _context(tmp_path / "replay_project", mesh_cfg)
+
+    with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
+        step_mesh(replay, sealed)
+
+    assert cached_engine.builds == 2
+    assert "is not the one its seal certifies" in caplog.text
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_source_run_with_no_mesh_directory_is_a_miss(tmp_path, cached_engine) -> None:
+    sealed = tmp_path / "runs" / SEALED_RUN
+    sealed.mkdir(parents=True)
+    replay = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+
+    step_mesh(replay, sealed)
+
+    assert cached_engine.builds == 1
+    assert replay.setup.cell_mesh is not None
+
+
+@pytest.mark.usefixtures("planned_inputs")
+def test_a_run_that_is_not_a_replay_reads_nothing_beside_it(tmp_path, cached_engine) -> None:
+    _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+    plain = _context(tmp_path / "replay_project", MeshConfig(engine=cached_engine.engine_id))
+
+    step_mesh(plain)
+
+    assert cached_engine.builds == 2

@@ -619,7 +619,7 @@ def _identical(monkeypatch: pytest.MonkeyPatch, root: Path, key: str, name="demo
 
     run_dir, _ = seal_demo_run(root, name)
     monkeypatch.setattr(
-        sealing, "sealed_config_hash", lambda directory: key if directory == run_dir else None
+        sealing, "sealed_solution_key", lambda directory: key if directory == run_dir else None
     )
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda directory, project: True)
     return run_dir

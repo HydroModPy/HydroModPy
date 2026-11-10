@@ -24,7 +24,8 @@ from hydromodpy.results.catalog.index_schema import (
 )
 from hydromodpy.results.catalog.indexer import index_is_current, known_issues_digest, scan_tree
 from hydromodpy.results.catalog.views import V_CASES_FIXED_COLUMNS
-from hydromodpy.results.checks import CalibratedBy
+from hydromodpy.results.record.checks import CalibratedBy
+from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.session.descriptor import BestCase, BestTrial, write_session
 from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.storage.contract import (
@@ -614,6 +615,23 @@ def test_the_index_is_replaced_in_one_step(project):
 
     assert index_path.stat().st_ino != file_id_before
     assert list(index_path.parent.glob("*.rebuild-*")) == []
+
+
+def test_the_two_identifiers_are_read_from_the_seal(project):
+    """Not from ``simulation.parquet``: the table carries neither column."""
+    seal_run(project, "alpha")
+    rebuild_index(project)
+
+    seal = read_seal(project / "runs" / "alpha")
+    assert seal.identity.solution_key is not None
+    assert seal.identity.request_id is not None
+    rows = _rows(project, "SELECT name, solution_key, request_id FROM simulations ORDER BY name")
+    assert rows
+    assert all(key and request for _, key, request in rows)
+    assert {name: (key, request) for name, key, request in rows}["alpha"] == (
+        seal.identity.solution_key,
+        seal.identity.request_id,
+    )
 
 
 def test_the_digest_follows_the_bugs_of_the_register(monkeypatch):

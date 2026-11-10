@@ -1,6 +1,6 @@
 """What a completed run says about itself, read from its own directory.
 
-A run sealed by :class:`~hydromodpy.results.record.RunRecord` carries its site,
+A run sealed by :class:`~hydromodpy.results.record.record.RunRecord` carries its site,
 its case, its lineage, its checks, its loaded inputs and its scores in
 ``manifest.json``, ``inputs.json`` and ``provenance.json``. These facts are
 read from the directory, never from the index: a run received alone answers
@@ -26,9 +26,9 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import DataError
 from hydromodpy.results.errors import RunNotSealedError
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.manifest import is_sealed
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
@@ -38,9 +38,9 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.run_store import RunStore
 
 if TYPE_CHECKING:
-    from hydromodpy.results.lineage import Lineage
-    from hydromodpy.results.manifest import MetricRow
+    from hydromodpy.results.record.manifest import MetricRow
     from hydromodpy.results.run.view import Run
+    from hydromodpy.schema.lineage import Lineage
 
 WINDOW_COLUMNS: Final[tuple[str, ...]] = (
     "window_start",

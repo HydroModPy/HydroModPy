@@ -45,6 +45,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.record.forms import identity_block
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 from hydromodpy.results.validity_rules import Label
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
@@ -90,7 +91,15 @@ class Identity(HydroModelBase):
     case_id: str = Field(description="Case the run is: the run name, or site-recipe")
     sim_id: str = Field(description="Id of the run")
     attempt_id: str = Field(description="Id of the attempt that sealed the run")
-    config_hash: str | None = Field(default=None, description="Identity hash of the configuration")
+    solution_key: str | None = Field(
+        default=None,
+        description=(
+            "Solution key of the run: its request id plus its code, solver binaries "
+            "and key package versions"
+        ),
+    )
+    request_id: str | None = Field(default=None, description="Request id of the run")
+    solver: str | None = Field(default=None, description="Flow backend of the run")
     mesh_hash: str | None = Field(default=None, description="Hash of the mesh")
     period: DateWindow | None = Field(
         default=None, description="Simulated period; none when steady"
@@ -118,8 +127,13 @@ class Identity(HydroModelBase):
 
     @classmethod
     def from_json(cls, text: str) -> Identity:
-        """Read a block :meth:`as_json` wrote."""
-        return read_stored(cls, json.loads(text))
+        """Read a block :meth:`as_json` wrote, a 2.0.0 block included."""
+        return cls.from_stored(json.loads(text))
+
+    @classmethod
+    def from_stored(cls, payload: dict[str, Any]) -> Identity:
+        """Read a block from any format, dropping the keys the 2.0.0 wrote and 2.1 retired."""
+        return read_stored(cls, identity_block(payload))
 
     def as_zarr_attrs(self) -> dict[str, Any]:
         """Return the root attributes of a Zarr store."""
@@ -285,7 +299,11 @@ def read_identity_from(path: str | Path) -> Identity | None:
 def _read_sidecar(path: Path) -> Identity | None:
     if not path.is_file():
         return None
-    return read_stored(MetaSidecar, read_sealed_json(path, IDENTITY_VERSIONS)).identity
+    payload = read_sealed_json(path, IDENTITY_VERSIONS)
+    block = payload.get("identity")
+    if isinstance(block, dict):
+        payload["identity"] = identity_block(block)
+    return read_stored(MetaSidecar, payload).identity
 
 
 def _read_zarr(path: Path) -> Identity | None:
@@ -293,7 +311,7 @@ def _read_zarr(path: Path) -> Identity | None:
         return None
     root = zarr.open_group(str(path), mode="r", use_consolidated=False)
     block = root.attrs.get(ZARR_IDENTITY_ATTR)
-    return None if block is None else read_stored(Identity, block)
+    return None if block is None else Identity.from_stored(block)
 
 
 def _read_parquet(path: Path) -> Identity | None:

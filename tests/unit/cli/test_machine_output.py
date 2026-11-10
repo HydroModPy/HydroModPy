@@ -668,3 +668,73 @@ def test_every_verb_that_writes_has_a_dry_run_that_changes_nothing(
     table = CliRunner().invoke(["doctor", "--fix-config", str(old_key), "--dry-run"])
     assert "-[modflow6.runtime]" in table.stdout
     assert "+[solver.modflow6.runtime]" in table.stdout
+
+
+# --- test_replay_says_which_run_it_wrote_and_what_its_values_did ---
+# ``hmp replay`` writes the class its seal carries, under one envelope.
+
+
+def _replay_payload(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "ref": "runs/probe.v2",
+        "source": "probe.v2",
+        "sim_id": "0123456789abcdef",
+        "name": "probe",
+        "rel_dir": "runs/probe.v3",
+        "class": "bit",
+        "basis": "float64",
+        "differs": {},
+        "added": [],
+        "removed": [],
+        "changes": [],
+        "strict": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_replay_declares_the_class_it_found_in_its_envelope() -> None:
+    assert set(output_of("replay").fields) == set(_replay_payload())
+
+
+def test_replay_prints_that_every_value_reproduced(capsys) -> None:
+    from hydromodpy.cli.commands.replay import _print
+
+    _print(_replay_payload())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == [
+        "replayed probe.v2 as runs/probe.v3  [01234567]",
+        "  values : bit, basis float64",
+    ]
+
+
+def test_replay_prints_what_moved_and_the_changes_it_crossed(capsys) -> None:
+    from hydromodpy.cli.commands.replay import _print
+
+    _print(
+        _replay_payload(
+            **{
+                "class": "deviation",
+                "differs": {"k.mean": {"moved": True}},
+                "added": ["budget.inflow"],
+                "removed": ["budget.outflow"],
+                "changes": ["changes.toml#E71"],
+            }
+        )
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1] == (
+        "  values : deviation (1 value(s) moved, 1 added, 1 removed), basis float64"
+    )
+    assert lines[2] == "  changes: changes.toml#E71"
+
+
+def test_replay_with_no_comparison_says_the_source_keeps_no_basis(capsys) -> None:
+    from hydromodpy.cli.commands.replay import _print
+
+    _print(_replay_payload(**{"class": None, "basis": None}))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1] == "  values : no comparison, the source keeps none this replay can read"

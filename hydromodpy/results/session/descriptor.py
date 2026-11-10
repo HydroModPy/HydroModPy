@@ -27,7 +27,7 @@ failed; ``aborted`` on a signal; ``failed`` on an error of the search itself.
 A session whose search completed is never written ``failed`` for what
 happened after it. ``stop_state`` says which of the three ways the search
 of the phase whose best the session holds stopped
-(:data:`~hydromodpy.results.checks.StopState`), and ``stop_note`` names the
+(:data:`~hydromodpy.results.record.checks.StopState`), and ``stop_note`` names the
 phases of a staged session that froze the best of a budget-only search or
 closed a root outside its declared bounds.
 
@@ -54,8 +54,8 @@ from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.layout import sessions_dir_for
 from hydromodpy.core.state.result_dirs import parse_rel_dir, session_dir_rel
-from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.record.checks import StopState
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
 from hydromodpy.results.storage.json_io import (

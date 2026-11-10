@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.config.sites import SitesSummaryConfig
-    from hydromodpy.results.manifest import Manifest
+    from hydromodpy.results.record.manifest import RunSeal
 
 logger = get_logger(__name__)
 
@@ -77,7 +77,7 @@ CASE_COLUMNS: Final[tuple[str, ...]] = (
     "session_status",
     "solver",
     "mesh_engine",
-    "config_hash",
+    "solution_key",
     "hydromodpy_version",
     "started_at",
     "ended_at",
@@ -110,7 +110,7 @@ _FROM_INDEX: Final[tuple[str, ...]] = (
     "sim_id",
     "solver",
     "mesh_engine",
-    "config_hash",
+    "solution_key",
     "hydromodpy_version",
     "started_at",
     "ended_at",
@@ -356,7 +356,7 @@ def _seconds_between(start: Any, end: Any) -> float | None:
     return max(0.0, (pd.Timestamp(end) - pd.Timestamp(start)).total_seconds())
 
 
-def _flow_solve_time(manifest: Manifest, root: Path | None, rel_dir: str) -> float | None:
+def _flow_solve_time(manifest: RunSeal, root: Path | None, rel_dir: str) -> float | None:
     """Return the wall time of the flow solve in seconds.
 
     It is read from ``profile.json`` first. A run of HydroModPy 2.0 has none and

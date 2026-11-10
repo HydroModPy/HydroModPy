@@ -8,11 +8,16 @@ caller outside this process is allowed to rely on. A crash, a ``SIGTERM`` or a
 missing output leaves the directory unsealed and readable, never sealed and
 wrong.
 
-The manifest carries no status, no exit code, no timing and no error: those
-live in ``outcome.json`` and appear here only as its digest, which is what
-makes tampering with the outcome break the seal instead of producing two
-documents that disagree. The digests of the outputs are computed once, by the
-runner, and rendered into both documents from the same records.
+The document is the job profile of the one seal of :mod:`hydromodpy.schema.seal`.
+It carries no status, no exit code, no timing and no error: those live in
+``outcome.json`` and appear here only as its digest, which is what makes
+tampering with the outcome break the seal instead of producing two documents
+that disagree. The digests of the outputs are computed once, by the runner, and
+rendered into both documents from the same records.
+
+The 2.0.0 wrote ``schema = "hmp-manifest/v2"``, ``job_id`` and ``mediaType``.
+:func:`read_job_seal` converts that document in memory, under the one name each
+key now carries, and never rewrites the file.
 """
 
 from __future__ import annotations
@@ -21,49 +26,62 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, Literal
 
+from pydantic import Field
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.schema.job.digest import sha256_file, sha256_value
+from hydromodpy.core.io.canonical_json import sha256_value
+from hydromodpy.core.io.document_version import VersionWindow, check_version
+from hydromodpy.core.io.file_digest import sha256_and_size
+from hydromodpy.schema.changes import Rule, apply_rows
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import check_job_document, read_document, write_document
+from hydromodpy.schema.job.documents import check_job_document, read_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS, InputSet
 from hydromodpy.schema.job.layout import INPUTSET_FILENAME, SEALED_DOCUMENTS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, OutputRecord, now
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
+from hydromodpy.schema.seal import (
+    SEAL_VERSION,
+    ArtifactRecord,
+    Seal,
+    verify_artifacts,
+    write_seal,
+)
 
-MANIFEST_SCHEMA = "hmp-manifest/v2"
-MANIFEST_VERSIONS = VersionWindow(oldest=MANIFEST_SCHEMA, current=MANIFEST_SCHEMA)
-"""Versions of the seal of a job this code reads."""
-JOB_PROFILE = "job"
+JOB_SEAL_V2_SCHEMA: Final[str] = "hmp-manifest/v2"
+"""The ``schema`` a job seal of the 2.0.0 wrote; read in memory, never rewritten."""
 
-
-@dataclass(frozen=True, slots=True)
-class ArtifactRecord:
-    """One file the seal inventories, by the path the directory spells."""
-
-    path: str
-    media_type: str
-    bytes: int
-    sha256: str
-
-    def to_document(self) -> dict[str, Any]:
-        return {
-            "path": self.path,
-            "mediaType": self.media_type,
-            "bytes": self.bytes,
-            "sha256": self.sha256,
-        }
+JOB_SEAL_VERSIONS: Final[VersionWindow] = VersionWindow(oldest=SEAL_VERSION, current=SEAL_VERSION)
+"""The integer ``manifest_version`` of a job seal this code reads; ``JOB_SEAL_V2_SCHEMA`` aside."""
 
 
-def artifact_record(job: JobDirectory, relative: str, *, media_type: str) -> ArtifactRecord:
-    """Hash the bytes of one file of *job* and record them."""
-    digest, size = sha256_file(job.resolve_output(relative))
-    return ArtifactRecord(
-        path=job.relative(relative), media_type=media_type, bytes=size, sha256=digest
-    )
+class InputSetRef(HydroModelBase):
+    """The input set a job consumed, named by its path and its digest."""
+
+    path: str = Field(default="inputset.json", description="File inside the job directory")
+    id: str = Field(description="Content address the input set carries")
+    sha256: str = Field(description="Digest of the inputset.json bytes")
+
+
+class JobSeal(Seal):
+    """The seal of a finished job directory, version 4.
+
+    ``request_id`` is the content address of the request the job answered. The
+    2.0.0 wrote it as ``job_id``; the migration of the reading brings it under
+    the one name, and ``outcome.json`` keeps ``job_id`` with the same value for
+    the callers that read it.
+    """
+
+    profile: Literal["job"] = "job"
+    request_id: str = Field(description="Content address of the request the job answered")
+    process_id: str | None = Field(default=None, description="Process that answered")
+    process_version: str | None = Field(default=None, description="Version of that process")
+    inputset: InputSetRef | None = None
+    geometry: SpatialExtent | None = None
 
 
 def seal_job(
@@ -73,13 +91,16 @@ def seal_job(
     inputset: InputSet,
     outputs: Sequence[OutputRecord] = (),
     geometry: SpatialExtent | None = None,
+    process_id: str | None = None,
+    process_version: str | None = None,
 ) -> Path:
     """Write the seal of *job*, refusing to seal what is not complete.
 
-    Refuses rather than seals when a document of the write order is missing or
-    when an output the outcome claims is not on disk. A seal is a promise
-    another program acts on without opening the files, so it is written only
-    once every one of them has been opened here.
+    ``job_id`` is the content address of the request the job answered, and the
+    seal writes it as ``request_id``. Refuses rather than seals when a document
+    of the write order is missing or when an output the outcome claims is not
+    on disk. A seal is a promise another program acts on without opening the
+    files, so it is written only once every one of them has been opened here.
     """
     missing_documents = [name for name in SEALED_DOCUMENTS if not (job.root / name).is_file()]
     if missing_documents:
@@ -105,35 +126,104 @@ def seal_job(
     artifacts: dict[str, ArtifactRecord] = {
         output.path: ArtifactRecord(
             path=output.path,
-            media_type=output.media_type,
+            role="output",
+            format=_format_of(output.path),
             bytes=output.bytes,
             sha256=output.sha256,
+            media_type=output.media_type,
         )
         for output in outputs
     }
     # The control documents are re-hashed here and overwrite whatever an output
     # record said about them. A capability may declare ``outcome.json`` as one
-    # of its outputs — the process description does — but the record for it was
-    # built before that file existed, so only the bytes on disk at seal time can
-    # be the ones the seal names.
+    # of its outputs -- the process description does -- but the record for it
+    # was built before that file existed, so only the bytes on disk at seal time
+    # can be the ones the seal names.
     for name in SEALED_DOCUMENTS:
-        artifacts[name] = artifact_record(job, name, media_type=JSON_MEDIA_TYPE)
+        digest, size = sha256_and_size(job.root / name)
+        artifacts[name] = ArtifactRecord(
+            path=name,
+            role="document",
+            format="json",
+            bytes=size,
+            sha256=digest,
+            media_type=JSON_MEDIA_TYPE,
+        )
 
-    document: dict[str, Any] = {
-        "schema": MANIFEST_SCHEMA,
-        "profile": JOB_PROFILE,
-        "job_id": job_id,
-        "sealed_at": now(),
-        "inputset": {
-            "path": INPUTSET_FILENAME,
-            "id": inputset.id,
-            "sha256": artifacts[INPUTSET_FILENAME].sha256,
-        },
-        "artifacts": [record.to_document() for record in artifacts.values()],
-    }
-    if geometry is not None:
-        document["geometry"] = geometry.to_document()
-    return write_document(job.manifest_path, document)
+    seal = JobSeal(
+        sealed_at=now(),
+        request_id=job_id,
+        process_id=process_id,
+        process_version=process_version,
+        inputset=InputSetRef(
+            path=INPUTSET_FILENAME,
+            id=inputset.id,
+            sha256=artifacts[INPUTSET_FILENAME].sha256 or "",
+        ),
+        artifacts=list(artifacts.values()),
+        geometry=geometry,
+    )
+    return write_seal(job.manifest_path, seal)
+
+
+def read_job_seal(path: str | Path) -> JobSeal:
+    """Read the seal of a job directory, version 4 or the ``hmp-manifest/v2`` of 2.0.0.
+
+    The 2.0.0 document is converted in memory only: ``job_id`` becomes
+    ``request_id``, ``mediaType`` becomes ``media_type``, and each entry takes
+    its role from the name of its file. The file keeps what it was written.
+    """
+    target = Path(path)
+    payload = _read_seal_object(target)
+    if "manifest_version" in payload:
+        check_version(
+            payload.get("manifest_version"),
+            JOB_SEAL_VERSIONS,
+            document=target,
+            key="manifest_version",
+        )
+        profile = payload.get("profile")
+        if profile != "job":
+            raise SchemaVersionMismatchError(
+                f"{target} profiles {profile!r}; this reader reads the seal of a job."
+            )
+        return read_stored(JobSeal, payload)
+    if payload.get("schema") != JOB_SEAL_V2_SCHEMA:
+        found = payload.get("schema")
+        raise SchemaVersionMismatchError(
+            f"{target} carries no manifest_version and has schema = {found!r}; a job seal "
+            f"this code reads carries manifest_version = {SEAL_VERSION} or "
+            f"schema = {JOB_SEAL_V2_SCHEMA!r}."
+        )
+    document = apply_rows("job.manifest", payload, rules=JOB_SEAL_RULES)
+    document["manifest_version"] = SEAL_VERSION
+    document["profile"] = "job"
+    return read_stored(JobSeal, document)
+
+
+def _read_seal_object(path: Path) -> dict[str, Any]:
+    """Read one JSON object, refusing anything else as another kind of document."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SchemaVersionMismatchError(f"{path} does not read as JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SchemaVersionMismatchError(f"{path} is not a JSON object, so it is no seal.")
+    return payload
+
+
+def _job_artifact_role(document: dict[str, Any]) -> None:
+    """Name the role of a 2.0.0 job entry: a control document, or an output."""
+    entries = document.get("artifacts")
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        if isinstance(entry, Mapping) and isinstance(entry.get("path"), str):
+            entry.setdefault("role", "document" if entry["path"] in SEALED_DOCUMENTS else "output")
+
+
+JOB_SEAL_RULES: dict[str, Rule] = {"job_artifact_role": _job_artifact_role}
+"""The rules of the job seal rows whose paths cannot say the whole change."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,27 +242,51 @@ def verify_job(job: JobDirectory) -> SealVerification:
     """Re-check a job directory against its own seal, reading only the disk.
 
     Every artifact still hashes to what the seal recorded, the input set still
-    digests to the id it carries, and the outcome names the same job. Nothing
-    is repaired and nothing is rewritten. This is the verification that does
-    not trust the seal: it re-reads every output.
+    digests to the id it carries, and the outcome names the same request.
+    Nothing is repaired and nothing is rewritten. This is the verification that
+    does not trust the seal: it re-reads every output.
     """
     if not job.is_sealed:
         return SealVerification(sealed=False, problems=("manifest.json is absent",))
-    manifest, fault = _read_object(job.manifest_path, MANIFEST_VERSIONS)
-    if manifest is None:
-        return SealVerification(sealed=True, problems=(fault,))
-    problems: list[str] = []
-
-    entries = manifest.get("artifacts")
-    if not isinstance(entries, list):
-        problems.append("manifest.json carries no artifact list")
-    else:
-        for entry in entries:
-            problems.extend(_artifact_problems(job, entry))
-
-    problems.extend(_inputset_problems(job, manifest))
-    problems.extend(_outcome_problems(job, manifest))
+    try:
+        seal = read_job_seal(job.manifest_path)
+    except (OSError, ValueError, SchemaVersionMismatchError) as exc:
+        return SealVerification(sealed=True, problems=(str(exc),))
+    problems: list[str] = list(verify_artifacts(job.root, seal))
+    problems.extend(_inputset_problems(job, seal))
+    problems.extend(_outcome_problems(job, seal))
     return SealVerification(sealed=True, problems=tuple(problems))
+
+
+def _inputset_problems(job: JobDirectory, seal: JobSeal) -> list[str]:
+    """Check the input set against its own digest and against the seal."""
+    if not job.inputset_path.is_file():
+        return ["inputset.json is absent"]
+    inputset, fault = _read_object(job.inputset_path, INPUTSET_VERSIONS)
+    if inputset is None:
+        return [fault]
+    problems: list[str] = []
+    recomputed = f"sha256:{sha256_value(inputset.get('resources', []))}"
+    if recomputed != inputset.get("id"):
+        problems.append(
+            f"inputset.json carries the id {inputset.get('id')} and digests to {recomputed}"
+        )
+    declared = None if seal.inputset is None else seal.inputset.id
+    if declared != inputset.get("id"):
+        problems.append("manifest.json and inputset.json disagree about the input-set id")
+    return problems
+
+
+def _outcome_problems(job: JobDirectory, seal: JobSeal) -> list[str]:
+    """Check that the outcome names the request the seal names."""
+    if not job.outcome_path.is_file():
+        return ["outcome.json is absent"]
+    outcome, fault = _read_object(job.outcome_path, OUTCOME_VERSIONS)
+    if outcome is None:
+        return [fault]
+    if outcome.get("job_id") != seal.request_id:
+        return ["manifest.json and outcome.json disagree about the request id"]
+    return []
 
 
 def _read_object(path: Path, window: VersionWindow) -> tuple[Mapping[str, Any] | None, str]:
@@ -195,64 +309,19 @@ def _read_object(path: Path, window: VersionWindow) -> tuple[Mapping[str, Any] |
     return document, ""
 
 
-def _inputset_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[str]:
-    """Check the input set against its own digest and against the seal."""
-    if not job.inputset_path.is_file():
-        return ["inputset.json is absent"]
-    inputset, fault = _read_object(job.inputset_path, INPUTSET_VERSIONS)
-    if inputset is None:
-        return [fault]
-    problems: list[str] = []
-    recomputed = f"sha256:{sha256_value(inputset.get('resources', []))}"
-    if recomputed != inputset.get("id"):
-        problems.append(
-            f"inputset.json carries the id {inputset.get('id')} and digests to {recomputed}"
-        )
-    block = manifest.get("inputset")
-    declared = block.get("id") if isinstance(block, Mapping) else None
-    if declared != inputset.get("id"):
-        problems.append("manifest.json and inputset.json disagree about the input-set id")
-    return problems
-
-
-def _outcome_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[str]:
-    """Check that the outcome names the job the seal names."""
-    if not job.outcome_path.is_file():
-        return ["outcome.json is absent"]
-    outcome, fault = _read_object(job.outcome_path, OUTCOME_VERSIONS)
-    if outcome is None:
-        return [fault]
-    if outcome.get("job_id") != manifest.get("job_id"):
-        return ["manifest.json and outcome.json disagree about the job id"]
-    return []
-
-
-def _artifact_problems(job: JobDirectory, entry: Any) -> list[str]:
-    """Check one sealed artifact against the bytes on disk."""
-    if not isinstance(entry, Mapping) or not entry.get("path"):
-        return ["manifest.json inventories an artefact that carries no path"]
-    relative = str(entry["path"])
-    if not job.contains(relative):
-        return [f"{relative} is sealed and lies outside the job directory"]
-    path = job.root / relative
-    if not path.is_file():
-        return [f"{relative} is sealed and absent"]
-    digest, size = sha256_file(path)
-    problems: list[str] = []
-    if size != entry.get("bytes"):
-        problems.append(f"{relative} is {size} bytes and the seal says {entry.get('bytes')}")
-    if digest != entry.get("sha256"):
-        problems.append(f"{relative} does not hash to what the seal recorded")
-    return problems
+def _format_of(relative: str) -> str:
+    """Return the format of an output, from its suffix."""
+    return Path(relative).suffix.lstrip(".") or "unknown"
 
 
 __all__ = [
-    "JOB_PROFILE",
-    "MANIFEST_SCHEMA",
-    "MANIFEST_VERSIONS",
-    "ArtifactRecord",
+    "JOB_SEAL_RULES",
+    "JOB_SEAL_V2_SCHEMA",
+    "JOB_SEAL_VERSIONS",
+    "InputSetRef",
+    "JobSeal",
     "SealVerification",
-    "artifact_record",
+    "read_job_seal",
     "seal_job",
     "verify_job",
 ]

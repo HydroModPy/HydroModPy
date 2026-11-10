@@ -10,17 +10,19 @@ sealed directory catches a file that changed after the fact.
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.inputset import InputSet, Licence, build_inputset, file_resource
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord, now
-from hydromodpy.schema.job.seal import seal_job, verify_job
+from hydromodpy.schema.job.seal import read_job_seal, seal_job, verify_job
+from hydromodpy.schema.seal import SEAL_VERSION
 
 JOB_ID = "sha256:" + "2" * 64
 
@@ -47,7 +49,7 @@ def _job_with_outputs(tmp_path: Path) -> tuple[JobDirectory, InputSet, tuple[Out
 
     produced = job.outputs_dir / "watershed.gpkg"
     produced.write_bytes(b"SQLite format 3\x00")
-    digest, size = sha256_file(produced)
+    digest, size = sha256_and_size(produced)
     outputs = (
         OutputRecord(
             id="watershed_vector",
@@ -89,15 +91,19 @@ def test_a_sealed_job_inventories_its_outputs_and_its_documents(tmp_path: Path) 
     job = _sealed(tmp_path)
     manifest = read_document(job.manifest_path)
 
-    assert manifest["schema"] == "hmp-manifest/v2"
+    assert manifest["manifest_version"] == SEAL_VERSION
     assert manifest["profile"] == "job"
-    assert manifest["job_id"] == JOB_ID
-    assert {entry["path"] for entry in manifest["artifacts"]} == {
+    assert manifest["request_id"] == JOB_ID
+    sealed = {entry["path"]: entry for entry in manifest["artifacts"]}
+    assert set(sealed) == {
         "outputs/watershed.gpkg",
         "inputset.json",
         "provenance.json",
         "outcome.json",
     }
+    assert sealed["inputset.json"]["role"] == "document"
+    assert sealed["outputs/watershed.gpkg"]["role"] == "output"
+    assert sealed["outputs/watershed.gpkg"]["media_type"] == "application/geopackage+sqlite3"
 
 
 def test_the_seal_carries_nothing_that_lives_in_another_document(tmp_path: Path) -> None:
@@ -114,7 +120,7 @@ def test_the_seal_points_at_the_input_set_by_id_and_by_digest(tmp_path: Path) ->
     inputset = read_document(job.inputset_path)
 
     assert manifest["inputset"]["id"] == inputset["id"]
-    assert manifest["inputset"]["sha256"] == sha256_file(job.inputset_path)[0]
+    assert manifest["inputset"]["sha256"] == sha256_and_size(job.inputset_path)[0]
 
 
 def test_a_job_whose_documents_are_not_written_yet_is_not_sealed(tmp_path: Path) -> None:
@@ -174,7 +180,7 @@ def test_a_control_document_is_hashed_from_the_disk_and_not_from_a_record(tmp_pa
     seal_job(job, job_id=JOB_ID, inputset=inputset, outputs=(*outputs, stale))
 
     sealed = {entry["path"]: entry for entry in read_document(job.manifest_path)["artifacts"]}
-    assert sealed["outcome.json"]["sha256"] == sha256_file(job.outcome_path)[0]
+    assert sealed["outcome.json"]["sha256"] == sha256_and_size(job.outcome_path)[0]
     assert verify_job(job).ok
 
 
@@ -234,24 +240,48 @@ def test_an_outcome_from_another_job_is_caught(tmp_path: Path) -> None:
 
     report = verify_job(job)
 
-    assert any("job id" in problem for problem in report.problems)
+    assert any("request id" in problem for problem in report.problems)
+
+
+def test_a_seal_of_2_0_0_is_read_in_memory(tmp_path: Path) -> None:
+    """The v2 document keeps its ``job_id`` and ``mediaType``; the reader renames them."""
+    job = _sealed(tmp_path)
+    entries = []
+    for name in ("inputset.json", "provenance.json", "outcome.json", "outputs/watershed.gpkg"):
+        digest, size = sha256_and_size(job.root / name)
+        entries.append(
+            {"path": name, "mediaType": "application/json", "bytes": size, "sha256": digest}
+        )
+    document = {
+        "schema": "hmp-manifest/v2",
+        "profile": "job",
+        "job_id": JOB_ID,
+        "sealed_at": now(),
+        "inputset": {"path": "inputset.json", "id": JOB_ID, "sha256": entries[0]["sha256"]},
+        "artifacts": entries,
+    }
+    job.manifest_path.write_text(json.dumps(document), encoding="utf-8")
+
+    seal = read_job_seal(job.manifest_path)
+
+    assert (seal.manifest_version, seal.profile, seal.request_id) == (SEAL_VERSION, "job", JOB_ID)
+    roles = {record.path: record.role for record in seal.artifacts}
+    assert roles["inputset.json"] == "document"
+    assert roles["outputs/watershed.gpkg"] == "output"
+    assert all(record.media_type == "application/json" for record in seal.artifacts)
 
 
 @pytest.mark.parametrize(
     ("manifest", "expected"),
     [
         ('["not", "an", "object"]', "not a JSON object"),
-        ("{", "cannot be read as JSON"),
-        ('{"artifacts": []}', "carries no schema"),
-        ('{"schema": "hmp-manifest/v3"}', "upgrade HydroModPy"),
+        ("{", "does not read as JSON"),
+        ('{"artifacts": []}', "carries no manifest_version"),
+        ('{"manifest_version": 3}', "manifest_version = 4"),
+        ('{"manifest_version": 4, "profile": "run"}', "profiles 'run'"),
         (
-            '{"schema": "hmp-manifest/v2", "artifacts": "outputs/watershed.gpkg"}',
-            "no artifact list",
-        ),
-        ('{"schema": "hmp-manifest/v2", "artifacts": [{"bytes": 3}]}', "carries no path"),
-        (
-            '{"schema": "hmp-manifest/v2", "artifacts": [{"path": "../../etc/passwd"}]}',
-            "outside the job",
+            '{"manifest_version": 4, "profile": "job", "artifacts": "outputs/watershed.gpkg"}',
+            "valid list",
         ),
     ],
 )
@@ -266,6 +296,17 @@ def test_a_manifest_this_process_did_not_write_is_reported_and_not_raised(
 
     assert not report.ok
     assert any(expected in problem for problem in report.problems)
+
+
+def test_a_sealed_entry_outside_the_job_is_reported(tmp_path: Path) -> None:
+    job = _sealed(tmp_path)
+    manifest = read_document(job.manifest_path)
+    manifest["artifacts"][0]["path"] = "../../etc/passwd"
+    job.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = verify_job(job)
+
+    assert any("lies outside" in problem for problem in report.problems)
 
 
 def test_an_inputset_this_process_did_not_write_is_reported_and_not_raised(

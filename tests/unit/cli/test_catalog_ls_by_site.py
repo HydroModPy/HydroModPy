@@ -19,7 +19,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.record import RunRecord
 from tests._helpers.sealed_runs import make_project, seal_run
 
 

@@ -20,6 +20,7 @@ import rasterio
 from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.model.domain.active_cells import (
     ACTIVE,
@@ -45,7 +46,6 @@ from hydromodpy.model.domain.job_inputs import (
     refuse_a_file_that_is_not_the_one_asked_for,
     resolve_input_file,
 )
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
 from hydromodpy.schema.job.inputset import (
@@ -156,7 +156,7 @@ def _read_inputs(job: JobDirectory) -> tuple[DomainBuildRequest, list[str]]:
 def _staged_file(job: JobDirectory, link: FileLink, *, member: str) -> tuple[Path, str, int]:
     """Return the path, digest and size of one declared file, refusing a wrong one."""
     path = resolve_input_file(job, link.href, member=member)
-    digest, size = sha256_file(path)
+    digest, size = sha256_and_size(path)
     refuse_a_file_that_is_not_the_one_asked_for(
         link.sha256, digest=digest, href=link.href, member=member
     )

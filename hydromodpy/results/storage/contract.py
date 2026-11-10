@@ -100,6 +100,14 @@ RUN_MANIFEST_FILENAME = "manifest.json"
 RUN_PRODUCTS_FILENAME = "products.json"
 """The products the run read from the store, one per kind, in first-demand order."""
 
+MESH_DIRNAME = "mesh"
+"""The mesh product a run seals: ``mesh.json`` and ``mesh.npz`` of ``mesh/stored.py``.
+
+An engine that does not rebuild a mesh bit for bit stores the product it read
+under this directory at the seal, so a replay reads it instead of asking the
+store. Absent from a run sealed before the layout held it.
+"""
+
 FINAL_STATE_DIRNAME = "final_state"
 """Zarr 3 group of the last state of a run, in float64 and compressed without loss.
 
@@ -205,20 +213,29 @@ solver folders, profile), history (attempts) or the request as it came (request)
 is left out for a different reason: it is not a result.
 """
 
+CERTIFIED_RUN_ENTRIES: frozenset[str] = frozenset(
+    {
+        RUN_CONFIG_FILENAME,
+        RUN_RESOLVED_CONFIG_FILENAME,
+        RUN_INPUTS_FILENAME,
+        RUN_PRODUCTS_FILENAME,
+        RUN_PROVENANCE_FILENAME,
+        FINAL_STATE_DIRNAME,
+        FIELDS_STORE_NAME,
+        TABLES_DIRNAME,
+        MESH_DIRNAME,
+    }
+)
+"""Every entry a run seal certifies, and the only ones it inventories by name.
+
+``manifest.json`` is inventoried too, without a digest, since it cannot know
+its own length before it is written. An entry found in the directory and named
+here by none stays inventoried under the role ``other``, with its digest, so no
+file becomes invisible.
+"""
+
 ALLOWED_RUN_ENTRIES: frozenset[str] = (
-    REQUIRED_RUN_ENTRIES
-    | frozenset(
-        {
-            RUN_CONFIG_FILENAME,
-            RUN_RESOLVED_CONFIG_FILENAME,
-            RUN_PROVENANCE_FILENAME,
-            RUN_MANIFEST_FILENAME,
-            RUN_INPUTS_FILENAME,
-            RUN_PRODUCTS_FILENAME,
-            FINAL_STATE_DIRNAME,
-        }
-    )
-    | UNSEALED_RUN_ENTRIES
+    CERTIFIED_RUN_ENTRIES | UNSEALED_RUN_ENTRIES | frozenset({RUN_MANIFEST_FILENAME})
 )
 """Every name a run directory may carry as an artifact.
 
@@ -355,6 +372,8 @@ def geographic_feature_files(tables_dir: Path) -> dict[str, Path]:
 __all__ = [
     "ALLOWED_RUN_ENTRIES",
     "ALLOWED_SESSION_ENTRIES",
+    "CERTIFIED_RUN_ENTRIES",
+    "MESH_DIRNAME",
     "REQUIRED_RUN_ENTRIES",
     "RUN_SCRATCH_ENTRIES",
     "UNSEALED_RUN_ENTRIES",

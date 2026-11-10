@@ -21,7 +21,6 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.products.cited import (
     CitedProduct,
     alive_keys,
@@ -30,6 +29,7 @@ from hydromodpy.results.products.cited import (
 )
 from hydromodpy.results.products.key import product_key
 from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.record.manifest import is_sealed
 
 if TYPE_CHECKING:
     from hydromodpy.catchment.algorithms.flow_products import TerrainSupply

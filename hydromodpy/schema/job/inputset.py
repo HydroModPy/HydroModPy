@@ -24,9 +24,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from hydromodpy.core.io.canonical_json import sha256_value
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
-from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
@@ -198,7 +199,7 @@ def file_resource(
     source: Mapping[str, Any] | None = None,
 ) -> InputResource:
     """Describe a file the job read, hashing the bytes it actually read."""
-    digest, size = sha256_file(path)
+    digest, size = sha256_and_size(path)
     return InputResource(
         name=name,
         role=role,

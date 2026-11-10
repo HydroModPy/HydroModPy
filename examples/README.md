@@ -76,6 +76,11 @@ projects/<name>/
 ├── runs/<run name>/          # fields.zarr, tables.parquet, figures/, config.toml
 │   ├── README.md             # what the run is, how it went, its label
 │   ├── outcome.json          # its status, written before the first step
+│   ├── request.json          # the request as it came, when given as JSON or as a dict
+│   ├── products.json         # the products it read from the store, one per kind
+│   ├── final_state/          # last head and stages in float64, read by a restart
+│   ├── mesh/                 # the mesh it built, when its engine caches one
+│   ├── profile.json          # time and memory of each step, outside the seal
 │   ├── manifest.json         # the seal, written last, only for a completed run
 │   └── exports/              # exports asked for under [export]
 ├── sessions/<case>/          # the trials of a calibration

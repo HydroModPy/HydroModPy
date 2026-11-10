@@ -7,9 +7,10 @@ everything the run produced. A copy out of the project is ``hmp publish``.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import HINT, MILESTONE
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
 
@@ -64,7 +66,7 @@ def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> tuple[str, ..
     ``duration_s`` from ``ended_at - started_at``, the figure ``hmp catalog
     show`` reads, and the epilogue says nothing of the duration when it has none.
     """
-    from hydromodpy.results.run_identity import read_sealed_manifest
+    from hydromodpy.results.record.label import read_sealed_manifest
 
     sid = str(ctx.sim_id)
     try:
@@ -298,7 +300,7 @@ class SealStep:
     """
 
     name = "seal"
-    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    reads: ClassVar[tuple[str, ...]] = ("cfg", "ctx", "replay_of", "strict")
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ()
 
@@ -329,8 +331,17 @@ class SealStep:
         if ctx.sim_id is None or not run_is_persisted(ctx):
             logger.debug("SealStep: this run keeps no store to seal, skipping")
         else:
+            replay_of = state.get("replay_of")
             with run_store(ctx) as store:
-                record = seal_completed(store)
+                if replay_of is None:
+                    record = seal_completed(store)
+                else:
+                    record = _seal_replay(
+                        store,
+                        state.get("cfg"),
+                        replay_of,
+                        strict=bool(state.get("strict")),
+                    )
             logger.info("Run %s sealed: %s", record.run.name, ctx.run_dir)
             step_after_seal(ctx)
         return state.advance(
@@ -338,6 +349,52 @@ class SealStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+
+def _source_kind(replay_of: Path) -> str:
+    """Return the lineage kind of a replayed source, a run and a copy alike.
+
+    ``replay`` covers both, and ``replay.source`` says which one it was. The word
+    ``published`` stays for the copy a publication writes.
+    """
+    return "replay"
+
+
+def _seal_replay(store: RunStore, cfg: Any, replay_of: Path, *, strict: bool) -> Any:
+    """Seal a replay with what it found against the run or copy it played again.
+
+    The class is computed by the seal itself, after the field store is harmonised,
+    so the values compared are the ones the seal certifies; under ``strict`` a
+    deviation raises there and the attempt keeps its fields and tables with no
+    seal. The producer entries that differ and the drift of the configuration and
+    of the build enter the lineage, with the source id, its directory name and the
+    kind of the source. The seal itself is the ordinary one.
+    """
+    from hydromodpy.results.record.manifest import read_seal
+    from hydromodpy.results.storage.sealing import build_provenance
+    from hydromodpy.workflow.replay_checks import (
+        producer_differences,
+        warn_config_drift,
+        warn_producer_differences,
+    )
+    from hydromodpy.workflow.steps.prepare_solver.resolved import BUILD_TABLE, build_drift
+
+    facts = store.facts
+    when = datetime.now(UTC)
+    producer = producer_differences(replay_of, build_provenance(facts, ended_at=when))
+    warn_producer_differences(replay_of, producer)
+    drift = warn_config_drift(cfg, replay_of) if cfg is not None else {}
+    for item in build_drift(replay_of, store.run_dir):
+        drift[f"{BUILD_TABLE}.{item.key}"] = item.record()
+    facts.lineage = facts.lineage.model_copy(
+        update={
+            "kind": _source_kind(replay_of),
+            "parent_sim_id": read_seal(replay_of).identity.sim_id,
+            "parent_hint": Path(replay_of).name,
+            "drift": drift,
+        }
+    )
+    return seal_completed(store, replay_of=replay_of, strict=strict, producer=producer)
 
 
 __all__ = ["ExportStep", "SealStep"]

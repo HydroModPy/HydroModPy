@@ -45,9 +45,9 @@ from hydromodpy.core.exceptions import (
     JobInputNotFoundError,
     JobUsageError,
 )
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.data.request.model import DataRequest
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
@@ -245,7 +245,7 @@ def _resolve_mask(job: JobDirectory, request: DataRequest) -> tuple[DataRequest,
     path = job.resolve_input(link.href, loc=("inputs", "extent", "mask", "href"))
     if not path.is_file():
         raise JobInputNotFoundError(f"input mask names {link.href!r}, and {path} is not a file")
-    digest, size = sha256_file(path)
+    digest, size = sha256_and_size(path)
     if link.sha256 is not None and link.sha256.lower() != digest:
         raise DataContractViolation(
             f"input mask {link.href!r} hashes to {digest} and the request pinned "
@@ -349,7 +349,7 @@ def _output_records(job: JobDirectory, report: Any) -> tuple[OutputRecord, ...]:
 def _record(
     job: JobDirectory, output_id: str, relative: str, media_type: str, extra: Any
 ) -> OutputRecord:
-    digest, size = sha256_file(job.resolve_output(relative))
+    digest, size = sha256_and_size(job.resolve_output(relative))
     return OutputRecord(
         id=output_id,
         path=relative,

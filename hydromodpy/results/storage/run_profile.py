@@ -31,9 +31,10 @@ from hydromodpy.results.storage.json_io import read_transient_json, write_json_a
 PROFILE_SCHEMA = "hydromodpy.profile.v1"
 """Schema of ``profile.json``."""
 
-REUSED_KINDS: tuple[str, ...] = ("no", "prefix", "store")
+REUSED_KINDS: tuple[str, ...] = ("no", "prefix", "store", "sealed")
 """Whether a line was computed (``no``), rebuilt from an earlier attempt
-(``prefix``) or read from the project store (``store``)."""
+(``prefix``), read from the project store (``store``) or read from the
+``mesh/`` sealed beside the source of a replay (``sealed``)."""
 
 
 @dataclass(frozen=True, slots=True)

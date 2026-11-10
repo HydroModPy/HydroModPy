@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, catalog_path_for
-from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.record.manifest import read_manifest
 from hydromodpy.results.storage.contract import (
     README_FILENAME,
     RUN_CONFIG_FILENAME,
@@ -77,6 +77,6 @@ def test_the_worker_of_hmp_run_never_opens_the_index(
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
     manifest = read_manifest(run_dir)
     assert manifest["run"]["sim_id"] == outcome.sim_id
-    assert manifest["identity"]["config_hash"]
+    assert manifest["identity"]["solution_key"]
     assert manifest["site"]["name"] == "nancon"
     assert os.environ.get("HMP_RUN_SCRATCH") is None

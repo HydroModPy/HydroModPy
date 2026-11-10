@@ -14,7 +14,7 @@ from hydromodpy.results.annotations import (
     write_annotations,
 )
 from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
-from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.record.manifest import read_manifest
 from tests._helpers.sealed_runs import make_project, seal_run
 
 

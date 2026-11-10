@@ -2,7 +2,7 @@
 
 Why
 ---
-A seal says what was measured (:mod:`hydromodpy.results.checks`). Whether
+A seal says what was measured (:mod:`hydromodpy.results.record.checks`). Whether
 those facts make a run ``calibrated`` depends on rules that change, and on
 bugs found after the run was sealed. So the label is computed here, every
 time it is read, from the checks, the version that produced the run and the
@@ -78,8 +78,8 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
-from hydromodpy.results.checks import CalibrationSessionStatus, Checks
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
+from hydromodpy.results.record.checks import CalibrationSessionStatus, Checks
 from hydromodpy.schema.changes import REGISTER, Bug
 
 RULE_VERSION: Final[str] = "2"
@@ -148,7 +148,7 @@ def run_quantities(
     *sources* are the ``source@<section>_<source>`` tokens of the sources the run
     declares (:func:`hydromodpy.schema.sources.declared_source_tokens`). *starts*
     are the ``start@<kind>`` tokens of how its heads start
-    (:func:`hydromodpy.results.run_identity.declared_start_tokens`).
+    (:func:`hydromodpy.results.record.label.declared_start_tokens`).
     """
     tokens = [f"heads@{solver}", f"fluxes@{solver}"]
     if mesh_engine:

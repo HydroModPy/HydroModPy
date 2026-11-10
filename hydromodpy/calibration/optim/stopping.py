@@ -14,7 +14,7 @@ precision handed to it is refused rather than dropped: silently ignoring it woul
 report a search that honored a request it never read.
 
 The same declaration tells the engine loop why a search stopped, in one of
-three states (:data:`~hydromodpy.results.checks.StopState`). An engine that
+three states (:data:`~hydromodpy.results.record.checks.StopState`). An engine that
 names a stopping option met it (``rule_met``) or ran out of budget first
 (``budget_spent``): its answer is then wherever the budget happened to end. An
 engine that sweeps a design it counts up front, the grid and the Latin
@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EngineTraits, engine_traits
-from hydromodpy.results.checks import BUDGET_RULE, StopState
+from hydromodpy.results.record.checks import BUDGET_RULE, StopState
 
 PRECISION_FIELD = "calibration.precision"
 """Where the precision is declared, for the message an engine refusal prints."""

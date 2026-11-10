@@ -24,7 +24,7 @@ from hydromodpy.results.derive.downsample import (
     should_downsample,
 )
 from hydromodpy.results.derive.time_alignment import naive_utc, solver_time_index
-from hydromodpy.results.manifest import RUNTIME_VARIABLE, is_sealed
+from hydromodpy.results.record.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
 

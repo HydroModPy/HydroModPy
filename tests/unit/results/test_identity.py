@@ -160,3 +160,36 @@ def test_an_unknown_label_or_key_is_refused_by_name():
         make_identity(label="validated")
     with pytest.raises(ValidationError, match="host"):
         Identity.model_validate({**make_identity().model_dump(), "host": "node12"})
+
+
+def test_the_block_names_the_solution_key_the_request_and_the_solver():
+    identity = Identity(
+        case_id="island",
+        sim_id="sim",
+        attempt_id="att",
+        hydromodpy_version="2.1.0",
+        solution_key="sha256:solution",
+        request_id="sha256:request",
+        solver="modflow6",
+    )
+
+    assert identity.solution_key == "sha256:solution"
+    assert identity.request_id == "sha256:request"
+    assert identity.solver == "modflow6"
+    assert "config_hash" not in Identity.model_fields
+
+
+def test_a_block_of_the_2_0_0_reads_without_the_key_that_left():
+    block = {
+        "case_id": "demo",
+        "sim_id": "sim",
+        "attempt_id": "att",
+        "config_hash": "the 2.0.0 solution key",
+        "hydromodpy_version": "2.0.0",
+    }
+
+    identity = Identity.from_stored(block)
+
+    assert identity.solution_key is None and identity.request_id is None
+    assert identity.solver is None
+    assert "config_hash" not in identity.model_dump()

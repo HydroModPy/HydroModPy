@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
-    from hydromodpy.results.manifest import MetricRow
+    from hydromodpy.results.record.manifest import MetricRow
     from hydromodpy.results.run import Run
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.results.zarr_store.mesh_layout import MeshLayout

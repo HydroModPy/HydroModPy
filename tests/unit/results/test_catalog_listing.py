@@ -21,8 +21,8 @@ from hydromodpy.results.catalog.listing import (
     show_simulation,
     solve_seconds,
 )
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.manifest import MetricRow
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from tests._helpers.sealed_runs import make_project, seal_run
 

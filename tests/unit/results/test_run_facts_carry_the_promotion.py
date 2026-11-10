@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from hydromodpy.results.manifest import ParameterRow
+from hydromodpy.results.record.manifest import ParameterRow
 from hydromodpy.results.storage.run_facts import (
     CalibratedParameter,
     PromotionFacts,

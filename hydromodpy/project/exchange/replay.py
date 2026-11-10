@@ -1,4 +1,4 @@
-"""Replay a published run copy from its own bytes: ``hmp run <copy>/config.toml --frozen``.
+"""Replay a published run copy from its own bytes: ``hmp replay <copy>``.
 
 Why
 ---
@@ -15,11 +15,11 @@ declared folder is rebuilt under a work directory from the files of the index
 that sit in it, with the station rows its registries need: the copy never
 carries a folder whole.
 
-``--frozen`` on a copy means: every file of the index is in ``inputs/`` with
-its digest, or the replay is refused before anything runs. A file a provider
-delivered (Hub'Eau, SIM2, BD Topage) is refused too: a replay from the copy
-reads only user files, and ``hmp catalog import`` installs the others with
-their data cache rows.
+A replay of a copy means: every file of the index is in ``inputs/`` with its
+digest, or it is refused before anything runs. A file a provider delivered
+(Hub'Eau, SIM2, BD Topage) is refused too: a replay from the copy reads only
+user files, and ``hmp catalog import`` installs the others with their data
+cache rows.
 """
 
 from __future__ import annotations
@@ -109,8 +109,8 @@ def input_files_by_role(copy_dir: Path, workdir: Path) -> dict[str, Path]:
     is rebuilt under *workdir*, at the path the seal records, from the files
     of the index that sit in it and the station rows of its registries.
     """
-    from hydromodpy.results.manifest import read_manifest
     from hydromodpy.results.publication import read_publication
+    from hydromodpy.results.record.manifest import read_manifest
 
     copy = Path(copy_dir)
     index = checked_index(copy)

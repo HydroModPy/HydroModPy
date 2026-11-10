@@ -118,19 +118,21 @@ def _purge_resolve_workspace_top(project_root: Path) -> Path:
 
 def _purge_collect_snapshot(run_dir: Path, rel_dir: str) -> dict[str, object]:
     """Return what the directory declares about itself, read from its manifest."""
-    from hydromodpy.results.manifest import is_sealed, read_manifest
+    from hydromodpy.results.record.manifest import is_sealed, read_manifest
 
     if not is_sealed(run_dir):
         return {"rel_dir": rel_dir}
     manifest = read_manifest(run_dir)
     run = manifest.get("run", {})
+    identity = manifest.get("identity", {})
     snapshot: dict[str, object] = {
         "rel_dir": rel_dir,
         "sim_id": run.get("sim_id"),
         "name": run.get("name"),
         "project": run.get("project"),
         "created_at": run.get("created_at"),
-        "config_hash": manifest.get("config", {}).get("hash"),
+        "solution_key": identity.get("solution_key"),
+        "request_id": identity.get("request_id"),
         "site": manifest.get("site"),
         "period": manifest.get("period"),
     }

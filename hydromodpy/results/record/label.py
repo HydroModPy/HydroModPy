@@ -24,9 +24,9 @@ from pathlib import Path
 
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.manifest import Manifest, is_sealed, read_seal
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.manifest import RunSeal, is_sealed, read_seal
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_facts import identity_of, read_facts
 from hydromodpy.results.validity_rules import (
@@ -39,7 +39,7 @@ from hydromodpy.results.validity_rules import (
 from hydromodpy.schema.sources import declared_source_tokens
 
 
-def read_sealed_manifest(run_dir: str | Path) -> Manifest | None:
+def read_sealed_manifest(run_dir: str | Path) -> RunSeal | None:
     """Return the manifest of a sealed run directory, or ``None`` when it has none."""
     directory = Path(run_dir)
     if not is_sealed(directory):
@@ -72,7 +72,7 @@ def declared_start_tokens(config_text: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
-def label_of(seal: Manifest | RunRecord, run_dir: str | Path) -> LabelResult:
+def label_of(seal: RunSeal | RunRecord, run_dir: str | Path) -> LabelResult:
     """Return the label of a sealed run today, under the shipped rules and register.
 
     *run_dir* is the folder of the run. A run has metrics for the register when its
@@ -100,7 +100,7 @@ def label_of(seal: Manifest | RunRecord, run_dir: str | Path) -> LabelResult:
 
 
 def labelled_identity(
-    manifest: Manifest, run_dir: str | Path, *, today: date | None = None
+    manifest: RunSeal, run_dir: str | Path, *, today: date | None = None
 ) -> Identity:
     """Return the identity of the sealed run at *run_dir*, carrying its label of *today*."""
     result = label_of(manifest, run_dir)

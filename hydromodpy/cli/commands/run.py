@@ -195,8 +195,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "On a project TOML, reject any fresh download: every file must already be "
-            "in the data cache and match hydromodpy.lock. On the config.toml of a run, check its "
-            "inputs against its record and refuse a value that differs from config.resolved.toml."
+            "in the data cache and match hydromodpy.lock. The config.toml of a sealed run "
+            "is refused: hmp replay plays a run again."
         ),
     )
     parser.add_argument(
@@ -327,7 +327,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace, base: Path | None = 
     ``hmp run config.toml --resume NAME``.
     """
     from hydromodpy.cli.environment import environment_from_args
-    from hydromodpy.results.manifest import is_sealed, read_seal
+    from hydromodpy.results.record.manifest import is_sealed, read_seal
     from hydromodpy.results.storage.attempt import run_dir_for_name
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
@@ -357,71 +357,6 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace, base: Path | None = 
     # The resume branch reads the same three Environment options the operator
     # named on the command line; None keeps the default of the machine.
     _run_toml(config_path, args=args, environment=environment_from_args(args), base=base)
-
-
-def _replay_project_root(base: Path | None) -> Path:
-    """Return the project a published copy replays into: the base, else the one around the cwd."""
-    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
-
-    root = base if base is not None else resolve_project_root(Path.cwd().resolve())
-    if not (root / PROJECT_MARKER_FILENAME).is_file():
-        refuse(
-            f"A published copy replays into a project: no {PROJECT_MARKER_FILENAME} at or above "
-            f"{Path.cwd()}. Name the project with -w.",
-            EXIT_NOT_FOUND,
-        )
-    return root
-
-
-def _replay_published_copy(
-    copy_dir: Path, config_path: Path, *, args: argparse.Namespace, base: Path | None = None
-) -> None:
-    """Replay the frozen configuration of a published copy from the bytes it carries.
-
-    ``--frozen`` on a copy checks every file of its install index against
-    ``inputs/`` and points the configuration at those bytes, a declared
-    folder rebuilt under ``<project>/.hmp/replay/<copy>/``
-    (:mod:`hydromodpy.project.exchange.replay`); the copy holds no lockfile, so
-    the run itself is not bound to one. The run is written into the project
-    ``-w`` or ``--base`` names, or the one around the current directory.
-    """
-    import shutil
-
-    from hydromodpy.cli.environment import environment_from_args
-    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.core.toml_io.writer import dumps
-    from hydromodpy.project.exchange.replay import ReplayInputError, replay_payload
-
-    root = _replay_project_root(base)
-    folder = root / ".hmp" / "replay"
-    workdir = folder / copy_dir.name
-    try:
-        payload = replay_payload(
-            copy_dir, load_toml_with_base_config(config_path, root=ROOT_CONFIG), workdir=workdir
-        )
-    except ReplayInputError as exc:
-        shutil.rmtree(workdir, ignore_errors=True)
-        if folder.is_dir() and not any(folder.iterdir()):
-            folder.rmdir()
-        refuse(str(exc), EXIT_CONFIG, cause=exc)
-    folder.mkdir(parents=True, exist_ok=True)
-    replay_path = folder / f"{copy_dir.name}.toml"
-    replay_path.write_text(dumps(payload), encoding="utf-8")
-    args.frozen = False
-    try:
-        _run_toml(
-            replay_path,
-            args=args,
-            replayed_copy=copy_dir,
-            environment=environment_from_args(args),
-            base=root,
-        )
-    finally:
-        replay_path.unlink(missing_ok=True)
-        shutil.rmtree(workdir, ignore_errors=True)
-        if not any(folder.iterdir()):
-            folder.rmdir()
 
 
 def _request_of(
@@ -464,11 +399,31 @@ def _request_of(
         refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
 
 
+def _refuse_frozen_replay(config_path: Path) -> None:
+    """Refuse ``--frozen`` on the configuration of a sealed run or a published copy.
+
+    A run or a copy is played again by ``hmp replay``, which pins its inputs at
+    the digests of its record and classes the values it computes. ``--frozen``
+    keeps its lockfile sense on a project file.
+    """
+    from hydromodpy.project.exchange.replay import published_copy_of
+    from hydromodpy.workflow.replay_checks import sealed_run_of
+
+    source = published_copy_of(config_path) or sealed_run_of(config_path)
+    if source is None:
+        return
+    shown = display_path(source)
+    refuse(
+        f"--frozen does not play a run again. {shown} is a sealed run or a published "
+        f"copy: run 'hmp replay {shown}'.",
+        EXIT_CONFIG,
+    )
+
+
 def _run_toml(
     config_path: Path,
     *,
     args: argparse.Namespace,
-    replayed_copy: Path | None = None,
     environment=None,
     base: Path | None = None,
 ) -> None:
@@ -476,22 +431,13 @@ def _run_toml(
 
     The workflow is the declared ``[workflow] mode`` or the one the sections
     imply; a retired mode exits with ``EXIT_CONFIG`` and names its replacement.
-    The frozen configuration of a published copy, with ``--frozen``, replays
-    from the bytes of the copy (:func:`_replay_published_copy`), which is
-    *replayed_copy* here. *base* is the folder the relative paths are read from,
-    when the command names one.
+    ``--frozen`` of the configuration of a sealed run or of a published copy is
+    refused, and names ``hmp replay``: a run is played again by its own verb.
+    *base* is the folder the relative paths are read from, when the command
+    names one.
     """
-    from hydromodpy.project.exchange.replay import published_copy_of
-
-    is_request = config_path.suffix == ".json"
-    copy_dir = (
-        published_copy_of(config_path)
-        if getattr(args, "frozen", False) and not is_request
-        else None
-    )
-    if copy_dir is not None:
-        _replay_published_copy(copy_dir, config_path, args=args, base=base)
-        return
+    if getattr(args, "frozen", False) and not getattr(args, "resume", None):
+        _refuse_frozen_replay(config_path)
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
@@ -509,7 +455,6 @@ def _run_toml(
         request,
         args=args,
         profile_output=profile_output,
-        replayed_copy=replayed_copy,
         environment=environment,
         base=base,
     )
@@ -552,7 +497,6 @@ def _run_request(
     *,
     args: argparse.Namespace,
     profile_output: Path | None,
-    replayed_copy: Path | None,
     environment=None,
     base: Path | None = None,
 ) -> None:
@@ -648,9 +592,9 @@ def _run_request(
     if request.frozen:
         from hydromodpy.workflow.replay_checks import sealed_run_of
 
-        # A project TOML answers to its lockfile. The frozen configuration of a run
-        # answers to the record of that run, which the simulation dispatch checks.
-        # The pre-check only reports drift. Frozen mode itself travels with
+        # A project TOML answers to its lockfile. The configuration of a sealed run
+        # reaches this point only under --resume, which reads the record of that
+        # run, so no lockfile is read for it. Frozen mode itself travels with
         # ``frozen=frozen`` into the simulation dispatch, which binds and
         # releases it around that one run instead of leaving the process frozen.
         if sealed_run_of(config_path) is None:
@@ -668,9 +612,7 @@ def _run_request(
                 # skipped" message and the name of the run it gave back.
                 # hmp.run exposes the same run as a Run object for the Python API.
                 summary = _summary_of(
-                    run_simulation(
-                        request, base=run_base, environment=environment, replay_of=replayed_copy
-                    )
+                    run_simulation(request, base=run_base, environment=environment)
                 )
             else:
                 from hydromodpy.project.dispatch.workflow import dispatch_workflow
@@ -934,8 +876,8 @@ def _verify_frozen_inputs_strict(
     if not lockfile_path.is_file():
         raise FrozenVerificationError(
             f"hydromodpy.lock not found at {lockfile_path}; --frozen on a project TOML reads "
-            "that file: write it with `hmp data lock`, or replay the config.toml of a run, "
-            "which carries its own record."
+            "that file: write it with `hmp data lock`, or play a sealed run again with "
+            "`hmp replay REF`."
         )
 
     declared = {

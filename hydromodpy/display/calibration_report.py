@@ -36,7 +36,7 @@ from hydromodpy.display.report_blocks import (
     write_report_page,
 )
 from hydromodpy.display.runs import matplotlib_backend
-from hydromodpy.results.checks import stop_line
+from hydromodpy.results.record.checks import stop_line
 from hydromodpy.results.run.view import open_run_dir
 from hydromodpy.results.session.descriptor import (
     ScoredSamples,

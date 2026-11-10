@@ -41,7 +41,7 @@ and warned about.
 Who calls it
 ------------
 The workflow, after extraction and before the seal, passes the result to the
-:class:`~hydromodpy.results.record.RunRecord`: ``rows`` go to ``metrics`` and
+:class:`~hydromodpy.results.record.record.RunRecord`: ``rows`` go to ``metrics`` and
 ``score`` to ``score``. Nothing here opens the index.
 """
 
@@ -64,8 +64,8 @@ from hydromodpy.results.derive.time_alignment import (
     simulated_nan_stamps,
     time_method_for,
 )
-from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import MetricRule, MetricScore, score_run
+from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import read_checked_table
 

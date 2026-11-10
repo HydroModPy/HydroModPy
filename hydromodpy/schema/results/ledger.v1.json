@@ -62,20 +62,6 @@
           "title": "Code Reproducible",
           "x-hmp-profile": "user"
         },
-        "config_hash": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Identity hash of the configuration",
-          "title": "Config Hash",
-          "x-hmp-profile": "user"
-        },
         "hydromodpy_version": {
           "description": "Version that produced the run",
           "examples": [
@@ -147,6 +133,20 @@
           "description": "Simulated period; none when steady",
           "x-hmp-profile": "user"
         },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Request id of the run",
+          "title": "Request Id",
+          "x-hmp-profile": "user"
+        },
         "rule_version": {
           "anyOf": [
             {
@@ -209,6 +209,34 @@
           "default": null,
           "description": "Fingerprint of the site",
           "title": "Site Fingerprint",
+          "x-hmp-profile": "user"
+        },
+        "solution_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Solution key of the run: its request id plus its code, solver binaries and key package versions",
+          "title": "Solution Key",
+          "x-hmp-profile": "user"
+        },
+        "solver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow backend of the run",
+          "title": "Solver",
           "x-hmp-profile": "user"
         }
       },

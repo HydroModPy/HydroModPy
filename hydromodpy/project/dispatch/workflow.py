@@ -88,7 +88,7 @@ def run_overview(
     ) as handle:
         write_request_file(handle.run_dir, request)
         record_request_id(handle.run_dir, request_id)
-        return launcher.run(handle.claim, config_hash=key)
+        return launcher.run(handle.claim, solution_key=key)
 
 
 def declared_calibration_phases(config_path: str | Path) -> list[str]:
@@ -291,10 +291,10 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     """Return the directory of a completed run of *name* sealed with the solution key *key*, or None.
 
     Identical means the same solution key
-    (:func:`~hydromodpy.results.request_identity.solution_key`): the request, the
+    (:func:`~hydromodpy.results.record.request_identity.solution_key`): the request, the
     digest and state of every input it reads, the fingerprint of the code that
     computes, the solver binaries and the numeric packages. It is the
-    ``identity.config_hash`` a run seals, so two runs of an unchanged file on
+    ``identity.solution_key`` a run seals, so two runs of an unchanged file on
     unchanged data match. The run must carry the name ``name`` or be a
     version of it (``name.v2``): every version is looked at, newest first,
     because the user asks for this request and any sealed run of it
@@ -307,7 +307,7 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     """
     from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.catalog.registration import split_stem_version
-    from hydromodpy.results.storage.sealing import sealed_config_hash
+    from hydromodpy.results.storage.sealing import sealed_solution_key
     from hydromodpy.workflow.replay_checks import api_inputs_intact
 
     if key is None:
@@ -323,7 +323,7 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
         if stem == split_stem_version(name)[0]:
             versions.append((1 if version is None else version, entry))
     for _version, run_dir in sorted(versions, reverse=True):
-        if sealed_config_hash(run_dir) != key:
+        if sealed_solution_key(run_dir) != key:
             continue
         if not api_inputs_intact(run_dir, Path(project_root)):
             continue
@@ -383,6 +383,7 @@ def run_simulation(
     lineage: Any = None,
     calibrated_by: Any = None,
     replay_of: Path | None = None,
+    strict: bool = False,
 ) -> RunOutcome | None:
     """Execute a case, the worker verb: one run, or the windows of a chain one after the other.
 
@@ -390,7 +391,7 @@ def run_simulation(
     of its own that :func:`run_single_simulation` plays
     (:func:`hydromodpy.project.windows.run_windows`); the outcome of the last window
     played comes back. The windows are counted with the ``set`` of the request
-    applied, as the runs solve them. The frozen configuration of a sealed run, and a
+    applied, as the runs solve them. The configuration of a sealed run, and a
     published copy, replay as one run: a window ``k > 1`` replays from the source its
     ``inputs.json`` names. Every other document is one run, and the rest of this
     docstring is about it.
@@ -402,25 +403,25 @@ def run_simulation(
     cfg = _loaded(request, root)
     config_path = _source_path(request, root)
     cut = getattr(getattr(cfg.simulation, "time", None), "window_length", None) is not None
-    source_run = replay_of or (None if config_path is None else sealed_run_of(config_path))
-    if cut and source_run is None:
-        from hydromodpy.project.windows import run_windows
+    window_source = None
+    if cut:
+        source_run = replay_of or (None if config_path is None else sealed_run_of(config_path))
+        if source_run is None:
+            from hydromodpy.project.windows import run_windows
 
-        return run_windows(
-            request,
-            cfg=_changed(cfg, request.set),
-            base=root,
-            environment=environment,
-            play=functools.partial(
-                run_single_simulation,
+            return run_windows(
+                request,
+                cfg=_changed(cfg, request.set),
                 base=root,
                 environment=environment,
-                lineage=lineage,
-                calibrated_by=calibrated_by,
-            ),
-        )
-    window_source = None
-    if cut and source_run is not None:
+                play=functools.partial(
+                    run_single_simulation,
+                    base=root,
+                    environment=environment,
+                    lineage=lineage,
+                    calibrated_by=calibrated_by,
+                ),
+            )
         from hydromodpy.project.windows import recorded_window_source
 
         window_source = recorded_window_source(source_run, Path(cfg.workspace.project_root))
@@ -431,6 +432,7 @@ def run_simulation(
         lineage=lineage,
         calibrated_by=calibrated_by,
         replay_of=replay_of,
+        strict=strict,
         window_source=window_source,
         cfg=cfg,
     )
@@ -444,6 +446,7 @@ def run_single_simulation(
     lineage: Any = None,
     calibrated_by: Any = None,
     replay_of: Path | None = None,
+    strict: bool = False,
     window_source: WindowSource | None = None,
     cfg: HydroModPyConfig | None = None,
 ) -> RunOutcome | None:
@@ -463,17 +466,17 @@ def run_single_simulation(
     identical to the run it replays by construction.
 
     The index is never opened here: the outcome comes from the run directory, and the
-    caller indexes it afterwards. The frozen configuration of a run with ``frozen``
-    replays from the record of that run and not from a lockfile
-    (:mod:`hydromodpy.workflow.replay_checks`): other bytes or another configuration
-    are refused before anything runs, and what the replay did otherwise is said once
-    it has run. ``replay_of`` names a published copy, which replays the same way, its
-    inputs checked already. ``lineage`` and ``calibrated_by`` are the blocks a
-    promotion seals its run with. ``environment`` is the Environment of the call: only
-    its bounds cross into the setup context, and ``None`` keeps the default of the
-    machine. ``window_source`` is the run window ``k - 1`` of a chain left, which window
-    ``k > 1`` starts from. ``cfg`` is the document of *request* when the caller loaded it
-    and checked the environment already. Returns ``None`` for a window that owns no run record.
+    caller indexes it afterwards. ``replay_of`` names the run or published copy a
+    replay plays again: its inputs are pinned at the digests of the record
+    (:mod:`hydromodpy.workflow.replay_checks`), what the build decided otherwise and
+    the producer entries that differ enter the lineage of the new run, and ``strict``
+    refuses a value that did not reproduce the source, at the seal. ``lineage`` and
+    ``calibrated_by`` are the blocks a promotion seals its run with. ``environment``
+    is the Environment of the call: only its bounds cross into the setup context, and
+    ``None`` keeps the default of the machine. ``window_source`` is the run window
+    ``k - 1`` of a chain left, which window ``k > 1`` starts from. ``cfg`` is the
+    document of *request* when the caller loaded it and checked the environment
+    already. Returns ``None`` for a window that owns no run record.
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.state.names import check_name
@@ -504,13 +507,10 @@ def run_single_simulation(
         no_display=request.no_display,
         environment=environment,
     ) as project:
-        project_root = Path(cfg.workspace.project_root)
         source_run = replay_of
         frozen = request.frozen
-        if frozen or replay_of is not None:
-            source_run = checked_replay_source(project._cfg, config_path, replay_of, project_root)
-            if source_run is not None:
-                frozen = False
+        if source_run is not None:
+            frozen = False
         plain_run = (
             not request.force
             and bool(run_name)
@@ -526,40 +526,17 @@ def run_single_simulation(
             frozen=frozen,
             skip_identical=plain_run,
             window_source=window_source,
+            replay_of=source_run,
+            strict=strict,
         )
         if result is None:
             return None
         if result.identical_to is not None:
             return result
-        if source_run is not None:
-            from hydromodpy.workflow.replay_checks import warn_replay_differences
-
-            warn_replay_differences(source_run, Path(result.run_dir))
         mesh_summary = mesh_summary_of(project)
         if mesh_summary:
             result = dataclasses.replace(result, mesh_summary=mesh_summary)
         return result
-
-
-def checked_replay_source(
-    cfg: Any, config_path: Path | None, replay_of: Path | None, project_root: Path
-) -> Path | None:
-    """The run a frozen run or a published copy replays, checked before anything runs.
-
-    ``replay_of`` names a published copy, its inputs checked already; otherwise the
-    sealed run of the file is replayed. ``None`` when there is no record to replay.
-    """
-    from hydromodpy.workflow.replay_checks import check_replay, sealed_run_of
-
-    source_run = replay_of or (sealed_run_of(config_path) if config_path else None)
-    if source_run is not None:
-        check_replay(
-            cfg,
-            source_run,
-            project_root=project_root,
-            inputs_checked=replay_of is not None,
-        )
-    return source_run
 
 
 def mesh_summary_of(project: Any) -> dict[str, Any]:

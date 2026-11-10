@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import (
     EVALUATION_ROLE,
     HEADLINE_WINDOW,
@@ -13,6 +12,7 @@ from hydromodpy.results.metric_rule import (
     DateWindow,
     MetricScore,
 )
+from hydromodpy.results.record.manifest import MetricRow
 
 GAUGE = "J0014010"
 WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2020, 12, 31))

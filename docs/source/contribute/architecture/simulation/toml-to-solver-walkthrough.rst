@@ -161,7 +161,7 @@ Where to change what
    * - The rule of a project name and of a run name
      - ``hydromodpy/core/state/names.py``
    * - The request id and the solution key
-     - ``hydromodpy/results/request_identity.py``
+     - ``hydromodpy/results/record/request_identity.py``
    * - Claim, restart and withdrawal of a run folder
      - ``hydromodpy/results/storage/attempt.py``
    * - Project orchestration, workspace behavior

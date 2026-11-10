@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.mesh import registry as mesh_registry
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planar.quality import quality_warnings
@@ -21,6 +22,7 @@ from hydromodpy.mesh.stored import (
 )
 from hydromodpy.results.products.key import product_key
 from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.storage.contract import MESH_DIRNAME
 from hydromodpy.workflow.products import ask
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
@@ -79,13 +81,16 @@ def _read_mesh(directory: Path, *, request: MeshRequest, engine_cls: type) -> Pl
     return cell_mesh
 
 
-def step_mesh(ctx: WorkflowContext) -> None:
+def step_mesh(ctx: WorkflowContext, replay_of: Path | None = None) -> None:
     """Build ``setup.cell_mesh`` with the engine of ``[mesh]``, through the product store.
 
     Every engine goes through the store: a present product is read back, a
     missing one is built and stored under the workspace cap. A resumed run asks
     for the key its ``products.json`` cites, so the mesh a crashed run stored is
-    the one this resume reads. A mesh whose cells cross a quality threshold of
+    the one this resume reads. A replay of an engine that cannot rebuild its
+    mesh bit for bit reads the mesh sealed beside the source run, its identity
+    compared as the store's is; one that does not read counts as a miss. A mesh
+    whose cells cross a quality threshold of
     :mod:`hydromodpy.mesh.planar.quality` is logged with a warning and used as
     it is.
     """
@@ -94,14 +99,16 @@ def step_mesh(ctx: WorkflowContext) -> None:
     request = plan_mesh_request(mesh_cfg, inputs)
     engine_cls = mesh_registry.mesh_engines.get(mesh_cfg.engine)
     key = mesh_product_key(request, engine_cls)
-    cell_mesh = ask(
-        ctx,
-        "mesh",
-        key=key,
-        build=lambda: mesh_registry.mesh_engines.create(mesh_cfg.engine).build(request),
-        read=lambda directory: _read_mesh(directory, request=request, engine_cls=engine_cls),
-        rebuild_differs=engine_cls.capabilities.needs_cache,
-    )
+    cell_mesh = _sealed_mesh(ctx, replay_of, request=request, engine_cls=engine_cls, key=key)
+    if cell_mesh is None:
+        cell_mesh = ask(
+            ctx,
+            "mesh",
+            key=key,
+            build=lambda: mesh_registry.mesh_engines.create(mesh_cfg.engine).build(request),
+            read=lambda directory: _read_mesh(directory, request=request, engine_cls=engine_cls),
+            rebuild_differs=engine_cls.capabilities.needs_cache,
+        )
     for warning in quality_warnings(cell_mesh.qa):
         logger.warning("Mesh quality: %s", warning)
     # The store holds the mesh as the engine built it. The outline the planner
@@ -123,6 +130,67 @@ def step_mesh(ctx: WorkflowContext) -> None:
         "qa": _qa_with_notes(cell_mesh, request),
         "sizes": resolved_sizes(mesh_cfg, request),
     }
+
+
+def _sealed_mesh(
+    ctx: WorkflowContext,
+    replay_of: Path | None,
+    *,
+    request: MeshRequest,
+    engine_cls: type,
+    key: str,
+) -> PlanarCellMesh | None:
+    """Read the mesh sealed beside the source run of a replay, or return None.
+
+    Only an engine that cannot rebuild its mesh bit for bit is read this way:
+    any other gets the same mesh from its own build. A missing directory, a
+    mesh whose bytes are not those the source sealed in ``inputs.json``, a mesh
+    that does not read and an identity that is not this request's all count as a
+    miss, so the caller asks the store and then builds. A hit is one line
+    of ``profile.json`` named ``mesh`` with ``reused = "sealed"`` and no key:
+    the bytes read are the source's, not a store product of this project.
+    """
+    if replay_of is None or not engine_cls.capabilities.needs_cache:
+        return None
+    directory = Path(replay_of) / MESH_DIRNAME
+    if not directory.is_dir():
+        return None
+    if not _sealed_bytes_intact(Path(replay_of), directory):
+        logger.warning(
+            "The mesh sealed in %s is not the one its seal certifies: building again.",
+            directory,
+        )
+        return None
+    from hydromodpy.workflow.runner import record_measure
+
+    with measured("step", "mesh") as measure:
+        try:
+            cell_mesh = _read_mesh(directory, request=request, engine_cls=engine_cls)
+        except (MeshError, ValueError, OSError) as exc:
+            logger.warning(
+                "The mesh sealed in %s does not read for this request (%s): building again.",
+                directory,
+                exc,
+            )
+            return None
+    record_measure(ctx.run_dir, measure, attempt=ctx.attempt, reused="sealed")
+    ctx.setup.products = {**ctx.setup.products, "mesh": key}
+    return cell_mesh
+
+
+def _sealed_bytes_intact(source: Path, directory: Path) -> bool:
+    """Return whether *directory* still hashes to the ``mesh`` row of the source ``inputs.json``."""
+    from hydromodpy.results.record.record import read_inputs
+    from hydromodpy.results.storage.digests import sha256_directory
+    from hydromodpy.results.storage.json_io import UNREADABLE_ERRORS
+
+    try:
+        rows = [row for row in read_inputs(source).inputs if row.variable == MESH_DIRNAME]
+    except UNREADABLE_ERRORS:
+        return False
+    if not rows or rows[0].sha256 is None:
+        return False
+    return sha256_directory(directory) == rows[0].sha256
 
 
 def zone_runs(
@@ -162,6 +230,7 @@ class BuildMeshStep:
     name = "build_mesh"
     reads: ClassVar[tuple[str, ...]] = (
         "ctx",
+        "replay_of",
         "requested_domain_supports",
         "spatial_support_registry",
     )
@@ -187,7 +256,7 @@ class BuildMeshStep:
             requested_domain_supports=requested_supports,
             registry=registry,
         )
-        step_mesh(ctx)
+        step_mesh(ctx, state.get("replay_of"))
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -222,7 +291,7 @@ class BuildMeshStep:
         if ctx is None:
             raise ConfigError("BuildMeshStep.rebuild_state requires 'ctx' in state.data")
         if ctx.setup.cell_mesh is None:
-            step_mesh(ctx)
+            step_mesh(ctx, prior_state.get("replay_of"))
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,

@@ -265,7 +265,7 @@ class WorkflowContext:
 
     # The lineage and the promoting session a run is sealed with, typed
     # ``Any`` because ``core`` cannot import ``results``; the concrete types
-    # are ``results.lineage.Lineage`` and ``results.checks.CalibratedBy``.
+    # are ``schema.lineage.Lineage`` and ``results.record.checks.CalibratedBy``.
     lineage: Any = None
     calibrated_by: Any = None
 

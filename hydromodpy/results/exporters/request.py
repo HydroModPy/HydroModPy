@@ -133,7 +133,7 @@ def _model_crs(store: Any, sim_id: str) -> str | None:
     ``None`` when neither says one.
     """
     from hydromodpy.results.exporters.fields import native_crs
-    from hydromodpy.results.run_identity import read_sealed_manifest
+    from hydromodpy.results.record.label import read_sealed_manifest
 
     sz = store.open_zarr(sim_id)
     try:

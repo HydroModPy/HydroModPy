@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.layout import runs_dir_for
-from hydromodpy.results.manifest import is_sealed, read_seal
+from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.storage.json_io import readable

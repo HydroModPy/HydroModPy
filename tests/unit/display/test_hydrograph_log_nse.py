@@ -16,7 +16,7 @@ from hydromodpy.display.figures.hydrograph_log_nse import (
 )
 from hydromodpy.display.figures.scatter_one_to_one import ScatterOneToOne
 from hydromodpy.display.style import relative_luminance
-from hydromodpy.results.manifest import MetricRow
+from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.run_store import RunStore
 
 # The transient-stage hydrograph, on the axis the second stage is scored on.

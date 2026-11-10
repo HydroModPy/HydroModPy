@@ -17,10 +17,10 @@ from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.catalog.registration import portable_config_source, split_stem_version
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.workflow.steps.prepare_solver.facts import (
     collect_run_facts,
@@ -425,9 +425,10 @@ def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> R
     """Return the facts of the attempt as the context knows them at opening.
 
     *solution_key* is what the runner computed once the inputs were resolved
-    (:func:`~hydromodpy.results.request_identity.solution_key`). It is sealed as
-    ``identity.config_hash``. A run opened by other means than the runner, a kept
-    trial, has none, and no later run is told identical to it.
+    (:func:`~hydromodpy.results.record.request_identity.solution_key`). It is sealed as
+    ``identity.solution_key``, beside the request id the attempt wrote to its outcome. A
+    run opened by other means than the runner, a kept trial, has neither, and no later
+    run is told identical to it.
     """
     workspace = ctx.setup.workspace
     assert workspace is not None and ctx.run_dir is not None and ctx.sim_id is not None
@@ -438,7 +439,8 @@ def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> R
     plan = ctx.execution.simulation_plan
     process_type, primary_solver = primary_run_for_simulation(plan)
     facts = collect_run_facts(ctx)
-    facts["config_hash"] = solution_key
+    facts["solution_key"] = solution_key
+    facts["request_id"] = outcome.request_id
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
     return RunFacts(
         sim_id=ctx.sim_id,

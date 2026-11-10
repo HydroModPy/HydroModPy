@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any
 
-from hydromodpy.results.checks import CalibratedBy, Checks, Validity
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.manifest import (
+from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.record.checks import CalibratedBy, Checks, Validity
+from hydromodpy.results.record.manifest import (
     InputEntry,
     ManifestConfig,
     ManifestGeometry,
@@ -18,8 +18,8 @@ from hydromodpy.results.manifest import (
     ParameterRow,
     TrackedInput,
 )
-from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.record import RunProvenance, RunRecord
+from hydromodpy.results.record.record import RunProvenance, RunRecord
+from hydromodpy.schema.lineage import Lineage
 from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.session_documents import calibration_window
 
@@ -43,7 +43,8 @@ def make_identity(**overrides: Any) -> Identity:
         "case_id": CASE_ID,
         "sim_id": SIM_ID,
         "attempt_id": ATTEMPT_ID,
-        "config_hash": CONFIG_HASH,
+        "solution_key": CONFIG_HASH,
+        "request_id": CONFIG_HASH,
         "mesh_hash": MESH_HASH,
         "period": WINDOW,
         "score_window": WINDOW,
@@ -144,7 +145,7 @@ def make_record(**overrides: Any) -> RunRecord:
             n_timesteps=1827,
             time_unit="day",
         ),
-        "config": ManifestConfig(file="config.toml", hash=CONFIG_HASH, source="project.toml"),
+        "config": ManifestConfig(file="config.toml", source="project.toml"),
         "lineage": Lineage(
             session_id="sess0001",
             phase="transient_sy",

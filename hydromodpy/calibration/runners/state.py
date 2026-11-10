@@ -20,12 +20,13 @@ from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.core.code_fingerprint import code_fingerprint
 from hydromodpy.core.exceptions import StorageError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tracking import collect_input_files
 from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.journal import read_trials
-from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
+from hydromodpy.results.storage.digests import sha256_directory
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext, TrialMetricFn
@@ -336,10 +337,10 @@ def _map_digest(path: Path) -> str:
     if not path.is_file():
         return "missing"
     if path.suffix.lower() != ".shp":
-        return sha256_streaming(path)
+        return sha256_of(path)
     upper = path.suffix.isupper()
     parts = [path.with_suffix(part.upper() if upper else part) for part in _SHAPEFILE_PARTS]
-    joined = ";".join(f"{part.suffix}:{sha256_streaming(part)}" for part in parts if part.is_file())
+    joined = ";".join(f"{part.suffix}:{sha256_of(part)}" for part in parts if part.is_file())
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
@@ -364,7 +365,7 @@ def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
         }
         if path.is_file():
             payload["kind"] = "file"
-            payload["sha256"] = sha256_streaming(path)
+            payload["sha256"] = sha256_of(path)
             payload["size_bytes"] = path.stat().st_size
         elif path.is_dir():
             payload["kind"] = "directory"

@@ -13,7 +13,7 @@ directories between them; it never reads the index.
   the project under a reserved name, after checking every digest.
 
 The identity of a run, the request id and the solution key, lives in
-:mod:`hydromodpy.results.request_identity`.
+:mod:`hydromodpy.results.record.request_identity`.
 
 Grammar
 -------
@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
 from hydromodpy.core.state.names import check_name
@@ -42,7 +43,6 @@ from hydromodpy.core.state.portable import to_workspace_relative
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel, session_dir_rel
 from hydromodpy.results.publication import publication_path, read_publication
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES, RUN_MANIFEST_FILENAME
-from hydromodpy.results.storage.digests import sha256_streaming
 from hydromodpy.results.trash import check_not_running, identity_of, list_trash, read_tombstones
 
 logger = get_logger(__name__)
@@ -448,7 +448,7 @@ def _check_digests(copy: Path, files: dict[str, str], origin: Path) -> None:
         path = copy / rel
         if not path.is_file():
             raise ValueError(f"{origin}: {rel} is listed in PUBLICATION.json and missing")
-        if sha256_streaming(path) != digest:
+        if sha256_of(path) != digest:
             raise ValueError(f"{origin}: {rel} does not match its digest in PUBLICATION.json")
 
 

@@ -33,8 +33,8 @@ import pandas as pd
 
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.errors import SeveralCasesError
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.session.descriptor import (
     BestCase,
     SessionDescriptor,

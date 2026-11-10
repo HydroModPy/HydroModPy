@@ -30,6 +30,7 @@ VERBS = {
     "index",
     "open",
     "read",
+    "replay",
     "report",
     "run",
     "spinup",

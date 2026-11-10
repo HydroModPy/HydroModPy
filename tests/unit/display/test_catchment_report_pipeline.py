@@ -592,7 +592,7 @@ def test_a_run_that_cannot_be_opened_leaves_its_blocks_empty_and_says_so(
 
 def test_the_figures_of_a_sealed_run_are_drawn_into_its_figures_folder(tmp_path) -> None:
     from hydromodpy.display.catchment_report.artifacts import draw_missing_run_figures
-    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.record.manifest import seal_problems
 
     inputs = _report_inputs(tmp_path)
 

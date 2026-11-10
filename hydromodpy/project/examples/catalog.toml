@@ -21,8 +21,8 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5778
-sha256 = "9cfd4d405e2cdb127303cb6a03494de3cc3b8a9af595475ba5c8d37d5cbbfcef"
+size = 5982
+sha256 = "c834086aa2de22e3c54df6abb7822d8ecbc4eadbf1677d578edca566a5671b3c"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"

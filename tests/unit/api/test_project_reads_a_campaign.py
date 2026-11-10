@@ -21,8 +21,8 @@ import pytest
 
 import hydromodpy as hmp
 from hydromodpy.results.catalog import rebuild_index
-from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.run.sealed import MixedWindowsError
 from tests._helpers.sealed_runs import (
     WINDOW,

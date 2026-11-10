@@ -43,7 +43,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.catalog.constants import metric_sense
-from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import RULE_COLUMNS, check_one_rule, headline_metrics
 

@@ -42,7 +42,7 @@ A `FetchResult` carries the one payload its `kind` names: `points` and
 `fields` records, `features` (one GeoDataFrame, the river networks), or
 `files` as `FileRecord` entries: `path`, `sha256`, `state`, `nodata` and
 `origin`, built by `FileRecord.of`, which hashes with
-`schema.job.digest.sha256_file`. `state` is `"raw"` or `"conditioned"`, the
+`core.io.file_digest.sha256_of`. `state` is `"raw"` or `"conditioned"`, the
 vocabulary of `schema/job/inputset.py`, or `None`. A files answer that cached
 an empty file alongside (the sources that write one) declares `records = 0`,
 and `is_empty` then answers that the provider held nothing. Points and fields

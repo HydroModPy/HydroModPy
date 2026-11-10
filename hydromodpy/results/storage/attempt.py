@@ -118,7 +118,6 @@ from hydromodpy.results.catalog.registration import (
     reserve_version_dirname,
     split_stem_version,
 )
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,
     Outcome,
@@ -130,6 +129,7 @@ from hydromodpy.results.outcome import (
     write_outcome,
 )
 from hydromodpy.results.readme import render_unsealed_run_readme, write_readme
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,

@@ -42,7 +42,6 @@ from pathlib import Path
 from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import (
     Outcome,
     OutcomeError,
@@ -51,6 +50,7 @@ from hydromodpy.results.outcome import (
     read_outcome,
     write_outcome,
 )
+from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.session.descriptor import read_session, write_session
 from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME, SESSION_DESCRIPTOR_FILENAME
 from hydromodpy.results.storage.json_io import beside_seal, readable

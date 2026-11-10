@@ -214,7 +214,7 @@ import pyarrow.parquet as pq
 planned = {row["case_id"]: row["config_hash"]
            for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
 manifest = json.loads(@MANIFEST@)
-manifest["identity"]["config_hash"] = planned[case_id]
+manifest["identity"]["solution_key"] = planned[case_id]
 (run_dir / "manifest.json").write_text(json.dumps(manifest))
 outcome.update(status="completed", ended_at=now, exit_code=0)
 (run_dir / "outcome.json").write_text(json.dumps(outcome))

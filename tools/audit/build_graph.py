@@ -142,7 +142,7 @@ def _module_of_literal(
 
     ``require_submodule`` rejects the bare package name. A dict value of
     exactly ``"hydromodpy"`` is a tool name far more often than an import
-    target -- ``results/manifest.py`` writes one into every provenance payload --
+    target -- ``results/record/manifest.py`` writes one into every provenance payload --
     whereas ``import_module("hydromodpy")`` is unambiguous.
     """
     matched = DYNAMIC_TARGET_RE.match(value)

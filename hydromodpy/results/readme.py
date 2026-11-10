@@ -31,11 +31,11 @@ from pyproj import Transformer
 
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.io.file_digest import sha256_of
-from hydromodpy.results.checks import Checks, stop_line, stop_text
-from hydromodpy.results.manifest import ManifestSite
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.checks import Checks, stop_line, stop_text
+from hydromodpy.results.record.manifest import ManifestSite
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.session.descriptor import (
     ParameterBound,
     SessionDescriptor,
@@ -127,7 +127,7 @@ def render_run_readme(
         f"- HydroModPy {record.identity.hydromodpy_version}, solver `{run.solver}`"
         + (f", mesh engine `{record.geometry.mesh_engine}`" if record.geometry.mesh_engine else ""),
         f"- code reproducible: {_yes_no(record.checks.code_reproducible)}",
-        f"- configuration hash: `{record.config.hash or 'none'}`",
+        f"- solution key: `{record.identity.solution_key or 'none'}`",
         "",
     ]
     lines += _checks_section(record.checks)
@@ -442,6 +442,15 @@ def _lineage_section(record: RunRecord) -> list[str]:
         facts.append(
             "- overrides: " + ", ".join(f"`{k}` = {v}" for k, v in lineage.overrides.items())
         )
+    replay = lineage.replay
+    if replay is not None:
+        facts.append(
+            f"- replay of `{replay.of}`, read from a {replay.source} of version "
+            f"{replay.source_version}, values {replay.basis}"
+            + (f", class {replay.class_}" if replay.class_ is not None else "")
+        )
+        if replay.differs:
+            facts.append("- moved: " + ", ".join(f"`{key}`" for key in sorted(replay.differs)))
     if not facts:
         return []
     return ["## Lineage", "", *facts, ""]

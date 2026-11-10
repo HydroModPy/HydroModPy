@@ -15,7 +15,6 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import render_document
 from hydromodpy.schema.job.outcome import (
     UNTYPED_ERROR_CODE,
     JobOutcome,
@@ -24,6 +23,7 @@ from hydromodpy.schema.job.outcome import (
     error_record,
     now,
 )
+from hydromodpy.schema.seal import render_document
 
 STARTED = "2026-09-16T08:12:05.113000+00:00"
 FINISHED = "2026-09-16T08:14:41.882000+00:00"

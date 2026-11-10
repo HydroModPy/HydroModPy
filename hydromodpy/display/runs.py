@@ -45,7 +45,7 @@ from hydromodpy.results.derive.config_flags import (
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.ledger import Ledger, record_derived_file
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.run_identity import identity_of_run_dir
+from hydromodpy.results.record.label import identity_of_run_dir
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:

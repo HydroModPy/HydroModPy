@@ -262,9 +262,9 @@ def _project_extent(variable: str, selector: _Selector) -> tuple | None:
 def _refuse_a_mask_that_is_not_the_pinned_one(mask: Path, pinned: str | None) -> None:
     if pinned is None:
         return
-    from hydromodpy.schema.job.digest import sha256_file
+    from hydromodpy.core.io.file_digest import sha256_of
 
-    digest, _ = sha256_file(mask)
+    digest = sha256_of(mask)
     if digest != pinned.lower():
         raise DataContractViolation(
             f"the request's mask {mask} hashes to {digest} and the request pinned "
@@ -599,9 +599,9 @@ def _entry(
 ) -> RequestedFile:
     if written is None:
         return _empty(variable, source, kind)
-    from hydromodpy.schema.job.digest import sha256_file
+    from hydromodpy.core.io.file_digest import sha256_and_size
 
-    digest, size = sha256_file(written.path)
+    digest, size = sha256_and_size(written.path)
     return RequestedFile(
         variable=variable,
         source=source,

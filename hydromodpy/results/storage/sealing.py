@@ -6,7 +6,7 @@ The seal is what makes a run directory readable without the index. It used
 to be a projection of SQL rows; here it is built from the facts the run
 accumulated in its store (:mod:`hydromodpy.results.storage.run_facts`) and
 from the files already in the directory, then written by
-:class:`~hydromodpy.results.record.RunRecord` in the order the record
+:class:`~hydromodpy.results.record.record.RunRecord` in the order the record
 states, ``manifest.json`` last.
 
 Order of the seal
@@ -14,8 +14,14 @@ Order of the seal
 0. The declared projection is resolved to WKT2.
 1. The field store gets its ACDD root attributes, the identity block and
    its consolidated metadata.
-2. The record is written: tables, provenance, inputs, manifest.
-3. ``README.md`` is rendered from the record and the label of the day.
+2. The value digests are taken: one per array and per quantity column, the
+   rounded fields on the float64 values their writer received.
+3. The mesh product the run cited is copied under ``mesh/``, for a replay to
+   read it instead of asking the store.
+4. The class of a replay is computed, and a strict replay refuses here, before
+   any seal file is written.
+5. The record is written: tables, provenance, inputs, manifest.
+6. ``README.md`` is rendered from the record and the label of the day.
 
 What follows the seal (``outcome.json`` to ``completed``, the removal of
 ``<run>/.hmp/``) belongs to the attempt protocol
@@ -27,6 +33,9 @@ the attempt is the bracket around every step.
 from __future__ import annotations
 
 import json
+import os
+import shutil
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -40,8 +49,12 @@ from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.checks import Checks
-from hydromodpy.results.manifest import (
+from hydromodpy.results.products.cited import read_cited
+from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
+from hydromodpy.results.record.checks import Checks
+from hydromodpy.results.record.label import label_of
+from hydromodpy.results.record.manifest import (
     DERIVE_RULE_VERSION,
     KEY_PACKAGES,
     InputEntry,
@@ -52,16 +65,18 @@ from hydromodpy.results.manifest import (
     ManifestRun,
     read_manifest,
 )
-from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
-from hydromodpy.results.record import RunProvenance, RunRecord
-from hydromodpy.results.run_identity import label_of
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.record.record import RunProvenance, RunRecord
+from hydromodpy.results.record.replay_class import classify_replay
+from hydromodpy.results.record.values import run_value_digests
+from hydromodpy.results.storage.contract import MESH_DIRNAME, RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory
 from hydromodpy.results.storage.geo_metadata import wgs84_bounds
 from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.schema.lineage import ProducerSide
 
 logger = get_logger(__name__)
 
@@ -72,8 +87,23 @@ _DECLARED_IDENTITY_KEYS: Final[tuple[str, ...]] = ("creator_name", "creator_inst
 _UNKNOWN_LICENCE = "a known licence"
 
 
-def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunRecord:
+def seal_completed(
+    store: RunStore,
+    *,
+    ended_at: datetime | None = None,
+    replay_of: str | Path | None = None,
+    strict: bool = False,
+    producer: Mapping[str, ProducerSide] | None = None,
+) -> RunRecord:
     """Seal the run of *store* as completed and return its record.
+
+    *replay_of* is the sealed run or published copy the run replays, and
+    *producer* the provenance entries that differ from it. The tables of the
+    record are written first, so the value digests cover every table; the class
+    is computed from them before ``manifest.json`` is written; under ``strict`` a
+    deviation raises
+    :class:`~hydromodpy.results.record.replay_class.ReplayDeviationError` at
+    that point, and the attempt keeps its fields and tables with no seal.
 
     The store is closed afterwards. The outcome is left as it is: the attempt
     protocol flips it to ``completed`` and drops ``<run>/.hmp/`` once nothing
@@ -86,8 +116,17 @@ def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunR
     run_dir = store.run_dir
     _resolve_declared_crs(facts)
     _seal_field_store(store, when)
+    _seal_mesh(store, replay_of)
     record = build_record(store, ended_at=when)
-    record.write(run_dir)
+    record.write_tables(run_dir)
+    digests = run_value_digests(run_dir, facts)
+    if replay_of is not None:
+        replay = classify_replay(
+            replay_of, run_dir, digests, strict=strict, producer=producer or {}
+        )
+        facts.lineage = facts.lineage.model_copy(update={"replay": replay})
+        record = record.model_copy(update={"lineage": facts.lineage})
+    record.write_manifest(run_dir, values=digests, sealed_at=when)
     label = label_of(record, run_dir)
     write_readme(
         run_dir,
@@ -211,7 +250,7 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         site=facts.site,
         geometry=geometry,
         period=period,
-        config=ManifestConfig(file=config_file, hash=facts.config_hash, source=facts.config_source),
+        config=ManifestConfig(file=config_file, source=facts.config_source),
         lineage=facts.lineage,
         identity=identity,
         checks=checks,
@@ -375,6 +414,90 @@ def _budget_of(run_dir: Path) -> ManifestBudget | None:
     return ManifestBudget(policy=kept.policy, kept_terms=list(kept.terms))
 
 
+# -- The mesh at the seal --------------------------------------------------
+
+
+def _seal_mesh(store: RunStore, replay_of: str | Path | None = None) -> None:
+    """Copy the mesh the run read under ``mesh/``, and cite it as an input.
+
+    An engine that does not rebuild a mesh bit for bit reads it from the
+    product store, and a replay of the run must read the same bytes. The
+    product is never rewritten in place, so a hard link keeps its bytes even
+    after an eviction; another volume falls back to a copy. A replay that read
+    the ``mesh/`` sealed beside *replay_of* (``reused = "sealed"`` in its
+    profile) seals those bytes, whatever the store holds. A product the store
+    no longer holds is said and skipped: such a run seals without ``mesh/``,
+    and a replay rebuilds the mesh as before.
+    """
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+
+    facts, run_dir = store.facts, store.run_dir
+    cited = [product for product in read_cited(run_dir) if product.kind == MESH_DIRNAME]
+    if not cited:
+        return
+    if replay_of is not None and _mesh_read_sealed(run_dir):
+        origin: Path | None = Path(replay_of) / MESH_DIRNAME
+        what = f"The mesh sealed in {replay_of}"
+    else:
+        workspace = store.workspace_path
+        if workspace is None:
+            logger.warning(
+                "Run %s cites a mesh product and has no project root: no %s/ is sealed.",
+                facts.sim_id[:8],
+                MESH_DIRNAME,
+            )
+            return
+        origin = ProductStore(products_root(workspace)).get(cited[0].key)
+        what = f"The mesh product {cited[0].key[:12]}"
+        if origin is None:
+            logger.warning(
+                "%s cited by run %s is gone from the store: the run seals without %s/, "
+                "and a replay rebuilds it.",
+                what,
+                facts.sim_id[:8],
+                MESH_DIRNAME,
+            )
+            return
+    sources = [origin / name for name in (DESCRIPTION_FILENAME, ARRAYS_FILENAME)]
+    if not all(source.is_file() for source in sources):
+        logger.warning(
+            "%s read by run %s is incomplete: the run seals without %s/.",
+            what,
+            facts.sim_id[:8],
+            MESH_DIRNAME,
+        )
+        return
+    target = run_dir / MESH_DIRNAME
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    for source in sources:
+        destination = target / source.name
+        try:
+            os.link(source, destination)
+        except OSError:
+            shutil.copy2(source, destination)
+    facts.put_input(
+        InputEntry(
+            variable=MESH_DIRNAME,
+            provider="store",
+            product=MESH_DIRNAME,
+            path=MESH_DIRNAME,
+            sha256=sha256_directory(target),
+            bytes=path_size_bytes(target),
+        )
+    )
+
+
+def _mesh_read_sealed(run_dir: Path) -> bool:
+    """Return whether the last mesh step of *run_dir* read the mesh sealed beside its source."""
+    profile = read_profile(run_dir)
+    if profile is None:
+        return False
+    lines = [line for line in profile.lines if line.kind == "step" and line.name == MESH_DIRNAME]
+    return bool(lines) and lines[-1].reused == "sealed"
+
+
 # -- The field store at the seal -------------------------------------------
 
 
@@ -420,7 +543,7 @@ def _acdd_row(facts: RunFacts, *, licence: str) -> dict[str, Any]:
         "bbox_ymax": bbox[3],
         "contact_email": facts.contact_email,
         "doi": facts.doi,
-        "config_hash": facts.config_hash,
+        "solution_key": facts.solution_key,
         "license": licence,
     }
 
@@ -547,19 +670,19 @@ def _warn_about_undeclared_identity(sid: str, attrs: dict, root: Path | None) ->
     _remember_told(marker, missing)
 
 
-def sealed_config_hash(run_dir: Path) -> str | None:
-    """Return ``identity.config_hash`` of a sealed run, the solution key it computed under, or None.
+def sealed_solution_key(run_dir: Path) -> str | None:
+    """Return ``identity.solution_key`` of a sealed run, or None.
 
-    The field keeps its name until the seal v4 renames it. Its value is the solution
-    key of the run (:func:`~hydromodpy.results.request_identity.solution_key`): the
-    request, the inputs, the code, the solver binaries and the numeric packages.
-    None when the directory is unsealed, and None when its manifest cannot be
-    read: a run whose seal is unreadable matches nothing, which errs on the
-    side of computing.
+    The key is the one of
+    :func:`~hydromodpy.results.record.request_identity.solution_key`: the
+    request id plus the code, the solver binaries, the numeric packages and
+    the mesh engine. None when the directory is unsealed, and None when its
+    seal cannot be read: a run whose seal is unreadable matches nothing, which
+    errs on the side of computing.
     """
     payload = readable(read_manifest, run_dir)
     identity = payload.get("identity") if isinstance(payload, dict) else None
-    value = identity.get("config_hash") if isinstance(identity, dict) else None
+    value = identity.get("solution_key") if isinstance(identity, dict) else None
     return None if value is None else str(value)
 
 
@@ -568,5 +691,5 @@ __all__ = [
     "build_provenance",
     "build_record",
     "seal_completed",
-    "sealed_config_hash",
+    "sealed_solution_key",
 ]

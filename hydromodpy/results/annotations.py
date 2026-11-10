@@ -44,8 +44,8 @@ from pydantic import ConfigDict, Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.contract import RUN_ANNOTATIONS_FILENAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 

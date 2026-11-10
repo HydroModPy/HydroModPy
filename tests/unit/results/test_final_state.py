@@ -17,7 +17,7 @@ import pytest
 import zarr
 
 from hydromodpy.model.initial.state import PriorState
-from hydromodpy.results.request_identity import prior_state_digest
+from hydromodpy.results.record.request_identity import prior_state_digest
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FINAL_STATE_DIRNAME,
