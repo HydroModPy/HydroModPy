@@ -55,15 +55,13 @@ from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
-from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.manifest import (
+from hydromodpy.results.metric_rule import MetricScore
+from hydromodpy.results.record.checks import Checks
+from hydromodpy.results.record.manifest import (
     DERIVE_RULE_VERSION,
     PARAMETERS_TABLE_NAME,
     InputEntry,
-    Manifest,
-    ManifestArtifact,
     ManifestBudget,
     ManifestConfig,
     ManifestGeometry,
@@ -72,12 +70,13 @@ from hydromodpy.results.manifest import (
     ManifestSite,
     MetricRow,
     ParameterRow,
+    RunSeal,
     TrackedInput,
     list_artifacts,
     read_seal,
 )
-from hydromodpy.results.metric_rule import MetricScore
 from hydromodpy.results.storage.contract import (
+    CERTIFIED_RUN_ENTRIES,
     PARQUET_FILE_SUFFIX,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -88,13 +87,11 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.geo_metadata import run_parquet_footer
-from hydromodpy.results.storage.json_io import (
-    read_sealed_json,
-    write_json_atomic,
-    write_json_durable,
-)
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, SIMULATION_SCHEMA
+from hydromodpy.schema.lineage import Lineage
+from hydromodpy.schema.seal import ArtifactRecord, ValueDigests, write_seal
 
 INPUTS_SCHEMA: Final[str] = "hydromodpy.inputs.v1"
 """Schema id of ``inputs.json``."""
@@ -179,7 +176,7 @@ def read_inputs(run_dir: str | Path) -> InputsDocument:
 class RunRecord(HydroModelBase):
     """Everything the seal of a completed run says, in memory.
 
-    The blocks are those of :class:`~hydromodpy.results.manifest.Manifest`,
+    The blocks are those of :class:`~hydromodpy.results.record.manifest.RunSeal`,
     plus the provenance and the loaded inputs that go to their own files.
     ``run.status`` is always ``completed``: :class:`ManifestRun` refuses any
     other status with the sentence of the module docstring.
@@ -222,8 +219,6 @@ class RunRecord(HydroModelBase):
             raise ValueError(f"identity names site {identity.site}, the run is on {self.site.name}")
         if self.site is not None and identity.site_fingerprint != self.site.fingerprint:
             raise ValueError("identity and site carry different fingerprints")
-        if identity.config_hash != self.config.hash:
-            raise ValueError("identity and config carry different hashes")
         if identity.mesh_hash != self.geometry.mesh_hash:
             raise ValueError("identity and geometry carry different mesh hashes")
         if self.provenance.sim_id != run.sim_id:
@@ -277,7 +272,6 @@ class RunRecord(HydroModelBase):
             "period_start": period.start,
             "period_end": period.end,
             "time_unit": period.time_unit,
-            "config_hash": self.config.hash,
             "config_source": self.config.source,
             "parent_sim_id": self.lineage.parent_sim_id,
             "lineage_kind": self.lineage.kind,
@@ -333,7 +327,6 @@ class RunRecord(HydroModelBase):
             project=run.project,
             name=run.name,
             solver=run.solver,
-            config_hash=self.config.hash,
             licence=run.license or UNDETERMINED_LICENSE,
             scientific_objective=run.scientific_objective,
             doi=run.doi,
@@ -357,9 +350,15 @@ class RunRecord(HydroModelBase):
         """Return ``inputs.json`` as a document."""
         return InputsDocument(sim_id=self.run.sim_id, inputs=list(self.inputs))
 
-    def to_manifest(self, *, sealed_at: datetime, artifacts: list[ManifestArtifact]) -> Manifest:
-        """Return the seal, given the inventory of the directory."""
-        return Manifest(
+    def to_manifest(
+        self,
+        *,
+        sealed_at: datetime,
+        artifacts: list[ArtifactRecord],
+        values: ValueDigests | None = None,
+    ) -> RunSeal:
+        """Return the seal, given the inventory of the directory and the value digests."""
+        return RunSeal(
             derive_rule_version=self.derive_rule_version,
             sealed_at=sealed_at,
             run=self.run,
@@ -372,14 +371,30 @@ class RunRecord(HydroModelBase):
             checks=self.checks,
             inputs=list(self.tracked_inputs),
             artifacts=artifacts,
+            values=values,
             parameters=list(self.parameters),
             metrics=list(self.metrics),
             score=self.score,
             budget=self.budget,
         )
 
-    def write(self, run_dir: str | Path) -> Path:
+    def write(
+        self,
+        run_dir: str | Path,
+        *,
+        values: ValueDigests | None = None,
+        sealed_at: datetime | None = None,
+    ) -> Path:
         """Write the seal files in order and return the path of the manifest."""
+        self.write_tables(run_dir)
+        return self.write_manifest(run_dir, values=values, sealed_at=sealed_at)
+
+    def write_tables(self, run_dir: str | Path) -> None:
+        """Write every file the manifest certifies and the record owns, the manifest aside.
+
+        The value digests of a seal read ``simulation.parquet`` and
+        ``parameters.parquet``, so these files exist before the digests are taken.
+        """
         directory = Path(run_dir)
         tables = directory / TABLES_DIRNAME
         write_table_atomic(
@@ -395,12 +410,22 @@ class RunRecord(HydroModelBase):
             directory / RUN_INPUTS_FILENAME,
             self.inputs_document().model_dump(mode="json", by_alias=True),
         )
-        manifest = self.to_manifest(
-            sealed_at=datetime.now(UTC), artifacts=sealed_artifacts(directory)
+
+    def write_manifest(
+        self,
+        run_dir: str | Path,
+        *,
+        values: ValueDigests | None = None,
+        sealed_at: datetime | None = None,
+    ) -> Path:
+        """Write ``manifest.json`` last, over the files already on disk, and return its path."""
+        directory = Path(run_dir)
+        seal = self.to_manifest(
+            sealed_at=sealed_at if sealed_at is not None else datetime.now(UTC),
+            artifacts=sealed_artifacts(directory),
+            values=values,
         )
-        return write_json_durable(
-            directory / RUN_MANIFEST_FILENAME, manifest.model_dump(mode="json", by_alias=True)
-        )
+        return write_seal(directory / RUN_MANIFEST_FILENAME, seal)
 
     @classmethod
     def read(cls, run_dir: str | Path) -> RunRecord:
@@ -428,27 +453,34 @@ class RunRecord(HydroModelBase):
         )
 
 
-def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
-    """Inventory the sealed entries of a run directory.
+def sealed_artifacts(run_dir: str | Path) -> list[ArtifactRecord]:
+    """Inventory the entries a seal certifies, and the unknown ones it keeps visible.
 
     What :data:`~hydromodpy.results.storage.contract.UNSEALED_RUN_ENTRIES`
-    names is left out: derived, mutable, diagnostic or history. A file carries
-    its ``sha256``, and a directory store (``fields.zarr``) the digest of its
-    tree (:func:`~hydromodpy.results.storage.digests.sha256_directory`), so a
-    chunk rewritten after the seal shows. The manifest itself carries none: it
-    is not written yet.
+    names is left out: derived, mutable, diagnostic or history. Of what
+    remains, only :data:`~hydromodpy.results.storage.contract.CERTIFIED_RUN_ENTRIES`
+    and the manifest are certified; an entry named by neither keeps its
+    ``other`` role and its digest, so no file becomes invisible. A file
+    carries its ``sha256``, and a directory store (``fields.zarr``, ``mesh/``)
+    the digest of its tree
+    (:func:`~hydromodpy.results.storage.digests.sha256_directory`), so a chunk
+    rewritten after the seal shows. The manifest itself carries none: it is
+    not written yet.
     """
     root = Path(run_dir)
     artifacts = []
     for entry in list_artifacts(root):
-        if Path(entry["path"]).parts[0] in UNSEALED_RUN_ENTRIES:
+        first = Path(entry["path"]).parts[0]
+        if first in UNSEALED_RUN_ENTRIES:
+            continue
+        if first not in CERTIFIED_RUN_ENTRIES and entry["role"] not in ("manifest", "other"):
             continue
         path = root / entry["path"]
         if entry["role"] != "manifest" and path.is_file():
             entry = {**entry, "sha256": sha256_of(path)}
         elif entry["role"] != "manifest" and path.is_dir():
             entry = {**entry, "sha256": sha256_directory(path)}
-        artifacts.append(ManifestArtifact(**entry))
+        artifacts.append(ArtifactRecord(**entry))
     return artifacts
 
 

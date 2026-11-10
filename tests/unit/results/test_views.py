@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.checks import Validity
 from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.metric_rule import EVALUATION_ROLE, HEADLINE_WINDOW
+from hydromodpy.results.record.checks import Validity
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.sealed import lineage_of
 from tests._helpers.metric_rows import headline_score
@@ -72,7 +72,7 @@ def test_a_run_reads_its_site_case_lineage_and_inputs(tmp_path) -> None:
 
 
 def test_the_parent_of_a_run_is_named_by_its_sealed_lineage(tmp_path) -> None:
-    from hydromodpy.results.lineage import Lineage
+    from hydromodpy.schema.lineage import Lineage
 
     parent_id = SIM_ID[:-2] + "99"
     run = _sealed(tmp_path, lineage=Lineage(parent_sim_id=parent_id, kind="rerun"))

@@ -1,0 +1,2512 @@
+{
+  "$defs": {
+    "ArtifactRecord": {
+      "additionalProperties": true,
+      "description": "One entry a seal certifies, by the path its directory spells.",
+      "properties": {
+        "bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Size of a file, files under a tree",
+          "title": "Bytes",
+          "x-hmp-profile": "user"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "json, parquet, zarr, directory...",
+          "title": "Format",
+          "x-hmp-profile": "user"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Media type a job capability declared for its output",
+          "title": "Media Type",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Relative path of the entry in its directory",
+          "examples": [
+            "example"
+          ],
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "description": "run: fields, config, table:<name>; job: document, output",
+          "examples": [
+            "example"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Digest of the file or of the directory tree; null when not sealed yet",
+          "title": "Sha256",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path",
+        "role"
+      ],
+      "title": "ArtifactRecord",
+      "type": "object"
+    },
+    "CalibratedBy": {
+      "additionalProperties": true,
+      "description": "The session, phase and trial a promoted run comes from.",
+      "properties": {
+        "cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost of the case of this run at that trial, never the total of a joint search; null when the search keeps no single cost",
+          "title": "Cost",
+          "x-hmp-profile": "user"
+        },
+        "metric": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the cost of the case of this run",
+          "title": "Metric",
+          "x-hmp-profile": "user"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Phase of that session",
+          "title": "Phase",
+          "x-hmp-profile": "user"
+        },
+        "session_id": {
+          "description": "Session that promoted the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Session Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "session_status": {
+          "description": "How the session ended",
+          "examples": [
+            "example"
+          ],
+          "title": "Session Status",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "completed",
+            "partial",
+            "aborted"
+          ]
+        },
+        "stop_state": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "rule_met",
+                "plan_exhausted",
+                "budget_spent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the search of that phase stopped: rule_met, plan_exhausted or budget_spent; none when not recorded",
+          "title": "Stop State",
+          "x-hmp-profile": "user"
+        },
+        "stopping_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The rule that search stops on, 'budget' for one with no rule of its own",
+          "title": "Stopping Rule",
+          "x-hmp-profile": "user"
+        },
+        "trial": {
+          "description": "Trial number, unique in the session",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Trial",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "validation_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Score of that trial on the validation period, in the sense of the cost; null when it has none",
+          "title": "Validation Cost",
+          "x-hmp-profile": "user"
+        },
+        "windows": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PeriodWindow"
+          },
+          "description": "Periods of the search as the case of this run read them, by name",
+          "title": "Windows",
+          "type": "object",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "session_id",
+        "trial",
+        "session_status"
+      ],
+      "title": "CalibratedBy",
+      "type": "object"
+    },
+    "Checks": {
+      "additionalProperties": true,
+      "description": "The measured facts of a run, sealed with it.",
+      "properties": {
+        "bounds_hit": {
+          "description": "Calibrated parameters that ended on a bound",
+          "items": {
+            "type": "string"
+          },
+          "title": "Bounds Hit",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "budget_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Water-budget discrepancy, percent",
+          "title": "Budget Pct",
+          "x-hmp-profile": "user"
+        },
+        "budget_threshold_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Discrepancy the user accepts, percent; none when undeclared",
+          "title": "Budget Threshold Pct",
+          "x-hmp-profile": "user"
+        },
+        "calibrated_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibratedBy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Present on a run promoted by a calibration",
+          "x-hmp-profile": "user"
+        },
+        "code_reproducible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "False for a dirty checkout or an editable install",
+          "title": "Code Reproducible",
+          "x-hmp-profile": "user"
+        },
+        "converged": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Convergence reported by the solver",
+          "title": "Converged",
+          "x-hmp-profile": "user"
+        },
+        "n_samples": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Samples the headline score used",
+          "title": "N Samples",
+          "x-hmp-profile": "user"
+        },
+        "obs_coverage": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Share of the score window with observations",
+          "title": "Obs Coverage",
+          "x-hmp-profile": "user"
+        },
+        "schema": {
+          "default": "hydromodpy.checks.v2",
+          "description": "Schema id",
+          "title": "Schema",
+          "type": "string"
+        },
+        "score_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Window of the headline score, one by definition",
+          "x-hmp-profile": "user"
+        },
+        "validities": {
+          "description": "Criterion verdicts",
+          "items": {
+            "$ref": "#/$defs/Validity"
+          },
+          "title": "Validities",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "Checks",
+      "type": "object"
+    },
+    "DateWindow": {
+      "additionalProperties": true,
+      "description": "A closed range of days, ``start`` and ``end`` included.",
+      "properties": {
+        "end": {
+          "description": "Last day of the window, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "description": "First day of the window",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DateWindow",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": true,
+      "description": "Who a run is, posed into every file that leaves it.",
+      "properties": {
+        "attempt_id": {
+          "description": "Id of the attempt that sealed the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Attempt Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "case_id": {
+          "description": "Case the run is: the run name, or site-recipe",
+          "examples": [
+            "example"
+          ],
+          "title": "Case Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "code_reproducible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "False for a dirty checkout or an editable install",
+          "title": "Code Reproducible",
+          "x-hmp-profile": "user"
+        },
+        "hydromodpy_version": {
+          "description": "Version that produced the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Hydromodpy Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "exploratory",
+                "calibrated",
+                "evaluated",
+                "failed"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label at the date below; never sealed",
+          "title": "Label",
+          "x-hmp-profile": "user"
+        },
+        "label_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Day the label was computed",
+          "title": "Label Date",
+          "x-hmp-profile": "user"
+        },
+        "mesh_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash of the mesh",
+          "title": "Mesh Hash",
+          "x-hmp-profile": "user"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Simulated period; none when steady",
+          "x-hmp-profile": "user"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Request id of the run",
+          "title": "Request Id",
+          "x-hmp-profile": "user"
+        },
+        "rule_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rules the label follows",
+          "title": "Rule Version",
+          "x-hmp-profile": "user"
+        },
+        "score_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Window the run was scored on",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "description": "Id of the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Sim Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "site": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site name",
+          "title": "Site",
+          "x-hmp-profile": "user"
+        },
+        "site_fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fingerprint of the site",
+          "title": "Site Fingerprint",
+          "x-hmp-profile": "user"
+        },
+        "solution_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Solution key of the run: its request id plus its code, solver binaries and key package versions",
+          "title": "Solution Key",
+          "x-hmp-profile": "user"
+        },
+        "solver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow backend of the run",
+          "title": "Solver",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "case_id",
+        "sim_id",
+        "attempt_id",
+        "hydromodpy_version"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Lineage": {
+      "additionalProperties": true,
+      "description": "Links of a run to its parent run, its session and its surcharges.",
+      "properties": {
+        "drift": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "description": "Keys whose value differs from config.resolved.toml of the parent, by dotted path: {sealed, effective}, a side the file does not write left out. The key new_at_default holds, by dotted path, the keys the parent did not seal and the rerun holds at their default.",
+          "title": "Drift",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "rerun",
+                "promoted",
+                "trial",
+                "version",
+                "replay",
+                "published"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relation to the parent",
+          "title": "Kind",
+          "x-hmp-profile": "user"
+        },
+        "overrides": {
+          "additionalProperties": true,
+          "description": "Dotted paths changed by --set, --overlay or a keyword of simulate",
+          "title": "Overrides",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "parent_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative directory of the parent at seal time, for a reader",
+          "title": "Parent Hint",
+          "x-hmp-profile": "user"
+        },
+        "parent_sim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this one derives from",
+          "title": "Parent Sim Id",
+          "x-hmp-profile": "user"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Phase of that session",
+          "title": "Phase",
+          "x-hmp-profile": "user"
+        },
+        "replay": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Replay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a replay compared and found; none for any other run",
+          "x-hmp-profile": "user"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Session a promoted run comes from",
+          "title": "Session Id",
+          "x-hmp-profile": "user"
+        },
+        "trial": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trial of that session",
+          "title": "Trial",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "Lineage",
+      "type": "object"
+    },
+    "ManifestBudget": {
+      "additionalProperties": true,
+      "description": "What the field store kept of the per-cell budget.",
+      "properties": {
+        "kept_terms": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kept Terms",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "policy": {
+          "examples": [
+            "example"
+          ],
+          "title": "Policy",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "policy",
+        "kept_terms"
+      ],
+      "title": "ManifestBudget",
+      "type": "object"
+    },
+    "ManifestConfig": {
+      "additionalProperties": true,
+      "description": "The frozen configuration of the run: the file, and where it came from.",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "config.toml when it was frozen",
+          "title": "File",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "File the run was launched from",
+          "title": "Source",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ManifestConfig",
+      "type": "object"
+    },
+    "ManifestGeometry": {
+      "additionalProperties": true,
+      "description": "The spatial identity of a run, catchment metadata included.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "xmin, ymin, xmax, ymax in the run CRS",
+          "title": "Bbox",
+          "x-hmp-profile": "user"
+        },
+        "catchment": {
+          "additionalProperties": true,
+          "description": "Catchment metadata: catch_area (km2), dem_res (m), x_outlet, y_outlet...",
+          "title": "Catchment",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "crs_epsg": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs Epsg",
+          "x-hmp-profile": "user"
+        },
+        "crs_wkt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs Wkt",
+          "x-hmp-profile": "user"
+        },
+        "mesh_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Engine",
+          "x-hmp-profile": "user"
+        },
+        "mesh_engine_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Engine Version",
+          "x-hmp-profile": "user"
+        },
+        "mesh_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Hash",
+          "x-hmp-profile": "user"
+        },
+        "mesh_topology": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "structured_2d",
+                "structured_3d",
+                "unstructured_2d",
+                "unstructured_3d",
+                "lumped",
+                "network_1d",
+                "triangle",
+                "quadrilateral",
+                "polygon",
+                "wedge",
+                "hexahedron"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Topology",
+          "x-hmp-profile": "user"
+        },
+        "n_cells": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Cells",
+          "x-hmp-profile": "user"
+        },
+        "n_layers": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Layers",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ManifestGeometry",
+      "type": "object"
+    },
+    "ManifestPeriod": {
+      "additionalProperties": true,
+      "description": "The simulated period; empty for a steady run.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End",
+          "x-hmp-profile": "user"
+        },
+        "n_timesteps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Timesteps",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start",
+          "x-hmp-profile": "user"
+        },
+        "time_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Unit",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ManifestPeriod",
+      "type": "object"
+    },
+    "ManifestRun": {
+      "additionalProperties": true,
+      "description": "Who this run is: name, version, case, attempt, solver, dates.",
+      "properties": {
+        "attempt": {
+          "description": "Attempt that sealed the run",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "attempt_id": {
+          "examples": [
+            "example"
+          ],
+          "title": "Attempt Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "case_id": {
+          "description": "The run name, or site-recipe under [sites]",
+          "examples": [
+            "example"
+          ],
+          "title": "Case Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "contact_email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contact Email",
+          "x-hmp-profile": "user"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description",
+          "x-hmp-profile": "user"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi",
+          "x-hmp-profile": "user"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wall clock, started_at to ended_at",
+          "title": "Duration S",
+          "x-hmp-profile": "user"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At",
+          "x-hmp-profile": "user"
+        },
+        "flow_regime": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "steady",
+                "transient",
+                "steady_then_transient"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Regime",
+          "x-hmp-profile": "user"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SPDX licence the run may state, from the inputs it read",
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Run name, with its .vN",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "name_stem": {
+          "description": "Run name without its .vN",
+          "examples": [
+            "example"
+          ],
+          "title": "Name Stem",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "project": {
+          "examples": [
+            "example"
+          ],
+          "title": "Project",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe of a planned case",
+          "title": "Recipe",
+          "x-hmp-profile": "user"
+        },
+        "rel_dir": {
+          "description": "Directory of the run, relative to the project root",
+          "examples": [
+            "example"
+          ],
+          "title": "Rel Dir",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "scientific_objective": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scientific Objective",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "examples": [
+            "example"
+          ],
+          "title": "Sim Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "solver": {
+          "examples": [
+            "example"
+          ],
+          "title": "Solver",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "solver_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solver Category",
+          "x-hmp-profile": "user"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At",
+          "x-hmp-profile": "user"
+        },
+        "status": {
+          "const": "completed",
+          "description": "Always completed: a seal certifies a completed run",
+          "examples": [
+            "completed"
+          ],
+          "title": "Status",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "version": {
+          "description": "Version number, 1 for the bare name",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sim_id",
+        "name",
+        "name_stem",
+        "version",
+        "status",
+        "project",
+        "case_id",
+        "rel_dir",
+        "attempt",
+        "attempt_id",
+        "solver",
+        "created_at"
+      ],
+      "title": "ManifestRun",
+      "type": "object"
+    },
+    "ManifestSite": {
+      "additionalProperties": true,
+      "description": "The basin a run was computed on, as the run itself declares it.",
+      "properties": {
+        "area_km2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Delineated catchment area, km2",
+          "title": "Area Km2",
+          "x-hmp-profile": "user"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CRS of the outlet",
+          "title": "Crs",
+          "x-hmp-profile": "user"
+        },
+        "dem_resolution_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DEM cell size used, m",
+          "title": "Dem Resolution M",
+          "x-hmp-profile": "user"
+        },
+        "fingerprint": {
+          "description": "Fingerprint of the site declaration",
+          "examples": [
+            "example"
+          ],
+          "title": "Fingerprint",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "gauge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Gauging station of the site",
+          "title": "Gauge",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human label of the site",
+          "title": "Label",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Site name",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "snapped_outlet": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Outlet the delineation used, in crs",
+          "title": "Snapped Outlet",
+          "x-hmp-profile": "user"
+        },
+        "uri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Registry uri, hubeau:<code> or bdtopage:<code>",
+          "title": "Uri",
+          "x-hmp-profile": "user"
+        },
+        "x_outlet": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declared outlet easting, in crs",
+          "title": "X Outlet",
+          "x-hmp-profile": "user"
+        },
+        "y_outlet": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declared outlet northing, in crs",
+          "title": "Y Outlet",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "fingerprint"
+      ],
+      "title": "ManifestSite",
+      "type": "object"
+    },
+    "MetricRow": {
+      "additionalProperties": true,
+      "description": "One metric of a run, with the period and rule it was computed under.\n\nA number of the run itself (:data:`RUNTIME_VARIABLE`) has no period.",
+      "properties": {
+        "metric": {
+          "examples": [
+            "example"
+          ],
+          "title": "Metric",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "metric_rule_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Rule Version",
+          "x-hmp-profile": "user"
+        },
+        "n_clipped": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Negative values clipped to zero before a log-scale score; null on a metric that never clips",
+          "title": "N Clipped",
+          "x-hmp-profile": "user"
+        },
+        "n_samples": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Samples the score used",
+          "title": "N Samples",
+          "x-hmp-profile": "user"
+        },
+        "n_sim_nan": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Periods of the window the record covers and the simulated value leaves NaN (a dry cell), dropped from the pairs; null when not counted",
+          "title": "N Sim Nan",
+          "x-hmp-profile": "user"
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Station",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "variable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variable",
+          "x-hmp-profile": "user"
+        },
+        "window_end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last day scored, included",
+          "title": "Window End",
+          "x-hmp-profile": "user"
+        },
+        "window_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the period, 'metrics' for [metrics] window",
+          "title": "Window Name",
+          "x-hmp-profile": "user"
+        },
+        "window_role": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "calibration",
+                "validation",
+                "evaluation"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What that period is for",
+          "title": "Window Role",
+          "x-hmp-profile": "user"
+        },
+        "window_start": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First day scored",
+          "title": "Window Start",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "metric"
+      ],
+      "title": "MetricRow",
+      "type": "object"
+    },
+    "MetricScore": {
+      "additionalProperties": true,
+      "description": "One score and the facts that make it comparable.",
+      "properties": {
+        "metric": {
+          "description": "Metric name, one of RUN_METRIC_NAMES",
+          "examples": [
+            "example"
+          ],
+          "title": "Metric",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "metric_rule_version": {
+          "description": "Version of the rule the score follows",
+          "examples": [
+            "example"
+          ],
+          "title": "Metric Rule Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "n_clipped": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Negative values clipped to zero before a log-scale score; null on a metric that never clips",
+          "title": "N Clipped",
+          "x-hmp-profile": "user"
+        },
+        "n_samples": {
+          "description": "Samples the score used",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "title": "N Samples",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station the score was read at",
+          "title": "Station",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The score, or null when it could not be computed",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "variable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Variable the score was read on",
+          "title": "Variable",
+          "x-hmp-profile": "user"
+        },
+        "window_end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Last day scored, null without a window",
+          "title": "Window End",
+          "x-hmp-profile": "user"
+        },
+        "window_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the period scored",
+          "title": "Window Name",
+          "x-hmp-profile": "user"
+        },
+        "window_role": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "calibration",
+                "validation",
+                "evaluation"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What that period is for",
+          "title": "Window Role",
+          "x-hmp-profile": "user"
+        },
+        "window_start": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "First day scored, null without a window",
+          "title": "Window Start",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "window_start",
+        "window_end",
+        "n_samples",
+        "metric_rule_version"
+      ],
+      "title": "MetricScore",
+      "type": "object"
+    },
+    "ParameterRow": {
+      "additionalProperties": true,
+      "description": "One parameter value of a run, in one zone.",
+      "properties": {
+        "calibrated": {
+          "description": "True when a calibration set the value",
+          "examples": [
+            false
+          ],
+          "title": "Calibrated",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Parameter name as the solver builder knows it",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "origin": {
+          "examples": [
+            "example"
+          ],
+          "title": "Origin",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "declared",
+            "site_table",
+            "site_override",
+            "recipe",
+            "calibrated"
+          ]
+        },
+        "parameterization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "uniform, zonal, field...",
+          "title": "Parameterization",
+          "x-hmp-profile": "user"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "zone": {
+          "default": "catchment",
+          "description": "Zone the value applies to",
+          "examples": [
+            "catchment"
+          ],
+          "title": "Zone",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "origin",
+        "calibrated"
+      ],
+      "title": "ParameterRow",
+      "type": "object"
+    },
+    "PeriodWindow": {
+      "additionalProperties": true,
+      "description": "A named period of a search: its role, its extent, and the window of each case.",
+      "properties": {
+        "by_case": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DateWindow"
+          },
+          "description": "Window of each case by case id, empty when every case reads start to end",
+          "title": "By Case",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "description": "Last day of the period over all cases, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "description": "What the period is for",
+          "examples": [
+            "example"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "calibration",
+            "validation",
+            "evaluation"
+          ]
+        },
+        "start": {
+          "description": "First day of the period over all cases",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "role",
+        "start",
+        "end"
+      ],
+      "title": "PeriodWindow",
+      "type": "object"
+    },
+    "ProducerSide": {
+      "additionalProperties": true,
+      "description": "One writer of a value: the source seal, or the replay as it ran.",
+      "properties": {
+        "found": {
+          "default": null,
+          "description": "Value in the replay provenance",
+          "title": "Found",
+          "x-hmp-profile": "user"
+        },
+        "sealed": {
+          "default": null,
+          "description": "Value in the source provenance",
+          "title": "Sealed",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ProducerSide",
+      "type": "object"
+    },
+    "Replay": {
+      "additionalProperties": true,
+      "description": "What a replay compared to its source, and what it found.\n\n``differs`` names every value key present on both sides whose digest moved,\nwith the size of the move. ``added`` and ``removed`` name the keys present\non one side only. ``producer`` names the provenance entries that differ,\nand ``changes`` the register rows the version range crosses.",
+      "properties": {
+        "added": {
+          "description": "Keys only the replay holds",
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "basis": {
+          "description": "Values the comparison read",
+          "examples": [
+            "example"
+          ],
+          "title": "Basis",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "float64",
+            "stored",
+            "none"
+          ]
+        },
+        "changes": {
+          "description": "Register rows the version range crosses",
+          "items": {
+            "type": "string"
+          },
+          "title": "Changes",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "class": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "bit",
+                "deviation"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "bit, deviation, or none without a basis",
+          "title": "Class"
+        },
+        "differs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ReplayDifference"
+          },
+          "description": "Keys present on both sides whose digest moved",
+          "title": "Differs",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "of": {
+          "description": "sim_id of the run the replay read",
+          "examples": [
+            "example"
+          ],
+          "title": "Of",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "producer": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ProducerSide"
+          },
+          "description": "Provenance entries that differ",
+          "title": "Producer",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "removed": {
+          "description": "Keys only the source holds",
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "description": "run for a sealed run, copy for a published copy",
+          "examples": [
+            "example"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "run",
+            "copy"
+          ]
+        },
+        "source_version": {
+          "description": "hydromodpy_version of the source",
+          "examples": [
+            "example"
+          ],
+          "title": "Source Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "strict": {
+          "default": false,
+          "description": "Whether the replay was asked to refuse",
+          "examples": [
+            false
+          ],
+          "title": "Strict",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "of",
+        "source",
+        "source_version",
+        "basis"
+      ],
+      "title": "Replay",
+      "type": "object"
+    },
+    "ReplayDifference": {
+      "additionalProperties": true,
+      "description": "How one key of the values differs between a source and its replay.",
+      "properties": {
+        "max_abs": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest absolute difference",
+          "title": "Max Abs",
+          "x-hmp-profile": "user"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "exact",
+                "compact"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Precision of the values the two measures were read in",
+          "title": "Precision",
+          "x-hmp-profile": "user"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "x-hmp-vocabulary": [
+                "shape",
+                "nan_pattern",
+                "zero_norm"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why a measure is null when both sides hold the key",
+          "title": "Reason",
+          "x-hmp-profile": "user"
+        },
+        "rel_l2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "L2 norm of the difference over the norm of the source field",
+          "title": "Rel L2",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ReplayDifference",
+      "type": "object"
+    },
+    "TrackedInput": {
+      "additionalProperties": true,
+      "description": "One file the configuration declared and the run read.",
+      "properties": {
+        "bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes",
+          "x-hmp-profile": "user"
+        },
+        "category": {
+          "examples": [
+            "example"
+          ],
+          "title": "Category",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "declared_path": {
+          "description": "Value written in the configuration",
+          "examples": [
+            "example"
+          ],
+          "title": "Declared Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Workspace-encoded location the run read",
+          "examples": [
+            "example"
+          ],
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "portable": {
+          "examples": [
+            false
+          ],
+          "title": "Portable",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "examples": [
+            "example"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "examples": [
+            "example"
+          ],
+          "title": "Sha256",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "role",
+        "category",
+        "path",
+        "declared_path",
+        "sha256",
+        "portable"
+      ],
+      "title": "TrackedInput",
+      "type": "object"
+    },
+    "Validity": {
+      "additionalProperties": true,
+      "description": "One check that qualifies a result without penalizing it.\n\n``passed`` is the verdict, ``message`` the sentence a reader who is not a\nhydrogeologist needs. ``fatal`` is true for the few checks whose failure\nmakes the number a fiction rather than coarse.",
+      "properties": {
+        "fatal": {
+          "default": false,
+          "title": "Fatal",
+          "type": "boolean"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "passed",
+        "value",
+        "message"
+      ],
+      "title": "Validity",
+      "type": "object"
+    },
+    "ValueDigests": {
+      "additionalProperties": true,
+      "description": "The digests of the values a seal compared, all under one rule.\n\nKeys name an array of ``fields.zarr`` (``fields/<path>``), an array of\n``final_state/`` (``final_state/<path>``) or one quantity column of one\ntable (``tables/<table>/<column>``).",
+      "properties": {
+        "digests": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Value key to its digest, in key order",
+          "title": "Digests",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "rule": {
+          "default": "values/1",
+          "description": "Rule every digest follows",
+          "examples": [
+            "values/1"
+          ],
+          "title": "Rule",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ValueDigests",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "The seal of a completed run directory, version 4: the run profile of :class:`Seal`.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRecord"
+      },
+      "title": "Artifacts",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManifestBudget"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "x-hmp-profile": "user"
+    },
+    "checks": {
+      "$ref": "#/$defs/Checks",
+      "x-hmp-profile": "user"
+    },
+    "config": {
+      "$ref": "#/$defs/ManifestConfig",
+      "x-hmp-profile": "user"
+    },
+    "derive_rule_version": {
+      "default": "1",
+      "description": "Version of the rules the derived fields of this run are rebuilt by",
+      "examples": [
+        "1"
+      ],
+      "title": "Derive Rule Version",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "geometry": {
+      "$ref": "#/$defs/ManifestGeometry",
+      "x-hmp-profile": "user"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity",
+      "x-hmp-profile": "user"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/TrackedInput"
+      },
+      "title": "Inputs",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "lineage": {
+      "$ref": "#/$defs/Lineage",
+      "x-hmp-profile": "user"
+    },
+    "manifest_version": {
+      "default": 4,
+      "examples": [
+        4
+      ],
+      "minimum": 1,
+      "title": "Manifest Version",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/MetricRow"
+      },
+      "title": "Metrics",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "parameters": {
+      "items": {
+        "$ref": "#/$defs/ParameterRow"
+      },
+      "title": "Parameters",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "period": {
+      "$ref": "#/$defs/ManifestPeriod",
+      "x-hmp-profile": "user"
+    },
+    "profile": {
+      "const": "run",
+      "default": "run",
+      "examples": [
+        "run"
+      ],
+      "title": "Profile",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "run": {
+      "$ref": "#/$defs/ManifestRun",
+      "x-hmp-profile": "user"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MetricScore"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "x-hmp-profile": "user"
+    },
+    "sealed_at": {
+      "description": "Instant the seal was written, UTC",
+      "format": "date-time",
+      "title": "Sealed At",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "site": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManifestSite"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "x-hmp-profile": "user"
+    },
+    "values": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValueDigests"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Value digests; none for a seal that compared no values",
+      "x-hmp-profile": "user"
+    }
+  },
+  "required": [
+    "sealed_at",
+    "run",
+    "geometry",
+    "period",
+    "config",
+    "identity",
+    "checks"
+  ],
+  "title": "RunSeal",
+  "type": "object"
+}

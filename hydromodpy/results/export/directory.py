@@ -36,17 +36,17 @@ from typing import Any
 
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
-from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.publication import PublicationConfig
-from hydromodpy.results.record import PROVENANCE_VERSIONS
+from hydromodpy.results.record.manifest import read_manifest
+from hydromodpy.results.record.record import PROVENANCE_VERSIONS
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
 )
 from hydromodpy.results.storage.json_io import read_sealed_json
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.documents import check_job_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS, UNDETERMINED
@@ -57,7 +57,7 @@ from hydromodpy.schema.job.layout import (
 )
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS
 from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
-from hydromodpy.schema.job.seal import JOB_PROFILE, MANIFEST_VERSIONS
+from hydromodpy.schema.job.seal import JobSeal, read_job_seal
 from hydromodpy.schema.media_types import (
     JSON_MEDIA_TYPE,
     OCTET_STREAM_MEDIA_TYPE,
@@ -65,6 +65,7 @@ from hydromodpy.schema.media_types import (
     TOML_MEDIA_TYPE,
     ZARR_MEDIA_TYPE,
 )
+from hydromodpy.schema.seal import ArtifactRecord
 
 _RUN_FORMAT_MEDIA_TYPES: dict[str, str] = {
     "json": JSON_MEDIA_TYPE,
@@ -107,10 +108,11 @@ def context_from_directory(directory: Path | str) -> FairExportContext:
             "and a generated view renders the seal"
         )
     manifest = _read_object(manifest_path)
-    if manifest.get("profile") == JOB_PROFILE:
-        check_job_document(manifest, MANIFEST_VERSIONS, path=manifest_path)
-        return _job_context(root, manifest)
-    if "manifest_version" in manifest:
+    if manifest.get("profile") == "job":
+        if manifest.get("geometry") is not None:
+            _job_extent(manifest["geometry"], where=f"{manifest_path} geometry")
+        return _job_context(root, read_job_seal(manifest_path))
+    if manifest.get("profile") == "run" or "manifest_version" in manifest:
         return _run_context(root, read_manifest(root))
     raise ExportError(
         f"{manifest_path} is neither a run manifest nor a job manifest; "
@@ -163,6 +165,8 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     git = _mapping(provenance.get("git"))
     environment = _mapping(provenance.get("environment"))
 
+    identity = _mapping(manifest.get("identity"))
+    replay = _mapping(_mapping(manifest.get("lineage")).get("replay"))
     epsg = _int_or_none(geometry.get("crs_epsg"))
     crs_wkt = geometry.get("crs_wkt")
     sim_row: dict[str, Any] = {
@@ -181,6 +185,9 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
         "ended_at": run.get("ended_at"),
         "period_start": period.get("start"),
         "period_end": period.get("end"),
+        "request_id": identity.get("request_id"),
+        "solution_key": identity.get("solution_key"),
+        "replay_class": replay.get("class"),
         **_bbox_columns(_wgs84_bbox(geometry.get("bbox"), epsg)),
     }
     sim_id = str(run.get("sim_id") or root.name)
@@ -281,7 +288,7 @@ def _stac_role(role: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
+def _job_context(root: Path, seal: JobSeal) -> FairExportContext:
     """Read a job directory: its seal and the three documents the seal hashes."""
     inputset = _optional_object(root / INPUTSET_FILENAME, INPUTSET_VERSIONS)
     provenance = _optional_object(root / JOB_PROVENANCE_FILENAME, JOB_PROVENANCE_VERSIONS)
@@ -290,12 +297,7 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     backend = _mapping(provenance.get("backend"))
     resources = _records(inputset.get("resources"))
 
-    sealed_geometry = manifest.get("geometry")
-    geometry = (
-        None
-        if sealed_geometry is None
-        else _job_extent(sealed_geometry, where=f"{RUN_MANIFEST_FILENAME} geometry")
-    )
+    geometry = seal.geometry
     extents = [
         _job_extent(
             resource["spatial"],
@@ -310,7 +312,7 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     else:
         bbox = _union_bbox([_extent_wgs84_bbox(extent) for extent in extents])
         crs_epsg = _shared_epsg(extents)
-    job_id = str(manifest.get("job_id") or outcome.get("job_id") or root.name)
+    job_id = seal.request_id or str(outcome.get("job_id") or root.name)
     process_label = " ".join(
         str(part) for part in (process.get("id"), process.get("version")) if part
     )
@@ -332,33 +334,32 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
         license_url=_licence_reference(str(rollup.get("expression") or UNDETERMINED.spdx)),
         creator_name=None,
         creator_email=None,
-        assets=(_seal_asset(root), *_job_assets(manifest.get("artifacts"))),
+        assets=(_seal_asset(root), *_job_assets(seal.artifacts)),
         inputs=tuple(_job_input(resource) for resource in resources),
         lockfile_path=None,
         solver_binary_sha256=_text_or_none(backend.get("sha256")),
         solver_name=_text_or_none(backend.get("name") or backend.get("id")),
         solver_version=_text_or_none(backend.get("version")),
         hydromodpy_version=str(_mapping(provenance.get("tool")).get("version") or "unknown"),
-        generated_at=str(manifest.get("sealed_at") or ""),
+        # The instant as the seal spells it, so a view and its seal read the same text.
+        generated_at=seal.model_dump(mode="json", include={"sealed_at"})["sealed_at"],
     )
 
 
-def _job_assets(entries: Any) -> list[AssetEntry]:
+def _job_assets(records: Sequence[ArtifactRecord]) -> list[AssetEntry]:
     """Turn the artifact list of a job seal into assets, digests included."""
     assets: list[AssetEntry] = []
-    for entry in _records(entries):
-        path = str(entry.get("path") or "")
-        if not path:
+    for record in records:
+        if not record.path:
             continue
-        is_output = "/" in path
         assets.append(
             AssetEntry(
-                key=path,
-                relative_path=path,
-                media_type=str(entry.get("mediaType") or OCTET_STREAM_MEDIA_TYPE),
-                roles=("data",) if is_output else ("metadata",),
-                sha256=_text_or_none(entry.get("sha256")),
-                size_bytes=_int_or_none(entry.get("bytes")),
+                key=record.path,
+                relative_path=record.path,
+                media_type=record.media_type or OCTET_STREAM_MEDIA_TYPE,
+                roles=("data",) if record.role == "output" else ("metadata",),
+                sha256=record.sha256,
+                size_bytes=record.bytes,
             )
         )
     return assets
@@ -440,7 +441,7 @@ def _seal_asset(root: Path) -> AssetEntry:
     A seal cannot record its own digest. The view records it, which ties the
     view to the one seal it was rendered from.
     """
-    digest, size = sha256_file(root / RUN_MANIFEST_FILENAME)
+    digest, size = sha256_and_size(root / RUN_MANIFEST_FILENAME)
     return AssetEntry(
         key=RUN_MANIFEST_FILENAME,
         relative_path=RUN_MANIFEST_FILENAME,

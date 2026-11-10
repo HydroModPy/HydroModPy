@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.initial.state import PriorState
-from hydromodpy.results.request_identity import (
+from hydromodpy.results.record.request_identity import (
     REQUEST_EXCLUDED,
     RESTART_KEY,
     ZONE_RUN_KEY,
@@ -229,7 +229,7 @@ def test_a_state_without_reach_stages_keeps_the_digest_it_had() -> None:
     import hashlib
     import json
 
-    from hydromodpy.results.request_identity import array_digest
+    from hydromodpy.results.record.request_identity import array_digest
 
     state = _state(HEAD, {"l1": 5.0})
     before = hashlib.sha256()
@@ -281,7 +281,7 @@ def test_the_solution_key_never_reads_the_name() -> None:
 def test_a_binary_is_read_once_while_it_is_unchanged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hydromodpy.results.request_identity as identity
+    import hydromodpy.results.record.request_identity as identity
 
     binary = tmp_path / "libmf6.so"
     binary.write_bytes(b"x" * 1000)
@@ -290,6 +290,6 @@ def test_a_binary_is_read_once_while_it_is_unchanged(
     def no_read(path: object) -> str:
         raise AssertionError(f"{path} read again")
 
-    monkeypatch.setattr(identity, "sha256_streaming", no_read)
+    monkeypatch.setattr(identity, "sha256_of", no_read)
     assert binary_digest(binary) == first
     assert binary_digest(tmp_path / "absent") is None

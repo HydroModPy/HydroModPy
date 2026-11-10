@@ -11,11 +11,12 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import ExportError, SchemaVersionMismatchError
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.results.export.context import FairExportContext
 from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.results.export.rocrate import write_ro_crate_view
-from hydromodpy.results.manifest import list_artifacts
-from hydromodpy.results.record import PROVENANCE_VERSION, sealed_artifacts
+from hydromodpy.results.record.manifest import list_artifacts
+from hydromodpy.results.record.record import PROVENANCE_VERSION, sealed_artifacts
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.schema.generated_views import (
@@ -24,7 +25,6 @@ from hydromodpy.schema.generated_views import (
     RO_CRATE_VIEW_FILENAME,
     STAC_ITEM_VIEW_FILENAME,
 )
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.extent import SpatialExtent
@@ -162,7 +162,7 @@ def _job_directory(
     )
     produced = job.outputs_dir / "watershed.gpkg"
     produced.write_bytes(b"SQLite format 3\x00")
-    digest, size = sha256_file(produced)
+    digest, size = sha256_and_size(produced)
     outputs = (
         OutputRecord(
             id="watershed_vector",
@@ -216,7 +216,11 @@ class TestARunDirectory:
     def test_the_three_views_land_beside_the_seal(self, tmp_path: Path) -> None:
         run_dir = _run_directory(tmp_path)
         written = write_views(run_dir)
-        assert {path.name for path in written} == set(GENERATED_VIEWS)
+        assert {path.name for path in written} == {
+            RO_CRATE_VIEW_FILENAME,
+            STAC_ITEM_VIEW_FILENAME,
+            PROV_VIEW_FILENAME,
+        }
         assert all(path.parent == run_dir for path in written)
         assert not (tmp_path / "share").exists()
 
@@ -257,7 +261,7 @@ class TestARunDirectory:
         assert root["license"] == {"@id": "LicenseRef-undetermined"}
         item = _read(run_dir / STAC_ITEM_VIEW_FILENAME)
         assert item["properties"]["license"] == "LicenseRef-undetermined"
-        for name in GENERATED_VIEWS:
+        for name in (RO_CRATE_VIEW_FILENAME, STAC_ITEM_VIEW_FILENAME, PROV_VIEW_FILENAME):
             assert "CC-BY-4.0" not in (run_dir / name).read_text(encoding="utf-8")
 
     def test_a_view_names_no_local_path_and_no_account(self, tmp_path: Path) -> None:
@@ -341,7 +345,10 @@ class TestAJobDirectory:
         job = _job_directory(tmp_path)
         target = job.root / document
         payload = _read(target)
-        payload["schema"] = re.sub(r"\d+$", "9", payload["schema"])
+        if "manifest_version" in payload:
+            payload["manifest_version"] = 9
+        else:
+            payload["schema"] = re.sub(r"\d+$", "9", payload["schema"])
         target.write_text(json.dumps(payload), encoding="utf-8")
 
         with pytest.raises(SchemaVersionMismatchError, match=document):

@@ -133,7 +133,7 @@ from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.path_registry import in_run_scratch
-from hydromodpy.results.checks import FROZE_BUDGET_ONLY
+from hydromodpy.results.record.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus, latest_session_dir
 from hydromodpy.results.session.phase import FrozenValue
 from hydromodpy.solver.base.solver_config import SolverConfig

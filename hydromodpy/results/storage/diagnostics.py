@@ -167,7 +167,7 @@ def diagnose_result_storage(
 
 def _runs_changed_since_seal(directories) -> list[tuple[Path, str]]:
     """Return ``(run directory, first problem)`` for each sealed run whose digests differ."""
-    from hydromodpy.results.manifest import is_sealed, seal_problems
+    from hydromodpy.results.record.manifest import is_sealed, seal_problems
 
     changed = []
     for directory in directories:

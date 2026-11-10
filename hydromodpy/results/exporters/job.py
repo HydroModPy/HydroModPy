@@ -42,7 +42,7 @@ from hydromodpy.results.exporters.export_spec import (
 )
 from hydromodpy.results.exporters.fields import is_timed
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.run_identity import identity_of_run_dir
+from hydromodpy.results.record.label import identity_of_run_dir
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 if TYPE_CHECKING:

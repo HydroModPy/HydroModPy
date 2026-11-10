@@ -22,17 +22,17 @@ import zarr
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
-from hydromodpy.results.manifest import (
+from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.record.label import label_of
+from hydromodpy.results.record.manifest import (
     DERIVE_RULE_VERSION,
     InputEntry,
-    Manifest,
     MetricRow,
+    RunSeal,
     list_artifacts,
     read_manifest,
 )
-from hydromodpy.results.outcome import effective_status, read_outcome
-from hydromodpy.results.record import RunRecord
-from hydromodpy.results.run_identity import label_of
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage import sealing
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -48,9 +48,11 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.results.storage.sealing import seal_completed, sealed_config_hash
+from hydromodpy.results.storage.sealing import seal_completed, sealed_solution_key
 from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.run_stores import open_run_store
+
+SOLUTION_KEY = "c0ffee" * 10 + "c0ff"
 
 CATCHMENT = {
     "catch_area": 29.7,
@@ -88,7 +90,7 @@ def filled(tmp_path: Path) -> RunStore:
         crs_wkt="EPSG:2154",
         crs_epsg=2154,
         bbox=(10.0, 20.0, 110.0, 220.0),
-        config_hash="c0ffee" * 10 + "c0ff",
+        solution_key=SOLUTION_KEY,
     )
     sid = store.sim_id
     (store.run_dir / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n", encoding="utf-8")
@@ -161,7 +163,7 @@ def test_the_seal_stamps_the_rules_of_the_derived_fields(filled: RunStore) -> No
 
 def test_the_manifest_carries_the_facts_of_the_run(filled: RunStore) -> None:
     record = seal_completed(filled)
-    manifest = Manifest.model_validate(read_manifest(filled.run_dir))
+    manifest = RunSeal.model_validate(read_manifest(filled.run_dir))
 
     assert manifest.run.sim_id == filled.sim_id
     assert manifest.run.name == "cheze_baseline"
@@ -171,14 +173,14 @@ def test_the_manifest_carries_the_facts_of_the_run(filled: RunStore) -> None:
     assert manifest.geometry.n_cells == 4
     assert manifest.geometry.mesh_hash == "mesh01"
     assert manifest.config.file == RUN_CONFIG_FILENAME
-    assert manifest.config.hash == "c0ffee" * 10 + "c0ff"
-    assert manifest.identity.config_hash == manifest.config.hash
+    assert "hash" not in manifest.config.model_dump()
+    assert manifest.identity.solution_key == SOLUTION_KEY
+    assert sealed_solution_key(filled.run_dir) == SOLUTION_KEY
     assert manifest.identity.label is None
     assert [p.name for p in manifest.parameters] == ["K"]
     assert [(m.station, m.metric, m.value) for m in manifest.metrics] == [("P01", "nse", 0.8)]
     assert manifest.checks.budget_pct == 5.0
     assert record.provenance.sim_id == filled.sim_id
-    assert sealed_config_hash(filled.run_dir) == manifest.config.hash
 
 
 def test_the_manifest_keeps_the_catchment_area_the_outlet_and_the_grid(filled: RunStore) -> None:
@@ -300,12 +302,12 @@ def test_a_sealed_run_is_read_back_as_a_record(filled: RunStore) -> None:
     assert again.parameters == record.parameters
 
 
-def test_an_unreadable_manifest_hashes_to_nothing(tmp_path: Path) -> None:
+def test_an_unreadable_manifest_names_no_solution_key(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "broken"
     run_dir.mkdir(parents=True)
     (run_dir / RUN_MANIFEST_FILENAME).write_text("{not json", encoding="utf-8")
 
-    assert sealed_config_hash(run_dir) is None
+    assert sealed_solution_key(run_dir) is None
 
 
 # -- the inventory -------------------------------------------------------------
@@ -365,7 +367,7 @@ def test_an_unexpected_directory_is_inventoried_rather_than_dropped(tmp_path: Pa
 
 
 def test_figures_are_inventoried_but_never_sealed(tmp_path: Path) -> None:
-    from hydromodpy.results.record import sealed_artifacts
+    from hydromodpy.results.record.record import sealed_artifacts
 
     run_dir = tmp_path / "runs" / "r"
     (run_dir / RUN_FIGURES_DIRNAME).mkdir(parents=True)
@@ -378,3 +380,154 @@ def test_figures_are_inventoried_but_never_sealed(tmp_path: Path) -> None:
     assert f"{RUN_FIGURES_DIRNAME}/heads.png" in inventory
     assert f"{RUN_FIGURES_DIRNAME}/heads.png" not in sealed
     assert FIELDS_STORE_NAME in sealed
+
+
+# -- the values and the mesh ---------------------------------------------------
+
+
+def test_the_seal_holds_the_digests_of_the_values_it_compares(filled: RunStore) -> None:
+    from hydromodpy.core.io.value_digest import VALUES_RULE
+    from hydromodpy.results.record.manifest import read_seal
+
+    seal_completed(filled)
+
+    values = read_seal(filled.run_dir).values
+    assert values is not None and values.rule == VALUES_RULE
+    assert "fields/budget/recharge" in values.digests
+    # The digests are taken once the record has written its own tables.
+    assert any(key.startswith("tables/simulation/") for key in values.digests)
+
+
+def test_the_digests_of_the_rounded_steps_are_the_float64_values_the_writer_saw(
+    tmp_path: Path,
+) -> None:
+    from hydromodpy.core.io.value_digest import fold_steps, value_digest
+    from hydromodpy.results.record.manifest import read_seal
+
+    store = open_run_store(tmp_path / "demo", "compact", n_cells=4, n_layers=1, n_timesteps=2)
+    exact = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype="float64")
+    store.write_field_stack(store.sim_id, "head", exact[:, None, :], subgroup="derived")
+
+    # One step is one layer by four cells, the shape a replay reads back from the store.
+    steps = {"0": value_digest(exact[0][None, :]), "1": value_digest(exact[1][None, :])}
+    assert store.facts.field_digests["derived/head"] == steps
+
+    seal_completed(store)
+
+    values = read_seal(store.run_dir).values
+    assert values is not None
+    assert values.digests["fields/derived/head"] == fold_steps(
+        {int(step): digest for step, digest in steps.items()}, 2
+    )
+
+
+def _cited_mesh(store: RunStore, key: str = "a" * 64) -> Path:
+    """Put a two-file mesh product in the store and cite it from the run."""
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    from hydromodpy.results.products.cited import CitedProduct, write_cited
+    from hydromodpy.results.products.store import ProductStore, products_root
+
+    def write(product: Path) -> None:
+        (product / DESCRIPTION_FILENAME).write_text("{}\n", encoding="utf-8")
+        (product / ARRAYS_FILENAME).write_bytes(b"npz")
+
+    workspace = store.workspace_path
+    assert workspace is not None
+    product = ProductStore(products_root(workspace)).put(key, "mesh", write)
+    write_cited(store.run_dir, [CitedProduct(kind="mesh", key=key)])
+    return product
+
+
+def test_the_mesh_the_run_read_is_sealed_under_the_run(filled: RunStore) -> None:
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    from hydromodpy.results.record.manifest import read_seal, seal_problems
+    from hydromodpy.results.storage.contract import MESH_DIRNAME
+    from hydromodpy.results.storage.digests import sha256_directory
+
+    product = _cited_mesh(filled)
+    seal_completed(filled)
+
+    mesh = filled.run_dir / MESH_DIRNAME
+    assert sorted(path.name for path in mesh.iterdir()) == sorted(
+        [DESCRIPTION_FILENAME, ARRAYS_FILENAME]
+    )
+    assert (mesh / DESCRIPTION_FILENAME).read_text(encoding="utf-8") == "{}\n"
+    by_path = {entry.path: entry for entry in read_seal(filled.run_dir).artifacts}
+    assert by_path[MESH_DIRNAME].sha256 == sha256_directory(mesh)
+    assert seal_problems(filled.run_dir) == []
+
+    inputs = RunRecord.read(filled.run_dir).inputs
+    entry = next(item for item in inputs if item.variable == MESH_DIRNAME)
+    assert entry.provider == "store" and entry.product == MESH_DIRNAME
+    assert entry.sha256 == sha256_directory(mesh)
+    assert product.is_dir()
+
+
+def test_the_mesh_copy_falls_back_to_a_copy_when_a_link_is_refused(
+    filled: RunStore, monkeypatch
+) -> None:
+    from hydromodpy.results.storage.contract import MESH_DIRNAME
+
+    product = _cited_mesh(filled)
+
+    link = sealing.os.link
+
+    def refuse(source, destination, *args, **kwargs):
+        # Only the mesh copy is refused: the field store links its own files too.
+        if Path(destination).parent.name == MESH_DIRNAME:
+            raise OSError("cross-device link")
+        return link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(sealing.os, "link", refuse)
+    seal_completed(filled)
+
+    source = product / "mesh.npz"
+    copy = filled.run_dir / MESH_DIRNAME / "mesh.npz"
+    assert copy.read_bytes() == source.read_bytes()
+    assert copy.stat().st_ino != source.stat().st_ino
+
+
+def test_a_cited_mesh_the_store_no_longer_holds_leaves_the_run_sealed(filled: RunStore) -> None:
+    from hydromodpy.results.products.cited import CitedProduct, write_cited
+    from hydromodpy.results.storage.contract import MESH_DIRNAME
+
+    write_cited(filled.run_dir, [CitedProduct(kind="mesh", key="b" * 64)])
+
+    seal_completed(filled)
+
+    assert (filled.run_dir / RUN_MANIFEST_FILENAME).is_file()
+    assert not (filled.run_dir / MESH_DIRNAME).exists()
+    assert all(item.variable != MESH_DIRNAME for item in RunRecord.read(filled.run_dir).inputs)
+
+
+def test_a_replay_that_read_the_sealed_mesh_seals_it_from_its_source(
+    filled: RunStore, tmp_path: Path
+) -> None:
+    from datetime import UTC, datetime
+
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    from hydromodpy.results.products.cited import CitedProduct, write_cited
+    from hydromodpy.results.storage.contract import MESH_DIRNAME
+    from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
+
+    source = tmp_path / "source"
+    (source / MESH_DIRNAME).mkdir(parents=True)
+    (source / MESH_DIRNAME / DESCRIPTION_FILENAME).write_text("{}\n", encoding="utf-8")
+    (source / MESH_DIRNAME / ARRAYS_FILENAME).write_bytes(b"sealed npz")
+    # The key the replay cites is gone from the store: only the source holds the bytes.
+    write_cited(filled.run_dir, [CitedProduct(kind="mesh", key="c" * 64)])
+    line = ProfileLine(
+        kind="step",
+        name="mesh",
+        attempt=1,
+        started_at=datetime.now(UTC),
+        duration_s=0.1,
+        reused="sealed",
+    )
+    write_profile(filled.run_dir, Profile(lines=(line,)))
+
+    sealing._seal_mesh(filled, source)
+
+    copied = filled.run_dir / MESH_DIRNAME / ARRAYS_FILENAME
+    assert copied.read_bytes() == b"sealed npz"
+    assert any(item.variable == MESH_DIRNAME for item in filled.facts.inputs)

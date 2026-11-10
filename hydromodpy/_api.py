@@ -766,6 +766,24 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     }
 
 
+def replay(
+    ref: PathLike,
+    *,
+    strict: bool = False,
+    base: PathLike | None = None,
+    environment: Environment | None = None,
+) -> Run:
+    """Play the sealed run or published copy at *ref* again, and class the values it computes.
+
+    *ref* is a run directory, its ``config.toml`` or a published copy; *base* is
+    the project the new run is written into, required for a copy; *strict*
+    refuses a value that did not reproduce its source.
+    """
+    from hydromodpy.project.replay import replay as play_again
+
+    return play_again(ref, strict=strict, base=base, environment=environment)
+
+
 def spinup(
     config: ConfigLike,
     *,

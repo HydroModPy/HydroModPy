@@ -16,8 +16,8 @@ import rasterio
 from rasterio.io import DatasetReader
 
 from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.schema.capability import CapabilityDecl
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.outcome import OutputRecord
 
@@ -84,7 +84,7 @@ def output_records(job: JobDirectory, decl: CapabilityDecl) -> tuple[OutputRecor
         if output.path == "outcome.json":
             continue
         path = job.resolve_output(output.path)
-        digest, size = sha256_file(path)
+        digest, size = sha256_and_size(path)
         records.append(
             OutputRecord(
                 id=output.id,

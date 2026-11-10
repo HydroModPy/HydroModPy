@@ -37,9 +37,9 @@ from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
 from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot

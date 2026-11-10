@@ -36,10 +36,10 @@ from typing import Any, Literal
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.scratch import process_is_alive
-from hydromodpy.results.checks import StopState
 from hydromodpy.results.heartbeat import HeartbeatThread
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.outcome import Outcome, OutcomeError, read_outcome, write_outcome
+from hydromodpy.results.record.checks import StopState
 from hydromodpy.results.session.descriptor import (
     BestCase,
     BestTrial,

@@ -23,6 +23,9 @@ STAC_ITEM_VIEW_FILENAME = "stac-item.json"
 PROV_VIEW_FILENAME = "prov.jsonld"
 """W3C PROV-O lineage as a standalone JSON-LD document."""
 
+ZENODO_VIEW_FILENAME = ".zenodo.json"
+"""Zenodo deposit metadata, written when a run is published."""
+
 VIEW_FILENAMES: dict[str, str] = {
     "rocrate": RO_CRATE_VIEW_FILENAME,
     "stac": STAC_ITEM_VIEW_FILENAME,
@@ -30,7 +33,7 @@ VIEW_FILENAMES: dict[str, str] = {
 }
 """Each view format, by the name ``hmp export <run> --format`` already uses."""
 
-GENERATED_VIEWS: frozenset[str] = frozenset(VIEW_FILENAMES.values())
+GENERATED_VIEWS: frozenset[str] = frozenset((*VIEW_FILENAMES.values(), ZENODO_VIEW_FILENAME))
 """Every name a generated view may take at the top level of a directory."""
 
 
@@ -40,4 +43,5 @@ __all__ = [
     "RO_CRATE_VIEW_FILENAME",
     "STAC_ITEM_VIEW_FILENAME",
     "VIEW_FILENAMES",
+    "ZENODO_VIEW_FILENAME",
 ]

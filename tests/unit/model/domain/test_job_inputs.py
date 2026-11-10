@@ -10,10 +10,10 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.model.domain import job_inputs
 from hydromodpy.model.domain.capability import DOMAIN_BUILD
 from hydromodpy.schema.job import JobDirectory
-from hydromodpy.schema.job.digest import sha256_file
 
 pytestmark = pytest.mark.fast
 
@@ -68,6 +68,6 @@ def test_every_declared_output_but_the_outcome_is_hashed_in_declaration_order(tm
     records = job_inputs.output_records(job, DOMAIN_BUILD)
 
     assert [(r.id, r.path, r.media_type, r.extra, (r.sha256, r.bytes)) for r in records] == [
-        (o.id, o.path, o.media_type, o.extra, sha256_file(job.resolve_output(o.path)))
+        (o.id, o.path, o.media_type, o.extra, sha256_and_size(job.resolve_output(o.path)))
         for o in declared
     ]

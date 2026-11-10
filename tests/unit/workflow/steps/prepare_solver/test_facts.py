@@ -19,11 +19,11 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.workflow.steps.prepare_solver import prepare as prepare_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 from hydromodpy.workflow.steps.prepare_solver.facts import (

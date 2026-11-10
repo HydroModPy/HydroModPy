@@ -24,11 +24,7 @@ from uuid import uuid4
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.document_version import VersionWindow, check_version
 from hydromodpy.schema.job.layout import JOB_PROVENANCE_FILENAME
-
-
-def render_document(payload: Any) -> str:
-    """Render *payload* as the exact text a job document carries."""
-    return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
+from hydromodpy.schema.seal import render_document
 
 
 def write_document(path: str | Path, payload: Any) -> Path:
@@ -78,6 +74,5 @@ __all__ = [
     "check_job_document",
     "read_document",
     "read_versioned",
-    "render_document",
     "write_document",
 ]

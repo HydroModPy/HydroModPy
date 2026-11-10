@@ -80,7 +80,7 @@ from hydromodpy.core.runtime.interrupts import (
 )
 from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
-from hydromodpy.results.checks import CalibrationSessionStatus, StopState
+from hydromodpy.results.record.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
     BestTrial,
     ParameterWidth,

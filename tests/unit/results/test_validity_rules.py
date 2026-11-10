@@ -8,11 +8,11 @@ import pytest
 from packaging.specifiers import SpecifierSet
 
 from hydromodpy.mesh import registry as mesh_registry
-from hydromodpy.results import run_identity
-from hydromodpy.results.checks import Checks, Validity
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.run_identity import declared_start_tokens, label_of
+from hydromodpy.results.record import label as label_module
+from hydromodpy.results.record.checks import Checks, Validity
+from hydromodpy.results.record.label import declared_start_tokens, label_of
+from hydromodpy.results.record.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.validity_rules import (
     CYCLIC_LAKE_START,
@@ -335,7 +335,7 @@ def test_a_bug_of_a_source_declasses_only_the_runs_that_declared_it(
         (tmp_path / RUN_CONFIG_FILENAME).write_text(config, encoding="utf-8")
     # label_of reads the shipped register; this case reads one bug of its own.
     monkeypatch.setattr(
-        run_identity, "label_for", lambda checks, **kw: label_for(checks, issues=[HUBEAU_BUG], **kw)
+        label_module, "label_for", lambda checks, **kw: label_for(checks, issues=[HUBEAU_BUG], **kw)
     )
 
     result = label_of(record, tmp_path)

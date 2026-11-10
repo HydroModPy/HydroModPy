@@ -34,9 +34,9 @@ import pandas as pd
 import xarray as xr
 import zarr
 
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.products.cited import read_cited
 from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.record.manifest import is_sealed
 from tests.scenarios.factory import TRIANGLE_MESH, transient_island, write_project
 from tests.scenarios.launcher import link_binaries
 

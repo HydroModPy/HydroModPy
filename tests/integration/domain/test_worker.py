@@ -23,6 +23,7 @@ import pytest
 from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.model.domain import worker
 from hydromodpy.model.domain.build import build_domain
 from hydromodpy.model.domain.capability import (
@@ -36,7 +37,6 @@ from hydromodpy.model.domain.capability import (
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.worker import run
 from hydromodpy.schema.job import JobDirectory, read_document, verify_job
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.request import content_address
 from tests._helpers.domain_cases import write_mask
@@ -113,7 +113,7 @@ def test_a_finished_job_is_sealed_with_the_declared_rasters_on_the_terrain_grid_
     assert job.is_sealed and verify_job(job).ok
     assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
     assert {entry.name for entry in job.outputs_dir.iterdir()} == declared
-    assert read_document(job.manifest_path)["job_id"] == outcome.job_id
+    assert read_document(job.manifest_path)["request_id"] == outcome.job_id
     assert read_document(job.outcome_path)["job_id"] == outcome.job_id
     assert outcome.job_id.startswith("sha256:")
     # The mask says which cells are active, never which exist. The DEM sentinel is no safe nodata
@@ -151,15 +151,15 @@ def test_the_document_counts_the_active_cells_names_the_terrain_digest_and_keeps
     assert document["statistics"]["over"] == "active_cells"
     assert document["statistics"]["top"]["mean"] == pytest.approx(float(_elevation()[active].mean()))  # fmt: skip
     assert document["statistics"]["top"]["min"] > NODATA
-    top = {"input": "dem", "sha256": sha256_file(job.root.parent / "dem.tif")[0]}
+    top = {"input": "dem", "sha256": sha256_and_size(job.root.parent / "dem.tif")[0]}
     assert (document["layers"][0]["top"], document["layers"][0]["bottom"]) == (top, BOTTOM_PATH)
     assert document["crs"] == CRS
     # A request without a substratum keeps the job id it had before the member existed.
     inputs = read_document(job.request_path)["inputs"]
     payload = DomainBuildRequest.model_validate(inputs).model_dump(mode="json")
     payload.pop("substratum")
-    payload["dem"] = {"sha256": sha256_file(Path(inputs["dem"]["href"]))[0]}
-    payload["mask"] = {"sha256": sha256_file(Path(inputs["mask"]["href"]))[0]}
+    payload["dem"] = {"sha256": sha256_and_size(Path(inputs["dem"]["href"]))[0]}
+    payload["mask"] = {"sha256": sha256_and_size(Path(inputs["mask"]["href"]))[0]}
     payload["mask_layer"] = "watershed"
     assert outcome.job_id == content_address(process_id=DOMAIN_BUILD.id, process_version=DOMAIN_BUILD.version, inputs=payload)  # fmt: skip
 
@@ -180,7 +180,7 @@ def test_a_flat_substratum_puts_the_bottom_at_its_elevation_and_none_at_a_nodata
 
 def _plain(t: Path) -> dict:
     plain = write_geotiff(t / "plain.tif", _elevation(), origin=(XMIN, YMAX), cell=CELL)
-    return {"dem": {"href": str(plain), "sha256": sha256_file(plain)[0].upper()}}
+    return {"dem": {"href": str(plain), "sha256": sha256_and_size(plain)[0].upper()}}
 
 
 def _lonlat(t: Path) -> dict:
@@ -238,7 +238,7 @@ def test_a_raster_substratum_places_the_bottom_and_the_seal_names_its_digest(tmp
     assert verify_job(job).ok
     active = _band(job, ACTIVE_CELLS_PATH).astype(bool)
     np.testing.assert_allclose(_band(job, BOTTOM_PATH)[active], values[active])
-    digest, _size = sha256_file(tmp_path / "substratum.tif")
+    digest, _size = sha256_and_size(tmp_path / "substratum.tif")
     layer = read_document(job.resolve_output(DOMAIN_DOCUMENT_PATH))["layers"][0]
     assert layer["substratum"] == {"input": "substratum", "sha256": digest}
     resources = read_document(job.inputset_path)["resources"]

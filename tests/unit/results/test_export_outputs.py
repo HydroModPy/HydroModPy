@@ -27,6 +27,7 @@ from pyproj import CRS
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import ExportError
+from hydromodpy.core.io.file_digest import sha256_and_size, sha256_of
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
 from hydromodpy.core.time import TimeSelectionError
@@ -58,8 +59,8 @@ from hydromodpy.results.exporters.request import export_data_requests, export_ru
 from hydromodpy.results.exporters.vocabulary import _stored_rasters, list_exportable
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity, read_identity_from
 from hydromodpy.results.ledger import Ledger
-from hydromodpy.results.manifest import list_artifacts
-from hydromodpy.results.record import PROVENANCE_VERSION, sealed_artifacts
+from hydromodpy.results.record.manifest import list_artifacts
+from hydromodpy.results.record.record import PROVENANCE_VERSION, sealed_artifacts
 from hydromodpy.results.run import Run
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -80,7 +81,6 @@ from hydromodpy.results.zarr_store.mesh_layout import (
     mesh_layout_from_cell_mesh,
 )
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.extent import SpatialExtent
@@ -268,9 +268,7 @@ def test_a_run_with_no_recorded_input_is_undetermined(tmp_path: Path) -> None:
 def test_a_custom_record_counts_through_the_tracked_file_that_holds_it(tmp_path: Path) -> None:
     project = tmp_path / "demo"
     series = _input(project, "recharge.csv", source="file", license="etalab-2.0")
-    from hydromodpy.results.storage.digests import sha256_streaming
-
-    digest = sha256_streaming(series)
+    digest = sha256_of(series)
     members = [LicenceMember("custom", digest)]
     tracked = [TrackedPath(str(series), digest)]
     assert run_licence(members, tracked, project) == "etalab-2.0"

@@ -8,7 +8,6 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from hydromodpy.results.manifest import ManifestPeriod
 from hydromodpy.results.outcome import Outcome, OutcomeError
 from hydromodpy.results.readme import (
     SummaryFacts,
@@ -19,6 +18,7 @@ from hydromodpy.results.readme import (
     render_unsealed_run_readme,
     write_readme,
 )
+from hydromodpy.results.record.manifest import ManifestPeriod
 from hydromodpy.results.session.descriptor import (
     CostInterval,
     ParameterBound,
@@ -286,3 +286,53 @@ def test_a_failed_run_gets_a_readme_from_its_outcome_alone(tmp_path):
     assert "sha256(" not in text
     assert "node12" not in text
     assert not (tmp_path / "manifest.json").exists()
+
+
+def test_the_run_readme_states_the_solution_key_and_no_configuration_hash():
+    record = make_record()
+    text = render_run_readme(record, None, LABEL, manifest_sha256="0" * 64)
+
+    assert f"- solution key: `{record.identity.solution_key}`" in text
+    assert "configuration hash" not in text
+
+
+def _replay_lineage(**fields):
+    from hydromodpy.schema.lineage import Lineage, Replay
+
+    return Lineage(kind="replay", replay=Replay(**fields))
+
+
+def test_the_lineage_of_a_replay_names_its_source_its_basis_and_what_moved():
+    from hydromodpy.schema.lineage import ReplayDifference
+
+    record = make_record(
+        lineage=_replay_lineage(
+            of="9a4f" * 8,
+            source="copy",
+            source_version="2.0.0a5",
+            basis="float64",
+            class_="deviation",
+            differs={"fields/head": ReplayDifference(max_abs=0.01, rel_l2=0.001)},
+        )
+    )
+    text = render_run_readme(record, None, LABEL, manifest_sha256="0" * 64)
+
+    assert "replay of `" in text and "read from a copy of version 2.0.0a5" in text
+    assert "values float64, class deviation" in text
+    assert "moved: `fields/head`" in text
+
+
+def test_a_replay_without_a_basis_states_no_class():
+    record = make_record(
+        lineage=_replay_lineage(
+            of="9a4f" * 8,
+            source="run",
+            source_version="2.0.0a5",
+            basis="none",
+        )
+    )
+    text = render_run_readme(record, None, LABEL, manifest_sha256="0" * 64)
+
+    assert "read from a run of version 2.0.0a5, values none" in text
+    assert "class bit" not in text and "class deviation" not in text
+    assert "moved:" not in text

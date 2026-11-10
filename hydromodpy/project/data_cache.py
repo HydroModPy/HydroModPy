@@ -185,7 +185,7 @@ def cited_input_digests(workspace_root: Path) -> frozenset[str]:
     refused by name: a prune never guesses what a run read.
     """
     from hydromodpy.results.catalog.federation import sealed_run_dirs
-    from hydromodpy.results.record import read_inputs
+    from hydromodpy.results.record.record import read_inputs
 
     cited: set[str] = set()
     for project_root in _projects_of(workspace_root):

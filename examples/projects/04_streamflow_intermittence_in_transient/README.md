@@ -93,6 +93,9 @@ each promoted run. The API calibration has its own, dated 2019.
 - figures: `runs/<name>/figures/`
 - exports: `runs/<name>/exports/`
 - what a run is and how it went: `runs/<name>/README.md`, `outcome.json`, `manifest.json`
+- what it read and how it spent its time: `products.json`, `profile.json`, `request.json`
+- the state a restart or the next window starts from: `final_state/`, and `mesh/` when its
+  engine caches a mesh
 - a calibration: its trials under `sessions/<name>/`, its best trial promoted to
   `runs/<name>/`
 - figures the scripts draw: `summary/figures/`

@@ -28,8 +28,8 @@ from hydromodpy.project.data_cache import (
     prune_data,
     verify_data_lock,
 )
-from hydromodpy.results.manifest import InputEntry
-from hydromodpy.results.record import InputsDocument
+from hydromodpy.results.record.manifest import InputEntry
+from hydromodpy.results.record.record import InputsDocument
 
 
 @pytest.fixture(autouse=True)

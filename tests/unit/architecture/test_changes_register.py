@@ -23,7 +23,9 @@ from packaging.version import Version
 
 from hydromodpy.config.config_migration import RULES as CONFIG_RULES
 from hydromodpy.core.version import __version__
+from hydromodpy.results.record.forms import RULES as RUN_SEAL_RULES
 from hydromodpy.schema.changes import REGISTER, REGISTER_FILENAME, migrations_of, read
+from hydromodpy.schema.job.seal import JOB_SEAL_RULES
 
 REPO = Path(__file__).resolve().parents[3]
 SNAPSHOT_2_0_0 = REPO / "tools" / "docs" / "snapshots" / "fields-2.0.0.json"
@@ -34,6 +36,9 @@ READERS: dict[str, tuple[str, dict[str, Callable[..., Any]]]] = {
     "config": ("hydromodpy.config.config_migration", CONFIG_RULES),
     "sidecar": ("hydromodpy.data.provenance.sidecars", {}),
     "fields": ("hydromodpy.results.zarr_store.zarr_reader", {}),
+    "manifest": ("hydromodpy.results.record.forms", RUN_SEAL_RULES),
+    "identity": ("hydromodpy.results.record.forms", {}),
+    "job.manifest": ("hydromodpy.schema.job.seal", JOB_SEAL_RULES),
 }
 
 

@@ -201,7 +201,7 @@ def test_the_seal_inventories_every_file_the_report_lists(sealed_network):
     report = read_document(job.resolve_output(REPORT_PATH))
     for item in report["files"]:
         assert sealed[f"outputs/{item['path']}"] == item["sha256"]
-    assert manifest["job_id"] == outcome.job_id
+    assert manifest["request_id"] == outcome.job_id
 
 
 def test_a_stranger_opens_the_network_with_geopandas_alone(sealed_network):
@@ -330,7 +330,7 @@ def test_a_mask_is_the_extent_and_reaches_the_provider_reprojected(tmp_path, stu
 
 
 def test_the_input_set_records_the_mask_by_its_digest(tmp_path, stub_bdtopage):
-    from hydromodpy.schema.job.digest import sha256_file
+    from hydromodpy.core.io.file_digest import sha256_and_size
 
     mask = _mask(tmp_path / "watershed.gpkg")
     job = _staged(tmp_path, _request(extent={"mask": {"href": str(mask)}}))
@@ -338,7 +338,7 @@ def test_the_input_set_records_the_mask_by_its_digest(tmp_path, stub_bdtopage):
 
     inputset = read_document(job.inputset_path)
     (resource,) = [item for item in inputset["resources"] if item["name"] == "mask"]
-    assert resource["sha256"] == sha256_file(mask)[0]
+    assert resource["sha256"] == sha256_and_size(mask)[0]
     assert resource["spatial"]["crs"] == "EPSG:2154"
     (question,) = [item for item in inputset["resources"] if item["name"] == "request"]
     assert "mask" not in json.dumps(question), "the mask is recorded once, as its own resource"

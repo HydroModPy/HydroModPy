@@ -92,7 +92,7 @@ def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None
     through its own store. A run that wrote no facts has nothing to read: ``None``.
     """
     from hydromodpy.project.facade import read_sealed_config
-    from hydromodpy.results.manifest import is_sealed
+    from hydromodpy.results.record.manifest import is_sealed
     from hydromodpy.results.run.view import Run, open_run_dir
     from hydromodpy.results.storage.run_facts import read_facts
     from hydromodpy.results.storage.run_store import RunStore
@@ -275,6 +275,8 @@ class ProjectRunner:
         frozen: bool | None = None,
         skip_identical: bool = False,
         window_source: WindowSource | None = None,
+        replay_of: Path | None = None,
+        strict: bool = False,
         **options: Any,
     ) -> RunOutcome | None:
         """Run one attempt of the case through the workflow Pipeline.
@@ -295,6 +297,9 @@ class ProjectRunner:
         a plain run, never for a resume, a window or a replay. ``window_source`` is the run
         window ``k - 1`` of a chain left, which window ``k > 1`` starts from: its state
         digest enters the request id and the run takes it as the input ``initial_state``.
+        ``replay_of`` is the run or published copy a replay plays again: its inputs are
+        pinned from its ``inputs.json``, and ``strict`` refuses a value that did not
+        reproduce it, at the seal.
 
         A frozen request reads the lockfile once, before the claim, and the inputs it
         holds travel on the setup context to the data step: the run never changes a
@@ -339,15 +344,25 @@ class ProjectRunner:
         project._ctx.lineage = None
         overrides = request.overrides(changes)
         if lineage is None and overrides:
-            from hydromodpy.results.lineage import Lineage
+            from hydromodpy.schema.lineage import Lineage
 
             lineage = Lineage(overrides=overrides)
         elif lineage is not None and overrides:
             lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **overrides}})
 
-        project._ctx.setup.locked_inputs = (
-            read_locked_inputs(workspace_path) if frozen_inputs else None
-        )
+        if replay_of is not None:
+            from hydromodpy.workflow.replay_checks import locked_inputs_of
+
+            pinned = locked_inputs_of(
+                replay_of,
+                project_root=Path(cfg_run.workspace.project_root),
+                data_dir=Path(cfg_run.workspace.data_path),
+            )
+        elif frozen_inputs:
+            pinned = read_locked_inputs(workspace_path)
+        else:
+            pinned = None
+        project._ctx.setup.locked_inputs = pinned
         bracket = (
             _attempt_bracket(
                 workspace_path, name, cfg_run, fresh=request.fresh, force=request.force
@@ -390,6 +405,8 @@ class ProjectRunner:
                         solution_key=solution_key,
                         lineage=lineage,
                         calibrated_by=calibrated_by,
+                        replay_of=replay_of,
+                        strict=strict,
                     )
         finally:
             # The inputs belong to the run that resolved them: a later phase of this
@@ -550,6 +567,8 @@ class ProjectRunner:
         solution_key: str | None,
         lineage: Any,
         calibrated_by: Any,
+        replay_of: Path | None,
+        strict: bool,
     ) -> str | None:
         """Drive the Pipeline inside the attempt bracket and return the ``sim_id`` of the run."""
         from hydromodpy.workflow.runner import Pipeline
@@ -590,6 +609,8 @@ class ProjectRunner:
             lineage,
             calibrated_by,
             window_source,
+            replay_of,
+            strict,
         )
 
         # A head-only window owns no run record: handing it a directory would
@@ -628,6 +649,8 @@ class ProjectRunner:
         lineage: Any,
         calibrated_by: Any,
         window_source: WindowSource | None,
+        replay_of: Path | None,
+        strict: bool,
     ) -> PipelineState:
         """Return the state the Pipeline starts from: the context of the project and this run."""
         project = self._project
@@ -660,6 +683,10 @@ class ProjectRunner:
                 "calibrated_by": calibrated_by,
                 # The run window k - 1 of a chain left, for window k > 1.
                 "window_source": window_source,
+                # The run or copy this run plays again, and whether a value that
+                # did not reproduce it is refused at the seal.
+                "replay_of": replay_of,
+                "strict": strict,
             },
         )
 

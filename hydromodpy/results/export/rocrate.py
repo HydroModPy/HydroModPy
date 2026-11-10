@@ -157,6 +157,19 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
         "hasPart": [{"@id": asset.relative_path} for asset in context.assets],
         "wasGeneratedBy": {"@id": "#action/simulation"},
     }
+    property_values = [
+        {"@id": f"#property/{key}", "@type": "PropertyValue", "name": key, "value": str(value)}
+        for key, value in (
+            ("request_id", _safe("request_id")),
+            ("solution_key", _safe("solution_key")),
+            ("replay_class", _safe("replay_class")),
+        )
+        if value is not None
+    ]
+    if property_values:
+        dataset_node["hydromodpy:propertyValue"] = [
+            {"@id": node["@id"]} for node in property_values
+        ]
     doi = _safe("doi")
     if doi:
         dataset_node["sameAs"] = str(doi)
@@ -214,6 +227,7 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
     graph.extend(software_nodes)
     graph.extend(creator_nodes)
     graph.extend(place_nodes)
+    graph.extend(property_values)
     if creator_ref is not None:
         action_node = {**action_node, "agent": creator_ref}
     graph.append(action_node)

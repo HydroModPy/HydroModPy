@@ -20,9 +20,9 @@ from hydromodpy.results.calibration_trials import (
     calibration_trials,
     session_dir_of,
 )
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.phase import FrozenValue
+from hydromodpy.schema.lineage import Lineage
 
 SESSION_ID = "22222222222222222222222222222222"
 FROZEN = FrozenValue(value=2e-5, mode="replace", from_phase="steady_k")

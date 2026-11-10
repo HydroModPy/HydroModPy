@@ -8,6 +8,7 @@ that needs a reproducible byte representation of a Python object.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -40,4 +41,13 @@ def loads(text: str) -> Any:
     return json.loads(text)
 
 
-__all__ = ["dumps", "loads"]
+def sha256_value(value: Any) -> str:
+    """Return the digest of the canonical JSON of *value*.
+
+    Two callers that spell the same object differently get one digest, and a
+    key added to it always changes it.
+    """
+    return hashlib.sha256(dumps(value).encode("utf-8")).hexdigest()
+
+
+__all__ = ["dumps", "loads", "sha256_value"]

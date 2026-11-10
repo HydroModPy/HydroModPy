@@ -107,10 +107,10 @@ if TYPE_CHECKING:
     from hydromodpy.project.request import RunOutcome
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.checks import CalibratedBy
-    from hydromodpy.results.lineage import Lineage
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
+    from hydromodpy.results.record.checks import CalibratedBy
     from hydromodpy.results.run import Run
+    from hydromodpy.schema.lineage import Lineage
 
 logger = get_logger(__name__)
 

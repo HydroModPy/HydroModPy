@@ -26,7 +26,7 @@ from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
-from hydromodpy.results.manifest import InputEntry
+from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.schema.sources import input_licence, licence_for_source

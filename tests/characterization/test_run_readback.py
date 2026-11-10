@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 import zarr
 
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
+from hydromodpy.results.record.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,

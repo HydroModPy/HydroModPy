@@ -17,11 +17,11 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import PipelineError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site import site_fingerprint
 from hydromodpy.data.sites.gauge import gauge_of_run
-from hydromodpy.results.manifest import ManifestSite
-from hydromodpy.results.storage.digests import sha256_streaming
+from hydromodpy.results.record.manifest import ManifestSite
 from hydromodpy.results.storage.geo_metadata import epsg_from_crs
 
 if TYPE_CHECKING:
@@ -147,9 +147,7 @@ def site_block(ctx: WorkflowContext) -> ManifestSite | None:
         else None
     )
     polygon = getattr(catchment, "polyg_shp_path", None)
-    polygon_digest = (
-        sha256_streaming(polygon) if polygon is not None and Path(polygon).is_file() else None
-    )
+    polygon_digest = sha256_of(polygon) if polygon is not None and Path(polygon).is_file() else None
     if outlet is None and polygon_digest is None:
         polygon_digest = hashlib.sha256(f"{declared.name}:{kind}".encode()).hexdigest()
     hydrometry = getattr(getattr(ctx, "loaded_data", None), "hydrometry", None)

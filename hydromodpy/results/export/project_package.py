@@ -67,7 +67,6 @@ from hydromodpy.results.export.publish import (
     _refuse_leaks,
     _target_path,
 )
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
     Publication,
@@ -77,7 +76,8 @@ from hydromodpy.results.publication import (
     append_published,
     write_publication,
 )
-from hydromodpy.results.run_identity import read_sealed_manifest
+from hydromodpy.results.record.label import read_sealed_manifest
+from hydromodpy.results.record.manifest import is_sealed
 
 logger = get_logger(__name__)
 

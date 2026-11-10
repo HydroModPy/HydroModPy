@@ -21,7 +21,7 @@ import pandas as pd
 from hydromodpy.core.scope import SIMULATED
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.record.manifest import is_sealed
 
 if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs

@@ -41,7 +41,8 @@ _LISTING_COLUMNS: tuple[str, ...] = (
     "n_cells",
     "n_layers",
     "mesh_engine",
-    "config_hash",
+    "solution_key",
+    "request_id",
     "version_int",
 )
 
@@ -208,7 +209,7 @@ def profile_of_run(run_dir: Path) -> dict[str, Any]:
 
 def _sealed_solve_s(run_dir: Path) -> float | None:
     """Return the solve time row of the seal of a 2.0 run, ``None`` when it has none."""
-    from hydromodpy.results.run_identity import read_sealed_manifest
+    from hydromodpy.results.record.label import read_sealed_manifest
 
     manifest = read_sealed_manifest(run_dir)
     if manifest is None:
@@ -249,7 +250,8 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
             "n_cells": sim.n_cells,
             "n_timesteps": sim.n_timesteps,
             "version_int": row.get("version_int"),
-            "config_hash": row.get("config_hash"),
+            "solution_key": row.get("solution_key"),
+            "request_id": row.get("request_id"),
             "exports": [
                 {"file": entry.file, "producer": entry.producer, "sha256": entry.sha256}
                 for entry in Ledger.read(run_dir / RUN_EXPORTS_DIRNAME).entries

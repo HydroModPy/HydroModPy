@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.results.identity import read_identity_from
-from hydromodpy.results.manifest import RUNTIME_VARIABLE, MetricRow
+from hydromodpy.results.record.manifest import RUNTIME_VARIABLE, MetricRow
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
 from hydromodpy.results.storage.run_facts import RunFacts, facts_path, read_facts
@@ -39,6 +39,8 @@ def _facts(name: str = "nancon_monthly") -> RunFacts:
         created_at=NOW,
         started_at=NOW,
         solver="modflow6",
+        solution_key="c0ffee" * 10 + "c0ff",
+        request_id="d00d" * 8,
         crs_wkt="EPSG:2154",
         crs_epsg=2154,
         bbox=(340000.0, 6790000.0, 360000.0, 6810000.0),
@@ -180,3 +182,30 @@ def test_a_store_that_keeps_no_parquet_writes_no_table(run_dir: Path) -> None:
     with RunStore.open(run_dir, facts=_facts(), persistence=policy) as store:
         store.write_timeseries(SIM_ID, "P01", "head", pd.Series(np.ones(3), index=index))
     assert not (run_dir / TABLES_DIRNAME).exists()
+
+
+def test_the_footer_carries_the_solution_key_and_no_config_hash(run_dir: Path) -> None:
+    import json
+
+    index = pd.date_range("2020-01-01", periods=3, freq="D")
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        store.write_timeseries(SIM_ID, "P01", "head", pd.Series(np.ones(3), index=index))
+
+    footer = read_kv_metadata(run_dir / TABLES_DIRNAME / f"timeseries{PARQUET_FILE_SUFFIX}")
+    block = json.loads(footer["hmp.identity"])
+    assert block["solution_key"] == "c0ffee" * 10 + "c0ff"
+    assert block["request_id"] == "d00d" * 8
+    assert "config_hash" not in block
+    assert "config_hash" not in footer
+
+
+def test_the_field_store_shares_the_value_digests_of_the_facts(run_dir: Path) -> None:
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        handle = store.open_zarr(SIM_ID)
+        try:
+            assert handle.field_digests is store.facts.field_digests
+            handle.field_digests["head"] = {"0": "ab" * 32}
+        finally:
+            handle.close()
+
+    assert read_facts(run_dir).field_digests == {"head": {"0": "ab" * 32}}

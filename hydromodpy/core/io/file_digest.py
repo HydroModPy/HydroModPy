@@ -11,11 +11,18 @@ CHUNK_BYTES = 1 << 20
 
 def sha256_of(path: str | Path) -> str:
     """Return the hex SHA-256 of a file, read in chunks."""
+    return sha256_and_size(path)[0]
+
+
+def sha256_and_size(path: str | Path) -> tuple[str, int]:
+    """Return the hex SHA-256 and the size in bytes of a file, read in chunks."""
     digest = hashlib.sha256()
+    size = 0
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(CHUNK_BYTES), b""):
             digest.update(chunk)
-    return digest.hexdigest()
+            size += len(chunk)
+    return digest.hexdigest(), size
 
 
-__all__ = ["CHUNK_BYTES", "sha256_of"]
+__all__ = ["CHUNK_BYTES", "sha256_and_size", "sha256_of"]

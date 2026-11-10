@@ -32,8 +32,8 @@ from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.mesh.refinement_config import RUN_FIELDS
 from hydromodpy.model.flow_config import RestartReference
-from hydromodpy.results.manifest import InputEntry, is_sealed, read_manifest
-from hydromodpy.results.request_identity import (
+from hydromodpy.results.record.manifest import InputEntry, is_sealed, read_manifest
+from hydromodpy.results.record.request_identity import (
     RESTART_KEY,
     ZONE_RUN_KEY,
     array_digest,
@@ -81,7 +81,7 @@ def window_input_entry(project_root: Path, source: WindowSource) -> InputEntry:
 
     The path is the ``final_state/`` of the source relative to the project, and
     the digest the one of its :class:`~hydromodpy.model.initial.state.PriorState`
-    (:func:`~hydromodpy.results.request_identity.prior_state_digest`), which is also
+    (:func:`~hydromodpy.results.record.request_identity.prior_state_digest`), which is also
     the ``window_state`` of the request id of the window.
     """
     folder = Path(source.run_dir) / FINAL_STATE_DIRNAME
@@ -137,8 +137,8 @@ def source_state_digests(cfg: Any, project_root: Path) -> dict[str, str]:
     field it draws from it. The name of the run and its ``sim_id`` count
     for nothing: two runs that leave the same state give the same digest. The
     keys are those the request id replaces in the document
-    (:data:`~hydromodpy.results.request_identity.RESTART_KEY`,
-    :data:`~hydromodpy.results.request_identity.ZONE_RUN_KEY`).
+    (:data:`~hydromodpy.results.record.request_identity.RESTART_KEY`,
+    :data:`~hydromodpy.results.record.request_identity.ZONE_RUN_KEY`).
 
     Raises :class:`~hydromodpy.core.exceptions.ConfigError` when a reference
     names no run or no store, as the run itself would when it reads it.

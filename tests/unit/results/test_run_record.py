@@ -11,17 +11,17 @@ import pyarrow.parquet as pq
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results import record as record_module
 from hydromodpy.results.identity import read_identity_from
-from hydromodpy.results.manifest import (
+from hydromodpy.results.record import record as record_module
+from hydromodpy.results.record.manifest import (
     RUN_RECORD_MANIFEST_VERSION,
-    Manifest,
     ManifestGeometry,
     ManifestRun,
+    RunSeal,
     read_manifest,
     read_seal,
 )
-from hydromodpy.results.record import PROVENANCE_VERSION, RunRecord, sealed_artifacts
+from hydromodpy.results.record.record import PROVENANCE_VERSION, RunRecord, sealed_artifacts
 from hydromodpy.results.storage.contract import (
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -68,10 +68,10 @@ def test_the_seal_files_land_where_the_contract_says(run_dir):
 
 
 def test_the_manifest_is_written_last_and_a_crash_before_leaves_none(run_dir, monkeypatch):
-    def refuse(target, payload):
+    def refuse(target, seal):
         raise OSError("disk full")
 
-    monkeypatch.setattr(record_module, "write_json_durable", refuse)
+    monkeypatch.setattr(record_module, "write_seal", refuse)
 
     with pytest.raises(OSError, match="disk full"):
         make_record().write(run_dir)
@@ -93,12 +93,14 @@ def test_the_manifest_is_flushed_to_the_disk(run_dir, monkeypatch):
     assert len(synced) >= 2
 
 
-def test_the_manifest_is_version_three_and_typed(run_dir):
+def test_the_manifest_is_version_four_and_typed(run_dir):
     make_record().write(run_dir)
 
     payload = read_manifest(run_dir)
-    manifest = Manifest.model_validate(payload)
-    assert payload["manifest_version"] == RUN_RECORD_MANIFEST_VERSION == 3
+    manifest = RunSeal.model_validate(payload)
+    assert payload["manifest_version"] == RUN_RECORD_MANIFEST_VERSION == 4
+    assert manifest.profile == "run"
+    assert manifest.values is None
     assert manifest.site is not None and manifest.site.name == "J0014010"
     assert manifest.lineage.kind == "promoted"
     assert manifest.identity.sim_id == SIM_ID
@@ -111,7 +113,7 @@ def test_the_manifest_is_version_three_and_typed(run_dir):
 def test_the_seal_inventories_the_raw_result_only(run_dir):
     make_record().write(run_dir)
 
-    paths = {entry.path for entry in Manifest.model_validate(read_manifest(run_dir)).artifacts}
+    paths = {entry.path for entry in RunSeal.model_validate(read_manifest(run_dir)).artifacts}
     assert paths == {
         "manifest.json",
         "config.toml",
@@ -276,7 +278,7 @@ def test_a_run_rel_dir_follows_the_one_grammar(rel_dir):
 
 
 def test_a_sealed_file_carries_its_digest_and_a_change_is_reported(run_dir):
-    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.record.manifest import seal_problems
 
     record = make_record()
     record.write(run_dir)
@@ -308,7 +310,7 @@ def _field_store(run_dir):
 def test_the_field_store_carries_the_digest_of_its_tree_and_a_rewritten_chunk_is_reported(
     run_dir,
 ):
-    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.record.manifest import seal_problems
     from hydromodpy.results.storage.digests import sha256_directory
 
     chunk = _field_store(run_dir)
@@ -320,14 +322,14 @@ def test_the_field_store_carries_the_digest_of_its_tree_and_a_rewritten_chunk_is
     # The same size with other bytes: a value changed in an array of fixed shape.
     data = chunk.read_bytes()
     chunk.write_bytes(bytes([data[0] ^ 0xFF]) + data[1:])
-    assert seal_problems(run_dir) == ["fields.zarr: changed since the seal (sha256 differs)"]
+    assert seal_problems(run_dir) == ["fields.zarr does not hash to what the seal recorded"]
 
     shutil.rmtree(run_dir / "fields.zarr")
-    assert seal_problems(run_dir) == ["fields.zarr: listed in the seal and absent"]
+    assert seal_problems(run_dir) == ["fields.zarr is sealed and absent"]
 
 
 def test_reading_the_field_store_of_a_sealed_run_leaves_its_seal_whole(run_dir):
-    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.record.manifest import seal_problems
     from hydromodpy.results.zarr_store import SimulationZarr
 
     _field_store(run_dir)
@@ -341,7 +343,7 @@ def test_reading_the_field_store_of_a_sealed_run_leaves_its_seal_whole(run_dir):
 
 
 def test_a_seal_without_the_digest_of_the_field_store_still_reads(run_dir):
-    from hydromodpy.results.manifest import seal_problems
+    from hydromodpy.results.record.manifest import seal_problems
 
     chunk = _field_store(run_dir)
     make_record().write(run_dir)
@@ -355,3 +357,52 @@ def test_a_seal_without_the_digest_of_the_field_store_still_reads(run_dir):
     by_path = {entry.path: entry for entry in read_seal(run_dir).artifacts}
     assert by_path["fields.zarr"].sha256 is None
     assert seal_problems(run_dir) == []
+
+
+def test_the_certified_entries_close_the_inventory_of_a_run():
+    from hydromodpy.results.storage.contract import (
+        ALLOWED_RUN_ENTRIES,
+        CERTIFIED_RUN_ENTRIES,
+        MESH_DIRNAME,
+        UNSEALED_RUN_ENTRIES,
+    )
+
+    named = CERTIFIED_RUN_ENTRIES | UNSEALED_RUN_ENTRIES | {RUN_MANIFEST_FILENAME}
+    assert named == ALLOWED_RUN_ENTRIES
+    assert not CERTIFIED_RUN_ENTRIES & UNSEALED_RUN_ENTRIES
+    assert MESH_DIRNAME in CERTIFIED_RUN_ENTRIES
+
+
+def test_an_unknown_entry_stays_inventoried_under_other(run_dir):
+    (run_dir / "stray.bin").write_bytes(b"x")
+    make_record().write(run_dir)
+
+    entry = {item.path: item for item in sealed_artifacts(run_dir)}["stray.bin"]
+    assert entry.role == "other"
+    assert entry.sha256 is not None
+
+
+def test_the_simulation_table_keeps_no_config_hash(run_dir):
+    make_record().write(run_dir)
+
+    assert "config_hash" not in SIMULATION_SCHEMA.names
+    row = pq.read_table(run_dir / TABLES_DIRNAME / "simulation.parquet").to_pylist()[0]
+    assert "config_hash" not in row
+
+
+def test_the_values_handed_to_the_write_are_the_values_of_the_seal(run_dir):
+    from hydromodpy.schema.seal import ValueDigests
+
+    values = ValueDigests(digests={"fields/h": "ab" * 32})
+    make_record().write(run_dir, values=values)
+
+    assert read_seal(run_dir).values == values
+
+
+def test_the_footer_carries_the_identity_without_a_config_hash(run_dir):
+    make_record().write(run_dir)
+
+    schema = pq.read_schema(run_dir / TABLES_DIRNAME / "simulation.parquet")
+    block = json.loads(schema.metadata[b"hmp.identity"])
+    assert "config_hash" not in block
+    assert "hash" not in block

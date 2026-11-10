@@ -76,7 +76,6 @@ class OldCliForm:
 
 _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     # Verbs that fold into another.
-    ("hmp replay", "hmp publish REF --to DIR --with inputs"),
     (
         "hmp project export",
         "hmp publish PROJECT --package --to FILE [--container tar|dir] [--with runs]",

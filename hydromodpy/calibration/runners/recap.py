@@ -29,8 +29,8 @@ from hydromodpy.calibration.report import (
     samples_text,
     scored_entry,
 )
-from hydromodpy.results.checks import stop_line
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE
+from hydromodpy.results.record.checks import stop_line
 from hydromodpy.results.session.descriptor import ScoredSamples
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 

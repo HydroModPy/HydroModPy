@@ -27,7 +27,7 @@ from hydromodpy.results.derive.virtual_fields import (
     outflow_drain_rows,
     watertable_depth_rows,
 )
-from hydromodpy.results.manifest import is_sealed, read_seal
+from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr

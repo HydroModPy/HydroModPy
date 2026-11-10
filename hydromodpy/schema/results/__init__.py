@@ -3,8 +3,10 @@
 One ``<name>.<version>.json`` per format a run, a session, a plan or a
 publication writes: ``outcome.v1.json``, ``session.v4.json``, ``phase.v2.json``,
 ``trial.v2.json``, ``plan.v1.json``, ``publication.v1.json``, ``ledger.v1.json``,
-``checks.v2.json``, ``manifest.v3.json``, ``provenance.v2.json``, and of what ``hmp calibrate --format json`` prints,
-``calibrate.v1.json``. They are
+``checks.v2.json``, ``manifest.v4.json``, ``provenance.v2.json``, and of what ``hmp calibrate --format json`` prints,
+``calibrate.v1.json``. ``manifest.v3.json`` stays beside them, frozen: it is the
+schema of the seal of the 2.0.0 floor, which this code reads and never writes.
+They are
 generated from the Pydantic models of ``hydromodpy.results`` and
 ``hydromodpy.calibration`` with ``model_json_schema()`` and committed here, so a reader outside Python can
 validate a document without importing anything. A test refuses a committed
@@ -39,10 +41,13 @@ SCHEMA_FILENAMES: Final[tuple[str, ...]] = (
     "ledger.v1.json",
     "checks.v2.json",
     "calibrate.v1.json",
-    "manifest.v3.json",
+    "manifest.v4.json",
     "provenance.v2.json",
 )
-"""The files this package ships."""
+"""The files this package ships, one per model, in the order the models pair with them."""
+
+FROZEN_SCHEMA_FILENAMES: Final[tuple[str, ...]] = ("manifest.v3.json",)
+"""Files this package ships that no model generates: the schema of the reading floor."""
 
 
 def schema_filename(schema_id: str) -> str:
@@ -88,8 +93,11 @@ def write_schemas(target_dir: str | Path, models: Mapping[str, type[BaseModel]])
 
 def read_schema_text(filename: str) -> str:
     """Return the committed text of one schema file."""
-    if filename not in SCHEMA_FILENAMES:
-        raise KeyError(f"{filename!r} is not a shipped schema; shipped: {SCHEMA_FILENAMES}")
+    if filename not in SCHEMA_FILENAMES and filename not in FROZEN_SCHEMA_FILENAMES:
+        raise KeyError(
+            f"{filename!r} is not a shipped schema; shipped: "
+            f"{SCHEMA_FILENAMES + FROZEN_SCHEMA_FILENAMES}"
+        )
     return files(__name__).joinpath(filename).read_text(encoding="utf-8")
 
 
@@ -99,6 +107,7 @@ def read_schema(filename: str) -> dict[str, Any]:
 
 
 __all__ = [
+    "FROZEN_SCHEMA_FILENAMES",
     "SCHEMA_FILENAMES",
     "read_schema",
     "read_schema_text",

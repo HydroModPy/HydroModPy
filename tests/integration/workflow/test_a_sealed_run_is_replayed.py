@@ -68,8 +68,34 @@ def _drift(run_a: Path, run_b: Path) -> list[tuple[str, str]]:
     ]
 
 
+def _replay_drift(source: Path, replay: Path) -> list[tuple[str, str]]:
+    """Return what differs between a run and its replay, beyond what a replay writes by design.
+
+    A replay is a version of its source, its lineage says so, it keeps the request it
+    played, and it draws the figures a launch without display left out.
+    """
+    by_design = "only in A [], only in B ['figures', 'request.json']"
+    return [
+        (target, detail)
+        for target, detail in _drift(source, replay)
+        if not target.endswith(":lineage_kind")
+        and not (
+            target == "run directory"
+            and detail in {by_design, by_design.replace("'figures', ", "")}
+        )
+    ]
+
+
 def _hmp(project: Path, *args: str):
     return CliRunner().invoke(["run", *args, "-w", str(project), "-q"])
+
+
+def _replay(project: Path, ref: Path, *args: str):
+    return CliRunner().invoke(["replay", str(ref), *args, "-w", str(project), "-q"])
+
+
+def _key(run_dir: Path) -> str:
+    return _manifest(run_dir)["identity"]["solution_key"]
 
 
 def _simulate(project: Path, **keywords) -> Path:
@@ -196,28 +222,39 @@ def _copy_entries(run_dir: Path, project: Path) -> set[str]:
     return {entry.name for entry in Path(copy).iterdir()}
 
 
-def test_a_frozen_replay_of_an_unchanged_run_runs_without_force(demo: Path) -> None:
+def test_a_replay_of_an_unchanged_run_runs_and_is_never_skipped_as_identical(demo: Path) -> None:
     """A replay is identical to its run by construction, so it is never skipped as such."""
     source = _simulate(demo, name="probe", set={"K": K})
 
-    done = _hmp(demo, str(source / "config.toml"), "--frozen", "--no-display")
+    done = _replay(demo, source)
 
     assert done.exit_code == 0, done.stderr
     assert "identical" not in done.stderr
     replay = demo / "runs" / "probe.v2"
-    assert _manifest(replay)["config"]["hash"] == _manifest(source)["config"]["hash"]
-    assert _drift(source, replay) == []
+    assert _key(replay) == _key(source)
+    assert _replay_drift(source, replay) == []
 
 
-def test_a_forced_frozen_replay_gives_the_same_numbers(demo: Path) -> None:
+def test_a_strict_replay_gives_the_same_numbers_and_says_bit(demo: Path) -> None:
     source = _simulate(demo, name="probe", set={"K": K})
 
-    done = _hmp(demo, str(source / "config.toml"), "--frozen", "--force", "--no-display")
+    done = _replay(demo, source, "--strict")
 
     assert done.exit_code == 0, done.stderr
     replay = demo / "runs" / "probe.v2"
-    assert _manifest(replay)["config"]["hash"] == _manifest(source)["config"]["hash"]
-    assert _drift(source, replay) == []
+    classed = _manifest(replay)["lineage"]["replay"]
+    assert (classed["basis"], classed["class"]) == ("float64", "bit")
+    assert _replay_drift(source, replay) == []
+
+
+def test_hmp_run_frozen_on_a_sealed_run_names_the_replay_verb(demo: Path) -> None:
+    source = _simulate(demo, name="probe")
+
+    refused = _hmp(demo, str(source / "config.toml"), "--frozen")
+
+    assert refused.exit_code != 0
+    assert "hmp replay" in refused.stderr
+    assert not (demo / "runs" / "probe.v2").exists()
 
 
 @pytest.fixture
@@ -250,13 +287,13 @@ def test_a_copied_run_replays_into_a_project_and_never_into_itself(
     shutil.copytree(source, copy)
     held = sorted(path.relative_to(copy) for path in copy.rglob("*"))
 
-    refused = CliRunner().invoke(["run", str(copy / "config.toml"), "--frozen", "-q"])
+    refused = CliRunner().invoke(["replay", str(copy), "-q"])
 
     assert refused.exit_code != 0
-    assert "-w <project>" in refused.stderr
-    done = _hmp(demo, str(copy / "config.toml"), "--frozen", "--force", "--no-display")
+    assert "-w" in refused.stderr
+    done = _replay(demo, copy)
     assert done.exit_code == 0, done.stderr
-    assert _drift(source, demo / "runs" / "probe.v2") == []
+    assert _replay_drift(source, demo / "runs" / "probe.v2") == []
     assert sorted(path.relative_to(copy) for path in copy.rglob("*")) == held
 
 
@@ -283,7 +320,7 @@ def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) ->
     assert _manifest(promoted)["checks"]["calibrated_by"]["session_id"] == lineage["session_id"]
     assert "K_aquifer" in _resolved(promoted)[RUN_SEARCH_TABLE]["parameters"]
 
-    replayed = _hmp(project, str(promoted / "config.toml"), "--frozen", "--no-display")
+    replayed = _replay(project, promoted)
     assert replayed.exit_code == 0, replayed.stderr
 
     replay = project / "runs" / "calibration_dupuit.v2"
@@ -296,16 +333,16 @@ def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) ->
     assert np.array_equal(*heads, equal_nan=True)
 
 
-def test_a_default_that_moved_refuses_the_replay_naming_the_key(
+def test_a_default_that_moved_is_written_in_the_lineage_of_the_replay(
     sealed_then_moved: tuple[Path, Path],
 ) -> None:
     demo, source = sealed_then_moved
 
-    done = _hmp(demo, str(source / "config.toml"), "--frozen")
+    done = _replay(demo, source)
 
-    assert done.exit_code != 0
-    assert "solver.drain_bed_thickness_m: sealed 1.0, now 2.0" in done.stderr
-    assert not (demo / "runs" / "probe.v2").exists()
+    assert done.exit_code == 0, done.stderr
+    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    assert lineage["drift"]["solver.drain_bed_thickness_m"] == {"sealed": 1.0, "effective": 2.0}
 
 
 def test_a_default_that_moved_is_warned_on_a_rerun_and_kept_in_its_lineage(
@@ -328,21 +365,29 @@ def test_a_default_engine_that_moved_is_named_too(
     source = _simulate(demo, name="probe")
     monkeypatch.setattr(terrain_registry, "DEFAULT_ENGINE_ID", "numpy_d8")
 
-    done = _hmp(demo, str(source / "config.toml"), "--frozen")
+    done = _replay(demo, source)
 
-    assert done.exit_code != 0
-    assert "geographic.terrain_engine: sealed 'whitebox_workflows', now 'numpy_d8'" in done.stderr
+    assert done.exit_code == 0, done.stderr
+    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    assert lineage["drift"]["geographic.terrain_engine"] == {
+        "sealed": "whitebox_workflows",
+        "effective": "numpy_d8",
+    }
 
 
-def test_an_edited_frozen_file_is_refused_by_name(demo: Path) -> None:
+def test_an_edited_frozen_file_is_named_in_the_lineage_and_the_replay_deviates(
+    demo: Path,
+) -> None:
     source = _simulate(demo, name="probe", set={"K": K})
     frozen = source / "config.toml"
     frozen.write_text(frozen.read_text().replace(str(K), "0.0034"), encoding="utf-8")
 
-    done = _hmp(demo, str(frozen), "--frozen")
+    done = _replay(demo, source)
 
-    assert done.exit_code != 0
-    assert f"{K_PATH}: sealed {K}, now 0.0034" in done.stderr
+    assert done.exit_code == 0, done.stderr
+    lineage = _manifest(demo / "runs" / "probe.v2")["lineage"]
+    assert lineage["drift"][K_PATH] == {"sealed": K, "effective": 0.0034}
+    assert lineage["replay"]["class"] == "deviation"
 
 
 def test_a_project_toml_still_answers_to_its_lockfile(demo: Path) -> None:
@@ -421,7 +466,7 @@ def test_a_display_choice_of_the_launch_changes_no_identity_and_no_sealed_config
         assert quiet.config.display.save is True
         run_dir = quiet.simulate(name="quiet").dir
 
-    assert _manifest(run_dir)["config"]["hash"] == _manifest(reference)["config"]["hash"]
+    assert _key(run_dir) == _key(reference)
     expected = _config(reference)
     actual = _config(run_dir)
     expected["simulation"].pop("name")
@@ -452,7 +497,7 @@ def test_no_display_keeps_the_terms_the_figures_read(demo: Path) -> None:
 
     terms = [kept_budget(zarr.open_group(path / "fields.zarr", mode="r")) for path in (one, other)]
     assert terms[0] == terms[1]
-    assert _manifest(one)["config"]["hash"] == _manifest(other)["config"]["hash"]
+    assert _key(one) == _key(other)
 
 
 @pytest.mark.mf6

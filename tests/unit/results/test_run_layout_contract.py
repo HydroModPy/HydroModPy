@@ -43,13 +43,15 @@ from hydromodpy.data.workspace.scaffold import INPUTS_DIRNAME, create_project
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain
 from hydromodpy.project.request import RunRequest, read_request, write_request_file
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.manifest import MetricRow, read_manifest
-from hydromodpy.results.record import sealed_artifacts
+from hydromodpy.results.record.manifest import MetricRow, read_manifest
+from hydromodpy.results.record.record import sealed_artifacts
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
+    CERTIFIED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
     FINAL_STATE_DIRNAME,
+    MESH_DIRNAME,
     PARQUET_FILE_SUFFIX,
     README_FILENAME,
     REQUIRED_RUN_ENTRIES,
@@ -549,3 +551,51 @@ def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(tmp_path):
         assert zarr.open_array(str(mesh_dir / name), mode="r").shape == (9,)
     topology = zarr.open_array(str(mesh_dir / "topology"), mode="r")
     assert topology.attrs["node_coordinates"] == "node_x node_y"
+
+
+# -- the certified entries ---------------------------------------------------
+
+
+def test_the_allowed_entries_of_a_run_are_certified_unsealed_or_the_manifest():
+    assert CERTIFIED_RUN_ENTRIES | UNSEALED_RUN_ENTRIES | {"manifest.json"} == ALLOWED_RUN_ENTRIES
+    assert not CERTIFIED_RUN_ENTRIES & UNSEALED_RUN_ENTRIES
+    assert MESH_DIRNAME == "mesh"
+    assert MESH_DIRNAME in CERTIFIED_RUN_ENTRIES
+
+
+def test_a_cited_mesh_product_is_sealed_under_the_run(tmp_path):
+    import json
+
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    from hydromodpy.results.products.cited import CitedProduct, write_cited
+    from hydromodpy.results.products.store import ProductStore, products_root
+    from hydromodpy.results.storage.digests import sha256_directory
+    from tests._helpers.regular_cell_meshes import regular_cell_mesh
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    store = open_run_store(project, RUN_NAME, n_cells=4, n_layers=1, n_timesteps=3)
+    key = "a" * 64
+
+    def write(product: Path) -> None:
+        mesh = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2)
+        (product / DESCRIPTION_FILENAME).write_text(
+            json.dumps({"engine": "regular"}), encoding="utf-8"
+        )
+        (product / ARRAYS_FILENAME).write_bytes(b"npz")
+
+    ProductStore(products_root(project)).put(key, "mesh", write)
+    write_cited(store.run_dir, [CitedProduct(kind="mesh", key=key)])
+    seal_completed(store)
+    close_sealed_attempt(store.run_dir)
+
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
+    mesh = run_dir / MESH_DIRNAME
+    assert sorted(path.name for path in mesh.iterdir()) == sorted(
+        [DESCRIPTION_FILENAME, ARRAYS_FILENAME]
+    )
+    sealed = {artifact["path"]: artifact for artifact in read_manifest(run_dir)["artifacts"]}
+    assert sealed[MESH_DIRNAME]["sha256"] == sha256_directory(mesh)
+    assert sealed[MESH_DIRNAME]["role"] == "mesh"

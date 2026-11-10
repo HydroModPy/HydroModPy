@@ -77,16 +77,16 @@ from hydromodpy.model.domain.spatial_support import (
     collect_requested_support_ids,
     resolve_support_configs,
 )
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.results.checks import CalibratedBy
-    from hydromodpy.results.lineage import Lineage
+    from hydromodpy.results.record.checks import CalibratedBy
     from hydromodpy.results.storage.run_facts import PromotionFacts
+    from hydromodpy.schema.lineage import Lineage
 
 
 logger = get_logger(__name__)

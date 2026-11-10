@@ -57,9 +57,8 @@ from hydromodpy.results.catalog.registration import (
     reserve_version_dirname,
     split_stem_version,
 )
-from hydromodpy.results.checks import CalibratedBy, CalibrationSessionStatus, StopState
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.record.checks import CalibratedBy, CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
     SessionDescriptor,
     read_session,
@@ -74,6 +73,7 @@ from hydromodpy.results.session.journal import (
 from hydromodpy.results.session.phase import PhaseDescriptor, phase_dir
 from hydromodpy.results.storage.run_facts import CalibratedParameter, PromotionFacts
 from hydromodpy.results.trash import trash_run
+from hydromodpy.schema.lineage import Lineage
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.parameters import ParameterSpace

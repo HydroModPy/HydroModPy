@@ -30,7 +30,7 @@ from hydromodpy.results.publication import (
     PublicationSource,
     write_publication,
 )
-from hydromodpy.results.request_identity import request_id
+from hydromodpy.results.record.request_identity import request_id
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
 from hydromodpy.results.trash import DirectoryInUseError, gc_trash, read_tombstones, trash_run
 from tests._helpers.sealed_runs import manifest_document

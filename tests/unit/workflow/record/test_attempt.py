@@ -23,8 +23,8 @@ from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
     stop_flag_for,
 )
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.attempt import request_stop
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.run_store import RunStore

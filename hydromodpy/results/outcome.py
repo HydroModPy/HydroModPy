@@ -17,7 +17,7 @@ See :class:`Outcome`. ``status`` is what the writer knew; ``exit_code`` and
 ``signal`` are what the process ended with; ``log_tail`` is the end of the
 run log, so a failed case explains itself from its own directory.
 ``request_id`` is written once the inputs of the attempt are resolved
-(:mod:`hydromodpy.results.request_identity`); the next attempt compares it
+(:mod:`hydromodpy.results.record.request_identity`); the next attempt compares it
 before it resumes.
 
 Precedence, when reading
@@ -55,7 +55,7 @@ from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.state.scratch import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
-from hydromodpy.results.manifest import read_seal
+from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
 from hydromodpy.results.storage.json_io import (
     UNREADABLE_ERRORS,

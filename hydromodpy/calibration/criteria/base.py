@@ -28,7 +28,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-from hydromodpy.results.checks import Validity
+from hydromodpy.results.record.checks import Validity
 
 SERIES_SUPPORTS: tuple[str, ...] = ("point", "boundary", "cell", "lake")
 """The supports whose output is a series of values through time.

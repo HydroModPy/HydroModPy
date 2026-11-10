@@ -96,10 +96,10 @@ from hydromodpy.results.catalog.index_schema import (
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.heartbeat import read_heartbeat
-from hydromodpy.results.manifest import Manifest, read_seal
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
-from hydromodpy.results.record import read_provenance
-from hydromodpy.results.run_identity import label_of
+from hydromodpy.results.record.label import label_of
+from hydromodpy.results.record.manifest import RunSeal, read_seal
+from hydromodpy.results.record.record import read_provenance
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
@@ -616,7 +616,7 @@ class _IndexWriter:
             count += 1
         return count
 
-    def _index_seal(self, entry: DiskEntry, manifest: Manifest) -> dict[str, int]:
+    def _index_seal(self, entry: DiskEntry, manifest: RunSeal) -> dict[str, int]:
         path = entry.path
         tables_dir = path / TABLES_DIRNAME
         snapshot = tables_dir / f"{SIMULATION_TABLE_NAME}{PARQUET_FILE_SUFFIX}"
@@ -640,6 +640,8 @@ class _IndexWriter:
         row.update(_frozen_config(path))
         row.update(_label_columns(manifest, path, label_date=self._at.date()))
         row.update(_score_columns(manifest))
+        row["solution_key"] = manifest.identity.solution_key
+        row["request_id"] = manifest.identity.request_id
         row["session_id"] = manifest.lineage.session_id
         # The engine that built the mesh is a fact of the seal: a config
         # without a [mesh] section ran on the default engine of its release.
@@ -660,7 +662,7 @@ class _IndexWriter:
             self._upsert_site(manifest)
         return counts
 
-    def _insert_parameters(self, sim_id: str, manifest: Manifest) -> int:
+    def _insert_parameters(self, sim_id: str, manifest: RunSeal) -> int:
         for parameter in manifest.parameters:
             self.insert(
                 "parameters",
@@ -678,7 +680,7 @@ class _IndexWriter:
             )
         return len(manifest.parameters)
 
-    def _insert_metrics(self, sim_id: str, manifest: Manifest) -> int:
+    def _insert_metrics(self, sim_id: str, manifest: RunSeal) -> int:
         scores = [metric for metric in manifest.metrics if not metric.is_runtime]
         for metric in scores:
             self.insert(
@@ -701,7 +703,7 @@ class _IndexWriter:
             )
         return len(scores)
 
-    def _insert_tracked_files(self, sim_id: str, manifest: Manifest) -> int:
+    def _insert_tracked_files(self, sim_id: str, manifest: RunSeal) -> int:
         for entry in manifest.inputs:
             self.insert(
                 "tracked_files",
@@ -719,7 +721,7 @@ class _IndexWriter:
             )
         return len(manifest.inputs)
 
-    def _insert_geographic_metadata(self, sim_id: str, manifest: Manifest) -> int:
+    def _insert_geographic_metadata(self, sim_id: str, manifest: RunSeal) -> int:
         catchment = manifest.geometry.catchment
         for key, value in catchment.items():
             self.insert(
@@ -761,7 +763,7 @@ class _IndexWriter:
             count += 1
         return count
 
-    def _insert_environment(self, sim_id: str, path: Path, manifest: Manifest) -> int:
+    def _insert_environment(self, sim_id: str, path: Path, manifest: RunSeal) -> int:
         target = path / RUN_PROVENANCE_FILENAME
         if not target.is_file():
             return 0
@@ -816,7 +818,7 @@ class _IndexWriter:
             )
         return {"tags": len(annotations.tags), "sim_notes": len(annotations.notes)}
 
-    def _upsert_site(self, manifest: Manifest) -> None:
+    def _upsert_site(self, manifest: RunSeal) -> None:
         site = manifest.site
         assert site is not None
         self._conn.execute(
@@ -1028,7 +1030,7 @@ def _outcome_columns(outcome: Outcome) -> dict[str, Any]:
     }
 
 
-def _directory_identity(entry: DiskEntry, manifest: Manifest) -> dict[str, Any]:
+def _directory_identity(entry: DiskEntry, manifest: RunSeal) -> dict[str, Any]:
     """Name the run after its directory: the tree is what the name is."""
     if entry.kind == "run":
         name = entry.path.name
@@ -1108,7 +1110,7 @@ def _frozen_config(path: Path) -> dict[str, Any]:
     return {"config_toml": text, "config_snapshot": snapshot}
 
 
-def _label_columns(manifest: Manifest, run_dir: Path, *, label_date) -> dict[str, Any]:
+def _label_columns(manifest: RunSeal, run_dir: Path, *, label_date) -> dict[str, Any]:
     """The label of the run today, computed from its sealed checks and its config."""
     result = label_of(manifest, run_dir)
     return {
@@ -1120,7 +1122,7 @@ def _label_columns(manifest: Manifest, run_dir: Path, *, label_date) -> dict[str
     }
 
 
-def _score_columns(manifest: Manifest) -> dict[str, Any]:
+def _score_columns(manifest: RunSeal) -> dict[str, Any]:
     """Where the headline score of the run was read, from its seal."""
     score = manifest.score
     return {

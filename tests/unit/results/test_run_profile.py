@@ -91,8 +91,8 @@ def test_a_line_is_made_from_a_measure() -> None:
     assert line.started_at == measure.started_at
 
 
-def test_the_reuse_vocabulary_is_no_prefix_store() -> None:
-    assert REUSED_KINDS == ("no", "prefix", "store")
+def test_the_reuse_vocabulary_is_no_prefix_store_sealed() -> None:
+    assert REUSED_KINDS == ("no", "prefix", "store", "sealed")
 
 
 REFUSED_LINES = (

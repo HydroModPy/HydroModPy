@@ -25,10 +25,10 @@ import zarr
 
 from hydromodpy.core.runtime.interrupts import STOP_FLAG_SCHEMA
 from hydromodpy.core.state.layout import STOP_FLAG_FILENAME, stop_flag_for
-from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.record import read_inputs
-from hydromodpy.results.request_identity import prior_state_digest
+from hydromodpy.results.record.manifest import read_manifest
+from hydromodpy.results.record.record import read_inputs
+from hydromodpy.results.record.request_identity import prior_state_digest
 from hydromodpy.results.storage.attempt import request_stop
 from hydromodpy.results.storage.final_state import read_final_state
 from hydromodpy.results.storage.prior_state import prior_state_at
@@ -231,7 +231,7 @@ def test_a_window_stopped_by_its_flag_resumes_by_its_name_and_replays_from_its_s
     assert [row.path for row in rows] == ["runs/chain_w1/final_state"]
 
     # The file window 2 froze is the request of window 2, from the state window 1 left,
-    # so a plain run of it gives the sealed window back, and --frozen replays it.
+    # so a plain run of it gives the sealed window back, and hmp replay plays it again.
     before = {path.name for path in runs.iterdir()}
     code = _played(root, scenario_env, "run", "runs/chain_w2/config.toml", log=log)
 
@@ -239,7 +239,7 @@ def test_a_window_stopped_by_its_flag_resumes_by_its_name_and_replays_from_its_s
     assert {path.name for path in runs.iterdir()} == before
     assert "identical to completed run" in _tail(log)
 
-    code = _played(root, scenario_env, "run", "runs/chain_w2/config.toml", "--frozen", log=log)
+    code = _played(root, scenario_env, "replay", "runs/chain_w2", log=log)
 
     assert code == 0, _tail(log)
     added = sorted({path.name for path in runs.iterdir()} - before)

@@ -249,3 +249,52 @@ def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) 
     run_command._close_dead_attempt(tmp_path, RuntimeError("the error of the run"))
 
     assert read_outcome(run_dir).status == "failed"
+
+
+def _sealed_config(folder: Path) -> Path:
+    folder.mkdir(parents=True)
+    (folder / "config.toml").write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+    (folder / "manifest.json").write_text("{}", encoding="utf-8")
+    (folder / "inputs.json").write_text("{}", encoding="utf-8")
+    return folder / "config.toml"
+
+
+def test_frozen_on_the_config_of_a_sealed_run_names_the_replay_verb(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = _sealed_config(tmp_path / "runs" / "probe")
+
+    code = _run(monkeypatch, ["hmp", "run", str(config), "--frozen"])
+
+    from hydromodpy.cli.helpers import EXIT_CONFIG
+
+    assert code == EXIT_CONFIG
+    err = capsys.readouterr().err
+    assert "--frozen does not play a run again" in err
+    assert "hmp replay runs/probe" in err
+
+
+def test_frozen_on_the_config_of_a_published_copy_names_the_replay_verb(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = _sealed_config(tmp_path / "publication")
+    (config.parent / "PUBLICATION.json").write_text("{}", encoding="utf-8")
+
+    code = _run(monkeypatch, ["hmp", "run", str(config), "--frozen"])
+
+    from hydromodpy.cli.helpers import EXIT_CONFIG
+
+    assert code == EXIT_CONFIG
+    assert "hmp replay publication" in capsys.readouterr().err
+
+
+def test_frozen_on_an_ordinary_config_is_no_replay_and_is_let_through(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "run.toml"
+    config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+
+    assert run_command._refuse_frozen_replay(config) is None

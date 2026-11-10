@@ -27,15 +27,16 @@ from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
+    PUBLICATION_FILENAME,
     RUN_SOLVER_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
 from hydromodpy.results.storage.run_profile import read_profile
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing, step_cleanup_scratch
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
@@ -740,3 +741,91 @@ def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) ->
     kept.rmdir()
     export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
     assert not scratch.exists()
+
+
+# --- test_the_seal_of_a_replay_carries_the_class_it_found ---
+# The seal step of a replay classes the values of the new run against its source
+# before it writes the seal; every other run seals without a source.
+
+
+@contextmanager
+def _store_context(store: object):
+    yield store
+
+
+def _seal_ctx(tmp_path: Path, *, strict: bool | None, replay_of: Path | None) -> PipelineState:
+    ctx = SimpleNamespace(sim_id="0123456789abcdef", run_dir=tmp_path / "runs" / "probe.v2")
+    data = {"ctx": ctx, "cfg": object()}
+    if replay_of is not None:
+        data["replay_of"] = replay_of
+    if strict is not None:
+        data["strict"] = strict
+    return PipelineState(run_id="r", step_index=13, step_name="seal", data=data)
+
+
+@pytest.mark.parametrize(
+    ("strict", "expected"),
+    [
+        (True, True),
+        (False, False),
+        (None, False),
+    ],
+)
+def test_the_seal_of_a_replay_classes_the_values_before_it_seals(
+    tmp_path: Path, monkeypatch, strict: bool | None, expected: bool
+) -> None:
+    store, seen = object(), {}
+    monkeypatch.setattr(export_module, "run_is_persisted", lambda ctx: True)
+    monkeypatch.setattr(export_module, "run_store", lambda ctx: _store_context(store))
+    monkeypatch.setattr(export_module, "step_after_seal", lambda ctx: [])
+
+    def fake_seal(target, cfg, replay_of, *, strict: bool):
+        seen.update(store=target, cfg=cfg, replay_of=replay_of, strict=strict)
+        return SimpleNamespace(run=SimpleNamespace(name="probe.v2"))
+
+    monkeypatch.setattr(export_module, "_seal_replay", fake_seal)
+    source = tmp_path / "runs" / "probe"
+    state = _seal_ctx(tmp_path, strict=strict, replay_of=source)
+
+    advanced = export_module.SealStep().run(state)
+
+    assert seen == {
+        "store": store,
+        "cfg": state.get("cfg"),
+        "replay_of": source,
+        "strict": expected,
+    }
+    assert advanced.step_index == 14
+
+
+def test_the_lineage_of_a_copy_and_that_of_a_run_both_say_replay(
+    tmp_path: Path,
+) -> None:
+    copy = tmp_path / "copies" / "probe"
+    copy.mkdir(parents=True)
+    (copy / PUBLICATION_FILENAME).write_text("{}", encoding="utf-8")
+    run = tmp_path / "runs" / "probe.v2"
+    run.mkdir(parents=True)
+    # ``published`` is the word of a publication; replay.source tells the two apart.
+    assert export_module._source_kind(copy) == "replay"
+    assert export_module._source_kind(run) == "replay"
+
+
+def test_a_run_that_is_no_replay_seals_without_a_source(tmp_path: Path, monkeypatch) -> None:
+    store = object()
+    sealed: list[object] = []
+    monkeypatch.setattr(export_module, "run_is_persisted", lambda ctx: True)
+    monkeypatch.setattr(export_module, "run_store", lambda ctx: _store_context(store))
+    monkeypatch.setattr(export_module, "step_after_seal", lambda ctx: [])
+    monkeypatch.setattr(
+        export_module,
+        "seal_completed",
+        lambda target: sealed.append(target) or SimpleNamespace(run=SimpleNamespace(name="probe")),
+    )
+    monkeypatch.setattr(
+        export_module, "_seal_replay", lambda *args, **kwargs: pytest.fail("no source to class")
+    )
+
+    export_module.SealStep().run(_seal_ctx(tmp_path, strict=None, replay_of=None))
+
+    assert sealed == [store]

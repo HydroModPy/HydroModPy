@@ -77,6 +77,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
 TARGET_LEAVES: frozenset[str] = frozenset(
     {
         "run",
+        "replay",
         "calibrate",
         "spinup",
         "stop",
@@ -90,7 +91,7 @@ TARGET_LEAVES: frozenset[str] = frozenset(
 
 # What the target retired, by verb, by action and by option.
 REMOVED_VERBS: frozenset[str] = frozenset(
-    {"process", "audit", "compare", "testbed", "init", "replay", "test", "dev", "lock"}
+    {"process", "audit", "compare", "testbed", "init", "test", "dev", "lock"}
 )
 REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("viz", "gallery"),

@@ -509,3 +509,110 @@ since = "2.1.0"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6"]
 text = "MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before."
+
+
+# The run seal of 2.0.0 (manifest_version = 3) read by run_seal_v3.
+
+[[migration]]
+document = "manifest"
+old = "identity.config_hash"
+instead = "identity.config_hash carried the solution key of the run. Identity.solution_key and Identity.request_id carry it since 2.1.0."
+sealed = "drop"
+since = "2.1.0"
+
+[[migration]]
+document = "manifest"
+old = "config.hash"
+instead = "The hash of the configuration is Identity.solution_key since 2.1.0, which also carries the code, the solver binaries and the key package versions."
+sealed = "drop"
+since = "2.1.0"
+
+[[migration]]
+document = "manifest"
+key = "artifacts[*].role"
+old_value = "other"
+new_value = "inputs"
+rule = "inputs_artifact_role"
+since = "2.1.0"
+
+# The identity block of 2.0.0, in a .meta.json sidecar, a Zarr attribute, a
+# Parquet footer, a PNG chunk or a GeoPackage row.
+
+[[migration]]
+document = "identity"
+old = "config_hash"
+instead = "Identity.solution_key and Identity.request_id carry the solution key of the run since 2.1.0."
+sealed = "drop"
+since = "2.1.0"
+
+# The job seal of 2.0.0 (schema = "hmp-manifest/v2") read by read_job_seal.
+
+[[migration]]
+document = "job.manifest"
+old = "job_id"
+new = "request_id"
+since = "2.1.0"
+
+[[migration]]
+document = "job.manifest"
+old = "artifacts[*].mediaType"
+new = "artifacts[*].media_type"
+since = "2.1.0"
+
+[[migration]]
+document = "job.manifest"
+old = "schema"
+instead = "A job seal carries manifest_version = 4 and profile = \"job\" since 2.1.0, and each artifact names its role."
+sealed = "drop"
+rule = "job_artifact_role"
+since = "2.1.0"
+
+[[recipe]]
+id = "seal_v4_one_model"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A run seal and a job seal are one document, manifest_version = 4 with profile = \"run\" or \"job\". A run seal carries the digests of its values and one lineage block, and its identity names the run by solution_key and request_id instead of config_hash; a job seal carries the request id, the process and the input set it read. A version 3 run seal and an hmp-manifest/v2 job seal are read in memory, and the file is never rewritten."
+
+[[recipe]]
+id = "seal_hashes_the_values"
+since = "2.1.0"
+effect = "identity"
+quantities = []
+text = "A run seal carries one values/1 digest per array of fields.zarr, per array of final_state/ and per floating column of every table, simulation and parameters included, with the wall-clock row of metrics left out. A field rounded at write time is hashed on the float64 values the writer received, kept per step in the facts of the run. Two runs of the same values seal the same digests, verify_artifacts still compares bytes only, and no value of an ordinary run moves."
+
+[[recipe]]
+id = "replay_plays_then_classes"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A replay plays the sealed run again, then compares its values to the seal: bit when every field, every column of a quantity and the final state hash the same in double precision, deviation otherwise, with the size of each difference, the keys added and removed, the basis of the comparison and the changes of this register it crossed. A source sealed before 2.1.0 is compared on the stored values of both runs, and a final_state/ array it could not hold is listed as added without making the replay a deviation. A moved default or another solver binary no longer refuses a replay, it is written in the lineage. Only --strict refuses a deviation, and an input with another digest is still refused."
+
+
+# The one-row table of a run loses the hash of its configuration, which the
+# identity footer of every table already carries under its new name.
+
+[[recipe]]
+id = "simulation_table_leaves_the_config_hash"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "simulation.parquet loses its config_hash column and keeps version v3: an old reader never asked for that column, and a new reader ignores the column of a 2.0.0 table. refhash/1 already excluded config_hash from that table, so no reference moves."
+
+[[recipe]]
+id = "seal_copies_the_mesh"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The seal of a run copies the mesh product it read into mesh/ of its directory, as mesh.json and mesh.npz, and lists that folder in its inventory with the digest of its tree. A replay of an engine that cannot rebuild its mesh bit for bit reads the mesh sealed beside its source when its tree still hashes to the seal and its identity matches the request, logs reused = sealed, and seals those bytes in its own mesh/; otherwise it builds again. A run sealed before 2.1.0 has no mesh/ and a replay reads the store."
+
+
+# The replay verb, the values it classes and the mesh it reads.
+
+[[recipe]]
+id = "replay_is_its_own_verb"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp replay REF plays a sealed run or a published copy again, and --strict refuses a value that did not reproduce its source before the seal. hmp run --frozen on the config.toml of a sealed run or of a published copy is refused and names the verb; it used to replay them, and a copy no longer replays through hmp run."
+

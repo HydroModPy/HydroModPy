@@ -20,12 +20,12 @@ from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.checks import CalibratedBy, Checks
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.manifest import (
-    Manifest,
+from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
+from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
+from hydromodpy.results.record.checks import CalibratedBy, Checks
+from hydromodpy.results.record.manifest import (
     ManifestConfig,
     ManifestGeometry,
     ManifestPeriod,
@@ -33,10 +33,9 @@ from hydromodpy.results.manifest import (
     ManifestSite,
     MetricRow,
     ParameterRow,
+    RunSeal,
 )
-from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
-from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
-from hydromodpy.results.record import RunProvenance, RunRecord
+from hydromodpy.results.record.record import RunProvenance, RunRecord
 from hydromodpy.results.session.descriptor import (
     BestCase,
     BestTrial,
@@ -52,6 +51,7 @@ from hydromodpy.results.storage.contract import (
     RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SEARCH_TABLE,
 )
+from hydromodpy.schema.lineage import Lineage
 from tests._helpers.metric_rows import headline_row, headline_score
 
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
@@ -171,7 +171,7 @@ def seal_run(
             n_timesteps=3,
             time_unit="day",
         ),
-        config=ManifestConfig(file=RUN_CONFIG_FILENAME, hash=config_hash, source="project.toml"),
+        config=ManifestConfig(file=RUN_CONFIG_FILENAME, source="project.toml"),
         lineage=Lineage(
             session_id=None if calibrated_by is None else calibrated_by.session_id,
             phase=None if calibrated_by is None else calibrated_by.phase,
@@ -184,7 +184,8 @@ def seal_run(
             case_id=case_id,
             sim_id=sid,
             attempt_id=aid,
-            config_hash=config_hash,
+            solution_key=config_hash,
+            request_id=config_hash,
             period=WINDOW,
             score_window=window,
             hydromodpy_version=hydromodpy_version,
@@ -243,7 +244,7 @@ def manifest_document(
     """
     sid = sim_id or str(uuid.uuid4())
     stem, version = split_stem_version(name)
-    document = Manifest(
+    document = RunSeal(
         sealed_at=NOW,
         run=ManifestRun(
             sim_id=sid,
@@ -261,13 +262,14 @@ def manifest_document(
         ),
         geometry=ManifestGeometry(),
         period=ManifestPeriod(),
-        config=ManifestConfig(file=RUN_CONFIG_FILENAME, hash=config_hash),
+        config=ManifestConfig(file=RUN_CONFIG_FILENAME),
         lineage=Lineage(),
         identity=Identity(
             case_id=name,
             sim_id=sid,
             attempt_id="a" * 32,
-            config_hash=config_hash,
+            solution_key=config_hash,
+            request_id=config_hash,
             hydromodpy_version=VERSION,
         ),
         checks=Checks(),

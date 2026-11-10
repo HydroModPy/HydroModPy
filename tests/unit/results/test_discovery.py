@@ -22,8 +22,8 @@ from hydromodpy.results.catalog.discovery import (
     resolve_rel_dir,
     resolve_trashed,
 )
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.record import RunRecord
+from hydromodpy.results.record.manifest import MetricRow
+from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.run.sealed import MixedWindowsError
 from hydromodpy.results.trash import trash_run
 from tests._helpers.sealed_runs import NOW, WINDOW, make_project, seal_run, write_attempt

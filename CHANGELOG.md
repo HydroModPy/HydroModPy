@@ -95,6 +95,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Every run writes `profile.json`, the time and memory of each step, solve, figure and export, with the age of the process and what was rebuilt from an earlier attempt or read from the project store. A run stopped through its flag keeps the profile of what it did.
 - `hmp catalog show` prints a Profile block read from `profile.json` (total time, start-up, solve of each run of the plan, three longest steps, what was reused), and `show_simulation` returns it under the `profile` key. A run of 2.0 says it has no profile and prints the solve time of its seal.
 - The README of a sealed run says what a replay costs, read from `profile.json`.
+- `hmp replay REF` and `hmp.replay(ref)` play a sealed run or a published copy again and class it: bit when every value hashes the same in double precision, deviation otherwise. `--strict` refuses a deviation.
+- The seal of a run gives the digest of the values of every field, every column of a quantity and the final state, taken in double precision before a field is rounded for storage.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -480,6 +482,17 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - MODFLOW 6: a run that restarts from another one, and each window of a chain, starts from the head in double precision (binary start array), and its lake and reach stages are written with all their digits. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
 - MODFLOW 6: a cyclic spin-up starts each cycle from the final lake stage of the cycle before, the main run starts from the last cycle, and the loop settles only when the lake stages have settled with the heads. A lake under `spinup_cyclic` is no longer refused.
 - MODFLOW 6 with SFR storage: the stage of each reach at the end of a run is kept in `final_state/` and given back to the next run or window as `INITIALSTAGES`.
+- A run and a job write one seal, manifest_version 4, with a profile. A 2.0.0 seal of either kind reads as it is, and a seal of a pre-release is refused with its sentence.
+- The identity block carries solution_key, request_id and solver instead of config_hash, in the seal and in every file that leaves a run. simulation.parquet no longer has a config_hash column.
+- A replay no longer refuses a moved default nor warns only on another solver binary: both go in its lineage, with the class of the replay.
+- `hmp run <run>/config.toml --frozen` no longer replays a run; use `hmp replay <run>`.
+- The results modules manifest, record, run_identity and checks live under `hydromodpy.results.record`, and lineage under `hydromodpy.schema`. `hydromodpy.results.identity` stays where it was.
+- The value digests of a seal cover `simulation.parquet` and `parameters.parquet` too, and leave out the solve-time row of `metrics.parquet`, which is a wall clock.
+- A replay of a run sealed by 2.0.0 lists the `final_state/` arrays that version could not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
+- A difference a replay cannot measure (two shapes, two NaN masks, a zero norm) is written with null measures and its reason, never as `Infinity`. A seal is strict JSON.
+- A replay that read the mesh sealed beside its source seals those bytes in its own `mesh/`, and a sealed mesh whose bytes no longer match its seal is rebuilt. A run with a sealed mesh is still found identical to a later request, and can still be shared.
+- A job seal of a later or an earlier `manifest_version` is refused with the sentence that says to upgrade or to run again.
+- The RO-Crate view gives each property value of a run its own `@id`, as the RO-Crate library requires.
 
 ### Removed
 

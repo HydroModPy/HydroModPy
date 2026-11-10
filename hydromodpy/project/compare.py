@@ -20,7 +20,7 @@ from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.display.run_comparison import draw_maps, draw_series
 from hydromodpy.project.facade import read_sealed_config
 from hydromodpy.results.derive import views
-from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run, open_run_dir
 

@@ -286,11 +286,11 @@ The values are in the code. Read them there, not here.
    * - ``GEOPARQUET_SCHEMA_VERSION``
      - ``hydromodpy/core/io/geoparquet.py``
    * - ``RUN_RECORD_MANIFEST_VERSION`` (run seal: ``manifest.json``)
-     - ``hydromodpy/results/manifest.py``
+     - ``hydromodpy/results/record/manifest.py``
    * - ``PROVENANCE_VERSION`` (run seal: ``provenance.json``)
-     - ``hydromodpy/results/record.py``
+     - ``hydromodpy/results/record/record.py``
    * - ``CHECKS_SCHEMA`` (the ``checks`` block of ``manifest.json``)
-     - ``hydromodpy/results/checks.py``
+     - ``hydromodpy/results/record/checks.py``
    * - ``SESSION_SCHEMA`` (``session.json``)
      - ``hydromodpy/results/session/descriptor.py``
    * - ``PHASE_SCHEMA`` (``phases/<p>/session.json``)

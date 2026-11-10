@@ -15,7 +15,7 @@ stream network may sit higher. The figure is read from the run results, under
 known), not from the objective components of the trial. The worst time step of
 the whole-model volume budget decides, the same figure ``checks.budget_pct`` holds.
 
-The verdict is a :class:`~hydromodpy.results.checks.Validity`: a name,
+The verdict is a :class:`~hydromodpy.results.record.checks.Validity`: a name,
 a pass or fail, the value, and a sentence saying what the failure does to the
 number. That last part is the point on a platform, where the reader of a result
 is not the person who produced it.
@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hydromodpy.results.checks import Validity
+from hydromodpy.results.record.checks import Validity
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 
 

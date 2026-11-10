@@ -199,7 +199,7 @@ None. No metric value changes.
 - GeoTIFF tag `HMP_EXPORTED_AT` holds the wall clock of the export.
 - JSON Schemas of `manifest.json` (`manifest.v3.json`) and `provenance.json` (`provenance.v2.json`) in `hydromodpy/schema/results/`, generated like the others and open to additional properties. The gate `test_results_schemas_match_models.py` covers them.
 - Each file entry of the manifest `artifacts` list carries a `sha256`. It is optional on read, and a directory store (`fields.zarr`) and the manifest itself carry none.
-- `hmp doctor` reports `results:seal_digest` when a sealed file is missing or no longer matches its digest. `hydromodpy.results.manifest.seal_problems(run_dir)` gives the list.
+- `hmp doctor` reports `results:seal_digest` when a sealed file is missing or no longer matches its digest. `hydromodpy.results.record.manifest.seal_problems(run_dir)` gives the list.
 - `find_cached(..., product_version=...)` on the data catalog: with a version, only an entry whose `fetch_metadata.product_version` equals it answers.
 - The release workflow starts with a gate: the tagged commit must be on `main` or `dev`, its main CI run must have passed, and the example catalog must match the tree. The wheel is tested on Python 3.11, 3.12 and 3.13 before the upload.
 - `tools/ci/check_example_catalog.py` hashes every file `catalog.toml` names. CI and the release procedure run it.

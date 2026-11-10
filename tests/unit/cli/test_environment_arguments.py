@@ -1,7 +1,7 @@
-"""The three environment options on the six commands, and what they build.
+"""The three environment options on the commands that compute, and what they build.
 
 ``--credentials``, ``--allow-host`` and ``--max-download-bytes`` are
-registered by ``run``, ``calibrate``, ``spinup``, ``export``, ``data get``
+registered by ``run``, ``replay``, ``calibrate``, ``spinup``, ``export``, ``data get``
 and ``campaign array`` alone. The command builds one
 :class:`~hydromodpy.project.environment.Environment` from them and hands it
 to the verb it wraps; the launcher serializes the same Environment onto the
@@ -22,8 +22,9 @@ from hydromodpy.project.launch.children import PlannedCase, worker_command
 from tests.unit.cli._hmp import run_hmp
 from tests.unit.cli._tree import leaves
 
-SIX_COMMANDS: tuple[tuple[str, ...], ...] = (
+ENVIRONMENT_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("run",),
+    ("replay",),
     ("calibrate",),
     ("spinup",),
     ("export",),
@@ -40,8 +41,8 @@ def _arguments(**values: object) -> SimpleNamespace:
     return space
 
 
-@pytest.mark.parametrize("words", SIX_COMMANDS)
-def test_the_six_commands_carry_the_three_options(words: tuple[str, ...]) -> None:
+@pytest.mark.parametrize("words", ENVIRONMENT_COMMANDS)
+def test_the_commands_that_compute_carry_the_three_options(words: tuple[str, ...]) -> None:
     parser = dict(leaves()).get(words)
     assert parser is not None, f"{words} is not a command of the tree"
     names = {action.dest for action in parser._actions}
@@ -49,11 +50,11 @@ def test_the_six_commands_carry_the_three_options(words: tuple[str, ...]) -> Non
 
 
 def test_no_other_command_carries_the_options() -> None:
-    six = set(SIX_COMMANDS)
+    computing = set(ENVIRONMENT_COMMANDS)
     for words, parser in leaves():
         names = {action.dest for action in parser._actions}
         has = {"credentials", "allow_host", "max_download_bytes"} <= names
-        if words in six:
+        if words in computing:
             assert has, f"{words} does not register the environment options"
         else:
             assert not has, f"{words} registers options the lot did not announce"

@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "11"
+INDEX_SCHEMA_VERSION: Final[str] = "12"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -200,7 +200,8 @@ CREATE TABLE simulations (
     time_unit                     VARCHAR,
     config_toml                   VARCHAR,
     config_snapshot               JSON,
-    config_hash                   VARCHAR,
+    solution_key                  VARCHAR,
+    request_id                    VARCHAR,
     config_source                 VARCHAR,
     parent_sim_id                 UUID,
     lineage_kind                  VARCHAR,
@@ -251,7 +252,7 @@ CREATE INDEX ix_sim_site               ON simulations(site);
 CREATE INDEX ix_sim_case_id            ON simulations(case_id);
 CREATE INDEX ix_sim_status             ON simulations(status_id);
 CREATE INDEX ix_sim_created_at         ON simulations(created_at DESC);
-CREATE INDEX ix_sim_config_hash        ON simulations(config_hash);
+CREATE INDEX ix_sim_solution_key       ON simulations(solution_key);
 CREATE INDEX ix_sim_name_stem          ON simulations(project, name_stem, version_int);
 CREATE INDEX ix_sim_label              ON simulations(label);
 

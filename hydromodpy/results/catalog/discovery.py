@@ -547,8 +547,8 @@ class DiscoveryMixin:
 
             - ``project``, ``site``, ``site_fingerprint``, ``case_id``,
               ``recipe``, ``rel_dir``, ``name``, ``name_stem``,
-              ``config_hash``, ``crs_wkt`` (or ``crs``): exact value of that
-              run column.
+              ``solution_key``, ``request_id``, ``crs_wkt`` (or ``crs``): exact
+              value of that run column.
             - ``solver``, ``solver_category``, ``status``, ``flow_regime``,
               ``mesh_topology``: their code, for example ``solver="modflow6"``
               or ``status="completed"``.
@@ -872,7 +872,8 @@ _COLUMN_FILTERS: dict[str, str] = {
     "rel_dir": "rel_dir",
     "name": "name",
     "name_stem": "name_stem",
-    "config_hash": "config_hash",
+    "solution_key": "solution_key",
+    "request_id": "request_id",
     "crs_wkt": "crs_wkt",
     "crs": "crs_wkt",
 }

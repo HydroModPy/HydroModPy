@@ -7,7 +7,7 @@ import socket
 from pathlib import Path
 
 from hydromodpy.core.io.file_digest import sha256_of
-from hydromodpy.results.manifest import InputEntry, TrackedInput
+from hydromodpy.results.record.manifest import InputEntry, TrackedInput
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests._helpers.run_records import make_record
 

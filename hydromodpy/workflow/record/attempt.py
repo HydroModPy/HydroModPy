@@ -42,8 +42,8 @@ from typing import Literal
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.heartbeat import HeartbeatThread
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import OutcomeStatus, effective_status, read_outcome
+from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.attempt import (
     RunClaim,
     claim_run_directory,

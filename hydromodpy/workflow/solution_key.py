@@ -1,12 +1,12 @@
 """The request id and the solution key of a case, told before or during its run.
 
 A run is identical to a completed one when their solution keys agree
-(:func:`~hydromodpy.results.request_identity.solution_key`): the request id,
+(:func:`~hydromodpy.results.record.request_identity.solution_key`): the request id,
 which reads the written document, the edition and the digest and state of every
 input, then the code, the solver binaries and the numeric packages. The request
 id reads the inputs the data layer resolves, which ``results`` never reads, so
 it is told here. :func:`input_digests` turns resolved inputs into the digests
-:func:`~hydromodpy.results.request_identity.request_id` reads. A run tells its
+:func:`~hydromodpy.results.record.request_identity.request_id` reads. A run tells its
 key once its inputs are resolved (:func:`request_id_of`); a plan, a dry run and
 a calibration tell it offline (:func:`planned_solution_key`), and a case that
 needs the network then reads as not done.
@@ -23,17 +23,18 @@ from typing import Any, Final
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.written import written_as_a_file
 from hydromodpy.core.exceptions import HydroModPyError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.resolve import locate_workspace_root
-from hydromodpy.results.request_identity import (
+from hydromodpy.results.record.request_identity import (
     input_role,
     mesh_engine_identity,
     portable_path,
     request_id,
     solution_key,
 )
-from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
+from hydromodpy.results.storage.digests import sha256_directory
 
 logger = get_logger(__name__)
 
@@ -147,7 +148,7 @@ def solution_key_of(
 def _file_digest(path: Path) -> str:
     try:
         if path.is_file():
-            return sha256_streaming(path)
+            return sha256_of(path)
         if path.is_dir():
             return sha256_directory(path)
     except OSError as exc:

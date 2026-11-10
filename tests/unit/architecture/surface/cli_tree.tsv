@@ -548,6 +548,18 @@ hmp publish --verify
 hmp publish --with	choices=['fetched', 'inputs', 'mesh', 'results', 'runs', 'sessions'] default=[]
 hmp publish --workspace,-w	
 hmp publish <ref>	nargs=?
+hmp replay	command
+hmp replay --allow-host	default=[]
+hmp replay --credentials	
+hmp replay --debug	nargs=0
+hmp replay --format	choices=['csv', 'json', 'table'] default='table'
+hmp replay --max-download-bytes	
+hmp replay --quiet,-q	nargs=0
+hmp replay --strict	nargs=0
+hmp replay --verbose,-v	nargs=0
+hmp replay --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp replay --workspace,-w	
+hmp replay <ref>	required
 hmp report	command
 hmp report catchment	command
 hmp report catchment --context-only	nargs=0

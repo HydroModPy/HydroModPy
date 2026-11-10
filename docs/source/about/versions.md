@@ -98,16 +98,20 @@ A run or a calibration session stored by 2.0 carries an identity made another wa
 2.1 meets the same request, it computes it once more, and the new run carries the new identity.
 Its numbers are the same.
 
-### What a sealed run keeps
+### What a sealed run keeps, and how a replay is classed
 
 A run seals `config.toml`, what it was given, overrides included, and `config.resolved.toml`, the
-same with every default written. `hmp run <run>/config.toml --frozen` compares the two with what
-this version would use and refuses a key that moved. A key that this version added, and that is
-absent from the sealed `config.resolved.toml`, is not a difference when its value is the default
-of the edition the run sealed, because the sealed file writes every default its version knew.
-`lineage.drift` lists such keys under `new_at_default`. It also checks the digests of the inputs
-the run recorded, and warns when the solver binary differs. `hmp catalog rerun` warns on the same
-keys and records them in the lineage of the new run.
+same with every default written. The seal also gives the digest of the values it computed, one
+per field, per column of a quantity and per array of the final state, taken in double precision
+before a field is rounded for storage. `hmp replay <run>` plays the run again from those bytes and
+classes what it compared: `bit` when every value hashes the same, `deviation` otherwise, with the
+size of each difference and the changes of this register it crossed. A source of 2.0 is classed on
+its stored values, and a copy that carries no values has no class. A moved default or another
+solver binary goes in the lineage of the replay and refuses nothing, and an input whose digest
+differs is still refused. `--strict` refuses a deviation: the attempt ends failed, its fields stay
+readable, and no seal is written. `hmp run <run>/config.toml --frozen` is refused with a sentence
+that names `hmp replay`. `hmp catalog rerun` records the keys that moved in the lineage of the new
+run.
 
 ### Experimental
 

@@ -16,9 +16,11 @@ import pytest
 from hydromodpy.core.exceptions import JobUsageError, SchemaVersionMismatchError
 from hydromodpy.core.io.document_version import NEWER_REMEDY
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import read_document, render_document, write_document
+from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord, now
 from hydromodpy.schema.job.reuse import REUSED_MEMBER, reuse_sealed_outcome, reused_outcome_text
+from hydromodpy.schema.job.seal import JobSeal
+from hydromodpy.schema.seal import render_document, write_seal
 
 JOB_ID = "sha256:" + "7" * 64
 OTHER_JOB_ID = "sha256:" + "8" * 64
@@ -57,7 +59,7 @@ def sealed(tmp_path: Path) -> JobDirectory:
     job = JobDirectory.create(tmp_path / "job")
     job.request_path.write_text("{}", encoding="utf-8")
     _outcome().write(job)
-    write_document(job.manifest_path, {"schema": "hmp-manifest/v2", "job_id": JOB_ID})
+    write_seal(job.manifest_path, JobSeal(sealed_at=now(), request_id=JOB_ID))
     return job
 
 
@@ -102,13 +104,13 @@ class TestADirectoryThatCannotBeRead:
     def test_a_seal_that_is_not_json_is_a_usage_error(self, sealed):
         sealed.manifest_path.write_text("{oh dear", encoding="utf-8")
 
-        with pytest.raises(JobUsageError, match="manifest.json"):
+        with pytest.raises(SchemaVersionMismatchError, match="does not read as JSON"):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
-    def test_a_seal_of_a_later_version_says_to_upgrade(self, sealed):
-        write_document(sealed.manifest_path, {"schema": "hmp-manifest/v3", "job_id": JOB_ID})
+    def test_a_seal_of_a_later_version_names_the_version_this_code_reads(self, sealed):
+        write_document(sealed.manifest_path, {"manifest_version": 5, "profile": "job"})
 
-        with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
+        with pytest.raises(SchemaVersionMismatchError, match="manifest_version = 4"):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
     def test_an_outcome_of_a_later_version_says_to_upgrade(self, sealed):
@@ -121,7 +123,7 @@ class TestADirectoryThatCannotBeRead:
     def test_a_seal_that_is_not_an_object_is_a_usage_error(self, sealed):
         sealed.manifest_path.write_text("[]", encoding="utf-8")
 
-        with pytest.raises(JobUsageError, match="not a JSON object"):
+        with pytest.raises(SchemaVersionMismatchError, match="not a JSON object"):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
     def test_an_outcome_the_seal_matches_but_nobody_can_parse_is_a_usage_error(self, sealed):

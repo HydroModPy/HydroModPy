@@ -45,7 +45,7 @@ from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, JobOutcome
 from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS
 from hydromodpy.schema.job.request import read_request
-from hydromodpy.schema.job.seal import MANIFEST_VERSIONS, verify_job
+from hydromodpy.schema.job.seal import read_job_seal, verify_job
 from hydromodpy_annex.schema.job_chain.chain import read_chain_outcome
 
 FROZEN = Path(__file__).parent / "v2.0.0"
@@ -225,8 +225,8 @@ def test_sealed_job_and_its_chain(corpus: Path) -> None:
         expected["outcome"]["job_id"],
     )
     assert [record.path for record in outcome.outputs] == expected["outcome"]["outputs"]
-    manifest = read_versioned(job.manifest_path, MANIFEST_VERSIONS)
-    assert (manifest["profile"], manifest["job_id"]) == ("job", outcome.job_id)
+    seal = read_job_seal(job.manifest_path)
+    assert (seal.profile, seal.request_id) == ("job", outcome.job_id)
     verification = verify_job(job)
     assert verification.ok, verification.problems
 

@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import JobInputNotFoundError
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
@@ -30,7 +31,6 @@ from hydromodpy.data.source.port import FetchRequest, FetchResult, extent_for
 from hydromodpy.data.source.registry import data_sources
 from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
 from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
-from hydromodpy.schema.job.digest import sha256_file
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BOX_2154 = [320000.0, 6780000.0, 330000.0, 6790000.0]
@@ -338,7 +338,7 @@ def test_the_report_names_each_file_by_its_checksum(tmp_path: Path, isolated_reg
     run_request(request, tmp_path / "out")
 
     for entry in _report(tmp_path / "out")["files"]:
-        digest, size = sha256_file(tmp_path / "out" / entry["path"])
+        digest, size = sha256_and_size(tmp_path / "out" / entry["path"])
         assert (entry["sha256"], entry["bytes"]) == (digest, size)
 
 

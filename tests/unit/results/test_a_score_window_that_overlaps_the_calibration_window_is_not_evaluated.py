@@ -6,8 +6,8 @@ from datetime import date
 
 import pytest
 
-from hydromodpy.results.checks import Checks
 from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
+from hydromodpy.results.record.checks import Checks
 from hydromodpy.results.validity_rules import label_for
 from tests._helpers.run_records import (
     WINDOW,

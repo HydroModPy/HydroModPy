@@ -32,9 +32,9 @@ from hydromodpy.core.time.window import (
     window_grid,
 )
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.record import read_inputs
+from hydromodpy.results.record.manifest import is_sealed
+from hydromodpy.results.record.record import read_inputs
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.workflow.steps.prepare_solver.restart import (
@@ -163,7 +163,7 @@ def recorded_window_source(run_dir: Path, project_root: Path) -> WindowSource | 
 
 def source_of(run_dir: Path) -> WindowSource:
     """The :class:`WindowSource` a sealed window run is."""
-    from hydromodpy.results.manifest import read_manifest
+    from hydromodpy.results.record.manifest import read_manifest
 
     manifest = read_manifest(run_dir)
     sim_id = manifest.get("run", {}).get("sim_id")

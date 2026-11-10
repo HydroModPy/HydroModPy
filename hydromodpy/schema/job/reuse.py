@@ -33,9 +33,9 @@ from typing import Any
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import check_job_document, read_document, render_document
+from hydromodpy.schema.job.documents import check_job_document, read_document
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, JobOutcome
-from hydromodpy.schema.job.seal import MANIFEST_VERSIONS
+from hydromodpy.schema.seal import render_document
 
 REUSED_MEMBER = "reused"
 """The one member of the outcome document that a reuse changes."""
@@ -48,11 +48,25 @@ def reuse_sealed_outcome(job: JobDirectory, *, job_id: str) -> JobOutcome:
     request that cannot be resolved into an id must not reach a branch that
     writes.
     """
-    manifest = _document(job, job.manifest_path, MANIFEST_VERSIONS)
-    sealed = manifest.get("job_id")
-    if sealed != job_id:
+    # Imported here because the seal module reads this package: a top-level
+    # import would close the cycle whenever the seal module is the one entered.
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+    from hydromodpy.schema.job.seal import read_job_seal
+
+    try:
+        seal = read_job_seal(job.manifest_path)
+    except SchemaVersionMismatchError:
+        # A seal of another version keeps its own refusal, which names the
+        # version that wrote it and what to do; wrapping it would hide both.
+        raise
+    except (OSError, ValueError) as exc:
         raise JobUsageError(
-            f"job directory {job.root} is sealed under {sealed!r} and this request "
+            f"job directory {job.root} is sealed and its {job.manifest_path.name} "
+            f"cannot be read as a seal: {exc}"
+        ) from exc
+    if seal.request_id != job_id:
+        raise JobUsageError(
+            f"job directory {job.root} is sealed under {seal.request_id!r} and this request "
             f"addresses {job_id!r}; a job directory holds one job"
         )
     document = _document(job, job.outcome_path, OUTCOME_VERSIONS)

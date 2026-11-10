@@ -55,10 +55,10 @@ from hydromodpy.core.scoring.metrics import (
     nse_delta,
     nse_seasonal,
 )
-from hydromodpy.results.checks import Validity
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
+from hydromodpy.results.record.checks import Validity
 from tests._helpers.tolerances import tol
 from tests.unit.calibration._factories import _score
 

@@ -321,7 +321,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
         def __init__(self, config: object, *, base: Path, source=None, bounds=None) -> None:
             self.cfg = cfg
 
-        def run(self, claim: object, *, config_hash: str) -> dict[str, str]:
+        def run(self, claim: object, *, solution_key: str) -> dict[str, str]:
             return {"mode": "data_overview"}
 
     monkeypatch.setattr("hydromodpy.workflow.overview.DataOverviewLauncher", _Launcher)

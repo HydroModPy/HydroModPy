@@ -93,7 +93,7 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     def run(
-        self, claim: RunClaim | None = None, *, config_hash: str | None = None
+        self, claim: RunClaim | None = None, *, solution_key: str | None = None
     ) -> OverviewResult:
         """Execute the full overview pipeline and return what it drew.
 
@@ -125,7 +125,7 @@ class DataOverviewLauncher:
 
         web_report = overview_web_report_path(state) if report_paths else None
         if claim is not None:
-            self.seal(state, claim, config_hash=config_hash)
+            self.seal(state, claim, solution_key=solution_key)
         return OverviewResult(
             name=claim.name if claim is not None else getattr(self.cfg.overview, "name", None),
             run_dir=None if claim is None else Path(claim.run_dir),
@@ -136,10 +136,10 @@ class DataOverviewLauncher:
             web_report=Path(web_report) if web_report and Path(web_report).is_file() else None,
         )
 
-    def seal(self, state: DataOverviewState, claim: RunClaim, *, config_hash: str | None) -> Any:
+    def seal(self, state: DataOverviewState, claim: RunClaim, *, solution_key: str | None) -> Any:
         """Seal the run directory of the overview and return its record.
 
-        The record carries the identity of the overview (site, configuration,
+        The record carries the identity of the overview (site, solution key,
         period, catchment) and no solver table: no field store, no budget, no
         series. ``config.toml`` is frozen first, ``manifest.json`` is written
         last, then ``README.md``; the attempt protocol flips the outcome.
@@ -176,7 +176,7 @@ class DataOverviewLauncher:
             created_at=claim.started_at,
             started_at=claim.started_at,
             solver=OVERVIEW_SOLVER,
-            config_hash=config_hash,
+            solution_key=solution_key,
             config_source=(
                 None
                 if self.source is None

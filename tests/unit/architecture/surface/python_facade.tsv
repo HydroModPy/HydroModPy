@@ -54,6 +54,7 @@ figure	function	(run: Run, name: str, *, save: PathLike | None = None, dpi: int 
 index	function	(workspace: PathLike | None = None) -> Workspace
 open	function	(path: PathLike) -> Project | Run | Session | Workspace
 read	function	(run: Run, variable: str, *, time: int | str | date | np.datetime64 | np.integer | slice | None = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Readable
+replay	function	(ref: PathLike, *, strict: bool = False, base: PathLike | None = None, environment: Environment | None = None) -> Run
 report	function	(session: str | None = None, *, workspace: PathLike | None = None) -> Path
 run	function	(config: ConfigLike, *, base: PathLike | None = None, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> Run | OverviewResult | PlanDraft | None
 spinup	function	(config: ConfigLike, *, base: PathLike | None = None, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult

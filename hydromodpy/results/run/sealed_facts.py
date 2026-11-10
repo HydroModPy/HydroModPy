@@ -25,7 +25,7 @@ from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.run.ranking import first_present, is_finite
 
 if TYPE_CHECKING:
-    from hydromodpy.results.manifest import Manifest
+    from hydromodpy.results.record.manifest import RunSeal
 
 
 class UnreadableManifestError(DataError):
@@ -36,7 +36,7 @@ class UnreadableManifestError(DataError):
 class SealedRunFacts:
     """What the seal of one run says, in the shapes a table of runs reads."""
 
-    manifest: Manifest
+    manifest: RunSeal
     metrics: dict[str, float | None]
     parameters: dict[str, float | None]
     document: dict[str, Any]
@@ -55,7 +55,7 @@ def read_run_facts(run_dir: str | Path) -> SealedRunFacts | None:
     UnreadableManifestError
         When ``manifest.json`` does not read under the current schema.
     """
-    from hydromodpy.results.run_identity import read_sealed_manifest
+    from hydromodpy.results.record.label import read_sealed_manifest
 
     try:
         manifest = read_sealed_manifest(run_dir)
@@ -77,7 +77,7 @@ def read_run_facts(run_dir: str | Path) -> SealedRunFacts | None:
     )
 
 
-def _headline_metrics(manifest: Manifest) -> dict[str, float | None]:
+def _headline_metrics(manifest: RunSeal) -> dict[str, float | None]:
     """Return metric -> value at the station and variable of the headline score."""
     score = manifest.score
     rows = [row for row in manifest.metrics if row.window_name in (HEADLINE_WINDOW, None)]
@@ -110,7 +110,7 @@ _CATCHMENT_AREA_KEYS: Final[tuple[str, ...]] = ("catch_area", "catchment_area_km
 """Keys of ``geometry.catchment`` holding the delineated area, km2."""
 
 
-def place_of(manifest: Manifest) -> dict[str, float | None]:
+def place_of(manifest: RunSeal) -> dict[str, float | None]:
     """Return the area, the DEM cell and the snapped outlet of a run.
 
     The site block of the seal first, then the catchment metadata of its

@@ -411,3 +411,23 @@ def test_subgroups_created_at_init(fresh_store: SimulationZarr) -> None:
 
 def test_shard_trigger_constant_is_100_mib() -> None:
     assert SHARD_TRIGGER_BYTES == 100 * 1024 * 1024
+
+
+def test_a_per_step_write_keeps_the_digest_of_its_step(fresh_store: SimulationZarr) -> None:
+    from hydromodpy.core.io.value_digest import value_digest
+
+    values = np.arange(3 * 2 * 100, dtype="float64").reshape(3, 2, 100)
+    for step in (2, 0, 1):
+        fresh_store.write_field("head", step, values[step], n_timesteps=3)
+
+    recorded = fresh_store.field_digests["head"]
+    assert sorted(int(step) for step in recorded) == [0, 1, 2]
+    assert recorded["2"] == value_digest(values[2])
+
+
+def test_a_per_step_write_under_a_subgroup_uses_the_group_path(
+    fresh_store: SimulationZarr,
+) -> None:
+    fresh_store.write_field("release_flux", 0, np.ones((2, 100)), n_timesteps=1, subgroup="derived")
+
+    assert "derived/release_flux" in fresh_store.field_digests

@@ -168,7 +168,14 @@ def seal_successful(
         warnings=warnings,
     )
     outcome.write(job)
-    seal_job(job, job_id=job_id, inputset=inputset, outputs=records)
+    seal_job(
+        job,
+        job_id=job_id,
+        inputset=inputset,
+        outputs=records,
+        process_id=decl.id,
+        process_version=decl.version,
+    )
     return outcome
 
 

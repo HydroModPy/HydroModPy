@@ -17,7 +17,7 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.results.manifest import PARAMETERS_TABLE_NAME
+from hydromodpy.results.record.manifest import PARAMETERS_TABLE_NAME
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, VIEW_SCHEMAS

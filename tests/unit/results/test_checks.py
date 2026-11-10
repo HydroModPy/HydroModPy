@@ -8,8 +8,8 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results.checks import CHECKS_SCHEMA, CalibratedBy, Checks, Validity
 from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.record.checks import CHECKS_SCHEMA, CalibratedBy, Checks, Validity
 from hydromodpy.results.storage.parquet_schemas import CHECK_COLUMNS
 from tests._helpers.run_records import make_checks
 

@@ -36,6 +36,7 @@ import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import (
     CATCHMENT,
@@ -48,7 +49,7 @@ from hydromodpy.core.scope import (
 from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.manifest import (
+from hydromodpy.results.record.manifest import (
     RUNTIME_VARIABLE,
     InputEntry,
     MetricRow,
@@ -71,7 +72,7 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
     geographic_feature_files,
 )
-from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory, sha256_streaming
+from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory
 from hydromodpy.results.storage.geo_metadata import (
     geographic_feature_description,
     run_parquet_footer,
@@ -297,6 +298,7 @@ class RunStore:
             fields.parent.mkdir(parents=True, exist_ok=True)
             SimulationZarr.create(fields, n_cells=0, n_layers=1).close()
         handle = SimulationZarr(fields, field_precision=self._persistence.field_precision)
+        handle.field_digests = self._facts.field_digests
         handle._on_close = self._untrack_zarr_handle
         self._open_zarr_handles.append(handle)
         return handle
@@ -763,7 +765,7 @@ class RunStore:
         """Record a number of the run itself (solve time, budget), which is no score.
 
         The row stays in the facts, the table and the seal; the index and the
-        readers of scores leave it out (:data:`~hydromodpy.results.manifest.RUNTIME_VARIABLE`).
+        readers of scores leave it out (:data:`~hydromodpy.results.record.manifest.RUNTIME_VARIABLE`).
         """
         self.write_metric(
             sim_id,
@@ -951,7 +953,7 @@ class RunStore:
         for entry in entries:
             canonical = Path(entry.canonical_path)
             if canonical.is_file():
-                digest = sha256_streaming(canonical)
+                digest = sha256_of(canonical)
             elif canonical.is_dir():
                 digest = sha256_directory(canonical)
             else:
@@ -1059,7 +1061,6 @@ class RunStore:
             project=facts.project,
             name=facts.name,
             solver=facts.solver,
-            config_hash=facts.config_hash,
             licence=self.licence(),
             scientific_objective=facts.scientific_objective,
             doi=facts.doi,

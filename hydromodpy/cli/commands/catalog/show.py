@@ -70,8 +70,29 @@ def run(args: argparse.Namespace) -> None:
         refuse(f"No index at {project_root}; run `hmp catalog reindex` first", EXIT_NOT_FOUND)
 
     payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
+    _replay_block(project_root, payload)
 
     emit(args, "catalog show", payload, table=lambda: _print_facts(project_root, payload, args))
+
+
+def _replay_block(project_root: Path, payload: dict[str, Any]) -> None:
+    """Fill ``payload["replay"]`` from the seal of a run that played another one again.
+
+    The index holds no class; the seal of the run holds it. A run with no seal
+    to read keeps no replay block.
+    """
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.results.record.manifest import read_seal
+
+    rel_dir = payload.get("rel_dir")
+    if not rel_dir:
+        return
+    try:
+        replay = read_seal(Path(project_root) / rel_dir).lineage.replay
+    except (HydroModPyError, OSError, ValueError):
+        return
+    if replay is not None:
+        payload["replay"] = replay.model_dump(mode="json", by_alias=True)
 
 
 def _seconds(value: float | None) -> str:
@@ -121,8 +142,11 @@ def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Nam
         print(f"  nse       : {payload['nse']:.3f}")
     if payload.get("version_int") is not None:
         print(f"  version   : v{payload['version_int']}")
-    if payload.get("config_hash"):
-        print(f"  config    : {payload['config_hash'][:12]}")
+    if payload.get("solution_key"):
+        print(f"  solution  : {payload['solution_key'][:12]}")
+    replay = payload.get("replay")
+    if replay:
+        print(f"  replay    : {replay['class']} ({replay['basis']}, of {replay['of'][:8]})")
     if payload.get("duration_s") is not None:
         print(f"  duration  : {payload['duration_s']:.1f} s")
     if payload.get("n_cells") is not None:

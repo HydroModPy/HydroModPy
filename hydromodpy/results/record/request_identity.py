@@ -39,11 +39,11 @@ from typing import Any, Final
 import numpy as np
 
 from hydromodpy.core.io.canonical_json import dumps
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.model.initial.state import PriorState
-from hydromodpy.results.manifest import KEY_PACKAGES
-from hydromodpy.results.storage.digests import sha256_streaming
+from hydromodpy.results.record.manifest import KEY_PACKAGES
 
 logger = get_logger(__name__)
 
@@ -158,7 +158,7 @@ def solution_key(
     *mesh_engine* is :func:`mesh_engine_identity` of the document, *binaries*
     names each solver binary the run calls by its path, hashed by
     :func:`binary_digest`. *code* is the fingerprint of the code that computes
-    and *packages* the versions of :data:`~hydromodpy.results.manifest.KEY_PACKAGES`;
+    and *packages* the versions of :data:`~hydromodpy.results.record.manifest.KEY_PACKAGES`;
     both are read from this process when not given. The run name never enters.
     """
     from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
@@ -273,7 +273,7 @@ def prior_state_digest(state: PriorState) -> str:
 def _sha256_of(path: str, size: int, mtime_ns: int) -> str | None:
     """Hash one binary; the size and the time are part of the key of the memory."""
     try:
-        return sha256_streaming(path)
+        return sha256_of(path)
     except OSError:
         return None
 

@@ -52,7 +52,7 @@ from hydromodpy.calibration.runners.staged_runner import (
     _settled,
 )
 from hydromodpy.core.exceptions import CalibrationError, OptimizerError
-from hydromodpy.results.checks import BUDGET_RULE, CalibratedBy, stop_text
+from hydromodpy.results.record.checks import BUDGET_RULE, CalibratedBy, stop_text
 from hydromodpy.results.session.descriptor import SessionDescriptor
 from hydromodpy.results.session.phase import PhaseDescriptor
 from tests._helpers.session_documents import session_descriptor

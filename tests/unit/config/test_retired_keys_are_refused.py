@@ -159,7 +159,7 @@ def test_the_project_root_is_never_written_back_to_toml(tmp_path: Path) -> None:
 
 
 def test_the_project_root_is_out_of_the_request_id(tmp_path: Path) -> None:
-    from hydromodpy.results.request_identity import request_id
+    from hydromodpy.results.record.request_identity import request_id
 
     config = HydroModPyConfig.model_validate(SYNTHETIC).model_dump(mode="json")
     moved = {**config, "workspace": {**config["workspace"], "project_root": "/elsewhere"}}

@@ -36,7 +36,7 @@ def rerun_config(
     from hydromodpy.project import Project
     from hydromodpy.project.run_overrides import override_changes
     from hydromodpy.project.runner import pin_parent_sim_id
-    from hydromodpy.results.lineage import Lineage
+    from hydromodpy.schema.lineage import Lineage
     from hydromodpy.workflow.replay_checks import warn_config_drift
 
     if any("." not in key for key in changes):

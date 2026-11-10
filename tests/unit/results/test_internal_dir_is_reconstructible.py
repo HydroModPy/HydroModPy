@@ -23,7 +23,7 @@ from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, wr
 
 _CASE_STATE_SQL = (
     "SELECT rel_dir, kind, case_id, site, CAST(sim_id AS VARCHAR), attempt_id, status, "
-    "name, solver, config_hash, label, rule_version, nse, n_samples, metric_rule_version "
+    "name, solver, solution_key, label, rule_version, nse, n_samples, metric_rule_version "
     "FROM v_cases"
 )
 _PARAMETER_STATE_SQL = (

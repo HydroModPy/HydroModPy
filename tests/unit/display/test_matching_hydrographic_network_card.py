@@ -18,7 +18,7 @@ from hydromodpy.display.figures.matching_hydrographic_network_card import (
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.checks import CalibratedBy
+from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.run import Run
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.journal import append_trial

@@ -45,7 +45,8 @@ _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
         "period_start",
         "period_end",
         "time_unit",
-        "config_hash",
+        "solution_key",
+        "request_id",
         "config_source",
         "parent_sim_id",
         "lineage_kind",
@@ -358,7 +359,7 @@ class ReadsMixin:
         --------
         >>> float(cat.read_geographic_metadata(run.sim_id)["catch_area"])  # doctest: +SKIP
         """
-        from hydromodpy.results.run_identity import read_sealed_manifest
+        from hydromodpy.results.record.label import read_sealed_manifest
 
         manifest = read_sealed_manifest(self.run_dir_for(sim_id))
         if manifest is None:

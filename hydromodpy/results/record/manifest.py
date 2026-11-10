@@ -5,22 +5,23 @@ Why
 ``.hmp/index.duckdb`` is a rebuildable index, not the truth. Every value the
 index carries and that execution code reads back is also written into the
 run directory, and ``manifest.json`` seals that directory. The seal is built
-in memory by :class:`~hydromodpy.results.record.RunRecord` from the facts the
+in memory by :class:`~hydromodpy.results.record.record.RunRecord` from the facts the
 run accumulated in its store and written by it, ``manifest.json`` last and
 durable; this module is the schema of that document and its reader.
 
-Schema, version 2
+Schema, version 4
 -----------------
-:class:`Manifest` is the typed seal (:data:`RUN_RECORD_MANIFEST_VERSION`).
-Its blocks: ``run`` (who), ``site`` (which basin, with its fingerprint),
+:class:`RunSeal` is the typed seal (:data:`RUN_RECORD_MANIFEST_VERSION`), the
+run profile of :class:`~hydromodpy.schema.seal.Seal`. On top of the common
+block it carries: ``run`` (who), ``site`` (which basin, with its fingerprint),
 ``geometry``, ``period``, ``config``, ``lineage`` (by ids), ``identity`` (the
 block every exported file carries, without a label), ``checks`` (the
 measured facts a label derives from), ``inputs`` (the files the configuration
-declared), ``artifacts`` (the sealed entries of the directory, ``inputs.json``
-included), ``parameters`` (with their origin), ``metrics`` (with
-their window and rule version), ``score`` (the headline metric under its
-rule) and ``budget``. The session that promoted a run says what it cost in
-``checks.calibrated_by``.
+declared), ``parameters`` (with their origin), ``metrics`` (with their window
+and rule version), ``score`` (the headline metric under its rule) and
+``budget``. The session that promoted a run says what it cost in
+``checks.calibrated_by``. ``values`` is the common block's digests of the
+values, and ``artifacts`` its inventory of the certified entries.
 
 A manifest exists only for a completed run: its presence is what
 ``completed`` means. A failed or aborted attempt writes ``outcome.json``,
@@ -43,19 +44,21 @@ from pydantic import Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow, check_version
-from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.metric_rule import MetricScore, WindowRole
+from hydromodpy.results.record import forms
+from hydromodpy.results.record.checks import Checks
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
+    FINAL_STATE_DIRNAME,
+    MESH_DIRNAME,
     PARQUET_FILE_SUFFIX,
     RUN_ANNOTATIONS_FILENAME,
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
+    RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_PRODUCTS_FILENAME,
     RUN_PROVENANCE_FILENAME,
@@ -66,12 +69,18 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.json_io import read_json, read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
+from hydromodpy.schema.seal import (
+    SEAL_VERSION,
+    ArtifactRecord,
+    Seal,
+    verify_artifacts,
+)
 
-RUN_RECORD_MANIFEST_VERSION = 3
-"""Version of ``manifest.json``, written by :class:`~hydromodpy.results.record.RunRecord`.
+RUN_RECORD_MANIFEST_VERSION: Final[int] = SEAL_VERSION
+"""Version of ``manifest.json``, written by :class:`~hydromodpy.results.record.record.RunRecord`.
 
-Version 3 names each metric row by its period and moves the cost of a promoted
-run into ``checks.calibrated_by``.
+Version 4 is the run profile of the common seal: ``profile``, ``values``, the
+identity block of 2.1 and the closed list of certified entries.
 """
 
 MANIFEST_DOCUMENT_SCHEMA: Final[str] = f"hydromodpy.manifest.v{RUN_RECORD_MANIFEST_VERSION}"
@@ -80,7 +89,11 @@ MANIFEST_DOCUMENT_SCHEMA: Final[str] = f"hydromodpy.manifest.v{RUN_RECORD_MANIFE
 MANIFEST_VERSIONS: Final[VersionWindow] = VersionWindow(
     oldest=3, current=RUN_RECORD_MANIFEST_VERSION
 )
-"""Versions of ``manifest.json`` this code reads."""
+"""Versions of ``manifest.json`` this code reads.
+
+A version 3 seal is converted in memory by
+:func:`hydromodpy.results.record.forms.run_seal_v3`; the file keeps its bytes.
+"""
 
 RunStatus = Literal["completed"]
 """The status of a sealed run: a manifest exists only for a completed run.
@@ -212,10 +225,9 @@ class ManifestPeriod(HydroModelBase):
 
 
 class ManifestConfig(HydroModelBase):
-    """The frozen configuration of the run and its identity hash."""
+    """The frozen configuration of the run: the file, and where it came from."""
 
     file: str | None = Field(default=None, description="config.toml when it was frozen")
-    hash: str | None = Field(default=None, description="Identity hash, without [workspace]")
     source: str | None = Field(default=None, description="File the run was launched from")
 
 
@@ -246,6 +258,15 @@ class InputEntry(HydroModelBase):
     sha256: str | None = Field(default=None, description="Digest of the bytes")
     bytes: int | None = None
     license: str | None = Field(default=None, description="Licence of the provider")
+
+
+def sealed_in_run(entry: InputEntry) -> bool:
+    """Return whether *entry* names bytes sealed inside the run itself, the mesh of ``mesh/``.
+
+    Such a row is read by the mesh step of a replay alone. A reader that decodes
+    the path of a row against the workspace skips it.
+    """
+    return entry.variable == MESH_DIRNAME and entry.path == MESH_DIRNAME
 
 
 class ParameterRow(HydroModelBase):
@@ -301,20 +322,6 @@ class MetricRow(HydroModelBase):
         return self.variable == RUNTIME_VARIABLE
 
 
-class ManifestArtifact(HydroModelBase):
-    """One sealed entry of the run directory."""
-
-    path: str
-    role: str
-    format: str
-    bytes: int | None = None
-    sha256: str | None = Field(
-        default=None,
-        description="SHA-256 of the file or of the directory store; null for the manifest "
-        "itself and a seal written before the digests",
-    )
-
-
 class ManifestBudget(HydroModelBase):
     """What the field store kept of the per-cell budget."""
 
@@ -332,25 +339,22 @@ gives a run sealed under that version.
 """
 
 
-class Manifest(HydroModelBase):
-    """The seal of a completed run directory, version 3."""
+class RunSeal(Seal):
+    """The seal of a completed run directory, version 4: the run profile of :class:`Seal`."""
 
-    manifest_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
+    profile: Literal["run"] = "run"
     derive_rule_version: str = Field(
         default=DERIVE_RULE_VERSION,
         description="Version of the rules the derived fields of this run are rebuilt by",
     )
-    sealed_at: datetime
     run: ManifestRun
     site: ManifestSite | None = None
     geometry: ManifestGeometry
     period: ManifestPeriod
     config: ManifestConfig
-    lineage: Lineage
     identity: Identity
     checks: Checks
     inputs: list[TrackedInput] = Field(default_factory=list)
-    artifacts: list[ManifestArtifact] = Field(default_factory=list)
     parameters: list[ParameterRow] = Field(default_factory=list)
     metrics: list[MetricRow] = Field(default_factory=list)
     score: MetricScore | None = None
@@ -383,14 +387,17 @@ _ARTEFACT_ROLES: dict[str, str] = {
     FIELDS_STORE_NAME: "fields",
     RUN_CONFIG_FILENAME: "config",
     RUN_RESOLVED_CONFIG_FILENAME: "config_resolved",
+    RUN_INPUTS_FILENAME: "inputs",
     RUN_PROVENANCE_FILENAME: "provenance",
     RUN_MANIFEST_FILENAME: "manifest",
     RUN_PRODUCTS_FILENAME: "products",
+    FINAL_STATE_DIRNAME: "final_state",
+    MESH_DIRNAME: "mesh",
 }
 
 
-def read_seal(run_dir: Path | str) -> Manifest:
-    """Return the manifest of a run directory, typed.
+def read_seal(run_dir: Path | str) -> RunSeal:
+    """Return the seal of a run directory, typed, version 4, a version 3 migrated in memory.
 
     Raises
     ------
@@ -403,7 +410,10 @@ def read_seal(run_dir: Path | str) -> Manifest:
         When the model refuses its body. A list that reads through
         :func:`~hydromodpy.results.storage.json_io.readable` leaves it out.
     """
-    return read_stored(Manifest, _manifest_payload(run_dir))
+    payload = _manifest_payload(run_dir)
+    if payload.get("manifest_version") == RUN_RECORD_MANIFEST_VERSION:
+        return read_stored(RunSeal, payload)
+    return read_stored(RunSeal, forms.run_seal_v3(payload))
 
 
 def read_manifest(run_dir: Path | str) -> dict[str, Any]:
@@ -414,7 +424,10 @@ def read_manifest(run_dir: Path | str) -> dict[str, Any]:
     :func:`read_seal`.
     """
     payload = _manifest_payload(run_dir)
-    read_stored(Manifest, payload)
+    if payload.get("manifest_version") == RUN_RECORD_MANIFEST_VERSION:
+        read_stored(RunSeal, payload)
+    else:
+        read_stored(RunSeal, forms.run_seal_v3(payload))
     return payload
 
 
@@ -458,29 +471,17 @@ def seal_problems(run_dir: Path | str) -> list[str]:
 
     Only the entries that carry a ``sha256`` are re-hashed, a file by its
     bytes and a directory store by the digest of its tree, so a seal written
-    before the digests and the manifest itself are skipped. Nothing is
-    repaired. An unreadable manifest is reported, never raised.
+    before the digests and the manifest itself are skipped. The value digests
+    are not recomputed here: a table whose bytes did not change has the same
+    values, and the re-reading belongs to a replay. Nothing is repaired. An
+    unreadable manifest is reported, never raised.
     """
     root = Path(run_dir)
     try:
         seal = read_seal(root)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return [f"{RUN_MANIFEST_FILENAME}: {exc}"]
-    problems: list[str] = []
-    for artifact in seal.artifacts:
-        if artifact.sha256 is None:
-            continue
-        path = root / artifact.path
-        if path.is_dir():
-            digest = sha256_directory(path)
-        elif path.is_file():
-            digest = sha256_of(path)
-        else:
-            problems.append(f"{artifact.path}: listed in the seal and absent")
-            continue
-        if digest != artifact.sha256:
-            problems.append(f"{artifact.path}: changed since the seal (sha256 differs)")
-    return problems
+    return list(verify_artifacts(root, seal, tree_digest=sha256_directory))
 
 
 def is_sealed(run_dir: Path | str) -> bool:
@@ -523,6 +524,24 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
                     "path": name,
                     "role": "fields",
                     "format": "zarr",
+                    "bytes": _directory_bytes(path),
+                }
+            )
+        elif name == FINAL_STATE_DIRNAME and path.is_dir():
+            entries.append(
+                {
+                    "path": name,
+                    "role": "final_state",
+                    "format": "zarr",
+                    "bytes": _directory_bytes(path),
+                }
+            )
+        elif name == MESH_DIRNAME and path.is_dir():
+            entries.append(
+                {
+                    "path": name,
+                    "role": "mesh",
+                    "format": "directory",
                     "bytes": _directory_bytes(path),
                 }
             )
@@ -601,9 +620,8 @@ __all__ = [
     "PARAMETERS_TABLE_NAME",
     "RUN_RECORD_MANIFEST_VERSION",
     "RUNTIME_VARIABLE",
+    "ArtifactRecord",
     "InputEntry",
-    "Manifest",
-    "ManifestArtifact",
     "ManifestBudget",
     "ManifestConfig",
     "ManifestGeometry",
@@ -615,11 +633,13 @@ __all__ = [
     "MeshTopology",
     "ParameterOrigin",
     "ParameterRow",
+    "RunSeal",
     "RunStatus",
     "TrackedInput",
     "is_sealed",
     "list_artifacts",
     "seal_problems",
+    "sealed_in_run",
     "read_manifest",
     "read_seal",
 ]

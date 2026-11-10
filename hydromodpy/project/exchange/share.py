@@ -44,9 +44,9 @@ from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.results.export.publish import MissingInputError
-from hydromodpy.results.manifest import InputEntry, ManifestSite
-from hydromodpy.results.record import read_inputs
-from hydromodpy.results.run_identity import read_sealed_manifest
+from hydromodpy.results.record.label import read_sealed_manifest
+from hydromodpy.results.record.manifest import InputEntry, ManifestSite, sealed_in_run
+from hydromodpy.results.record.record import read_inputs
 from hydromodpy.results.storage.attempt import is_run_product
 
 DATA_DIRNAME: Final[str] = "data"
@@ -64,6 +64,9 @@ _LOC_SUFFIX: Final[str] = "_LOC.csv"
 def run_bundle(run_dir: str | Path, *, project_root: str | Path) -> PayloadBundle:
     """Return the install index of one sealed run and the local files holding its bytes.
 
+    The row of the sealed mesh is skipped: its bytes live in ``mesh/`` of the run,
+    not in the workspace.
+
     Raises
     ------
     MissingInputError
@@ -80,6 +83,8 @@ def run_bundle(run_dir: str | Path, *, project_root: str | Path) -> PayloadBundl
     stations: dict[tuple[str, str], PayloadStation] = {}
     cache = _CacheRows(workspace)
     for entry in read_inputs(run).inputs:
+        if sealed_in_run(entry):
+            continue
         if not entry.path:
             raise ExportError(
                 f"input {entry.variable} ({entry.provider}) names no file in inputs.json: "

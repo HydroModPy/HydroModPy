@@ -17,9 +17,10 @@ configuration, the old Python names and the old command forms all read it.
 
 from __future__ import annotations
 
+import copy
 import re
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib.resources import files
 from typing import Any, Final, Literal
@@ -341,6 +342,102 @@ def migrations_of(document: str, register: Register = REGISTER) -> tuple[Migrati
     return tuple(row for row in register.migrations if row.document == document)
 
 
+Rule = Callable[[dict[str, Any]], None]
+"""A migration rule: a function that changes one document in memory."""
+
+
+def apply_rows(
+    document: str,
+    payload: Mapping[str, Any],
+    *,
+    register: Register = REGISTER,
+    rules: Mapping[str, Rule] | None = None,
+) -> dict[str, Any]:
+    """Return *payload* with the migration rows of *document* applied, in file order.
+
+    Nothing is written: a sealed file stays as it was written, and the reader
+    converts its copy in memory. A row whose old path is absent changes
+    nothing, so a document read twice reads the same. A row that names a
+    ``rule`` is followed by that rule of the reader's table, after the paths
+    it moves or retires; a rule the reader does not supply is refused.
+    """
+    result = copy.deepcopy(dict(payload))
+    for row in migrations_of(document, register):
+        if row.shape == "move":
+            _move(result, row.old, row.new)
+        elif row.shape == "retire":
+            _retire(result, row.old)
+        else:
+            _renamed_value(result, row.key, row.old_value, row.new_value)
+        if row.rule is not None:
+            if rules is None or row.rule not in rules:
+                raise ValueError(f"{document}: no rule named {row.rule!r} to apply a migration row")
+            rules[row.rule](result)
+    return result
+
+
+def _move(document: dict[str, Any], old: str, new: str) -> None:
+    """Move each value at *old* to *new*, keeping the order of the matched tables."""
+    sources = [slot for slot in _slots(document, old) if slot[1] in slot[0]]
+    if not sources:
+        return
+    targets = _slots(document, new)
+    if len(sources) != len(targets):
+        raise ValueError(
+            f"migration {old!r} to {new!r} matches {len(sources)} source(s) "
+            f"and {len(targets)} target(s)"
+        )
+    for (source, key), (target, new_key) in zip(sources, targets, strict=True):
+        target[new_key] = source.pop(key)
+
+
+def _retire(document: dict[str, Any], old: str) -> None:
+    """Remove every value at *old* from the copy in memory."""
+    for container, key in _slots(document, old):
+        container.pop(key, None)
+
+
+def _renamed_value(document: dict[str, Any], path: str, old_value: Any, new_value: Any) -> None:
+    """Rename *old_value* to *new_value* at *path*; any other value stays."""
+    for container, key in _slots(document, path):
+        if container.get(key) == old_value:
+            container[key] = new_value
+
+
+def _slots(document: dict[str, Any], path: str) -> list[tuple[dict[str, Any], str]]:
+    """Return each (object, key) a dotted path names, present or not."""
+    segments = path.split(".")
+    return [
+        (container, segments[-1])
+        for container in _containers(document, segments[:-1])
+        if isinstance(container, dict)
+    ]
+
+
+def _containers(node: Any, segments: list[str]) -> list[Any]:
+    """Return the nodes reached by walking *segments* from *node*."""
+    nodes = [node]
+    for segment in segments:
+        reached: list[Any] = []
+        for current in nodes:
+            reached.extend(_children(current, segment))
+        nodes = reached
+    return nodes
+
+
+def _children(node: Any, segment: str) -> list[Any]:
+    """Return what one path segment selects inside *node*."""
+    if segment == "{*}":
+        return list(node.values()) if isinstance(node, dict) else []
+    name, star = (segment[:-3], True) if segment.endswith("[*]") else (segment, False)
+    if not isinstance(node, dict) or name not in node:
+        return []
+    value = node[name]
+    if star:
+        return list(value) if isinstance(value, list) else []
+    return [value]
+
+
 def editions(register: Register = REGISTER) -> tuple[str, ...]:
     """Return every edition a file may write, the first one first."""
     later = {row.edition for row in register.defaults} - {FIRST_EDITION}
@@ -392,6 +489,8 @@ __all__ = [
     "Migration",
     "Recipe",
     "Register",
+    "Rule",
+    "apply_rows",
     "editions",
     "migrations_of",
     "outlived",

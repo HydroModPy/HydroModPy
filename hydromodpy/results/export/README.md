@@ -22,6 +22,8 @@ to the view and the stored layout names them.
    and redacts the host, the user and the absolute paths. `verify` checks a copy.
 5. `project_package.py` writes a whole project with its data for `hmp publish --package`.
 6. `summary_tables.py` and `campaign_summary.py` write the table, the page, the README and the crate of a summary.
+7. `zenodo.py` renders the Zenodo deposit metadata of one sealed run: title, creators, licence, keywords,
+   version and related identifiers. It writes nothing; the publication writes `.zenodo.json` beside the crate.
 
 ## The folder map
 
@@ -30,6 +32,7 @@ export/
 ├── context.py           FairExportContext, AssetEntry, InputEntry, to_json
 ├── directory.py         context_from_directory, publication_of
 ├── rocrate.py           RO-Crate 1.1 metadata, declared in results/exporters
+├── zenodo.py            zenodo_metadata, the deposit form of one sealed run
 ├── prov.py              build_prov_document and the PROV identifiers, read by RO-Crate
 ├── publish.py           publish, publish_project, verify
 ├── project_package.py   export_project, the meshes a project consumed

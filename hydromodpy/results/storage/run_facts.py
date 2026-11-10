@@ -13,7 +13,7 @@ and nothing a run needs lives only in memory.
 Format
 ------
 :class:`RunFacts`, a Pydantic model dumped as JSON. Its blocks are the ones
-of the seal (:mod:`hydromodpy.results.manifest`), typed by the same models.
+of the seal (:mod:`hydromodpy.results.record.manifest`), typed by the same models.
 """
 
 from __future__ import annotations
@@ -28,21 +28,21 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 from hydromodpy.core.version import __version__ as HMP_VERSION
-from hydromodpy.results.checks import CalibratedBy, Validity
 from hydromodpy.results.identity import Identity
-from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.manifest import (
+from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.record.checks import CalibratedBy, Validity
+from hydromodpy.results.record.manifest import (
     FlowRegime,
     InputEntry,
-    Manifest,
     ManifestSite,
     MeshTopology,
     MetricRow,
     ParameterRow,
+    RunSeal,
     TrackedInput,
 )
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
 from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
+from hydromodpy.schema.lineage import Lineage
 
 FACTS_FILENAME: Final[str] = "facts.json"
 """Name of the facts document under ``<run>/.hmp/checkpoints/``."""
@@ -102,10 +102,21 @@ class RunFacts(HydroModelBase):
     solver: str | None = None
     solver_category: str | None = None
     flow_regime: FlowRegime | None = None
-    config_hash: str | None = Field(
+    solution_key: str | None = Field(
         default=None,
         description=(
-            "Solution key of the run: its request, inputs, code, solver binaries and packages"
+            "Solution key of the run: its request id plus its code, solver binaries, key "
+            "package versions and mesh engine"
+        ),
+    )
+    request_id: str | None = Field(
+        default=None, description="Request id of the run, the key a base regroups by"
+    )
+    field_digests: dict[str, dict[str, str]] = Field(
+        default_factory=dict,
+        description=(
+            "Digest of each step of each array rounded at write time, by array path: the "
+            "float64 values the writer received, before the rounding"
         ),
     )
     solver_output_dirs: dict[str, str] = Field(
@@ -157,15 +168,15 @@ class RunFacts(HydroModelBase):
     model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
-    def from_manifest(cls, manifest: Manifest) -> RunFacts:
-        """Return the facts a sealed run states, read back from its manifest.
+    def from_manifest(cls, seal: RunSeal) -> RunFacts:
+        """Return the facts a sealed run states, read back from its seal.
 
         A sealed run keeps no attempt state: its facts are its seal. The
         host snapshot lives in ``provenance.json``, so it is not carried
         here; the licence is the one the seal stated.
         """
-        run, geometry, period = manifest.run, manifest.geometry, manifest.period
-        checks = manifest.checks
+        run, geometry, period = seal.run, seal.geometry, seal.period
+        checks = seal.checks
         return cls(
             sim_id=run.sim_id,
             name=run.name,
@@ -179,9 +190,10 @@ class RunFacts(HydroModelBase):
             solver=run.solver,
             solver_category=run.solver_category,
             flow_regime=run.flow_regime,
-            config_hash=manifest.config.hash,
-            config_source=manifest.config.source,
-            config_file=manifest.config.file,
+            solution_key=seal.identity.solution_key,
+            request_id=seal.identity.request_id,
+            config_source=seal.config.source,
+            config_file=seal.config.file,
             description=run.description,
             scientific_objective=run.scientific_objective,
             contact_email=run.contact_email,
@@ -198,22 +210,22 @@ class RunFacts(HydroModelBase):
             period_start=period.start,
             period_end=period.end,
             time_unit=period.time_unit,
-            site=manifest.site,
-            lineage=manifest.lineage,
+            site=seal.site,
+            lineage=seal.lineage,
             calibrated_by=checks.calibrated_by,
             geographic_metadata=dict(geometry.catchment),
-            parameters=list(manifest.parameters),
-            metrics=list(manifest.metrics),
-            tracked_inputs=list(manifest.inputs),
+            parameters=list(seal.parameters),
+            metrics=list(seal.metrics),
+            tracked_inputs=list(seal.inputs),
             converged=checks.converged,
             budget_pct=checks.budget_pct,
             budget_threshold_pct=checks.budget_threshold_pct,
             validities=list(checks.validities),
             bounds_hit=list(checks.bounds_hit),
-            score=manifest.score,
+            score=seal.score,
             calibrated=[
                 CalibratedParameter(name=row.name, zone=row.zone)
-                for row in manifest.parameters
+                for row in seal.parameters
                 if row.calibrated
             ],
         )
@@ -303,7 +315,9 @@ def identity_of(facts: RunFacts) -> Identity:
         case_id=facts.case_id,
         sim_id=facts.sim_id,
         attempt_id=facts.attempt_id,
-        config_hash=facts.config_hash,
+        solution_key=facts.solution_key,
+        request_id=facts.request_id,
+        solver=facts.solver,
         mesh_hash=facts.mesh_hash,
         period=period,
         score_window=score_window,

@@ -25,7 +25,7 @@ from hydromodpy.project.windows import (
     window_run_name,
     window_source_for,
 )
-from hydromodpy.results.manifest import InputEntry, is_sealed
+from hydromodpy.results.record.manifest import InputEntry, is_sealed
 from hydromodpy.results.storage.attempt import record_request_id
 from hydromodpy.workflow.steps.prepare_solver.restart import WindowSource
 from tests._helpers.run_stores import seal_demo_run
