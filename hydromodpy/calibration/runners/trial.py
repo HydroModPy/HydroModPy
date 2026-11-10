@@ -25,6 +25,12 @@ store. Only promotion creates run artifacts. A trial the session may
 promote leaves its solver folder in the run scratch
 (:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
+A fork shares the prepared soil reservoir outputs and their input digests
+on ``setup`` by reference, so a trial that leaves the soil parameters
+alone reuses the soil in memory. The soil kernel and its digests run once,
+at the data step, and a trial recomputes them only when it moves a soil
+parameter.
+
 Workflow access goes through :func:`trial_pipeline` so the
 calibration package never imports the workflow or the configuration
 package directly. The :class:`TrialPipeline` protocol carries the eight
@@ -241,7 +247,10 @@ class TrialContext:
     ctx : WorkflowContext
         Prepared workflow context. ``ctx.setup`` and ``ctx.loaded_data``
         are populated; ``ctx.execution`` is the fresh one built by
-        :meth:`fork`; a lightweight run writes no index at all.
+        :meth:`fork`; a lightweight run writes no index at all. The fork
+        shallow-copies ``ctx.setup``, so the soil outputs, their input
+        digests and the product keys stay shared by reference and a trial
+        that leaves the soil parameters alone reuses the soil in memory.
         *Per-trial* (recreated on every fork).
     earliest : int
         Index of the first pipeline step that must re-run per trial.

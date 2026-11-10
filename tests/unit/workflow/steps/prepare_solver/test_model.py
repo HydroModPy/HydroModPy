@@ -56,6 +56,7 @@ def _ctx(project: Path, *, restart_from=None, mesh=True, geographic=None):
         geographic=geographic,
         time_grid=None,
         workspace=SimpleNamespace(project_root=project),
+        products={},
         model=None,
     )
     return SimpleNamespace(cfg=cfg, setup=setup, execution=ExecutionRegistry(lightweight=True))

@@ -264,14 +264,14 @@ def test_hmp_run_gives_the_mesh_summary_of_a_run_in_its_json_result(
     import json
 
     config = _write_toml(tmp_path / "config.toml", SIMULATION)
-    summary = {"engine": "gmsh", "cache_key": "k1"}
+    summary = {"engine": "gmsh", "product_key": "k1"}
     _simulation(monkeypatch, {}, _outcome(mesh_summary=summary))
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--format", "json"])
 
     main()
 
     result = json.loads(capsys.readouterr().out)["data"]["result"]
-    assert (result["engine"], result["cache_key"], result["name"]) == ("gmsh", "k1", "test")
+    assert (result["engine"], result["product_key"], result["name"]) == ("gmsh", "k1", "test")
 
 
 def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, tmp_path) -> None:

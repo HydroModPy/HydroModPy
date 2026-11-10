@@ -493,7 +493,7 @@ class FlowConfig(HydroModelBase):
             "the path of its Zarr store, or the table {sim_id, path} the frozen config.toml "
             "of a run writes (the sim_id is looked up first, the path second). The prior "
             "run must share this run's mesh: a regular grid is rebuilt identically and a "
-            "generated triangle or voronoi mesh is read back from the mesh cache of "
+            "generated triangle or voronoi mesh is read back from the product store of "
             "the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
             "Read only by a solver that declares it can: elsewhere the run is refused "
             "rather than started from [flow.ic] without a word. This is one of the four "

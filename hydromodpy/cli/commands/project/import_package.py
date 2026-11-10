@@ -4,7 +4,7 @@ A thin wrapper of :func:`hydromodpy.project.exchange.install.import_project`: th
 project lands as ``projects/<name>`` of the workspace, its data under
 ``data/`` with the rules of ``hmp catalog import`` (identical bytes cost
 nothing, other bytes at the same path are refused by name, nothing written),
-and its runs are indexed.
+its mesh products under ``.hmp/products/``, and its runs are indexed.
 """
 
 from __future__ import annotations
@@ -69,7 +69,10 @@ def run(args: argparse.Namespace) -> None:
         )
         print(
             f"runs: {len(imported.runs)}, sessions: {len(imported.sessions)}, "
-            f"mesh cache entries: {len(imported.mesh_entries)}"
+            f"mesh products: {len(imported.mesh_entries)} installed, "
+            f"{len(imported.mesh_present)} already there, "
+            f"{len(imported.mesh_skipped)} skipped, "
+            f"{len(imported.legacy_mesh_cache)} legacy mesh_cache entries skipped"
         )
         if not args.dry_run:
             print(f"next: hmp project show {imported.project_dir.name} -w {workspace}")

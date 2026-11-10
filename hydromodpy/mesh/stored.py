@@ -1,30 +1,19 @@
-"""Cache of the meshes an engine does not promise to rebuild bit for bit.
+"""The codec of the stored mesh product: ``write_mesh`` and ``read_mesh``.
 
-Gmsh repeats a mesh from one request only within one release and on one thread:
-its multi-threaded meshers differ from run to run, and a new release can move a
-vertex. An engine that declares ``needs_cache`` is built once per request: the
-mesh is stored under ``<project>/.hmp/mesh_cache/<key>/`` and every later run,
-resume and ``restart_from`` of the project reads it back. The key names the
-request, the engine and its version, and the builds of the libraries whose
-geometry it draws on (:func:`library_versions`), so a new build of one of them
-keys a new entry.
-
-An entry is a directory holding ``mesh.npz`` (arrays) and ``mesh.json`` (the
-rest). It is written in a temporary directory and renamed, so a reader sees a
-complete entry or none, also when two runs of a project build the same mesh.
-
-An entry stored before the shape entries of the QA (bisection offset, corner
-angles, concave cells) is read as it is: those entries are measured on the
-stored mesh and centers, so the frozen mesh of a project survives without a new
-schema.
+A mesh an engine does not promise to rebuild bit for bit is stored once per
+request, as ``mesh.npz`` (the arrays) and ``mesh.json`` (the rest). The product
+store hands ``write_mesh`` an empty directory and renames it once complete, so
+the codec holds no rename of its own. The format keeps the 2.0 identifier
+``hydromodpy.mesh_cache.v1``, so an entry stored by 2.0 still reads. An entry
+stored before the shape entries of the QA (bisection offset, corner angles,
+concave cells) is read as it is: those entries are measured on the stored mesh
+and centers, so the frozen mesh of a project survives without a new schema.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
-import shutil
+import zipfile
 from importlib import metadata
 from pathlib import Path
 
@@ -40,22 +29,15 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     PlanarCellMesh,
 )
 from hydromodpy.mesh.planar.quality import SHAPE_KEYS, MeshQA, cell_shape_qa
-from hydromodpy.mesh.request import MeshRequest
 
 __all__ = [
     "ARRAYS_FILENAME",
     "DESCRIPTION_FILENAME",
     "SCHEMA_VERSION",
-    "cache_dir",
-    "cache_key",
-    "has_cell_mesh",
     "library_versions",
-    "load_cell_mesh",
-    "save_cell_mesh",
+    "read_mesh",
+    "write_mesh",
 ]
-
-CACHE_SUBDIR = Path(".hmp") / "mesh_cache"
-"""Where the entries live, under the project root."""
 
 ARRAYS_FILENAME = "mesh.npz"
 DESCRIPTION_FILENAME = "mesh.json"
@@ -68,7 +50,7 @@ def library_versions() -> dict[str, str]:
     """Return the versions of the libraries a mesh depends on, by name.
 
     Shapely, the GEOS it wraps, scipy and gmsh: a new build of any of them can
-    move a vertex, so each one is part of the cache key and is stored with the
+    move a vertex, so each one is part of the product key and is stored with the
     mesh of a run. ``"absent"`` stands for an uninstalled gmsh, which an engine
     that needs none keys on.
     """
@@ -87,62 +69,16 @@ def library_versions() -> dict[str, str]:
     }
 
 
-def cache_key(request: MeshRequest, engine_cls: type) -> str:
-    """Return the sha256 hex key of one request meshed by one engine build.
-
-    The key reads the request hash, the engine id and version, and every entry
-    of :func:`library_versions`.
-    """
-    digest = hashlib.sha256()
-    parts = [
-        SCHEMA_VERSION,
-        request.canonical_hash(),
-        engine_cls.engine_id,
-        engine_cls.engine_version,
-        *(f"{name}={version}" for name, version in sorted(library_versions().items())),
-    ]
-    for part in parts:
-        digest.update(part.encode())
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
-def cache_dir(project_root: str | Path, key: str) -> Path:
-    """Return the directory of the entry *key* under *project_root*."""
-    return Path(project_root) / CACHE_SUBDIR / key
-
-
-def has_cell_mesh(directory: str | Path) -> bool:
-    """Whether *directory* holds a complete entry."""
-    return (Path(directory) / DESCRIPTION_FILENAME).is_file()
-
-
-def save_cell_mesh(cell_mesh: PlanarCellMesh, directory: str | Path) -> None:
-    """Store *cell_mesh* in *directory*, unless a complete entry is already there."""
+def write_mesh(cell_mesh: PlanarCellMesh, directory: str | Path) -> None:
+    """Write *cell_mesh* into *directory*, which the product store handed over empty."""
     target = Path(directory)
-    if has_cell_mesh(target):
-        return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.parent / f".{target.name}.{os.getpid()}.tmp"
-    shutil.rmtree(staging, ignore_errors=True)
-    staging.mkdir()
-    try:
-        arrays, description = _encode(cell_mesh)
-        np.savez(staging / ARRAYS_FILENAME, **arrays)
-        (staging / DESCRIPTION_FILENAME).write_text(json.dumps(description), encoding="utf-8")
-        try:
-            staging.rename(target)
-        except OSError:
-            if not has_cell_mesh(target):
-                raise
-            # A concurrent run stored the same entry first: its copy stands.
-            shutil.rmtree(staging)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+    target.mkdir(parents=True, exist_ok=True)
+    arrays, description = _encode(cell_mesh)
+    np.savez(target / ARRAYS_FILENAME, **arrays)
+    (target / DESCRIPTION_FILENAME).write_text(json.dumps(description), encoding="utf-8")
 
 
-def load_cell_mesh(directory: str | Path) -> PlanarCellMesh:
+def read_mesh(directory: str | Path) -> PlanarCellMesh:
     """Read back the mesh stored in *directory*.
 
     Raises
@@ -151,20 +87,23 @@ def load_cell_mesh(directory: str | Path) -> PlanarCellMesh:
         When the entry is missing, of another schema, or unreadable.
     """
     source = Path(directory)
-    if not has_cell_mesh(source):
-        raise MeshError(f"No cached mesh in {source}.")
+    if not (source / DESCRIPTION_FILENAME).is_file():
+        raise MeshError(f"No stored mesh in {source}.")
     try:
         description = json.loads((source / DESCRIPTION_FILENAME).read_text(encoding="utf-8"))
         with np.load(source / ARRAYS_FILENAME, allow_pickle=False) as stored:
             arrays = {name: stored[name] for name in stored.files}
-    except (OSError, ValueError) as exc:
-        raise MeshError(f"The cached mesh in {source} is unreadable: {exc}. Delete it.") from exc
+    except (OSError, ValueError, EOFError, zipfile.BadZipFile) as exc:
+        raise MeshError(f"The stored mesh in {source} is unreadable: {exc}. Delete it.") from exc
     if description.get("schema") != SCHEMA_VERSION:
         raise MeshError(
-            f"The cached mesh in {source} has schema {description.get('schema')!r}, "
+            f"The stored mesh in {source} has schema {description.get('schema')!r}, "
             f"this build reads {SCHEMA_VERSION!r}. Delete it."
         )
-    return _decode(arrays, description)
+    try:
+        return _decode(arrays, description)
+    except KeyError as exc:
+        raise MeshError(f"The stored mesh in {source} lacks {exc}. Delete it.") from exc
 
 
 def _encode(cell_mesh: PlanarCellMesh) -> tuple[dict[str, np.ndarray], dict[str, object]]:

@@ -21,7 +21,6 @@ import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.mesh.cache import cache_key
 from hydromodpy.mesh.engines.catchment.engine import CatchmentMeshEngine
 from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
@@ -34,6 +33,7 @@ from hydromodpy.mesh.planning.refinement_zones import RefinementZone, load_refin
 from hydromodpy.mesh.planning.size_field import PixelRegion
 from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
 from hydromodpy.mesh.request import BARRIER_FAMILY, InputTriangulation
+from hydromodpy.workflow.steps.mesh import mesh_product_key
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.fake_engines import fake_capabilities, fake_engine, registered
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, grid_spec, planning_inputs
@@ -410,10 +410,10 @@ def test_the_mesh_depends_on_the_run_it_was_refined_on() -> None:
     assert first.source_runs == (_SIM_ID,)
     np.testing.assert_array_equal(first.size_field.values, second.size_field.values)
     assert first.canonical_hash() != second.canonical_hash()
-    assert cache_key(first, engine) != cache_key(second, engine)
+    assert mesh_product_key(first, engine) != mesh_product_key(second, engine)
     unbound = dataclasses.replace(first, source_runs=())
     assert unbound.canonical_hash() != first.canonical_hash()
-    assert cache_key(unbound, engine) != cache_key(first, engine)
+    assert mesh_product_key(unbound, engine) != mesh_product_key(first, engine)
 
 
 def test_a_zone_that_selects_no_pixel_refines_nothing_and_says_so() -> None:

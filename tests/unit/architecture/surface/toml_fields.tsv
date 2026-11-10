@@ -1716,4 +1716,5 @@ workflow.profile	bool | str	False	stable
 workflow.verbosity	Literal['quiet', 'normal', 'verbose', 'debug']	'normal'	stable
 workspace	table	<required>	stable
 workspace.data_dir	Path | None	None	stable
+workspace.products_cap_mb	int	5000	stable
 workspace.root	Path | UPath | None	None	stable

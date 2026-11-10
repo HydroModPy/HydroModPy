@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import shutil
-import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,37 +13,24 @@ from rasterio.features import shapes
 from rasterio.transform import Affine
 from shapely.geometry import Polygon, box, shape
 
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.mesh import cache as cache_module
-from hydromodpy.mesh.cache import cache_dir, library_versions
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import smoothed_catchment
-from hydromodpy.mesh.planning.refinement_zones import (
-    CriterionInputs,
-    RefinementZone,
-    load_refinement_zones,
-)
+from hydromodpy.mesh.planning.refinement_zones import RefinementZone
 from hydromodpy.mesh.refinement_config import RefinementZoneConfig
-from hydromodpy.results.run.field_envelope import read_run_fields
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
-from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.mesh.stored import library_versions
+from hydromodpy.results.products.store import ProductStore, products_root
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh, zone_runs
-from hydromodpy.workflow.steps.prepare_solver.freeze import (
-    freeze_run_config,
-    frozen_config_document,
-)
 from tests._helpers.fake_engines import FakeMeshEngine, registered
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, planning_inputs
-from tests._helpers.run_stores import open_run_store
 
 # --- test_the_mesh_step_dispatches_by_engine ---
-# The mesh step plans one request, builds it with the engine of [mesh], and caches what needs it.
+# The mesh step plans one request, builds it with the engine of [mesh], and
+# stores what it built in the product store.
 
 X0, Y0 = L93_ORIGIN
 
@@ -60,14 +45,25 @@ def planned_inputs(use_planning_inputs):
 
 
 def _context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> WorkflowContext:
-    ctx = WorkflowContext(cfg=SimpleNamespace(mesh=mesh), config_path="config.toml", raw_toml={})
+    ctx = WorkflowContext(
+        cfg=SimpleNamespace(
+            mesh=mesh,
+            workspace=SimpleNamespace(products_cap_mb=5000, project_root=tmp_path),
+        ),
+        config_path="config.toml",
+        raw_toml={},
+    )
     if workspace:
         ctx.setup.workspace = SimpleNamespace(project_root=tmp_path)
     return ctx
 
 
+def _store_dir(tmp_path: Path, key: str) -> Path:
+    return ProductStore(products_root(tmp_path)).path(key)
+
+
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_run_without_mesh_section_gets_the_regular_grid_and_no_cache(tmp_path) -> None:
+def test_a_run_without_mesh_section_gets_the_regular_grid_stored(tmp_path) -> None:
     ctx = _context(tmp_path, None)
 
     step_mesh(ctx)
@@ -75,10 +71,10 @@ def test_a_run_without_mesh_section_gets_the_regular_grid_and_no_cache(tmp_path)
     assert ctx.setup.cell_mesh.structured_shape == (N, N)
     summary = ctx.setup.mesh_summary
     assert summary["engine"] == "regular"
-    assert summary["cache_key"] is None
+    assert summary["product_key"]
     assert summary["request_hash"] == ctx.setup.cell_mesh.identity.request_hash
     assert summary["qa"]["n_cells"] == N * N
-    assert not (tmp_path / ".hmp").exists()
+    assert _store_dir(tmp_path, summary["product_key"]).is_dir()
 
 
 @pytest.mark.usefixtures("planned_inputs")
@@ -119,7 +115,7 @@ def test_the_regular_shape_of_the_section_reaches_the_grid(tmp_path) -> None:
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_an_engine_that_needs_a_cache_builds_once_per_request(tmp_path, cached_engine) -> None:
+def test_an_engine_builds_once_per_request(tmp_path, cached_engine) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
     first, second = _context(tmp_path, mesh_cfg), _context(tmp_path, mesh_cfg)
 
@@ -131,9 +127,9 @@ def test_an_engine_that_needs_a_cache_builds_once_per_request(tmp_path, cached_e
         second.setup.cell_mesh.mesh.vertices, first.setup.cell_mesh.mesh.vertices
     )
     assert second.setup.cell_mesh.identity == first.setup.cell_mesh.identity
-    key = first.setup.mesh_summary["cache_key"]
+    key = first.setup.mesh_summary["product_key"]
     assert second.setup.mesh_summary == first.setup.mesh_summary
-    assert cache_dir(tmp_path, key).is_dir()
+    assert _store_dir(tmp_path, key).is_dir()
     assert first.setup.mesh_summary["engine"] == cached_engine.engine_id
 
 
@@ -146,8 +142,8 @@ def test_a_changed_request_is_meshed_again_under_its_own_key(tmp_path, cached_en
     step_mesh(fine)
 
     assert cached_engine.builds == 2
-    assert coarse.setup.mesh_summary["cache_key"] != fine.setup.mesh_summary["cache_key"]
-    assert len(list((tmp_path / ".hmp" / "mesh_cache").iterdir())) == 2
+    assert coarse.setup.mesh_summary["product_key"] != fine.setup.mesh_summary["product_key"]
+    assert len(ProductStore(products_root(tmp_path)).entries()) == 2
 
 
 @pytest.mark.usefixtures("planned_inputs")
@@ -159,37 +155,40 @@ def test_a_new_build_of_a_library_is_meshed_again_under_its_own_key(
     before = _context(tmp_path, mesh_cfg)
     step_mesh(before)
     bumped = {**library_versions(), library: "99.9.9"}
-    monkeypatch.setattr(cache_module, "library_versions", lambda: bumped)
+    monkeypatch.setattr(mesh_module, "library_versions", lambda: bumped)
     after = _context(tmp_path, mesh_cfg)
 
     step_mesh(after)
 
     assert cached_engine.builds == 2
-    assert before.setup.mesh_summary["cache_key"] != after.setup.mesh_summary["cache_key"]
-    assert len(list((tmp_path / ".hmp" / "mesh_cache").iterdir())) == 2
+    assert before.setup.mesh_summary["product_key"] != after.setup.mesh_summary["product_key"]
+    assert len(ProductStore(products_root(tmp_path)).entries()) == 2
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_resume_that_finds_no_cache_says_the_mesh_will_differ(
+def test_a_resume_that_finds_no_stored_mesh_says_it_will_differ(
     tmp_path, cached_engine, caplog
 ) -> None:
     ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
-    caplog.set_level(logging.WARNING, logger=mesh_module.logger.name)
+    ctx.execution.resumed = True
+    caplog.set_level(logging.WARNING, logger="hydromodpy.workflow.products")
 
-    step_mesh(ctx, resume=True)
+    step_mesh(ctx)
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warnings) == 1
-    assert "cached mesh of this request is gone" in warnings[0]
+    assert "differs" in warnings[0]
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_resume_reads_the_cache_a_crashed_process_left(tmp_path, cached_engine, caplog) -> None:
+def test_a_resume_reads_the_stored_mesh_a_crashed_process_left(
+    tmp_path, cached_engine, caplog
+) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
     step_mesh(_context(tmp_path, mesh_cfg))
     fresh = _context(tmp_path, mesh_cfg)
     state = PipelineState(run_id="run-1", step_index=2, step_name="build_mesh", data={"ctx": fresh})
-    caplog.set_level(logging.WARNING, logger=mesh_module.logger.name)
+    caplog.set_level(logging.WARNING, logger="hydromodpy.workflow.products")
 
     advanced = BuildMeshStep().rebuild_state(prior_state=state, workspace=tmp_path, run_id="run-1")
 
@@ -213,28 +212,28 @@ def test_a_resume_keeps_the_mesh_the_process_already_holds(tmp_path) -> None:
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_the_step_declares_the_cache_files_it_left(tmp_path, cached_engine) -> None:
+def test_the_step_declares_the_product_files_it_left(tmp_path, cached_engine) -> None:
     cached = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
     plain = _context(tmp_path, None)
     step_mesh(cached)
     step_mesh(plain)
 
     declared = BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": cached}))
-
+    directory = _store_dir(tmp_path, cached.setup.mesh_summary["product_key"])
     assert len(declared) == 2
-    assert all(
-        cache_dir(tmp_path, cached.setup.mesh_summary["cache_key"]) in p.parents
-        for p in map(Path, declared)
-    )
-    assert BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": plain})) == ()
+    assert all(directory in Path(p).parents for p in declared)
+    plain_declared = BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": plain}))
+    assert len(plain_declared) == 2
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_cached_engine_needs_a_workspace_to_cache_in(tmp_path, cached_engine) -> None:
+def test_an_engine_without_a_workspace_builds_in_memory(tmp_path, cached_engine) -> None:
     ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id), workspace=False)
 
-    with pytest.raises(MeshError, match="no workspace"):
-        step_mesh(ctx)
+    step_mesh(ctx)
+
+    assert ctx.setup.cell_mesh is not None
+    assert not (tmp_path / ".hmp").exists()
 
 
 @pytest.mark.usefixtures("planned_inputs")
@@ -281,8 +280,8 @@ def test_a_mesh_within_the_thresholds_is_not_warned(tmp_path, caplog) -> None:
 #
 # The solver reads its cells against the catchment, and the faces of the mesh
 # follow the smooth outline, not the pixel staircase of ``watershed.shp``. The
-# cache stores the mesh as the engine built it, so the step puts the outline on
-# the mesh after the build and after a cache hit alike.
+# product store holds the mesh as the engine built it, so the step puts the
+# outline on the mesh after the build and after a store hit alike.
 
 PIXEL, OUTLINE_N = 50.0, 20
 
@@ -312,17 +311,11 @@ def inputs(use_planning_inputs) -> PlanningInputs:
     return use_planning_inputs(planning_inputs(grid, watershed=_staircase(), synthetic=False))
 
 
-def _outline_context(tmp_path, mesh: MeshConfig) -> WorkflowContext:
-    ctx = WorkflowContext(cfg=SimpleNamespace(mesh=mesh), config_path="config.toml", raw_toml={})
-    ctx.setup.workspace = SimpleNamespace(project_root=tmp_path)
-    return ctx
-
-
 def test_the_cell_mesh_carries_the_outline_the_planner_smoothed(
     tmp_path, graded_engine, inputs
 ) -> None:
     mesh_cfg = MeshConfig(engine=graded_engine.engine_id, cell_size=50.0, families=_FACE)
-    ctx = _outline_context(tmp_path, mesh_cfg)
+    ctx = _context(tmp_path, mesh_cfg)
 
     step_mesh(ctx)
 
@@ -333,9 +326,9 @@ def test_the_cell_mesh_carries_the_outline_the_planner_smoothed(
     assert len(outline.exterior.coords) < len(inputs.watershed.exterior.coords)
 
 
-def test_a_mesh_read_from_the_cache_carries_it_too(tmp_path, graded_engine, inputs) -> None:
+def test_a_mesh_read_from_the_store_carries_it_too(tmp_path, graded_engine, inputs) -> None:
     mesh_cfg = MeshConfig(engine=graded_engine.engine_id, cell_size=50.0, families=_FACE)
-    first, second = _outline_context(tmp_path, mesh_cfg), _outline_context(tmp_path, mesh_cfg)
+    first, second = _context(tmp_path, mesh_cfg), _context(tmp_path, mesh_cfg)
 
     step_mesh(first)
     step_mesh(second)
@@ -350,7 +343,7 @@ def test_a_mesh_read_from_the_cache_carries_it_too(tmp_path, graded_engine, inpu
 def test_a_mesh_that_does_not_follow_the_catchment_carries_none(
     tmp_path, graded_engine, inputs
 ) -> None:
-    ctx = _outline_context(tmp_path, MeshConfig(engine=graded_engine.engine_id, cell_size=50.0))
+    ctx = _context(tmp_path, MeshConfig(engine=graded_engine.engine_id, cell_size=50.0))
 
     step_mesh(ctx)
 
@@ -358,7 +351,7 @@ def test_a_mesh_that_does_not_follow_the_catchment_carries_none(
 
 
 def test_a_regular_mesh_carries_none(tmp_path, inputs) -> None:
-    ctx = _outline_context(tmp_path, MeshConfig(families=_FACE))
+    ctx = _context(tmp_path, MeshConfig(families=_FACE))
 
     step_mesh(ctx)
 
@@ -426,10 +419,7 @@ def test_the_summary_of_the_mesh_step_carries_the_zone_runs(tmp_path: Path, monk
     inputs = planning_inputs(grid_spec(10, 10, 100.0), refinement_zones=(_planned("3" * 32),))
     monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
     mesh = MeshConfig(engine="regular", refinement_zone=[ZONE])
-    ctx = SimpleNamespace(
-        cfg=SimpleNamespace(mesh=mesh),
-        setup=SimpleNamespace(workspace=SimpleNamespace(project_root=tmp_path)),
-    )
+    ctx = _context(tmp_path, mesh)
 
     step_mesh(ctx)
 

@@ -168,7 +168,7 @@ or the seepage, which is the drain outflow per cell area in mm/d. The second mes
 that field passed the threshold at any time step. The minimum over time is compared to `below`
 and the maximum to `above`, so the seepage front of a wet winter counts even when the run ends in
 summer. The first run is named as `restart_from` names a run, and it must be sealed. Its `sim_id`
-enters the mesh request and the mesh cache key, so another first run gives another mesh. The
+enters the mesh request and the product key, so another first run gives another mesh. The
 frozen `config.toml` of the new run writes that `sim_id` in place of the name, so a replay reads
 the same run even after a later version of it exists. A replay needs that run to be still in the
 project, and it stops with a message when the run is gone.
@@ -207,9 +207,10 @@ The `triangle` engine builds a constrained Delaunay triangulation of $\Omega$ wi
 edges, so no triangle holds two zones, and the cells of a river are the triangles on one bank.
 The center of a triangle is the mean of its vertices, so a connection has an angle
 ({ref}`mesh-angle`), and MODFLOW 6 turns XT3D on by default. An explicit
-{toml}`solver.modflow6.runtime.mf6_enable_xt3d` wins. Gmsh does not give the same triangulation twice
-for one input, so the engine keeps the first one in `.hmp/mesh_cache/`. It reuses it while the
-request, the engine version and the builds of Gmsh and of the geometry libraries stay the same.
+{toml}`solver.modflow6.runtime.mf6_enable_xt3d` wins. Gmsh cannot promise the same triangulation
+twice for one input, so the workflow stores the mesh in `<project>/.hmp/products/`, keyed by the
+request, the engine version, the builds of Gmsh and of the geometry libraries and the code of the
+mesh package, and reuses it while the key is the same. On one thread gmsh redraws the same mesh.
 {toml}`mesh.triangle.path` reads an existing triangulation instead.
 
 Gmsh reads a size as the length of an edge, so the engine multiplies each size it gives to Gmsh
@@ -554,8 +555,9 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
 
 - Boussinesq cannot run on Voronoi cells, nor MODFLOW-NWT on a refined mesh. The zonal top of
   MODFLOW-NWT needs {toml}`solver.modflow_nwt.sgrid.top_sampling.channel_source` at `"none"`.
-- Deleting `.hmp/mesh_cache/` changes the mesh of a resumed triangle run, because Gmsh gives
-  another cell count, and `restart_from` refuses a run solved on another mesh.
+- Deleting `.hmp/products/` makes a resumed triangle run mesh again. On one thread gmsh redraws
+  the same mesh, and the log warns that a rebuilt mesh may differ from the one the results were
+  computed on.
 - One request and one seed give one Voronoi mesh on one machine, GEOS and scipy build. Another
   build can give the same quality with another connectivity.
 - Where the size field grows at its largest slope, a Voronoi center sits off its cell
@@ -674,7 +676,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The Voronoi tessellation | `hydromodpy/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
 | The angle of a connection | `hydromodpy/mesh/planar/quality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |
-| The mesh step and its cache | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/mesh/cache.py` |
+| The mesh step and its product store | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/mesh/stored.py` |
 | The DISV export | `hydromodpy/solver/modflow_grid/solver_mesh.py` (`to_flopy_disv_args`, `SolverMesh.to_disv_kwargs`), `hydromodpy/solver/modflow6/build.py` |
 | The quality report and its thresholds | `hydromodpy/mesh/planar/quality.py` (`compute_mesh_qa`, `quality_warnings`, `MIN_ANGLE_WARNING_DEG`, `BISECTION_OFFSET_WARNING`, `STRAIGHT_CORNER_DEG`) |
 | The checks of the table of {ref}`mesh-acceptance` | `accepted_meshes` of the flow adapters, `plan_layout` in `engines/regular/grid.py`, `engines/voronoi/checks.py`, `assert_bottom_below_top` in `layering.py`, `_warn_on_outlier_thickness` in `discretization_spatial.py`, `SolverMesh.check_interfaces`, the extractors of the solvers |

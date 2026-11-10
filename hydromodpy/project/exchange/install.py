@@ -19,6 +19,7 @@ nothing.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,8 +42,12 @@ from hydromodpy.core.site import SiteRow
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.data.provenance.lockfile import USER_FILE_SOURCE
 from hydromodpy.data.provenance.sidecars import CacheIndex
+from hydromodpy.results.products.store import META_FILENAME, ProductStore, products_root
 
 DATA_DIRNAME: Final[str] = "data"
+
+LEGACY_PACKAGE_MESH_DIRNAME: Final[str] = "mesh_cache"
+"""Folder a 2.0 package used for the mesh cache entries; a 2.1 install skips it."""
 
 _ADVICE: Final[str] = (
     "Nothing of the package was written. Move the file of your workspace aside, or import "
@@ -388,7 +393,13 @@ class ImportedProject:
     sessions: tuple[str, ...] = ()
     """Names of the sessions it brought under ``sessions/``."""
     mesh_entries: tuple[str, ...] = ()
-    """Keys of the mesh cache entries it brought under ``.hmp/mesh_cache/``."""
+    """Keys of the mesh products it installed under ``.hmp/products/``."""
+    mesh_present: tuple[str, ...] = ()
+    """Keys already in the product store of the destination."""
+    mesh_skipped: tuple[str, ...] = ()
+    """Names under ``products/`` not installed: no sha256 key, or not a mesh."""
+    legacy_mesh_cache: tuple[str, ...] = ()
+    """Names under ``mesh_cache/`` of a 2.0 package, never installed."""
 
 
 def import_project(
@@ -399,10 +410,12 @@ def import_project(
     The package is checked against its ``PUBLICATION.json`` first. A name the
     workspace already holds is refused unless *name* gives another one. The
     files of the author and the data are installed by :func:`install_index`,
-    a conflict refusing the whole import; the runs, sessions and mesh cache
-    entries of the package keep their names. The project is built beside
-    its destination and renamed into place in one step. With *dry_run* the package
-    is checked and the report says what would land, the workspace staying as it is.
+    a conflict refusing the whole import; the runs and sessions of the package
+    keep their names, and its mesh products land under ``.hmp/products/`` by
+    :class:`~hydromodpy.results.products.store.ProductStore.put`. The project is
+    built beside its destination and renamed into place in one step. With
+    *dry_run* the package is checked and the report says what would land, the
+    workspace staying as it is.
 
     Raises
     ------
@@ -437,7 +450,7 @@ def import_project(
                 f"{PROJECTS_DIRNAME}/{project_name} exists in {root}: pass --name <name> to "
                 "import the project under another name."
             )
-        runs, sessions, mesh_entries = _package_members(copy)
+        runs, sessions = _package_runs_and_sessions(copy)
         if dry_run:
             report = install_index(
                 read_index(copy),
@@ -446,16 +459,18 @@ def import_project(
                 project=destination,
                 dry_run=True,
             )
-            return ImportedProject(destination, report, runs, sessions, mesh_entries)
+            mesh = _mesh_members(copy, products_root(destination), install=False)
+            return ImportedProject(destination, report, runs, sessions, *mesh)
         built = destination.with_name(f".{project_name}.import-{uuid.uuid4().hex[:8]}")
         built.mkdir(parents=True)
         report = install_index(
             read_index(copy), blobs=copy / INPUTS_DIRNAME, workspace=root, project=built
         )
         _move_members(copy, built)
+        mesh = _mesh_members(copy, products_root(built), install=True)
         built.rename(destination)
         built = None
-        return ImportedProject(destination, report, runs, sessions, mesh_entries)
+        return ImportedProject(destination, report, runs, sessions, *mesh)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
         if built is not None:
@@ -484,28 +499,95 @@ def _checked_package(origin: Path, staging: Path, name: str | None) -> tuple[Pat
     return copy, name or publication.source.project
 
 
-def _package_members(copy: Path) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
-    """Return the names of the runs, sessions and mesh cache entries a package holds."""
+def _package_runs_and_sessions(copy: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the names of the runs and sessions a package holds."""
     from hydromodpy.results.export.project_package import (
-        PACKAGE_MESH_DIRNAME,
         PACKAGE_RUNS_DIRNAME,
         PACKAGE_SESSIONS_DIRNAME,
     )
 
-    runs, sessions, mesh = (
-        tuple(entry.name for entry in sorted((copy / dirname).glob("*")))
-        for dirname in (PACKAGE_RUNS_DIRNAME, PACKAGE_SESSIONS_DIRNAME, PACKAGE_MESH_DIRNAME)
+    runs = tuple(entry.name for entry in sorted((copy / PACKAGE_RUNS_DIRNAME).glob("*")))
+    sessions = tuple(entry.name for entry in sorted((copy / PACKAGE_SESSIONS_DIRNAME).glob("*")))
+    return runs, sessions
+
+
+def _mesh_members(
+    copy: Path, store_root: Path, *, install: bool
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Return what the mesh members of a package become, and install them with *install*.
+
+    A product under ``products/`` goes into the store by
+    :meth:`~hydromodpy.results.products.store.ProductStore.put` with a writer
+    that copies its files. A key that is no sha256 or a product whose
+    ``meta.json`` is no mesh is skipped, as is a key the store already holds.
+    The ``mesh_cache/`` of a 2.0 package is never read, only counted.
+    """
+    from hydromodpy.results.export.project_package import PACKAGE_PRODUCTS_DIRNAME
+
+    store = ProductStore(store_root)
+    installed: list[str] = []
+    present: list[str] = []
+    skipped: list[str] = []
+    source = copy / PACKAGE_PRODUCTS_DIRNAME
+    for entry in sorted(source.glob("*")) if source.is_dir() else []:
+        if not entry.is_dir():
+            continue
+        kind = _product_kind(entry)
+        if kind != "mesh":
+            skipped.append(entry.name)
+            continue
+        try:
+            hit = store.get(entry.name)
+        except ValueError:
+            skipped.append(entry.name)
+            continue
+        if hit is not None:
+            present.append(entry.name)
+            continue
+        if install:
+            store.put(entry.name, "mesh", _copy_product_files(entry))
+        installed.append(entry.name)
+    legacy = copy / LEGACY_PACKAGE_MESH_DIRNAME
+    legacy_names = (
+        tuple(entry.name for entry in sorted(legacy.glob("*")) if entry.is_dir())
+        if legacy.is_dir()
+        else ()
     )
-    return runs, sessions, mesh
+    return tuple(installed), tuple(present), tuple(skipped), legacy_names
+
+
+def _product_kind(entry: Path) -> str | None:
+    """Return the kind of a product directory, or None when its ``meta.json`` is unreadable."""
+    try:
+        meta = json.loads((entry / META_FILENAME).read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+    kind = meta.get("kind")
+    return str(kind) if isinstance(kind, str) else None
+
+
+def _copy_product_files(entry: Path):
+    """Return the writer that copies the files of one product into a store directory."""
+    import shutil
+
+    def write(tmp: Path) -> None:
+        for child in entry.iterdir():
+            if child.name == META_FILENAME:
+                continue
+            if child.is_dir():
+                shutil.copytree(child, tmp / child.name)
+            else:
+                shutil.copy2(child, tmp / child.name)
+
+    return write
 
 
 def _move_members(copy: Path, built: Path) -> None:
-    """Move the runs, sessions and mesh cache entries of a package into the project *built*."""
+    """Move the runs and sessions of a package into the project *built*."""
     import shutil
 
-    from hydromodpy.core.state.layout import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
     from hydromodpy.results.export.project_package import (
-        PACKAGE_MESH_DIRNAME,
         PACKAGE_RUNS_DIRNAME,
         PACKAGE_SESSIONS_DIRNAME,
     )
@@ -524,10 +606,6 @@ def _move_members(copy: Path, built: Path) -> None:
     for session in sorted((copy / PACKAGE_SESSIONS_DIRNAME).glob("*")):
         sessions_dir_for(built).mkdir(parents=True, exist_ok=True)
         session.rename(sessions_dir_for(built) / session.name)
-    cache = built / INTERNAL_DIRNAME / "mesh_cache"
-    for entry in sorted((copy / PACKAGE_MESH_DIRNAME).glob("*")):
-        cache.mkdir(parents=True, exist_ok=True)
-        entry.rename(cache / entry.name)
 
 
 def _unpacked(origin: Path, staging: Path) -> Path:

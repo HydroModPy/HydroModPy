@@ -95,6 +95,9 @@ RUN_SEARCH_TABLE = "searched_under"
 RUN_MANIFEST_FILENAME = "manifest.json"
 """Seal of a complete run directory. Absent means the run did not finish."""
 
+RUN_PRODUCTS_FILENAME = "products.json"
+"""The products the run read from the store, one per kind, in first-demand order."""
+
 RUN_ANNOTATIONS_FILENAME = "annotations.json"
 """Tags and notes of one run. The one file written after the seal."""
 
@@ -190,6 +193,7 @@ ALLOWED_RUN_ENTRIES: frozenset[str] = (
             RUN_PROVENANCE_FILENAME,
             RUN_MANIFEST_FILENAME,
             RUN_INPUTS_FILENAME,
+            RUN_PRODUCTS_FILENAME,
         }
     )
     | UNSEALED_RUN_ENTRIES
@@ -354,6 +358,7 @@ __all__ = [
     "RUN_LOG_FILENAME",
     "RUN_MANIFEST_FILENAME",
     "RUN_OUTCOME_FILENAME",
+    "RUN_PRODUCTS_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",

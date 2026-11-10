@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -13,6 +14,7 @@ from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outli
 from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.time import (
@@ -46,6 +48,7 @@ from hydromodpy.model.boundaries.streams import (
 )
 from hydromodpy.model.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.model.flow import Flow
+from hydromodpy.model.forcing import soil_stored
 from hydromodpy.model.forcing.soil_budget import gauged_discharge_line, soil_budget_lines
 from hydromodpy.model.forcing.soil_config import (
     soil_reservoir_of,
@@ -53,6 +56,9 @@ from hydromodpy.model.forcing.soil_config import (
     steady_start_refusal,
 )
 from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings, ru_ladder
+from hydromodpy.model.forcing.soil_grids import load_forcing_grid, window_days
+from hydromodpy.results.products.key import array_digest, product_key
+from hydromodpy.workflow.products import ask
 from hydromodpy.workflow.record.run_store import run_dir_of_state
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.data_description import (
@@ -216,8 +222,104 @@ def _lumped_catchment_polygon(run_state: WorkflowContext):
     return outline.geometry.union_all()
 
 
+def _combined_digest(parts: list) -> str:
+    """The sha256 of the array digests of ``parts``, in order."""
+    digest = hashlib.sha256()
+    for values in parts:
+        digest.update(array_digest(values).encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _soil_input_digests(run_state: WorkflowContext, window, model_crs: str, catchment) -> dict:
+    """One digest per input of the soil step, computed once and kept on ``setup``.
+
+    The precipitation and ETP digests read the same grids the soil reads, so
+    the guards still run here and a missing or wrong grid is refused before the
+    key is built. The soil capacity is a raster file, digested by its bytes. The
+    catchment digest is the WKB of its outline in the model CRS.
+    """
+    data_state = run_state.loaded_data
+    days = window_days(window)
+    p_grid, p_x, p_y, p_time, _ = load_forcing_grid(
+        data_state.precipitation,
+        section="[data.precipitation]",
+        family="precipitation",
+        window=window,
+        days=days,
+        model_crs=model_crs,
+    )
+    e_grid, e_x, e_y, e_time, _ = load_forcing_grid(
+        data_state.etp,
+        section="[data.etp]",
+        family="etp",
+        window=window,
+        days=days,
+        model_crs=model_crs,
+    )
+    inputs = {
+        "precipitation": _combined_digest([p_grid, p_x, p_y, p_time.values]),
+        "etp": _combined_digest([e_grid, e_x, e_y, e_time.values]),
+    }
+    soil_capacity = getattr(data_state, "soil_capacity", None)
+    if soil_capacity is not None:
+        inputs["soil_capacity"] = _capacity_digest(soil_capacity)
+    if catchment is not None:
+        inputs["catchment"] = _catchment_digest(catchment, model_crs)
+    return inputs
+
+
+def _soil_sources(run_state: WorkflowContext, window, model_crs: str) -> tuple:
+    """What the soil input digests were computed from.
+
+    The loaded grids and the geographic are compared by identity, because a
+    reload or a rebuild replaces them with new objects. The window and the CRS
+    are compared by value. A fork shares the objects, so it hashes nothing.
+    """
+    data_state = run_state.loaded_data
+    return (
+        data_state.precipitation,
+        data_state.etp,
+        getattr(data_state, "soil_capacity", None),
+        run_state.setup.geographic,
+        (window.start.isoformat(), window.end.isoformat()),
+        model_crs,
+    )
+
+
+def _same_sources(cached: tuple, current: tuple) -> bool:
+    """True when ``current`` holds the very objects and values of ``cached``."""
+    *cached_objects, cached_window, cached_crs = cached
+    *current_objects, current_window, current_crs = current
+    return (
+        all(a is b for a, b in zip(cached_objects, current_objects, strict=True))
+        and cached_window == current_window
+        and cached_crs == current_crs
+    )
+
+
+def _capacity_digest(load_result) -> str:
+    """The digest of a soil capacity raster: the bytes of its file, or its values."""
+    record = load_result.fields[0]
+    data = record.data
+    if isinstance(data, (str, Path)):
+        return sha256_of(data)
+    values = data[record.variable].values
+    return _combined_digest([values, data["x"].values, data["y"].values])
+
+
+def _catchment_digest(catchment, model_crs: str) -> str:
+    """The sha256 of the WKB of the catchment outline in the model CRS."""
+    import shapely.wkb
+
+    frame = catchment if catchment.crs is None else catchment.to_crs(model_crs)
+    digest = hashlib.sha256()
+    digest.update(shapely.wkb.dumps(frame.geometry.union_all()))
+    return digest.hexdigest()
+
+
 def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
-    """Compute the soil forcings (when configured) and bind recharge and ETP; return the soil."""
+    """Compute or read the soil forcings, then bind recharge and ETP; return the soil."""
     setup_state = run_state.setup
     data_state = run_state.loaded_data
     soil_config = soil_reservoir_of(getattr(run_state.cfg, "flow", None))
@@ -231,15 +333,44 @@ def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
         spinup_message = spinup_refusal(soil_config, run_days)
         if spinup_message is not None:
             raise ConfigError(spinup_message)
-        soil = compute_soil_forcings(
-            precipitation=data_state.precipitation,
-            etp=data_state.etp,
-            config=soil_config,
-            window=window,
-            model_crs=str(setup_state.geographic.crs_proj),
-            soil_capacity=getattr(data_state, "soil_capacity", None),
-            catchment=catchment_outline(setup_state.geographic),
+        model_crs = str(setup_state.geographic.crs_proj)
+        catchment = catchment_outline(setup_state.geographic)
+        sources = _soil_sources(run_state, window, model_crs)
+        cached = setup_state.soil_product_inputs
+        if cached is None or not _same_sources(cached[0], sources):
+            cached = (sources, _soil_input_digests(run_state, window, model_crs, catchment))
+            setup_state.soil_product_inputs = cached
+        key = product_key(
+            "soil",
+            codec=soil_stored.SCHEMA_VERSION,
+            package="model",
+            inputs=cached[1],
+            processing={
+                "soil": soil_config.model_dump(mode="json"),
+                "window": [window.start.isoformat(), window.end.isoformat()],
+                "crs": model_crs,
+            },
         )
+        if setup_state.products.get("soil") == key and setup_state.soil_forcings is not None:
+            soil = setup_state.soil_forcings
+        else:
+            soil = ask(
+                run_state,
+                "soil",
+                key=key,
+                build=lambda: compute_soil_forcings(
+                    precipitation=data_state.precipitation,
+                    etp=data_state.etp,
+                    config=soil_config,
+                    window=window,
+                    model_crs=model_crs,
+                    soil_capacity=getattr(data_state, "soil_capacity", None),
+                    catchment=catchment,
+                ),
+                read=lambda directory: soil_stored.read_soil_forcings(
+                    directory, like=data_state.precipitation, config=soil_config
+                ),
+            )
     setup_state.soil_forcings = soil
 
     apply_recharge_load_result_to_flow(

@@ -55,7 +55,7 @@ def _ctx(*, keep_per_cell_budget: bool) -> SimpleNamespace:
             calibration=None,
             observation=None,
         ),
-        setup=SimpleNamespace(workspace=SimpleNamespace(project_root=Path("."))),
+        setup=SimpleNamespace(workspace=SimpleNamespace(project_root=Path(".")), products={}),
         execution=ExecutionRegistry(simulation_plan=_plan(), lightweight=False),
         budget_terms=None,
     )

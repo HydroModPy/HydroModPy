@@ -433,3 +433,10 @@ since = "2.1.0"
 effect = "refusal"
 quantities = []
 text = "A run name or a project name holds lower case letters, digits, _ and -, forty characters at most, and holds neither a doubled underscore nor a device name Windows reserves. A name written otherwise is refused with the folded name to write. A name the code makes, from a file stem or a case of a plan, is folded in silence and still refused when it is too long or reserved."
+
+[[recipe]]
+id = "stage_products_in_one_store"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The meshes, and the output of the soil reservoir, are kept in one product store under .hmp/products/, keyed by what they read and by the code that computes them, under the cap [workspace] products_cap_mb. The mesh cache of 2.0 under .hmp/mesh_cache/ is no longer read, so a triangle mesh is drawn once more, the same mesh with the same gmsh."

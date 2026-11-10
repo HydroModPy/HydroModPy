@@ -252,11 +252,18 @@ class Pipeline:
             # shared run store (derive, display) has no artifact of its own yet
             # must not be executed twice.
             with progress.phase(name):
-                return step.rebuild_state(
-                    prior_state=state,
-                    workspace=self.workspace or Path(),
-                    run_id=state.run_id,
-                )
+                ctx = state.get("ctx")
+                if ctx is not None:
+                    ctx.execution.resumed = True
+                try:
+                    return step.rebuild_state(
+                        prior_state=state,
+                        workspace=self.workspace or Path(),
+                        run_id=state.run_id,
+                    )
+                finally:
+                    if ctx is not None:
+                        ctx.execution.resumed = False
         if row_completed and _has_artifacts(step, state, row):
             logger.warning("pipeline.rebuild_skipped step=%s reason=no_rebuild_state", name)
             return state.advance(step_index=index, step_name=name)

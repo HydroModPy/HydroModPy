@@ -7,7 +7,7 @@ heads and the lake stage stop changing between cycles (L-inf below tolerance) or
 production run (or every calibration trial) at ``result.restart_from``.
 
 The driver reuses one :class:`~hydromodpy.project.facade.Project`, so the mesh is
-built once and is identical across cycles by construction. The mesh cache matters
+built once and is identical across cycles by construction. The product store matters
 only for a *later, separate* run that restarts from the converged Zarr.
 """
 

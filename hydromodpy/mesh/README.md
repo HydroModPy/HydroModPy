@@ -43,9 +43,9 @@ A mesh is made in four steps, and each step has its own place in the package.
 ```
 
 The workflow step `hydromodpy/workflow/steps/mesh.py` runs these steps. It is the only place
-that reads `[mesh]` and asks the mesh cache (`cache.py`). Some engines cannot promise the same
-cells twice, so their mesh is stored under `<project>/.hmp/mesh_cache/` and a later run reads
-the same cells back.
+that reads `[mesh]` and asks the product store (`stored.py`). Every mesh is stored under
+`<project>/.hmp/products/` and a later run reads the same cells back. `needs_cache` only marks
+an engine that cannot rebuild the same cells bit for bit.
 
 ## The two mesh objects
 
@@ -70,7 +70,7 @@ mesh/
 ├── resample.py                 lines resampled at the local cell size
 ├── port.py                     what an engine must provide (MeshEngine)
 ├── registry.py                 engine name to engine class, and the entry point group
-├── cache.py                    stored meshes that an engine cannot rebuild bit for bit
+├── stored.py                   the codec that writes and reads a stored mesh
 │
 ├── planning/                   from the project to one MeshRequest
 │   ├── plan.py                 the entry point, plan_mesh_request
@@ -242,8 +242,8 @@ The full recipe and the capability table are in
 The developer pages are in `docs/source/contribute/architecture/mesh/`.
 
 - `mesh-pivot.rst` covers `HydroMesh`, `PlanarCellMesh`, the line families and the consumers.
-- `mesh-engines.rst` covers the port, the registry, the request, the planner and the cache.
-- `triangle-engine.rst` covers the gmsh triangle engine and its cache.
+- `mesh-engines.rst` covers the port, the registry, the request, the planner and the product store.
+- `triangle-engine.rst` covers the gmsh triangle engine and its product store.
 - `voronoi-engine.rst` covers the generated seeds, the mirror pairs, Lloyd and the checks.
 
 The scientific choice of an engine and of the cell size is explained in

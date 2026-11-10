@@ -14,7 +14,7 @@ project root is::
     jobs/<stamp>/           the journal of each launch, array scripts, frozen case list
     trash/                  runs and sessions deleted by a move; tombstones.txt
     site_overrides/         <site>.toml, the per-site overlays of a [sites] project
-    .hmp/                   strictly rebuildable: index, launcher lease, mesh cache, logs
+    .hmp/                   strictly rebuildable: index, launcher lease, product store, logs
 
 Inside a run, ``.hmp/`` holds the state of the attempt in progress (scratch,
 locks, checkpoints) and is removed when a completed run is
@@ -87,8 +87,8 @@ INTERNAL_DIRNAME = ".hmp"
 LAUNCHER_LEASE_FILENAME = "launcher.lease"
 """Lease ``<project>/.hmp/launcher.lease`` held by the one launcher of a project."""
 
-MESH_CACHE_DIRNAME = "mesh_cache"
-"""Cache ``<project>/.hmp/mesh_cache/``; a run copies the entry it consumes into its own folder."""
+PRODUCTS_DIRNAME = "products"
+"""Product store ``<project>/.hmp/products/``, rebuilt from its keys when deleted."""
 
 RUN_INTERNAL_SCRATCH_DIRNAME = "scratch"
 """Solver scratch of the attempt in progress, ``runs/<case>/.hmp/scratch/``."""
@@ -219,10 +219,10 @@ __all__ = (
     "INTERNAL_DIRNAME",
     "JOBS_DIRNAME",
     "LAUNCHER_LEASE_FILENAME",
-    "MESH_CACHE_DIRNAME",
     "PER_RUN_CONFIG_KEYS",
     "PLAN_CURRENT_FILENAME",
     "PLAN_DIRNAME",
+    "PRODUCTS_DIRNAME",
     "PROJECTS_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "RUNS_DIRNAME",

@@ -362,7 +362,7 @@ def cell_shape_qa(
     """Measure the :data:`SHAPE_KEYS` entries of the QA.
 
     The bisection offset is measured on the interior faces longer than
-    ``min_face_length_m``, the angles on every cell. The mesh cache calls it
+    ``min_face_length_m``, the angles on every cell. The product store calls it
     to complete an entry stored before these entries existed.
     """
     interior = geometry.edge_cells[:, 1] >= 0

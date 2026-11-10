@@ -30,6 +30,7 @@ In the order a run meets them.
 | `overview.py` | `DataOverviewLauncher`: the data overview ("identity card" of a watershed) without a solver run |
 | `replay_checks.py` | what a replay of a sealed run checks: its inputs, its configuration, its solver binary |
 | `solution_key.py` | when are two runs the same: the request id of a case from its written document and the digest and state of its inputs, then its solution key with the code, the solver binaries and the numeric packages, told offline for a plan (`planned_solution_key`) |
+| `products.py` | the product store asked once per kind: the table `PRODUCT_KINDS` (mesh, soil) and `ask`, which reads a present product, builds and stores a missing one; the solver step writes the keys into `products.json` |
 
 `replay_checks.py` sits at the root and not in `record/` because it reads
 `steps.prepare_solver.resolved`, and `steps` imports `record`. Inside `record/` it
@@ -96,6 +97,7 @@ hydromodpy/workflow/
   parallel.py       cohort executors
   overview.py       the data overview launcher
   replay_checks.py  what a replay checks
+  products.py       the product store and the table of products
   record/           what a run writes about itself (README.md)
   steps/            the thirteen steps (README.md)
     prepare_solver/ the step that opens the run (README.md)

@@ -74,6 +74,56 @@ OUTSIDE_SUBTREES: Final[tuple[str, ...]] = (
 )
 """Folders of a compute layer that index, copy or convert what a run already computed."""
 
+LAYER_READS: Final[dict[str, tuple[str, ...]]] = {
+    "core": ("core",),
+    "catchment": ("core", "catchment"),
+    "mesh": ("core", "catchment", "mesh"),
+    "model": ("core", "catchment", "mesh", "model"),
+    "data": ("core", "catchment", "mesh", "model", "data"),
+    "results": ("core", "catchment", "mesh", "model", "results"),
+    "solver": ("core", "catchment", "mesh", "model", "results", "solver"),
+    "calibration": (
+        "core",
+        "catchment",
+        "mesh",
+        "model",
+        "data",
+        "results",
+        "solver",
+        "calibration",
+    ),
+    "config": (
+        "core",
+        "catchment",
+        "mesh",
+        "model",
+        "data",
+        "results",
+        "solver",
+        "calibration",
+        "config",
+    ),
+    "workflow": (
+        "core",
+        "catchment",
+        "mesh",
+        "model",
+        "data",
+        "results",
+        "solver",
+        "calibration",
+        "config",
+        "workflow",
+    ),
+}
+"""The compute layers each layer may read, itself included.
+
+The rows of ``tests/unit/architecture/layer_matrix.yaml`` intersected with
+:data:`COMPUTE_LAYERS`. A product key reads the code of the closure of the
+package that computes it through :func:`layers_under`, so a change in a layer
+the package reads moves the key. A test keeps this table equal to the matrix.
+"""
+
 COMPUTE_DATA_FILES: Final[tuple[str, ...]] = ("catchment/administrative/departement.gpkg",)
 """Package data a computation reads, by path under the package. A wheel ships each of them."""
 
@@ -103,6 +153,19 @@ _FSTRING_START: Final[int | None] = getattr(tokenize, "FSTRING_START", None)
 _FSTRING_END: Final[int | None] = getattr(tokenize, "FSTRING_END", None)
 
 _per_process: dict[tuple[Path, str], str] = {}
+
+
+def layers_under(package: str) -> tuple[str, ...]:
+    """Return the compute layers *package* may read, itself included.
+
+    The rows come from :data:`LAYER_READS`, the closure of the package in the
+    layer matrix. ``"mesh"`` reads ``core``, ``catchment`` and itself; ``"model"``
+    reads ``mesh`` and itself on top.
+    """
+    try:
+        return LAYER_READS[package]
+    except KeyError:
+        raise ValueError(f"not a compute layer: {package}") from None
 
 
 def code_fingerprint(layers: Iterable[str] = COMPUTE_LAYERS) -> dict[str, str]:
@@ -286,6 +349,7 @@ def _drop_staged(staged: Path) -> None:
 __all__ = [
     "COMPUTE_DATA_FILES",
     "COMPUTE_LAYERS",
+    "LAYER_READS",
     "OTHER_DATA_SUFFIXES",
     "OUTSIDE_LAYERS",
     "OUTSIDE_SUBTREES",
@@ -293,5 +357,6 @@ __all__ = [
     "clear_fingerprint_cache",
     "code_fingerprint",
     "fingerprint_tree",
+    "layers_under",
     "normalised_source",
 ]

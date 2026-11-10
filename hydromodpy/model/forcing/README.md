@@ -56,6 +56,7 @@ period, and the solvers call it.
 | `soil_config.py` | What `[flow.sinks_sources.recharge.soil]` can say, with each bound and its refusal |
 | `soil_forcing.py` | Runs the soil reservoir on the loaded grids and returns recharge, residual ETP and runoff fields |
 | `soil_grids.py` | The precipitation and ETP grids the soil reads, and the guards they must pass |
+| `soil_stored.py` | The codec that writes and reads the stored soil product (`soil.npz` and `soil.json`, schema `hydromodpy.soil_product.v1`) |
 | `steady_periods.py` | The rate a steady stress period takes: one rule for every solver |
 | `synthetic.py` | Synthetic precipitation, inflow and recharge series for demonstrators and tests |
 | `time_alignment.py` | Gives a series one value per stress period of `[simulation.time]` |

@@ -83,6 +83,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp.run`, `hmp.calibrate` and `hmp.spinup` take a dict or JSON text with `base=`, through the same loader as a TOML file, and `Project(config, base=)` does the same.
 - `hmp.calibrate` and `Project.calibrate` take `force=`. Without it, a calibration that a completed session of its case and of the same solution key answers gives back the report of that session, read from its folder, `extra["identical_to"]` naming it, and nothing runs. `hmp run` on a calibration file does the same and says so, and `hmp run --force` searches again.
 - `hmp project new` creates `inputs/` and `configs/` in the project.
+- A product store under `.hmp/products/` keeps the meshes and the output of the soil reservoir, keyed by what they read and by the code that computes them. A run, a resume and the trials of a calibration ask it first.
+- `[workspace] products_cap_mb` caps the store, 5000 by default. The oldest products go first, never one a running attempt cites.
+- A run writes `products.json`, the products it read in order, when its solver step is prepared. A verb called after a run never rewrites it.
+- A stored product that cannot be read is discarded and built again. A resume whose cited product is gone builds and stores it under the key of its current inputs.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -454,6 +458,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Validation run names are forty characters at most.
 - `hmp run --format json` gives the mesh summary of a run that built a mesh in `result` again, as 2.0 did.
 - The documentation describes the run request, the base of relative paths, `request.json`, the request id in `outcome.json`, the claim at the start of a run, the run name rule and the Docker command.
+- Every mesh engine goes through the store, not only the triangle engine. A mesh cached by 2.0 under `.hmp/mesh_cache/` is no longer read and can be deleted.
+- A calibration trial that does not change the soil parameters no longer runs the soil reservoir again.
+- `hydromodpy.mesh.cache` is `hydromodpy.mesh.stored`.
+- `hmp publish --package --with mesh` copies the mesh products the runs cite into `products/` of the package, and `hmp project import` installs them under `.hmp/products/`. The `mesh_cache/` of a 2.0 package is skipped and counted.
+
 ### Removed
 
 - The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds; `pip install "hydromodpy~=2.0.0"` then `hmp doctor --fix-config` rewrites it. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.3.0.

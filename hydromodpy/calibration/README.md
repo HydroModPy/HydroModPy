@@ -182,7 +182,10 @@ is read rather than inside the adapter.
    The steps before it run once and are shared by every trial; the steps from it
    up to the solve and the extraction run again for each trial
    (`run_trial_light`); the persistent steps downstream run only for a promoted
-   trial (`promote_prepared_trial`). Right after each preparation, once per
+   trial (`promote_prepared_trial`). The shared steps read the product store, so
+   the mesh and the soil reservoir are built once and kept under
+   `<project>/.hmp/products/`, and a trial whose overrides do not touch the soil
+   reads the stored soil product and never reruns the reservoir. Right after each preparation, once per
    search or per phase and before the session is reserved,
    `runners/prepared_model.check_the_prepared_model` checks what only the
    prepared model shows: a bound the field refuses, and the drain and

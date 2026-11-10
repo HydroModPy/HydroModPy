@@ -110,7 +110,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Take along 'results' (fields.zarr, tables.parquet, mesh) or 'inputs' (every file "
             "the run read, with INSTALL.toml, which 'hmp catalog import' installs); repeatable. "
             "With --package: 'runs' (the sealed runs with their results), 'sessions', 'mesh' "
-            "(the mesh cache entries the runs read) or 'fetched' (the files a provider "
+            "(the mesh products the runs cite) or 'fetched' (the files a provider "
             "delivered to the runs)"
         ),
     )

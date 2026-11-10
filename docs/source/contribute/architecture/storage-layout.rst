@@ -49,7 +49,7 @@ A project with one catchment, two runs and a calibration:
    ├── sessions/
    │   └── calibration/        hmp calibrate calibration.toml
    ├── trash/                  runs and sessions deleted by a move; tombstones.txt
-   └── .hmp/                   rebuildable: index.duckdb, logs/, mesh_cache/
+   └── .hmp/                   rebuildable: index.duckdb, logs/, products/
 
 A project of N catchments declares ``[sites]`` and a table of sites; each case is a site crossed
 with a recipe, named ``<site>-<recipe>``:
@@ -80,7 +80,7 @@ with a recipe, named ``<site>-<recipe>``:
    │   ├── 20261020-091500-local/   journal.jsonl of the local launcher
    │   └── 20261020-143000-slurm/   prepare.sh, array.sh, cases.txt, journal.jsonl
    ├── trash/
-   └── .hmp/                   index.duckdb, logs/, launcher.lease, mesh_cache/
+   └── .hmp/                   index.duckdb, logs/, launcher.lease, products/
 
 ``runs/`` is flat and sorted by site, so ``ls runs/ | grep J0014010`` lists every case of one site.
 
@@ -112,9 +112,14 @@ Two state roots
 ---------------
 
 **The project** ``.hmp/`` **is strictly rebuildable.** It holds the index (``index.duckdb``), the
-debug logs (``logs/``), the launcher lease (``launcher.lease``) and the mesh cache
-(``mesh_cache/``). The mesh cache is a true cache: the mesh of a run is stored in the ``mesh/`` group of its
-``fields.zarr``. ``rm -rf .hmp`` followed by ``hmp catalog reindex`` gives back the same project.
+debug logs (``logs/``), the launcher lease (``launcher.lease``) and the product store
+(``products/``). A product is a folder keyed by a sha256 of the inputs the step read, the
+processing keys and the code of the package that computes it, so the workflow asks the store for
+the mesh and the soil reservoir before it computes them. ``[workspace] products_cap_mb`` caps the
+store at 5000 megabytes by default, and a write past the cap evicts the oldest products first and
+never one a running attempt cites. A sealed run never depends on the store: its mesh lives in the
+``mesh/`` group of its ``fields.zarr`` and its soil in its own tables. ``rm -rf .hmp`` followed by
+``hmp catalog reindex`` gives back the same project.
 
 **What cannot be rebuilt is visible and named.** ``trash/`` is the trash, ``jobs/`` keeps the
 journal and the frozen scripts of each launch, ``runs/<case>/attempts/`` keeps the earlier
@@ -194,7 +199,7 @@ Classes of artifacts
    * - machine state
      - ``.hmp/``: scratch, locks, checkpoints of the attempt in progress
      - ``.hmp/``
-     - ``.hmp/``: index, lease, mesh cache
+     - ``.hmp/``: index, lease, product store
      - no
      - rebuilt (project) or consumed by the seal (run)
 
@@ -211,6 +216,7 @@ A run folder
    ├── config.resolved.toml  the same with every default, and what the build decided; a replay compares to it
    ├── inputs.json         sealed: provider, product, version, request, fetched_at, sha256, licence
    ├── provenance.json     environment, versions, git, solver binaries; host and user stay here
+   ├── products.json       the products the run read from the store, one per kind, in first-demand order
    ├── manifest.json       the seal, written last
    ├── annotations.json    tags and notes, written after the seal
    ├── fields.zarr/        the array store
@@ -246,6 +252,12 @@ directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``con
 ``geometry.catchment`` carries the catchment area and the outlet: a discharge derived from runoff
 is scaled by that area. ``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the
 engine that built the mesh. A run received alone says its catchment and its facts.
+
+``products.json`` names the products the run read from the product store, one entry per kind, in
+the order the steps first asked for them, under the schema ``hydromodpy.products.v1``. A run of
+2.0.0 has none and is read as empty. The seal inventories the file at its third version and its
+fourth version certifies it. Its keys carry the code of the package that computes each product,
+so the file enters no request id, no solution key and no replay class.
 
 The run builds its seal in memory (``RunRecord``) and writes it with ``pyarrow`` and JSON:
 ``tables.parquet/simulation.parquet``, ``tables.parquet/parameters.parquet``,
