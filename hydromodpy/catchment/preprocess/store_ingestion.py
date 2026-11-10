@@ -211,6 +211,10 @@ def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:
         "outlet_snap_distance_m",
         "catch_def",
         "dem_correc_type",
+        # The two undrained counts of a conditioned DEM, from the product the
+        # run read. A raw DEM has none, so a raw run records no key here.
+        "dem_cells_without_descent",
+        "dem_strict_pits",
     ):
         val = getattr(geographic, key, None)
         if val is not None:

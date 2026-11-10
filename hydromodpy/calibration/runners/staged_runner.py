@@ -1573,6 +1573,17 @@ _GEOGRAPHIC_DEVIATIONS = ("dem_correc_type",)
 """Keys a protocol departs on that live under ``[geographic]``, not on an output."""
 
 
+def _declares_conditioned_dem(document: Mapping[str, Any]) -> bool:
+    """True when any ``[[data.dem.sources]]`` entry declares ``state = "conditioned"``."""
+    data = document.get("data")
+    dem = data.get("dem") if isinstance(data, Mapping) else None
+    sources = dem.get("sources") if isinstance(dem, Mapping) else None
+    return any(
+        isinstance(source, Mapping) and source.get("state") == "conditioned"
+        for source in sources or ()
+    )
+
+
 def _geographic_choices(document: Mapping[str, Any]) -> dict[str, object]:
     """Return the ``[geographic]`` values the file wrote on a key the protocol departs on.
 
@@ -1582,12 +1593,16 @@ def _geographic_choices(document: Mapping[str, Any]) -> dict[str, object]:
     describes, so it stays out of the Methods paragraph.
 
     A ``capped_breach`` is not reproducible without its limits, so the value
-    names them, defaults included.
+    names them, defaults included. A DEM declared ``conditioned`` was filled or
+    breached outside HydroModPy, so the regional method reads ``provided`` and
+    the solver grid is filled on its own template.
     """
     geographic = document.get("geographic")
     if not isinstance(geographic, Mapping):
         return {}
     chosen = {key: geographic[key] for key in _GEOGRAPHIC_DEVIATIONS if key in geographic}
+    if _declares_conditioned_dem(document):
+        chosen["dem_correc_type"] = "provided (conditioned outside HydroModPy); solver grid filled"
     if chosen.get("dem_correc_type") == "capped_breach":
         from hydromodpy.catchment.preprocess.capped_breach_config import CappedBreachConfig
 

@@ -125,7 +125,9 @@ class GeographicConfig(HydroModelBase):
             "the default because it is the tool of the paper behind the network "
             "criterion (FillDepressions, Abherve et al. 2023), and the criterion "
             "itself fills the model top on the mesh by a priority flood: one "
-            "conditioning rule from the DEM to the score."
+            "conditioning rule from the DEM to the score. A DEM declared "
+            'state = "conditioned" on its [[data.dem.sources]] entry is already '
+            "conditioned, so this key is ignored and the run records 'provided'."
         ),
     )
     capped_breach: Annotated[
@@ -166,10 +168,6 @@ class GeographicConfig(HydroModelBase):
         ),
         json_schema_extra=field_metadata(stability="experimental"),
     )
-    reg_fold: Annotated[Path | None, Profile.DEV] = Field(
-        default=None,
-        description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
-    )
     synthetic: Annotated[SyntheticGeographicConfig, Profile.USER] = Field(
         default_factory=SyntheticGeographicConfig,
         description=(
@@ -208,16 +206,6 @@ class GeographicConfig(HydroModelBase):
             "downstream, crossing notches are gaps and declared weirs are drops."
         ),
     )
-    reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "If true, reuse previously generated geographic artifacts when the "
-            "cached fingerprint matches the current DEM, outlet/polygon and "
-            "geographic settings. This is useful for profiling repeated "
-            "simulation runs in the same workspace."
-        ),
-    )
-
     write_intermediates: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
@@ -420,21 +408,6 @@ class GeographicConfig(HydroModelBase):
         if self.catch_def == "dem":
             return "kind = dem"
         return None
-
-    @model_validator(mode="after")
-    def _check_ground_with_shared_flow(self) -> GeographicConfig:
-        """Refuse a declared correction of the ground under a shared regional flow job.
-
-        The job was routed on the raw DEM and is checked against the DEM it is
-        handed, so a corrected ground can never match it.
-        """
-        if self.reg_fold is not None and self.crossings.enabled:
-            raise ValueError(
-                "[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
-                "[geographic.crossings] corrects the ground the routing starts from: "
-                "remove one of them."
-            )
-        return self
 
     @model_validator(mode="before")
     @classmethod

@@ -288,7 +288,7 @@ def _regional_dem_path(state: DataOverviewState, dg, *, fallback) -> Path | None
     candidates = [
         getattr(dg, "regional_dem_path", None) if dg else None,
         getattr(state, "dem_path", None),
-        getattr(getattr(state, "geographic", None), "dem_init_path", None),
+        getattr(getattr(state, "geographic", None), "dem_path", None),
         dem_source_path,
         getattr(getattr(state.cfg, "geographic", None), "dem_init_path", None),
         fallback,

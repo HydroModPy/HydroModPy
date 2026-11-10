@@ -44,7 +44,6 @@ crs_project = "EPSG:2154"
 # combler les depressions. Le critere mesure des longueurs le long de ces
 # chemins, donc preserver le reseau prime sur lisser la surface.
 dem_correc_type = "breach"
-reuse_existing_outputs = true
 
 [geographic.catchment]
 kind = "from_outlet_coord"

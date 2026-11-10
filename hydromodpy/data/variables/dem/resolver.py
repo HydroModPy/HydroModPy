@@ -25,6 +25,7 @@ from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.source.port import Extent, FetchRequest, fetch_within
 from hydromodpy.data.source.registry import build_from_section, data_sources
+from hydromodpy.schema.job.inputset import InputState
 
 _BOOTSTRAP_BUFFER_M = 30_000
 
@@ -121,7 +122,7 @@ def _resolve_file_source(
         candidate = _find_dem_file_in_dir(candidate)
     if bounds is not None:
         bounds.require_path(candidate, why="the DEM the [data.dem.sources] entry names")
-    return FileRecord.of(candidate, origin="file")
+    return FileRecord.of(candidate, state=_state_of(source_cfg), origin="file")
 
 
 def _resolve_registered_source(
@@ -207,7 +208,24 @@ def _resolve_registered_source(
     result = fetch_within(source, request)
     if not result.files:
         raise ConfigError(f"[data.dem] source {source_kind!r} did not produce any DEM file.")
-    return result.files[0]
+    record = result.files[0]
+    state = "raw" if source_kind != "url" else _state_of(source_cfg)
+    return FileRecord(
+        record.path,
+        record.sha256,
+        state=state,
+        nodata=record.nodata,
+        origin=record.origin,
+    )
+
+
+def _state_of(source_cfg: Any) -> InputState:
+    """Read the declared input state of a DEM source, raw when it says none."""
+    if isinstance(source_cfg, Mapping):
+        value = source_cfg.get("state")
+    else:
+        value = getattr(source_cfg, "state", None)
+    return value if value is not None else "raw"
 
 
 def require_dem_crs(path: Path | str) -> None:

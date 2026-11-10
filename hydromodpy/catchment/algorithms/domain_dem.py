@@ -23,7 +23,7 @@ from hydromodpy.core.io.crs import ensure_crs
 
 def clip_dem_to_box_buffer(
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     box_buff_shp: str | Path,
     output_dem_path: str | Path,
     crs_project: str | None = None,
@@ -34,7 +34,7 @@ def clip_dem_to_box_buffer(
 
     Parameters
     ----------
-    dem_init_path:
+    dem_path:
         Regional/source DEM.
     box_buff_shp:
         Buffered rectangular support polygon.
@@ -53,7 +53,7 @@ def clip_dem_to_box_buffer(
     """
     tool = resolve_delineation_backend(backend)
 
-    src_dem = str(dem_init_path)
+    src_dem = str(dem_path)
     clip_poly = str(box_buff_shp)
     dst_dem = str(output_dem_path)
     Path(dst_dem).parent.mkdir(parents=True, exist_ok=True)

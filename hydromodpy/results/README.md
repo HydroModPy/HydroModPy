@@ -60,13 +60,14 @@ layout is `storage/contract.py`; the full contract is
 | `exporters/` | one writer per format (CSV, GeoTIFF, NetCDF-UGRID, VTU, Shapefile, GeoPackage), the VTU one through `mesh/io/vtu.py`; `export_spec.py` is the `[[export]]` request and its output planner, `vocabulary.py` is the names a user may export, `request.py` `export_run` writes one `[[export]]` request under `runs/<run>/exports/`, poses the identity block and records `exports/index.json` (`README.md`) |
 | `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `campaign_summary.py` writes the page, the README and the RO-Crate of a campaign summary (`hmp campaign collect`) (`README.md`) |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
-| `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
+| `spatial_index.py`, `grid.py` | point-in-cell lookup on a mesh, the cell size and extent of a run |
 | `calibration_trials.py`, `errors.py` | the trial rows of a session for one run, the typed errors of the reader |
 
 The product store is the one shared cache of a project, under `<project>/.hmp/products/`. A
 product is a folder keyed by a sha256 of the inputs the step read, the processing keys and the
-code of the package that computes it, so `workflow` asks the store for the mesh and the soil
-reservoir before it computes them. `[workspace] products_cap_mb` caps the store at 5000 megabytes,
+code of the package that computes it, so `workflow` asks the store for the mesh, the soil
+reservoir and the terrain (the conditioned DEM, its D8 directions and its accumulation) before it
+computes them. `[workspace] products_cap_mb` caps the store at 5000 megabytes,
 a write past it evicts the oldest products first and never one a running attempt cites, and a
 sealed run never depends on the store.
 
@@ -125,7 +126,7 @@ hydromodpy/results/
   export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  project_package.py  campaign_summary.py
                  summary_tables.py
   importers/
-  geographic_cache.py  spatial_index.py  grid.py
+  spatial_index.py  grid.py
 ```
 
 ## How a run is written and read

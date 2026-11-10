@@ -5,7 +5,8 @@ Builds the runtime payload consumed by ``CatchmentDelineation``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import tempfile
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -15,10 +16,17 @@ from hydromodpy.catchment.algorithms.catchment_domain import (
 )
 from hydromodpy.catchment.algorithms.dem_metadata import DemMetadata, read_dem_metadata
 from hydromodpy.catchment.algorithms.direct_dem_domain import build_direct_dem_domain
-from hydromodpy.catchment.algorithms.flow_products import FlowProducts, build_regional_flow_products
+from hydromodpy.catchment.algorithms.flow_products import (
+    FlowProducts,
+    TerrainRequest,
+    TerrainSupply,
+    build_regional_flow_products,
+)
 from hydromodpy.catchment.algorithms.geographic_paths import GeographicPaths
 from hydromodpy.catchment.algorithms.ground_bed import (
+    bed_dem_path,
     bed_regularization_enabled,
+    regularized_ground_from_config,
     top_dem_path_from_config,
 )
 from hydromodpy.catchment.algorithms.ground_corrections import (
@@ -40,24 +48,99 @@ from hydromodpy.catchment.preprocess.domain_rasters import (
     DomainRasterProducts,
     build_domain_rasters,
 )
-from hydromodpy.catchment.preprocess.geographic_cache import (
-    GeographicProducts,
-    clip_regularised_ground,
-    load_cached_geographic_products,
-    resolve_top_surface_paths,
-    write_geographic_cache_manifest,
-)
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.preprocess.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.catchment.preprocess.regional_flow_job import copy_regional_flow_from_job
+from hydromodpy.catchment.terrain import registry as terrain_registry
+from hydromodpy.catchment.terrain.undrained import UndrainedCells
 from hydromodpy.core.console import progress
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
+from hydromodpy.schema.job.inputset import InputState
 
 logger = get_logger(__name__)
+
+# The clips of the ground the model top is sampled from, one per domain_extent.
+_TOP_CLIP_ATTRIBUTES = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")
+
+# The other rasters build_domain_rasters writes. Clipping the regularized ground
+# writes them to a scratch folder: they are the clips of the flow products,
+# already written next to the clips of G.
+_FLOW_CLIP_ATTRIBUTES = (
+    "watershed_box_buff_fill",
+    "watershed_box_buff_direc",
+    "watershed_buff_fill",
+    "watershed_buff_direc",
+    "watershed_fill",
+    "watershed_direc",
+    "watershed_contour_tif",
+)
+
+
+@dataclass(frozen=True)
+class GeographicProducts:
+    """Artifact views of one geographic tree, built by the pipeline."""
+
+    flow_products: FlowProducts
+    domain_products: CatchmentDomainProducts
+    raster_products: DomainRasterProducts
+    river_network_products: RiverNetworkProducts
+    catchment_area_km2: float
+    x_outlet_snapped: float | None = None
+    y_outlet_snapped: float | None = None
+    outlet_snap_distance_m: float | None = None
+
+
+def resolve_top_surface_paths(config: GeographicConfig, paths: GeographicPaths) -> dict[str, str]:
+    """The regularized copies of the model-top clips, empty when the bed is not regularized."""
+    if not bed_regularization_enabled(config):
+        return {}
+    return {name: str(bed_dem_path(getattr(paths, name))) for name in _TOP_CLIP_ATTRIBUTES}
+
+
+def clip_regularised_ground(
+    *,
+    config: GeographicConfig,
+    setup: Any,
+    flow_products: FlowProducts,
+    river_network_products: RiverNetworkProducts,
+    domain_products: CatchmentDomainProducts,
+    tool: object,
+) -> None:
+    """Fit the bed on the ground and clip the result as the ground was clipped.
+
+    The same routine and the same polygons as the clips of G, so both carry
+    the same georeference; only the output names differ (``_bed``).
+    """
+    bed = regularized_ground_from_config(
+        config,
+        setup,
+        d8_tif=flow_products.direc,
+        river_products=river_network_products,
+    )
+    paths = setup.paths
+    with tempfile.TemporaryDirectory(dir=paths.correcflow_path) as scratch:
+        bed_paths = replace(
+            paths,
+            **resolve_top_surface_paths(config, paths),
+            **{
+                name: str(Path(scratch) / Path(getattr(paths, name)).name)
+                for name in _FLOW_CLIP_ATTRIBUTES
+            },
+        )
+        build_domain_rasters(
+            dem_path=bed,
+            correc_path=flow_products.correc,
+            direc_path=flow_products.direc,
+            watershed_shp=paths.watershed_shp,
+            watershed_buff_shp=domain_products.watershed_buff_shp,
+            paths=bed_paths,
+            crs_project=setup.crs_project,
+            backend=tool,
+        )
 
 
 @dataclass(frozen=True)
@@ -133,7 +216,25 @@ class GeographicRuntimeContext:
             }
         )
         attrs.update(self.dem_metadata.runtime_attributes())
+        undrained = self.flow_products.undrained
+        attrs["dem_cells_without_descent"] = (
+            None if undrained is None else undrained.without_descent
+        )
+        attrs["dem_strict_pits"] = None if undrained is None else undrained.strict_pits
         return attrs
+
+
+def _warn_undrained(undrained: UndrainedCells | None) -> None:
+    """Warn when a DEM declared conditioned keeps cells D8 cannot route."""
+    if undrained is None or undrained.without_descent == 0:
+        return
+    logger.warning(
+        "The DEM declared conditioned keeps %d cells with no lower neighbour (%d strict "
+        "pits). D8 gives them no direction and the catchment may stop there. Declare it "
+        "raw to let HydroModPy condition it.",
+        undrained.without_descent,
+        undrained.strict_pits,
+    )
 
 
 @dataclass(frozen=True)
@@ -150,43 +251,67 @@ class _Delineation:
     river_network_products: RiverNetworkProducts
 
 
+def _engine_stamp(config: GeographicConfig) -> dict[str, str]:
+    """The engine identity a terrain product is keyed by, read off the registry."""
+    engine = terrain_registry.terrain_engines.get(config.terrain_engine)
+    return {"engine_id": engine.engine_id, "engine_version": engine.engine_version}
+
+
 def _delineate(
     *,
     config: GeographicConfig,
     setup: Any,
     tool: object,
     routing_dem_path: str,
+    source_dem_path: str,
+    dem_sha256: str | None,
+    dem_state: InputState,
+    supply: TerrainSupply | None,
+    notched: bool = False,
 ) -> _Delineation:
     """Condition, delineate, buffer and extract the network on one routing DEM.
 
     The first pass routes the ground, the second pass of the crossing notch
-    routes the notched ground. The config refuses the notch with a shared
-    regional job or a ``dem`` domain, so the second pass always routes and
-    delineates here.
+    routes the notched ground. A supplied terrain is read when the pipeline
+    received one, else the builder runs.
     """
-    if config.reg_fold is None:
-        flow_products = build_regional_flow_products(
-            dem_init_path=routing_dem_path,
+    conditioned = dem_state == "conditioned"
+    method = "provided" if conditioned else str(config.dem_correc_type)
+    capped = None if conditioned else capped_breach_of(config)
+    if dem_sha256 is not None and Path(routing_dem_path) == Path(source_dem_path):
+        digest = dem_sha256
+    else:
+        digest = sha256_of(routing_dem_path)
+    request = TerrainRequest(
+        dem=Path(routing_dem_path),
+        dem_sha256=digest,
+        state=dem_state,
+        method=method,
+        capped_breach=capped,
+        crs_project=setup.crs_project,
+        engine=_engine_stamp(config),
+        notched=notched,
+        out_dir=Path(setup.paths.correcflow_path),
+    )
+
+    def build() -> FlowProducts:
+        return build_regional_flow_products(
+            dem_path=routing_dem_path,
             dem_out_dir_path=setup.paths.correcflow_path,
-            dem_correc_type=str(config.dem_correc_type),
-            capped_breach=capped_breach_of(config),
+            dem_correc_type=method,
+            capped_breach=capped,
             crs_project=setup.crs_project,
             backend=tool,
             engine_id=config.terrain_engine,
         )
-    else:
-        flow_products = copy_regional_flow_from_job(
-            config=config,
-            routing_dem_path=routing_dem_path,
-            output_dir=setup.paths.correcflow_path,
-            crs_project=setup.crs_project,
-            backend=tool,
-        )
+
+    flow_products = build() if supply is None else supply(request, build)
+    _warn_undrained(flow_products.undrained)
 
     catchment_products: object | None = None
     if config.catch_def == "dem":
         dem_products = build_direct_dem_domain(
-            dem_init_path=setup.dem_init_path,
+            dem_path=setup.dem_path,
             paths=setup.paths,
             crs_project=setup.crs_project,
         )
@@ -211,7 +336,7 @@ def _delineate(
         domain_products = build_standard_domain_polygons(
             config=config,
             paths=setup.paths,
-            dem_init_path=setup.dem_init_path,
+            dem_path=setup.dem_path,
             crs_project=setup.crs_project,
         )
 
@@ -253,6 +378,10 @@ def _notch_crossings(
     setup: Any,
     tool: object,
     first: _Delineation,
+    source_dem_path: str,
+    dem_sha256: str | None,
+    dem_state: InputState,
+    supply: TerrainSupply | None,
 ) -> _Delineation:
     """Notch the ground where the embankments cross the channel tree, then delineate again.
 
@@ -273,7 +402,15 @@ def _notch_crossings(
     if notch_lowered_pixels(setup) > 0:
         with progress.status("Re-delineating on the notched ground"):
             delineation = _delineate(
-                config=config, setup=setup, tool=tool, routing_dem_path=str(ground)
+                config=config,
+                setup=setup,
+                tool=tool,
+                routing_dem_path=str(ground),
+                source_dem_path=source_dem_path,
+                dem_sha256=dem_sha256,
+                dem_state=dem_state,
+                supply=supply,
+                notched=True,
             )
     close_notch_report(setup, catchment_area_km2_after=delineation.catchment_area_km2)
     return delineation
@@ -284,6 +421,10 @@ def _build_geographic_products(
     config: GeographicConfig,
     setup: Any,
     tool: object,
+    source_dem_path: str,
+    dem_sha256: str | None,
+    dem_state: InputState,
+    supply: TerrainSupply | None,
 ) -> GeographicProducts:
     """Delineate, clip and describe a fresh geographic tree."""
     # The ground is the DEM plus the declared correction (the crossing notch, after
@@ -291,15 +432,33 @@ def _build_geographic_products(
     # model top (clipped below), so neither surface sees a structure the other
     # does not.
     ground = ground_dem_from_config(config, setup)
-    delineation = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
+    delineation = _delineate(
+        config=config,
+        setup=setup,
+        tool=tool,
+        routing_dem_path=str(ground),
+        source_dem_path=source_dem_path,
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        supply=supply,
+    )
     if notch_enabled(config):
-        delineation = _notch_crossings(config=config, setup=setup, tool=tool, first=delineation)
+        delineation = _notch_crossings(
+            config=config,
+            setup=setup,
+            tool=tool,
+            first=delineation,
+            source_dem_path=source_dem_path,
+            dem_sha256=dem_sha256,
+            dem_state=dem_state,
+            supply=supply,
+        )
 
     with progress.status("Clipping domain rasters"):
         # The model TOP is clipped from the ground: the DEM with the crossings
         # notched, as the routing above saw it.
         raster_products = build_domain_rasters(
-            dem_init_path=ground_dem_path_from_config(config, setup),
+            dem_path=ground_dem_path_from_config(config, setup),
             correc_path=delineation.flow_products.correc,
             direc_path=delineation.flow_products.direc,
             watershed_shp=setup.paths.watershed_shp,
@@ -321,15 +480,6 @@ def _build_geographic_products(
                 tool=tool,
             )
     catchment_products = delineation.catchment_products
-    write_geographic_cache_manifest(
-        config=config,
-        paths=setup.paths,
-        domain_products=delineation.domain_products,
-        catchment_area_km2=delineation.catchment_area_km2,
-        catchment_products=catchment_products,
-        flow_products=delineation.flow_products,
-        dem_path=setup.dem_init_path,
-    )
     # Only the outlet branch snaps; a dem or a polygon domain has no snap to report.
     return GeographicProducts(
         flow_products=delineation.flow_products,
@@ -348,16 +498,18 @@ def build_geographic_runtime_context(
     config: GeographicConfig,
     out_dir_path: str | Path,
     dem_path: str | Path | None = None,
+    dem_sha256: str | None = None,
+    dem_state: InputState = "raw",
+    terrain: TerrainSupply | None = None,
     backend: object | None = None,
-    reuse_existing_outputs: bool | None = None,
     network_map_path: str | Path | None = None,
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
     The function prepares regional flow rasters, standard or direct DEM domain
     polygons, clipped domain rasters, DEM metadata, and optional river-network
-    products. When cache reuse is enabled, it validates the cache fingerprint
-    and reconstructs the same context from existing artifacts.
+    products. A supplied ``terrain`` reads the flow products it is handed; a
+    notebook, a test or the annex that passes none computes them.
 
     ``network_map_path`` is the local vector file of the mapped network, when
     one is declared. It feeds the alpha diagnostic only and never the model.
@@ -369,18 +521,18 @@ def build_geographic_runtime_context(
     )
 
     tool = resolve_delineation_backend(backend)
-    products = load_cached_geographic_products(
+    products = _build_geographic_products(
         config=config,
-        paths=setup.paths,
-        crs_project=setup.crs_project,
-        reuse_existing_outputs=reuse_existing_outputs,
-        dem_path=setup.dem_init_path,
+        setup=setup,
+        tool=tool,
+        source_dem_path=str(dem_path),
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        supply=terrain,
     )
-    if products is None:
-        products = _build_geographic_products(config=config, setup=setup, tool=tool)
 
-    # Alpha describes the current map, so it is measured on a cache hit too. The map
-    # is not a model input and stays out of the cache fingerprint.
+    # Alpha describes the current map, so it is measured on a supplied terrain too.
+    # The map is not a model input and stays out of the product key.
     if config.catch_def != "dem":
         report_network_dem_agreement(
             setup,

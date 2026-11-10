@@ -26,7 +26,7 @@ def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tm
     values[:, 0] = np.nan
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=NODATA)
     paths = _paths(tmp_path)
-    products = build_direct_dem_domain(dem_init_path=dem, paths=paths, crs_project="EPSG:2154")
+    products = build_direct_dem_domain(dem_path=dem, paths=paths, crs_project="EPSG:2154")
     # Four by four valid pixels of 100 m.
     assert products.domain_area_km2 == pytest.approx(0.16)
     watershed = gpd.read_file(products.watershed_shp)
@@ -44,7 +44,7 @@ def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tm
 def test_a_dem_with_no_valid_pixel_is_refused(tmp_path) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", np.full((3, 3), NODATA), nodata=NODATA)
     with pytest.raises(ValueError, match="at least one valid cell"):
-        build_direct_dem_domain(dem_init_path=dem, paths=_paths(tmp_path))
+        build_direct_dem_domain(dem_path=dem, paths=_paths(tmp_path))
 
 
 @pytest.mark.xfail(
@@ -57,6 +57,6 @@ def test_a_dem_in_degrees_gives_its_domain_area_in_square_kilometres(tmp_path) -
     ones = np.ones((4, 4), "float32")
     dem = write_geotiff(tmp_path / "dem.tif", ones, origin=(-1.7, 48.1), cell=0.01, crs="EPSG:4326")
     products = build_direct_dem_domain(
-        dem_init_path=dem, paths=_paths(tmp_path), crs_project="EPSG:2154"
+        dem_path=dem, paths=_paths(tmp_path), crs_project="EPSG:2154"
     )
     assert products.domain_area_km2 == pytest.approx(16 * 0.74 * 1.11, rel=0.05)

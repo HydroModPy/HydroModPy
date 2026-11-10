@@ -36,7 +36,7 @@ def test_the_clip_is_written_with_its_nodata_and_the_project_crs(tmp_path, raste
     calls: list[str] = []
     backend = SimpleNamespace(raster=raster_api(calls))
     out = clip_dem_to_box_buffer(
-        dem_init_path=tmp_path / "dem.tif",
+        dem_path=tmp_path / "dem.tif",
         box_buff_shp=tmp_path / "box_buff.shp",
         output_dem_path=tmp_path / "domain" / "clip.tif",
         crs_project="EPSG:2154",

@@ -47,6 +47,10 @@ def build_solver_routing_context(
     from the one the catchment was delineated with. ``capped_breach`` is the same
     kind of carry-over: the limits of ``dem_correc_type = "capped_breach"``, which
     that method cannot run without.
+
+    A DEM declared ``conditioned`` arrives here as ``provided``, the regional
+    method; the solver grid is its own template, which is filled with ``fill``,
+    because ``condition_dem`` refuses ``provided``.
     """
     dem_in = Path(dem_path)
     if not dem_in.exists():
@@ -55,10 +59,11 @@ def build_solver_routing_context(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    method = "fill" if dem_correc_type == "provided" else dem_correc_type
     products = build_regional_flow_products(
-        dem_init_path=dem_in,
+        dem_path=dem_in,
         dem_out_dir_path=out_dir,
-        dem_correc_type=str(dem_correc_type),
+        dem_correc_type=str(method),
         crs_project=crs_project,
         backend=backend,
         engine_id=engine_id,

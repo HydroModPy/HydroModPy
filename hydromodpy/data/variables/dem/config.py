@@ -13,6 +13,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.source.url import UrlSourceOptions
+from hydromodpy.schema.job.inputset import InputState
 
 RGE_ALTI_RESOLUTIONS_M = (1.0, 5.0)
 """Pixel sizes of the RGE ALTI that the WMS-Raster serves as the product itself."""
@@ -57,6 +58,14 @@ class FileDemSource(_DemSourceBase):
         description="Path to user DEM file or directory (TIF, ASC, NC).",
         examples=["dem.tif"],
     )
+    state: Annotated[InputState, Profile.USER] = Field(
+        default="raw",
+        description=(
+            "Whether this DEM already drains. 'raw' lets the terrain chain "
+            "condition it, 'conditioned' reads it as provided, so no engine "
+            "conditions it and its file is the corrected DEM."
+        ),
+    )
 
 
 class UrlDemSource(UrlSourceOptions, _DemSourceBase):
@@ -65,6 +74,14 @@ class UrlDemSource(UrlSourceOptions, _DemSourceBase):
     source: Annotated[Literal["url"], Profile.USER] = Field(
         default="url",
         description="Discriminator tag selecting the 'url' DEM provider.",
+    )
+    state: Annotated[InputState, Profile.USER] = Field(
+        default="raw",
+        description=(
+            "Whether this DEM already drains. 'raw' lets the terrain chain "
+            "condition it, 'conditioned' reads it as provided, so no engine "
+            "conditions it and its file is the corrected DEM."
+        ),
     )
 
 

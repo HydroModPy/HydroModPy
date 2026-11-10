@@ -11,6 +11,8 @@ flow.sinks_sources.lakes.stageinit	2.0.0
 flow.surface_interaction_model	2.0.0
 geographic.catchment.catch_def	2.0.0
 geographic.catchment.dem_init_path	2.1.0
+geographic.reg_fold	2.1.0
+geographic.reuse_existing_outputs	2.1.0
 modflow6	2.1.0
 modflow6.process_specific	2.1.0
 modflow6.process_specific.evt_extinction_depth	2.1.0

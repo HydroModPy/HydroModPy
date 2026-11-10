@@ -70,7 +70,7 @@ def test_a_crossings_file_that_cannot_be_placed_is_refused(tmp_path, path, error
 
 def test_without_the_notch_or_a_first_channel_the_ground_is_the_raw_dem(tmp_path) -> None:
     project = bench_project(tmp_path, _road())
-    raw = Path(project.setup.dem_init_path)
+    raw = Path(project.setup.dem_path)
     assert ground_dem_from_config(project.config, project.setup) == raw
     project.config.crossings.enabled = False
     assert ground_dem_from_config(project.config, project.setup, channel=project.channel) == raw

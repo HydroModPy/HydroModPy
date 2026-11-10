@@ -440,3 +440,42 @@ since = "2.1.0"
 effect = "layout"
 quantities = []
 text = "The meshes, and the output of the soil reservoir, are kept in one product store under .hmp/products/, keyed by what they read and by the code that computes them, under the cap [workspace] products_cap_mb. The mesh cache of 2.0 under .hmp/mesh_cache/ is no longer read, so a triangle mesh is drawn once more, the same mesh with the same gmsh."
+
+# The DEM header contract, read by the pipeline and by check(inputs=True).
+# A DEM that breaks it was routed or snapped without a word before, so the
+# refusal replaces a silent wrong catchment.
+
+[[recipe]]
+id = "dem_header_contract"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A DEM that breaks the header contract is refused before routing: no CRS, a CRS that is not projected or not in metres, a rotated grid, pixels not square within 1 %, a routed resolution outside 1 to 250 m, elevations outside -500 to 9000 m, or an outlet outside the raster or on a nodata cell."
+
+# The regional flow rasters move from the geographic cache to the product store.
+# The product is a copy of the bytes the engine wrote, so no number moves.
+
+[[recipe]]
+id = "terrain_product_store"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The corrected DEM, the D8 directions and the D8 accumulation are now a stage product under .hmp/products/, keyed by the DEM digest, its state, the conditioning method and the terrain engine; a rerun reads the stored terrain instead of rebuilding it."
+
+# The two geographic cache keys retire with the cache they switched.
+
+[[migration]]
+document = "config"
+old = "geographic.reuse_existing_outputs"
+instead = "The terrain cache is the product store under .hmp/products/ since 2.1.0, and a rerun reads it without a switch."
+since = "2.1.0"
+sealed = "drop"
+rule = "drop_the_cache_switches"
+
+[[migration]]
+document = "config"
+old = "geographic.reg_fold"
+instead = 'The regional flow folder is the terrain product since 2.1.0. To reuse a conditioned DEM between projects, declare state = "conditioned" on its [data.dem.sources] entry.'
+since = "2.1.0"
+sealed = "drop"
+rule = "drop_the_cache_switches"

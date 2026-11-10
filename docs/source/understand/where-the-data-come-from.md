@@ -26,6 +26,16 @@ This list is read from the data sources that the code knows. The generated page
 {doc}`/reference/data-sources` gives the complete list of the sources, the producer of each and
 the section of the file that takes it.
 
+## A DEM conditioned elsewhere
+
+A DEM you give may already be filled or breached by another tool. You say so with
+`state = "conditioned"` on its `[[data.dem.sources]]` entry, the default being `state = "raw"`.
+HydroModPy then skips its own conditioning and still computes the D8 directions and the
+accumulation. It refuses an aggregation, a crossing notch or a declared conditioning method beside
+a conditioned DEM, because those would undo what the other tool did. If the DEM still keeps cells
+with no lower neighbour, the run warns with their count: D8 gives those cells no direction and the
+catchment may stop there.
+
 ## Fineness matters
 
 Each input has its own scale, and the model cannot be finer than the inputs that control a

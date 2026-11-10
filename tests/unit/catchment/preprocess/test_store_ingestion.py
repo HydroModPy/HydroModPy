@@ -161,6 +161,19 @@ def test_the_run_metadata_records_the_capped_breach_limits_and_what_they_produce
     assert written["capped_breach_realised_cells_raised"] == "12"
 
 
+def test_the_two_undrained_counts_land_in_the_metadata_only_for_a_conditioned_dem() -> None:
+    conditioned = SimpleNamespace(
+        dem_correc_type="provided", dem_cells_without_descent=14, dem_strict_pits=3
+    )
+    written = _persist(conditioned).metadata
+    assert written["dem_cells_without_descent"] == "14"
+    assert written["dem_strict_pits"] == "3"
+    assert written["dem_correc_type"] == "provided"
+    # A raw DEM carries no counts, so the keys stay absent rather than recording zeros.
+    raw = SimpleNamespace(dem_correc_type="fill")
+    assert "dem_cells_without_descent" not in _persist(raw).metadata
+
+
 def test_the_preprocessing_tree_is_dropped_with_its_empty_scratch_folders(tmp_path) -> None:
     scratch = tmp_path / ".hmp" / "scratch"
     stable = scratch / "run" / "_preprocessing"

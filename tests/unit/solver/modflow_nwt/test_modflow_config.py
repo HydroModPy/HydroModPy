@@ -515,7 +515,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
 
     def _fake_build_regional_flow_products(
         *,
-        dem_init_path,
+        dem_path,
         dem_out_dir_path,
         dem_correc_type,
         crs_project,
@@ -525,7 +525,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
     ):
         captured.update(
             {
-                "dem_init_path": str(dem_init_path),
+                "dem_path": str(dem_path),
                 "dem_out_dir_path": str(dem_out_dir_path),
                 "dem_correc_type": dem_correc_type,
                 "crs_project": crs_project,
@@ -559,7 +559,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
     assert ctx.correc_path.endswith("dem_breach.tif")
     assert ctx.direc_path.endswith("dem_direc.tif")
     assert ctx.acc_path.endswith("dem_acc.tif")
-    assert captured["dem_init_path"] == str(dem_path)
+    assert captured["dem_path"] == str(dem_path)
     assert captured["dem_correc_type"] == "breach"
     assert captured["crs_project"] == "EPSG:2154"
     assert captured["backend"] == "fake-wbt"

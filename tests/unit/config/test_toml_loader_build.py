@@ -33,7 +33,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
-                "reuse_existing_outputs = true",
                 "",
                 "[site]",
                 'name = "site_a"',
@@ -49,8 +48,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     )
 
     cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.geographic.reuse_existing_outputs is True
 
 
 def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(

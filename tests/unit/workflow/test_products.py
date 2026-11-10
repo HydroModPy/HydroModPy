@@ -10,11 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.catchment.algorithms.flow_products import TerrainRequest
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.results.products.cited import CitedProduct, read_cited, write_cited
 from hydromodpy.results.products.store import ProductStore, products_root
 from hydromodpy.workflow import products as products_module
-from hydromodpy.workflow.products import ProductKind, ask, write_products
+from hydromodpy.workflow.products import ProductKind, ask, terrain_supply, write_products
 
 FAKE_KIND = ProductKind(
     package="mesh",
@@ -269,3 +270,69 @@ def test_an_unreadable_products_json_of_a_running_run_skips_the_eviction(
 
     assert value == "made"
     assert store.get(old) is not None
+
+
+def _terrain_request(**overrides) -> TerrainRequest:
+    facts = {
+        "dem": Path("dem.tif"),
+        "dem_sha256": "a" * 64,
+        "state": "raw",
+        "method": "fill",
+        "capped_breach": None,
+        "crs_project": "EPSG:2154",
+        "engine": {"engine_id": "whitebox_workflows", "engine_version": "1.0"},
+        "notched": False,
+        "out_dir": Path("out"),
+    }
+    facts.update(overrides)
+    return TerrainRequest(**facts)
+
+
+def test_the_two_terrain_kinds_share_package_step_and_writer() -> None:
+    plain = products_module.PRODUCT_KINDS["terrain"]
+    notched = products_module.PRODUCT_KINDS["terrain_notched"]
+
+    assert (plain.package, plain.step) == ("catchment", "build_geographic")
+    assert (notched.package, notched.step) == ("catchment", "build_geographic")
+    assert plain.write is notched.write
+
+
+def test_terrain_supply_selects_the_kind_and_a_digest_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = _ctx(tmp_path)
+    captured: list[tuple[str, str]] = []
+
+    def fake_ask(ctx, kind, *, key, build, read):
+        captured.append((kind, key))
+        return build()
+
+    monkeypatch.setattr(products_module, "ask", fake_ask)
+    supply = terrain_supply(ctx)
+
+    supply(_terrain_request(), build=lambda: "plain")
+    supply(_terrain_request(notched=True), build=lambda: "notched")
+
+    assert captured[0][0] == "terrain"
+    assert captured[1][0] == "terrain_notched"
+    assert captured[0][1] != captured[1][1]
+    assert len(captured[0][1]) == 64
+
+
+def test_terrain_supply_keys_what_processing_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = _ctx(tmp_path)
+    captured: list[str] = []
+
+    def fake_ask(ctx, kind, *, key, build, read):
+        captured.append(key)
+        return build()
+
+    monkeypatch.setattr(products_module, "ask", fake_ask)
+    supply = terrain_supply(ctx)
+
+    supply(_terrain_request(method="fill"), build=lambda: "fill")
+    supply(_terrain_request(method="breach"), build=lambda: "breach")
+
+    assert captured[0] != captured[1]

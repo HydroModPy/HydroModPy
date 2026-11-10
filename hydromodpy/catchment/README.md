@@ -5,8 +5,8 @@ It routes flow on the DEM, delineates the catchment, cuts the domain polygons an
 the surfaces the model sits on, the routing of water on the cells of the model top, and the French departments used to
 pick data tiles. The mesh itself is in `hydromodpy/mesh`. The aquifer geometry, the fields and the forcings are in
 `hydromodpy/model`. The package knows no solver and no data provider: the DEM arrives
-as a resolved `dem_path: Path` argument from the caller, and a geology map is read by a function the caller
-passes as an argument.
+as a resolved `dem_path` argument, with its digest and state, from the caller, and a geology map is read by a
+function the caller passes as an argument.
 
 This file is the map of the package. One sub-package is a port and has a README of its own, `terrain/`. The other parts
 have none and are described here.
@@ -21,10 +21,10 @@ holds the same order.
 | `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits (`RasterSupport`), the surfaces of the domain (`Surface`), and samplers prepared for repeated reads at points |
 | `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
 | `delineation/` | the one Whitebox Workflows environment of the process, in `whitebox_workflows_backend/`, and the two helpers that read a backend |
-| `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader (README) |
+| `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers, the D8 pointer reader, the DEM header contract and the undrained-cell count (README) |
 | `algorithms/` | one module per processing block: the ground, the flow products, the catchment, the zones, the river and hydrographic networks, the lakes, the SFR reaches |
 | `synthetic/` | analytic catchments with no DEM, for validation, and `[geographic.synthetic]` |
-| `preprocess/` | the pipeline before the simulation: the run, its cache, the `[geographic]` configuration and the runtime objects others read |
+| `preprocess/` | the pipeline before the simulation: the run, the geographic tree, the `[geographic]` configuration and the runtime objects others read |
 | `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D, the downslope distance, the channel tree of the river network A (`channel_tree.py`) and the routing of a release to a discharge (`routing.py`) |
 
 ## The Whitebox backend
@@ -47,16 +47,17 @@ attempts in all.
 
 A preprocess run has seven steps. `preprocess/pipeline.py` runs them and `algorithms/` holds the code of each one.
 
-1. `preprocess/pipeline_steps.py` receives `dem_path` from the caller, resolves the output paths, reads the
-   CRS and the cell size of the DEM, and aggregates the DEM to a coarser cell when `[geographic.catchment]`
-   asks for it.
-2. `preprocess/geographic_cache.py` checks whether an earlier run left a tree with the same fingerprint. If it did,
-   the run reads that tree and skips steps 3 to 6.
+1. `preprocess/pipeline_steps.py` receives `dem_path` from the caller, checks the DEM header and the outlet
+   through `terrain/dem_contract.py`, resolves the output paths, reads the CRS and the cell size of the DEM, and
+   aggregates the DEM to a coarser cell when `[geographic.catchment]` asks for it.
+2. The run asks the product store for the terrain, the conditioned DEM with its D8 directions and its accumulation,
+   keyed by the digest and state of the DEM, the method, the engine and the code. A present product is read back
+   into the run tree and the conditioning of step 4 is skipped.
 3. `algorithms/ground_corrections.py` builds the ground, which is the DEM plus the corrections the project declares.
    Without a correction it is the raw DEM, with no copy.
-4. `algorithms/flow_products.py` conditions the ground (fill, breach or capped breach) and computes the D8 direction
-   and accumulation rasters, through a terrain engine. With `reg_fold` set, `preprocess/regional_flow_job.py` copies
-   these rasters from a sealed job instead.
+4. `algorithms/flow_products.py` conditions the ground (fill, breach or capped breach, or `provided` for a DEM
+   declared conditioned elsewhere) and computes the D8 direction and accumulation rasters, through a terrain engine.
+   A missing product is written by `algorithms/terrain_stored.py`.
 5. `algorithms/catchment_from_point.py` delineates the catchment, or `algorithms/direct_dem_domain.py` takes the DEM
    extent. `algorithms/catchment_domain.py` cuts the buffered and box polygons, and `algorithms/river_network.py`
    extracts the streams.
@@ -64,8 +65,8 @@ A preprocess run has seven steps. `preprocess/pipeline.py` runs them and `algori
    channel, and the delineation runs a second time on the notched ground. Then `preprocess/domain_rasters.py` clips the
    DEM rasters to the domain polygons. When `[geographic.bed_regularization]` is on, `algorithms/ground_bed.py` fits the
    channel bed.
-7. `preprocess/geographic_cache.py` writes the manifest and `algorithms/dem_metadata.py` reads the metadata of the
-   clipped rasters. `pipeline.py` returns one `GeographicRuntimeContext`.
+7. `algorithms/dem_metadata.py` reads the metadata of the clipped rasters. `pipeline.py` returns one
+   `GeographicRuntimeContext`.
 
 `source_mode = "synthetic"` skips all of this. `synthetic/catchment.py` builds the support from the
 `[geographic.synthetic]` table and returns a `SyntheticGeographic` object with the same public attributes.
@@ -104,13 +105,16 @@ catchment/
 ├── delineation/               the Whitebox environment of the process
 │   ├── __init__.py            get_whitebox_backend and the two backend helpers
 │   └── whitebox_workflows_backend/   raster, flow and delineation sub-backends
-├── terrain/                   the terrain port and its engines
+├── terrain/                   the terrain port, its engines and the DEM checks
 │   ├── port.py                TerrainEngine and its value types
 │   ├── registry.py            `terrain_engines`, engine id to engine class, and the entry point group
+│   ├── dem_contract.py        DEMContract and the header, value and outlet checks of a DEM
+│   ├── undrained.py           the cells a conditioned DEM leaves without descent
 │   └── ...                    artifacts, d8, numpy and Whitebox engines
 ├── algorithms/                one module per processing block
 │   ├── ground_corrections.py  the ground: the DEM plus the declared corrections
 │   ├── flow_products.py       conditioned DEM, D8 direction, D8 accumulation
+│   ├── terrain_stored.py      the terrain product of the store, written and read back
 │   ├── catchment_*.py         catchment, domain polygons and zone rasters
 │   ├── river_network*.py      stream extraction, its vector and its configuration
 │   ├── hydrographic_network*.py   one object for a generated or a reference network
@@ -126,7 +130,7 @@ catchment/
 │   ├── pipeline_steps.py      paths, CRS, DEM aggregation, catchment and polygons
 │   ├── geographic_config.py   GeographicConfig, the [geographic] table
 │   ├── *_config.py            one file per sub-table of [geographic]
-│   ├── geographic_cache.py    fingerprint, manifest and reuse of the tree
+│   ├── geographic_tree.py     the files of the geographic tree, by name
 │   ├── catchment_delineation.py   CatchmentDelineation, read by domain, mesh, solvers
 │   └── ...                    domain rasters, sub-basins, store ingestion, cleanup
 └── drainage/                  where water goes on the model top
@@ -153,7 +157,7 @@ an argument, as the mesh planner shows.
 `catchment_layout.yaml` orders the parts. Each part reads only the parts above it in the table of this file, so a cycle
 cannot be declared. Another layer of HydroModPy may import only the modules listed under `public` in that file. The
 inside of the pipeline stays private (`preprocess/pipeline.py`, `pipeline_steps.py`, `domain_rasters.py`,
-`subbasin.py`, `regional_flow_job.py` and the small configurations it composes).
+`subbasin.py` and the small configurations it composes).
 
 Four more rules hold inside.
 
@@ -179,7 +183,7 @@ Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `resul
 | a terrain engine | a class that satisfies the port in `terrain/port.py`, registered by `terrain_engines.register` in `terrain/registry.py` or on the `hydromodpy.terrain.engine` entry-point group |
 | a geographic product | a module in `algorithms/`, called from `preprocess/pipeline.py`, and a field on `GeographicConfig` for its options |
 | a `[geographic]` key | a field of the Pydantic model in `preprocess/geographic_config.py` or in the file of its sub-table, with its description |
-| a name or place of an output file | `algorithms/geographic_paths.py`, and the tree list of `preprocess/geographic_cache.py` when a resume must find it |
+| a name or place of an output file | `algorithms/geographic_paths.py`, and the tree list of `preprocess/geographic_tree.py` when a resume must find it |
 | a synthetic topography | `synthetic/synthetic_config.py`, then `synthetic/topography.py` |
 | a routing rule or a distance on the model top | `drainage/graph.py`, `drainage/descent.py`, `drainage/distance.py` or `drainage/routing.py` |
 | how the river network A is read or pinned on the cells | `drainage/channel_tree.py` |
@@ -192,7 +196,7 @@ Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `resul
 The tests mirror the code under `tests/unit/catchment/`. A module of `algorithms/` is tested in
 `tests/unit/catchment/algorithms/` and one of `preprocess/` in `tests/unit/catchment/preprocess/`. The delineation
 signatures that the unit tests compare to are in `tests/unit/catchment/preprocess/golden/`. A test builds its DEMs,
-configs and cached trees with the helpers of `tests/_helpers/geographic_cases.py`.
+configs and geographic trees with the helpers of `tests/_helpers/geographic_cases.py`.
 
 ```bash
 pytest tests/unit/catchment -q

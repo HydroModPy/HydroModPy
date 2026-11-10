@@ -223,10 +223,26 @@ def _drop_the_forward_model(doc: Any, *, sealed: bool) -> list[str]:
     return changes
 
 
+def _drop_the_cache_switches(doc: Any, *, sealed: bool) -> list[str]:
+    """Retire the cache switches of ``[geographic]``, one row of the register per key.
+
+    Each row carries the ``since`` and the ``instead`` of its key, and ``_retire``
+    refuses a live file on them and drops a sealed one in silence.
+    """
+    keys = {"geographic.reuse_existing_outputs", "geographic.reg_fold"}
+    return [
+        change
+        for row in migrations_of("config")
+        if str(row.old) in keys
+        for change in _retire(doc, row, sealed=sealed)
+    ]
+
+
 RULES: dict[str, Callable[..., list[str]]] = {
     "flatten_the_backend_table": _flatten_the_backend_table,
     "move_the_dem_init_path": _move_the_dem_init_path,
     "drop_the_forward_model": _drop_the_forward_model,
+    "drop_the_cache_switches": _drop_the_cache_switches,
 }
 """The functions a row names by ``rule``, each ``f(doc, *, sealed)``, run once per pass."""
 

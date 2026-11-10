@@ -123,7 +123,7 @@ def _clip_jobs(
 def _clip_in_memory(
     tool: Any,
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     jobs: list[tuple[Path | str, Path | str, Path | str, bool, int | None]],
     watershed_shp: str | Path,
     watershed_buff_shp: str | Path,
@@ -133,7 +133,7 @@ def _clip_in_memory(
     crs_project: str | None,
 ) -> None:
     """Clip with a backend that keeps rasters in memory between two clips."""
-    dem_init_raster = tool.raster.read_raster(str(dem_init_path))
+    dem_init_raster = tool.raster.read_raster(str(dem_path))
     correc_raster = tool.raster.read_raster(str(correc_path))
     direc_raster = tool.raster.read_raster(str(direc_path))
     box_buff_vector = tool.raster.read_vector(str(paths.box_buff))
@@ -185,7 +185,7 @@ def _clip_in_memory(
 def _clip_through_files(
     tool: Any,
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     jobs: list[tuple[Path | str, Path | str, Path | str, bool, int | None]],
     watershed_shp: str | Path,
     paths: GeographicPaths,
@@ -193,7 +193,7 @@ def _clip_through_files(
 ) -> None:
     """Clip with a backend that reads and writes a file at each step."""
     clip_dem_to_box_buffer(
-        dem_init_path=dem_init_path,
+        dem_path=dem_path,
         box_buff_shp=paths.box_buff,
         output_dem_path=paths.watershed_box_buff_dem,
         crs_project=crs_project,
@@ -219,7 +219,7 @@ def _clip_through_files(
 
 def build_domain_rasters(
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     correc_path: str | Path,
     direc_path: str | Path,
     watershed_shp: str | Path,
@@ -255,7 +255,7 @@ def build_domain_rasters(
     ):
         _clip_in_memory(
             tool,
-            dem_init_path=dem_init_path,
+            dem_path=dem_path,
             jobs=jobs,
             watershed_shp=watershed_shp,
             watershed_buff_shp=watershed_buff_shp,
@@ -267,7 +267,7 @@ def build_domain_rasters(
     else:
         _clip_through_files(
             tool,
-            dem_init_path=dem_init_path,
+            dem_path=dem_path,
             jobs=jobs,
             watershed_shp=watershed_shp,
             paths=paths,

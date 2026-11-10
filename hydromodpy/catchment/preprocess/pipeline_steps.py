@@ -37,6 +37,12 @@ from hydromodpy.catchment.algorithms.dem_aggregation import (
 from hydromodpy.catchment.algorithms.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.catchment.algorithms.river_network import resolve_stream_threshold_cells
 from hydromodpy.catchment.delineation import resolve_delineation_backend
+from hydromodpy.catchment.terrain.dem_contract import (
+    check_dem_header,
+    check_dem_outlet,
+    check_dem_values,
+    read_dem_header,
+)
 from hydromodpy.catchment.terrain.port import FlowAccumulation
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.filesystem import create_folder
@@ -50,7 +56,7 @@ class PreparedGeographicRun:
     """Canonical shared setup computed before geographic product generation."""
 
     paths: GeographicPaths
-    dem_init_path: str
+    dem_path: str
     crs_project: str | None
     epsg: int | None
     dem_res: float
@@ -70,12 +76,14 @@ def prepare_geographic_run(
     create_folder(paths.geographic_path)
     create_folder(paths.correcflow_path)
 
-    dem_init_path = str(dem_path)
-    with rasterio.open(dem_init_path) as dem_src:
+    dem_path = str(dem_path)
+    # The CRS, rotation and square pixel are checked on the source header.
+    with rasterio.open(dem_path) as dem_src:
         epsg = dem_src.crs.to_epsg() if dem_src.crs is not None else None
         dem_res = float(abs(dem_src.transform.a))
-    dem_init_path, dem_res = _aggregated_if_asked(
-        config, dem_init_path=dem_init_path, dem_res=dem_res, paths=paths
+        header = read_dem_header(dem_src)
+    dem_path, dem_res = _aggregated_if_asked(
+        config, dem_path=dem_path, dem_res=dem_res, paths=paths
     )
     crs_project = (
         config.crs_project
@@ -83,9 +91,19 @@ def prepare_geographic_run(
         else (f"EPSG:{epsg}" if epsg is not None else None)
     )
 
+    # The resolution is the one the routing chain reads, after the aggregation.
+    check_dem_header(header, routing_res_m=dem_res)
+    with rasterio.open(dem_path) as routed:
+        routed_header = read_dem_header(routed)
+        check_dem_values(routed, routed_header)
+        if config.x_outlet is not None and config.y_outlet is not None:
+            check_dem_outlet(
+                routed, routed_header, x=float(config.x_outlet), y=float(config.y_outlet)
+            )
+
     return PreparedGeographicRun(
         paths=paths,
-        dem_init_path=dem_init_path,
+        dem_path=dem_path,
         crs_project=crs_project,
         epsg=epsg,
         dem_res=dem_res,
@@ -95,7 +113,7 @@ def prepare_geographic_run(
 def _aggregated_if_asked(
     config: GeographicConfig,
     *,
-    dem_init_path: str,
+    dem_path: str,
     dem_res: float,
     paths: GeographicPaths,
 ) -> tuple[str, float]:
@@ -106,10 +124,10 @@ def _aggregated_if_asked(
     """
     target = config.dem_resolution
     if target is None or abs(float(target) - dem_res) <= RESOLUTION_TOLERANCE * dem_res:
-        return dem_init_path, dem_res
+        return dem_path, dem_res
     out_path = Path(paths.correcflow_path) / aggregated_dem_filename(float(target))
     with progress.status(f"Aggregating the DEM to {float(target):g} m"):
-        aggregate_dem(dem_init_path, out_path, resolution_m=float(target))
+        aggregate_dem(dem_path, out_path, resolution_m=float(target))
     return str(out_path), float(target)
 
 
@@ -173,7 +191,7 @@ def build_standard_domain_polygons(
     *,
     config: GeographicConfig,
     paths: GeographicPaths,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     crs_project: str | None,
 ) -> CatchmentDomainProducts:
     """Build buffered catchment, box and box-buffer polygons with canonical names."""
@@ -182,7 +200,7 @@ def build_standard_domain_polygons(
             catchment_shp=paths.watershed_shp,
             output_dir=paths.geographic_path,
             buff_area=config.buff_area,
-            dem_init_path=dem_init_path,
+            dem_path=dem_path,
             crs_project=crs_project,
             watershed_buff_name="watershed_buff.shp",
             watershed_box_name=Path(paths.watershed_box_shp).name,

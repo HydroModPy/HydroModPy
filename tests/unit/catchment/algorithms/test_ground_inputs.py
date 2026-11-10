@@ -14,7 +14,7 @@ def _setup(tmp_path: Path) -> SimpleNamespace:
     dem = tmp_path / "data" / "dem" / "dem.tif"
     dem.parent.mkdir(parents=True)
     dem.write_bytes(b"")
-    return SimpleNamespace(dem_init_path=str(dem), crs_project="EPSG:2154")
+    return SimpleNamespace(dem_path=str(dem), crs_project="EPSG:2154")
 
 
 def test_a_lake_file_is_read_as_given_or_beside_the_declared_dem(tmp_path: Path) -> None:

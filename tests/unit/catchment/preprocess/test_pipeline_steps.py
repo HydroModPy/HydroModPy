@@ -38,15 +38,15 @@ def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Pa
         )
 
     native, same = prepared("a"), prepared("c", dem_resolution=100.0)
-    coarse = prepared("b", dem_resolution="300 m")
-    assert (native.dem_res, native.dem_init_path) == (100.0, str(dem))
+    coarse = prepared("b", dem_resolution="200 m")
+    assert (native.dem_res, native.dem_path) == (100.0, str(dem))
     assert (native.crs_project, native.epsg) == ("EPSG:2154", 2154)
-    assert coarse.dem_res == 300.0
-    assert Path(coarse.dem_init_path).name == "dem_init_300m.tif"
-    assert Path(coarse.dem_init_path).is_relative_to(tmp_path / "b")
-    with rasterio.open(coarse.dem_init_path) as src:
-        assert (src.height, src.width) == (4, 4)
-    assert same.dem_init_path == str(dem)
+    assert coarse.dem_res == 200.0
+    assert Path(coarse.dem_path).name == "dem_init_200m.tif"
+    assert Path(coarse.dem_path).is_relative_to(tmp_path / "b")
+    with rasterio.open(coarse.dem_path) as src:
+        assert (src.height, src.width) == (5, 5)
+    assert same.dem_path == str(dem)
 
 
 def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(tmp_path) -> None:
@@ -58,7 +58,7 @@ def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(t
     watershed = build_standard_catchment(
         **options, accumulation=fake_accumulation(), backend=object()
     )
-    domain = build_standard_domain_polygons(**options, dem_init_path=dem)
+    domain = build_standard_domain_polygons(**options, dem_path=dem)
     assert watershed == run.paths.watershed_shp
     assert gpd.read_file(watershed).total_bounds.tolist() == [200.0, 200.0, 800.0, 800.0]
     assert domain.buffer_distance_m == 100.0

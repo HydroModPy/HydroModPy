@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.catchment.algorithms.derived_features import coerce_geographic_derived_features
 from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-from hydromodpy.catchment.preprocess.geographic_cache import geographic_artifact_paths
+from hydromodpy.catchment.preprocess.geographic_tree import geographic_artifact_paths
 from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
@@ -29,11 +29,14 @@ from hydromodpy.model.domain.spatial_support import (
 )
 from hydromodpy.model.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
+from hydromodpy.workflow.products import terrain_supply
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.data import ensure_flow
 
 if TYPE_CHECKING:
+    from hydromodpy.catchment.algorithms.flow_products import TerrainSupply
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.schema.job.inputset import InputState
 
 logger = get_logger(__name__)
 
@@ -48,13 +51,18 @@ def build_geographic_runtime(
     workspace: object,
     *,
     dem_path: Path | None = None,
-    reuse_existing_outputs: bool | None = None,
+    dem_sha256: str | None = None,
+    dem_state: InputState | None = None,
+    terrain: TerrainSupply | None = None,
     network_map_path: Path | None = None,
 ) -> object:
     """Build the geographic runtime selected by the validated TOML config.
 
-    The DEM arrives resolved through ``dem_path``, read from the
-    ``[[data.dem.sources]]`` sources before the step runs.
+    The DEM arrives resolved through ``dem_path``, its digest and its state
+    through ``dem_sha256`` and ``dem_state``, read from the
+    ``[[data.dem.sources]]`` sources before the step runs. ``terrain`` is the
+    product-store supply the catchment asks for its regional flow, or ``None``
+    to compute it without the store.
     """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -68,7 +76,9 @@ def build_geographic_runtime(
         geographic_cfg,
         workspace,
         dem_path=dem_path,
-        reuse_existing_outputs=reuse_existing_outputs,
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        terrain=terrain,
         network_map_path=network_map_path,
     )
 
@@ -153,7 +163,6 @@ def step_setup(
     *,
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
-    reuse_existing_outputs: bool | None = None,
     run_id: str | None = None,
 ) -> None:
     """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport.
@@ -174,11 +183,15 @@ def step_setup(
     network_map_path = resolve_geographic_inputs(cfg, ctx)
     dem_record = getattr(setup_state, "dem_record", None)
     dem_path = Path(dem_record.path) if dem_record is not None else None
+    dem_sha256 = dem_record.sha256 if dem_record is not None else None
+    dem_state = dem_record.state if dem_record is not None else None
     setup_state.geographic = build_geographic_runtime(
         cfg,
         setup_state.workspace,
         dem_path=dem_path,
-        reuse_existing_outputs=reuse_existing_outputs,
+        dem_sha256=dem_sha256,
+        dem_state=dem_state,
+        terrain=terrain_supply(ctx),
         network_map_path=network_map_path,
     )
     setup_state.geographic_features = coerce_geographic_derived_features(
@@ -346,7 +359,7 @@ class BuildGeographicStep:
         return ("resolve",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        return self._build(state, reuse_existing_outputs=None)
+        return self._build(state)
 
     def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
         """Return the geographic tree this step wrote, as the runtime names it."""
@@ -364,23 +377,16 @@ class BuildGeographicStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Rebuild the geographic runtime by reading the tree it left on disk.
+        """Rebuild the geographic runtime from the terrain in the product store.
 
-        The read is forced whatever ``[geographic] reuse_existing_outputs``
-        says: that flag decides what a fresh run does with a tree another run
-        left, and a resume re-delineating its own products is a defect. A tree
-        that is incomplete, or whose description does not match the config,
-        still falls back to a full build - which is what the step would have
-        done anyway - and says so.
+        A resume reads the terrain under the key its ``products.json`` cites
+        and delineates the catchment again, which is deterministic. The runner
+        marks the resume through ``ctx.execution.resumed``, which ``ask`` reads
+        to take the cited key before recomputing one.
         """
-        return self._build(prior_state, reuse_existing_outputs=True)
+        return self._build(prior_state)
 
-    def _build(
-        self,
-        state: PipelineState,
-        *,
-        reuse_existing_outputs: bool | None,
-    ) -> PipelineState:
+    def _build(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
@@ -390,7 +396,6 @@ class BuildGeographicStep:
             ctx,
             requested_spatial_support_ids=state.get("requested_spatial_support_ids", ()),
             requested_domain_supports=requested_supports,
-            reuse_existing_outputs=reuse_existing_outputs,
             run_id=state.get("run_name"),
         )
         step_spatial_supports(
