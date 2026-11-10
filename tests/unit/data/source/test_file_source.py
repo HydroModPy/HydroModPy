@@ -94,8 +94,8 @@ def test_every_section_has_registered_file_subclass() -> None:
 
 
 @pytest.fixture
-def frozen_project(tmp_path: Path):
-    """A project with one pinned user file, and frozen mode on."""
+def frozen_project(tmp_path: Path) -> tuple[Path, lockfile.LockedInputs]:
+    """A project with one pinned user file, and its lockfile read."""
     project = tmp_path / "project"
     inputs = project / "inputs"
     inputs.mkdir(parents=True)
@@ -110,47 +110,64 @@ def frozen_project(tmp_path: Path):
     lockfile.write_lockfile(
         project / "hydromodpy.lock", None, user_files=[item], project_root=project
     )
-    lockfile.set_frozen_mode(True, project_root=project)
-    try:
-        yield inputs
-    finally:
-        lockfile.set_frozen_mode(False)
+    return inputs, lockfile.read_locked_inputs(project)
 
 
-def test_frozen_mode_serves_a_user_file_the_lockfile_pins(frozen_project: Path) -> None:
-    result = DemFile(path=frozen_project / "dem.tif").fetch(FetchRequest(out_dir=frozen_project))
+def test_frozen_mode_serves_a_user_file_the_lockfile_pins(
+    frozen_project: tuple[Path, lockfile.LockedInputs],
+) -> None:
+    inputs, locked = frozen_project
+    result = DemFile(path=inputs / "dem.tif", locked=locked).fetch(FetchRequest(out_dir=inputs))
 
     assert [record.path.name for record in result.files] == ["dem.tif"]
 
 
-def test_frozen_mode_refuses_a_user_file_whose_bytes_changed(frozen_project: Path) -> None:
-    (frozen_project / "dem.tif").write_bytes(b"other bytes")
+def test_frozen_mode_refuses_a_user_file_whose_bytes_changed(
+    frozen_project: tuple[Path, lockfile.LockedInputs],
+) -> None:
+    inputs, locked = frozen_project
+    (inputs / "dem.tif").write_bytes(b"other bytes")
 
     with pytest.raises(FrozenDataError, match="SHA-256 does not match"):
-        DemFile(path=frozen_project / "dem.tif").fetch(FetchRequest(out_dir=frozen_project))
+        DemFile(path=inputs / "dem.tif", locked=locked).fetch(FetchRequest(out_dir=inputs))
 
 
-def test_frozen_mode_refuses_a_user_file_the_lockfile_does_not_name(frozen_project: Path) -> None:
-    unnamed = frozen_project / "other.tif"
+def test_frozen_mode_refuses_a_user_file_the_lockfile_does_not_name(
+    frozen_project: tuple[Path, lockfile.LockedInputs],
+) -> None:
+    inputs, locked = frozen_project
+    unnamed = inputs / "other.tif"
     unnamed.write_bytes(b"unnamed")
 
     with pytest.raises(FrozenDataError, match="absent from hydromodpy.lock"):
-        DemFile(path=unnamed).fetch(FetchRequest(out_dir=frozen_project))
+        DemFile(path=unnamed, locked=locked).fetch(FetchRequest(out_dir=inputs))
+
+
+def test_a_source_without_a_lockfile_reads_any_file_while_a_frozen_one_refuses_it(
+    frozen_project: tuple[Path, lockfile.LockedInputs],
+) -> None:
+    inputs, locked = frozen_project
+    unnamed = inputs / "other.tif"
+    unnamed.write_bytes(b"unnamed")
+    request = FetchRequest(out_dir=inputs)
+
+    with pytest.raises(FrozenDataError):
+        DemFile(path=unnamed, locked=locked).fetch(request)
+    assert [r.path.name for r in DemFile(path=unnamed).fetch(request).files] == ["other.tif"]
 
 
 def test_frozen_mode_refuses_a_folder_that_holds_a_file_the_lockfile_does_not_name(
-    frozen_project: Path,
+    frozen_project: tuple[Path, lockfile.LockedInputs],
 ) -> None:
-    source = FileSource(path=frozen_project)
+    inputs, locked = frozen_project
+    source = FileSource(path=inputs, locked=locked)
     source.section = "dem"
-    assert [r.path.name for r in source.fetch(FetchRequest(out_dir=frozen_project)).files] == [
-        "dem.tif"
-    ]
+    assert [r.path.name for r in source.fetch(FetchRequest(out_dir=inputs)).files] == ["dem.tif"]
 
-    (frozen_project / "extra.tif").write_bytes(b"extra")
+    (inputs / "extra.tif").write_bytes(b"extra")
 
     with pytest.raises(FrozenDataError, match="extra.tif"):
-        source.fetch(FetchRequest(out_dir=frozen_project))
+        source.fetch(FetchRequest(out_dir=inputs))
 
 
 def test_a_user_file_is_read_in_place_and_never_written_to_the_cache(tmp_path: Path) -> None:

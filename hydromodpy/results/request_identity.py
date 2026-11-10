@@ -245,21 +245,27 @@ def prior_state_digest(state: PriorState) -> str:
     """Return the sha256 of what a run reads from the run it starts from.
 
     The head of each cell and the stage of each lake, with the shape of the head
-    and the lake ids. The store path and the ``sim_id`` of the earlier run stay
-    out: two runs that leave the same state give the same digest.
+    and the lake ids. The stage of each SFR reach and the reach numbers count
+    too, when the state carries them; a state without reach stages keeps the
+    digest it had before reach stages existed, so a restart of an earlier run is
+    still the same request. The store path and the ``sim_id`` of the earlier run
+    stay out: two runs that leave the same state give the same digest.
     """
     lakes = sorted(state.lake_stages)
+    reaches = sorted(state.sfr_stages)
     digest = hashlib.sha256()
     digest.update(json.dumps(lakes).encode("utf-8"))
     digest.update(b"\0")
-    digest.update(
-        array_digest(
-            {
-                "head": state.head,
-                "lake_stages": np.array([state.lake_stages[lake] for lake in lakes], dtype=float),
-            }
-        ).encode("ascii")
-    )
+    if reaches:
+        digest.update(json.dumps(reaches).encode("utf-8"))
+        digest.update(b"\0")
+    arrays = {
+        "head": state.head,
+        "lake_stages": np.array([state.lake_stages[lake] for lake in lakes], dtype=float),
+    }
+    if reaches:
+        arrays["sfr_stages"] = np.array([state.sfr_stages[reach] for reach in reaches], dtype=float)
+    digest.update(array_digest(arrays).encode("ascii"))
     return digest.hexdigest()
 
 

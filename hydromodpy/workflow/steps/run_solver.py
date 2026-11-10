@@ -1,14 +1,20 @@
-"""Run-solver step - execute the plan and record solver output locations."""
+"""Run-solver step - execute the plan, record solver output locations and the time of each solve.
+
+The time of a solve is no result of the run: the step adds one ``solve`` line per
+solved run of the plan to ``profile.json``, from ``SolverRun.solve_s``, and writes
+no duration to the metrics, the facts or the seal.
+"""
 
 from __future__ import annotations
 
-import time
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import Measure, max_rss_mb
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 
@@ -53,6 +59,35 @@ def _resumed_solver_runs(ctx: WorkflowContext, folders: Mapping[str, str]) -> di
     return resumed
 
 
+def _record_solves(
+    ctx: WorkflowContext, executed: Iterable[tuple[Any, SolverRun]], step_started_at: datetime
+) -> None:
+    """Add one ``solve`` line to the profile for each run of the plan that solved.
+
+    The backend measures the duration around the call that solves and not the
+    instant it began, so the line starts where the previous solve of the plan ended,
+    counted from the start of the step. The memory is the peak of the process now.
+    """
+    from hydromodpy.workflow.runner import record_measure
+
+    started_at = step_started_at
+    for run, result in executed:
+        if result.solve_s is None:
+            continue
+        record_measure(
+            ctx.run_dir,
+            Measure(
+                kind="solve",
+                name=str(run.id),
+                started_at=started_at,
+                duration_s=result.solve_s,
+                max_rss_mb=max_rss_mb(),
+            ),
+            attempt=ctx.attempt,
+        )
+        started_at += timedelta(seconds=result.solve_s)
+
+
 class RunSolverStep:
     """Execute the plan via the configured launcher."""
 
@@ -61,10 +96,7 @@ class RunSolverStep:
         "after_process",
         "ctx",
     )
-    writes: ClassVar[tuple[str, ...]] = (
-        "ctx",
-        "wall_seconds",
-    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
         "flow",
         "transport",
@@ -99,9 +131,8 @@ class RunSolverStep:
     ) -> PipelineState:
         """Rebuild the state without re-running the solver.
 
-        ``wall_seconds`` and the folder each run of the plan solved in are read
-        back from the facts of the run: the extract step that resumes reads the
-        solver outputs there. Each run gets a ``SolverRun`` put back in
+        The folder each run of the plan solved in is read back from the facts of
+        the run: the extract step that resumes reads the solver outputs there. Each run gets a ``SolverRun`` put back in
         ``execution.solver_runs``, solved and written, with its ``Model`` and its
         options and without a solver model: downstream steps (extract, derive,
         export) read the Zarr store and the solver folder and need no live solver
@@ -110,13 +141,9 @@ class RunSolverStep:
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("RunSolverStep.rebuild_state requires 'ctx' in state.data")
-        wall_seconds: float | None = None
         sim_id = getattr(ctx, "sim_id", None)
         if sim_id is not None and run_is_persisted(ctx) and getattr(ctx, "run_dir", None):
             with run_store(ctx) as store:
-                for row in store.facts.metrics:
-                    if row.variable == "runtime" and row.metric == "duration_s":
-                        wall_seconds = row.value
                 ctx.execution.solver_runs.update(
                     _resumed_solver_runs(ctx, store.facts.solver_output_dirs)
                 )
@@ -124,7 +151,6 @@ class RunSolverStep:
             step_index=prior_state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
-            wall_seconds=wall_seconds,
         )
 
     def run(self, state: PipelineState) -> PipelineState:
@@ -149,7 +175,7 @@ class RunSolverStep:
             after_run=None,
         )
 
-        t0 = time.monotonic()
+        started_at = datetime.now(UTC)
         launcher = self.launcher if self.launcher is not None else SimulationRunner()
         if run_is_persisted(ctx):
             # One handle for the whole solve: the products of every executed run
@@ -167,6 +193,7 @@ class RunSolverStep:
                     if result.output_dir is not None:
                         store.facts.solver_output_dirs[str(run.id)] = str(result.output_dir)
                 refresh_run_environment(ctx, store=store)
+                _record_solves(ctx, executed_results, started_at)
                 for run, _result in executed_results:
                     record_what_the_model_says(
                         ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
@@ -175,11 +202,9 @@ class RunSolverStep:
                     )
         else:
             launcher.execute(plan, ctx, callbacks=callbacks)
-        wall_seconds = time.monotonic() - t0
 
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
-            wall_seconds=wall_seconds,
         )

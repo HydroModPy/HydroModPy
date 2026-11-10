@@ -74,6 +74,80 @@ to its data (``--until load_data``) to fill the workspace input cache, and the
 worker that solves the case later reads its inputs from that cache with
 ``--frozen``.
 
+Stopping a run
+--------------
+
+A stop can be asked from outside a process, without a signal. ``hmp stop REF``
+(``hmp.stop``) calls ``request_stop`` of ``results/storage/attempt.py``, which
+writes ``<run>/.hmp/stop.json`` for a run that is running and refuses a run in
+any other state, with the state it read. A session of calibration has the same
+flag under ``<session>/.hmp/``. The flag is read at the places where an
+unwinding does no harm.
+
+* The pipeline reads it before each cohort of steps, so a stop falls between
+  two steps and also just before the seal.
+* The runner of the plan reads it between two runs of the plan. MODFLOW 6
+  through libmf6 reads it at the end of each time step, and the Boussinesq
+  solver between two periods. A backend that solves through an executable reads
+  nothing, because killing the child would leave half-written files, and the
+  flag is read after its solve.
+* The calibration engine reads it before each ``ask``, so the trials of the
+  batch in flight finish and are journaled.
+
+``StopRequested`` is a ``KeyboardInterrupt``, so the attempt hook, the line of
+the step journal and the closing of a session treat it as they treat a signal.
+The run ends ``aborted`` with ``error.type = "StopRequested"``, no signal, no
+seal, and the line of the step it stopped in is ``aborted``. A stop reads
+``aborted`` in the vocabulary of the outcome and differs from a signal by that
+error type. A session records ``stop requested at <date>`` as its error.
+
+The flag belongs to the attempt in progress. The next attempt of a run files it
+under ``attempts/<k>/stop.json``, so it does not stop at its first check and the
+history keeps who stopped the run and when. A session has no ``attempts/<k>/``
+folder, so reopening it removes the flag, and the date stays in the error of the
+session until then.
+
+Resuming a stopped run
+----------------------
+
+``hmp run --resume REF`` continues attempt ``k`` on the same ``request_id``. It
+compares the ``request_id`` of the request with the one the outcome of attempt
+``k`` recorded under ``attempts/<k>/``. The request id counts the resolved
+configuration, the digests of the inputs and the state a window starts from, so
+it sees what ``verify_state`` does not. When they differ, ``refuse_resume_if_changed``
+raises ``ResumeError`` and says an input or a key changed since the stop. The check
+of ``ResolvedRunManifest`` stays as a second guard. A plain ``hmp run`` without
+``--resume`` resumes in place when the request is equal and starts over when it is
+not.
+
+A stop in the solve leaves the ``run_solver`` row ``aborted``, so the resume plays
+``run_solver`` again from its start, the build of the solver files included. A stop
+between two steps resumes at the next step. The steps before the stopped one are
+rebuilt from their artifacts, and their lines in ``profile.json`` read
+``reused = "prefix"``.
+
+Windows
+-------
+
+``[simulation.time] window_length`` cuts a transient run into windows that end on
+a stress period end. ``project/windows.py`` plays them in order. Each window is a
+run of its own, named ``<name>_w1``, ``<name>_w2`` (two digits from ten windows),
+that goes through the same claim, request, pipeline and seal as any run. The
+cut is made by ``project/phases.py``, which gives ``setup.time_grid`` the periods
+of the window and keeps the grid of the whole simulation in
+``setup.whole_time_grid``. The data and the soil reservoir run on the whole grid, so a
+window takes the same forcing as the run in one piece.
+
+Window ``k > 1`` starts from the ``final_state/`` of window ``k - 1``. The pipeline
+receives it as ``window_source``, ``prepare_solver`` reads it into ``Model.initial``
+as a ``PriorState``, and ``inputs.json`` gets a line with ``variable = "initial_state"``
+and ``provider = "run"``, whose digest is the one the ``request_id`` counts. A source
+that is absent, or that was played with another request, is refused before the claim.
+
+A window already sealed with the same request is skipped. After a stop in window 3,
+``hmp run`` gives back windows 1 and 2, resumes window 3 in place at ``run_solver``,
+and plays the windows after it.
+
 Step contract recap
 -------------------
 

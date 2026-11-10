@@ -28,6 +28,7 @@ from typing import Any, Literal
 import pandas as pd
 
 from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import (
     normalize_time_unit,
@@ -740,3 +741,149 @@ def validate_recharge_coverage(
             "Recharge coverage check failed: recharge contains NaN values within "
             f"simulation window [{start}, {end}].",
         )
+
+
+# Windows of a chain ---------------------------------------------------------
+#
+# ``[simulation.time] window_length`` cuts a long transient run into windows,
+# each one a sealed run that starts from the final state of the one before.
+# A window edge is a period edge, so it is written here and nowhere else.
+
+
+@dataclass(frozen=True, slots=True)
+class ChainWindow:
+    """One window of a chain over the grid of the whole simulation.
+
+    ``index`` counts from 1 to ``count``. ``first_period`` is the index of its
+    first period in the grid of the whole simulation and ``stop_period`` the
+    index after its last one. ``start`` is its first instant and ``end`` its
+    exclusive end, a period end of the whole grid.
+    """
+
+    index: int
+    count: int
+    first_period: int
+    stop_period: int
+    start: pd.Timestamp
+    end: pd.Timestamp
+
+    @property
+    def nper(self) -> int:
+        """Number of stress periods of the window."""
+        return self.stop_period - self.first_period
+
+
+def parse_window_length(raw_length: Any) -> tuple[int, TimePeriodUnit]:
+    """Return the ``(count, unit)`` of a ``window_length`` written ``"<n> <unit>"``.
+
+    The unit is one of hour, day, month and year, written in the string: a
+    bare number is refused, because a window of 6 is not a length.
+    """
+    location = "simulation.time.window_length"
+    if not isinstance(raw_length, str) or not _has_inline_unit(raw_length):
+        raise ValueError(
+            f'{location} is a calendar length written "<n> <unit>", such as "6 months" '
+            f'or "1 year"; got {raw_length!r}.'
+        )
+    scalar, unit = parse_scalar_and_unit(raw_length, location=location, default_unit="day")
+    try:
+        count = _normalize_step_value(scalar)
+        step_unit = _normalize_step_unit(unit)
+    except ValueError:
+        raise ValueError(
+            f"{location} is a positive whole number of hours, days, months or years; "
+            f"got {raw_length!r}."
+        ) from None
+    return count, step_unit
+
+
+def chain_windows(grid: ResolvedSimulationTimeGrid, length: str) -> tuple[ChainWindow, ...]:
+    """Cut the grid of the whole simulation into windows of ``length``.
+
+    The edges are ``start + j * length`` in calendar time from the start of the
+    simulation. The last window ends with the simulation and may be shorter. A
+    length longer than the simulation gives one window. An inner edge that does
+    not fall on a period end is refused with the two period ends around it,
+    because a window cut inside a period would split its forcing.
+    """
+    if not isinstance(grid, ResolvedSimulationTimeGrid):
+        raise ConfigError(
+            "simulation.time.window_length cuts the stress periods of a transient run; "
+            "this run has no [simulation.time] periods to cut."
+        )
+    count, unit = parse_window_length(length)
+    boundaries = tuple(pd.Timestamp(edge) for edge in grid.boundaries)
+    position = {edge: index for index, edge in enumerate(boundaries)}
+    start, end = boundaries[0], boundaries[-1]
+
+    edges = [0]
+    step = 1
+    while True:
+        edge = start + _time_step_offset(step_value=count * step, step_unit=unit)
+        if edge >= end:
+            break
+        if edge not in position:
+            after = next(index for index, value in enumerate(boundaries) if value > edge)
+            raise ConfigError(
+                f"simulation.time.window_length = {length!r} puts a window edge at "
+                f"{edge.isoformat()}, inside the stress period from "
+                f"{boundaries[after - 1].isoformat()} to {boundaries[after].isoformat()}. "
+                "A window ends on a period end: pick a length that is a whole number of "
+                "periods, or change [simulation.time]."
+            )
+        edges.append(position[edge])
+        step += 1
+    edges.append(len(boundaries) - 1)
+
+    total = len(edges) - 1
+    return tuple(
+        ChainWindow(
+            index=number + 1,
+            count=total,
+            first_period=edges[number],
+            stop_period=edges[number + 1],
+            start=boundaries[edges[number]],
+            end=boundaries[edges[number + 1]],
+        )
+        for number in range(total)
+    )
+
+
+def _exclusive_end_to_inclusive_end(end_exclusive: pd.Timestamp, *, step_unit: str) -> pd.Timestamp:
+    """The inclusive end a user would write for ``end_exclusive``, the inverse of the rule above."""
+    if step_unit == "hour":
+        return end_exclusive - pd.to_timedelta(1, unit="h")
+    return end_exclusive - pd.to_timedelta(1, unit="d")
+
+
+def window_grid(
+    grid: ResolvedSimulationTimeGrid, window: ChainWindow
+) -> ResolvedSimulationTimeGrid:
+    """The grid of the periods of ``window``: the same lengths and the same sub-steps.
+
+    The resolved window of the grid starts and ends with ``window``, so a
+    reader of its dates sees the window. The last window keeps the end the
+    user wrote. When cutting the window by its step would not give back the
+    same periods, as for a grid whose periods are written out, the periods are
+    written out in ``period_bounds`` too.
+    """
+    whole = grid.window
+    boundaries = tuple(grid.boundaries[window.first_period : window.stop_period + 1])
+    if window.stop_period == grid.nper:
+        end = whole.end
+    else:
+        end = _exclusive_end_to_inclusive_end(window.end, step_unit=whole.step_unit)
+    resolved = dataclasses.replace(whole, start=window.start, end=end, period_bounds=None)
+    if whole.period_bounds is not None or tuple(_build_time_boundaries(resolved)) != boundaries:
+        resolved = dataclasses.replace(
+            resolved,
+            period_bounds=tuple(zip(boundaries[:-1], boundaries[1:], strict=True)),
+        )
+    return ResolvedSimulationTimeGrid(
+        window=resolved,
+        boundaries=boundaries,
+        period_lengths_seconds=tuple(
+            grid.period_lengths_seconds[window.first_period : window.stop_period]
+        ),
+        nstp_per_period=grid.nstp_per_period,
+    )

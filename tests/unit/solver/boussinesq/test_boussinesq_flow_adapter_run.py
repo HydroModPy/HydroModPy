@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import xarray as xr
+import zarr
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import SolverDivergedError
@@ -214,7 +215,74 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert result.written is True
     assert result.output_dir == call.slot.directory
     assert (result.output_dir / "_boussinesq_state_history.npz").exists()
-    assert result.metrics["flow_solve_time_seconds"] >= 0.0
+    # The time of the solve is a duration of the run, not a result: it has its own member.
+    assert result.solve_s is not None and result.solve_s >= 0.0
+    assert "flow_solve_time_seconds" not in result.metrics
+
+
+class _Store:
+    """A run store that keeps the writes of the extractor and says where the run folder is."""
+
+    sim_id = "sim"
+
+    def __init__(self, run_dir: Path) -> None:
+        self._run_dir = run_dir
+        self.fields: dict[str, np.ndarray] = {}
+        self.zarr = SimpleNamespace(
+            root=zarr.group(),
+            close=lambda: None,
+            write_budget_policy=lambda *args, **kwargs: None,
+            write_topography=lambda *args, **kwargs: None,
+        )
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        return self._run_dir
+
+    def write_time(self, sim_id: str, values, **kwargs) -> None:
+        self.time = np.asarray(values)
+
+    def write_field_stack(self, sim_id: str, name: str, values, **kwargs) -> None:
+        self.fields[name] = np.asarray(values)
+
+    def write_budgets(self, sim_id: str, records) -> None:
+        self.budgets = list(records)
+
+    def open_zarr(self, sim_id: str):
+        return self.zarr
+
+
+def test_the_extraction_leaves_the_float64_head_of_the_last_period_as_final_state(
+    tmp_path: Path,
+) -> None:
+    from hydromodpy.results.storage.final_state import read_final_state
+    from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
+    from tests.unit.solver.modflow_common.solver_runs import keep_all
+
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_final_state")
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(
+            FlowConfig.model_validate(
+                {"ic": {"kind": "custom", "value": 8.0}, "first_period_steady": False}
+            )
+        ),
+        exchange_mesh=bundle_dir,
+        time_grid=SimpleNamespace(period_lengths_seconds=(3600.0, 3600.0, 3600.0)),
+    )
+    result = call.solve()
+    run_dir = tmp_path / "run"
+    store = _Store(run_dir)
+
+    BoussinesqOutputAdapter().extract(result, store, keep_all)
+
+    state = read_final_state(run_dir)
+    assert state is not None
+    history = result.solver_model.state.head_history_m
+    assert state.head.dtype == np.float64
+    assert state.head.shape == (1, history.shape[1])
+    assert np.array_equal(state.head[0], history[-1])
+    assert np.array_equal(state.head[0], store.fields["head"][-1, 0])
+    assert (state.lake_stages, state.sfr_stages) == ({}, {})
 
 
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(

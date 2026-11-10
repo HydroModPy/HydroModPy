@@ -31,14 +31,22 @@ def test_a_slot_names_the_folder_its_run_writes_into() -> None:
     assert slot.directory == Path("scratch") / "island"
     assert (slot.stop_before_solve, slot.bin_dir, slot.shared_forcing_dir) == (False, None, None)
     assert slot.hand_off == frozenset()
+    assert slot.stop_flag is None
 
 
 def test_a_slot_holds_paths_whatever_it_was_given() -> None:
-    slot = RunSlot("scratch", "island", bin_dir="bin", shared_forcing_dir="shared")
+    slot = RunSlot(
+        "scratch",
+        "island",
+        bin_dir="bin",
+        shared_forcing_dir="shared",
+        stop_flag="runs/island/.hmp/stop.json",
+    )
 
     assert slot.folder == Path("scratch")
     assert slot.bin_dir == Path("bin")
     assert slot.shared_forcing_dir == Path("shared")
+    assert slot.stop_flag == Path("runs/island/.hmp/stop.json")
 
 
 def test_a_slot_holds_the_names_a_later_run_reads_of_it() -> None:
@@ -80,6 +88,25 @@ def test_a_built_run_is_neither_written_nor_solved() -> None:
     )
     assert built.model is None and built.options is None
     assert built.metrics == {} and built.initial_state_converged is None
+    assert built.solve_s is None
+
+
+@pytest.mark.parametrize(
+    ("given", "held"),
+    [(None, None), (0, 0.0), (1.5, 1.5), ("2.25", 2.25)],
+    ids=["none", "zero", "float", "text"],
+)
+def test_a_solver_run_holds_the_solve_time_in_seconds(given: object, held: float | None) -> None:
+    run = SolverRun(slot=RunSlot(Path("scratch"), "island"), solve_s=given)
+
+    assert run.solve_s == held
+    assert run.metrics == {}
+
+
+@pytest.mark.parametrize("given", [-0.1, float("nan")], ids=["negative", "nan"])
+def test_a_solver_run_refuses_a_solve_time_that_is_not_a_duration(given: float) -> None:
+    with pytest.raises(SolverInputError, match="solve_s is a duration"):
+        SolverRun(slot=RunSlot(Path("scratch"), "island"), solve_s=given)
 
 
 def test_a_solver_run_holds_its_output_folder_and_files_as_given_types() -> None:
@@ -101,12 +128,14 @@ def test_a_solver_run_needs_a_slot() -> None:
 def test_a_solver_run_without_a_solver_model_crosses_a_process_boundary() -> None:
     """A worker of a parallel calibration sends the runs it keeps over a pipe."""
     solved = SolverRun(
-        slot=RunSlot(Path("scratch"), "island", bin_dir=Path("bin")),
+        slot=RunSlot(
+            Path("scratch"), "island", bin_dir=Path("bin"), stop_flag=Path("island/.hmp/stop.json")
+        ),
         output_dir=Path("scratch/island"),
         input_files=("island.npf",),
         written=True,
         solved=True,
-        metrics={"flow_solve_time_seconds": 1.5},
+        solve_s=1.5,
         initial_state_converged=True,
     )
 

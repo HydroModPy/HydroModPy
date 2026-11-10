@@ -7,6 +7,7 @@ import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import get_args
@@ -47,6 +48,8 @@ from hydromodpy.display.catchment_report.settings import (
     ReportConfig,
     ReportSection,
 )
+from hydromodpy.results.catalog.listing import SEALED_SOLVE_METRIC
+from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 
 # The catchment report context reads the run, whatever solver made it.
 #
@@ -68,6 +71,7 @@ def _inputs(tmp_path: Path) -> SimpleNamespace:
         simulation_figures=tmp_path / "figures",
         simulation_name="baseline",
         site_label="Nancon",
+        run_dir=tmp_path / "runs" / "baseline",
     )
 
 
@@ -93,6 +97,57 @@ def test_the_cell_count_is_the_one_of_the_simulated_run(monkeypatch, tmp_path, n
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["baseline_run"]["n_cells"] == n_cells
+
+
+@pytest.mark.parametrize(
+    ("profile_s", "metrics_s", "expected"),
+    [
+        pytest.param(12.5, 26.3, 12.5, id="the_profile_comes_first"),
+        pytest.param(None, 26.3, 26.3, id="a_run_of_the_2_0_release_reads_metrics_parquet"),
+        pytest.param(None, None, None, id="no_solve_time_anywhere"),
+    ],
+)
+def test_the_solve_time_is_read_from_the_profile_before_metrics_parquet(
+    monkeypatch, tmp_path, profile_s, metrics_s, expected
+) -> None:
+    import hydromodpy.display.catchment_report.context as context_module
+
+    inputs = _inputs(tmp_path)
+    tables = tmp_path / "tables"
+    tables.mkdir()
+    if metrics_s is not None:
+        pd.DataFrame({"metric_name": [SEALED_SOLVE_METRIC], "value": [metrics_s]}).to_parquet(
+            tables / "metrics.parquet"
+        )
+    if profile_s is not None:
+        line = ProfileLine(
+            kind="solve",
+            name="flow_main::modflow6",
+            attempt=1,
+            started_at=datetime(2026, 11, 10, 9, 0, tzinfo=UTC),
+            duration_s=profile_s,
+        )
+        inputs.run_dir.mkdir(parents=True)
+        write_profile(inputs.run_dir, Profile(lines=(line,)))
+
+    @contextmanager
+    def open_run(_inputs):
+        yield SimpleNamespace(facts=SimpleNamespace(n_cells=4))
+
+    discharge = pd.DataFrame(
+        {"datetime": pd.date_range("2020-01-01", periods=3, freq="D"), "value": [1.0, 2.0, 3.0]}
+    )
+    monkeypatch.setattr(context_module, "open_simulation_run", open_run)
+    monkeypatch.setattr(
+        context_module, "read_simulated_discharge", lambda store, station=None: discharge
+    )
+    monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda store: tables)
+
+    summary = json.loads(
+        context_module.build_context(inputs, root=ROOT_CONFIG).read_text(encoding="utf-8")
+    )
+
+    assert summary["baseline_run"]["runtime_seconds"] == expected
 
 
 def test_the_context_reads_the_station_the_observed_discharge_names(monkeypatch, tmp_path) -> None:

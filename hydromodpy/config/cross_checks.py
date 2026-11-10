@@ -34,6 +34,7 @@ from hydromodpy.core.time import (
 )
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
+    chain_windows,
     resolve_simulation_time_window,
 )
 from hydromodpy.model.boundaries.boundary_condition_registry import FLOW_BOUNDARY_DEFINITIONS
@@ -387,16 +388,6 @@ CONTAMINATIONS: dict[str, Contamination] = {
             "to keep the computed start."
         ),
     ),
-    "lake_under_a_cyclic_start": Contamination(
-        first=frozenset({FLOW_BOUNDARY_DEFINITIONS["lake"].id}),
-        second=frozenset({INITIAL_STATE_TRAITS[CyclicStart]}),
-        message=(
-            "{first} declares a lake and {second} repeats the run until the heads settle. "
-            "The cycle carries the heads and not the lake stage, which starts again from "
-            "initial_stage at each cycle. Run hmp spinup, which carries both from one cycle "
-            "to the next, then start from its result with flow.restart_from."
-        ),
-    ),
 }
 """The pairs of uses refused whatever the solver, one row per pair, with its reason."""
 
@@ -419,6 +410,104 @@ def refuse_the_contaminations(cfg: Any, *, sealed: bool) -> None:
             _refuse(
                 contamination.message.format(first=first, second=second), ValueError, sealed=sealed
             )
+
+
+def _steady_rates_of_the_window(cfg: Any) -> list[str]:
+    """The ``first_clim = "mean"`` keys a steady first period would average over a window."""
+    if not getattr(cfg.flow, "first_period_steady", False):
+        return []
+    sinks = getattr(cfg.flow, "sinks_sources", None)
+    averaged = []
+    for name in ("recharge", "etp"):
+        section = getattr(sinks, name, None)
+        if section is not None and str(getattr(section, "first_clim", "mean")) == "mean":
+            averaged.append(f"flow.sinks_sources.{name}.first_clim = 'mean'")
+    return averaged
+
+
+def refuse_a_window_chain_the_run_cannot_carry(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``[simulation.time] window_length`` where a chain of windows would be wrong.
+
+    A steady run has no period to cut. A chain of more than one window starts
+    window 2 from the final state of window 1, which only a flow solver with the
+    ``prior_state`` trait reads. No transport solver reads its concentrations
+    back, so a transport would start window 2 from its first concentration. A
+    calibration trial plays the whole simulation, so a window belongs to a run.
+    A steady first period whose recharge or ETP is the mean of the periods would
+    average the periods of window 1 only. Window 1 played alone reads no earlier
+    state and passes the solver check.
+    """
+    time_config = getattr(cfg.simulation, "time", None)
+    length = getattr(time_config, "window_length", None)
+    if length is None:
+        return
+    regime = str(getattr(cfg.flow, "flow_regime", ""))
+    if regime != "transient":
+        _refuse(
+            f"simulation.time.window_length = {length!r} cuts the stress periods of a "
+            f"transient run, and flow.flow_regime is {regime!r}: a steady run has no period "
+            "to cut. Remove window_length, or run the flow as transient.",
+            ValueError,
+            sealed=sealed,
+        )
+        return
+    mode = getattr(getattr(cfg, "workflow", None), "mode", None)
+    if mode == "calibration":
+        _refuse(
+            f"simulation.time.window_length = {length!r} cuts a run into windows, and "
+            "workflow.mode = 'calibration' plays the whole simulation at every trial. "
+            "Calibrate without window_length, then play the long run in windows.",
+            ValueError,
+            sealed=sealed,
+        )
+        return
+    transports = [
+        str(getattr(process, "id", "transport"))
+        for process in cfg.simulation.process or ()
+        if getattr(process, "kind", None) == "transport"
+    ]
+    if transports:
+        _refuse(
+            f"simulation.time.window_length = {length!r} cuts the run into windows, and "
+            f"the transport {', '.join(transports)} would start every window from its first "
+            "concentration: no transport solver reads its concentrations back. Remove the "
+            "transport from [[simulation.process]], or run without window_length.",
+            ValueError,
+            sealed=sealed,
+        )
+        return
+    grid = resolve_simulation_time_grid(cfg)
+    try:
+        count = len(chain_windows(grid, length))
+    except ConfigError as exc:
+        _refuse(str(exc), ValueError, sealed=sealed)
+        return
+    averaged = _steady_rates_of_the_window(cfg) if count > 1 else []
+    if averaged:
+        _refuse(
+            f"simulation.time.window_length = {length!r} cuts the run into {count} windows, "
+            "and flow.first_period_steady = true gives the first period of window 1 the mean "
+            f"of {' and '.join(averaged)} over the periods of that window, not over the whole "
+            "simulation, so the chain would not be the run in one piece. Set first_clim = "
+            "'first' or a number, or set flow.first_period_steady = false and start from "
+            "[flow.ic] kind = 'steady_state', which a chain computes over the whole simulation.",
+            ValueError,
+            sealed=sealed,
+        )
+        return
+    chosen = getattr(time_config, "window", "all")
+    chained = count > 1 if chosen == "all" else int(chosen) > 1
+    trait = INITIAL_STATE_TRAITS[PriorState]
+    if chained and not flow_honors(cfg, trait):
+        _refuse(
+            f"simulation.time.window_length = {length!r} starts each window after the first "
+            "from the final state of the window before, and the flow solver "
+            f"{cfg.solver.backend_name!r} does not read an earlier state ({trait}). Run the "
+            f"chain with a flow solver that does ({', '.join(_honoring(trait))}), or play "
+            "window 1 alone, or run without window_length.",
+            IncompatibleCapabilitiesError,
+            sealed=sealed,
+        )
 
 
 def coarse_conductivity_profile(cfg: Any, *, sealed: bool = False) -> list[str]:
@@ -1405,6 +1494,11 @@ CROSS_RULES: dict[str, CrossRule] = {
         ),
         CrossRule(refuse_a_transport_its_flow_does_not_feed, _reads("solver", "simulation")),
         CrossRule(refuse_the_contaminations, _SOLVER_AND_TRAITS, "contamination"),
+        CrossRule(
+            refuse_a_window_chain_the_run_cannot_carry,
+            _reads("simulation", "flow", "solver", "workflow"),
+            "incompatible",
+        ),
         CrossRule(coarse_conductivity_profile, _reads("solver", "domain", "flow")),
         CrossRule(refuse_the_soil_forcing_a_file_doubles_or_leaves_out, _reads("flow", "data")),
         CrossRule(refuse_a_soil_recharge_that_cannot_reach_the_streams, _reads("flow")),
@@ -1509,6 +1603,7 @@ __all__ = [
     "refuse_a_station_other_than_the_gauge",
     "refuse_a_time_the_run_does_not_hold",
     "refuse_a_transport_its_flow_does_not_feed",
+    "refuse_a_window_chain_the_run_cannot_carry",
     "refuse_conditioning_choices_on_a_conditioned_dem",
     "refuse_an_angle_with_a_depth_profile",
     "refuse_an_export_that_cannot_be_written",

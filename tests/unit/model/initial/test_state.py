@@ -153,3 +153,49 @@ def test_a_prior_state_keeps_nan_and_freezes_its_lake_stages() -> None:
 def test_a_prior_state_refuses_a_head_that_is_not_layers_by_cells() -> None:
     with pytest.raises(ValueError, match=r"\(nlay, ncpl\)"):
         PriorState(np.zeros(3), {}, "store.zarr")
+
+
+STAGED_STATES = (
+    (
+        lambda: PriorState(np.zeros((1, 2)), {"lake": 4.0}, "f", None, {"3": 2.5}),
+        "sfr_stages",
+        {3: 2.5},
+    ),
+    (lambda: PriorState(np.zeros((1, 2)), {}, "f"), "sfr_stages", {}),
+    (
+        lambda: SolvedState(np.zeros((1, 2)), "modflow6", {"lake": 4.0}),
+        "lake_stages",
+        {"lake": 4.0},
+    ),
+    (lambda: SolvedState(np.zeros((1, 2)), "modflow6"), "lake_stages", {}),
+)
+
+
+@pytest.mark.parametrize(
+    ("build", "member", "expected"),
+    STAGED_STATES,
+    ids=["prior reaches", "prior no reach", "solved lakes", "solved no lake"],
+)
+def test_a_state_holds_its_stages_read_only_and_pickles_them(build, member, expected) -> None:
+    import pickle
+
+    state = build()
+    stages = getattr(state, member)
+
+    assert stages == expected
+    assert all(isinstance(value, float) for value in stages.values())
+    with pytest.raises(TypeError):
+        stages[0] = 1.0  # type: ignore[index]
+    again = pickle.loads(pickle.dumps(state))
+    assert getattr(again, member) == expected
+    np.testing.assert_array_equal(again.head, state.head)
+
+
+@pytest.mark.parametrize("start", [SteadyStart, CyclicStart], ids=["steady", "cyclic"])
+def test_a_computed_start_carries_the_whole_simulation_only_in_a_chain(start) -> None:
+    whole = object()
+
+    assert start().over is None
+    chained = start(over=whole)
+    assert chained.over is whole
+    assert "over" not in repr(chained)

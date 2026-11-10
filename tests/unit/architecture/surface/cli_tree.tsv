@@ -663,6 +663,14 @@ hmp spinup --verbose,-v	nargs=0
 hmp spinup --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp spinup --workspace,-w	
 hmp spinup <config>	required
+hmp stop	command
+hmp stop --debug	nargs=0
+hmp stop --format	choices=['csv', 'json', 'table'] default='table'
+hmp stop --quiet,-q	nargs=0
+hmp stop --verbose,-v	nargs=0
+hmp stop --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp stop --workspace,-w	
+hmp stop <ref>	required
 hmp viz	command
 hmp viz list	command
 hmp viz list --debug	nargs=0

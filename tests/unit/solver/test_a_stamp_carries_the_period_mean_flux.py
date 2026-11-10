@@ -106,11 +106,16 @@ class _RecordingStore:
 
     sim_id = "sim"
 
-    def __init__(self) -> None:
+    def __init__(self, run_dir: Path) -> None:
+        self.run_dir = run_dir
         self.time: np.ndarray | None = None
         self.fields: dict[str, np.ndarray] = {}
         self.budgets: list[dict] = []
         self.mass_balances: list[dict] = []
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        """The run folder the extractor writes ``final_state/`` in."""
+        return self.run_dir
 
     def write_time(self, sim_id: str, values: Any, **_: Any) -> None:
         self.time = np.asarray(values, dtype=float)
@@ -321,7 +326,7 @@ def test_mf6_stores_the_last_head_and_the_mean_flux_of_each_period(tmp_path: Pat
 
     stored = _run_mf6(tmp_path / "stored", oc=output_control_records(print_head=False))
     raw = _run_mf6(tmp_path / "raw", oc={"saverecord": [("HEAD", "ALL"), ("BUDGET", "ALL")]})
-    store = _RecordingStore()
+    store = _RecordingStore(tmp_path)
     Modflow6OutputAdapter().extract(solved_run(stored), store, keep_all)
 
     # One slice per stress period, stamped at its end.
@@ -383,7 +388,7 @@ def test_mf6_one_step_per_period_stores_what_it_always_stored(tmp_path: Path) ->
     after = _run_mf6(tmp_path / "after", oc=output_control_records(print_head=False), nstp=one_step)
     stores = []
     for workspace in (before, after):
-        store = _RecordingStore()
+        store = _RecordingStore(tmp_path)
         Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
         stores.append(store)
 
@@ -407,7 +412,7 @@ def test_nwt_stores_one_slice_per_period_with_the_mean_flux(tmp_path: Path) -> N
     from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 
     workspace = _run_nwt(tmp_path / "nwt")
-    store = _RecordingStore()
+    store = _RecordingStore(tmp_path)
     ModflowNwtOutputAdapter().extract(solved_run(workspace, options=NWT_OPTIONS), store, keep_all)
 
     # The OC saves every step (the particle tracking reads them); the store
@@ -478,7 +483,7 @@ def test_the_calibration_readers_and_both_backends_give_the_period_means(
     discharge = {}
     heads = {}
     for name, workspace in (("mf6", mf6), ("nwt", nwt)):
-        store = _RecordingStore()
+        store = _RecordingStore(tmp_path)
         if name == "mf6":
             Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
         else:
@@ -642,8 +647,8 @@ def _run_mf6_lake(workspace: Path) -> Path:
 class _LakeStore(_RecordingStore):
     save_zarr = False
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, run_dir: Path) -> None:
+        super().__init__(run_dir)
         self.timeseries: list[dict] = []
 
     def write_timeseries_batch(self, sim_id: str, records: list[dict]) -> None:
@@ -664,7 +669,7 @@ def test_mf6_lake_series_take_the_period_mean_rate_and_the_end_stage(tmp_path: P
     from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
     workspace = _run_mf6_lake(tmp_path)
-    store = _LakeStore()
+    store = _LakeStore(tmp_path)
     Modflow6OutputAdapter().extract(solved_run(workspace), store, keep_all)
     series = pd.DataFrame(store.timeseries)
 

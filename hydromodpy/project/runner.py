@@ -11,9 +11,9 @@ launcher indexes after it.
 An attempt takes its directory first, and only then learns what it asks for. Once
 ``runs/<name>/`` is claimed it writes ``request.json`` and ``config.toml``,
 resolves its inputs, writes its request id into ``outcome.json``, starts over when
-the previous attempt asked for something else, and, for a run that may be skipped,
-looks for a completed run of the same solution key. A run that one answers undoes
-its claim without a trace and gives that run back.
+the previous attempt asked for something else (an asked resume is refused instead),
+and, for a run that may be skipped, looks for a completed run of the same solution key.
+A run that one answers undoes its claim without a trace and gives that run back.
 
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
 :mod:`hydromodpy.workflow.record.attempt`; the seal is the last step of the pipeline.
@@ -35,16 +35,23 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.project.request import RunOutcome, RunRequest, write_request_file
 from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.results.catalog.registration import check_name_free
-from hydromodpy.results.storage.attempt import record_request_id, scratch_dir_for_attempt
+from hydromodpy.results.storage.attempt import (
+    record_request_id,
+    refuse_resume_if_changed,
+    scratch_dir_for_attempt,
+)
 from hydromodpy.workflow.record.attempt import AttemptHandle, run_attempt
+from hydromodpy.workflow.record.manifest import config_sections_moved_since
 from hydromodpy.workflow.record.resume import resolve_resume_step_index
 from hydromodpy.workflow.solution_key import request_id_of, solution_key_of
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
 from hydromodpy.workflow.steps.prepare_solver.freeze import write_claim_config
 from hydromodpy.workflow.steps.prepare_solver.restart import (
+    WindowSource,
     resolve_restart_source,
     source_state_digests,
+    window_input_entry,
     zone_run_ids,
 )
 from hydromodpy.workflow.window import model_phase_index, step_window
@@ -125,30 +132,14 @@ def _refuse_resume_of_nothing(handle: AttemptHandle, resume: str, name: str) -> 
         raise ResumeError(
             f"resume {resume!r}: {handle.run_dir} holds no interrupted attempt to continue."
         )
-    # The claim started this attempt over: the previous one ran another
-    # configuration, or --fresh was asked. There is nothing to resume.
+    # The claim started this attempt over because --fresh was asked. A resume whose
+    # request changed is refused before this point. There is nothing to resume.
     logger.info(
         "resume %r: attempt %d of %s starts over from step 0",
         resume,
         claim.attempt,
         handle.run_dir.name if handle.run_dir is not None else name,
     )
-
-
-@contextmanager
-def _frozen_inputs(frozen: bool, workspace_path: Path) -> Iterator[None]:
-    """Require frozen input-data references for the block, then restore the previous mode."""
-    if not frozen:
-        yield
-        return
-    from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
-
-    previous_root = frozen_project_root()
-    set_frozen_mode(True, project_root=workspace_path)
-    try:
-        yield
-    finally:
-        set_frozen_mode(previous_root is not None, project_root=previous_root)
 
 
 class ProjectRunner:
@@ -283,6 +274,7 @@ class ProjectRunner:
         calibrated_by: Any = None,
         frozen: bool | None = None,
         skip_identical: bool = False,
+        window_source: WindowSource | None = None,
         **options: Any,
     ) -> RunOutcome | None:
         """Run one attempt of the case through the workflow Pipeline.
@@ -300,8 +292,15 @@ class ProjectRunner:
         ``frozen`` wins over the member of the request when given: a replay that
         checked its record runs unfrozen. ``skip_identical`` lets the attempt give back a
         completed run of the same solution key instead of computing: the caller says so for
-        a plain run, never for a resume, a window or a replay.
+        a plain run, never for a resume, a window or a replay. ``window_source`` is the run
+        window ``k - 1`` of a chain left, which window ``k > 1`` starts from: its state
+        digest enters the request id and the run takes it as the input ``initial_state``.
+
+        A frozen request reads the lockfile once, before the claim, and the inputs it
+        holds travel on the setup context to the data step: the run never changes a
+        global, so two runs of one process stay apart.
         """
+        from hydromodpy.data.provenance.lockfile import read_locked_inputs
         from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
@@ -346,6 +345,9 @@ class ProjectRunner:
         elif lineage is not None and overrides:
             lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **overrides}})
 
+        project._ctx.setup.locked_inputs = (
+            read_locked_inputs(workspace_path) if frozen_inputs else None
+        )
         bracket = (
             _attempt_bracket(
                 workspace_path, name, cfg_run, fresh=request.fresh, force=request.force
@@ -366,6 +368,7 @@ class ProjectRunner:
                         workspace_path,
                         name=name,
                         skip_identical=skip_identical,
+                        window_source=window_source,
                     )
                 if identical is not None:
                     handle.withdraw()
@@ -382,7 +385,7 @@ class ProjectRunner:
                         model_phase_ready=model_phase_ready,
                         model_phase_index=model_phase_index(all_steps),
                         skip_display=skip_display,
-                        frozen=frozen_inputs,
+                        window_source=window_source,
                         run_overrides=changes or None,
                         solution_key=solution_key,
                         lineage=lineage,
@@ -392,6 +395,7 @@ class ProjectRunner:
             # The inputs belong to the run that resolved them: a later phase of this
             # project resolves its own.
             project._ctx.inputs = None
+            project._ctx.setup.locked_inputs = None
         if identical is not None:
             project._ctx.run_dir = None
             return RunOutcome.read(
@@ -411,13 +415,14 @@ class ProjectRunner:
         *,
         name: str,
         skip_identical: bool,
+        window_source: WindowSource | None = None,
     ) -> tuple[str, Path | None]:
         """Say what the claimed attempt asks for, and whether a completed run already answers.
 
         In the order of the module: ``request.json`` and ``config.toml`` are written, the
         inputs are resolved and put on the context, the request id goes into
         ``outcome.json``, an attempt ``k + 1`` that is no asked resume starts over when the
-        previous attempt asked for something else, then the solution key is told and, for a run that may be
+        previous attempt asked for something else and an asked resume is refused, then the solution key is told and, for a run that may be
         skipped, a completed run of that key is looked for. ``if_exists = "fail"`` is
         checked last, so a run identical to a completed one is given back and not refused.
         Returns the solution key and the directory of the identical run, or ``None``.
@@ -431,22 +436,38 @@ class ProjectRunner:
         self._write_claim_documents(handle, request, cfg_run, project_root)
         # A download that fails closes the outcome as failed: the claim came first.
         resolved = resolve_inputs(
-            cfg_run, bounds=ctx.bounds, data_dir=Path(cfg_run.workspace.data_path)
+            cfg_run,
+            bounds=ctx.bounds,
+            data_dir=Path(cfg_run.workspace.data_path),
+            locked=ctx.setup.locked_inputs,
         )
         ctx.inputs = resolved
         request_id = request_id_of(
             cfg_run,
             resolved,
             search=False,
-            window_state=None,
+            window_state=None
+            if window_source is None
+            else window_input_entry(project_root, window_source).sha256,
             source_states=source_state_digests(cfg_run, project_root),
         )
         record_request_id(handle.run_dir, request_id)
         # Starting over keeps config.toml and request.json: they are already this attempt's.
-        # A resume the caller asked for never starts over: the checkpoint refuses a
-        # configuration that moved and names the sections that did.
+        # A resume the caller asked for never starts over: it is refused when an input, a key
+        # or the state of a window changed since the stop, and names the sections of the
+        # configuration that moved. The checkpoint check stays a second net.
         if request.resume is None:
             handle.start_over_if_changed(request_id)
+        else:
+            try:
+                refuse_resume_if_changed(
+                    handle.claim,
+                    request_id,
+                    moved_sections=config_sections_moved_since(handle.run_dir, cfg_run),
+                )
+            except ResumeError:
+                handle.withdraw()
+                raise
         key = solution_key_of(cfg_run, request_id, binaries=solver_binaries(cfg_run))
         if skip_identical and not request.force:
             identical = completed_identical_run(project_root, name, key)
@@ -524,7 +545,7 @@ class ProjectRunner:
         model_phase_ready: bool,
         model_phase_index: int,
         skip_display: bool,
-        frozen: bool,
+        window_source: WindowSource | None,
         run_overrides: dict[str, Any] | None,
         solution_key: str | None,
         lineage: Any,
@@ -568,18 +589,18 @@ class ProjectRunner:
             run_dir,
             lineage,
             calibrated_by,
+            window_source,
         )
 
         # A head-only window owns no run record: handing it a directory would
         # let it overwrite the checkpoints of the run that carries this name.
         pipeline = Pipeline(steps, workspace=workspace_path, run_dir=run_dir)
-        with _frozen_inputs(frozen, workspace_path):
-            final = pipeline.run(
-                initial,
-                resume_from=resume_from,
-                model_phase_ready=in_process_skip,
-                heartbeat=None if handle is None else handle.heartbeat,
-            )
+        final = pipeline.run(
+            initial,
+            resume_from=resume_from,
+            model_phase_ready=in_process_skip,
+            heartbeat=None if handle is None else handle.heartbeat,
+        )
 
         if not in_process_skip:
             # The Pipeline built the model phase on the Project's own ctx - a
@@ -606,6 +627,7 @@ class ProjectRunner:
         run_dir: Path | None,
         lineage: Any,
         calibrated_by: Any,
+        window_source: WindowSource | None,
     ) -> PipelineState:
         """Return the state the Pipeline starts from: the context of the project and this run."""
         project = self._project
@@ -636,6 +658,8 @@ class ProjectRunner:
                 "run_dir": run_dir,
                 "lineage": lineage,
                 "calibrated_by": calibrated_by,
+                # The run window k - 1 of a chain left, for window k > 1.
+                "window_source": window_source,
             },
         )
 

@@ -16,6 +16,7 @@ from hydromodpy.core.scoring.metric_table import METRIC_SENSE
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations
 from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.metric_rows import headline_row
@@ -105,6 +106,88 @@ def test_show_prints_the_readme_and_the_annotations(monkeypatch, capsys, tmp_pat
     assert "2026-10-16 08:00 K hits its upper bound" in out
     assert "hmp catalog show runs/alpha --detail" in out
     assert not catalog_path_for(project).exists(), "show never builds the index"
+
+
+def _profile_of(*lines: tuple) -> Profile:
+    at = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
+    return Profile(
+        lines=tuple(
+            ProfileLine(
+                kind=kind,
+                name=name,
+                attempt=1,
+                started_at=at,
+                duration_s=seconds,
+                max_rss_mb=512.0,
+                reused=reused,
+                key=key,
+            )
+            for kind, name, seconds, reused, key in lines
+        ),
+        process_age_s={1: 6.5},
+    )
+
+
+PROFILE_LINES = (
+    ("step", "build_mesh", 1.5, "no", None),
+    ("step", "run_solver", 9.0, "no", None),
+    ("solve", "flow_main::modflow6", 8.5, "no", None),
+    ("step", "build_geographic", 2.0, "store", "terrain/ab12"),
+)
+
+
+@pytest.mark.parametrize("view", ["readme", "detail"])
+def test_show_ends_with_the_profile_block(monkeypatch, capsys, tmp_path, view) -> None:
+    project = make_project(tmp_path / "demo")
+    run_dir = project / "runs" / "alpha"
+    seal_run(project, "alpha")
+    (run_dir / "README.md").write_text(README, encoding="utf-8")
+    write_profile(run_dir, _profile_of(*PROFILE_LINES))
+    argv = ["hmp", "catalog", "show", "alpha", "-w", str(project)]
+    if view == "detail":
+        rebuild_index(project)
+        argv.append("--detail")
+
+    code = _run(monkeypatch, argv)
+
+    assert code == 0
+    out = capsys.readouterr().out
+    block = out[out.index("\nProfile\n") :]
+    assert "  total      : 12.5 s over 1 attempt(s)" in block
+    assert "  start-up   : 6.5 s" in block
+    assert "  solve      : flow_main::modflow6 8.5 s" in block
+    assert "  longest    : run_solver 9.0 s, build_geographic 2.0 s, build_mesh 1.5 s" in block
+    assert "  reused     : build_geographic (store terrain/ab12, attempt 1)" in block
+    assert "  peak memory: 512 MiB" in block
+
+
+def test_show_of_a_run_without_a_profile_says_so(monkeypatch, capsys, tmp_path) -> None:
+    project = make_project(tmp_path / "demo")
+    seal_run(project, "alpha")
+    (project / "runs" / "alpha" / "README.md").write_text(README, encoding="utf-8")
+
+    code = _run(monkeypatch, ["hmp", "catalog", "show", "alpha", "-w", str(project)])
+
+    assert code == 0
+    assert "\nProfile\n  no profile.json, solve time from the seal: unknown\n" in (
+        capsys.readouterr().out
+    )
+
+
+def test_show_as_json_carries_the_profile_under_its_key(monkeypatch, capsys, tmp_path) -> None:
+    project = make_project(tmp_path / "demo")
+    seal_run(project, "alpha")
+    write_profile(project / "runs" / "alpha", _profile_of(*PROFILE_LINES))
+    rebuild_index(project)
+
+    code = _run(
+        monkeypatch, ["hmp", "catalog", "show", "alpha", "-w", str(project), "--format", "json"]
+    )
+
+    assert code == 0
+    profile = json.loads(capsys.readouterr().out)["data"]["profile"]
+    assert profile["present"] is True
+    assert profile["solve"][0]["name"] == "flow_main::modflow6"
 
 
 def test_show_of_a_name_the_project_lacks_exits_not_found(monkeypatch, capsys, tmp_path) -> None:

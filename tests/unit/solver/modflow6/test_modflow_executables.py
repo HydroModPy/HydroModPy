@@ -10,6 +10,7 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.runtime.interrupts import StopRequested
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow6.builders.recharge import build_evt_stress_period_data
 from hydromodpy.solver.modflow6.extractors.flow import _listing_path
@@ -130,6 +131,165 @@ def test_api_runner_imports_without_modflowapi() -> None:
     module_top = source.split("def run_mf6_api", 1)[0]
     assert "import modflowapi" not in module_top
     assert "import xmipy" not in module_top
+
+
+# A stop asked through the flag is read by libmf6 at the end of each time step, and
+# never by an executable.
+#
+# The callback of the run is composed with a read of the flag. The raised
+# StopRequested is a KeyboardInterrupt, which the runner of libmf6 neither wraps in
+# a solver error nor stops on, and finalizes the library for.
+
+
+def _stop_flag(tmp_path: Path, *, written: bool) -> Path:
+    flag = tmp_path / ".hmp" / "stop.json"
+    if written:
+        flag.parent.mkdir()
+        flag.write_text('{"schema": "hydromodpy.stop.v1", "at": "2026-11-10T10:00:00+00:00"}')
+    return flag
+
+
+STOP_AT_STEP = (
+    ("the library starts", "initialize", True, False),
+    ("a time step starts", "timestep_start", True, False),
+    ("a time step ends, no flag", "timestep_end", False, False),
+    ("a time step ends, a flag", "timestep_end", True, True),
+    ("the library ends", "finalize", True, False),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "step", "flag_written", "stops"), STOP_AT_STEP, ids=[c[0] for c in STOP_AT_STEP]
+)
+def test_the_stop_flag_is_read_at_the_end_of_each_time_step_only(
+    case: str, step: str, flag_written: bool, stops: bool, tmp_path: Path
+) -> None:
+    from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, Mf6ApiStep
+    from hydromodpy.solver.modflow6.run import _stopping
+
+    seen: list[Mf6ApiStep] = []
+    composed = _stopping(
+        lambda ctx: seen.append(ctx.step), _stop_flag(tmp_path, written=flag_written)
+    )
+    ctx = Mf6ApiContext(step=Mf6ApiStep[step], kper=0, kstp=0, totim=0.0, _sim=None)
+
+    if stops:
+        with pytest.raises(StopRequested, match="stop requested at 2026-11-10T10:00:00"):
+            composed(ctx)
+        assert seen == []
+    else:
+        composed(ctx)
+        assert seen == [Mf6ApiStep[step]]
+
+
+def test_a_stop_is_no_exception_for_the_callback_of_libmf6_to_wrap() -> None:
+    assert issubclass(StopRequested, KeyboardInterrupt)
+    assert not issubclass(StopRequested, Exception)
+
+
+class _ApiRun:
+    """Stands for ``run_mf6_api``: keeps the callback it receives."""
+
+    def __init__(self) -> None:
+        self.callback = None
+
+    def __call__(self, workspace, callback, **kwargs) -> bool:
+        del workspace, kwargs
+        self.callback = callback
+        return True
+
+
+def _api_model(stop_flag: Path | None, **extra: object):
+    from types import SimpleNamespace
+
+    slot = None if stop_flag is None else SimpleNamespace(stop_flag=stop_flag)
+    return SimpleNamespace(
+        full_path="run", bin_path=None, _mf6_api_lib_path="libmf6.so", slot=slot, **extra
+    )
+
+
+def test_a_run_by_libmf6_reads_the_stop_flag_of_its_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.solver.modflow6 import run as run_module
+    from hydromodpy.solver.modflow6.api import api_runner
+
+    api = _ApiRun()
+    monkeypatch.setattr(api_runner, "run_mf6_api", api)
+    developer: list[object] = []
+    model = _api_model(
+        _stop_flag(tmp_path, written=True), _mf6_api_callback=lambda ctx: developer.append(ctx)
+    )
+
+    assert run_module._run_via_api(model, verbose=False) is True
+    ctx = api_runner.Mf6ApiContext(
+        step=api_runner.Mf6ApiStep.timestep_end, kper=0, kstp=0, totim=0.0, _sim=None
+    )
+
+    with pytest.raises(StopRequested):
+        api.callback(ctx)
+    assert developer == []
+
+
+@pytest.mark.parametrize(
+    "stop_flag", [None, "absent"], ids=["a slot without a flag", "a flag nobody wrote"]
+)
+def test_a_run_by_libmf6_that_nobody_stops_calls_its_callback(
+    stop_flag: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.solver.modflow6 import run as run_module
+    from hydromodpy.solver.modflow6.api import api_runner
+
+    api = _ApiRun()
+    monkeypatch.setattr(api_runner, "run_mf6_api", api)
+    developer: list[object] = []
+    flag = None if stop_flag is None else _stop_flag(tmp_path, written=False)
+    model = _api_model(flag, _mf6_api_callback=lambda ctx: developer.append(ctx))
+    run_module._run_via_api(model, verbose=False)
+    ctx = api_runner.Mf6ApiContext(
+        step=api_runner.Mf6ApiStep.timestep_end, kper=0, kstp=0, totim=0.0, _sim=None
+    )
+
+    api.callback(ctx)
+
+    assert developer == [ctx]
+
+
+def test_a_run_by_the_executable_never_reads_the_stop_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The child process writes its files until it ends: no exception is raised under it."""
+    from types import SimpleNamespace
+
+    from hydromodpy.model.model import ModelTime
+    from hydromodpy.solver.modflow6 import run as run_module
+    from hydromodpy.solver.modflow_common.options import ModflowRunOptions
+    from tests._helpers.model_factory import make_model
+
+    solved: list[int] = []
+
+    def simulate(sim, nper):
+        solved.append(nper)
+        return True, None
+
+    monkeypatch.setattr(run_module, "run_simulation_with_progress", simulate)
+    monkeypatch.setattr(run_module, "check_mf6_workspace_paths", lambda sim: None)
+    monkeypatch.setattr(run_module, "warn_on_throttled_wells", lambda model: [])
+    model = SimpleNamespace(
+        inputs=make_model(time=ModelTime(grid=None, regime="steady", first_period_steady=True)),
+        sim=SimpleNamespace(write_simulation=lambda **kwargs: None),
+        nper=1,
+        full_path=str(tmp_path),
+        slot=SimpleNamespace(stop_flag=_stop_flag(tmp_path, written=True)),
+    )
+
+    done = run_module.run_processing(
+        model, ModflowRunOptions(write_model=True, run_model=True, runner="subprocess")
+    )
+
+    assert done is True
+    assert solved == [1]
+    assert model.last_flow_solve_time_seconds is not None
 
 
 # A solver binary that cannot be fetched raises a typed network error.

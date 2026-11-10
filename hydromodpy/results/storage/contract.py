@@ -14,8 +14,10 @@ produced it, under a name fixed by its class::
         provenance.json                  environment, versions, git, binaries
         manifest.json                    seal, written last
         fields.zarr/                     array store (always a directory)
+        final_state/                     last heads, lake and reach stages in float64, Zarr 3
         tables.parquet/<view>.parquet    tabular payloads; simulation.parquet is the index row
         annotations.json                 tags and notes, mutable after the seal
+        profile.json                     time and memory of each step, solve, figure, export
         ro-crate-metadata.json ...       generated views, on request, after the seal
         README.md                        generated from the seal, sha256 of the manifest in its footer
         figures/  + index.json           figures of this run and their ledger
@@ -23,8 +25,8 @@ produced it, under a name fixed by its class::
         report/index.html                rendered report
         logs/                            run log, heartbeat.json
         published.jsonl                  where this run was published, one line per copy
-        attempts/<n>/                    outcome.json and logs/ of an earlier attempt
-        .hmp/                            scratch, locks, checkpoints of the running attempt
+        attempts/<n>/                    outcome.json, logs/ and stop.json of an earlier attempt
+        .hmp/                            scratch, locks, checkpoints, stop flag of the running attempt
     <project>/sessions/<name>/           one calibration session
         outcome.json                     issue of the session
         config.toml                      frozen resolved configuration of the case
@@ -97,6 +99,24 @@ RUN_MANIFEST_FILENAME = "manifest.json"
 
 RUN_PRODUCTS_FILENAME = "products.json"
 """The products the run read from the store, one per kind, in first-demand order."""
+
+FINAL_STATE_DIRNAME = "final_state"
+"""Zarr 3 group of the last state of a run, in float64 and compressed without loss.
+
+It holds ``head`` (``nlay``, ``ncpl``, NaN on inactive cells), ``lake_stage``
+with the attribute ``lake_ids``, ``sfr_stage`` with the attribute ``reaches``
+when SFR routes with storage, and the attribute ``at``, the end of the last
+period. A restart and the next window of a chain read it, so it is sealed
+with the run and kept at every retention level.
+"""
+
+RUN_PROFILE_FILENAME = "profile.json"
+"""Time and memory of each step, solve, figure and export of one run, ``hydromodpy.profile.v1``.
+
+It is rewritten after each step and keeps the lines of every attempt. It says
+how the run went on one machine, not what it computed, so it is outside the
+seal and outside the identity.
+"""
 
 RUN_ANNOTATIONS_FILENAME = "annotations.json"
 """Tags and notes of one run. The one file written after the seal."""
@@ -173,6 +193,7 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
         RUN_LOGS_DIRNAME,
         RUN_ATTEMPTS_DIRNAME,
         RUN_SOLVER_DIRNAME,
+        RUN_PROFILE_FILENAME,
     }
     | GENERATED_VIEWS
 )
@@ -180,7 +201,7 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
 
 Derived (figures, exports, report, README, generated views), mutable after
 the seal (outcome, annotations, published lines), diagnostic (logs, kept
-solver folders), history (attempts) or the request as it came (request). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
+solver folders, profile), history (attempts) or the request as it came (request). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
 is left out for a different reason: it is not a result.
 """
 
@@ -194,6 +215,7 @@ ALLOWED_RUN_ENTRIES: frozenset[str] = (
             RUN_MANIFEST_FILENAME,
             RUN_INPUTS_FILENAME,
             RUN_PRODUCTS_FILENAME,
+            FINAL_STATE_DIRNAME,
         }
     )
     | UNSEALED_RUN_ENTRIES
@@ -207,7 +229,8 @@ Anything else found in a run directory is either the runtime scratch named by
 RUN_SCRATCH_ENTRIES: frozenset[str] = frozenset({INTERNAL_DIRNAME})
 """Runtime scratch a live run holds, which is not a result.
 
-A run takes its locks under ``<run>/.hmp/locks/``. It is machine state with the
+A run takes its locks under ``<run>/.hmp/locks/`` and reads its stop flag at
+``<run>/.hmp/stop.json``. It is machine state with the
 lifetime of the process, like the pipeline log, so the seal does not inventory
 it: a manifest that lists a lock directory as an artifact of the run describes
 the machine that ran it, not the run.
@@ -336,6 +359,7 @@ __all__ = [
     "RUN_SCRATCH_ENTRIES",
     "UNSEALED_RUN_ENTRIES",
     "FIELDS_STORE_NAME",
+    "FINAL_STATE_DIRNAME",
     "GEOGRAPHIC_FEATURE_PREFIX",
     "HEARTBEAT_FILENAME",
     "LEDGER_FILENAME",
@@ -359,6 +383,7 @@ __all__ = [
     "RUN_MANIFEST_FILENAME",
     "RUN_OUTCOME_FILENAME",
     "RUN_PRODUCTS_FILENAME",
+    "RUN_PROFILE_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",

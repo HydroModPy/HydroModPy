@@ -79,6 +79,7 @@ TARGET_LEAVES: frozenset[str] = frozenset(
         "run",
         "calibrate",
         "spinup",
+        "stop",
         "export",
         "publish",
         "completion",

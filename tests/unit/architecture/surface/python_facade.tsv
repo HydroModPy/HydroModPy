@@ -57,3 +57,4 @@ read	function	(run: Run, variable: str, *, time: int | str | date | np.datetime6
 report	function	(session: str | None = None, *, workspace: PathLike | None = None) -> Path
 run	function	(config: ConfigLike, *, base: PathLike | None = None, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> Run | OverviewResult | PlanDraft | None
 spinup	function	(config: ConfigLike, *, base: PathLike | None = None, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult
+stop	function	(ref: str, *, workspace: PathLike | None = None) -> Path

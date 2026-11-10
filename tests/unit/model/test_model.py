@@ -551,6 +551,64 @@ def test_a_cycle_starts_from_its_seed_or_the_top_and_keeps_the_rest(case, seed, 
     assert model.initial == CyclicStart()
 
 
+def _whole_and_window() -> tuple[Model, Model]:
+    """The model of a whole simulation of three periods and of its first window of one."""
+    whole = make_model(
+        recharge=_recharge([1e-8, 2e-8, 6e-8], first_clim=1e-8),
+        lakes={"lake": {"runoff": {"kind": "values", "values": [0.0, 10.0, 20.0]}}},
+        time=ModelTime(
+            grid=time_grid(10.0, 30.0, 20.0), regime="transient", first_period_steady=False
+        ),
+    )
+    window = make_model(
+        recharge=_recharge([1e-8], first_clim=1e-8),
+        lakes={"lake": {"runoff": {"kind": "values", "values": [0.0]}}},
+        time=ModelTime(grid=time_grid(10.0), regime="transient", first_period_steady=False),
+    )
+    return whole, window
+
+
+def test_the_steady_start_of_a_first_window_is_the_one_of_the_whole_simulation() -> None:
+    whole, window = _whole_and_window()
+    chained = window.with_initial(SteadyStart(over=whole))
+    whole_steady = steady_variant(whole.with_initial(SteadyStart()))
+
+    steady = steady_variant(chained)
+
+    np.testing.assert_array_equal(steady.time.grid.period_lengths_seconds, [60.0 * _DAY])
+    np.testing.assert_array_equal(
+        steady.time.grid.period_lengths_seconds, whole_steady.time.grid.period_lengths_seconds
+    )
+    assert dict(steady.lakes) == dict(whole_steady.lakes)
+    assert dict(steady.lakes) != dict(steady_variant(window.with_initial(SteadyStart())).lakes)
+    assert steady.recharge.first_clim == "mean"
+    assert list(steady.recharge.values) == [1e-8, 2e-8, 6e-8]
+    assert steady.initial == HeadRule("top")
+    np.testing.assert_array_equal(window.time.grid.period_lengths_seconds, [10.0 * _DAY])
+
+
+def test_the_cycles_of_a_first_window_repeat_the_whole_simulation() -> None:
+    whole, window = _whole_and_window()
+    chained = window.with_initial(CyclicStart(over=whole)).with_properties(K=1e-5)
+    seed = SolvedState(np.ones((1, 6)), "modflow6", {"lake": 12.5})
+
+    cycle = cycle_variant(chained, seed)
+
+    assert cycle.time is whole.time
+    assert cycle.recharge is whole.recharge
+    assert cycle.initial is seed
+    assert cycle.initial.lake_stages == {"lake": 12.5}
+    assert cycle.properties is chained.properties
+    assert dict(cycle.properties.overrides) == {"K": 1e-5}
+
+
+def test_a_start_whose_over_is_not_a_model_is_refused() -> None:
+    _, window = _whole_and_window()
+
+    with pytest.raises(TypeError, match="over is the Model of the whole simulation"):
+        steady_variant(window.with_initial(SteadyStart(over="whole")))
+
+
 def test_a_model_built_by_hand_freezes_what_it_is_given() -> None:
     conditions = {"west_side": object()}
     model = make_model(

@@ -12,6 +12,8 @@ order*. Its job is narrower:
 - fill the ``RunSlot`` of each run (``slot_for``), the one rule for the run
   folder and the run name, and the names a later run reads of it (``hand_off``),
 - hand each run the upstream runs referenced by ``depends_on``,
+- read the stop flag of the run folder before each run, so a stop asked while a
+  run solves ends the plan at the next boundary,
 - call the adapter through ``solve_one``: ``validate``, then ``build`` or
   ``rerun``, then ``run`` unless the slot stops before the solve,
 - record each ``SolverRun`` in ``state.execution.solver_runs``,
@@ -47,6 +49,8 @@ from hydromodpy.core.exceptions import (
     SolverInputError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
+from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.solver.base.plan import (
     ProcessRun,
     RunSlot,
@@ -106,6 +110,7 @@ def slot_for(
     run: ProcessRun,
     setup: Any,
     upstream: tuple[SolverRun, ...] = (),
+    run_dir: Path | None = None,
 ) -> RunSlot:
     """Return the slot ``run`` solves in, from the setup of the pipeline.
 
@@ -116,12 +121,15 @@ def slot_for(
     ``default``, suffixed by :func:`run_name`. ``stop_before_solve`` and
     ``shared_forcing_dir`` come from the trial request, and are off outside a
     trial. Every slot carries ``hand_off``, what the runs that depend on this
-    one read of it.
+    one read of it. ``stop_flag`` is the stop flag of ``run_dir``, the folder
+    the run writes its results in, ``.hmp/stop.json``, and ``None`` without a
+    folder, as a calibration trial has none.
 
     A transport solves in the slot of the one flow run it follows, ``upstream``
     the runner resolved: the folders and the name of the flow, so it reads and
     extends the files that flow wrote, and its own ``stop_before_solve``.
     """
+    stop_flag = None if run_dir is None else stop_flag_for(run_dir)
     if run.process_type == "transport":
         if len(upstream) != 1:
             raise SolverInputError(
@@ -139,6 +147,7 @@ def slot_for(
             bin_dir=provided.bin_dir,
             shared_forcing_dir=provided.shared_forcing_dir,
             hand_off=hand_off_of(plan, run),
+            stop_flag=stop_flag,
         )
     request = getattr(setup, "slot_request", None)
     workspace = getattr(setup, "workspace", None)
@@ -153,6 +162,7 @@ def slot_for(
         bin_dir=Path(bin_path) if bin_path else None,
         shared_forcing_dir=getattr(request, "shared_forcing_dir", None),
         hand_off=hand_off_of(plan, run),
+        stop_flag=stop_flag,
     )
 
 
@@ -360,8 +370,14 @@ class SimulationRunner:
         *,
         previous: SolverRun | None = None,
     ) -> SolverRun:
-        """Execute one resolved process run through its registered adapter."""
+        """Execute one resolved process run through its registered adapter.
 
+        The stop flag of the run folder is read first, so a stop asked during
+        the run before this one ends the plan here and no other run starts.
+        """
+
+        run_dir = getattr(state, "run_dir", None)
+        raise_if_stop_requested(None if run_dir is None else stop_flag_for(run_dir))
         if run.process_type != "mesh":
             model = getattr(state.setup, "model", None)
             if run.process_type == "flow" and model is None:
@@ -373,10 +389,10 @@ class SimulationRunner:
             if run.process_type == "transport":
                 self._refuse_a_start_that_did_not_converge(state, run)
                 self._refuse_a_dependency_outside_its_family(plan, run)
-            slot = slot_for(plan, run, state.setup, upstream=upstream)
+            slot = slot_for(plan, run, state.setup, upstream=upstream, run_dir=run_dir)
         else:
             upstream = ()
-            slot = slot_for(plan, run, state.setup)
+            slot = slot_for(plan, run, state.setup, run_dir=run_dir)
             result = self._run_mesh_process(state, run, slot)
             self._record_run_output(state, run, result)
             self._call_after_run(run, result, state)

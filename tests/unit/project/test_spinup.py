@@ -14,11 +14,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
 from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.prior_state import read_final_head
 
 
@@ -64,6 +66,43 @@ def test_cycle_delta_rejects_shape_change(tmp_path: Path) -> None:
     b = _write_cycle_zarr(tmp_path / "b.zarr", [[5.0, 6.0]])
     with pytest.raises(ValueError, match="mesh is not stable"):
         cycle_delta(a, b)
+
+
+def _run_with_final_state(folder: Path, stored: list, exact: list, stage: float) -> str:
+    """A run folder whose field store holds ``stored`` and whose ``final_state/`` holds ``exact``."""
+    folder.mkdir()
+    store = _write_cycle_zarr(folder / "fields.zarr", stored, {"lac0": stage + 1.0})
+    write_final_state(
+        folder,
+        FinalState(
+            head=np.asarray(exact, dtype=float),
+            lake_stages={"lac0": stage},
+            at=pd.Timestamp("2020-12-31"),
+        ),
+    )
+    return store
+
+
+def test_the_cycles_are_compared_on_their_final_state_when_the_run_has_one(
+    tmp_path: Path,
+) -> None:
+    """The field store of a compact run is rounded; ``final_state/`` is exact and wins."""
+    prev = _run_with_final_state(tmp_path / "c0", [[99.0, 99.0]], [[100.0, 100.0]], 86.0)
+    curr = _run_with_final_state(tmp_path / "c1", [[99.0, 99.0]], [[100.25, 100.0]], 86.125)
+
+    d_head, d_stage = cycle_delta(prev, curr)
+
+    assert d_head == 0.25, "the stored heads are equal, the final states are not"
+    assert d_stage == 0.125, "the lake stage is read from final_state/ too"
+    assert np.array_equal(read_final_head(curr), [[100.25, 100.0]])
+
+
+def test_a_run_of_2_0_without_a_final_state_is_compared_on_its_field_store(tmp_path: Path) -> None:
+    prev = _write_cycle_zarr(tmp_path / "old0.zarr", [[10.0, 10.0]], {"lac0": 86.0})
+    curr = _run_with_final_state(tmp_path / "c1", [[10.5, 10.0]], [[10.75, 10.0]], 86.25)
+    # The first cycle has no final_state/, the second has: each is read as it is stored.
+    d_head, d_stage = cycle_delta(prev, curr)
+    assert (d_head, d_stage) == (0.75, 0.25)
 
 
 class _StubProject:

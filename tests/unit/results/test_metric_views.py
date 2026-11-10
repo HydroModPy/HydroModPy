@@ -658,7 +658,8 @@ def test_the_loader_and_the_set_stack_parameters_and_fields(tmp_path) -> None:
 # and came out in ``catalog show``, ``catalog diff``, ``compare_pair`` and
 # ``v_metrics_wide`` next to the NSE. The facts and the seal still carry them, the
 # way the project summary reads the solve time; the index and the readers of scores
-# leave them out.
+# leave them out. A run of 2.0 carries the solve time among them and a new run does not
+# (it is in ``profile.json``), so the fixture holds both kinds of row.
 RUNTIME = {"flow_solve_time_seconds": 12.5, "water_budget_percent_discrepancy": 0.01}
 
 

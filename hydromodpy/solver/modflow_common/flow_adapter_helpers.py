@@ -6,7 +6,8 @@ This module contains only MODFLOW-agnostic flow lifecycle logic:
 - ``build_flow_model`` and ``run_flow_model``, the two halves of the common
   lifecycle once a concrete solver object exists: the first builds the model
   in memory, the second writes the input files, solves and reads the listing,
-- read back the folder, the solver object and the name of a solved run.
+- read back the folder, the solver object and the name of a solved run,
+- turn the last record of a head file into the head of ``final_state/``.
 
 The name and the folder of a run come from the ``RunSlot`` the runner fills,
 so nothing here derives a name. Result extraction and the derived variables
@@ -24,6 +25,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+import numpy as np
+import pandas as pd
 from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import (
@@ -31,6 +34,7 @@ from hydromodpy.core.exceptions import (
     ObservableNotAvailableError,
     SolverDivergedError,
 )
+from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
@@ -291,7 +295,12 @@ def run_flow_model(solver_run: SolverRun, *, solver_name: str) -> SolverRun:
 
     1. write the files, execute the solver and link the MT3DMS output,
     2. read the water budget the listing prints,
-    3. return the run with its folder, its input files and its metrics.
+    3. return the run with its folder, its input files, its metrics and the
+       wall time of the solve, ``solve_s``, which the solver object measured in
+       ``last_flow_solve_time_seconds``.
+
+    The time of the solve is no metric: it stays out of the tables of the run,
+    and the ``run_solver`` step writes it to ``profile.json``.
 
     A solve that fails raises ``SolverDivergedError`` naming the run by
     ``solver_run.slot.name``. The runner puts the run id on it.
@@ -325,9 +334,6 @@ def run_flow_model(solver_run: SolverRun, *, solver_name: str) -> SolverRun:
             f"'{solver_run.slot.name}'.{detail} See {diagnostics_path} for diagnostics."
         )
     metrics: dict[str, float] = {}
-    flow_solve_time = getattr(solver_model, "last_flow_solve_time_seconds", None)
-    if flow_solve_time is not None:
-        metrics["flow_solve_time_seconds"] = float(flow_solve_time)
     # Convergence and a closed budget are two questions. A run that converges and
     # writes heads with a large imbalance was otherwise indistinguishable from a
     # sound one, so the number rides with every run rather than only with a failure.
@@ -342,6 +348,7 @@ def run_flow_model(solver_run: SolverRun, *, solver_name: str) -> SolverRun:
         written=True,
         solved=True,
         metrics={**solver_run.metrics, **metrics},
+        solve_s=getattr(solver_model, "last_flow_solve_time_seconds", None),
     )
 
 
@@ -372,6 +379,37 @@ def resolve_solver_run_output(
     if model_name is None:
         raise ObservableNotAvailableError(f"Model name is missing for run {solver_run.slot.name!r}")
     return output_dir, solver_model, str(model_name)
+
+
+def final_state_head(
+    raw: Any, *, nlay: int, n_cells: int, sentinels: Sequence[float] = ()
+) -> np.ndarray:
+    """Return a head record as the ``(nlay, n_cells)`` float64 head of ``final_state/``.
+
+    ``raw`` is the last record of a head file, read in double. A cell that
+    holds a MODFLOW sentinel, ``HDRY`` or ``HNOFLO`` of about 1e30 in absolute
+    value, becomes NaN. ``sentinels`` lists more values the solver was
+    configured with (the ``hdry`` and ``hnoflo`` of MODFLOW-NWT, which are no
+    1e30), and a cell within 1 m of one of them becomes NaN too, as the
+    head stack of the store does.
+    """
+    head = np.array(raw, dtype=np.float64, copy=True).reshape(int(nlay), int(n_cells))
+    masked = np.abs(head) > SENTINEL_ABS_THRESHOLD
+    for sentinel in sentinels:
+        masked |= np.isclose(head, float(sentinel), atol=1.0)
+    head[masked] = np.nan
+    return head
+
+
+def end_of_last_period(start: object | None, seconds: float) -> pd.Timestamp | None:
+    """Return the instant ``seconds`` after ``start``, the end of the last period, or ``None``.
+
+    ``start`` is the calendar start of the run. A run without one has no
+    calendar, and its ``final_state/`` carries no ``at``.
+    """
+    if start is None:
+        return None
+    return pd.Timestamp(start) + pd.to_timedelta(float(seconds), unit="s")
 
 
 def xt3d_failure_hint(model_dir: Path) -> str:

@@ -91,6 +91,12 @@ Label = Annotated[str, Vocabulary("exploratory", "calibrated", "evaluated", "fai
 CALIBRATED_LABELS: Final[tuple[Label, ...]] = ("calibrated", "evaluated")
 """Labels of a calibrated run: an evaluated run is calibrated, scored out of its window."""
 
+RESTART_START: Final = "start@restart_from"
+"""Token of a run that starts from an earlier one by ``[flow] restart_from``."""
+
+CYCLIC_LAKE_START: Final = "start@spinup_cyclic_lake"
+"""Token of a cyclic spin-up beside a declared lake."""
+
 
 class ValidityRules(HydroModelBase):
     """The rules :func:`label_for` applies, documented and versioned."""
@@ -135,11 +141,14 @@ def run_quantities(
     has_metrics: bool = False,
     derive_rule_version: str | None = None,
     sources: Sequence[str] = (),
+    starts: Sequence[str] = (),
 ) -> tuple[str, ...]:
     """Return the quantity tokens a run exposes, the vocabulary of the register.
 
     *sources* are the ``source@<section>_<source>`` tokens of the sources the run
-    declares (:func:`hydromodpy.schema.sources.declared_source_tokens`).
+    declares (:func:`hydromodpy.schema.sources.declared_source_tokens`). *starts*
+    are the ``start@<kind>`` tokens of how its heads start
+    (:func:`hydromodpy.results.run_identity.declared_start_tokens`).
     """
     tokens = [f"heads@{solver}", f"fluxes@{solver}"]
     if mesh_engine:
@@ -149,6 +158,7 @@ def run_quantities(
     if derive_rule_version:
         tokens.append(f"derived@{derive_rule_version}")
     tokens.extend(sources)
+    tokens.extend(starts)
     return tuple(tokens)
 
 
@@ -232,6 +242,8 @@ def label_for(
 
 __all__ = [
     "CALIBRATED_LABELS",
+    "CYCLIC_LAKE_START",
+    "RESTART_START",
     "RULE_VERSION",
     "Label",
     "LabelResult",

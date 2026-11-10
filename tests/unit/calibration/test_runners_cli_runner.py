@@ -95,7 +95,8 @@ from hydromodpy.core.code_fingerprint import (
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
-from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.runtime.interrupts import StopRequested, TerminationRequested
+from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_CODE
@@ -111,6 +112,7 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.journal import read_trials, trials_path
 from hydromodpy.results.session.phase import FrozenValue, read_phase
+from hydromodpy.results.storage.attempt import request_stop
 from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 from hydromodpy.workflow.dispatch import (
     KNOWN_WORKFLOWS,
@@ -1473,8 +1475,19 @@ class TestSessionLifecycle:
         [
             (RuntimeError("boom from engine"), "failed", "boom from engine"),
             (KeyboardInterrupt(), "aborted", "SIGINT"),
+            (TerminationRequested("signal 15"), "aborted", "SIGTERM"),
+            (
+                StopRequested("stop requested at 2026-11-10T09:30:00+00:00"),
+                "aborted",
+                "stop requested at 2026-11-10T09:30:00+00:00",
+            ),
         ],
-        ids=["engine_failure_marks_session_failed", "keyboard_interrupt_marks_session_aborted"],
+        ids=[
+            "engine_failure_marks_session_failed",
+            "keyboard_interrupt_marks_session_aborted",
+            "sigterm_marks_session_aborted",
+            "stop_request_marks_session_aborted_with_its_date",
+        ],
     )
     def test_an_error_of_the_engine_closes_the_session(
         self, calib_toml, fake_pipeline, monkeypatch, error, status, message
@@ -1518,6 +1531,34 @@ class TestSessionLifecycle:
         assert not (calib_toml.parent / "runs").exists()
         outcome = read_outcome(session_dir)
         assert outcome is not None and outcome.status == "aborted"
+
+    def test_a_stop_flag_ends_the_search_between_two_trials_and_a_resume_answers_it(
+        self, calib_toml, fake_pipeline
+    ):
+        """The flag of the session is read before each ask; reopening removes it."""
+        seen: list[int] = []
+
+        def stop_after_two(ctx, *, objective, variable):
+            seen.append(len(seen) + 1)
+            if len(seen) == 2:
+                request_stop(_the_session(calib_toml.parent))
+            return (math.log10(ctx.cfg.flow.param.K.field.value) - math.log10(1e-4)) ** 2, {}
+
+        with pytest.raises(StopRequested):
+            run_calibration_cli(calib_toml, metric_fn=stop_after_two)
+
+        session_dir = _the_session(calib_toml.parent)
+        descriptor = read_session(session_dir)
+        assert descriptor.status == "aborted"
+        assert (descriptor.error_message or "").startswith("stop requested at ")
+        assert len(read_trials(session_dir)) == 2
+        assert stop_flag_for(session_dir).is_file()
+
+        report = run_calibration_cli(calib_toml, metric_fn=self._metric, resume=True)
+
+        assert not stop_flag_for(session_dir).exists()
+        assert read_session(session_dir).status == "completed"
+        assert report.n_trials == 5
 
     def test_a_termination_promotes_the_best_trial_from_its_kept_solve(
         self, calib_toml, fake_pipeline, monkeypatch

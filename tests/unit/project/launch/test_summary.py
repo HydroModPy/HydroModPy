@@ -38,6 +38,7 @@ from hydromodpy.results.record import RunRecord
 from hydromodpy.results.run.sealed import MixedWindowsError
 from hydromodpy.results.run.sealed_facts import UnreadableManifestError
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
+from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
 from tests._helpers.session_documents import calibration_window
@@ -615,6 +616,57 @@ def test_the_mesh_the_solve_time_and_the_place_are_read_from_the_seal(tmp_path: 
     assert site["area_km2"] == pytest.approx(64.62)
     assert site["dem_resolution_m"] == pytest.approx(75.0)
     assert (site["snapped_x"], site["snapped_y"]) == (389175.0, 6816450.0)
+
+
+def test_the_solve_time_is_read_from_the_profile_before_the_seal(tmp_path: Path) -> None:
+    root = _project(tmp_path, summary_extra='best = "any"')
+    run_dir = _seal(root, "J0014010", "base", nse=0.81)
+    record = RunRecord.read(run_dir)
+    sealed = MetricRow(
+        station="flow_main::modflow6",
+        variable="runtime",
+        metric="flow_solve_time_seconds",
+        value=26.3,
+    )
+    record.model_copy(update={"metrics": [*record.metrics, sealed]}).write(run_dir)
+    started = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
+    solves = [
+        ProfileLine(kind="solve", name=name, attempt=1, started_at=started, duration_s=seconds)
+        for name, seconds in (("flow_main::modflow6", 12.5), ("transport::modpath", 40.0))
+    ]
+    write_profile(run_dir, Profile(lines=solves))
+
+    paths = collect_project(root)
+
+    case = pd.read_parquet(paths.by_case).iloc[0]
+    assert case["flow_solve_time_s"] == pytest.approx(12.5)
+
+
+def test_a_profile_without_a_solve_line_leaves_the_seal_row(tmp_path: Path) -> None:
+    root = _project(tmp_path, summary_extra='best = "any"')
+    run_dir = _seal(root, "J0014010", "base", nse=0.81)
+    record = RunRecord.read(run_dir)
+    sealed = MetricRow(
+        station="flow_main::modflow6",
+        variable="runtime",
+        metric="flow_solve_time_seconds",
+        value=26.3,
+    )
+    record.model_copy(update={"metrics": [*record.metrics, sealed]}).write(run_dir)
+    write_profile(run_dir, Profile())
+
+    paths = collect_project(root)
+
+    assert pd.read_parquet(paths.by_case).iloc[0]["flow_solve_time_s"] == pytest.approx(26.3)
+
+
+def test_a_run_without_any_solve_time_leaves_the_cell_empty(tmp_path: Path) -> None:
+    root = _project(tmp_path, summary_extra='best = "any"')
+    _seal(root, "J0014010", "base", nse=0.81)
+
+    paths = collect_project(root)
+
+    assert pd.isna(pd.read_parquet(paths.by_case).iloc[0]["flow_solve_time_s"])
 
 
 def test_a_calibration_row_takes_the_time_of_its_session(tmp_path: Path) -> None:

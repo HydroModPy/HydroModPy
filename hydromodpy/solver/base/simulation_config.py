@@ -18,7 +18,7 @@ from hydromodpy.core.config_kit.types import (
     TimePeriodUnit,
 )
 from hydromodpy.core.plugin_registry import check_registered_name
-from hydromodpy.core.time.window import reject_invalid_step_value_spec
+from hydromodpy.core.time.window import parse_window_length, reject_invalid_step_value_spec
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.solver.base.registry import (
     ENTRY_POINT_GROUP,
@@ -155,6 +155,49 @@ class SimulationTimeConfig(HydroModelBase):
         ),
         examples=["error", "warn"],
     )
+    window_length: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Calendar length of the windows a long transient run is cut into, "
+            "written '<n> <unit>' with unit hour, day, month or year. The windows "
+            "start at start_datetime and follow one another; the last one ends "
+            "with the simulation and may be shorter. Every window edge must fall "
+            "on a stress period end. Each window is a sealed run of its own, "
+            "named after the run with _w1, _w2 and so on, that starts from the "
+            "final state of the window before it. The forcings and the soil "
+            "reservoir are computed over the whole simulation, so the chain gives "
+            "the heads of the run in one piece. Absent, the run is one window."
+        ),
+        examples=["1 year", "6 months"],
+    )
+    window: Annotated[int | Literal["all"], Profile.USER] = Field(
+        default="all",
+        description=(
+            "Which windows of window_length this launch plays. 'all' plays them "
+            "one after the other and skips those already sealed with the same "
+            "request. A number k, from 1, plays window k alone, which needs window "
+            "k - 1 sealed first."
+        ),
+        examples=["all", 2],
+    )
+
+    @field_validator("window_length")
+    @classmethod
+    def _validate_window_length(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse_window_length(value)
+        return value
+
+    @field_validator("window", mode="before")
+    @classmethod
+    def _validate_window(cls, value: object) -> object:
+        if value == "all":
+            return value
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(
+                f"simulation.time.window is 'all' or a window number from 1; got {value!r}."
+            )
+        return value
 
     @model_validator(mode="after")
     def _validate_window_order(self):
@@ -196,6 +239,12 @@ class SimulationTimeConfig(HydroModelBase):
         ):
             raise ValueError(
                 "simulation.time.end_datetime must be greater than or equal to start_datetime."
+            )
+        if self.window_length is None and self.window not in ("all", 1):
+            raise ValueError(
+                f"simulation.time.window = {self.window} picks one window of "
+                "simulation.time.window_length, which is not set, so the run is one window. "
+                "Set window_length or remove window."
             )
         return self
 

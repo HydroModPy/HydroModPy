@@ -4,7 +4,8 @@ Caches downloaded files under ``data/<variable>/``. The sidecar written next to
 each one is its row of the data cache: it names the variable, the URL it came
 from, its ETag and its licence. The data folder is the one of the
 :class:`~hydromodpy.data.provenance.sidecars.CacheIndex` the caller hands in,
-or else the parent of ``out_dir``.
+or else the parent of ``out_dir``, where the source builds one that carries the
+``locked`` lockfile of a frozen run.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.fetch import download, guard_url, resolve_final_url
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.data.provenance.lockfile import LockedInputs
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import (
     FetchRequest,
@@ -83,6 +85,7 @@ class UrlSource:
         sha256: str | None = None,
         license: str | None = None,
         index: CacheIndex | None = None,
+        locked: LockedInputs | None = None,
         **kwargs: object,
     ) -> None:
         # url defaults to "" so the contract suite can build the class with no
@@ -91,6 +94,7 @@ class UrlSource:
         self.sha256 = sha256.strip().lower() if sha256 else None
         self.license = license
         self._index = index
+        self._locked = locked
         self.variables = (self.section,) if self.section else ("url",)
         host = urlsplit(self.url).hostname
         self.hosts = (host.lower(),) if host else ()
@@ -108,7 +112,11 @@ class UrlSource:
 
         out_dir = Path(request.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        index = self._index if self._index is not None else CacheIndex(out_dir.parent)
+        index = (
+            self._index
+            if self._index is not None
+            else CacheIndex(out_dir.parent, locked=self._locked)
+        )
         variable = self.section or out_dir.name
 
         parsed = urlsplit(self.url)

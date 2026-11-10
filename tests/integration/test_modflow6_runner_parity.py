@@ -109,13 +109,27 @@ def _solve(ws: Path, exe: str, runner: str, callback: Any = None) -> None:
     options = ModflowRunOptions(write_model=False, run_model=True, verbose=False, runner=runner)
     ok = run_processing(model, options)
     assert ok, f"{runner} run did not converge"
+    # Both legs time the solve alone: the adapter hands it to the run as ``solve_s``.
+    assert model.last_flow_solve_time_seconds is not None
+    assert model.last_flow_solve_time_seconds > 0.0
+
+
+class _RunFolderStore(_RecordingStore):
+    """The recording store of the lake extractor test, with the folder of the run it writes in."""
+
+    def __init__(self, run_dir: Path) -> None:
+        super().__init__()
+        self._run_dir = run_dir
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        return self._run_dir
 
 
 def _extract(ws: Path) -> tuple[dict[str, list[float]], np.ndarray]:
     """Extract lake series + final heads from a solved workspace."""
     import flopy.utils.binaryfile as bf
 
-    store = _RecordingStore()
+    store = _RunFolderStore(ws)
     Modflow6OutputAdapter().extract(solved_run(ws), store, keep_all)
     station = lake_station_id("lac0")
     by_variable: dict[str, list[float]] = {}
@@ -228,3 +242,35 @@ def test_api_runner_developer_callback_reads_stage(tmp_path: Path) -> None:
     assert "stage" in by_variable
     # The callback's last reading matches the extracted final stage.
     assert seen[-1] == pytest.approx(by_variable["stage"][-1], rel=1e-6, abs=1e-3)
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("runner", ["subprocess", "api"])
+def test_the_extraction_leaves_the_last_state_of_the_run_in_double_precision(
+    runner: str, tmp_path: Path
+) -> None:
+    """``final_state/`` holds the last head record and the last lake stage, to the last bit."""
+    import flopy.utils.binaryfile as bf
+
+    from hydromodpy.results.storage.final_state import read_final_state
+
+    exe = str(ensure_solver_binary("mf6"))
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _build_single_lake_disv(ws, exe)
+    _solve(ws, exe, runner)
+
+    _extract(ws)
+
+    state = read_final_state(ws)
+    assert state is not None
+    head_file = bf.HeadFile(str(ws / f"{_MODEL_NAME}.hds"), precision="double")
+    last_head = np.asarray(head_file.get_data(totim=head_file.get_times()[-1]), dtype=np.float64)
+    finite = np.abs(last_head.reshape(state.head.shape)) < 1e20
+    assert state.head.dtype == np.float64
+    assert np.array_equal(state.head[finite], last_head.reshape(state.head.shape)[finite])
+    assert np.isnan(state.head[~finite]).all()
+    stage_file = bf.HeadFile(str(ws / f"{_MODEL_NAME}.lak.stage"), text="STAGE", precision="double")
+    last_stage = float(stage_file.get_data(totim=stage_file.get_times()[-1]).ravel()[0])
+    assert state.lake_stages == {"lac0": last_stage}
+    assert state.sfr_stages == {}

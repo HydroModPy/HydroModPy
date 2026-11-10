@@ -13,6 +13,16 @@ from typing import Any
 
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.state.result_dirs import project_root_at
+from hydromodpy.results.storage.run_profile import Profile, read_profile
+
+SEALED_SOLVE_METRIC = "flow_solve_time_seconds"
+"""Metric of a 2.0 run that holds the wall time of the solve, in the seal and in ``metrics.parquet``."""
+
+NO_PROFILE_TEXT = "no profile.json, solve time from the seal"
+"""What ``show`` says of a run that has no ``profile.json``, a run of HydroModPy 2.0."""
+
+LONGEST_STEPS = 3
+"""How many of the longest steps the profile block of ``show`` names."""
 
 _LISTING_COLUMNS: tuple[str, ...] = (
     "sim_id",
@@ -125,8 +135,91 @@ def _stable_listing_projection(df: Any) -> Any:
     return out
 
 
+def solve_seconds(run_dir: Path) -> float | None:
+    """Return the wall time of the first solve of the run, from its ``profile.json``.
+
+    The plan runs a flow first, so its first ``solve`` line is the flow solve. A
+    resumed run has lines in several attempts, and the last attempt that solved
+    gives the line. ``None`` when the run has no profile or no finished solve:
+    the caller then reads the row a 2.0 run holds (:data:`SEALED_SOLVE_METRIC`).
+    """
+    profile = read_profile(run_dir)
+    if profile is None:
+        return None
+    return _first_solve_s(profile)
+
+
+def _first_solve_s(profile: Profile) -> float | None:
+    solves = [
+        line for line in profile.lines if line.kind == "solve" and line.duration_s is not None
+    ]
+    if not solves:
+        return None
+    last = max(line.attempt for line in solves)
+    return next(line.duration_s for line in solves if line.attempt == last)
+
+
+def profile_of_run(run_dir: Path) -> dict[str, Any]:
+    """Return what ``show`` says of the time of a run, read from its folder.
+
+    With a ``profile.json`` the dict holds ``present = True``, ``total_s`` (the time of
+    every step of every attempt, a rebuilt step included), ``attempts``, ``start_s``
+    (the age of the process of the first attempt when its pipeline began),
+    ``solve`` (one entry per solve line), ``longest_steps`` (the longest steps that
+    were computed or read from the store, rebuilt ones left out), ``reused`` (every line
+    not computed, with its source) and ``max_rss_mb``. Without one, ``present`` is
+    ``False``, ``message`` is :data:`NO_PROFILE_TEXT` and ``solve_s`` is the row the
+    seal of a 2.0 run holds, or ``None``.
+    """
+    profile = read_profile(run_dir)
+    if profile is None:
+        return {
+            "present": False,
+            "message": NO_PROFILE_TEXT,
+            "solve_s": _sealed_solve_s(run_dir),
+        }
+    steps = [line for line in profile.lines if line.kind == "step"]
+    computed = [line for line in steps if line.reused != "prefix" and line.duration_s is not None]
+    longest = sorted(computed, key=lambda line: line.duration_s, reverse=True)[:LONGEST_STEPS]
+    first = min(profile.process_age_s) if profile.process_age_s else None
+    peaks = [line.max_rss_mb for line in profile.lines if line.max_rss_mb is not None]
+    return {
+        "present": True,
+        "attempts": len({line.attempt for line in profile.lines}),
+        "total_s": sum(line.duration_s or 0.0 for line in steps),
+        "start_s": None if first is None else profile.process_age_s[first],
+        "solve": [
+            {"name": line.name, "attempt": line.attempt, "duration_s": line.duration_s}
+            for line in profile.lines
+            if line.kind == "solve"
+        ],
+        "longest_steps": [
+            {"name": line.name, "attempt": line.attempt, "duration_s": line.duration_s}
+            for line in longest
+        ],
+        "reused": [
+            {"name": line.name, "attempt": line.attempt, "reused": line.reused, "key": line.key}
+            for line in profile.lines
+            if line.reused != "no"
+        ],
+        "max_rss_mb": max(peaks) if peaks else None,
+    }
+
+
+def _sealed_solve_s(run_dir: Path) -> float | None:
+    """Return the solve time row of the seal of a 2.0 run, ``None`` when it has none."""
+    from hydromodpy.results.run_identity import read_sealed_manifest
+
+    manifest = read_sealed_manifest(run_dir)
+    if manifest is None:
+        return None
+    return next((row.value for row in manifest.metrics if row.metric == SEALED_SOLVE_METRIC), None)
+
+
 def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
-    """Return the facts of one sealed run: its row, its label and its exports.
+    """Return the facts of one sealed run: its row, its label, its exports and its profile.
+
+    ``profile`` is read from the run folder, not from the index (:func:`profile_of_run`).
 
     Raises ``FileNotFoundError`` without an index and
     :class:`~hydromodpy.results.catalog.SimulationNotFoundError` when
@@ -165,6 +258,7 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
                 {"file": entry.file, "producer": entry.producer}
                 for entry in Ledger.read(run_dir / RUN_FIGURES_DIRNAME).entries
             ],
+            "profile": profile_of_run(run_dir),
         }
         if detail:
             zarr_path = catalog.fields_path_for(sid)

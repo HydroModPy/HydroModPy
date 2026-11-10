@@ -8,7 +8,7 @@ The in-house Boussinesq flow solver on triangular meshes. The unknown is the cel
 2. `[solver.boussinesq] backend` chooses the execution family: `local`, `scipy`, `scipy_sparse` or `petsc`.
 3. `[solver.boussinesq] surface_interaction_model` chooses the surface closure: `auto`, `regularized_partition`, `complementarity`, `vi_obstacle` or `ts_vi_obstacle`.
 4. `catalog.py` resolves the method (formulation, space and time scheme) and the engine (nonlinear and linear solver), and loads the runtime module (`resolve_runtime_backend`).
-5. `boussinesq.py` turns the `Model` and the mesh into arrays and hands the solve to the drivers.
+5. `boussinesq.py` turns the `Model` and the mesh into arrays and hands the solve to the drivers. The transient driver reads the stop flag of the run (`Boussinesq.stop_flag`, set from the `RunSlot`) between two periods. The adapter gives the wall time of the solve as `SolverRun.solve_s`, and the extractor writes `final_state/` with the head of the last period in float64.
 
 Seven engines are declared: dense Newton (`local`), SciPy hybrid root (`scipy`), sparse SciPy Newton (`scipy_sparse`), and four PETSc engines: regularized partition, mixed complementarity, SNESVI obstacle and TS with SNESVI obstacle. The PETSc ones run on Linux with `petsc4py`.
 

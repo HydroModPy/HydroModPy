@@ -93,6 +93,7 @@ class _SolvedStandIn:
     def __post_init__(self) -> None:
         self.link_mt3dms = False
         self.full_path = None
+        self.last_flow_solve_time_seconds = None
 
     def processing(self, options: ModflowRunOptions) -> bool:
         self.processing_calls.append(options)
@@ -114,6 +115,20 @@ def test_run_hands_the_link_fact_of_the_solver_model_to_processing(tmp_path: Pat
     (options,) = solver_model.processing_calls
     assert options.link_mt3dms is True
     assert (solved.written, solved.solved) == (True, True)
+
+
+def test_the_solve_time_of_nwt_is_solve_s_of_the_run_and_no_metric(tmp_path: Path) -> None:
+    solver_model = _SolvedStandIn()
+    solver_model.full_path = tmp_path / "island"
+    solver_model.last_flow_solve_time_seconds = 2.25
+    run = SolverRun(
+        slot=RunSlot(tmp_path, "island"), solver_model=solver_model, written=True, model=None
+    )
+
+    solved = ModflowNwtFlowAdapter().run(run)
+
+    assert solved.solve_s == 2.25
+    assert "flow_solve_time_seconds" not in solved.metrics
 
 
 def test_run_without_the_link_fact_asks_no_lmt(tmp_path: Path) -> None:

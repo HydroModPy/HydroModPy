@@ -22,7 +22,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.common import VariableBase, point_records_of
-from hydromodpy.data.provenance.lockfile import is_frozen_mode, reject_frozen_download
+from hydromodpy.data.provenance.lockfile import LockedInputs, reject_frozen_download
 from hydromodpy.data.provenance.sidecars import CacheRow, empty_path_for
 from hydromodpy.data.source.port import Extent, FetchRequest, Period
 
@@ -277,6 +277,7 @@ class StationVariable(VariableBase):
 
         if not station_ids or source_cfg.force_refresh:
             reject_frozen_download(
+                self._locked(),
                 variable=self.VARIABLE_NAME,
                 source=source_name,
                 station_id=None,
@@ -313,6 +314,7 @@ class StationVariable(VariableBase):
                 continue
             parts: list[PointRecord] = []
             reject_frozen_download(
+                self._locked(),
                 variable=self.VARIABLE_NAME,
                 source=source_name,
                 station_id=sid,
@@ -426,6 +428,10 @@ class StationVariable(VariableBase):
             return
         with self.index.chronicle(self.data_dir, stem) as rows:
             yield rows
+
+    def _locked(self) -> LockedInputs | None:
+        """The lockfile of a frozen run, read from the index, or None."""
+        return None if self.index is None else self.index.locked
 
     def _row_of(self, source: str, station_id: str, product: str | None = None) -> CacheRow | None:
         """Return the row of one station, its empty row included, or None.
@@ -629,7 +635,7 @@ class StationVariable(VariableBase):
             return None
 
         if self.index.is_stale(row):
-            if is_frozen_mode():
+            if self.index.locked is not None:
                 raise FrozenDataError(
                     "Frozen data mode detected a SHA-256 mismatch for "
                     f"{self.VARIABLE_NAME}/{source}/{station_id}: {row.path} changed "

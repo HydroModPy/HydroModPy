@@ -26,6 +26,7 @@ from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.loading._dispatch import variable_class_for
+from hydromodpy.data.provenance.lockfile import LockedInputs
 from hydromodpy.data.provenance.sidecars import CacheIndex
 
 
@@ -42,6 +43,12 @@ class DataStore:
         either, nothing is persisted.
     index : CacheIndex, optional
         An index already read, shared with another store of the same folder.
+        It carries its own *locked*.
+    locked : LockedInputs, optional
+        The lockfile of a frozen run, read once by the runner. The store gives
+        it to the index it builds, so every refusal of the frozen mode reads
+        this argument and no state of the process. ``None`` is a run that is
+        not frozen.
     project_extent : tuple, optional
         Bounding box (xmin, ymin, xmax, ymax) for spatial filtering.
     project_period : tuple[datetime, datetime], optional
@@ -54,6 +61,7 @@ class DataStore:
         workspace_root: str | Path | None = None,
         data_root: str | Path | None = None,
         index: CacheIndex | None = None,
+        locked: LockedInputs | None = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
         bounds: Bounds | None = None,
@@ -78,7 +86,8 @@ class DataStore:
             self.workspace_root = None
             self.data_root = None
 
-        self.index = index if index is not None else CacheIndex(self.data_root)
+        self.index = index if index is not None else CacheIndex(self.data_root, locked=locked)
+        self.locked = self.index.locked
 
         self.project_extent = project_extent
         self.project_period = project_period

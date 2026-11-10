@@ -182,6 +182,11 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
         None,
         "The table of a new backend, read only when solver.backend names it.",
     ),
+    "simulation.time.window": ("all", "Absent, the run is one window, as in 2.0."),
+    "simulation.time.window_length": (
+        _UNSET,
+        "Unset, the run is not cut into windows, as in 2.0.",
+    ),
     "workspace.products_cap_mb": (
         5000,
         "A file of 2.0 wrote no store, and the cap is far above it: nothing is evicted, so a run reads the same mesh and soil bytes.",

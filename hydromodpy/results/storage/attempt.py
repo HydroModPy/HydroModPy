@@ -29,9 +29,9 @@ Rules
 - A directory without outcome and without seal, younger than the stale
   threshold, is a claim in flight: refused as claimed elsewhere. Older, it is
   a directory nobody made this way, and the worker says what to do with it.
-- By default the attempt resumes in place: ``outcome.json`` and ``logs/`` of
-  attempt ``k`` go under ``attempts/<k>/``, the checkpoints, the partial
-  field store and the scratch stay. ``fresh`` moves everything, and so does
+- By default the attempt resumes in place: ``outcome.json``, ``logs/`` and
+  the stop flag of attempt ``k`` go under ``attempts/<k>/``, the checkpoints,
+  the partial field store and the scratch stay. ``fresh`` moves everything, and so does
   :func:`start_over_if_changed` once the request id of the new attempt is known
   and differs from the one attempt ``k`` recorded.
 - Every name a claim creates or resumes follows the rule of a run name
@@ -50,6 +50,18 @@ trace. A directory the claim created goes as a whole. An attempt ``k + 1``
 puts the outcome, the logs and what else it filed back from ``attempts/<k>/``,
 removes what it wrote itself, and removes ``attempts/<k>/``, and
 ``attempts/`` when that is empty.
+
+Asking a run to stop
+--------------------
+:func:`request_stop` writes ``<dir>/.hmp/stop.json`` in a running run or
+session, and the loops of that run read it between two steps, two runs of a
+plan or two time steps (``core.runtime.interrupts.raise_if_stop_requested``).
+The run unwinds through :class:`~hydromodpy.core.runtime.interrupts.StopRequested`
+and ends ``aborted``, its error typed ``StopRequested`` and its signal
+``None``: the outcome keeps its four statuses. The next attempt files the flag
+under ``attempts/<k>/stop.json``, so it does not stop at its first check and
+the history keeps who stopped the run and when. A resume asked on a run whose
+request changed since is refused by :func:`refuse_resume_if_changed`.
 
 How an attempt ends
 -------------------
@@ -71,18 +83,25 @@ import shutil
 import signal as signals
 import socket
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from hydromodpy.core.exceptions import WriteConflictError
+from hydromodpy.core.exceptions import NothingThereError, ResumeError, WriteConflictError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.runtime.interrupts import (
+    STOP_FLAG_SCHEMA,
+    StopRequested,
+    TerminationRequested,
+)
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     RUN_INTERNAL_SCRATCH_DIRNAME,
+    STOP_FLAG_FILENAME,
     runs_dir_for,
+    stop_flag_for,
 )
 from hydromodpy.core.state.names import check_name
 from hydromodpy.core.state.result_dirs import run_dir_rel
@@ -111,6 +130,7 @@ from hydromodpy.results.outcome import (
     write_outcome,
 )
 from hydromodpy.results.readme import render_unsealed_run_readme, write_readme
+from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,
     RUN_CONFIG_FILENAME,
@@ -118,8 +138,9 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
     RUN_REQUEST_FILENAME,
+    SESSION_DESCRIPTOR_FILENAME,
 )
-from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.json_io import readable, write_json_atomic
 
 logger = get_logger(__name__)
 
@@ -167,8 +188,12 @@ def signal_of(error: BaseException | None) -> int | None:
     """Return the signal an exception stands for, or None for an ordinary error.
 
     SIGTERM unwinds as :class:`~hydromodpy.core.runtime.interrupts.TerminationRequested`
-    and SIGINT as ``KeyboardInterrupt``; nothing else is a signal.
+    and SIGINT as ``KeyboardInterrupt``. A stop asked through the flag,
+    :class:`~hydromodpy.core.runtime.interrupts.StopRequested`, is no signal
+    even though it unwinds the same way; nothing else is a signal either.
     """
+    if isinstance(error, StopRequested):
+        return None
     if isinstance(error, TerminationRequested):
         return int(signals.SIGTERM)
     if isinstance(error, KeyboardInterrupt):
@@ -490,6 +515,75 @@ def start_over_if_changed(claim: RunClaim, request_id: str) -> RunClaim:
     return started
 
 
+def refuse_resume_if_changed(
+    claim: RunClaim, request_id: str, *, moved_sections: Sequence[str] = ()
+) -> None:
+    """Refuse a resume that was asked for when the request changed since the stop.
+
+    ``hmp run --resume`` asks to continue attempt ``k``. Its request id is
+    compared with the one the outcome of attempt ``k`` recorded under
+    ``attempts/<k>/``, which counts the digests of the inputs and the state of
+    a window as well as the configuration. When they differ the resume is
+    refused with :class:`~hydromodpy.core.exceptions.ResumeError`. A first or a
+    fresh attempt has nothing to continue and passes, and so does an attempt
+    ``k`` that recorded no request id, which stopped before its inputs were
+    resolved and so computed nothing to keep. *moved_sections* are the
+    configuration sections that differ from the stopped attempt, named by the
+    refusal when there are any.
+    """
+    if not claim.resumed:
+        return
+    archive = claim.run_dir / RUN_ATTEMPTS_DIRNAME / str(claim.attempt - 1)
+    previous = readable(read_outcome, archive)
+    if previous is None or previous.request_id is None or previous.request_id == request_id:
+        return
+    if moved_sections:
+        raise ResumeError(
+            f"{run_dir_rel(claim.name)} cannot resume: Resolved configuration changed since "
+            f"attempt {claim.attempt - 1} stopped ({', '.join(moved_sections)}). Run it again "
+            "without --resume to start it over."
+        )
+    raise ResumeError(
+        f"{run_dir_rel(claim.name)} cannot resume: an input or a key of the request changed "
+        f"since attempt {claim.attempt - 1} stopped (request {previous.request_id[:12]}, now "
+        f"{request_id[:12]}). Run it again without --resume to start it over."
+    )
+
+
+def request_stop(directory: Path, *, now: datetime | None = None) -> Path:
+    """Ask the running run or session at *directory* to stop, and return its flag.
+
+    The flag ``<dir>/.hmp/stop.json`` holds ``schema``, ``at`` (an ISO UTC
+    instant) and ``host``, written through one rename. The run reads it at its
+    next check and unwinds; this call does not wait for it. A request repeated
+    before the run stops writes the date again.
+
+    Raises :class:`~hydromodpy.core.exceptions.NothingThereError` when the
+    folder does not exist, or when the run is not ``running`` (by
+    ``effective_status``) or the session not ``running`` (by its
+    ``session.json``), with the status read.
+    """
+    folder = Path(directory)
+    named = f"{folder.parent.name}/{folder.name}"
+    if not folder.is_dir():
+        raise NothingThereError(f"{named} does not exist, there is nothing to stop")
+    if (folder / SESSION_DESCRIPTOR_FILENAME).is_file():
+        session = readable(read_session, folder)
+        status = "unreadable" if session is None else str(session.status)
+    else:
+        status = effective_status(folder)
+    if status != "running":
+        raise NothingThereError(f"{named} is {status}, there is nothing to stop")
+    when = now if now is not None else datetime.now(UTC)
+    flag = stop_flag_for(folder)
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(
+        flag,
+        {"schema": STOP_FLAG_SCHEMA, "at": when.isoformat(), "host": socket.gethostname()},
+    )
+    return flag
+
+
 def withdraw_claim(claim: RunClaim) -> None:
     """Undo *claim* without a trace; the pulse of the attempt is stopped before.
 
@@ -516,6 +610,10 @@ def withdraw_claim(claim: RunClaim) -> None:
             continue
         _remove(entry)
     for entry in list(archive.iterdir()):
+        if entry.name == STOP_FLAG_FILENAME:
+            stop_flag_for(run_dir).parent.mkdir(parents=True, exist_ok=True)
+            os.replace(entry, stop_flag_for(run_dir))
+            continue
         os.replace(entry, run_dir / entry.name)
     archive.rmdir()
     if not any(attempts.iterdir()):
@@ -540,7 +638,12 @@ def _file_previous_attempt(run_dir: Path, archive: Path, *, fresh: bool) -> None
     the new attempt replaces it, so the directory never reads as unknown.
     ``config.toml`` and ``request.json`` are copied too, because the new attempt
     writes its own over them, and a withdrawn attempt puts those of ``k`` back.
+    The stop flag of attempt ``k`` goes to ``attempts/<k>/stop.json``, so the
+    new attempt does not stop at its first check.
     """
+    flag = stop_flag_for(run_dir)
+    if flag.is_file():
+        shutil.move(str(flag), str(archive / STOP_FLAG_FILENAME))
     outcome = run_dir / RUN_OUTCOME_FILENAME
     if outcome.is_file():
         shutil.copy2(outcome, archive / RUN_OUTCOME_FILENAME)
@@ -743,6 +846,8 @@ __all__ = [
     "is_run_product",
     "latest_version_dir",
     "record_request_id",
+    "refuse_resume_if_changed",
+    "request_stop",
     "run_dir_for_name",
     "scheduler_job_id_from_env",
     "scratch_dir_for_attempt",

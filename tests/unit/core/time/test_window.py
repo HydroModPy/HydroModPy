@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import dataclasses
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.time.window import (
+    ChainWindow,
     ResolvedSimulationTimeWindow,
     ResolvedSteadySimulationTimeGrid,
     build_simulation_time_boundaries,
+    chain_windows,
     has_flow_simulation_process,
     nominal_step_days,
     parse_step_spec,
+    parse_window_length,
     reject_invalid_step_value_spec,
     require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
@@ -23,6 +28,7 @@ from hydromodpy.core.time.window import (
     simulation_time_pandas_frequency,
     time_grid_start,
     validate_recharge_coverage,
+    window_grid,
 )
 from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 from tests._helpers.model_factory import make_model
@@ -444,3 +450,131 @@ def test_the_start_of_a_run_is_read_on_its_time_grid(
     del case
 
     assert time_grid_start(grid) == expected
+
+
+# Windows of a chain ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("6 months", (6, "month")), ("1 year", (1, "year")), ("30 days", (30, "day"))],
+)
+def test_a_window_length_is_a_count_and_a_unit(raw, expected):
+    assert parse_window_length(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "match"),
+    [
+        ("6", 'written "<n> <unit>"'),
+        (6, 'written "<n> <unit>"'),
+        ("1.5 months", "positive whole number"),
+        ("0 days", "positive whole number"),
+        ("3 weeks", "positive whole number"),
+    ],
+    ids=["bare text", "bare number", "fraction", "zero", "weeks"],
+)
+def test_a_bad_window_length_is_refused_with_its_key(raw, match):
+    with pytest.raises(ValueError, match=match) as raised:
+        parse_window_length(raw)
+    assert "simulation.time.window_length" in str(raised.value)
+
+
+def _monthly(start="2020-01-01", end="2020-12-31"):
+    return resolve_simulation_time_grid(_cfg(start, end, 1, "month", substeps=5))
+
+
+@pytest.mark.parametrize(
+    ("grid", "length", "periods"),
+    [
+        ("monthly", "6 months", [(0, 6), (6, 12)]),
+        ("monthly", "5 months", [(0, 5), (5, 10), (10, 12)]),
+        ("monthly", "1 year", [(0, 12)]),
+        ("monthly", "3 years", [(0, 12)]),
+        ("daily", "7 days", [(0, 7), (7, 10)]),
+        ("daily", "10 days", [(0, 10)]),
+    ],
+    ids=["two halves", "short last", "exact year", "longer than the run", "daily", "daily one"],
+)
+def test_a_grid_is_cut_into_windows_that_end_on_period_ends(grid, length, periods):
+    resolved = _monthly() if grid == "monthly" else resolve_simulation_time_grid(_cfg())
+    windows = chain_windows(resolved, length)
+
+    assert [(one.first_period, one.stop_period) for one in windows] == periods
+    assert [one.index for one in windows] == list(range(1, len(periods) + 1))
+    assert {one.count for one in windows} == {len(periods)}
+    assert windows[0].start == resolved.boundaries[0]
+    assert windows[-1].end == resolved.boundaries[-1]
+    for before, after in zip(windows, windows[1:], strict=False):
+        assert before.end == after.start
+    assert sum(one.nper for one in windows) == resolved.nper
+
+
+def test_a_window_edge_inside_a_period_is_refused_with_the_two_period_ends():
+    weekly = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-03-24", 7, "day"))
+
+    with pytest.raises(ConfigError) as raised:
+        chain_windows(weekly, "1 month")
+
+    message = str(raised.value)
+    assert "2020-02-01T00:00:00" in message
+    assert "from 2020-01-29T00:00:00 to 2020-02-05T00:00:00" in message
+    assert "simulation.time.window_length = '1 month'" in message
+
+
+@pytest.mark.parametrize(
+    "grid",
+    [None, ResolvedSteadySimulationTimeGrid()],
+    ids=["no time section", "steady"],
+)
+def test_a_run_without_periods_has_no_window(grid):
+    with pytest.raises(ConfigError, match="no \\[simulation.time\\] periods to cut"):
+        chain_windows(grid, "6 months")
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_the_grid_of_a_window_keeps_lengths_and_substeps(index):
+    whole = _monthly()
+    window = chain_windows(whole, "6 months")[index]
+
+    cut = window_grid(whole, window)
+
+    assert cut.nper == 6
+    assert cut.nstp_per_period == whole.nstp_per_period == 5
+    assert cut.period_lengths_seconds == whole.period_lengths_seconds[6 * index : 6 * index + 6]
+    assert cut.boundaries == whole.boundaries[6 * index : 6 * index + 7]
+    assert tuple(build_simulation_time_boundaries(cut.window)) == cut.boundaries
+    assert cut.window.start == window.start
+    assert cut.window.coverage_policy == whole.window.coverage_policy
+
+
+def test_the_dates_of_a_window_are_its_own_and_the_last_keeps_the_user_end():
+    whole = _monthly()
+    first, last = (window_grid(whole, one) for one in chain_windows(whole, "6 months"))
+
+    assert first.window.to_date_bounds() == ("2020-01-01", "2020-06-30")
+    assert last.window.to_date_bounds() == ("2020-07-01", "2020-12-31")
+    assert first.window.period_bounds is None and last.window.period_bounds is None
+
+
+def test_a_window_of_explicit_periods_keeps_them():
+    """Periods written out in the whole grid stay written out in the window."""
+    whole = _monthly()
+    explicit = dataclasses.replace(
+        whole.window,
+        period_bounds=tuple(zip(whole.boundaries[:-1], whole.boundaries[1:], strict=True)),
+    )
+    whole = dataclasses.replace(whole, window=explicit)
+    one = ChainWindow(
+        index=2,
+        count=2,
+        first_period=6,
+        stop_period=12,
+        start=whole.boundaries[6],
+        end=whole.boundaries[12],
+    )
+
+    cut = window_grid(whole, one)
+
+    assert cut.window.period_bounds == explicit.period_bounds[6:12]
+    assert tuple(build_simulation_time_boundaries(cut.window)) == cut.boundaries

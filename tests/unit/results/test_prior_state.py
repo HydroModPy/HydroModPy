@@ -4,6 +4,9 @@
 ``mesh/vertices`` to half the rounding step flopy writes, names both mesh
 identities when the two differ, and only then reads the last head and the final
 lake stages. A store without a mesh keeps the cell-count rule and a warning.
+A run that wrote ``final_state/`` is read from it, exact in float64, whether it
+is named by its folder, its ``fields.zarr`` or its ``final_state/``; a run of
+HydroModPy 2.0 is read from the last step of its field store.
 """
 
 from __future__ import annotations
@@ -19,7 +22,9 @@ from hydromodpy.core.exceptions import IncompatibleMeshError
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.initial.heads import restart_start_heads
 from hydromodpy.model.initial.state import PriorState
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.prior_state import (
+    prior_state_at,
     read_final_head,
     read_prior_state,
     read_restart_lake_stages,
@@ -239,3 +244,128 @@ def test_read_restart_lake_stages_length_mismatch_returns_empty(tmp_path: Path) 
     grp["stage"] = np.array([1.0, 2.0, 3.0])
     grp.attrs["lake_ids"] = ["a", "b"]
     assert read_restart_lake_stages(str(path)) == {}
+
+
+# A run that wrote final_state/ -----------------------------------------------
+
+EXACT = np.array([[100.0 + 1e-9, 101.0 + 2e-9, np.nan, 103.0, 104.0, 105.0]])
+"""Heads that the compact precision would round, NaN on one inactive cell."""
+
+
+def _compact(values: np.ndarray) -> np.ndarray:
+    """The head as fields.zarr keeps it under the compact precision, 2^-17 apart."""
+    step = 2.0**-17
+    return np.round(values / step) * step
+
+
+def _run(tmp_path: Path, *, final: bool = True, fields: bool = True) -> Path:
+    """A run folder with its field store, rounded, and its exact final state."""
+    run = tmp_path / "runs" / "island_w1"
+    run.mkdir(parents=True)
+    if fields:
+        _store(run / "fields.zarr", _mesh())
+        root = zarr.open(str(run / "fields.zarr"), mode="r+")
+        root["head"] = _compact(EXACT).reshape(1, 1, -1)
+        group = root.require_group("lake_state_final")
+        group["stage"] = np.array([13.95991695])
+        group.attrs["lake_ids"] = ["forebay"]
+    if final:
+        write_final_state(
+            run,
+            FinalState(
+                head=EXACT,
+                lake_stages={"forebay": 13.95991694769827},
+                sfr_stages={0: 12.25, 1: 11.75},
+                at="2020-07-01",
+            ),
+        )
+    return run
+
+
+@pytest.mark.parametrize(
+    "named", ["run folder", "fields.zarr", "final_state"], ids=["run", "fields", "final"]
+)
+def test_a_run_with_a_final_state_is_read_from_it_exactly(tmp_path: Path, named: str) -> None:
+    run = _run(tmp_path)
+    path = {
+        "run folder": run,
+        "fields.zarr": run / "fields.zarr",
+        "final_state": run / "final_state",
+    }[named]
+
+    state = read_prior_state(str(path), _mesh(), sim_id="w1")
+
+    np.testing.assert_array_equal(state.head, EXACT)
+    assert dict(state.lake_stages) == {"forebay": 13.95991694769827}
+    assert dict(state.sfr_stages) == {0: 12.25, 1: 11.75}
+    assert (state.path, state.sim_id) == (str(run / "final_state"), "w1")
+
+
+def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_path: Path) -> None:
+    run = _run(tmp_path)
+    rounded = _compact(EXACT)
+
+    assert not np.array_equal(rounded, EXACT, equal_nan=True)
+    np.testing.assert_array_equal(read_final_head(str(run / "fields.zarr")), EXACT)
+    np.testing.assert_array_equal(read_final_head(str(run)), EXACT)
+
+
+def test_a_run_of_2_0_is_read_from_the_last_step_of_its_field_store(tmp_path: Path) -> None:
+    run = _run(tmp_path, final=False)
+
+    state = read_prior_state(str(run), _mesh())
+
+    np.testing.assert_array_equal(state.head, _compact(EXACT))
+    assert dict(state.lake_stages) == {"forebay": 13.95991695}
+    assert dict(state.sfr_stages) == {}
+    assert state.path == str(run / "fields.zarr")
+
+
+def test_the_lake_stages_of_a_run_come_from_its_final_state(tmp_path: Path) -> None:
+    run = _run(tmp_path)
+
+    assert read_restart_lake_stages(str(run / "fields.zarr")) == {"forebay": 13.95991694769827}
+    assert read_restart_lake_stages(str(_run(tmp_path / "old", final=False))) == {
+        "forebay": 13.95991695
+    }
+
+
+def test_a_final_state_is_not_read_from_another_mesh(tmp_path: Path) -> None:
+    run = _run(tmp_path)
+    other = regular_cell_mesh(xmin=_XMIN, ymin=_YMIN, dx=100.0, dy=100.0, nrow=3, ncol=2)
+
+    with pytest.raises(IncompatibleMeshError):
+        read_prior_state(str(run / "final_state"), other)
+
+
+def test_a_final_state_alone_keeps_the_cell_count_rule_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    run = _run(tmp_path, fields=False)
+
+    with caplog.at_level(logging.WARNING):
+        state = read_prior_state(str(run / "final_state"), _mesh())
+
+    assert "no fields.zarr beside its final state" in caplog.text
+    np.testing.assert_array_equal(state.head, EXACT)
+
+
+def test_the_state_read_for_an_identity_skips_the_mesh_and_matches_the_restart(
+    tmp_path: Path,
+) -> None:
+    run = _run(tmp_path)
+
+    unchecked = prior_state_at(str(run), sim_id="w1")
+    checked = read_prior_state(str(run), _mesh(), sim_id="w1")
+
+    np.testing.assert_array_equal(unchecked.head, checked.head)
+    assert dict(unchecked.sfr_stages) == dict(checked.sfr_stages)
+    assert unchecked.path == checked.path
+
+
+def test_a_run_with_nothing_to_read_is_refused(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "empty"
+    run.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="neither a final_state/ nor a fields.zarr"):
+        prior_state_at(str(run / "final_state"))

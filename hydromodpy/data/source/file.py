@@ -3,8 +3,9 @@
 Serves user-provided files or directories across all data sections.
 A path is verified against execution bounds and sealed into FileRecord instances.
 The files are read where they lie: this source writes nothing, and a file of the
-user is no row of the data cache. In frozen mode each file must be one that
-``hydromodpy.lock`` pins, by its path and then its digest.
+user is no row of the data cache. A source built with the ``locked`` lockfile of a
+frozen run accepts only a file that ``hydromodpy.lock`` pins, by its path and then
+its digest.
 """
 
 from __future__ import annotations
@@ -13,7 +14,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.data.provenance.lockfile import USER_FILE_SOURCE, reject_frozen_user_file
+from hydromodpy.data.provenance.lockfile import (
+    USER_FILE_SOURCE,
+    LockedInputs,
+    reject_frozen_user_file,
+)
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,
@@ -42,8 +47,15 @@ class FileSource:
     variables: tuple[str, ...]
     hosts: tuple[str, ...]
 
-    def __init__(self, *, path: str | Path | None = None, **kwargs: object) -> None:
+    def __init__(
+        self,
+        *,
+        path: str | Path | None = None,
+        locked: LockedInputs | None = None,
+        **kwargs: object,
+    ) -> None:
         self.path = Path(path) if path is not None else None
+        self.locked = locked
         self.variables = (self.section,) if self.section else ("file",)
         self.hosts = ()
 
@@ -78,7 +90,7 @@ class FileSource:
             records = ()
 
         for record in records:
-            reject_frozen_user_file(variable=self.section, path=Path(record.path))
+            reject_frozen_user_file(self.locked, variable=self.section, path=Path(record.path))
 
         return FetchResult(
             source_id=self.source_id,

@@ -14,6 +14,7 @@ from hydromodpy.catchment.algorithms.flow_products import TerrainRequest
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.results.products.cited import CitedProduct, read_cited, write_cited
 from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow import products as products_module
 from hydromodpy.workflow.products import ProductKind, ask, terrain_supply, write_products
 
@@ -125,6 +126,20 @@ def test_a_present_product_is_read_without_build(tmp_path: Path) -> None:
 
     assert value == "made"
     assert built == []
+
+
+def test_a_product_read_from_the_store_is_a_store_line_of_the_profile(tmp_path: Path) -> None:
+    key = "a" * 64
+    store = ProductStore(products_root(tmp_path))
+    store.put(key, "fake", lambda d: (d / "value.txt").write_text("made", encoding="utf-8"))
+    ctx = _ctx(tmp_path)
+
+    ask(ctx, "fake", key=key, build=lambda: "x", read=_read_value)
+    ask(ctx, "fake", key="b" * 64, build=lambda: "built", read=_read_value)
+
+    lines = read_profile(ctx.run_dir).lines
+    assert [(line.name, line.reused, line.key) for line in lines] == [("fake", "store", key)]
+    assert lines[0].kind == "step" and lines[0].attempt == ctx.attempt
 
 
 def test_an_unreadable_product_is_discarded_and_rebuilt(tmp_path: Path) -> None:

@@ -5,6 +5,11 @@ version, checks, label, score, lineage, where is what), read from its
 directory without the index, then its tags and notes. ``--detail`` and
 ``--format json|csv`` print the facts the index holds instead, and so does a
 run without a README.
+
+Both views end with a Profile block read from ``profile.json`` in the run
+folder: the total time, the start-up, the solve of each run of the plan, the
+longest steps and what was reused. A run of HydroModPy 2.0 has no profile, and
+the block says so and prints the solve time its seal holds.
 """
 
 from __future__ import annotations
@@ -67,6 +72,34 @@ def run(args: argparse.Namespace) -> None:
     payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
 
     emit(args, "catalog show", payload, table=lambda: _print_facts(project_root, payload, args))
+
+
+def _seconds(value: float | None) -> str:
+    return "unknown" if value is None else f"{value:.1f} s"
+
+
+def _print_profile(profile: dict[str, Any]) -> None:
+    """Print the Profile block of one run, from :func:`profile_of_run`."""
+    print("\nProfile")
+    if not profile["present"]:
+        print(f"  {profile['message']}: {_seconds(profile['solve_s'])}")
+        return
+    attempts = profile["attempts"]
+    print(f"  total      : {_seconds(profile['total_s'])} over {attempts} attempt(s)")
+    print(f"  start-up   : {_seconds(profile['start_s'])}")
+    for solve in profile["solve"]:
+        print(f"  solve      : {solve['name']} {_seconds(solve['duration_s'])}")
+    longest = profile["longest_steps"]
+    if longest:
+        print(
+            "  longest    : "
+            + ", ".join(f"{step['name']} {_seconds(step['duration_s'])}" for step in longest)
+        )
+    for line in profile["reused"]:
+        source = line["reused"] if line["key"] is None else f"{line['reused']} {line['key']}"
+        print(f"  reused     : {line['name']} ({source}, attempt {line['attempt']})")
+    if profile["max_rss_mb"] is not None:
+        print(f"  peak memory: {profile['max_rss_mb']:.0f} MiB")
 
 
 def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Namespace) -> None:
@@ -134,6 +167,7 @@ def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Nam
             print("Parameters:")
             print(params.to_string())
 
+    _print_profile(payload["profile"])
     ref = payload.get("rel_dir") or payload["sim_id"][:8]
     print(f"next: hmp catalog tag {ref} +pinned | hmp catalog diff {ref} <other>")
 
@@ -146,6 +180,7 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
     """
     from hydromodpy.results.annotations import read_annotations
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
+    from hydromodpy.results.catalog.listing import profile_of_run
     from hydromodpy.results.storage.contract import README_FILENAME
 
     try:
@@ -165,5 +200,6 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
         print("notes:")
         for note in annotations.notes:
             print(f"  - {note.at:%Y-%m-%d %H:%M} {note.text}")
+    _print_profile(profile_of_run(run_dir))
     print(f"\nnext: hmp catalog show {rel_dir} --detail | hmp catalog diff {rel_dir} <other>")
     return True

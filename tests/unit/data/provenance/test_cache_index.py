@@ -20,12 +20,19 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.core.exceptions import DataCacheError
+from hydromodpy.core.exceptions import DataCacheError, FrozenDataError
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.grids import GridVariable
 from hydromodpy.data.families.stations import StationVariable
-from hydromodpy.data.provenance.lockfile import set_frozen_mode
+from hydromodpy.data.loading.loader import DataLoader
+from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.provenance.lockfile import (
+    LockedInputs,
+    project_lockfile_path,
+    read_locked_inputs,
+    write_lockfile,
+)
 from hydromodpy.data.provenance.sidecars import (
     CacheIndex,
     CacheRow,
@@ -36,6 +43,8 @@ from hydromodpy.data.provenance.sidecars import (
     write_sidecar,
 )
 from hydromodpy.data.provenance.sidecars import Sidecar as _Sidecar
+from hydromodpy.data.source.port import FetchRequest
+from hydromodpy.data.source.url import UrlSource
 
 BOX = (0.0, 0.0, 10.0, 10.0)
 
@@ -600,10 +609,12 @@ def _project(tmp_path: Path) -> tuple[Path, Path]:
     return workspace, project
 
 
-def _stations(workspace: Path, period: tuple[datetime, datetime]) -> _Stations:
+def _stations(
+    workspace: Path, period: tuple[datetime, datetime], locked: LockedInputs | None = None
+) -> _Stations:
     return _Stations(
         config=SimpleNamespace(),
-        index=CacheIndex(workspace / "data"),
+        index=CacheIndex(workspace / "data", locked=locked),
         project_period=period,
         data_dir=workspace / "data" / "hydrometry",
     )
@@ -616,25 +627,25 @@ def _lock(project: Path) -> None:
 
 
 @pytest.fixture
-def frozen_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Path, Path]]:
-    """A workspace with one cached chronicle, its lockfile, and frozen mode on."""
+def frozen_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path, LockedInputs]:
+    """A workspace with one cached chronicle, its lockfile, and that lockfile read."""
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, project = _project(tmp_path)
     _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)))._persist_api_records(
         [_station_record("A", "2000-01-01", "2000-01-31")], "hubeau"
     )
     _lock(project)
-    set_frozen_mode(True, project_root=project)
-    try:
-        yield workspace, workspace / "data" / "hydrometry"
-    finally:
-        set_frozen_mode(False)
+    return workspace, workspace / "data" / "hydrometry", read_locked_inputs(project)
 
 
-def test_a_longer_period_is_refused_before_the_download(frozen_project: tuple[Path, Path]) -> None:
-    workspace, data_dir = frozen_project
+def test_a_longer_period_is_refused_before_the_download(
+    frozen_project: tuple[Path, Path, LockedInputs],
+) -> None:
+    workspace, data_dir, locked = frozen_project
     before = sorted(p.name for p in data_dir.iterdir())
-    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 2, 28)))
+    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 2, 28)), locked)
     cfg = SimpleNamespace(station_ids=["A"], force_refresh=False)
 
     with pytest.raises(DataCacheError, match="Frozen data mode forbids a download") as info:
@@ -646,19 +657,21 @@ def test_a_longer_period_is_refused_before_the_download(frozen_project: tuple[Pa
 
 
 def test_a_search_by_extent_is_refused_before_the_download(
-    frozen_project: tuple[Path, Path],
+    frozen_project: tuple[Path, Path, LockedInputs],
 ) -> None:
-    workspace, _ = frozen_project
-    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)))
+    workspace, _, locked = frozen_project
+    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)), locked)
     cfg = SimpleNamespace(station_ids=[], force_refresh=False)
 
     with pytest.raises(DataCacheError, match="asked for by extent or with force_refresh"):
         variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
 
 
-def test_a_covered_period_is_served_from_the_cache(frozen_project: tuple[Path, Path]) -> None:
-    workspace, _ = frozen_project
-    variable = _stations(workspace, (datetime(2000, 1, 5), datetime(2000, 1, 20)))
+def test_a_covered_period_is_served_from_the_cache(
+    frozen_project: tuple[Path, Path, LockedInputs],
+) -> None:
+    workspace, _, locked = frozen_project
+    variable = _stations(workspace, (datetime(2000, 1, 5), datetime(2000, 1, 20)), locked)
     cfg = SimpleNamespace(station_ids=["A"], force_refresh=False, mask_path=None)
 
     records = variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
@@ -693,13 +706,10 @@ def test_a_station_shorter_than_its_window_replays_frozen(
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     project = _short_station_project(tmp_path, window=None)
     workspace = project.parent.parent
-    set_frozen_mode(True, project_root=project)
-    try:
-        variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)))
-        cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
-        records = variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
-    finally:
-        set_frozen_mode(False)
+    locked = read_locked_inputs(project)
+    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)), locked)
+    cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
+    records = variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
     assert [r.station_id for r in records] == ["B"]
     assert records[0].date_end == datetime(2000, 1, 30)
 
@@ -739,3 +749,57 @@ def test_an_empty_station_answers_for_its_window_only(tmp_path: Path) -> None:
     assert variable._is_empty_sentinel("hubeau", "B")
     variable.project_period = (datetime(2000, 1, 1), datetime(2000, 3, 1))
     assert not variable._is_empty_sentinel("hubeau", "B")
+
+
+# -- the lockfile of a frozen run travels as an argument ---------------------------------
+
+
+def _lockfile_pinning_nothing(tmp_path: Path) -> LockedInputs:
+    project = tmp_path / "project"
+    project.mkdir()
+    write_lockfile(project_lockfile_path(project), None)
+    return read_locked_inputs(project)
+
+
+def test_an_index_is_not_frozen_unless_it_is_handed_a_lockfile(tmp_path: Path) -> None:
+    locked = _lockfile_pinning_nothing(tmp_path)
+    frozen_index = CacheIndex(tmp_path / "data", locked=locked)
+    free_index = CacheIndex(tmp_path / "data")
+
+    with pytest.raises(FrozenDataError, match="forbids cache misses"):
+        frozen_index.find("hydrometry", "hubeau", station_id="Z")
+    assert free_index.find("hydrometry", "hubeau", station_id="Z") is None
+    assert frozen_index.locked is locked and free_index.locked is None
+
+
+def test_a_store_and_a_loader_hand_their_lockfile_to_the_index(tmp_path: Path) -> None:
+    locked = _lockfile_pinning_nothing(tmp_path)
+    paths = SimpleNamespace(data_dir=tmp_path / "ws" / "data", root=tmp_path / "ws")
+    loader = DataLoader(config_path=tmp_path / "c.toml", data_plan=SimpleNamespace(), locked=locked)
+    loader._init_store(paths)
+    free_loader = DataLoader(config_path=tmp_path / "c.toml", data_plan=SimpleNamespace())
+    free_loader._init_store(paths)
+
+    assert loader._require_store().index.locked is locked
+    assert loader._require_store().locked is locked
+    assert free_loader._require_store().index.locked is None
+    assert DataStore(data_root=tmp_path / "d", locked=locked).index.locked is locked
+    assert DataStore().index.locked is None
+
+
+def test_the_index_a_url_source_builds_carries_the_lockfile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    locked = _lockfile_pinning_nothing(tmp_path)
+
+    def fake_download(url, dest, **kwargs):
+        Path(dest).write_text("a,b\n")
+        return SimpleNamespace(etag=None, last_modified=None)
+
+    monkeypatch.setattr("hydromodpy.data.source.url.download", fake_download)
+    request = FetchRequest(out_dir=tmp_path / "data" / "dem")
+
+    with pytest.raises(FrozenDataError, match="forbids registering a downloaded artefact"):
+        UrlSource(url="https://example.org/a.csv", locked=locked).fetch(request)
+    free = UrlSource(url="https://example.org/a.csv").fetch(request)
+    assert [record.path.name for record in free.files][0].endswith(".csv")

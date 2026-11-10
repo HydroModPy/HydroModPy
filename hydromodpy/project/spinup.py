@@ -1,7 +1,9 @@
 """Cyclic spin-up driver: repeat a forcing window until the state stabilizes.
 
 Each cycle runs the representative window, then the next cycle restarts from the
-previous cycle's Zarr (``[flow] restart_from``). The loop stops when the aquifer
+previous cycle's run (``[flow] restart_from``). The state of a cycle is read from
+its ``final_state/``, in float64, so the comparison between two cycles and the start
+of the next one never see the rounding of a compact field store. The loop stops when the aquifer
 heads and the lake stage stop changing between cycles (L-inf below tolerance) or
 ``max_cycles`` is reached. The converged state is a reusable antecedent: point a
 production run (or every calibration trial) at ``result.restart_from``.
@@ -116,6 +118,8 @@ def lake_stage_delta(
 def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float | None]:
     """Return ``(d_head, d_stage)``, the L-inf change (m) between two cycles.
 
+    The cycles are read through ``read_final_head`` and ``read_restart_lake_stages``, which
+    take ``final_state/`` of the run when it has one.
     ``d_head`` is the largest absolute head change over active cells.
     ``d_stage`` is the largest absolute lake-stage change over the lakes present
     in both cycles, ``0.0`` on a model with no lake, and ``None`` when the two
@@ -192,10 +196,10 @@ def run_spinup(
     persistence = getattr(getattr(cfg.simulation, "results", None), "persistence", None)
     saved_precision = getattr(persistence, "field_precision", None)
     try:
-        # A cycle's stored heads start the next cycle and, once converged, the
-        # production run: they are written exact, so the rounding of the compact
-        # precision (up to 2**-17 of the head) never enters a restart nor the
-        # comparison against tol_head.
+        # The stored heads of a cycle are what a user compares and what a later run
+        # may restart from: they are written exact, so the rounding of the compact
+        # precision (up to 2**-17 of the head) never enters them. The restart and
+        # the comparison between cycles read ``final_state/``, exact by itself.
         if persistence is not None:
             persistence.field_precision = "exact"
         # A dedicated, shorter representative window keeps each cycle cheap. Set it

@@ -60,6 +60,7 @@ def _make_ctx(
         run_dir=runs_dir_for(project_root) / "baseline",
         sim_id="deadbeef-dead-beef-dead-beefdeadbeef",
         execution=SimpleNamespace(lightweight=False),
+        attempt=1,
     )
 
 

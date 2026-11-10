@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.products.cited import (
@@ -147,7 +148,7 @@ def ask(
         cited = _cited_key(ctx.run_dir, kind)
         if cited is not None and cited != key:
             logger.info("products.resume kind=%s recomputed=%s cited=%s", kind, key, cited)
-            value = _read_present(store, kind, cited, read)
+            value = _read_stored(ctx, store, kind, cited, read)
             if value is not None:
                 _cite(ctx, kind, cited)
                 return value[0]
@@ -155,7 +156,7 @@ def ask(
                 "products.cited_gone kind=%s cited=%s: built again under %s", kind, cited, key
             )
 
-    value = _read_present(store, kind, key, read)
+    value = _read_stored(ctx, store, kind, key, read)
     if value is not None:
         _cite(ctx, kind, key)
         return value[0]
@@ -181,6 +182,27 @@ def ask(
             _evict(ctx, store, key)
     _cite(ctx, kind, key)
     return built
+
+
+def _read_stored(
+    ctx: WorkflowContext,
+    store: ProductStore | None,
+    kind: str,
+    key: str,
+    read: Callable[[Path], T],
+) -> tuple[T] | None:
+    """Read the product of ``key`` like ``_read_present``, and profile a read that hit.
+
+    A hit is one line of ``profile.json`` named after the kind, ``reused = "store"``
+    with the key, so the profile says which work the store saved.
+    """
+    from hydromodpy.workflow.runner import record_measure
+
+    with measured("step", kind) as measure:
+        value = _read_present(store, kind, key, read)
+    if value is not None:
+        record_measure(ctx.run_dir, measure, attempt=ctx.attempt, reused="store", key=key)
+    return value
 
 
 def _read_present(

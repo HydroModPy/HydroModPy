@@ -17,9 +17,15 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.state.layout import INTERNAL_DIRNAME, PROJECT_MARKER_FILENAME
+from hydromodpy.core.runtime.interrupts import StopRequested
+from hydromodpy.core.state.layout import (
+    INTERNAL_DIRNAME,
+    PROJECT_MARKER_FILENAME,
+    stop_flag_for,
+)
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.storage.attempt import request_stop
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.record.attempt import run_attempt
@@ -61,6 +67,7 @@ def _ctx(project: Path, run_dir: Path, sim_id: str) -> SimpleNamespace:
     return SimpleNamespace(
         sim_id=sim_id,
         run_dir=run_dir,
+        attempt=1,
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(results=SimpleNamespace(persistence=PersistenceConfig())),
             export=[],
@@ -95,7 +102,7 @@ def test_the_seal_step_ends_a_real_pipeline_and_the_bracket_closes_the_run(
         pipeline = Pipeline([_Solved(), SealStep()], workspace=project, run_dir=handle.run_dir)
 
         final = pipeline.run(
-            PipelineState(run_id=CASE, data={"ctx": ctx, "wall_seconds": 1.0}),
+            PipelineState(run_id=CASE, data={"ctx": ctx}),
             heartbeat=handle.heartbeat,
         )
 
@@ -117,6 +124,43 @@ def test_the_seal_step_ends_a_real_pipeline_and_the_bracket_closes_the_run(
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
     assert effective_status(run_dir) == "completed"
     assert not (project / INTERNAL_DIRNAME / "index.duckdb").exists()
+
+
+class _AsksToStop:
+    """A step that asks its own run to stop, as a server would from another process."""
+
+    name = "asks_to_stop"
+
+    def run(self, state: PipelineState) -> PipelineState:
+        request_stop(state.get("run_dir"))
+        return state.advance(step_index=state.step_index + 1, step_name=self.name)
+
+
+def test_a_stop_asked_between_two_steps_closes_the_attempt_aborted_as_a_signal_would(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+
+    with pytest.raises(StopRequested, match="stop requested at"):
+        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
+            pipeline = Pipeline(
+                [_AsksToStop(), _Solved()], workspace=project, run_dir=handle.run_dir
+            )
+            pipeline.run(
+                PipelineState(run_id=CASE, data={"run_dir": handle.run_dir}),
+                heartbeat=handle.heartbeat,
+            )
+
+    run_dir = handle.run_dir
+    outcome = read_outcome(run_dir)
+    assert outcome.status == "aborted"
+    assert outcome.signal is None
+    assert outcome.error is not None and outcome.error.type == "StopRequested"
+    assert outcome.step == "solved"
+    assert not is_sealed(run_dir)
+    assert stop_flag_for(run_dir).is_file(), "the flag stays for the attempt that resumes"
+    rows = WorkflowJournal(run_dir).list_steps(CASE)
+    assert [(row.step_name, row.status) for row in rows] == [("asks_to_stop", "completed")]
 
 
 # A handle marked by withdraw() closes nothing: the pulse stops, the run log is

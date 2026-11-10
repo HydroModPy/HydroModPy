@@ -6,11 +6,12 @@ because the state their auxiliary solve returns replaces that array once it has
 run. The head of a ``PriorState`` is copied cell by cell and its inactive cells
 take the top of the grid. Two checks complete the module: whether a head lies
 between the bottom and the top, and whether two spin-up cycles ended on the
-same state.
+same heads and the same lake stages.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -139,15 +140,27 @@ def summarize_head_initial_condition_bounds(
     }
 
 
-def cycles_have_settled(previous: object, current: object, *, tol_head_m: float) -> bool:
+def cycles_have_settled(
+    previous: object,
+    current: object,
+    *,
+    tol_head_m: float,
+    previous_stages: Mapping[str, float] | None = None,
+    current_stages: Mapping[str, float] | None = None,
+) -> bool:
     """Tell whether two consecutive cycles ended on the same state.
 
     The measure is the largest change anywhere, not a mean: a basin settled on
     average while one compartment still drifts has not settled, and averaging is how
     that gets missed. Cells that are inactive in either cycle are left out; a cell
     that is dry in one and wet in the other is a change and counts.
+
+    The lake stages of the two cycles, by lake id, count at the same tolerance:
+    an aquifer that has settled under a lake that still drifts has not.
     """
     if previous is None or current is None:
+        return False
+    if not _stages_have_settled(previous_stages, current_stages, tol_head_m=tol_head_m):
         return False
     before = np.asarray(previous, dtype=float).ravel()
     after = np.asarray(current, dtype=float).ravel()
@@ -162,6 +175,23 @@ def cycles_have_settled(previous: object, current: object, *, tol_head_m: float)
     if np.any(np.isfinite(before) != np.isfinite(after)):
         return False
     return bool(np.max(np.abs(after[both_finite] - before[both_finite])) <= float(tol_head_m))
+
+
+def _stages_have_settled(
+    previous: Mapping[str, float] | None,
+    current: Mapping[str, float] | None,
+    *,
+    tol_head_m: float,
+) -> bool:
+    """Whether no lake stage moved by more than ``tol_head_m`` metres between two cycles."""
+    before = dict(previous or {})
+    after = dict(current or {})
+    if set(before) != set(after):
+        raise ValueError(
+            f"two cycles returned the stages of lakes {sorted(before)} and {sorted(after)}; "
+            "they have to be the same lakes."
+        )
+    return all(abs(float(after[lake]) - float(before[lake])) <= float(tol_head_m) for lake in after)
 
 
 __all__ = [

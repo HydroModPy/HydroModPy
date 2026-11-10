@@ -459,7 +459,12 @@ def run_mf6_api(
     ImportError
         When the optional ``modflowapi`` package is not installed.
     SolverError
-        When the developer callback raises (re-raised with step context).
+        When the developer callback raises an ``Exception`` (re-raised with step
+        context).
+    KeyboardInterrupt
+        When the callback raises one, as ``StopRequested`` does for a stop asked
+        through the flag of the run. It is not wrapped, and libmf6 is finalized
+        before it propagates.
     SolverInputError
         When the TDIS file uses ATS, which the API loop does not honor, or when
         MF6 stops on an input error at initialize.

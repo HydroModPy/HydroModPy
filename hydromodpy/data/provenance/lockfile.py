@@ -21,11 +21,13 @@ The file has one address, ``<project root>/hydromodpy.lock``, built by
 a project root asks :func:`resolve_lockfile_root` for one; a workspace root is
 never an answer, because a workspace holds many projects and one shared cache.
 
-Frozen mode is two module variables: one project is frozen per process. The
-runner sets it before a run and clears it after. While it is on, the data
-cache refuses a miss, a row the lockfile does not pin, a file of other bytes
-and any new write, and a user file is refused when the lockfile does not pin
-its bytes. Each refusal is a :class:`FrozenDataError`.
+Frozen mode is an argument. The runner reads the lockfile once with
+:func:`read_locked_inputs` and hands the :class:`LockedInputs` down to the data
+cache and the file source, so two runs of one process never share it. A
+``reject_*`` function takes that object first, and ``None`` means the run is not
+frozen. A frozen run refuses a cache miss, a row the lockfile does not pin, a
+file of other bytes and any new write, and a user file the lockfile does not pin
+by its bytes. Each refusal is a :class:`FrozenDataError`.
 
 Every reader refuses a lockfile whose ``schema`` lies outside
 :data:`LOCKFILE_VERSIONS`, by the rule of
@@ -61,10 +63,6 @@ LOCKFILE_REMEDY = "Write it again with `hmp data lock`."
 
 #: The ``source`` of a file the user declared, read where it lies.
 USER_FILE_SOURCE = "file"
-
-# Process-wide frozen-mode state, read by the data cache and by the file source.
-_FROZEN_MODE: bool = False
-_FROZEN_PROJECT_ROOT: Path | None = None
 
 # The directory that holds the hydromodpy package, found from this module's
 # dotted name so it stays right wherever the module sits. Its git commit is
@@ -109,37 +107,6 @@ def resolve_lockfile_root(project: Path | str | None = None) -> Path:
     return root
 
 
-def set_frozen_mode(enabled: bool, *, project_root: Path | str | None = None) -> None:
-    """Toggle process-wide frozen mode and bind the project it reads.
-
-    ``project_root`` is the directory holding ``hydromodpy.lock`` and is
-    required to enable: frozen mode without a project has no lockfile to read.
-    Disabling clears the binding.
-    """
-    global _FROZEN_MODE, _FROZEN_PROJECT_ROOT
-    if not enabled:
-        _FROZEN_MODE = False
-        _FROZEN_PROJECT_ROOT = None
-        return
-    if project_root is None:
-        raise ValueError(
-            "Enabling frozen mode requires project_root: hydromodpy.lock is read from "
-            "the project root, never guessed."
-        )
-    _FROZEN_MODE = True
-    _FROZEN_PROJECT_ROOT = Path(project_root).expanduser().resolve()
-
-
-def is_frozen_mode() -> bool:
-    """Return whether frozen mode is currently active."""
-    return _FROZEN_MODE
-
-
-def frozen_project_root() -> Path | None:
-    """Return the project root frozen mode reads the lockfile from, if bound."""
-    return _FROZEN_PROJECT_ROOT
-
-
 @dataclass(frozen=True)
 class LockedInput:
     """One ``[[input]]`` record: one row of the data cache, or one user file.
@@ -159,6 +126,38 @@ class LockedInput:
     license: str | None
     fetched_at: str
     empty: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LockedInputs:
+    """The lockfile of a frozen project, read once.
+
+    ``project_root`` is the folder that holds the lockfile and the base of the
+    ``path`` of every user file. The object is plain data, so it crosses a
+    process by ``pickle`` and a forked trial shares it without a copy.
+    """
+
+    project_root: Path
+    path: Path
+    inputs: tuple[LockedInput, ...]
+
+    def pinned(self, variable: str, source: str, station_id: str | None) -> list[LockedInput]:
+        """Return the records held for one variable, source and station."""
+        return [
+            item
+            for item in self.inputs
+            if (item.variable, item.source, item.station_id) == (variable, source, station_id)
+        ]
+
+    def row(
+        self, variable: str, source: str, station_id: str | None, path: str
+    ) -> LockedInput | None:
+        """Return the record of the file at *path* (relative to the data folder), or None."""
+        wanted = PurePosixPath(path)
+        for item in self.pinned(variable, source, station_id):
+            if PurePosixPath(item.path) == wanted:
+                return item
+        return None
 
 
 @dataclass(frozen=True)
@@ -238,46 +237,31 @@ def read_lockfile_schema_sha256(path: Path | str) -> str | None:
 # ---------------------------------------------------------------------- frozen mode
 
 
-def locked_inputs() -> list[LockedInput]:
-    """Return the inputs pinned by the lockfile of the frozen project."""
-    project_root = frozen_project_root()
-    if project_root is None:
-        raise FrozenDataError(
-            "Frozen data mode has no project bound: enable it with "
-            "set_frozen_mode(True, project_root=<project root>) before reading "
-            "hydromodpy.lock."
-        )
-    lockfile = project_lockfile_path(project_root)
+def read_locked_inputs(project_root: Path | str) -> LockedInputs:
+    """Read the lockfile of *project_root* once, for a frozen run.
+
+    Raises :class:`FrozenDataError` when the project has no lockfile, since a
+    frozen run has nothing to compare its inputs to.
+    """
+    root = Path(project_root).expanduser().resolve()
+    lockfile = project_lockfile_path(root)
     if not lockfile.is_file():
         raise FrozenDataError(f"Frozen data mode requires an existing lockfile at {lockfile}.")
-    return read_lockfile_inputs(lockfile)
+    return LockedInputs(
+        project_root=root, path=lockfile, inputs=tuple(read_lockfile_inputs(lockfile))
+    )
 
 
 def _key(variable: str, source: str, station_id: str | None) -> str:
     return f"{variable}/{source}/{station_id or '-'}"
 
 
-def _pinned(variable: str, source: str, station_id: str | None) -> list[LockedInput]:
-    """Return the records the lockfile holds for one variable, source and station."""
-    return [
-        item
-        for item in locked_inputs()
-        if (item.variable, item.source, item.station_id) == (variable, source, station_id)
-    ]
-
-
-def _locked_row(
-    variable: str, source: str, station_id: str | None, path: str
-) -> LockedInput | None:
-    wanted = PurePosixPath(path)
-    for item in _pinned(variable, source, station_id):
-        if PurePosixPath(item.path) == wanted:
-            return item
-    return None
-
-
-def _reject_a_file_pinned_empty(variable: str, source: str, station_id: str | None) -> None:
-    if station_id is not None and any(item.empty for item in _pinned(variable, source, station_id)):
+def _reject_a_file_pinned_empty(
+    locked: LockedInputs, variable: str, source: str, station_id: str | None
+) -> None:
+    if station_id is not None and any(
+        item.empty for item in locked.pinned(variable, source, station_id)
+    ):
         raise FrozenDataError(
             f"Frozen data mode found a file for {_key(variable, source, station_id)}, and "
             "hydromodpy.lock pins an empty answer for it."
@@ -285,12 +269,16 @@ def _reject_a_file_pinned_empty(variable: str, source: str, station_id: str | No
 
 
 def reject_frozen_cache_miss(
-    *, data_root: Path | None, variable: str, source: str, station_id: str | None
+    locked: LockedInputs | None,
+    *,
+    data_root: Path | None,
+    variable: str,
+    source: str,
+    station_id: str | None,
 ) -> None:
     """Refuse a search the data cache cannot answer, in frozen mode."""
-    if not is_frozen_mode():
+    if locked is None:
         return
-    locked_inputs()
     raise FrozenDataError(
         "Frozen data mode forbids cache misses: "
         f"{_key(variable, source, station_id)} is absent from the data cache at "
@@ -299,34 +287,42 @@ def reject_frozen_cache_miss(
 
 
 def reject_frozen_row(
-    *, variable: str, source: str, station_id: str | None, path: str, sha256: str | None
+    locked: LockedInputs | None,
+    *,
+    variable: str,
+    source: str,
+    station_id: str | None,
+    path: str,
+    sha256: str | None,
 ) -> None:
     """Refuse a row of the data cache the lockfile does not pin, or pins with other bytes."""
-    if not is_frozen_mode():
-        return
-    _reject_a_file_pinned_empty(variable, source, station_id)
-    locked = _locked_row(variable, source, station_id, path)
     if locked is None:
+        return
+    _reject_a_file_pinned_empty(locked, variable, source, station_id)
+    pinned = locked.row(variable, source, station_id, path)
+    if pinned is None:
         raise FrozenDataError(
             "Frozen data mode forbids data cache rows absent from hydromodpy.lock: "
             f"{_key(variable, source, station_id)}."
         )
-    if sha256 != locked.sha256:
+    if sha256 != pinned.sha256:
         raise FrozenDataError(
             "Frozen data mode detected a SHA-256 mismatch for "
             f"{_key(variable, source, station_id)}."
         )
 
 
-def reject_frozen_empty(*, variable: str, source: str, station_id: str | None) -> None:
+def reject_frozen_empty(
+    locked: LockedInputs | None, *, variable: str, source: str, station_id: str | None
+) -> None:
     """Refuse an empty answer the lockfile does not pin, or a station it pins a file for.
 
     The lockfile pins an empty row as a record with ``empty = true``, so a
     station that answered nothing replays frozen like any other row.
     """
-    if not is_frozen_mode():
+    if locked is None:
         return
-    pinned = _pinned(variable, source, station_id)
+    pinned = locked.pinned(variable, source, station_id)
     for item in pinned:
         if not item.empty:
             raise FrozenDataError(
@@ -341,20 +337,26 @@ def reject_frozen_empty(*, variable: str, source: str, station_id: str | None) -
 
 
 def reject_frozen_record(
-    *, variable: str, source: str, station_id: str | None, path: str, sha256: str | None
+    locked: LockedInputs | None,
+    *,
+    variable: str,
+    source: str,
+    station_id: str | None,
+    path: str,
+    sha256: str | None,
 ) -> None:
     """Refuse a new row of the data cache that the lockfile does not pin, in frozen mode."""
-    if not is_frozen_mode():
+    if locked is None:
         return
     if sha256 is not None:
-        _reject_a_file_pinned_empty(variable, source, station_id)
-    locked = _locked_row(variable, source, station_id, path)
-    if locked is None:
+        _reject_a_file_pinned_empty(locked, variable, source, station_id)
+    pinned = locked.row(variable, source, station_id, path)
+    if pinned is None:
         raise FrozenDataError(
             "Frozen data mode forbids registering a downloaded artefact absent from "
             f"hydromodpy.lock: {_key(variable, source, station_id)}."
         )
-    if sha256 != locked.sha256:
+    if sha256 != pinned.sha256:
         raise FrozenDataError(
             "Frozen data mode forbids registering an artefact whose SHA-256 does not match "
             f"hydromodpy.lock: {_key(variable, source, station_id)}."
@@ -362,6 +364,7 @@ def reject_frozen_record(
 
 
 def reject_frozen_download(
+    locked: LockedInputs | None,
     *,
     variable: str,
     source: str,
@@ -375,30 +378,27 @@ def reject_frozen_download(
     and the file the lockfile pins was replaced before anything refused the
     new one.
     """
-    if not is_frozen_mode():
+    if locked is None:
         return
-    locked_inputs()
     raise FrozenDataError(
         f"Frozen data mode forbids a download: {_key(variable, source, station_id)} {detail}."
     )
 
 
-def reject_frozen_user_file(*, variable: str, path: Path) -> None:
+def reject_frozen_user_file(locked: LockedInputs | None, *, variable: str, path: Path) -> None:
     """Refuse a user file the lockfile does not pin, or pins with other bytes.
 
     The file is matched by its resolved path against the ``file`` records,
-    whose paths are read under the frozen project root.
+    whose paths are read under the project root of *locked*.
     """
-    if not is_frozen_mode():
+    if locked is None:
         return
-    project_root = frozen_project_root()
-    assert project_root is not None  # set_frozen_mode binds a root when it enables
     resolved = Path(path).resolve()
-    for item in locked_inputs():
+    for item in locked.inputs:
         if (
             item.source == USER_FILE_SOURCE
             and item.variable == variable
-            and (project_root / item.path).resolve() == resolved
+            and (locked.project_root / item.path).resolve() == resolved
         ):
             if sha256_of(resolved) != item.sha256:
                 raise FrozenDataError(
@@ -667,14 +667,13 @@ __all__ = [
     "USER_FILE_SOURCE",
     "LockMismatch",
     "LockedInput",
+    "LockedInputs",
     "cache_inputs",
-    "frozen_project_root",
-    "is_frozen_mode",
-    "locked_inputs",
     "project_lockfile_path",
     "read_lockfile_inputs",
     "read_lockfile_meta",
     "read_lockfile_schema_sha256",
+    "read_locked_inputs",
     "reject_frozen_cache_miss",
     "reject_frozen_download",
     "reject_frozen_empty",
@@ -682,7 +681,6 @@ __all__ = [
     "reject_frozen_row",
     "reject_frozen_user_file",
     "resolve_lockfile_root",
-    "set_frozen_mode",
     "user_file_input",
     "verify_lockfile",
     "write_lockfile",

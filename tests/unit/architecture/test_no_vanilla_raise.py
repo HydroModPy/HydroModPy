@@ -69,8 +69,11 @@ fails the gate, so it leaves as soon as it is lifted. The list is empty.
 
 BANNED: frozenset[str] = frozenset({"ValueError", "RuntimeError"})
 
-NOT_FAILURES: frozenset[str] = frozenset({"ConfigKeyRenamedWarning", "TerminationRequested"})
-"""A warning is no failure, and a signal must stay out of reach of ``except Exception``."""
+NOT_FAILURES: frozenset[str] = frozenset(
+    {"ConfigKeyRenamedWarning", "StopRequested", "TerminationRequested"}
+)
+"""A warning is no failure. A signal, and a stop asked through the flag of a run, must
+stay out of reach of ``except Exception``."""
 
 ROOT = "HydroModPyError"
 

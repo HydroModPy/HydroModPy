@@ -5,7 +5,9 @@ Five variants play it with a different solver or workflow, and five more start
 it from a computed or an earlier state. Four more carry a transport process
 behind the flow, in the order the planner reads, the flow first and the
 transport after it. One more, ``v2_1_forms``, writes the solver tables where 2.0.0
-wrote them, which the register of changes moves. Every project is
+wrote them, which the register of changes moves. Two more play a stop and a chain
+of windows: ``long`` is two daily years solved through libmf6, and ``windows``
+is one monthly year cut into two windows of six months. Every project is
 built from the literal texts below. The factory reads no file, opens no network
 and draws no random number, so a project has the same bytes on every machine.
 """
@@ -14,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path, PurePosixPath
 
 ISLAND_VARIANTS: tuple[str, ...] = ("gwt", "nwt", "boussinesq", "spinup", "calage")
@@ -348,8 +351,67 @@ def transient_island(
     return text + mesh + tail
 
 
+# One monthly year, the twelve months of recharge, mm/d.
+YEAR_RECHARGE = "[1.0, 4.0, 2.0, 3.0, 1.0, 0.5, 0.2, 0.1, 0.5, 2.0, 3.0, 4.0]"
+
+LIBMF6_TAIL = """
+
+[solver.modflow6.runtime]
+mf6_runner = "api"
+"""
+
+
+def _one_year(text: str) -> str:
+    """The island over 2003, twelve monthly periods."""
+    return text.replace('end_datetime = "2003-03-31"', 'end_datetime = "2003-12-31"').replace(
+        "values = [1.0, 4.0, 2.0]", f"values = {YEAR_RECHARGE}"
+    )
+
+
+def _two_daily_years(text: str) -> str:
+    """The island over 2003 and 2004, one period a day, its recharge a slow wave."""
+    days = (date(2004, 12, 31) - date(2003, 1, 1)).days + 1
+    recharge = ", ".join(f"{1.0 + (day % 60) / 20.0:.2f}" for day in range(days))
+    return (
+        text.replace('end_datetime = "2003-03-31"', 'end_datetime = "2004-12-31"')
+        .replace('step_value = "1 month"', 'step_value = "1 day"')
+        .replace("values = [1.0, 4.0, 2.0]", f"values = [{recharge}]")
+    )
+
+
+def _with_window_length(text: str, length: str = "6 months") -> str:
+    """Cut the run into windows of ``length``, in its own [simulation.time] table."""
+    return text.replace(
+        'coverage_policy = "ignore"\n',
+        f'coverage_policy = "ignore"\nwindow_length = "{length}"\n',
+        1,
+    )
+
+
 def island_files(variant: str) -> dict[str, str]:
-    """Return the files of one island variant, relative path to text."""
+    """Return the files of one island variant, relative path to text.
+
+    ``long`` holds ``project.toml`` and ``ref.toml``, the same run under two names,
+    one to stop and one to compare with. ``windows`` holds ``project.toml``, cut
+    into two windows, and ``whole.toml``, the same year in one piece.
+    ``long_windows`` holds ``project.toml``, the two daily years of ``long`` cut
+    into two windows of a year, long enough to stop window 2 in its solve.
+    """
+    if variant == "long":
+        run = _two_daily_years(transient_island("long", "modflow6", tail=LIBMF6_TAIL))
+        ref = _two_daily_years(transient_island("ref", "modflow6", tail=LIBMF6_TAIL))
+        return {"project.toml": run, "ref.toml": ref}
+    if variant == "long_windows":
+        chain = _two_daily_years(transient_island("chain", "modflow6", tail=LIBMF6_TAIL))
+        return {"project.toml": _with_window_length(_first_period_unsteady(chain), "12 months")}
+    if variant == "windows":
+        # A steady first period would take the mean recharge of window 1 alone, which
+        # the check refuses under a chain, so the year starts transient from the top.
+        chained = _with_window_length(
+            _first_period_unsteady(_one_year(transient_island("island", "modflow6")))
+        )
+        whole = _first_period_unsteady(_one_year(transient_island("whole", "modflow6")))
+        return {"project.toml": chained, "whole.toml": whole}
     if variant == "gwt":
         text = transient_island(
             variant, "modflow6", process=TRANSPORT_PROCESS, tail=TRANSPORT_PARAMETERS

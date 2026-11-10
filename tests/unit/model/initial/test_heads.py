@@ -195,3 +195,52 @@ def test_two_cycles_settle_on_their_largest_change(case, previous, current, tol,
 def test_two_cycles_on_different_meshes_are_refused() -> None:
     with pytest.raises(ValueError, match="same mesh"):
         cycles_have_settled(np.zeros(3), np.zeros(4), tol_head_m=0.01)
+
+
+STAGE_CASES = (
+    ("no lake", None, None, True),
+    ("still", {"lake": 10.0}, {"lake": 10.005}, True),
+    ("at the tolerance", {"lake": 10.0}, {"lake": 10.01}, True),
+    ("a lake drifts", {"lake": 10.0, "pond": 3.0}, {"lake": 10.0, "pond": 3.2}, False),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "previous", "current", "expected"),
+    STAGE_CASES,
+    ids=[case[0] for case in STAGE_CASES],
+)
+def test_two_cycles_settle_only_when_their_lakes_settle_too(case, previous, current, expected):
+    del case
+    settled = cycles_have_settled(
+        np.zeros(3),
+        np.full(3, 0.005),
+        tol_head_m=0.01,
+        previous_stages=previous,
+        current_stages=current,
+    )
+
+    assert settled is expected
+
+
+def test_a_still_lake_does_not_settle_a_drifting_aquifer() -> None:
+    settled = cycles_have_settled(
+        np.zeros(3),
+        np.array([0.0, 0.0, 0.5]),
+        tol_head_m=0.01,
+        previous_stages={"lake": 10.0},
+        current_stages={"lake": 10.0},
+    )
+
+    assert settled is False
+
+
+def test_two_cycles_with_different_lakes_are_refused() -> None:
+    with pytest.raises(ValueError, match="same lakes"):
+        cycles_have_settled(
+            np.zeros(3),
+            np.zeros(3),
+            tol_head_m=0.01,
+            previous_stages={"lake": 1.0},
+            current_stages={"pond": 1.0},
+        )

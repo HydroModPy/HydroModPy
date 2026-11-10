@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.catalog.registration import portable_config_source, split_stem_version
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
@@ -30,7 +31,11 @@ from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_geographic,
     step_persist_mesh,
 )
-from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
+from hydromodpy.workflow.steps.prepare_solver.restart import (
+    WindowSource,
+    resolve_restart_source,
+    window_input_entry,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -453,6 +458,28 @@ def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> R
     )
 
 
+def bind_window_source(
+    ctx: WorkflowContext, *, store: RunStore, window_source: WindowSource
+) -> None:
+    """Record the window a window of a chain starts from as an input and as its parent.
+
+    The input is the row ``initial_state`` of ``inputs.json``: the ``final_state/`` of
+    the source relative to the project, with the digest of its state, which is also
+    the ``window_state`` of the request id. The lineage names the source run.
+    """
+    project_root = Path(store.workspace_path or store.run_dir.parent.parent)
+    store.facts.put_input(window_input_entry(project_root, window_source))
+    lineage = store.facts.lineage
+    if window_source.sim_id is not None and lineage.parent_sim_id is None:
+        store.facts.lineage = lineage.model_copy(
+            update={
+                "parent_sim_id": window_source.sim_id,
+                "parent_hint": run_dir_rel(Path(window_source.run_dir).name),
+            }
+        )
+        ctx.lineage = store.facts.lineage
+
+
 def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Record what the run was built from in its store.
 
@@ -489,6 +516,7 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
 
 __all__ = (
     "bind_run_directory",
+    "bind_window_source",
     "initial_facts",
     "planned_recipe",
     "refresh_run_environment",

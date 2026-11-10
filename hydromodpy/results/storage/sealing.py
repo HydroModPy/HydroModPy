@@ -59,6 +59,7 @@ from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.geo_metadata import wgs84_bounds
 from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import RunFacts
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -90,7 +91,13 @@ def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunR
     label = label_of(record, run_dir)
     write_readme(
         run_dir,
-        render_run_readme(record, None, label, manifest_sha256=manifest_sha256(run_dir)),
+        render_run_readme(
+            record,
+            None,
+            label,
+            manifest_sha256=manifest_sha256(run_dir),
+            profile=read_profile(run_dir),
+        ),
     )
     store.close()
     return record

@@ -278,6 +278,7 @@ def _tables(
             settings.summary,
             parameters=parameters,
             recipe_sets=settings.recipe_sets,
+            root=root,
         ),
         root,
     )

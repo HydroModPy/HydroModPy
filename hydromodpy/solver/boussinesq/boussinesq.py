@@ -116,6 +116,8 @@ class Boussinesq:
         self.state: BoussinesqState | None = None
         self.runtime_summary: dict[str, Any] = {}
         self.last_flow_solve_time_seconds: float | None = None
+        # The stop flag of the run, read by the transient driver between two periods.
+        self.stop_flag: Path | None = None
         self.has_numerical_solution = False
         self.solve_stage = "created"
         self._runtime_engine_logged = False

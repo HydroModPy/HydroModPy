@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -14,12 +14,12 @@ from pydantic import ValidationError
 from hydromodpy.core.exceptions import DataCacheError, FrozenDataError, SchemaVersionMismatchError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.data.provenance.lockfile import (
-    is_frozen_mode,
+    LockedInputs,
     project_lockfile_path,
+    read_locked_inputs,
     read_lockfile_inputs,
     reject_frozen_download,
     reject_frozen_user_file,
-    set_frozen_mode,
     user_file_input,
     write_lockfile,
 )
@@ -46,8 +46,8 @@ CORPUS_ISLAND = (
 
 
 @pytest.fixture
-def frozen(tmp_path: Path) -> Iterator[tuple[Path, Path, Path]]:
-    """A project whose lockfile pins station A and the user file ``inputs/dem.tif``."""
+def frozen(tmp_path: Path) -> tuple[Path, Path, Path, LockedInputs]:
+    """A project whose lockfile pins station A and the user file ``inputs/dem.tif``, and that lockfile read."""
     project = tmp_path / "project"
     data_root = project / "data"
     folder = data_root / "hydrometry"
@@ -60,29 +60,27 @@ def frozen(tmp_path: Path) -> Iterator[tuple[Path, Path, Path]]:
     mine.write_bytes(b"dem")
     user = user_file_input(mine, variable="dem", project_root=project, sha256=sha256_of(mine))
     write_lockfile(project_lockfile_path(project), data_root, user_files=[user])
-    set_frozen_mode(True, project_root=project)
-    try:
-        yield project, data_root, chronicle
-    finally:
-        set_frozen_mode(False)
+    return project, data_root, chronicle, read_locked_inputs(project)
 
 
-def _record_other(data_root: Path) -> None:
+def _record_other(data_root: Path, locked: LockedInputs | None = None) -> None:
     other = data_root / "hydrometry" / "hydrometry_hubeau_B_2000.csv"
     other.write_text("datetime,value\n")
-    CacheIndex(data_root).record(other, variable="hydrometry", source="hubeau", station_id="B")
+    CacheIndex(data_root, locked=locked).record(
+        other, variable="hydrometry", source="hubeau", station_id="B"
+    )
 
 
-def _other_bytes_under_the_same_name(data_root: Path) -> None:
+def _other_bytes_under_the_same_name(data_root: Path, locked: LockedInputs) -> None:
     path = data_root / "hydrometry" / "hydrometry_hubeau_A_2000.csv"
     path.write_text("datetime,value\n2000-01-01,2.0\n")
     sidecar = load_sidecar(path).model_copy(update={"sha256": sha256_of(path)})
     write_sidecar(path, sidecar)
-    CacheIndex(data_root).find("hydrometry", "hubeau", station_id="A")
+    CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="A")
 
 
-def _empty_answer(data_root: Path) -> None:
-    CacheIndex(data_root).record_empty(
+def _empty_answer(data_root: Path, locked: LockedInputs) -> None:
+    CacheIndex(data_root, locked=locked).record_empty(
         empty_path_for(data_root / "hydrometry", "hydrometry_hubeau_C"),
         variable="hydrometry",
         source="hubeau",
@@ -90,7 +88,7 @@ def _empty_answer(data_root: Path) -> None:
     )
 
 
-def _empty_answer_for_a_pinned_station(data_root: Path) -> None:
+def _empty_answer_for_a_pinned_station(data_root: Path, locked: LockedInputs) -> None:
     folder = data_root / "hydrometry"
     write_sidecar(
         empty_path_for(folder, "hydrometry_hubeau_A"),
@@ -98,43 +96,48 @@ def _empty_answer_for_a_pinned_station(data_root: Path) -> None:
     )
     (folder / "hydrometry_hubeau_A_2000.csv").unlink()
     (folder / "hydrometry_hubeau_A_2000.csv.json").unlink()
-    CacheIndex(data_root).find("hydrometry", "hubeau", station_id="A")
+    CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="A")
 
 
-def _unpinned_empty_answer(data_root: Path) -> None:
+def _unpinned_empty_answer(data_root: Path, locked: LockedInputs) -> None:
     write_sidecar(
         empty_path_for(data_root / "hydrometry", "hydrometry_hubeau_E"),
         Sidecar(source="hubeau", variable="hydrometry", station_id="E", empty=True),
     )
-    CacheIndex(data_root).find("hydrometry", "hubeau", station_id="E")
+    CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="E")
 
 
-def _changed_user_file(data_root: Path) -> None:
+def _changed_user_file(data_root: Path, locked: LockedInputs) -> None:
     mine = data_root.parent / "inputs" / "dem.tif"
     mine.write_bytes(b"other dem")
-    reject_frozen_user_file(variable="dem", path=mine)
+    reject_frozen_user_file(locked, variable="dem", path=mine)
 
 
-def _unpinned_user_file(data_root: Path) -> None:
+def _unpinned_user_file(data_root: Path, locked: LockedInputs) -> None:
     other = data_root.parent / "inputs" / "other.tif"
     other.write_bytes(b"other")
-    reject_frozen_user_file(variable="dem", path=other)
+    reject_frozen_user_file(locked, variable="dem", path=other)
 
 
-_FROZEN_REFUSALS: dict[str, tuple[Callable[[Path], object], str]] = {
+_FROZEN_REFUSALS: dict[str, tuple[Callable[[Path, LockedInputs], object], str]] = {
     "a miss": (
-        lambda root: CacheIndex(root).find("hydrometry", "hubeau", station_id="Z"),
+        lambda root, locked: CacheIndex(root, locked=locked).find(
+            "hydrometry", "hubeau", station_id="Z"
+        ),
         "forbids cache misses: hydrometry/hubeau/Z is absent from the data cache",
     ),
     "a row the lockfile does not pin": (
-        lambda root: (
-            _record_other_unfrozen(root),
-            CacheIndex(root).find("hydrometry", "hubeau", station_id="B"),
+        lambda root, locked: (
+            _record_other(root),
+            CacheIndex(root, locked=locked).find("hydrometry", "hubeau", station_id="B"),
         ),
         "forbids data cache rows absent from hydromodpy.lock",
     ),
     "a row of other bytes": (_other_bytes_under_the_same_name, "SHA-256 mismatch"),
-    "a new record": (_record_other, "forbids registering a downloaded artefact absent"),
+    "a new record": (
+        lambda root, locked: _record_other(root, locked),
+        "forbids registering a downloaded artefact absent",
+    ),
     "a new empty answer": (_empty_answer, "forbids registering a downloaded artefact absent"),
     "an empty answer the lockfile does not pin": (
         _unpinned_empty_answer,
@@ -145,8 +148,8 @@ _FROZEN_REFUSALS: dict[str, tuple[Callable[[Path], object], str]] = {
         "pins the file hydrometry/hydrometry_hubeau_A_2000.csv",
     ),
     "a download": (
-        lambda root: reject_frozen_download(
-            variable="hydrometry", source="hubeau", station_id="A", detail="is asked"
+        lambda root, locked: reject_frozen_download(
+            locked, variable="hydrometry", source="hubeau", station_id="A", detail="is asked"
         ),
         "forbids a download: hydrometry/hubeau/A is asked",
     ),
@@ -158,30 +161,35 @@ _FROZEN_REFUSALS: dict[str, tuple[Callable[[Path], object], str]] = {
 }
 
 
-def _record_other_unfrozen(data_root: Path) -> None:
-    project = data_root.parent
-    set_frozen_mode(False)
-    try:
-        _record_other(data_root)
-    finally:
-        set_frozen_mode(True, project_root=project)
-
-
 @pytest.mark.parametrize(("act", "said"), _FROZEN_REFUSALS.values(), ids=_FROZEN_REFUSALS.keys())
 def test_frozen_mode_refuses(
-    frozen: tuple[Path, Path, Path], act: Callable[[Path], object], said: str
+    frozen: tuple[Path, Path, Path, LockedInputs],
+    act: Callable[[Path, LockedInputs], object],
+    said: str,
 ) -> None:
-    _, data_root, _ = frozen
+    _, data_root, _, locked = frozen
     with pytest.raises(FrozenDataError, match=said):
-        act(data_root)
-    assert is_frozen_mode()
+        act(data_root, locked)
 
 
-def test_frozen_mode_serves_what_the_lockfile_pins(frozen: tuple[Path, Path, Path]) -> None:
-    project, data_root, chronicle = frozen
-    row = CacheIndex(data_root).find("hydrometry", "hubeau", station_id="A")
+def test_the_same_acts_pass_without_a_lockfile(
+    frozen: tuple[Path, Path, Path, LockedInputs],
+) -> None:
+    """A run that is not frozen hands ``None``: no refusal reads any state of the process."""
+    project, data_root, _, _ = frozen
+    assert CacheIndex(data_root).find("hydrometry", "hubeau", station_id="Z") is None
+    _record_other(data_root)
+    reject_frozen_download(None, variable="hydrometry", source="hubeau", station_id="A", detail="x")
+    reject_frozen_user_file(None, variable="dem", path=project / "inputs" / "other.tif")
+
+
+def test_frozen_mode_serves_what_the_lockfile_pins(
+    frozen: tuple[Path, Path, Path, LockedInputs],
+) -> None:
+    project, data_root, chronicle, locked = frozen
+    row = CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="A")
     assert row is not None and row.path == chronicle
-    reject_frozen_user_file(variable="dem", path=project / "inputs" / "dem.tif")
+    reject_frozen_user_file(locked, variable="dem", path=project / "inputs" / "dem.tif")
 
 
 def _pinned_empty_project(tmp_path: Path) -> tuple[Path, Path]:
@@ -200,11 +208,8 @@ def _pinned_empty_project(tmp_path: Path) -> tuple[Path, Path]:
 
 def test_frozen_mode_serves_an_empty_answer_the_lockfile_pins(tmp_path: Path) -> None:
     project, data_root = _pinned_empty_project(tmp_path)
-    set_frozen_mode(True, project_root=project)
-    try:
-        row = CacheIndex(data_root).find("hydrometry", "hubeau", station_id="E")
-    finally:
-        set_frozen_mode(False)
+    locked = read_locked_inputs(project)
+    row = CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="E")
     assert row is not None and row.empty
 
 
@@ -214,14 +219,11 @@ def test_frozen_mode_refuses_a_file_where_the_lockfile_pins_an_empty_answer(
     project, data_root = _pinned_empty_project(tmp_path)
     chronicle = data_root / "hydrometry" / "hydrometry_hubeau_E_2000.csv"
     chronicle.write_text("datetime,value\n2000-01-01,1.0\n")
-    set_frozen_mode(True, project_root=project)
-    try:
-        with pytest.raises(FrozenDataError, match="pins an empty answer for it"):
-            CacheIndex(data_root).record(
-                chronicle, variable="hydrometry", source="hubeau", station_id="E"
-            )
-    finally:
-        set_frozen_mode(False)
+    locked = read_locked_inputs(project)
+    with pytest.raises(FrozenDataError, match="pins an empty answer for it"):
+        CacheIndex(data_root, locked=locked).record(
+            chronicle, variable="hydrometry", source="hubeau", station_id="E"
+        )
 
 
 # -- writing a sidecar ------------------------------------------------------------

@@ -28,7 +28,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.runtime.interrupts import TerminationRequested
@@ -570,7 +570,9 @@ class _Claimed:
             flow=None,
             mesh=None,
         )
-        self.ctx = SimpleNamespace(bounds=None, inputs=None, run_dir=None)
+        self.ctx = SimpleNamespace(
+            bounds=None, inputs=None, run_dir=None, setup=SimpleNamespace(locked_inputs=None)
+        )
         self.project = SimpleNamespace(_ctx=self.ctx)
         self.runner = ProjectRunner(self.project)  # type: ignore[arg-type]
         monkeypatch.setattr(inputs, "resolve_inputs", lambda cfg, **kw: "RESOLVED")
@@ -593,12 +595,20 @@ class _Claimed:
             self.root, name, case_id=name, project="ws", site=None
         )
 
-    def claim(self, handle, *, name="demo", skip=True, form_of="dict", **members):
+    def claim(
+        self, handle, *, name="demo", skip=True, form_of="dict", window_source=None, **members
+    ):
         from hydromodpy.project.request import RunRequest
 
         request = RunRequest(config={"a": 1}, form=form_of, **members)
         return self.runner._claim_documents(
-            handle, request, self.cfg, self.root, name=name, skip_identical=skip
+            handle,
+            request,
+            self.cfg,
+            self.root,
+            name=name,
+            skip_identical=skip,
+            window_source=window_source,
         )
 
 
@@ -761,6 +771,71 @@ def test_a_retry_that_asks_the_same_thing_resumes_in_place(
 
     assert (run_dir / "partial.dat").is_file()
     assert read_outcome(run_dir).attempt == 2
+
+
+def test_a_resume_asked_on_a_request_that_changed_is_refused_and_gives_the_stop_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claimed = _Claimed(tmp_path, monkeypatch)
+    with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
+        claimed.claim(handle)
+        (handle.run_dir / "partial.dat").write_text("x")
+        raise RuntimeError("boom")
+    stopped = read_outcome(handle.run_dir)
+
+    with (
+        pytest.raises(ResumeError, match="changed since attempt 1 stopped.*without --resume"),
+        claimed.attempt("demo") as retry,
+    ):
+        claimed.claim(retry, resume="demo")
+
+    assert read_outcome(handle.run_dir) == stopped, "the refusal leaves the attempt as it stopped"
+    assert (handle.run_dir / "partial.dat").is_file()
+    assert not (handle.run_dir / "attempts").exists()
+
+
+def test_a_resume_asked_on_the_same_request_continues_in_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claimed = _Claimed(tmp_path, monkeypatch)
+    claimed.requests = iter(["same", "same"])
+    with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
+        claimed.claim(handle)
+        (handle.run_dir / "partial.dat").write_text("x")
+        raise RuntimeError("boom")
+
+    with claimed.attempt("demo") as retry:
+        claimed.claim(retry, resume="demo")
+        run_dir = retry.run_dir
+
+    assert (run_dir / "partial.dat").is_file()
+    assert read_outcome(run_dir).attempt == 2
+
+
+def test_the_state_a_window_starts_from_enters_the_request_id_by_its_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hydromodpy.project.runner as runner_module
+
+    claimed = _Claimed(tmp_path, monkeypatch)
+    seen: list[dict] = []
+
+    def spy(cfg, resolved, **kwargs):
+        seen.append(kwargs)
+        return "rid-w2"
+
+    monkeypatch.setattr(runner_module, "request_id_of", spy)
+    monkeypatch.setattr(
+        runner_module,
+        "window_input_entry",
+        lambda root, source: SimpleNamespace(sha256="digest-w1"),
+    )
+    with claimed.attempt("island_w2") as handle:
+        claimed.claim(handle, name="island_w2", window_source=object())
+    with claimed.attempt("island") as handle:
+        claimed.claim(handle, name="island")
+
+    assert [kwargs["window_state"] for kwargs in seen] == ["digest-w1", None]
 
 
 def test_a_failed_resolution_leaves_the_outcome_of_a_claimed_run(

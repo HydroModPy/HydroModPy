@@ -33,8 +33,6 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   the fields of `ModelOptions` and the initial states `head_rule`, `steady_start`, `cyclic_start` and `prior_state`.
 - `solver.sink_fill = true`, `solver.drain_band_depth_m` and `solver.drain_conductance_floor_m2_s` away from their
   defaults, and `[flow.sinks_sources.etp]` are refused under Boussinesq, which reads none of them.
-- A lake with `flow.ic.kind = "spinup_cyclic"` is refused: the cycle carries the heads and not the lake stage. Run
-  `hmp spinup`, which carries both, or start from `flow.restart_from`.
 - A transport run behind a steady start whose heads did not converge stops with `SolverDivergedError`, where it used
   to start with a warning. The replay of a sealed run still warns.
 - MODFLOW 6 can rerun a solved model for a new K or Sy. It copies the input files of the solved run, rewrites only NPF
@@ -90,6 +88,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[[data.dem.sources]]` takes `state = "conditioned"` for a DEM another tool filled or breached. HydroModPy skips its own conditioning, still computes the D8 directions and the accumulation, and refuses an aggregation, a crossing notch or a conditioning method beside it.
 - A DEM declared conditioned that keeps cells with no lower neighbour gives a warning with their count, and the run store records it.
 - The DEM is checked before the terrain chain: a projected CRS in metres, a grid that is not rotated, square pixels within 1 %, a cell size from 1 to 250 m, elevations from -500 to 9000 m, and an outlet on a valid cell.
+- `hmp stop REF` and `hmp.stop(ref)` ask a running run or calibration session to stop, by the flag `.hmp/stop.json` of its folder. The run reads it between two steps, between two runs of its plan, and, through libmf6 or Boussinesq, between two time steps. An executable is never killed, so the stop waits for the end of its solve. A stopped run ends `aborted` with `StopRequested`, its process exits with 130, and `hmp run --resume` takes it up from the step it stopped in.
+- A calibration session stops when `<session>/.hmp/stop.json` appears, between two batches of trials, and ends aborted with the date of the request as its error. Reopening the session removes the flag.
+- `[simulation.time] window_length` cuts a long transient run into windows that end on a stress period end, and `window` picks one or plays them all. Each window is a sealed run named `<name>_w<k>` that starts from the final state of the one before, recorded as its input `initial_state`. A resume names the chain or the window that stopped, with or without the file, and the frozen `config.toml` of a window replays it from that input.
+- Every run writes `final_state/`, its last heads, lake stages and SFR reach stages in double precision, sealed with the run. A restart and the next window read it first.
+- Every run writes `profile.json`, the time and memory of each step, solve, figure and export, with the age of the process and what was rebuilt from an earlier attempt or read from the project store. A run stopped through its flag keeps the profile of what it did.
+- `hmp catalog show` prints a Profile block read from `profile.json` (total time, start-up, solve of each run of the plan, three longest steps, what was reused), and `show_simulation` returns it under the `profile` key. A run of 2.0 says it has no profile and prints the solve time of its seal.
+- The README of a sealed run says what a replay costs, read from `profile.json`.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -468,6 +473,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The conditioned DEM, its directions and its accumulation are a product of the store under `.hmp/products/`, shared by the runs of a project. A resume reads them from the store and delineates the catchment again.
 - `hydromodpy.catchment.preprocess.geographic_cache` is `hydromodpy.catchment.preprocess.geographic_tree`, and `hydromodpy.data.schemas.dem` is `hydromodpy.catchment.terrain.dem_contract`.
 - The regional chain routes a DEM declared conditioned as it is, and `dem_correc_type` reads `provided`. The solver still fills its own grid template with `fill`, because a conditioned DEM brought to a coarser grid has depressions again.
+- `hmp run --resume` refuses a run whose request changed since it stopped, an input or the state of a window included. A plain `hmp run` starts it over. When the configuration changed, the refusal names the sections that moved.
+- The two fixes of a restart, the head read in double precision and the lake stage carried by a cyclic spin-up, declass a 2.0 run only when it started by `[flow] restart_from` or by a cyclic spin-up beside a lake. Every other 2.0 run keeps its label.
+- The frozen data mode is an argument of the run, no longer a state of the process, so two runs of one process no longer share it.
+- The wall time of the solve is no longer a row of `metrics.parquet` nor of the seal. It is `SolverRun.solve_s`, a solve line of `profile.json`, and the pipeline state no longer carries `wall_seconds`. The campaign summary and the catchment report read it from `profile.json`, and from the seal or `metrics.parquet` for a run of 2.0.
+- MODFLOW 6: a run that restarts from another one, and each window of a chain, starts from the head in double precision (binary start array), and its lake and reach stages are written with all their digits. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
+- MODFLOW 6: a cyclic spin-up starts each cycle from the final lake stage of the cycle before, the main run starts from the last cycle, and the loop settles only when the lake stages have settled with the heads. A lake under `spinup_cyclic` is no longer refused.
+- MODFLOW 6 with SFR storage: the stage of each reach at the end of a run is kept in `final_state/` and given back to the next run or window as `INITIALSTAGES`.
 
 ### Removed
 
@@ -592,7 +604,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM.
 - With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
 - Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway.
+- A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision.
+- The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one.
 - The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = "steady_state" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = "petsc" and surface_interaction_model = "vi_obstacle", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it.
+- The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
+- MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before.
 <!-- numbers:end -->
 
 ## [v2.0.0] - 2026-11-07

@@ -24,7 +24,7 @@ In the order a run meets them.
 | `window.py` | which steps a run executes: `from_step`, `until_step` and the model phase (`step_window`) |
 | `state.py` | `PipelineState`, the immutable object that flows from step to step (`advance`) |
 | `step.py` | the `Step` protocol: `name`, `run`, and the class variables `reads`, `writes`, `config_sections` |
-| `runner.py` | `Pipeline(steps, workspace=..., run_dir=...)`: runs the steps, writes the journal, names the current step to the heartbeat, resumes, checks the resolved manifest |
+| `runner.py` | `Pipeline(steps, workspace=..., run_dir=...)`: runs the steps, writes the journal, names the current step to the heartbeat, resumes, checks the resolved manifest, reads the stop flag before each cohort and writes one line of `profile.json` per step (`record_measure`) |
 | `dag.py` | the step graph built from `depends_on()` and its cohorts (Kahn sort) |
 | `parallel.py` | the executors that run one cohort |
 | `overview.py` | `DataOverviewLauncher`: the data overview ("identity card" of a watershed) without a solver run |
@@ -125,6 +125,12 @@ hydromodpy/workflow/
    step from disk and does not run it again. There is no pickle layer and no
    checkpoint store: resume reads artifacts. See
    `docs/source/contribute/architecture/pipeline_resume.rst`.
+   Before each cohort of steps the runner reads the stop flag of the run,
+   `.hmp/stop.json`, and raises `StopRequested` when it is there. The step a
+   stop interrupts is marked `aborted` in the journal, so a resume plays it
+   again from its start, `run_solver` included. A product read from the project
+   store is a `store` line of the profile, and a step rebuilt from an earlier
+   attempt a `prefix` line.
 6. Seal. `SealStep` writes the seal from the facts. The pipeline then writes
    the journal row of the seal and its checkpoint, and the attempt protocol
    around the pipeline (`record/attempt.py`) finds the seal, flips the outcome

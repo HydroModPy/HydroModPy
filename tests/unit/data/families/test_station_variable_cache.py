@@ -14,7 +14,7 @@ from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.stations import StationVariable
-from hydromodpy.data.provenance.lockfile import set_frozen_mode, write_lockfile
+from hydromodpy.data.provenance.lockfile import read_locked_inputs, write_lockfile
 from hydromodpy.data.provenance.sidecars import CacheIndex, load_sidecar, scan
 
 JANUARY = (datetime(2020, 1, 1), datetime(2020, 1, 31))
@@ -46,12 +46,12 @@ def data_root(tmp_path: Path) -> Path:
     return tmp_path / "data"
 
 
-def _variable(data_root: Path, *, period=JANUARY) -> _Hydrometry:
+def _variable(data_root: Path, *, period=JANUARY, locked=None) -> _Hydrometry:
     folder = data_root / "hydrometry"
     folder.mkdir(parents=True, exist_ok=True)
     return _Hydrometry(
         config=SimpleNamespace(),
-        index=CacheIndex(data_root),
+        index=CacheIndex(data_root, locked=locked),
         project_period=period,
         data_dir=folder,
     )
@@ -193,12 +193,11 @@ def test_a_frozen_run_refuses_a_file_that_changed_after_the_lock(
     (row,) = scan(data_root).rows
     row.path.write_text("datetime,value\n2020-01-01,99\n")
 
-    set_frozen_mode(True, project_root=project)
-    try:
-        with pytest.raises(FrozenDataError, match="SHA-256 mismatch"):
-            _variable(data_root)._load_cached_api_record(source="hubeau", station_id="X1")
-    finally:
-        set_frozen_mode(False)
+    locked = read_locked_inputs(project)
+    with pytest.raises(FrozenDataError, match="SHA-256 mismatch"):
+        _variable(data_root, locked=locked)._load_cached_api_record(
+            source="hubeau", station_id="X1"
+        )
     assert [r.path for r in scan(data_root).rows] == [row.path], "a frozen run deletes nothing"
 
 

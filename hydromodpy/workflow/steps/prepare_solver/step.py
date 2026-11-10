@@ -21,6 +21,7 @@ from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     bind_run_directory,
+    bind_window_source,
     initial_facts,
     step_open_run,
 )
@@ -111,6 +112,7 @@ class PrepareSolverStep:
         "run_dir",
         "run_overrides",
         "solution_key",
+        "window_source",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
@@ -154,8 +156,11 @@ class PrepareSolverStep:
                 persistence=persistence,
                 workspace=None if workspace is None else workspace.project_root,
             ) as store:
+                window_source = state.get("window_source")
                 step_open_run(ctx, store=store)
-                model = step_build_model(ctx, store=store)
+                if window_source is not None:
+                    bind_window_source(ctx, store=store, window_source=window_source)
+                model = step_build_model(ctx, store=store, window_source=window_source)
                 if model is not None:
                     step_persist_params(
                         store, ctx.sim_id, model.properties.profiles, domain=model.geometry.domain
@@ -163,7 +168,7 @@ class PrepareSolverStep:
                 step_write_provenance(ctx, store=store)
                 step_persist_forcings(ctx, store=store)
         else:
-            step_build_model(ctx)
+            step_build_model(ctx, window_source=state.get("window_source"))
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -209,7 +214,7 @@ class PrepareSolverStep:
 
         if not run_is_persisted(ctx):
             _resolve_plan_and_results(ctx)
-            step_build_model(ctx)
+            step_build_model(ctx, window_source=prior_state.get("window_source"))
         else:
             run_dir = prior_state.get("run_dir") or getattr(ctx, "run_dir", None)
             if run_dir is None:
@@ -226,7 +231,7 @@ class PrepareSolverStep:
             write_products(ctx)
             with run_store(ctx) as store:
                 _resolve_plan_and_results(ctx, store=store)
-                step_build_model(ctx, store=store)
+                step_build_model(ctx, store=store, window_source=prior_state.get("window_source"))
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

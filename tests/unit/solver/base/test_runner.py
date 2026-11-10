@@ -15,6 +15,8 @@ from hydromodpy.core.exceptions import (
     SolverDivergedError,
     SolverInputError,
 )
+from hydromodpy.core.runtime.interrupts import StopRequested
+from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.core.state.run_state import RunState, SlotRequest
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.registry import solvers
@@ -256,6 +258,99 @@ def test_a_slot_outside_a_trial_keeps_its_forcing_beside_the_model(tmp_path: Pat
 
     assert (slot.shared_forcing_dir, slot.bin_dir, slot.stop_before_solve) == (None, None, False)
     assert slot.hand_off == frozenset()
+
+
+MESH = ProcessRun(
+    id="mesh_main::catchment", process_id="mesh_main", process_type="mesh", solver="catchment"
+)
+STOP_FLAGS: tuple[tuple[str, ProcessRun, Path | None, str | None], ...] = (
+    ("a flow in a run folder", FLOW, Path("runs/island"), "runs/island/.hmp/stop.json"),
+    ("a flow without a run folder, a trial", FLOW, None, None),
+    ("a mesh run in a run folder", MESH, Path("runs/island"), "runs/island/.hmp/stop.json"),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "run", "run_dir", "expected"), STOP_FLAGS, ids=[c for c, *_ in STOP_FLAGS]
+)
+def test_the_stop_flag_of_the_slot_is_that_of_the_run_folder(
+    case: str, run: ProcessRun, run_dir: Path | None, expected: str | None, tmp_path: Path
+) -> None:
+    del case
+    run_dir = None if run_dir is None else tmp_path / run_dir
+    setup = SimpleNamespace(workspace=_workspace(tmp_path))
+
+    slot = slot_for(_plan(run), run, setup, run_dir=run_dir)
+
+    assert slot.stop_flag == (None if expected is None else tmp_path / expected)
+
+
+def test_a_slot_asked_without_a_run_folder_has_no_stop_flag(tmp_path: Path) -> None:
+    slot = slot_for(_plan(FLOW), FLOW, SimpleNamespace(workspace=_workspace(tmp_path)))
+
+    assert slot.stop_flag is None
+
+
+def test_the_slot_of_a_transport_reads_the_stop_flag_of_the_run_folder(tmp_path: Path) -> None:
+    upstream = (SolverRun(slot=RunSlot(tmp_path / "scratch", "island")),)
+
+    slot = slot_for(
+        _plan(NWT_FLOW, MT3DMS), MT3DMS, SimpleNamespace(), upstream=upstream, run_dir=tmp_path
+    )
+
+    assert slot.stop_flag == stop_flag_for(tmp_path)
+
+
+def _ask_for_a_stop(run_dir: Path) -> None:
+    flag = stop_flag_for(run_dir)
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text('{"schema": "hydromodpy.stop.v1", "at": "2026-11-10T10:00:00+00:00"}')
+
+
+def test_a_stop_asked_during_a_run_ends_the_plan_before_the_next_run(
+    monkeypatch, tmp_path: Path
+) -> None:
+    adapter = FakeAdapter()
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
+    state = _state(model=object())
+    state.run_dir = tmp_path
+    events: list[str] = []
+    runner = SimulationRunner(
+        callbacks=ProcessCallbacks(
+            after_process=lambda name: events.append(f"after:{name}"),
+            after_run=lambda run, result, state: _ask_for_a_stop(tmp_path),
+        )
+    )
+
+    with pytest.raises(StopRequested, match="stop requested at 2026-11-10T10:00:00"):
+        runner.execute(_plan(FLOW, SECOND_FLOW), state)
+
+    assert adapter.calls == ["validate", "build", "run"]
+    assert list(state.execution.solver_runs) == [FLOW.id]
+    assert events == ["after:flow"]
+
+
+def test_a_stop_asked_before_the_plan_starts_no_run(monkeypatch, tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
+    state = _state(model=object())
+    state.run_dir = tmp_path
+    _ask_for_a_stop(tmp_path)
+
+    with pytest.raises(StopRequested):
+        SimulationRunner().execute(_plan(FLOW), state)
+
+    assert adapter.calls == []
+
+
+def test_a_run_without_a_folder_cannot_be_stopped_by_a_flag(monkeypatch, tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
+    _ask_for_a_stop(tmp_path)
+
+    SimulationRunner().execute(_plan(FLOW), _state(model=object()))
+
+    assert adapter.calls == ["validate", "build", "run"]
 
 
 def test_a_setup_without_a_workspace_solves_in_the_working_directory(

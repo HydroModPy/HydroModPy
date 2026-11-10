@@ -13,6 +13,7 @@ signals agree: whatever ends the process, the session is closed and says how.
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import threading
@@ -20,7 +21,14 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.runtime.interrupts import TerminationRequested, terminate_as_interrupt
+from hydromodpy.core.runtime.interrupts import (
+    STOP_FLAG_SCHEMA,
+    StopRequested,
+    TerminationRequested,
+    raise_if_stop_requested,
+    terminate_as_interrupt,
+)
+from hydromodpy.core.state.layout import STOP_FLAG_FILENAME, stop_flag_for
 
 
 def _current_handler():
@@ -111,6 +119,57 @@ def test_a_terminated_session_is_closed_as_aborted() -> None:
     interrupted = scope.split("except KeyboardInterrupt as exc:")[1].split("except")[0]
     abort = inspect.getsource(session_scope.abort_session)
 
-    assert "TerminationRequested" in interrupted
-    assert '"SIGTERM"' in interrupted
+    assert "_interruption_error(exc)" in interrupted
+    assert session_scope._interruption_error(TerminationRequested()) == "SIGTERM"
+    assert session_scope._interruption_error(KeyboardInterrupt()) == "SIGINT"
+    stop = StopRequested("stop requested at 2026-11-10T08:00:00+00:00")
+    assert session_scope._interruption_error(stop) == str(stop)
     assert 'status="aborted"' in abort
+
+
+def test_a_requested_stop_is_an_interruption_too() -> None:
+    """Every block that closes a run on a signal closes it on a stop, without a line more."""
+    assert issubclass(StopRequested, KeyboardInterrupt)
+    assert not issubclass(StopRequested, TerminationRequested)
+
+
+def test_the_stop_flag_of_a_folder_sits_in_its_internal_state() -> None:
+    assert stop_flag_for(Path("runs/island")) == Path("runs/island/.hmp/stop.json")
+    assert STOP_FLAG_FILENAME == "stop.json"
+
+
+_FLAGS = {
+    "dated": json.dumps(
+        {"schema": STOP_FLAG_SCHEMA, "at": "2026-11-10T08:00:00+00:00", "host": "box"}
+    ),
+    "undated": json.dumps({"schema": STOP_FLAG_SCHEMA}),
+    "unreadable": "{not json",
+    "not a mapping": "[1, 2]",
+}
+
+
+@pytest.mark.parametrize(
+    ("flag", "raises"),
+    [
+        (None, None),
+        ("absent", None),
+        ("dated", "stop requested at 2026-11-10T08:00:00\\+00:00"),
+        ("undated", "a flag without a date"),
+        ("unreadable", "an unreadable flag"),
+        ("not a mapping", "a flag without a date"),
+    ],
+    ids=["no flag", "absent", "dated", "undated", "unreadable", "not a mapping"],
+)
+def test_a_flag_on_disk_stops_and_says_when(
+    tmp_path: Path, flag: str | None, raises: str | None
+) -> None:
+    path = None if flag is None else stop_flag_for(tmp_path)
+    if flag in _FLAGS:
+        path.parent.mkdir(parents=True)
+        path.write_text(_FLAGS[flag], encoding="utf-8")
+
+    if raises is None:
+        raise_if_stop_requested(path)
+        return
+    with pytest.raises(StopRequested, match=raises):
+        raise_if_stop_requested(path)

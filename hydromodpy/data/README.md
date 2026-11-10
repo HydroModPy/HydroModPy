@@ -205,6 +205,8 @@ lockfile cites. It never removes such a file and names it in its report. If
 licence of each file. A lockfile older than `hydromodpy.lock.v2` is refused, and
 the message says to write it again with `hmp data lock`.
 
+A frozen run reads only what the lockfile names. `read_locked_inputs(project_root)` reads the lockfile once and gives a `LockedInputs`, and `project` builds it when the request is frozen. The run hands that object, as the argument `locked`, to the `DataStore`, the `CacheIndex`, the `FileSource` and the `reject_*` functions of `lockfile.py`. `None` means a run that is not frozen. No module global holds the mode, so two runs in two threads of one process do not see each other as frozen.
+
 ## The site catalog
 
 A workspace declares its sites once, in `data/sites/catalog.csv`, one

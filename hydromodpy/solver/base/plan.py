@@ -127,6 +127,11 @@ class RunSlot:
     a later run of the plan reads of this one, written by the runner from the
     ``reads`` of those runs: NWT poses its flow-transport link when
     ``face_flow`` is in it, and every other backend ignores the member.
+    ``stop_flag`` is the stop flag of the run folder, ``.hmp/stop.json``, or
+    ``None`` for a calibration trial that has no run folder. The runner reads
+    it between two runs of the plan, MODFLOW 6 through libmf6 and Boussinesq
+    between two time steps, and a backend that solves through an executable
+    never reads it, because killing the child would leave half-written files.
 
     The folder and the binaries are facts of the machine, kept out of the
     ``Model`` and out of the options so that two runs of one model can solve in
@@ -140,9 +145,11 @@ class RunSlot:
     bin_dir: Path | None = None
     shared_forcing_dir: Path | None = None
     hand_off: frozenset[str] = frozenset()
+    stop_flag: Path | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "folder", Path(self.folder))
+        object.__setattr__(self, "stop_flag", _optional_path(self.stop_flag))
         object.__setattr__(self, "bin_dir", _optional_path(self.bin_dir))
         object.__setattr__(self, "shared_forcing_dir", _optional_path(self.shared_forcing_dir))
         object.__setattr__(self, "hand_off", frozenset(str(one) for one in self.hand_off))
@@ -179,6 +186,11 @@ class SolverRun:
     catalog only persists what converts to a finite float and skips the rest,
     which is why a mesh run can put its nested build summary here.
 
+    ``solve_s`` is the wall time of the solve alone, in seconds, measured by
+    the backend around the call that solves, or ``None`` when the run did not
+    solve. It is not in ``metrics``, because the time of a solve is not a
+    result of the run: the ``run_solver`` step writes it to ``profile.json``.
+
     ``initial_state_converged`` says whether the permanent solve that gave a flow
     run its starting state converged. ``None`` is a run that did not start from
     such a solve, which is every run but a flow run with a steady start. It is not
@@ -196,6 +208,7 @@ class SolverRun:
     written: bool = False
     solved: bool = False
     metrics: Mapping[str, Any] = field(default_factory=dict)
+    solve_s: float | None = None
     initial_state_converged: bool | None = None
 
     def __post_init__(self) -> None:
@@ -203,6 +216,13 @@ class SolverRun:
             raise TypeError(f"SolverRun.slot is a RunSlot, got {type(self.slot).__name__}.")
         object.__setattr__(self, "output_dir", _optional_path(self.output_dir))
         object.__setattr__(self, "input_files", tuple(str(name) for name in self.input_files))
+        if self.solve_s is not None:
+            solve_s = float(self.solve_s)
+            if not solve_s >= 0.0:
+                raise SolverInputError(
+                    f"SolverRun.solve_s is a duration in seconds, at least 0; got {self.solve_s!r}."
+                )
+            object.__setattr__(self, "solve_s", solve_s)
 
 
 @dataclass(frozen=True)

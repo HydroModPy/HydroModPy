@@ -18,7 +18,10 @@ A run that reached its seal (``manifest.json`` on disk) is closed by
 journal row. A window that stopped before the seal ends ``completed``
 without a manifest, which reads as ``partial``, and keeps its attempt state
 for a later resume. An exception ends the attempt ``failed``, a signal
-``aborted``, both with the signal number and the end of the run log.
+``aborted``, both with the signal number and the end of the run log. A stop
+asked through the flag of the run (``StopRequested``, a ``KeyboardInterrupt``)
+ends the attempt ``aborted`` with no signal and an error of that type: it is
+caught here as a signal is, and ``hmp run --resume`` continues it.
 A handle marked by :meth:`AttemptHandle.withdraw` closes nothing: the pulse
 stops, the run log is detached, and the claim is undone without a trace
 (:func:`~hydromodpy.results.storage.attempt.withdraw_claim`). That is how a

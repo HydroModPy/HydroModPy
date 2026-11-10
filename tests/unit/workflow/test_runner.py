@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
@@ -15,7 +17,11 @@ from hydromodpy.core.exceptions import (
     ResumeError,
     StepError,
 )
+from hydromodpy.core.runtime.interrupts import StopRequested
+from hydromodpy.core.state.layout import stop_flag_for
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow.record.journal import WorkflowJournal
+from hydromodpy.workflow.record.resume import resolve_resume_step_index
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.step import Step
@@ -758,3 +764,121 @@ def test_no_pickle_files_anywhere(tmp_path: Path) -> None:
     if checkpoint_root.exists():
         for entry in checkpoint_root.rglob("*"):
             assert entry.suffix not in (".pkl", ".pkl.zst", ".pickle")
+
+
+# --- test_the_pipeline_reads_the_stop_flag_and_writes_the_profile ---
+# The flag of the run is read before each cohort, so a stop asked while a step runs ends
+# the run before the next step, the seal included. Each step has its line in
+# ``profile.json`` as soon as it ends, and a step rebuilt from an earlier attempt is
+# marked ``prefix``.
+
+
+class _AsksToStop:
+    """A step that writes the stop flag of its run, as another process would."""
+
+    name = "asks_to_stop"
+
+    def run(self, state: PipelineState) -> PipelineState:
+        _flagged(Path(state.get("run_dir")), when="2026-11-10T08:00:00+00:00")
+        return state.advance(step_index=state.step_index + 1, step_name=self.name)
+
+
+def _flagged(run_dir: Path, *, when: str | None) -> None:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    if when is not None:
+        flag = stop_flag_for(run_dir)
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(json.dumps({"at": when}), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("flag", "ran"),
+    [
+        (None, ["add_one", "add_one", "double"]),
+        ("2026-11-10T08:00:00+00:00", []),
+    ],
+    ids=["no flag", "flag before the first step"],
+)
+def test_the_flag_is_read_before_each_step(tmp_path: Path, flag: str | None, ran: list) -> None:
+    _flagged(tmp_path, when=flag)
+    pipeline = _pipeline([_JournalAddOne(), _JournalAddOne(), _Double()], tmp_path)
+    state = PipelineState(run_id="r", data={"counter": 0})
+    if flag is None:
+        pipeline.run(state)
+    else:
+        with pytest.raises(StopRequested, match="stop requested at 2026-11-10T08:00:00"):
+            pipeline.run(state)
+    assert [row.step_name for row in _rows(tmp_path, "r")] == ran
+
+
+def test_a_stop_asked_by_step_two_ends_the_run_before_step_three(tmp_path: Path) -> None:
+    steps = [_JournalAddOne(), _AsksToStop(), _Double()]
+    state = PipelineState(run_id="r", data={"counter": 1, "run_dir": tmp_path})
+    with pytest.raises(StopRequested):
+        _pipeline(steps, tmp_path).run(state)
+
+    assert [(row.step_name, row.status) for row in _rows(tmp_path, "r")] == [
+        ("add_one", "completed"),
+        ("asks_to_stop", "completed"),
+    ]
+    assert [line.name for line in read_profile(tmp_path).lines] == ["add_one", "asks_to_stop"]
+    # The resume plan starts at the step that never ran.
+    blueprint = ("add_one", "asks_to_stop", "double")
+    assert resolve_resume_step_index(tmp_path, tmp_path, "r", steps_blueprint=blueprint) == 2
+
+
+def test_a_pipeline_without_a_run_directory_never_reads_a_flag(tmp_path: Path) -> None:
+    flag = stop_flag_for(tmp_path)
+    flag.parent.mkdir(parents=True)
+    flag.write_text("{}", encoding="utf-8")
+    final = Pipeline([_JournalAddOne()]).run(PipelineState(run_id="r", data={"counter": 0}))
+    assert final.data["counter"] == 1
+
+
+def test_each_step_has_a_profile_line_with_its_attempt_and_the_age_of_the_process(
+    tmp_path: Path,
+) -> None:
+    ctx = SimpleNamespace(attempt=2)
+    _pipeline([_JournalAddOne(), _Double()], tmp_path).run(
+        PipelineState(run_id="r", data={"counter": 1, "ctx": ctx})
+    )
+
+    profile = read_profile(tmp_path)
+    assert [(line.kind, line.name, line.attempt, line.reused) for line in profile.lines] == [
+        ("step", "add_one", 2, "no"),
+        ("step", "double", 2, "no"),
+    ]
+    assert all(line.duration_s is not None and line.duration_s >= 0 for line in profile.lines)
+    assert set(profile.process_age_s) == {2}
+
+
+def test_a_failed_step_keeps_its_line_and_a_resume_adds_to_the_profile(tmp_path: Path) -> None:
+    with pytest.raises(StepError):
+        _pipeline([_JournalAddOne(), _Crash()], tmp_path).run(
+            PipelineState(run_id="r", data={"counter": 1})
+        )
+    assert [line.name for line in read_profile(tmp_path).lines] == ["add_one", "crash"]
+
+    _pipeline([_JournalAddOne(), _RecoveredCrash(), _Double()], tmp_path).run(
+        PipelineState(run_id="r", data={"counter": 1}), resume_from=1
+    )
+    assert [(line.name, line.reused) for line in read_profile(tmp_path).lines] == [
+        ("add_one", "no"),
+        ("crash", "no"),
+        ("add_one", "prefix"),
+        ("crash", "no"),
+        ("double", "no"),
+    ]
+
+
+def test_a_rebuilt_step_is_a_prefix_line_and_a_run_step_is_not(tmp_path: Path) -> None:
+    steps = [_Persistent("a"), _Persistent("b"), _Persistent("c")]
+    _pipeline(steps, tmp_path).run(_initial_state(tmp_path, "r"))
+    _pipeline(steps, tmp_path).run(_initial_state(tmp_path, "r"), resume_from=2)
+
+    lines = read_profile(tmp_path).lines
+    assert [(line.name, line.reused) for line in lines[3:]] == [
+        ("a", "prefix"),
+        ("b", "prefix"),
+        ("c", "no"),
+    ]

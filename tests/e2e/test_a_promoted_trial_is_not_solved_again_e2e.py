@@ -105,7 +105,7 @@ _IDENTITY_COLUMNS = frozenset(
         "calibrated_by_session_id",
     }
 )
-_DURATION_METRICS = frozenset({"flow_solve_time_seconds"})
+_SOLVE_TIME_METRIC = "flow_solve_time_seconds"
 
 
 def _project(root: Path) -> Path:
@@ -165,13 +165,10 @@ def _assert_same_tables(kept: Path, replayed: Path) -> None:
         assert left.schema.names == right.schema.names, name
         assert left.num_rows == right.num_rows, name
         if name == "metrics.parquet":
-            keep = [
-                index
-                for index, metric in enumerate(left.column("metric").to_pylist())
-                if metric not in _DURATION_METRICS
-            ]
+            # The time of the solve is in profile.json: no run writes it as a metric, so
+            # the tables of the two runs can be compared in full.
+            assert _SOLVE_TIME_METRIC not in left.column("metric").to_pylist()
             assert left.column("metric").to_pylist() == right.column("metric").to_pylist()
-            left, right = left.take(keep), right.take(keep)
         for column in left.column_names:
             if column in _IDENTITY_COLUMNS:
                 continue
