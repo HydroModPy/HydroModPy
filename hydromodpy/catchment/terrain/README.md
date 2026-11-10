@@ -15,9 +15,16 @@ the transform, the pointer convention and the CRS. An option an engine cannot se
 A product it cannot use raises `TerrainProductError`, and a request that makes no sense raises `TerrainRequestError`.
 
 The conditioning method is `fill`, `breach`, a `CappedBreach`, or `provided`. A `provided` DEM is one that another tool
-conditioned. No engine runs for it. `ConditionedDem.provided(path)` wraps the file and reads its CRS, and the four other
-members route it like any conditioned DEM. `condition_dem` refuses `provided` with `TerrainRequestError`, and nothing
-here checks that the DEM has no depression left.
+conditioned, declared on its `[[data.dem.sources]]` entry with `state = "conditioned"`. No engine runs for it.
+`ConditionedDem.provided(path)` wraps the file and reads its CRS, and the four other members route it like any
+conditioned DEM. `condition_dem` refuses `provided` with `TerrainRequestError`, and nothing here checks that the DEM
+has no depression left.
+
+Before the terrain chain, `dem_contract.py` checks the DEM the run will route: a declared projected CRS in metres, a
+grid that is not rotated, pixels square within 1 % on the source header, a cell size from 1 to 250 m on the grid the
+chain routes, elevations from -500 to 9000 m on the valid cells, and an outlet on a valid cell. `read_dem_header`,
+`check_dem_header`, `check_dem_outlet` and `check_dem_values` apply these, and a DEM that fails one is refused with
+`DataContractViolation` (HMPY.E201).
 
 Two engines ship. `whitebox_workflows` is the default, because every number of the repository was produced with it, and
 it calls the Whitebox backend of `catchment/delineation`. `numpy_d8` is a reference engine written as Python loops, with
@@ -51,6 +58,11 @@ HydroModPy. `tests/contract/test_terrain_engine_contract.py` runs on every engin
 - `max_depth_m` of a capped breach is the cumulative lowering along one path, and `max_distance_m` counts cells along
   the path. A diagonal path can be 1.41 times longer than the distance says. A cell can be cut deeper than `max_depth_m`,
   and `ConditionedDem.breach_report` says by how much.
+- A DEM declared `conditioned` may still keep cells D8 cannot route. `undrained.py` counts them once per product: the
+  cells with no strictly lower neighbour (the edge and the nodata rim excluded) and, among them, the strict pits. A
+  `fill` leaves 0 and 0. A Whitebox `breach` leaves 13 strict pits and 18 cells without descent on the Nançon 25 m, and
+  30 and 873 on the massif 75 m. A QGIS fill without a minimal slope leaves 0 strict pits and 14 274 flat cells on the
+  Nançon. A run that reads a product with such cells warns with the two counts.
 
 ## Files
 
@@ -62,6 +74,8 @@ HydroModPy. `tests/contract/test_terrain_engine_contract.py` runs on every engin
 | `d8.py` | the receiver of each cell of a D8 pointer raster |
 | `numpy_engine.py` | `NumpyTerrainEngine` and its kernels, the priority flood, the steepest descent and the Kahn sweep |
 | `whitebox_engine.py` | `WhiteboxTerrainEngine`, and the measure of a capped breach |
+| `dem_contract.py` | `DEMContract`, `validate_dem` and the header, value and outlet checks of a DEM |
+| `undrained.py` | `undrained_cells`, the count of cells a conditioned DEM leaves without descent |
 
 `port.py` imports `core.exceptions`, and `artifacts.py` inside three functions. `artifacts.py` reads the constants of
 `port.py`, so a module-level import the other way would be a cycle. `WhiteboxTerrainEngine.__init__` imports

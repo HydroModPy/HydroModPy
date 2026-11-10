@@ -57,3 +57,49 @@ def test_the_solver_routing_context_is_built_with_the_configured_engine(
     )
     ensure(solver)
     assert captured["engine_id"] == engine_id
+
+
+def test_a_provided_dem_is_filled_on_the_solver_grid(monkeypatch, tmp_path) -> None:
+    """A DEM declared ``conditioned`` routes the solver grid with ``fill``.
+
+    ``condition_dem`` refuses ``provided``, so the solver grid, its own
+    template, is filled instead of routed as provided.
+    """
+    from hydromodpy.solver.modflow_common import routing_context
+
+    captured: dict = {}
+
+    def build_regional(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(correc="c", direc="d", acc="a")
+
+    monkeypatch.setattr(routing_context, "build_regional_flow_products", build_regional)
+    dem = tmp_path / "dem.tif"
+    dem.write_bytes(b"x")
+    routing_context.build_solver_routing_context(
+        dem_path=dem,
+        output_dir=tmp_path / "out",
+        dem_correc_type="provided",
+    )
+    assert captured["dem_correc_type"] == "fill"
+
+
+@pytest.mark.parametrize("method", ["fill", "breach", "capped_breach"])
+def test_every_other_method_passes_through_unchanged(method, monkeypatch, tmp_path) -> None:
+    from hydromodpy.solver.modflow_common import routing_context
+
+    captured: dict = {}
+
+    def build_regional(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(correc="c", direc="d", acc="a")
+
+    monkeypatch.setattr(routing_context, "build_regional_flow_products", build_regional)
+    dem = tmp_path / "dem.tif"
+    dem.write_bytes(b"x")
+    routing_context.build_solver_routing_context(
+        dem_path=dem,
+        output_dir=tmp_path / "out",
+        dem_correc_type=method,
+    )
+    assert captured["dem_correc_type"] == method

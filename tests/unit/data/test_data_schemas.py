@@ -9,9 +9,7 @@ import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.schemas import (
-    DEMContract,
     validate_catchment,
-    validate_dem,
     validate_lithology,
     validate_stations,
     validate_timeseries,
@@ -90,37 +88,6 @@ def test_lithology_negative_conductivity_fails():
     )
     with pytest.raises(DataContractViolation):
         validate_lithology(df)
-
-
-def test_dem_valid_numpy_dict():
-    dem = {
-        "data": np.ones((10, 10)) * 100.0,
-        "resolution": (25.0, 25.0),
-        "crs": "EPSG:2154",
-    }
-    out = validate_dem(dem)
-    assert out["crs"] == "EPSG:2154"
-    assert out["data"].shape == (10, 10)
-
-
-def test_dem_missing_crs_fails():
-    dem = {
-        "data": np.ones((10, 10)),
-        "resolution": 25.0,
-        "crs": None,
-    }
-    with pytest.raises(DataContractViolation):
-        validate_dem(dem)
-
-
-def test_dem_resolution_out_of_range_fails():
-    dem = {
-        "data": np.ones((10, 10)),
-        "resolution": 0.5,
-        "crs": "EPSG:2154",
-    }
-    with pytest.raises(DataContractViolation):
-        validate_dem(dem)
 
 
 def test_catchment_requires_geodataframe():

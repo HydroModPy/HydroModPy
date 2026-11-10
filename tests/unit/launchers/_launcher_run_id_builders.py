@@ -33,12 +33,13 @@ class _DummyGeographic:
         workspace,
         *,
         dem_path=None,
-        reuse_existing_outputs=None,
+        dem_sha256=None,
+        dem_state=None,
+        terrain=None,
         network_map_path=None,
     ) -> None:
         self.config = config
         self.workspace = workspace
-        self.reuse_existing_outputs = reuse_existing_outputs
 
     def get_domain_surface_topo(self):
         return SimpleNamespace(support=object())

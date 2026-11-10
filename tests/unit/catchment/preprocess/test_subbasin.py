@@ -121,7 +121,7 @@ def test_a_gauge_sub_basin_is_delineated_by_the_engine_the_run_routed_with(
     correcflow = tmp_path / "correcflow"
     runtime = SimpleNamespace(
         _flow_products=build_regional_flow_products(
-            dem_init_path=dem,
+            dem_path=dem,
             dem_out_dir_path=correcflow,
             dem_correc_type="fill",
             crs_project=LAMBERT,

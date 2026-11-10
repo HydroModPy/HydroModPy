@@ -87,6 +87,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[workspace] products_cap_mb` caps the store, 5000 by default. The oldest products go first, never one a running attempt cites.
 - A run writes `products.json`, the products it read in order, when its solver step is prepared. A verb called after a run never rewrites it.
 - A stored product that cannot be read is discarded and built again. A resume whose cited product is gone builds and stores it under the key of its current inputs.
+- `[[data.dem.sources]]` takes `state = "conditioned"` for a DEM another tool filled or breached. HydroModPy skips its own conditioning, still computes the D8 directions and the accumulation, and refuses an aggregation, a crossing notch or a conditioning method beside it.
+- A DEM declared conditioned that keeps cells with no lower neighbour gives a warning with their count, and the run store records it.
+- The DEM is checked before the terrain chain: a projected CRS in metres, a grid that is not rotated, square pixels within 1 %, a cell size from 1 to 250 m, elevations from -500 to 9000 m, and an outlet on a valid cell.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -462,6 +465,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A calibration trial that does not change the soil parameters no longer runs the soil reservoir again.
 - `hydromodpy.mesh.cache` is `hydromodpy.mesh.stored`.
 - `hmp publish --package --with mesh` copies the mesh products the runs cite into `products/` of the package, and `hmp project import` installs them under `.hmp/products/`. The `mesh_cache/` of a 2.0 package is skipped and counted.
+- The conditioned DEM, its directions and its accumulation are a product of the store under `.hmp/products/`, shared by the runs of a project. A resume reads them from the store and delineates the catchment again.
+- `hydromodpy.catchment.preprocess.geographic_cache` is `hydromodpy.catchment.preprocess.geographic_tree`, and `hydromodpy.data.schemas.dem` is `hydromodpy.catchment.terrain.dem_contract`.
+- The regional chain routes a DEM declared conditioned as it is, and `dem_correc_type` reads `provided`. The solver still fills its own grid template with `fill`, because a conditioned DEM brought to a coarser grid has depressions again.
 
 ### Removed
 
@@ -564,6 +570,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.core.contracts.data_cache_backend`, `DATA_CACHE_FILENAME`, `RUN_DATA_CACHE_FILENAME` and `data_cache_path_for` of `hydromodpy.core.state.layout`, and `CACHE_INDEX` of `hydromodpy.schema.sources`. The data cache has no database.
 - The temporary `.hmp_effective_*.toml` copy that `--set` and `--overlay` wrote beside the file, and `hydromodpy.cli.effective_toml`, whose parts live in `hydromodpy.config.loading` and `hydromodpy.cli.helpers`.
 - `run_dirname`, `MAX_DIRNAME_LEN` and `RunNameTooLongError`, replaced by `check_name` and `MAX_NAME_LENGTH` of `hydromodpy.core.state.names`.
+- `[geographic] reuse_existing_outputs` and `[geographic] reg_fold`. A file that writes them is refused with the replacement to write, and a sealed config drops them in silence.
+- `hydromodpy.results.geographic_cache`, which nothing called.
+- `hydromodpy.catchment.preprocess.regional_flow_job`, which nothing called once `reg_fold` left. To share a conditioned DEM between projects, declare `state = "conditioned"` on its `[data.dem.sources]` entry.
 ### Fixed
 
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.

@@ -178,6 +178,7 @@ data.dem.sources.sha256	str | None	None	stable
 data.dem.sources.source	Literal['file']	'file'	stable
 data.dem.sources.source	Literal['ign_geoplateforme_dem']	'ign_geoplateforme_dem'	stable
 data.dem.sources.source	Literal['url']	'url'	stable
+data.dem.sources.state	Literal['raw', 'conditioned']	'raw'	stable
 data.dem.sources.url	str	<required>	stable
 data.etp	table | None	None	stable
 data.etp.date_end	str | None	None	stable
@@ -1343,8 +1344,6 @@ geographic.domain_extent	Literal['box', 'watershed_buff', 'watershed']	'box'	exp
 geographic.enforce_lakes	table	<table>	stable
 geographic.enforce_lakes.enabled	bool	False	stable
 geographic.enforce_lakes.lake_geometry_path	Path | None	None	stable
-geographic.reg_fold	Path | None	None	stable
-geographic.reuse_existing_outputs	bool	False	stable
 geographic.river_network	table	<table>	stable
 geographic.river_network.all_vertices	bool	False	stable
 geographic.river_network.compute_strahler_order	bool	True	stable

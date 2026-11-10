@@ -19,7 +19,10 @@ from hydromodpy.catchment.algorithms.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
 )
-from hydromodpy.catchment.algorithms.flow_products import build_regional_flow_products
+from hydromodpy.catchment.algorithms.flow_products import (
+    TerrainSupply,
+    build_regional_flow_products,
+)
 from hydromodpy.catchment.algorithms.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
@@ -30,6 +33,7 @@ from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.preprocess.pipeline import build_geographic_runtime_context
 from hydromodpy.catchment.terrain.port import CappedBreach
+from hydromodpy.schema.job.inputset import InputState
 
 
 def _optional_str_path(path: object) -> str | None:
@@ -39,7 +43,7 @@ def _optional_str_path(path: object) -> str | None:
 
 
 def DEM_correcflow_analysis(
-    dem_init_path: str,
+    dem_path: str,
     dem_out_dir_path: str,
     dem_correc_type: str,
     backend: object | None = None,
@@ -60,7 +64,7 @@ def DEM_correcflow_analysis(
 
     Parameters
     ----------
-    dem_init_path : str
+    dem_path : str
         Path to the regional DEM used as hydrologic input.
     dem_out_dir_path : str
         Folder where regional rasters are written.
@@ -86,7 +90,7 @@ def DEM_correcflow_analysis(
     """
     tool = resolve_delineation_backend(backend)
     products = build_regional_flow_products(
-        dem_init_path=dem_init_path,
+        dem_path=dem_path,
         dem_out_dir_path=dem_out_dir_path,
         dem_correc_type=dem_correc_type,
         capped_breach=capped_breach,
@@ -135,7 +139,9 @@ class CatchmentDelineation:
         initializing: object,
         *,
         dem_path: str | Path | None = None,
-        reuse_existing_outputs: bool | None = None,
+        dem_sha256: str | None = None,
+        dem_state: InputState = "raw",
+        terrain: TerrainSupply | None = None,
         network_map_path: str | Path | None = None,
     ):
         """Initialize and run geographic preprocessing.
@@ -151,20 +157,27 @@ class CatchmentDelineation:
             geographic artifacts are written below this project root.
         dem_path
             Concrete DEM raster path, resolved from ``[[data.dem.sources]]``.
-        reuse_existing_outputs
-            Overrides ``config.reuse_existing_outputs`` when not None. A
-            pipeline rebuilding a step it already completed passes True so the
-            products on disk are read instead of delineated again.
+        dem_sha256
+            Digest of the source DEM, from its ``FileRecord``. Computed from
+            the routed file when the routing reads a file the source was not.
+        dem_state
+            ``"raw"`` when the source is the bytes a provider answered with,
+            ``"conditioned"`` when it was conditioned elsewhere. A conditioned
+            DEM is routed as ``provided``.
+        terrain
+            A supply that reads the terrain product for the store. ``None``
+            computes the flow products without one.
         network_map_path
             Local vector file of the mapped network, read by the alpha
             diagnostic only. ``None`` skips the diagnostic.
         """
         self._config = config
-        self._reuse_existing_outputs = reuse_existing_outputs
+        self._dem_sha256 = dem_sha256
+        self._dem_state = dem_state
         self._network_map_path = network_map_path
         self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
-        self.dem_init_path = str(dem_path) if dem_path is not None else None
+        self.dem_path = str(dem_path) if dem_path is not None else None
         self.x_outlet = config.x_outlet
         self.y_outlet = config.y_outlet
         self.snap_dist = config.snap_dist
@@ -172,7 +185,7 @@ class CatchmentDelineation:
         self.polyg_shp_path = (
             str(config.polyg_shp_path) if config.polyg_shp_path is not None else None
         )
-        self.dem_correc_type = config.dem_correc_type
+        self.dem_correc_type = "provided" if dem_state == "conditioned" else config.dem_correc_type
         self.capped_breach = config.capped_breach
         """Limits of the ``capped_breach`` conditioning, ``None`` for the other methods.
 
@@ -196,7 +209,7 @@ class CatchmentDelineation:
         run's network.
         """
 
-        self.processing()
+        self.processing(terrain)
 
     @property
     def domain_extent(self) -> str:
@@ -295,7 +308,7 @@ class CatchmentDelineation:
             y_outlet=float(self.y_outlet) if self.y_outlet is not None else None,
             zone_kind=("uniform" if str(self.catch_def).strip().lower() == "dem" else "catchment"),
             watershed_box_buff_dem=str(self.watershed_box_buff_dem),
-            regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
+            regional_dem_path=str(getattr(self, "dem_path", "")) or None,
             hydrographic_networks=HydrographicNetworks(generated=generated_network),
         )
 
@@ -322,15 +335,21 @@ class CatchmentDelineation:
         """
         return self.get_geographic_derived_features().to_domain_geographic_context()
 
-    def processing(self):
-        """Build and hydrate the full geographic runtime payload."""
+    def processing(self, terrain: TerrainSupply | None = None):
+        """Build and hydrate the full geographic runtime payload.
+
+        ``terrain`` is used for this build only and never kept, so the object
+        pickles into a parallel calibration worker.
+        """
         tool = resolve_delineation_backend()
         context = build_geographic_runtime_context(
             config=self._config,
             out_dir_path=self.out_dir_path,
-            dem_path=self.dem_init_path,
+            dem_path=self.dem_path,
+            dem_sha256=self._dem_sha256,
+            dem_state=self._dem_state,
+            terrain=terrain,
             backend=tool,
-            reuse_existing_outputs=self._reuse_existing_outputs,
             network_map_path=self._network_map_path,
         )
         for attr_name, value in context.runtime_attributes().items():
@@ -390,7 +409,7 @@ class CatchmentDelineation:
                 if self.polyg_shp_path is not None
                 else "&mdash;",
             ),
-            ("dem", f"<code>{self.dem_init_path}</code>"),
+            ("dem", f"<code>{self.dem_path}</code>"),
             ("correction", str(self.dem_correc_type or "&mdash;")),
             (
                 "out_dir",

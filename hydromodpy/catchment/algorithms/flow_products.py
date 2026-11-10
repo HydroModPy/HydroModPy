@@ -26,9 +26,13 @@ method, and the nodata is the one the file on disk declares.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+import numpy as np
+import rasterio
 
 from hydromodpy.catchment.terrain import registry as terrain_registry
 from hydromodpy.catchment.terrain.artifacts import raster_crs, raster_max_near, raster_nodata
@@ -43,8 +47,12 @@ from hydromodpy.catchment.terrain.port import (
     FlowAccumulation,
     JensonSnap,
 )
+from hydromodpy.catchment.terrain.undrained import UndrainedCells, undrained_cells
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.crs import ensure_crs
+
+if TYPE_CHECKING:
+    from hydromodpy.schema.job.inputset import InputState
 
 CORRECTED_DEM_NAMES: dict[str, str] = {
     "fill": "dem_fill.tif",
@@ -133,6 +141,8 @@ class FlowProducts:
     """
 
     accumulation: FlowAccumulation
+    undrained: UndrainedCells | None = None
+    """The cells the conditioned DEM cannot route, counted once and stored."""
 
     @property
     def correc(self) -> str:
@@ -148,6 +158,46 @@ class FlowProducts:
     def acc(self) -> str:
         """D8 accumulation raster, in cells under a natural logarithm."""
         return str(self.accumulation.path)
+
+
+@dataclass(frozen=True, slots=True)
+class TerrainRequest:
+    """What a caller asks of one terrain product, and the facts that key it.
+
+    ``method`` is ``"provided"`` when the DEM arrives already conditioned, else
+    one of the conditioning names. ``notched`` selects the notched variant of
+    the product, which exists because the store never writes over a product.
+    """
+
+    dem: Path
+    dem_sha256: str
+    state: InputState
+    method: str
+    capped_breach: CappedBreach | None
+    crs_project: str | None
+    engine: Mapping[str, str]
+    notched: bool
+    out_dir: Path
+
+    def processing(self) -> dict[str, object]:
+        """The processing facts that move a product key, as one JSON-ready mapping."""
+        result: dict[str, object] = {
+            "state": self.state,
+            "method": self.method,
+            "crs_project": self.crs_project,
+            "accumulation": {"units": ACCUMULATION_UNITS, "transform": ACCUMULATION_TRANSFORM},
+            "pointer_convention": "d8_wbt",
+        }
+        if self.capped_breach is not None:
+            result["capped_breach"] = {
+                "max_depth_m": self.capped_breach.max_depth_m,
+                "max_distance_m": self.capped_breach.max_distance_m,
+            }
+        return result
+
+
+TerrainSupply = Callable[[TerrainRequest, Callable[[], FlowProducts]], FlowProducts]
+"""A store-backed provider: build the product once, then read it back on replay."""
 
 
 def conditioning_method(
@@ -234,7 +284,7 @@ def flow_products_from_paths(
 
 def build_regional_flow_products(
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     dem_out_dir_path: str | Path,
     dem_correc_type: str,
     crs_project: str | None = None,
@@ -246,7 +296,7 @@ def build_regional_flow_products(
 
     Parameters
     ----------
-    dem_init_path:
+    dem_path:
         Input regional DEM.
     dem_out_dir_path:
         Output directory for generated rasters.
@@ -255,7 +305,8 @@ def build_regional_flow_products(
         - ``"fill"``: fills closed depressions so water can exit each cell,
         - ``"breach"``: carves narrow paths through barriers/depressions,
         - ``"capped_breach"``: carves within ``capped_breach`` limits, then fills
-          the depressions the limits refused.
+          the depressions the limits refused,
+        - ``"provided"``: the DEM already drains, no engine runs on it.
     capped_breach:
         Limits of ``"capped_breach"``, required for it and refused otherwise.
     crs_project:
@@ -274,15 +325,19 @@ def build_regional_flow_products(
 
     out_dir = Path(dem_out_dir_path)
     out_dir.mkdir(parents=True, exist_ok=True)
-    correc_name = corrected_dem_name(dem_correc_type)
 
-    with progress.status("Correcting DEM"):
-        conditioned = engine.condition_dem(
-            Path(dem_init_path),
-            method=conditioning_method(dem_correc_type, capped_breach),
-            extent=ConditioningExtent.regional(),
-            out=out_dir / correc_name,
-        )
+    if dem_correc_type == "provided":
+        # The user's DEM already drains: no engine conditions it, and its file
+        # is the source, so it is never rewritten by the CRS normalization below.
+        conditioned = ConditionedDem.provided(Path(dem_path))
+    else:
+        with progress.status("Correcting DEM"):
+            conditioned = engine.condition_dem(
+                Path(dem_path),
+                method=conditioning_method(dem_correc_type, capped_breach),
+                extent=ConditioningExtent.regional(),
+                out=out_dir / corrected_dem_name(dem_correc_type),
+            )
     with progress.status("Computing flow accumulation"):
         directions = engine.drainage_directions(conditioned, out=out_dir / DIRECTION_NAME)
         accumulation = engine.flow_accumulation(
@@ -292,8 +347,24 @@ def build_regional_flow_products(
             out=out_dir / ACCUMULATION_NAME,
         )
 
-    products = FlowProducts(accumulation=accumulation)
+    # Only a DEM conditioned elsewhere can keep cells D8 cannot route, so a raw
+    # DEM is never read again to count them.
+    undrained = _undrained_of(conditioned) if dem_correc_type == "provided" else None
+    products = FlowProducts(accumulation=accumulation, undrained=undrained)
     # Normalize CRS metadata to keep downstream GIS/raster steps predictable.
-    for path in (products.correc, products.direc, products.acc):
+    for path in (products.direc, products.acc):
         ensure_crs(path, crs_project)
+    if dem_correc_type != "provided":
+        ensure_crs(products.correc, crs_project)
     return products
+
+
+def _undrained_of(conditioned: ConditionedDem) -> UndrainedCells:
+    """Count the cells of *conditioned* that have no strictly lower neighbour."""
+    with rasterio.open(str(conditioned.path)) as src:
+        elevation = src.read(1)
+        nodata = src.nodata
+    valid = np.isfinite(elevation)
+    if nodata is not None:
+        valid &= elevation != nodata
+    return undrained_cells(elevation, valid)

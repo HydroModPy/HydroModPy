@@ -145,9 +145,7 @@ def test_a_sealed_bare_distance_string_and_a_dem_on_disk_read_as_metres_and_cell
     nancon_square, tmp_path
 ) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", [[1.0]], cell=75.0)
-    products = derive_catchment_domain(
-        nancon_square, tmp_path, buff_area="141.4", dem_init_path=dem
-    )
+    products = derive_catchment_domain(nancon_square, tmp_path, buff_area="141.4", dem_path=dem)
     assert products.buffer_distance_m == 150.0
 
 

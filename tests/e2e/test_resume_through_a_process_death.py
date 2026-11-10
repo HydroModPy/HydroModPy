@@ -14,9 +14,10 @@ What the runs prove, together:
 - the step journal of a killed run (``<run>/.hmp/checkpoints/steps.json``)
   reads back in the next process, and names the step that was running when
   the process died;
-- the resume re-reads the delineation instead of re-running it - the 46 files
-  it declared are identical, bytes and modification times, and its journal row
-  keeps the ``started_at`` of the run that died;
+- the resume re-reads the terrain from the product store and delineates the
+  catchment again, which is deterministic: the product ``meta.json`` is
+  unchanged, the tree rasters hold the same values and the shapefiles the same
+  geometries;
 - the mesh the resumed run generated survives the second death in the project
   product store and is not regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
   silently changes every number computed downstream;
@@ -167,7 +168,7 @@ elif kill_at == "setup_process":
 import numpy as np
 
 from hydromodpy.project.facade import Project
-from hydromodpy.catchment.preprocess.geographic_cache import geographic_artifact_paths
+from hydromodpy.catchment.preprocess.geographic_tree import geographic_artifact_paths
 
 
 def _array_digest(values):
@@ -310,13 +311,44 @@ def _journal(root: Path, run_name: str) -> list[dict]:
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
 
-def _marks(paths: list[Path]) -> dict[str, tuple[str, int]]:
-    """Digest and modification time of every file that exists, by name."""
-    return {
-        str(path): (hashlib.sha256(path.read_bytes()).hexdigest(), path.stat().st_mtime_ns)
-        for path in paths
-        if path.is_file()
-    }
+def _tree_digest(paths: list[Path]) -> dict[str, object]:
+    """Values of the rasters, geometries of the shapefiles, content of the rest.
+
+    No modification time: the resume redoes the delineation, so files are
+    rewritten. What survives is what the terrain is: the same raster values and
+    the same polygon geometries, byte for byte.
+    """
+    import geopandas as gpd
+    import numpy as np
+    import rasterio
+
+    digest: dict[str, object] = {}
+    for path in paths:
+        if not path.is_file():
+            continue
+        suffix = path.suffix.lower()
+        if suffix == ".tif":
+            with rasterio.open(str(path)) as src:
+                digest[str(path)] = [
+                    hashlib.sha256(np.ascontiguousarray(src.read(band)).tobytes()).hexdigest()
+                    for band in range(1, src.count + 1)
+                ]
+        elif suffix == ".shp":
+            digest[str(path)] = [geometry.wkb for geometry in gpd.read_file(str(path)).geometry]
+        elif suffix in (".shx", ".dbf", ".prj", ".cpg"):
+            continue
+        else:
+            digest[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest
+
+
+def _terrain_meta(root: Path) -> dict:
+    """The store ``meta.json`` of the terrain product, which a rebuild would rewrite."""
+    for meta_path in sorted((root / ".hmp" / "products").glob("??/*/meta.json")):
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta.get("kind") == "terrain":
+            return meta
+    raise AssertionError("no terrain product in the store")
 
 
 def _mesh_marks(root: Path) -> dict[str, str]:
@@ -363,11 +395,12 @@ def killed_twice(tmp_path_factory: pytest.TempPathFactory) -> dict:
         if row["name"] == "build_geographic"
         for uri in row["artifact_uris"]
     ]
-    delineation_after_first = _marks(declared)
+    tree_after_first = _tree_digest(declared)
+    terrain_meta_after_first = _terrain_meta(root)
 
     second_death = _drive(root, RUN_NAME, "resume", kill_at="setup_process")
     journal_after_second = _journal(root, RUN_NAME)
-    delineation_after_second = _marks(declared)
+    tree_after_second = _tree_digest(declared)
     mesh_after_second = _mesh_marks(root)
 
     digest = root / "digest.json"
@@ -379,8 +412,10 @@ def killed_twice(tmp_path_factory: pytest.TempPathFactory) -> dict:
         "journal_after_first": journal_after_first,
         "journal_after_second": journal_after_second,
         "journal_after_final": _journal(root, RUN_NAME),
-        "delineation_after_first": delineation_after_first,
-        "delineation_after_second": delineation_after_second,
+        "tree_after_first": tree_after_first,
+        "tree_after_second": tree_after_second,
+        "terrain_meta_after_first": terrain_meta_after_first,
+        "terrain_meta_final": _terrain_meta(root),
         "mesh_after_second": mesh_after_second,
         "mesh_final": _mesh_marks(root),
         "digest": json.loads(digest.read_text(encoding="utf-8")),
@@ -412,22 +447,16 @@ def test_the_journal_of_a_killed_run_is_readable_by_the_next_process(killed_twic
     ]
 
 
-def test_the_resume_reads_the_delineation_instead_of_running_it_again(killed_twice) -> None:
-    """Same bytes and same modification times, file by file."""
-    before = killed_twice["delineation_after_first"]
-    after = killed_twice["delineation_after_second"]
+def test_the_resume_reads_the_terrain_from_the_store(killed_twice) -> None:
+    """Same product meta, same raster values and geometries; the delineation ran again."""
+    before = killed_twice["tree_after_first"]
+    after = killed_twice["tree_after_second"]
 
     assert before, "the crashed run declared no geographic artifact to compare"
     assert after == before
-
-    build_geographic = next(
-        row for row in killed_twice["journal_after_final"] if row["name"] == "build_geographic"
+    assert killed_twice["terrain_meta_after_first"] == killed_twice["terrain_meta_final"], (
+        "the resume rewrote the terrain product instead of reading it"
     )
-    original = next(
-        row for row in killed_twice["journal_after_first"] if row["name"] == "build_geographic"
-    )
-
-    assert build_geographic["started_at"] == original["started_at"]
 
 
 def test_the_mesh_survives_the_second_death_and_is_not_generated_again(killed_twice) -> None:

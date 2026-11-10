@@ -74,7 +74,7 @@ def ground_dem_path_from_config(config: object, setup: object) -> str:
     correcflow = Path(setup.paths.correcflow_path)
     if notch_enabled(config):
         return str(correcflow / GROUND_FILENAME)
-    return str(setup.dem_init_path)
+    return str(setup.dem_path)
 
 
 def ground_dem_from_config(
@@ -88,7 +88,7 @@ def ground_dem_from_config(
     Without ``channel`` the ground is the raw DEM path. With the channel of a first delineation and the notch
     enabled, the crossings are notched into it and the report is written.
     """
-    base = str(setup.dem_init_path)
+    base = str(setup.dem_path)
     if channel is None or not notch_enabled(config):
         return Path(base)
     return _notched(config, setup, base=base, channel=channel)

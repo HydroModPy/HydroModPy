@@ -168,6 +168,10 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "data.*.sources.sha256": (_UNSET, _A_SOURCE_PIN),
     "data.*.sources.url": (_UNSET, _A_SOURCE_PIN),
     "edition": ("2.0", "A file that writes none is read with the defaults of 2.0."),
+    "data.dem.sources.state": (
+        "raw",
+        "Raw, so HydroModPy conditions the DEM as a file of 2.0 did; a file of 2.0 wrote no state.",
+    ),
     "solver.boussinesq.exchange_mesh": (
         _UNSET,
         "Unset, the Boussinesq solver reads the cell mesh of its model, as in 2.0.",

@@ -148,38 +148,76 @@ def test_the_residual_fill_leaves_the_dem_without_a_depression(engine, tmp_path)
     assert int(np.count_nonzero(interior == 0)) == 0
 
 
-def test_a_sealed_regional_job_records_the_cap_and_what_it_did(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.catchment.preprocess.regional_flow_job import (
-        DESCRIPTION_PATH,
-        load_regional_flow_job,
-        materialize_regional_flow_job,
-    )
-    from hydromodpy.schema.job import provenance
-    from hydromodpy.schema.job.documents import read_document
+def test_a_capped_breach_terrain_round_trips_through_the_product_store(tmp_path) -> None:
+    """The sealed regional job is gone; the store keeps its facts, keyed like a product."""
+    import json
 
-    monkeypatch.setattr(provenance, "git_state", lambda: {"commit": None, "dirty": None})
+    from hydromodpy.catchment.algorithms.flow_products import (
+        TerrainRequest,
+        build_regional_flow_products,
+    )
+    from hydromodpy.catchment.algorithms.terrain_stored import (
+        SCHEMA_VERSION,
+        read_terrain,
+        write_terrain,
+    )
+    from hydromodpy.catchment.terrain import registry
+    from hydromodpy.core.io.file_digest import sha256_of
+    from hydromodpy.results.products.key import product_key
+
     dem = _dam(tmp_path, crest_above_bowl_m=0.3)
     limits = CappedBreach(0.5, 200.0)
-
-    job = materialize_regional_flow_job(
-        job_dir=tmp_path / "job",
-        dem_init_path=dem,
+    products = build_regional_flow_products(
+        dem_path=dem,
+        dem_out_dir_path=tmp_path / "out",
         dem_correc_type="capped_breach",
         capped_breach=limits,
-    )
-    description = read_document(Path(job.job_dir) / DESCRIPTION_PATH)
-    reread = load_regional_flow_job(
-        job_dir=job.job_dir,
-        dem_init_path=dem,
-        dem_correc_type="capped_breach",
-        capped_breach=limits,
+        engine_id="whitebox_workflows",
     )
 
-    assert description["inputs"]["capped_breach"] == {"max_depth_m": 0.5, "max_distance_m": 200.0}
-    assert description["conditioning_report"]["cells_lowered"] >= 1
-    assert description["conditioning_report"]["max_dist_cells"] == 8
-    assert Path(job.products.correc).name == "dem_capped_breach.tif"
-    assert reread.products.accumulation.directions.conditioned_dem.method == limits
-    assert reread.job_id == job.job_id
+    store = tmp_path / "store"
+    store.mkdir()
+    write_terrain(products, store)
+    document = json.loads((store / "terrain.json").read_text())
+    assert document["schema"] == SCHEMA_VERSION
+    assert document["conditioned_name"] == "dem_capped_breach.tif"
+    assert document["method"] == {"max_depth_m": 0.5, "max_distance_m": 200.0}
+    assert document["breach_report"]["cells_lowered"] >= 1
+    assert document["breach_report"]["max_dist_cells"] == 8
+
+    engine = registry.terrain_engines.get("whitebox_workflows")
+    stamp = {"engine_id": engine.engine_id, "engine_version": engine.engine_version}
+    digest = sha256_of(dem)
+    rebuilt = tmp_path / "rebuilt"
+
+    def request_for(limits_: CappedBreach) -> TerrainRequest:
+        return TerrainRequest(
+            dem=dem,
+            dem_sha256=digest,
+            state="raw",
+            method="capped_breach",
+            capped_breach=limits_,
+            crs_project=None,
+            engine=stamp,
+            notched=False,
+            out_dir=rebuilt,
+        )
+
+    reread = read_terrain(store, request=request_for(limits))
+    assert Path(reread.correc).name == "dem_capped_breach.tif"
+    assert reread.accumulation.directions.conditioned_dem.method == limits
+    assert reread.accumulation.directions.conditioned_dem.breach_report is not None
+
+    def key(limits_: CappedBreach) -> str:
+        request = request_for(limits_)
+        return product_key(
+            "terrain",
+            codec=SCHEMA_VERSION,
+            package="catchment",
+            inputs={"dem": request.dem_sha256, "dem_state": request.state},
+            processing=request.processing(),
+            engine=request.engine,
+        )
+
+    assert key(limits) == key(CappedBreach(0.5, 200.0))
+    assert key(limits) != key(CappedBreach(0.6, 200.0))

@@ -750,6 +750,55 @@ def refuse_strict_inference_without_types(cfg: Any, *, sealed: bool) -> None:
         )
 
 
+def refuse_conditioning_choices_on_a_conditioned_dem(cfg: Any, *, sealed: bool) -> None:
+    """Refuse the conditioning keys a conditioned DEM would ignore in silence.
+
+    A DEM declared ``state = "conditioned"`` on a source of ``[data.dem]`` is
+    routed as it is, so a written ``dem_resolution``, ``crossings.enabled``,
+    ``dem_correc_type`` or ``capped_breach`` would be ignored and read as
+    applied. Each written key is named, not just the first one.
+    """
+    if not _a_dem_source_is_conditioned(cfg.data):
+        return
+    geographic = getattr(cfg, "geographic", None)
+    written: list[str] = []
+    if geographic is not None:
+        written_set = getattr(geographic, "model_fields_set", frozenset())
+        if "dem_correc_type" in written_set:
+            written.append("geographic.dem_correc_type")
+        if "capped_breach" in written_set:
+            written.append("geographic.capped_breach")
+        catchment = getattr(geographic, "catchment", None)
+        if catchment is not None and "dem_resolution" in getattr(
+            catchment, "model_fields_set", frozenset()
+        ):
+            written.append("geographic.catchment.dem_resolution")
+        crossings = getattr(geographic, "crossings", None)
+        if crossings is not None and getattr(crossings, "enabled", False):
+            written.append("geographic.crossings.enabled")
+    if not written:
+        return
+    _refuse(
+        "A DEM declared state = 'conditioned' is already conditioned, so "
+        f"{', '.join(written)} would be ignored in silence. Remove the key, "
+        "or declare the DEM as raw.",
+        ConfigError,
+        sealed=sealed,
+    )
+
+
+def _a_dem_source_is_conditioned(data_cfg: Any) -> bool:
+    """Whether any source of ``[data.dem]`` declares ``state = "conditioned"``."""
+    dem = getattr(data_cfg, "dem", None)
+    for source in getattr(dem, "sources", ()) or ():
+        state = (
+            source.get("state") if isinstance(source, Mapping) else getattr(source, "state", None)
+        )
+        if state == "conditioned":
+            return True
+    return False
+
+
 def refuse_a_raster_depth_without_its_substratum(cfg: Any, *, sealed: bool) -> None:
     """Refuse a raster depth model when ``[data.substratum]`` declares no raster."""
     depth_kind = cfg.domain.depth_model.kind
@@ -1334,6 +1383,7 @@ CROSS_RULES: dict[str, CrossRule] = {
         CrossRule(refuse_a_metrics_window_outside_the_run, _reads("metrics", "simulation")),
         CrossRule(refuse_an_overview_without_its_section, _reads("workflow", "overview")),
         CrossRule(refuse_strict_inference_without_types, _reads("data")),
+        CrossRule(refuse_conditioning_choices_on_a_conditioned_dem, _reads("data", "geographic")),
         CrossRule(refuse_a_raster_depth_without_its_substratum, _reads("domain", "data")),
         CrossRule(refuse_a_river_mesh_without_a_threshold, _reads("geographic", "mesh", "flow")),
         CrossRule(refuse_a_calibration_without_parameters, _reads("calibration", "flow", "solver")),
@@ -1459,6 +1509,7 @@ __all__ = [
     "refuse_a_station_other_than_the_gauge",
     "refuse_a_time_the_run_does_not_hold",
     "refuse_a_transport_its_flow_does_not_feed",
+    "refuse_conditioning_choices_on_a_conditioned_dem",
     "refuse_an_angle_with_a_depth_profile",
     "refuse_an_export_that_cannot_be_written",
     "refuse_an_ignored_family_written",

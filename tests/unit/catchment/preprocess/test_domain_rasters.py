@@ -65,7 +65,7 @@ def _build(tmp_path: Path, *, box: int, buffer: int, watershed: int):
     for name in ("dem", "fill", "direc"):
         _write_tif(tmp_path / f"{name}.tif", regional)
     products = build_domain_rasters(
-        dem_init_path=tmp_path / "dem.tif",
+        dem_path=tmp_path / "dem.tif",
         correc_path=tmp_path / "fill.tif",
         direc_path=tmp_path / "direc.tif",
         watershed_shp="watershed.shp",

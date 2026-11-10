@@ -137,7 +137,7 @@ def catchment_area_m2(frame: gpd.GeoDataFrame) -> float:
 
 
 def _read_dem_resolution(
-    dem_init_path: str | Path | None,
+    dem_path: str | Path | None,
     dem_resolution: float | None,
 ) -> float | None:
     """Resolve DEM resolution in meters from explicit value or DEM metadata."""
@@ -145,9 +145,9 @@ def _read_dem_resolution(
         if float(dem_resolution) <= 0.0:
             raise ValueError("dem_resolution must be > 0")
         return float(dem_resolution)
-    if dem_init_path is None:
+    if dem_path is None:
         return None
-    with rasterio.open(str(dem_init_path)) as dem_src:
+    with rasterio.open(str(dem_path)) as dem_src:
         return float(abs(dem_src.transform.a))
 
 
@@ -278,7 +278,7 @@ def derive_catchment_domain(
     output_dir: str | Path,
     *,
     buff_area: float | str,
-    dem_init_path: str | Path | None = None,
+    dem_path: str | Path | None = None,
     dem_resolution: float | None = None,
     crs_project: str | None = None,
     watershed_buff_name: str = "watershed_buff.shp",
@@ -298,9 +298,9 @@ def derive_catchment_domain(
         Buffer control, in the normalized form of the config validator:
         ``"10%"`` is an area increase, ``"150.0 m"`` a distance, a bare number
         the legacy v1 rule (see the module docstring).
-    dem_init_path, dem_resolution:
+    dem_path, dem_resolution:
         Used to derive/supply DEM resolution for distance snapping.
-        ``dem_resolution`` overrides ``dem_init_path`` when both are provided.
+        ``dem_resolution`` overrides ``dem_path`` when both are provided.
     crs_project:
         Optional CRS override applied to outputs.
     *_name:
@@ -329,7 +329,7 @@ def derive_catchment_domain(
         raise ValueError("catchment area must be > 0")
 
     catchment = catchment_gdf.geometry.union_all()
-    res = _read_dem_resolution(dem_init_path, dem_resolution)
+    res = _read_dem_resolution(dem_path, dem_resolution)
     rule = buffer_rule_of(buff_area)
     buff_dist = _compute_buffer_distance(
         catchment=catchment,

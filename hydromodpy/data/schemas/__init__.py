@@ -1,7 +1,6 @@
 """Input-data contracts expressed as pandera schemas.
 
-Each submodule exposes a pandera :class:`DataFrameSchema` (or a light
-validator for non-dataframe contracts like :mod:`dem`) and a
+Each submodule exposes a pandera :class:`DataFrameSchema` and a
 ``validate()`` helper that wraps pandera's validation error into
 :class:`hydromodpy.core.exceptions.DataContractViolation`.
 
@@ -18,7 +17,6 @@ from hydromodpy.data.schemas.catchment import (
     CatchmentPolygonSchema,
     validate_catchment,
 )
-from hydromodpy.data.schemas.dem import DEMContract, validate_dem
 from hydromodpy.data.schemas.lithology import (
     LithologyTableSchema,
     validate_lithology,
@@ -41,8 +39,6 @@ __all__ = [
     "validate_timeseries",
     "StationCollectionSchema",
     "validate_stations",
-    "DEMContract",
-    "validate_dem",
     "LithologyTableSchema",
     "validate_lithology",
     "AbacusTableSchema",

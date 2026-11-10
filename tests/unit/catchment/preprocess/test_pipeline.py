@@ -6,6 +6,7 @@ every cell flows south and the mapped channel follows column 10.
 
 import json
 import logging
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,13 +28,10 @@ from hydromodpy.catchment.algorithms.ground_corrections import (
 from hydromodpy.catchment.algorithms.stream_dem_agreement import report_network_dem_agreement
 from hydromodpy.catchment.preprocess import pipeline as runtime_pipeline
 from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-from hydromodpy.catchment.preprocess.geographic_cache import (
-    DESCRIPTION_FILENAME,
-    required_geographic_cache_artifacts,
-)
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.surface import Surface
 from hydromodpy.catchment.terrain.port import CappedBreach
+from hydromodpy.catchment.terrain.undrained import UndrainedCells
 from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
@@ -57,7 +55,6 @@ from tests._helpers.geographic_cases import (
     patch_pipeline,
     read_band,
     run_bench_pipeline,
-    touch_artifact,
 )
 from tests._helpers.terrain_doubles import fake_flow_products
 
@@ -75,7 +72,6 @@ CHANNEL = LineString(
 )
 OFF_CATCHMENT = LineString([(50_000.0, 50_000.0), (50_100.0, 50_100.0)])
 ALPHA_SKIPPED = "stream/DEM agreement (alpha) was skipped"
-SNAP_KEYS = ("x_outlet_snapped", "y_outlet_snapped", "outlet_snap_distance_m")
 
 
 def _crossings(root: Path, *rows: tuple[str, object]) -> dict:
@@ -100,10 +96,10 @@ def _report(root: Path, name: str = CROSSINGS_REPORT_FILENAME) -> dict:
     return json.loads((correcflow_dir(root) / name).read_text())
 
 
-def _ground_run(root: Path, monkeypatch, raw: np.ndarray, **sections):
+def _ground_run(root: Path, monkeypatch, raw: np.ndarray, supply=None, **sections):
     config = bench_config(root, dem=raw, river_network=BENCH_RIVER, **sections)
     terrain, context = run_bench_pipeline(
-        root, monkeypatch, config, terrain=BenchTerrain(sides=(180.0, 170.0))
+        root, monkeypatch, config, terrain=BenchTerrain(sides=(180.0, 170.0)), supply=supply
     )
     return config, terrain, context
 
@@ -112,8 +108,16 @@ def test_a_declared_crossing_is_notched_delineated_again_and_reported(
     tmp_path, monkeypatch, caplog
 ) -> None:
     raw = _embanked()
+    passes: list[bool] = []
+
+    def supply(request, build):
+        passes.append(request.notched)
+        return build()
+
     with caplog.at_level("INFO"):
-        _, terrain, context = _ground_run(tmp_path, monkeypatch, raw, **_crossings(tmp_path))
+        _, terrain, context = _ground_run(
+            tmp_path, monkeypatch, raw, supply=supply, **_crossings(tmp_path)
+        )
     ground = str(correcflow_dir(tmp_path) / GROUND_FILENAME)
     assert terrain.routing == [str(tmp_path / "dem.tif"), ground]
     assert terrain.top == [ground]
@@ -130,15 +134,14 @@ def test_a_declared_crossing_is_notched_delineated_again_and_reported(
     lines = _logged(caplog, "Crossing notch")
     assert len(lines) == 1
     assert "1 notched" in lines[0]
-    # The outlet snapped on the notched ground, in the context and in the cache description.
-    manifest = json.loads((geographic_dir(tmp_path) / DESCRIPTION_FILENAME).read_text())
-    second = (170.0, 30.0, 170.0)
+    # The terrain request of the second pass is the notched ground, and the
+    # outlet snapped on it.
+    assert passes == [False, True]
     assert (
         context.x_outlet_snapped,
         context.y_outlet_snapped,
         context.outlet_snap_distance_m,
-    ) == second
-    assert tuple(manifest[k] for k in SNAP_KEYS) == second
+    ) == (170.0, 30.0, 170.0)
 
 
 def test_a_notch_that_lowers_nothing_does_not_delineate_again_and_logs_once(
@@ -275,28 +278,67 @@ def test_a_missing_custom_file_is_a_warning_in_the_resolver(tmp_path, caplog) ->
     assert "path not found" in caplog.text
 
 
-def test_the_journal_follows_the_map_on_a_rebuild_and_on_a_cache_hit(tmp_path, monkeypatch) -> None:
+def test_the_journal_follows_the_map_whether_the_terrain_is_built_or_read(
+    tmp_path, monkeypatch
+) -> None:
     channel = _plant(tmp_path / "channel.gpkg", CHANNEL)
     config = bench_config(tmp_path, river_network=BENCH_RIVER)
-    run = partial(run_bench_pipeline, tmp_path, monkeypatch, config, reuse_existing_outputs=True)
-    paths = run(network_map_path=channel)[1].paths
+    built: dict[str, object] = {}
+
+    def supply(request, build):
+        # A store hit returns the built product without rebuilding; the first
+        # request builds it once.
+        if "fill" in built:
+            return built["fill"]
+        built["fill"] = build()
+        return built["fill"]
+
+    run = partial(run_bench_pipeline, tmp_path, monkeypatch, config, supply=supply)
+    run(network_map_path=channel)
     first = json.loads(_journal(tmp_path).read_text())
     assert first["alpha"] == pytest.approx(1.0)
-    # The recorders write part of the tree. Completed, it is read back, never rebuilt.
-    for artifact in required_geographic_cache_artifacts(config=config, paths=paths):
-        Path(artifact).exists() or touch_artifact(artifact)
-    monkeypatch.setattr(runtime_pipeline, "_build_geographic_products", lambda **_: pytest.fail())
-    # Cache hit, another map: the journal describes this one.
+    assert len(built) == 1
+    # A store hit with another map: the terrain is read, the journal describes
+    # this one.
     x = bench.x_of(bench.AXIS)
     run(network_map_path=_plant(tmp_path / "half.gpkg", LineString([(x, 100.0), (x, 40.0)])))
     second = json.loads(_journal(tmp_path).read_text())
     assert second["n_network_cells"] < first["n_network_cells"]
-    # Cache hit, no map: the stale journal is removed.
+    assert len(built) == 1
+    # A store hit with no map: the stale journal is removed.
     run(network_map_path=None)
     assert not _journal(tmp_path).exists()
-    # Cache hit, a map where there was none: the journal appears.
+    # A store hit with a map where there was none: the journal appears.
     run(network_map_path=channel)
     assert json.loads(_journal(tmp_path).read_text()) == first
+    assert len(built) == 1
+
+
+@pytest.mark.parametrize(
+    ("counts", "warned"),
+    [((4, 1), 1), ((0, 0), 0), (None, 0)],
+    ids=["cells_without_descent", "none_left", "a_raw_dem"],
+)
+def test_the_undrained_cells_of_a_product_are_warned_and_recorded(
+    tmp_path, monkeypatch, caplog, counts, warned
+) -> None:
+    config = bench_config(tmp_path)
+    undrained = None if counts is None else UndrainedCells(*counts)
+
+    def supply(request, build):
+        return replace(build(), undrained=undrained)
+
+    with caplog.at_level(logging.WARNING):
+        _, context = run_bench_pipeline(tmp_path, monkeypatch, config, supply=supply)
+
+    lines = _logged(caplog, "no lower neighbour")
+    assert len(lines) == warned
+    if warned:
+        assert lines[0].startswith("The DEM declared conditioned keeps 4 cells")
+        assert "(1 strict pits)" in lines[0]
+    attributes = context.runtime_attributes()
+    assert attributes["dem_cells_without_descent"] == (None if counts is None else counts[0])
+    assert attributes["dem_strict_pits"] == (None if counts is None else counts[1])
 
 
 def _bumped(*, embankment: bool) -> np.ndarray:
@@ -391,7 +433,7 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
         config=config,
         out_dir_path=tmp_path / "results",
         dem_path=tmp_path / "dem.tif",
-        reuse_existing_outputs=True,
+        terrain=lambda request, build: terrain.context.flow_products,
     )
     attributes = cached.runtime_attributes()
     names = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")

@@ -46,9 +46,6 @@ crs_project = "EPSG:2154"
 # which preserves the river network better than `fill`.
 dem_correc_type = "breach"
 
-# Reuse cached geographic outputs when nothing changed (DEM/outlet).
-# Speeds up reruns of the same project. Safe to keep on.
-reuse_existing_outputs = false
 
 
 # ----------------------------------------------------------------------

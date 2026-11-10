@@ -14,7 +14,7 @@ from pathlib import Path
 
 def _data_dir(setup: object) -> Path:
     """The data folder around the DEM the project declared (data/dem/x.tif -> data)."""
-    return Path(str(setup.dem_init_path)).resolve().parent.parent
+    return Path(str(setup.dem_path)).resolve().parent.parent
 
 
 def lakes_from_config(enforce: object, setup: object) -> list:

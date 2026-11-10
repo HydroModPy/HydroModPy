@@ -104,7 +104,7 @@ def bench_project(
         bed_regularization=SimpleNamespace(enabled=True, min_slope=1.0e-4),
     )
     setup = SimpleNamespace(
-        dem_init_path=str(dem),
+        dem_path=str(dem),
         crs_project=bench.CRS,
         paths=SimpleNamespace(
             correcflow_path=work, watershed_shp=None, box_buff=None, geographic_path=None
@@ -182,7 +182,7 @@ class BenchTerrain:
     def flow(self, **kwargs):
         from tests._helpers.terrain_doubles import fake_flow_products
 
-        self.routing.append(str(kwargs["dem_init_path"]))
+        self.routing.append(str(kwargs["dem_path"]))
         out = Path(kwargs["dem_out_dir_path"])
         out.mkdir(parents=True, exist_ok=True)
         valley = bench.build()
@@ -215,8 +215,8 @@ class BenchTerrain:
     def domain_rasters(self, **kwargs):
         from hydromodpy.catchment.preprocess.domain_rasters import DomainRasterProducts
 
-        self.top.append(str(kwargs["dem_init_path"]))
-        paths, source = kwargs["paths"], kwargs["dem_init_path"]
+        self.top.append(str(kwargs["dem_path"]))
+        paths, source = kwargs["paths"], kwargs["dem_path"]
         unused = [
             f"watershed{z}_{k}" for z in ("_box_buff", "_buff", "") for k in ("fill", "direc")
         ]
@@ -230,7 +230,7 @@ class BenchTerrain:
 
 def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters=None) -> None:
     """Replace the terrain steps of the geographic pipeline by *flow*, *catchment*, ..."""
-    from hydromodpy.catchment.preprocess import geographic_cache, pipeline
+    from hydromodpy.catchment.preprocess import pipeline
 
     tool = SimpleNamespace(delineation=SimpleNamespace(polygons_to_lines=lambda *a, **k: None))
     monkeypatch.setattr(pipeline, "resolve_delineation_backend", lambda backend: tool)
@@ -240,16 +240,17 @@ def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters
         monkeypatch.setattr(pipeline, "build_river_network_products", network)
     if domain_rasters is not None:
         monkeypatch.setattr(pipeline, "build_domain_rasters", domain_rasters)
-        monkeypatch.setattr(geographic_cache, "build_domain_rasters", domain_rasters)
     monkeypatch.setattr(
         pipeline, "read_dem_metadata", lambda **_: SimpleNamespace(runtime_attributes=dict)
     )
 
 
-def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, **kwargs):
+def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, supply=None, **kwargs):
     """Build the runtime context of *config* on the bench recorders, under ``root/results``.
 
-    The DEM is ``root/dem.tif``, the file ``bench_config`` writes, unless *dem_path* says otherwise.
+    The DEM is ``root/dem.tif``, the file ``bench_config`` writes, unless *dem_path* says
+    otherwise. A *supply* hands the pipeline a terrain reader instead of computing the
+    flow products.
     """
     from hydromodpy.catchment.preprocess import pipeline
 
@@ -263,7 +264,7 @@ def run_bench_pipeline(root: Path, monkeypatch, config, *, terrain=None, **kwarg
     )
     kwargs.setdefault("dem_path", root / "dem.tif")
     terrain.context = pipeline.build_geographic_runtime_context(
-        config=config, out_dir_path=root / "results", **kwargs
+        config=config, out_dir_path=root / "results", terrain=supply, **kwargs
     )
     return terrain, terrain.context
 
@@ -296,64 +297,6 @@ def touch_artifact(path: Path | str) -> None:
         path.write_text("{}" if suffix == ".json" else "", encoding="utf-8")
 
 
-def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, **sections):
-    """A complete geographic cache under ``root/project`` and the config it was written for."""
-    from hydromodpy.catchment.algorithms.catchment_domain import CatchmentDomainProducts
-    from hydromodpy.catchment.algorithms.geographic_paths import build_geographic_paths
-    from hydromodpy.catchment.preprocess.geographic_cache import (
-        required_geographic_cache_artifacts,
-        write_geographic_cache_manifest,
-    )
-
-    dem = root / "dem.tif"
-    touch_artifact(dem)
-    config = GeographicConfig.model_validate(
-        {
-            "catchment": {
-                "kind": "from_outlet_coord",
-                "x_outlet": 1.0,
-                "y_outlet": 2.0,
-                "snap_dist": 10.0,
-                "buff_area": 10.0,
-            },
-            "reuse_existing_outputs": True,
-            **sections,
-        }
-    )
-    paths = build_geographic_paths(root / "project")
-    for artifact in required_geographic_cache_artifacts(config=config, paths=paths):
-        touch_artifact(artifact)
-    domain_products = CatchmentDomainProducts(
-        **{
-            "catchment_area_km2": 12.0,
-            "buffer_distance_m": 300.0,
-            "watershed_buff_shp": str(Path(paths.geographic_path) / "watershed_buff.shp"),
-            "watershed_box_shp": paths.watershed_box_shp,
-            "watershed_box_buff_shp": paths.box_buff,
-            **(domain or {}),
-        }
-    )
-    write_geographic_cache_manifest(
-        config=config,
-        paths=paths,
-        domain_products=domain_products,
-        catchment_area_km2=12.0,
-        catchment_products=None,
-        flow_products=flow_products,
-        dem_path=dem,
-    )
-    return config, paths
-
-
-def load_cached(config, paths, root: Path):
-    """The products a cache hit rebuilds, or None on a miss. The DEM is ``root/dem.tif``."""
-    from hydromodpy.catchment.preprocess.geographic_cache import load_cached_geographic_products
-
-    return load_cached_geographic_products(
-        config=config, paths=paths, crs_project=LAMBERT, dem_path=root / "dem.tif"
-    )
-
-
 OUTLET_CATCHMENT = {
     "kind": "from_outlet_coord",
     "x_outlet": 450.0,
@@ -370,7 +313,7 @@ def polygon_catchment(root: Path) -> dict:
     return {"kind": "from_polyg_shp", "polyg_shp_path": path, "buff_area": 20.0}
 
 
-def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config):
+def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, *, terrain=None, **config):
     """A ``CatchmentDelineation`` on a 10 x 10 ramp of 100 m cells, on the Whitebox double."""
     from hydromodpy.catchment.preprocess import catchment_delineation
     from tests._helpers.whitebox_double import FakeWhiteboxBackend
@@ -390,7 +333,10 @@ def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config
         **config,
     )
     return catchment_delineation.CatchmentDelineation(
-        config=cfg, initializing=SimpleNamespace(project_root=str(root / "run")), dem_path=dem
+        config=cfg,
+        initializing=SimpleNamespace(project_root=str(root / "run")),
+        dem_path=dem,
+        terrain=terrain,
     )
 
 

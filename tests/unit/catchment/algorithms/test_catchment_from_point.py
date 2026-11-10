@@ -25,10 +25,12 @@ from hydromodpy.catchment.algorithms.catchment_from_point import (
     extract_catchment_from_polygon,
     write_shapefile_without_duplicate_columns,
 )
-from hydromodpy.catchment.algorithms.flow_products import build_regional_flow_products
+from hydromodpy.catchment.algorithms.flow_products import (
+    TerrainRequest,
+    build_regional_flow_products,
+)
 from hydromodpy.catchment.algorithms.geographic_paths import build_geographic_paths
 from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.catchment.preprocess.geographic_cache import geographic_cache_fingerprint
 from hydromodpy.catchment.preprocess.pipeline_steps import build_standard_catchment
 from hydromodpy.catchment.terrain import registry
 from hydromodpy.catchment.terrain.port import (
@@ -322,7 +324,34 @@ def _outlet_config(snap_method: str = "window", **overrides):
     )
 
 
-def test_the_config_takes_the_window_snap_by_default_and_fingerprints_a_jenson_snap() -> None:
+def _terrain_key(config, method: str = "fill") -> str:
+    """The terrain product key one config asks for, over a never-read DEM."""
+    from hydromodpy.catchment.algorithms.terrain_stored import SCHEMA_VERSION
+    from hydromodpy.results.products.key import product_key
+
+    engine = registry.terrain_engines.get(config.terrain_engine)
+    request = TerrainRequest(
+        dem=Path("dem.tif"),
+        dem_sha256="a" * 64,
+        state="raw",
+        method=method,
+        capped_breach=None,
+        crs_project=config.crs_project,
+        engine={"engine_id": engine.engine_id, "engine_version": engine.engine_version},
+        notched=False,
+        out_dir=Path("out"),
+    )
+    return product_key(
+        "terrain",
+        codec=SCHEMA_VERSION,
+        package="catchment",
+        inputs={"dem": request.dem_sha256, "dem_state": request.state},
+        processing=request.processing(),
+        engine=request.engine,
+    )
+
+
+def test_the_config_takes_the_window_snap_by_default_and_reads_the_terrain_key() -> None:
     window = _outlet_config()
     jenson = _outlet_config("jenson", river_network={"threshold_area_km2": 0.5})
     assert (window.snap_method, jenson.snap_method) == ("window", "jenson")
@@ -331,16 +360,17 @@ def test_the_config_takes_the_window_snap_by_default_and_fingerprints_a_jenson_s
         _outlet_config("jenson")
     with pytest.raises(ValidationError, match="snap_method"):
         _outlet_config("nearest")
-    fingerprint = geographic_cache_fingerprint(window)
-    assert fingerprint == geographic_cache_fingerprint(_outlet_config(snap_method="window"))
-    assert fingerprint != geographic_cache_fingerprint(jenson)
+    # The snap draws the catchment, not the terrain: a window and a jenson config
+    # read the same key, and only the conditioning method moves it.
+    assert _terrain_key(window) == _terrain_key(jenson)
+    assert _terrain_key(window) != _terrain_key(window, "breach")
 
 
 def test_the_pipeline_snaps_onto_the_network_its_river_section_draws(tmp_path) -> None:
     """The threshold is read in km2 and turned into cells on the grid of the routing."""
     paths = build_geographic_paths(tmp_path / "geographic_run")
     flow = build_regional_flow_products(
-        dem_init_path=_write_two_valleys(tmp_path / "dem.tif"),
+        dem_path=_write_two_valleys(tmp_path / "dem.tif"),
         dem_out_dir_path=paths.correcflow_path,
         dem_correc_type="fill",
         crs_project=CRS,
@@ -366,7 +396,7 @@ def test_a_basin_above_the_ln_float32_bound_is_delineated_not_refused(tmp_path) 
     surface = (500.0 - 0.5 * rows - 0.4 * cols).astype("float32")
     dem = write_geotiff(tmp_path / "dem.tif", surface, cell=5.0, nodata=-9999.0)
     flow = build_regional_flow_products(
-        dem_init_path=dem, dem_out_dir_path=tmp_path / "flow", dem_correc_type="fill"
+        dem_path=dem, dem_out_dir_path=tmp_path / "flow", dem_correc_type="fill"
     )
     corner = dict(x=(size - 0.5) * 5.0, y=0.5 * 5.0, snap_dist=10)
     out = _extract(tmp_path, flow.accumulation, **corner, output_dir=tmp_path / "catchment")

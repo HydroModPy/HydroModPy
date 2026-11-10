@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.logging import get_logger
@@ -27,7 +27,11 @@ from hydromodpy.results.products.cited import (
     read_cited,
     write_cited,
 )
+from hydromodpy.results.products.key import product_key
 from hydromodpy.results.products.store import ProductStore, products_root
+
+if TYPE_CHECKING:
+    from hydromodpy.catchment.algorithms.flow_products import TerrainSupply
 
 logger = get_logger(__name__)
 
@@ -61,11 +65,58 @@ def _write_soil(value: Any, directory: Path) -> None:
     write_soil_forcings(value, directory)
 
 
+def _write_terrain(value: Any, directory: Path) -> None:
+    from hydromodpy.catchment.algorithms.terrain_stored import write_terrain
+
+    write_terrain(value, directory)
+
+
 PRODUCT_KINDS: Mapping[str, ProductKind] = {
     "mesh": ProductKind(package="mesh", step="build_mesh", write=_write_mesh),
     "soil": ProductKind(package="model", step="load_data", write=_write_soil),
+    "terrain": ProductKind(package="catchment", step="build_geographic", write=_write_terrain),
+    "terrain_notched": ProductKind(
+        package="catchment", step="build_geographic", write=_write_terrain
+    ),
 }
-"""The stage products of a run, keyed by kind. Terrain joins at a later lot."""
+"""The stage products of a run, keyed by kind.
+
+The two terrain kinds hold the same three rasters, the notched one built on the
+crossing notch, because the store never writes over a product.
+"""
+
+
+def terrain_supply(ctx: WorkflowContext) -> TerrainSupply:
+    """Return the store-backed provider the geographic build hands to the pipeline.
+
+    The key reads the DEM digest, the processing facts of the request, the
+    terrain engine and the code of ``catchment``, and the codec is the stored
+    format version. On a miss the store writes the built stack, on a hit it is
+    read back into the request's output folder.
+    """
+    from hydromodpy.catchment.algorithms.flow_products import FlowProducts, TerrainRequest
+    from hydromodpy.catchment.algorithms.terrain_stored import SCHEMA_VERSION, read_terrain
+
+    def supply(request: TerrainRequest, build: Callable[[], FlowProducts]) -> FlowProducts:
+        kind = "terrain_notched" if request.notched else "terrain"
+        entry = PRODUCT_KINDS[kind]
+        key = product_key(
+            kind,
+            codec=SCHEMA_VERSION,
+            package=entry.package,
+            inputs={"dem": request.dem_sha256},
+            processing=request.processing(),
+            engine=dict(request.engine),
+        )
+        return ask(
+            ctx,
+            kind,
+            key=key,
+            build=build,
+            read=lambda directory: read_terrain(directory, request),
+        )
+
+    return supply
 
 
 def ask(
@@ -197,4 +248,4 @@ def write_products(ctx: WorkflowContext) -> None:
     )
 
 
-__all__ = ["PRODUCT_KINDS", "ProductKind", "ask", "write_products"]
+__all__ = ["PRODUCT_KINDS", "ProductKind", "ask", "terrain_supply", "write_products"]

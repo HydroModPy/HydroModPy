@@ -1048,3 +1048,38 @@ def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
         migrate_sealed_config_doc(doc)
 
     assert doc == {"calibration": {}}
+
+
+# --- the two cache keys removed in 2.1.0 ---------------------------------------
+
+REMOVED_CACHE_KEYS = (
+    ("reuse_existing_outputs", "under .hmp/products/"),
+    ("reg_fold", 'state = "conditioned"'),
+)
+
+
+@pytest.mark.parametrize(("key", "fragment"), REMOVED_CACHE_KEYS)
+def test_a_live_file_holding_a_removed_cache_key_is_refused_with_what_replaces_it(
+    key: str, fragment: str, tmp_path: Path
+) -> None:
+    doc = {"geographic": {key: False}}
+
+    with pytest.raises(ConfigValidationError, match="it left in 2.1.0") as refused:
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+
+    assert f"geographic.{key}" in str(refused.value)
+    assert fragment in str(refused.value)
+
+
+@pytest.mark.parametrize(("key", "fragment"), REMOVED_CACHE_KEYS)
+def test_a_sealed_run_drops_a_removed_cache_key_in_silence(key: str, fragment: str) -> None:
+    """The resolved configs of ``frozen_runs`` replay without drift: the key leaves in silence."""
+    del fragment
+    doc = {"geographic": {key: False, "dem_resolution": 25.0}}
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        changes = migrate_sealed_config_doc(doc)
+
+    assert changes == [f"geographic.{key} dropped (sealed)"]
+    assert doc == {"geographic": {"dem_resolution": 25.0}}

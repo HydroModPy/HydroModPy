@@ -27,7 +27,6 @@ solvers = ["modflow6"]
 source_mode = "standard"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
-reuse_existing_outputs = false
 
 [geographic.catchment]
 kind = "from_outlet_coord"

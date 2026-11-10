@@ -1111,6 +1111,20 @@
                 "title": "Path",
                 "type": "string",
                 "x-hmp-profile": "user"
+              },
+              "state": {
+                "default": "raw",
+                "description": "Whether this DEM already drains. 'raw' lets the terrain chain condition it, 'conditioned' reads it as provided, so no engine conditions it and its file is the corrected DEM.",
+                "enum": [
+                  "raw",
+                  "conditioned"
+                ],
+                "examples": [
+                  "raw"
+                ],
+                "title": "State",
+                "type": "string",
+                "x-hmp-profile": "user"
               }
             },
             "required": [
@@ -6496,6 +6510,20 @@
                   "url"
                 ],
                 "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "state": {
+                "default": "raw",
+                "description": "Whether this DEM already drains. 'raw' lets the terrain chain condition it, 'conditioned' reads it as provided, so no engine conditions it and its file is the corrected DEM.",
+                "enum": [
+                  "raw",
+                  "conditioned"
+                ],
+                "examples": [
+                  "raw"
+                ],
+                "title": "State",
                 "type": "string",
                 "x-hmp-profile": "user"
               }

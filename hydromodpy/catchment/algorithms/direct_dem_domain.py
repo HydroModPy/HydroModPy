@@ -56,7 +56,7 @@ def _write_raster_copy(
 
 def build_direct_dem_domain(
     *,
-    dem_init_path: str | Path,
+    dem_path: str | Path,
     paths: GeographicPaths,
     crs_project: str | None = None,
 ) -> DirectDemDomainProducts:
@@ -68,7 +68,7 @@ def build_direct_dem_domain(
     - ``watershed_box.shp`` and ``watershed_box_buff.shp`` are the raster bounds,
     - ``watershed_box_buff_dem.tif`` is the normalized DEM copy used by domain code.
     """
-    dem_path = Path(dem_init_path)
+    dem_path = Path(dem_path)
     with rasterio.open(str(dem_path)) as src:
         values = np.asarray(src.read(1), dtype=float)
         nodata = src.nodata
@@ -78,7 +78,7 @@ def build_direct_dem_domain(
 
     valid_mask = valid_cells(values, nodata)
     if not np.any(valid_mask):
-        raise ValueError("DEM mode requires at least one valid cell in dem_init_path")
+        raise ValueError("DEM mode requires at least one valid cell in dem_path")
 
     footprint_parts = [
         shape(geom)

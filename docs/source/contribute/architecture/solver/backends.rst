@@ -388,7 +388,10 @@ Declared apart, each on its own surface:
 - ``modflow_common/routing_context.py`` keeps its own raster D8 pointer on the
   solver-grid DEM, conditioned by ``dem_correc_type``. Mass transfer and MT3DMS
   accumulation trace point sources down the Whitebox pointer and stay on it
-  until they are migrated.
+  until they are migrated. The solver fills its own grid template in every run:
+  a DEM declared ``state = "conditioned"`` keeps ``provided`` for the regional
+  chain, and the solver grid is filled with ``fill``, because bringing a
+  conditioned DEM onto a coarser grid recreates depressions.
 - ``modflow_common/sink_mask.py`` answers a different question, which cells
   have no outlet in the solver's own four-face connectivity, and stays on it.
 - The network criterion reads the model top T and fills its own copy on its own

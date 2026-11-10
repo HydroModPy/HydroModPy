@@ -115,11 +115,13 @@ Two state roots
 debug logs (``logs/``), the launcher lease (``launcher.lease``) and the product store
 (``products/``). A product is a folder keyed by a sha256 of the inputs the step read, the
 processing keys and the code of the package that computes it, so the workflow asks the store for
-the mesh and the soil reservoir before it computes them. ``[workspace] products_cap_mb`` caps the
-store at 5000 megabytes by default, and a write past the cap evicts the oldest products first and
-never one a running attempt cites. A sealed run never depends on the store: its mesh lives in the
-``mesh/`` group of its ``fields.zarr`` and its soil in its own tables. ``rm -rf .hmp`` followed by
-``hmp catalog reindex`` gives back the same project.
+the mesh, the soil reservoir and the terrain (the conditioned DEM, its D8 directions and its
+accumulation, described by ``terrain.json``) before it computes them. ``[workspace]
+products_cap_mb`` caps the store at 5000 megabytes by default, and a write past the cap evicts the
+oldest products first and never one a running attempt cites. A sealed run never depends on the
+store: its mesh lives in the ``mesh/`` group of its ``fields.zarr``, its soil in its own tables,
+and its terrain in the rasters the run kept. ``rm -rf .hmp`` followed by ``hmp catalog reindex``
+gives back the same project.
 
 **What cannot be rebuilt is visible and named.** ``trash/`` is the trash, ``jobs/`` keeps the
 journal and the frozen scripts of each launch, ``runs/<case>/attempts/`` keeps the earlier
@@ -132,7 +134,10 @@ a ``completed`` run removes it. It is never touched on a ``failed``, ``aborted``
 until a new attempt or a ``gc`` decides so, because the next attempt resumes from it.
 ``HMP_SCRATCH_ROOT`` (an environment variable, never an author key and never part of the config
 hash) moves the scratch to a machine root such as ``$SLURM_TMPDIR``, under
-``<project>/<case>.a<attempt>/``.
+``<project>/<case>.a<attempt>/``. The terrain the attempt routes, the conditioned DEM with its D8
+directions and its accumulation, is a copy read back from the product store under
+``_preprocessing/`` of the scratch: an attempt never writes into the store, and a resume reads the
+same product again and delineates on it.
 
 Classes of artifacts
 --------------------
@@ -250,8 +255,11 @@ directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``con
 ``lineage`` (by identifiers), ``identity``, ``checks`` and ``artifacts`` (which lists
 ``inputs.json``), plus the run's ``parameters`` and ``metrics`` summaries.
 ``geometry.catchment`` carries the catchment area and the outlet: a discharge derived from runoff
-is scaled by that area. ``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the
-engine that built the mesh. A run received alone says its catchment and its facts.
+is scaled by that area. It also records the DEM correction method (``fill``, ``breach``,
+``capped_breach`` or ``provided`` for a DEM declared conditioned elsewhere) and, for a conditioned
+DEM, the two counts ``dem_cells_without_descent`` and ``dem_strict_pits``.
+``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the engine that built the mesh.
+A run received alone says its catchment and its facts.
 
 ``products.json`` names the products the run read from the product store, one entry per kind, in
 the order the steps first asked for them, under the schema ``hydromodpy.products.v1``. A run of

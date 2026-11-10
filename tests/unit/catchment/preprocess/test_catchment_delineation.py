@@ -4,6 +4,7 @@ The Whitebox backend is replaced by its double, so the delineation runs on a
 10 x 10 ramp of 100 m cells in a few milliseconds.
 """
 
+import pickle
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -31,6 +32,23 @@ from tests._helpers.whitebox_double import FakeWhiteboxBackend
 @pytest.fixture
 def outlet(tmp_path, monkeypatch) -> CatchmentDelineation:
     return delineate_on_fake_backend(tmp_path, monkeypatch, OUTLET_CATCHMENT)
+
+
+def test_the_runtime_object_pickles_after_a_build_through_a_local_terrain_supply(
+    tmp_path, monkeypatch
+) -> None:
+    # A parallel calibration pickles the trial context, this object included.
+    asked = []
+
+    def supply(request, build):
+        asked.append(request.method)
+        return build()
+
+    built = delineate_on_fake_backend(tmp_path, monkeypatch, OUTLET_CATCHMENT, terrain=supply)
+
+    copy = pickle.loads(pickle.dumps(built))
+    assert asked == ["breach"]
+    assert copy.dem_path == built.dem_path
 
 
 def test_a_missing_dem_stops_the_delineation_early(tmp_path: Path) -> None:
@@ -129,7 +147,7 @@ def test_the_three_regional_flow_rasters_are_built_on_the_backend_given(tmp_path
 
 def test_the_runtime_object_carries_the_engine_the_document_named(tmp_path, monkeypatch) -> None:
     """A solver reads the engine off the runtime object, which copies a list of attributes."""
-    monkeypatch.setattr(CatchmentDelineation, "processing", lambda self: None)
+    monkeypatch.setattr(CatchmentDelineation, "processing", lambda self, terrain=None: None)
     engine_id = registry.terrain_engines.names(shipped_only=True)[0]
     config = GeographicConfig.from_dem(terrain_engine=engine_id)
     delineation = CatchmentDelineation(config, SimpleNamespace(project_root=str(tmp_path)))

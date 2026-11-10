@@ -2,13 +2,19 @@
 
 The digital elevation model of the study area. It comes from the IGN Geoplateforme, from a local
 file, or from the French departments that a region names. The variable returns a `LoadResult` of
-`FieldRecord` objects that point to cached GeoTIFF files.
+`FieldRecord` objects that point to cached GeoTIFF files. Before the variable runs, `resolver.py`
+resolves the first usable source into a `FileRecord` (path, sha256, state, nodata, origin) that the
+geographic pipeline reads.
 
 ## What a source does
 
 - `source = "file"` reads a `.tif`, `.tiff`, `.asc` or `.nc` file, or a folder holding one (`custom.py`).
   A file without a CRS is refused. The file is read where it lies and is no row of the cache. A
   copy made from it goes under `data/blobs/dem/file/`.
+- A `file` or `url` source takes `state = "raw"` (the default) or `state = "conditioned"`. `raw` means
+  HydroModPy conditions the DEM itself. `conditioned` means another tool filled or breached it, so
+  HydroModPy skips its own conditioning and still computes the D8 directions and the accumulation. An
+  API source has no `state` key: a provider delivers a raw DEM.
 - `source = "ign_geoplateforme_dem"` downloads from the Geoplateforme. With `dataset = "bd-alti"`
   (the default, 25 m) the variable builds the DEM from the archives of the departments that the
   study area touches: `apis/ign_dem_fr.py` finds them, `apis/geoplateforme_download.py` downloads
@@ -28,7 +34,7 @@ dem/
 ├── config.py     DemConfig, the sources and the French region and department selectors
 ├── variable.py    DemVariable: the sources in order, the cache, the extent
 ├── custom.py     the loaders of a user DEM
-├── resolver.py   the DEM file of [[data.dem.sources]], found before any variable runs
+├── resolver.py   the resolved FileRecord of [[data.dem.sources]], with its state, found before any variable runs
 └── apis/
     ├── ign_dem_fr.py              discovery of the department archives (the largest file)
     ├── geoplateforme_download.py  download and extraction of an archive

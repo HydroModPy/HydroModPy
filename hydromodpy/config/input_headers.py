@@ -12,11 +12,12 @@ header needs passed to it and no option set outside it. Importing this module
 costs ``rasterio``, which is why ``check`` imports it only when ``inputs`` is
 true.
 
-The DEM is held to the contract of ``data/schemas/dem.py`` and to three checks
-that need a header: a projected CRS in metres, a grid that is not rotated with
-a square pixel, and an outlet that falls on a valid cell. Any other raster has
-to open and to declare a CRS, unless its table gives a ``default_crs``. A file
-that is not a raster has to exist, and a URL has to answer.
+The DEM is held to the header contract of
+``catchment/terrain/dem_contract.py``: a projected CRS in metres, a grid that
+is not rotated with a square pixel, a routed resolution in bounds, and an
+outlet that falls on a valid cell. Any other raster has to open and to declare
+a CRS, unless its table gives a ``default_crs``. A file that is not a raster
+has to exist, and a URL has to answer.
 """
 
 from __future__ import annotations
@@ -29,21 +30,25 @@ from types import SimpleNamespace
 from typing import Any
 from urllib.parse import urlsplit
 
-import numpy as np
 import rasterio
 import rasterio.crs
 import rasterio.errors
 import rasterio.warp
 from pydantic import BaseModel
-from rasterio.windows import Window
+from rasterio.io import DatasetReader
 
+from hydromodpy.catchment.terrain.dem_contract import (
+    DemHeader,
+    check_dem_header,
+    check_dem_outlet,
+    read_dem_header,
+)
 from hydromodpy.core.config_kit.introspect import held_tables_of
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import DataContractViolation, HydroModPyError
 from hydromodpy.core.io import fetch
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.tracking.input_file import InputFile
-from hydromodpy.data.schemas.dem import DEMContract, validate_dem
 
 DEM_ROLE = "dem"
 """The ``InputFile`` role, and the section of ``[data]``, of a digital elevation model."""
@@ -59,9 +64,6 @@ INPUT_CODES = frozenset({UNREACHABLE, BAD_HEADER})
 
 RASTER_SUFFIXES = frozenset({".tif", ".tiff", ".asc", ".vrt"})
 """The suffixes read as a raster by their header."""
-
-SQUARE_PIXEL_TOLERANCE = 1e-6
-"""The relative gap between the two pixel sizes below which the pixel is square."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,15 +105,19 @@ def read_input_headers(
     # The outlet has to fall inside the DEM only when one file is the DEM.
     alone = sum(item.role == DEM_ROLE for item in inputs) == 1
     outlet = _outlet_of(sections) if alone else None
+    dem_resolution = _declared_dem_resolution(sections)
     found: list[Diagnostic] = []
     with rasterio.Env(**_gdal_options(bounds)):
         for item in inputs:
-            is_dem = item.role == DEM_ROLE
-            header, faults = _read(item, base, bounds, outlet if is_dem else None)
-            found.extend(faults)
-            if header is not None and is_dem:
-                found.extend(_dem_faults(item, header))
+            found.extend(_read(item, base, bounds, outlet, dem_resolution))
     return found
+
+
+def _declared_dem_resolution(sections: Any) -> float | None:
+    """Return ``[geographic.catchment] dem_resolution`` when the document writes one."""
+    geographic = getattr(sections, "geographic", None)
+    value = getattr(geographic, "dem_resolution", None)
+    return None if value is None else float(value)
 
 
 # -- What the document names ------------------------------------------------ #
@@ -180,17 +186,6 @@ class _Outlet:
     """The CRS the coordinates are written in, ``None`` for the CRS of the DEM."""
 
 
-@dataclass(frozen=True, slots=True)
-class _Header:
-    """What the contract reads of a raster header."""
-
-    crs: Any
-    transform: Any
-    nodata: float | None
-    outlet_fault: str | None = None
-    """What is wrong with the cell of the outlet, read while the file was open."""
-
-
 def _gdal_options(bounds: Bounds | None) -> dict[str, str]:
     """Return the GDAL options a remote header read needs, held by the ``Env`` of the call."""
     timeout = bounds.timeout_s if bounds is not None else 30.0
@@ -211,32 +206,36 @@ def _unreachable(item: _Input, detail: str) -> Diagnostic:
 
 
 def _read(
-    item: _Input, base: Path, bounds: Bounds | None, outlet: _Outlet | None
-) -> tuple[_Header | None, list[Diagnostic]]:
-    """Return the header of *item* when it is a raster that opens, and the faults found on the way."""
+    item: _Input,
+    base: Path,
+    bounds: Bounds | None,
+    outlet: _Outlet | None,
+    dem_resolution: float | None,
+) -> list[Diagnostic]:
+    """Return the faults of *item*, opening it once when it is a raster."""
     if item.remote:
-        return _read_remote(item, bounds, outlet)
+        return _read_remote(item, bounds, outlet, dem_resolution)
     candidate = Path(item.value).expanduser()
     where = candidate if candidate.is_absolute() else base / candidate
     if bounds is not None and not bounds.permits_path(where):
         roots = ", ".join(str(root) for root in bounds.allowed_roots or ())
-        return None, [
+        return [
             _unreachable(
                 item, f"{where} is outside the roots this call allows ({roots or 'none'})."
             )
         ]
     if not where.exists():
-        return None, [_unreachable(item, f"{where} does not exist.")]
+        return [_unreachable(item, f"{where} does not exist.")]
     if where.is_dir() or not _is_raster(item):
-        return None, []
-    return _open(item, str(where), outlet)
+        return []
+    return _open(item, str(where), outlet, dem_resolution)
 
 
 def _read_remote(
-    item: _Input, bounds: Bounds | None, outlet: _Outlet | None
-) -> tuple[_Header | None, list[Diagnostic]]:
+    item: _Input, bounds: Bounds | None, outlet: _Outlet | None, dem_resolution: float | None
+) -> list[Diagnostic]:
     if bounds is None:
-        return None, [
+        return [
             _unreachable(
                 item,
                 f"{item.value} is read only under bounds, and this call gives none. "
@@ -244,32 +243,30 @@ def _read_remote(
             )
         ]
     try:
-        opened = fetch.vsicurl_path(item.value, bounds=bounds)
+        location = fetch.vsicurl_path(item.value, bounds=bounds)
     except HydroModPyError as exc:
-        return None, [_unreachable(item, getattr(exc, "message", "") or str(exc))]
+        return [_unreachable(item, getattr(exc, "message", "") or str(exc))]
     if not _is_raster(item):
-        return None, []
-    return _open(item, opened, outlet)
+        return []
+    return _open(item, location, outlet, dem_resolution)
 
 
 def _open(
-    item: _Input, location: str, outlet: _Outlet | None
-) -> tuple[_Header | None, list[Diagnostic]]:
+    item: _Input, location: str, outlet: _Outlet | None, dem_resolution: float | None
+) -> list[Diagnostic]:
+    """Open *location* once and return the faults of its header."""
     try:
         with rasterio.open(location) as source:
-            header = _Header(
-                crs=source.crs,
-                transform=source.transform,
-                nodata=source.nodata,
-                outlet_fault=None if outlet is None else _outlet_fault(source, outlet, item),
-            )
+            if item.role == DEM_ROLE:
+                return _dem_faults(item, source, outlet, dem_resolution)
+            crs = source.crs
     except (OSError, rasterio.errors.RasterioError) as exc:
-        return None, [_unreachable(item, f"{item.value} does not open as a raster: {exc}")]
-    return header, [] if item.role == DEM_ROLE else _crs_fault(item, header)
+        return [_unreachable(item, f"{item.value} does not open as a raster: {exc}")]
+    return _crs_fault(item, crs)
 
 
-def _crs_fault(item: _Input, header: _Header) -> list[Diagnostic]:
-    if header.crs is not None or item.crs_fallback:
+def _crs_fault(item: _Input, crs: Any) -> list[Diagnostic]:
+    if crs is not None or item.crs_fallback:
         return []
     return [
         Diagnostic(
@@ -284,23 +281,33 @@ def _crs_fault(item: _Input, header: _Header) -> list[Diagnostic]:
 # -- The contract of a DEM header ------------------------------------------- #
 
 
-def _dem_faults(item: _Input, header: _Header) -> list[Diagnostic]:
-    """Return the diagnostics of a DEM header that breaks the contract."""
+def _dem_faults(
+    item: _Input,
+    source: DatasetReader,
+    outlet: _Outlet | None,
+    dem_resolution: float | None,
+) -> list[Diagnostic]:
+    """Return the diagnostics of a DEM header that breaks the header contract.
+
+    Only the header is read, never the values: the contract holds the routed
+    resolution (the aggregation of ``dem_resolution`` applied), the square
+    pixel, the projected CRS in metres and the cell under the outlet.
+    """
+    header = read_dem_header(source)
     faults: list[str] = []
-    transform = header.transform
-    x_size, y_size = abs(transform.a), abs(transform.e)
-    crs = header.crs
-    if crs is not None and not (crs.is_projected and _in_metres(crs)):
-        faults.append(
-            f"its CRS {crs.to_string()} is not a projected CRS in metres. "
-            "Reproject the file, or declare the CRS it was written in."
-        )
-    else:
-        faults.extend(_contract_failures(x_size, y_size, crs))
-    if transform.b != 0 or transform.d != 0:
-        faults.append("its grid is rotated. Resample it on an axis-aligned grid.")
-    if not math.isclose(x_size, y_size, rel_tol=SQUARE_PIXEL_TOLERANCE):
-        faults.append(f"its pixel is not square ({x_size:g} by {y_size:g}).")
+    routing_res_m = dem_resolution if dem_resolution is not None else header.dx_m
+    try:
+        check_dem_header(header, routing_res_m=routing_res_m)
+    except DataContractViolation as exc:
+        faults.extend(str(failure) for failure in exc.context.get("failures", ()))
+    if outlet is not None:
+        cell = _outlet_in_dem_crs(header, outlet)
+        if cell is not None:
+            x, y = cell
+            try:
+                check_dem_outlet(source, header, x, y)
+            except DataContractViolation as exc:
+                faults.extend(str(failure) for failure in exc.context.get("failures", ()))
     diagnostics = [
         Diagnostic(
             path=item.path,
@@ -310,12 +317,6 @@ def _dem_faults(item: _Input, header: _Header) -> list[Diagnostic]:
         )
         for fault in faults
     ]
-    if header.outlet_fault is not None:
-        diagnostics.append(
-            Diagnostic(
-                path=item.path, code=BAD_HEADER, severity="error", detail=header.outlet_fault
-            )
-        )
     if header.nodata is None:
         diagnostics.append(
             Diagnostic(
@@ -326,22 +327,6 @@ def _dem_faults(item: _Input, header: _Header) -> list[Diagnostic]:
             )
         )
     return diagnostics
-
-
-def _in_metres(crs: Any) -> bool:
-    return str(crs.linear_units).lower() in {"metre", "meter", "m"}
-
-
-def _contract_failures(x_size: float, y_size: float, crs: Any) -> list[str]:
-    """Return what ``validate_dem`` refuses of a header without data: the CRS and the resolution."""
-    try:
-        validate_dem(
-            {"resolution": (x_size, y_size), "crs": None if crs is None else crs.to_string()},
-            DEMContract(),
-        )
-    except DataContractViolation as exc:
-        return [str(failure) for failure in exc.context.get("failures", ())]
-    return []
 
 
 def _outlet_of(sections: Any) -> _Outlet | None:
@@ -355,31 +340,25 @@ def _outlet_of(sections: Any) -> _Outlet | None:
     return _Outlet(float(x), float(y), getattr(geographic, "crs_project", None) or None)
 
 
-def _outlet_fault(source: Any, outlet: _Outlet, item: _Input) -> str | None:
-    """Say what is wrong with the cell of the outlet, or return ``None`` when it holds a value.
+def _outlet_in_dem_crs(header: DemHeader, outlet: _Outlet) -> tuple[float, float] | None:
+    """Return the outlet in the CRS of the DEM, or ``None`` when it cannot be transformed.
 
-    The outlet is written in ``[geographic] crs_project`` when that is set, else in
-    the CRS of the DEM. The cell is read by a window of one pixel.
+    The outlet is written in ``[geographic] crs_project`` when that is set, else
+    in the CRS of the DEM. A DEM without a CRS skips the check, refused elsewhere.
     """
     x, y = outlet.x, outlet.y
-    if source.crs is None:
+    if outlet.crs is None:
+        return x, y
+    if header.crs is None:
         return None
-    if outlet.crs is not None:
-        try:
-            xs, ys = rasterio.warp.transform(
-                rasterio.crs.CRS.from_user_input(outlet.crs), source.crs, [x], [y]
-            )
-        except (rasterio.errors.CRSError, ValueError):
-            # The loader refuses a CRS it cannot read, with its own diagnostic.
-            return None
-        x, y = xs[0], ys[0]
-    where = f"the outlet ({outlet.x:g}, {outlet.y:g})"
-    row, col = source.index(x, y)
-    if not (0 <= row < source.height and 0 <= col < source.width):
-        return f"{where} falls outside {item.value}."
-    window = Window(col, row, 1, 1)
-    value = source.read(1, window=window)[0, 0]
-    masked = source.read_masks(1, window=window)[0, 0] == 0
-    if masked or np.isnan(value):
-        return f"{where} falls on a cell of {item.value} that holds no value."
-    return None
+    try:
+        xs, ys = rasterio.warp.transform(
+            rasterio.crs.CRS.from_user_input(outlet.crs),
+            rasterio.crs.CRS.from_user_input(header.crs),
+            [x],
+            [y],
+        )
+    except (rasterio.errors.CRSError, ValueError):
+        # The loader refuses a CRS it cannot read, with its own diagnostic.
+        return None
+    return xs[0], ys[0]

@@ -154,11 +154,6 @@ def test_the_notch_is_accepted_with_a_river_network_and_its_lengths_take_units()
         pytest.param({"crossings": {"depth": 3.0}}, "Extra inputs", id="an-unknown-notch-key"),
         pytest.param({"crossings": {"max_depth": 0.0}}, "max_depth", id="a-notch-limit-of-0"),
         pytest.param(
-            {"reg_fold": "regional_job", **_ON},
-            "reg_fold",
-            id="a-corrected-ground-cannot-share-a-regional-flow-routed-on-the-raw-dem",
-        ),
-        pytest.param(
             _BED, r"needs\s+\[geographic.river_network\]", id="bed-without-the-river-network"
         ),
         pytest.param(

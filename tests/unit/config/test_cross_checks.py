@@ -800,6 +800,7 @@ ORDER = (
     "refuse_a_metrics_window_outside_the_run",
     "refuse_an_overview_without_its_section",
     "refuse_strict_inference_without_types",
+    "refuse_conditioning_choices_on_a_conditioned_dem",
     "refuse_a_raster_depth_without_its_substratum",
     "refuse_a_river_mesh_without_a_threshold",
     "refuse_a_calibration_without_parameters",
@@ -912,6 +913,21 @@ ROWS: list[tuple[str, str, Any, str]] = [
         "strict",
         lambda d: _document(d.plain, data=_ns(inference_mode="strict", types=[])),
         "data.inference_mode='strict' requires at least one explicit data type in data.types",
+    ),
+    (
+        "refuse_conditioning_choices_on_a_conditioned_dem",
+        "conditioned",
+        lambda d: _document(
+            d.plain,
+            data=_ns(dem=_ns(sources=[_ns(state="conditioned")])),
+            geographic=_ns(
+                model_fields_set={"dem_correc_type"},
+                catchment=_ns(model_fields_set={"dem_resolution"}),
+                crossings=_ns(enabled=True),
+            ),
+        ),
+        "geographic.dem_correc_type, geographic.catchment.dem_resolution, "
+        "geographic.crossings.enabled would be ignored in silence",
     ),
     (
         "refuse_a_raster_depth_without_its_substratum",

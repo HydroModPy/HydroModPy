@@ -422,8 +422,10 @@ What the code does not represent:
   two cells" is wrong when the median distance is zero.
 - **The surface is not repaired.** {toml}`dem_correc_type|geographic.dem_correc_type`
   conditions the DEM before the catchment is delineated (`fill`, the tool of the
-  paper, or `breach` {cite:p}`lindsay2016breaching`, or `capped_breach`). The
-  criterion always floods the model top on the mesh; a breached raster reaches it
+  paper, or `breach` {cite:p}`lindsay2016breaching`, or `capped_breach`). A DEM
+  declared `state = "conditioned"` on its source is treated as `provided`: HydroModPy
+  skips the conditioning and still computes the D8 directions and the accumulation.
+  The criterion always floods the model top on the mesh; a breached raster reaches it
   only through the domain and the outlet.
 - **The recharge of the steady stage.** The protocol averages it over the window the
   run loads, three years in example 04, where the paper reads a normal of sixty

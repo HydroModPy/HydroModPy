@@ -30,7 +30,7 @@ In the order a run meets them.
 | `overview.py` | `DataOverviewLauncher`: the data overview ("identity card" of a watershed) without a solver run |
 | `replay_checks.py` | what a replay of a sealed run checks: its inputs, its configuration, its solver binary |
 | `solution_key.py` | when are two runs the same: the request id of a case from its written document and the digest and state of its inputs, then its solution key with the code, the solver binaries and the numeric packages, told offline for a plan (`planned_solution_key`) |
-| `products.py` | the product store asked once per kind: the table `PRODUCT_KINDS` (mesh, soil) and `ask`, which reads a present product, builds and stores a missing one; the solver step writes the keys into `products.json` |
+| `products.py` | the product store asked once per kind: the table `PRODUCT_KINDS` (mesh, soil, terrain and terrain_notched) and `ask`, which reads a present product, builds and stores a missing one; the solver step writes the keys into `products.json` |
 
 `replay_checks.py` sits at the root and not in `record/` because it reads
 `steps.prepare_solver.resolved`, and `steps` imports `record`. Inside `record/` it
@@ -105,33 +105,33 @@ hydromodpy/workflow/
 
 ## How a run goes through it
 
-1. **Claim.** The launcher (`record/attempt.py`) claims the directory of the
+1. Claim. The launcher (`record/attempt.py`) claims the directory of the
    case under `runs/` before the first step: `outcome.json` says `running`,
    a heartbeat pulses, the scratch of the attempt is named. The state carries
    `run_dir`.
-2. **Build.** `standard_steps()` makes the thirteen steps.
+2. Build. `standard_steps()` makes the thirteen steps.
    `Pipeline(steps, workspace=..., run_dir=...)` builds the graph from `depends_on()`.
-3. **Run.** `Pipeline.run(state, resume_from=..., parallel=..., heartbeat=...)`
+3. Run. `Pipeline.run(state, resume_from=..., parallel=..., heartbeat=...)`
    takes an initial `PipelineState`. Each step is `state.advance(...)` over the
    shared payload; the dominant member is `ctx`, the `WorkflowContext`. A cohort
    of several steps would go through a thread pool; the thirteen steps give only
    single-step cohorts.
-4. **Journal.** Each step is recorded in `<run>/.hmp/checkpoints/steps.json`
+4. Journal. Each step is recorded in `<run>/.hmp/checkpoints/steps.json`
    with the hash of its artifacts. `ResolvedRunManifest` records the step
    blueprint and the config digest beside it, in `resolved_manifest.json`; the
    facts of the run (`RunFacts`) accumulate in `facts.json` of the same folder.
-5. **Resume.** A step that writes durable artifacts implements `artifacts(state_out)`
+5. Resume. A step that writes durable artifacts implements `artifacts(state_out)`
    and `rebuild_state(...)`. At resume the runner rebuilds the state of a completed
    step from disk and does not run it again. There is no pickle layer and no
    checkpoint store: resume reads artifacts. See
    `docs/source/contribute/architecture/pipeline_resume.rst`.
-6. **Seal.** `SealStep` writes the seal from the facts. The pipeline then writes
+6. Seal. `SealStep` writes the seal from the facts. The pipeline then writes
    the journal row of the seal and its checkpoint, and the attempt protocol
    around the pipeline (`record/attempt.py`) finds the seal, flips the outcome
    to `completed` and removes `<run>/.hmp/`. A run that stops before the seal
    keeps the outcome the attempt protocol wrote (`failed`, `aborted`, or
    `partial` for a window ended by `--until`) and its attempt state.
-7. **Window.** `ProjectRunner.execute` bounds the step window with `from_step` and
+7. Window. `ProjectRunner.execute` bounds the step window with `from_step` and
    `until_step`. A calibration trial skips the shared steps: it asks
    `earliest_affected_step` for the first step an override reaches, from the
    `config_sections` of the steps.
