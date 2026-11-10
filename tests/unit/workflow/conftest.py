@@ -21,12 +21,12 @@ _CACHED_GRID = {
     "deterministic": False,
     "needs_cache": True,
 }
-"""A regular grid declared not deterministic, so the mesh step caches what it builds."""
+"""A regular grid declared not deterministic, so the mesh step stores what it builds."""
 
 
 @pytest.fixture
 def cached_engine() -> Iterator[type[FakeMeshEngine]]:
-    """A registered fake engine the mesh cache protects; ``builds`` counts its builds."""
+    """A registered fake engine the product store protects; ``builds`` counts its builds."""
     with registered(fake_engine("dispatch_probe", **_CACHED_GRID)) as engine:
         yield engine
 

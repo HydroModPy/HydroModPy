@@ -8,8 +8,8 @@ triangulation of a ``.msh`` file. A line of a face family lies on mesh edges, so
 follow the geology contacts and the lake shores exactly.
 
 The code lives in ``hydromodpy/mesh/engines/triangle/``. The engine declares
-``deterministic = False`` and ``needs_cache = True``. Gmsh does not give the same
-triangulation twice, so the engine builds the mesh of a request once and keeps it
+``deterministic = False`` and ``needs_cache = True``: it cannot promise the same
+triangulation twice, so the workflow stores the mesh of a request and reads it back
 (:doc:`mesh-engines`).
 
 A generated triangulation
@@ -30,7 +30,7 @@ to within 3 %.
 When the request has a size field, the adapter also resamples the family lines at the field times
 the same factor, because Gmsh keeps every vertex it receives. The corners of the barriers stay
 fixed vertices. A request with no size field keeps its lines, and Gmsh cuts them at its own size.
-The engine version, 1.2.0, is part of the cache key, so an older cached mesh is rebuilt.
+The engine version, 1.2.0, is part of the product key, so an older stored mesh is rebuilt.
 
 A triangulation read
 --------------------
@@ -57,17 +57,19 @@ line between two centers is not perpendicular to their common edge, so MODFLOW 6
 by default for triangle cells. An explicit ``mf6_enable_xt3d`` wins
 (:doc:`/theory/solvers/xt3d-on-irregular-disv-meshes`).
 
-The cache
----------
+The product store
+-----------------
 
-A mesh read from a file is cached like a generated one. If ``.hmp/mesh_cache/`` is deleted, a
-resume meshes again, and the log says that the new mesh may differ from the one the results
-were computed on. Then ``restart_from`` refuses.
+A mesh read from a file is stored like a generated one, in ``<project>/.hmp/products/``, keyed by
+the request, the engine and its version, the builds of Gmsh and of the geometry libraries, and the
+code of the mesh package. A resume reads the stored mesh instead of meshing again. If the store is
+deleted, the run meshes again: on one thread gmsh redraws the same mesh, and the log still warns
+that a rebuilt mesh may differ from the one the results were computed on.
 
 Limits
 ------
 
-- Only the cache makes a run repeatable, and the cache is per project.
+- Only the product store makes a run repeatable, and the store is per project.
 - Gmsh takes the size field as a target. The report gives the size it reaches.
 - With lines in the request, the count stays above the integral of the field, because Gmsh adds
   cells around the lines it keeps, at bends and at confluences. The excess is 11 % with one river
@@ -79,6 +81,6 @@ Limits
 See also
 --------
 
-- :doc:`mesh-engines` for the port, the planner and the cache.
+- :doc:`mesh-engines` for the port, the planner and the product store.
 - :doc:`mesh-pivot` for the cell mesh the engine returns.
 - :doc:`/theory/mesh` for the size field and the choice of an engine.

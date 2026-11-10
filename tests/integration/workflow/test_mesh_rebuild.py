@@ -1,14 +1,14 @@
 """A resume reloads the mesh it generated instead of generating another one.
 
 Gmsh is not reproducible run to run - the measured evidence is in
-:mod:`hydromodpy.mesh.cache`. A resume that re-meshes therefore
+:mod:`hydromodpy.mesh.stored`. A resume that re-meshes therefore
 does not repeat the step's work, it changes the mesh every number downstream is
 computed on, and the run that comes back from the crash is not the run that
 went into it.
 
-The mesh of a generated request lives under ``<project>/.hmp/mesh_cache/``. The
-``triangle`` engine is the one to resume: the ``voronoi`` engine draws its seeds from
-the request seed, is reproducible, and asks for no cache. The
+The mesh of a generated request lives under ``<project>/.hmp/products/``. The
+``triangle`` engine is the one to resume: the ``voronoi`` engine draws its seeds
+from the request seed, is reproducible, and a rebuild gives the same mesh. The
 run below crashes after the mesh is complete, then resumes in a context that
 knows nothing, with the engine itself replaced by a bomb.
 """
@@ -121,12 +121,12 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _cached_arrays(root: Path) -> Path:
-    """Return the one cached mesh of the project."""
-    from hydromodpy.mesh.cache import ARRAYS_FILENAME
+def _stored_arrays(root: Path) -> Path:
+    """Return the one stored mesh of the project."""
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME
 
-    found = sorted((root / ".hmp" / "mesh_cache").glob(f"*/{ARRAYS_FILENAME}"))
-    assert len(found) == 1, f"expected one cached mesh, found {found}"
+    found = sorted((root / ".hmp" / "products").glob(f"??/*/{ARRAYS_FILENAME}"))
+    assert len(found) == 1, f"expected one stored mesh, found {found}"
     return found[0]
 
 
@@ -172,12 +172,12 @@ def meshed_then_crashed(tmp_path_factory: pytest.TempPathFactory):
             project.close()
 
     row = _journal_row(root, RUN_NAME, 4)
-    return root, row, _digest(_cached_arrays(root))
+    return root, row, _digest(_stored_arrays(root))
 
 
 def test_the_step_declares_the_mesh_it_left(meshed_then_crashed) -> None:
-    """The journal carries a real digest over the cached mesh, not the empty one."""
-    from hydromodpy.mesh.cache import ARRAYS_FILENAME, DESCRIPTION_FILENAME
+    """The journal carries a real digest over the stored mesh, not the empty one."""
+    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
 
     root, row, _arrays_digest = meshed_then_crashed
 
@@ -212,8 +212,8 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
             setup = project._ctx.setup
             assert setup.cell_mesh is not None, "the resume loaded no mesh"
             assert setup.cell_mesh.identity.engine_id == "triangle"
-            assert setup.mesh_summary["cache_key"] is not None
+            assert setup.mesh_summary["product_key"] is not None
         finally:
             project.close()
 
-    assert _digest(_cached_arrays(root)) == arrays_digest
+    assert _digest(_stored_arrays(root)) == arrays_digest

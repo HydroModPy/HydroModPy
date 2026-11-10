@@ -1,4 +1,4 @@
-"""Mesh step: plan one request, build the cell mesh with the chosen engine, cache it if needed."""
+"""Mesh step: plan one request, build the cell mesh with the chosen engine, store it."""
 
 from __future__ import annotations
 
@@ -9,19 +9,19 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.mesh import registry as mesh_registry
-from hydromodpy.mesh.cache import (
-    ARRAYS_FILENAME,
-    DESCRIPTION_FILENAME,
-    cache_dir,
-    cache_key,
-    has_cell_mesh,
-    library_versions,
-    load_cell_mesh,
-    save_cell_mesh,
-)
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planar.quality import quality_warnings
 from hydromodpy.mesh.planning.plan import plan_mesh_request, resolved_sizes, smoothed_catchment
+from hydromodpy.mesh.stored import (
+    ARRAYS_FILENAME,
+    DESCRIPTION_FILENAME,
+    SCHEMA_VERSION,
+    library_versions,
+    read_mesh,
+)
+from hydromodpy.results.products.key import product_key
+from hydromodpy.results.products.store import ProductStore, products_root
+from hydromodpy.workflow.products import ask
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
@@ -35,48 +35,77 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _project_root(ctx: WorkflowContext) -> Path:
-    """Return the project root the mesh cache lives under."""
-    workspace = ctx.setup.workspace
-    if workspace is None:
-        raise MeshError("The mesh cache lives under the project root, and no workspace is set up.")
-    return Path(workspace.project_root)
+def mesh_product_key(request: MeshRequest, engine_cls: type) -> str:
+    """Return the product key of one request meshed by one engine build.
+
+    The key reads the request hash, the engine id and version, the library
+    builds and the code of the layers ``mesh`` may read, so a change in any of
+    them keys a new product.
+    """
+    return product_key(
+        "mesh",
+        codec=SCHEMA_VERSION,
+        package="mesh",
+        inputs={},
+        processing={"request": request.canonical_hash()},
+        engine={
+            "engine_id": engine_cls.engine_id,
+            "engine_version": engine_cls.engine_version,
+            **library_versions(),
+        },
+    )
 
 
-def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
-    """Build ``setup.cell_mesh`` with the engine of ``[mesh]``.
+def _read_mesh(directory: Path, *, request: MeshRequest, engine_cls: type) -> PlanarCellMesh:
+    """Read a stored mesh, refusing one whose identity is not this request's.
 
-    An engine that cannot rebuild its mesh bit for bit (``needs_cache``) builds
-    it once per request: the project cache answers every later run. With
-    ``resume`` a missing cache entry is reported, since meshing again then gives
-    a mesh the earlier results were not computed on. A mesh whose cells cross a
-    quality threshold of :mod:`hydromodpy.mesh.planar.quality` is logged
-    with a warning and used as it is.
+    A product installed under a key its content does not hold must never serve
+    another mesh than the one asked for: the engine id, version and request hash
+    written next to the arrays are compared to the request and the engine.
+    """
+    cell_mesh = read_mesh(directory)
+    identity = cell_mesh.identity
+    if (
+        identity.engine_id != engine_cls.engine_id
+        or identity.engine_version != engine_cls.engine_version
+        or identity.request_hash != request.canonical_hash()
+    ):
+        raise MeshError(
+            f"The stored mesh in {directory} holds {identity.engine_id} "
+            f"{identity.engine_version} of request {identity.request_hash}, not "
+            f"{engine_cls.engine_id} {engine_cls.engine_version} of request "
+            f"{request.canonical_hash()}. Delete it."
+        )
+    return cell_mesh
+
+
+def step_mesh(ctx: WorkflowContext) -> None:
+    """Build ``setup.cell_mesh`` with the engine of ``[mesh]``, through the product store.
+
+    Every engine goes through the store: a present product is read back, a
+    missing one is built and stored under the workspace cap. A resumed run asks
+    for the key its ``products.json`` cites, so the mesh a crashed run stored is
+    the one this resume reads. A mesh whose cells cross a quality threshold of
+    :mod:`hydromodpy.mesh.planar.quality` is logged with a warning and used as
+    it is.
     """
     mesh_cfg = ctx.cfg.mesh or MeshConfig()
     inputs = planning_inputs(ctx, mesh_cfg)
     request = plan_mesh_request(mesh_cfg, inputs)
     engine_cls = mesh_registry.mesh_engines.get(mesh_cfg.engine)
-    key = directory = cell_mesh = None
-    if engine_cls.capabilities.needs_cache:
-        key = cache_key(request, engine_cls)
-        directory = cache_dir(_project_root(ctx), key)
-        if has_cell_mesh(directory):
-            cell_mesh = load_cell_mesh(directory)
-        elif resume:
-            logger.warning(
-                "The cached mesh of this request is gone (%s); meshing again gives a mesh "
-                "that differs from the one the earlier results were computed on.",
-                directory,
-            )
-    if cell_mesh is None:
-        cell_mesh = mesh_registry.mesh_engines.create(mesh_cfg.engine).build(request)
-        if directory is not None:
-            save_cell_mesh(cell_mesh, directory)
+    key = mesh_product_key(request, engine_cls)
+    cell_mesh = ask(
+        ctx,
+        "mesh",
+        key=key,
+        build=lambda: mesh_registry.mesh_engines.create(mesh_cfg.engine).build(request),
+        read=lambda directory: _read_mesh(directory, request=request, engine_cls=engine_cls),
+        rebuild_differs=engine_cls.capabilities.needs_cache,
+    )
     for warning in quality_warnings(cell_mesh.qa):
         logger.warning("Mesh quality: %s", warning)
-    # The cache holds the mesh as the engine built it. The outline the planner
-    # smoothed is a function of the request, so a mesh loaded from the cache gets
+    # The store holds the mesh as the engine built it. The outline the planner
+    # smoothed is a function of the request, so a mesh read from the store gets
     # it as well, and the solver reads its cells against it.
     smoothed = smoothed_catchment(mesh_cfg, inputs)
     if smoothed is not None:
@@ -88,7 +117,8 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         "request_hash": request.canonical_hash(),
         "source_runs": list(request.source_runs),
         "zone_runs": zone_runs(mesh_cfg.refinement_zone, inputs.refinement_zones),
-        "cache_key": key,
+        # The key ask used: on a resume, the one the run cited when it was read.
+        "product_key": ctx.setup.products["mesh"],
         "library_versions": library_versions(),
         "qa": _qa_with_notes(cell_mesh, request),
         "sizes": resolved_sizes(mesh_cfg, request),
@@ -166,13 +196,13 @@ class BuildMeshStep:
         )
 
     def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
-        """Return the cached mesh this step left on disk, none for an engine without cache."""
+        """Return the stored mesh this step left on disk, for the step journal."""
         ctx = state_out.get("ctx")
         summary = None if ctx is None else ctx.setup.mesh_summary
-        key = None if summary is None else summary.get("cache_key")
+        key = None if summary is None else summary.get("product_key")
         if key is None:
             return ()
-        directory = cache_dir(_project_root(ctx), key)
+        directory = ProductStore(products_root(ctx.cfg.workspace.project_root)).path(key)
         return (str(directory / ARRAYS_FILENAME), str(directory / DESCRIPTION_FILENAME))
 
     def rebuild_state(
@@ -182,17 +212,17 @@ class BuildMeshStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Reload the mesh a previous process built, from the project cache.
+        """Reload the mesh a previous process stored, from the product store.
 
-        A request plans to the same hash in every process, so the cache entry
-        a crashed run stored is the one this resume reads. An engine without
-        cache is rebuilt, which is exact.
+        A request plans to the same hash in every process, so the product a
+        crashed run stored is the one this resume reads: ``ask`` takes the key
+        the run cited in its ``products.json``.
         """
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("BuildMeshStep.rebuild_state requires 'ctx' in state.data")
         if ctx.setup.cell_mesh is None:
-            step_mesh(ctx, resume=True)
+            step_mesh(ctx)
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,

@@ -23,12 +23,12 @@ From the project to the cell mesh
         |  engine.build          mesh/engines/<id>/
         v
    PlanarCellMesh                mesh/planar/
-        |  step_mesh             workflow/steps/mesh.py       cache, setup.cell_mesh
+        |  step_mesh             workflow/steps/mesh.py       product store, setup.cell_mesh
         v
    solvers, forcing, supports, the Zarr store
 
 The engine reads no file and no config, because the request holds everything it needs. The
-workflow step is the only place that reads ``[mesh]``. It plans the request and asks the cache.
+workflow step is the only place that reads ``[mesh]``. It plans the request and asks the product store.
 
 The request
 -----------
@@ -199,14 +199,15 @@ reach) on every engine but ``regular``. Without ``[mesh] engine``, when the only
 flow backend accepts are lumped ones, the engine of the run is that lumped engine, and the
 seal writes it among the mesh facts.
 
-The cache
----------
+The product store
+-----------------
 
-An engine with ``needs_cache`` is built once per request. The step stores the mesh under
-``<project>/.hmp/mesh_cache/<key>/``, as ``mesh.npz`` and ``mesh.json``. The key names the
-request, the engine and its version, and the builds of Gmsh, shapely, GEOS and scipy. A resume
-and ``restart_from`` read the mesh from there, so this folder is the one entry of ``.hmp/`` that
-is not disposable (:doc:`../storage-layout`).
+Every mesh is stored in the product store under ``<project>/.hmp/products/<key>/``, as ``mesh.npz``
+and ``mesh.json``. The key names the request, the engine and its version, the builds of Gmsh,
+shapely, GEOS and scipy, and the code of the mesh package, so a change of code rebuilds the mesh
+once. A resume and ``restart_from`` read the mesh from there, and a sealed run keeps its mesh in
+the ``mesh/`` group of its Zarr store, so it never depends on the store
+(:doc:`../storage-layout`).
 
 The step writes the mesh once, before the solve, in the ``mesh/`` group of the Zarr store. A
 solver extractor raises ``IncompatibleMeshError`` when its grid differs from it.
@@ -252,7 +253,7 @@ of its ``engine_id``:
 
 Then ``[mesh] engine = "myengine"`` selects it. The registry ignores, with a warning, an entry
 point whose name is not the ``engine_id`` of its class or is the name of a built-in engine. Bump
-``engine_version`` whenever the mesh for one request changes, because the cache and the run
+``engine_version`` whenever the mesh for one request changes, because the product store and the run
 identity key on it. The engine raises ``MeshRequestError`` for a request it cannot honor and
 ``MeshGenerationError`` for a mesh it cannot build. The contract tests are
 ``tests/contract/test_mesh_engine_contract.py`` for every registered engine and

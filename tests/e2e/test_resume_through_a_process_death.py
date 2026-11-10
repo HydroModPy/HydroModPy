@@ -18,7 +18,7 @@ What the runs prove, together:
   it declared are identical, bytes and modification times, and its journal row
   keeps the ``started_at`` of the run that died;
 - the mesh the resumed run generated survives the second death in the project
-  mesh cache and is not regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
+  product store and is not regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
   silently changes every number computed downstream;
 - the domain that comes out is the domain of an uninterrupted run, array for
   array.
@@ -89,7 +89,7 @@ all_vertices = true
 
 [mesh]
 # A triangle mesh is drawn by Gmsh, which is not reproducible: it is the
-# engine whose mesh the project cache must keep across a death.
+# engine whose mesh the product store must keep across a death.
 engine = "triangle"
 cell_size = 350.0
 
@@ -320,10 +320,10 @@ def _marks(paths: list[Path]) -> dict[str, tuple[str, int]]:
 
 
 def _mesh_marks(root: Path) -> dict[str, str]:
-    """Digest of every file of the project mesh cache, by path under the project."""
+    """Digest of every file of the stored mesh, by path under the project."""
     return {
         str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted((root / ".hmp" / "mesh_cache").rglob("*"))
+        for path in sorted((root / ".hmp" / "products").glob("??/*/*"))
         if path.is_file()
     }
 

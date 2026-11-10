@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import tarfile
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import (
     ImportedProject,
     ImportedRun,
+    _mesh_members,
     import_project,
     import_run,
     install_index,
@@ -45,6 +47,7 @@ from hydromodpy.project.exchange.install import (
 from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.project_package import export_project
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish
+from hydromodpy.results.products.store import ProductStore
 from tests.unit.catalog._shared_run import (
     CUSTOM_FILE,
     HUBEAU_FILE,
@@ -470,6 +473,9 @@ def test_import_project_lands_the_project_beside_the_others(tmp_path) -> None:
     assert imported.runs == (RUN_NAME,)
     assert imported.sessions == ()
     assert imported.mesh_entries == ()
+    assert imported.mesh_present == ()
+    assert imported.mesh_skipped == ()
+    assert imported.legacy_mesh_cache == ()
     assert (workspace / DEM).is_file()
     assert not list((workspace / "projects").glob(".*import*"))
     assert not list((workspace / ".hmp").glob("import-*"))
@@ -577,3 +583,70 @@ def test_a_conflict_in_the_data_leaves_no_project_and_no_staging_folder(tmp_path
     assert not (workspace / "projects" / "nancon").exists()
     assert not list((workspace / "projects").glob(".*import*"))
     assert not list((workspace / ".hmp").glob("import-*"))
+
+
+# --- the mesh products of a package ---------------------------------------------------
+
+
+def _mesh_member(copy: Path, name: str, kind: str | None) -> None:
+    """Write one product directory under ``products/`` of a package folder."""
+    entry = copy / "products" / name
+    entry.mkdir(parents=True, exist_ok=True)
+    (entry / "mesh.npz").write_bytes(b"arrays")
+    if kind is not None:
+        (entry / "meta.json").write_text(
+            json.dumps({"key": name, "kind": kind, "bytes": 6, "written_at": 1.0}),
+            encoding="utf-8",
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "kind", "seed", "bucket"),
+    [
+        pytest.param("a" * 64, "mesh", False, "installed", id="fresh-mesh"),
+        pytest.param("a" * 64, "mesh", True, "present", id="already-present"),
+        pytest.param("not-a-key", "mesh", False, "skipped", id="not-a-key"),
+        pytest.param("b" * 64, "topography", False, "skipped", id="not-a-mesh"),
+        pytest.param("c" * 64, None, False, "skipped", id="no-meta"),
+    ],
+)
+def test_a_mesh_member_is_installed_counted_or_skipped(tmp_path, name, kind, seed, bucket) -> None:
+    copy = tmp_path / "package"
+    _mesh_member(copy, name, kind)
+    store_root = tmp_path / "store"
+    if seed:
+        ProductStore(store_root).put(
+            name, "mesh", lambda tmp: (tmp / "mesh.npz").write_bytes(b"held")
+        )
+
+    installed, present, skipped, legacy = _mesh_members(copy, store_root, install=True)
+
+    assert installed == ((name,) if bucket == "installed" else ())
+    assert present == ((name,) if bucket == "present" else ())
+    assert skipped == ((name,) if bucket == "skipped" else ())
+    assert legacy == ()
+    if bucket in ("installed", "present"):
+        assert (store_root / name[:2] / name / "meta.json").is_file()
+    if bucket == "installed":
+        assert (store_root / name[:2] / name / "mesh.npz").read_bytes() == b"arrays"
+    if bucket == "present":
+        assert (store_root / name[:2] / name / "mesh.npz").read_bytes() == b"held"
+    if bucket == "skipped":
+        assert not store_root.exists()
+
+
+def test_the_mesh_cache_of_a_legacy_package_is_counted_and_never_installed(tmp_path) -> None:
+    copy = tmp_path / "package"
+    for name in ("entry_one", "entry_two"):
+        entry = copy / "mesh_cache" / name
+        entry.mkdir(parents=True)
+        (entry / "mesh.npz").write_bytes(b"old")
+    store_root = tmp_path / "store"
+
+    installed, present, skipped, legacy = _mesh_members(copy, store_root, install=True)
+
+    assert installed == ()
+    assert present == ()
+    assert skipped == ()
+    assert legacy == ("entry_one", "entry_two")
+    assert not store_root.exists()

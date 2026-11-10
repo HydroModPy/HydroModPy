@@ -21,7 +21,6 @@ from typing import ClassVar
 
 import numpy as np
 
-from hydromodpy.mesh.cache import library_versions
 from hydromodpy.mesh.cells.boundary import annotate_side_cells
 from hydromodpy.mesh.engines.voronoi.from_seeds import generate_cell_mesh
 from hydromodpy.mesh.engines.voronoi.from_triangulation import dual_cell_mesh
@@ -30,6 +29,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import MeshIdentity, PlanarCellMesh
 from hydromodpy.mesh.port import MeshEngineCapabilities
 from hydromodpy.mesh.request import MeshRequest, SizeField
 from hydromodpy.mesh.resample import resample_families
+from hydromodpy.mesh.stored import library_versions
 
 __all__ = ["VoronoiMeshEngine"]
 

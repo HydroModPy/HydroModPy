@@ -7,8 +7,9 @@ this module, the request module, the planar cell mesh model and
 :mod:`hydromodpy.core.exceptions`, and nothing else from HydroModPy.
 
 The capabilities are declarations a caller can act on before building: a solver
-lists the engines it reads (``accepted_meshes``), the workflow caches what an
-engine cannot rebuild bit for bit (``needs_cache``), the planner hands the
+lists the engines it reads (``accepted_meshes``), the workflow stores every mesh
+in the product store (``needs_cache`` reports that an engine cannot rebuild one
+bit for bit), the planner hands the
 catchment outline to an engine that meshes it as one cell (``lumped``), and the
 QA reports what the engine claims (``graded``, ``exact_faces``,
 ``deterministic``). Whether a reader reads the meshes of an engine is decided by
@@ -127,7 +128,7 @@ class MeshEngine(Protocol):
 
     Engines conform structurally: no base class. ``engine_version`` changes
     whenever the mesh the engine returns for one request changes, since the
-    mesh cache keys on it. An engine that cannot honor a request raises
+    product store keys on it. An engine that cannot honor a request raises
     :class:`~hydromodpy.core.exceptions.MeshRequestError` naming what it refuses.
     """
 

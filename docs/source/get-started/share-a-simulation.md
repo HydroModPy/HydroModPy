@@ -99,7 +99,7 @@ the same `INSTALL.toml`. On demand:
 |---|---|
 | `--with runs` | the sealed runs, with their results and the files of your own they read |
 | `--with sessions` | the calibration sessions |
-| `--with mesh` | the cached meshes the runs read (`.hmp/mesh_cache/`): gmsh does not draw the same mesh twice, this keeps the one the runs were computed on |
+| `--with mesh` | the mesh products the runs cite (`.hmp/products/`): gmsh cannot promise to draw the same mesh twice, this keeps the one the runs were computed on |
 | `--with fetched` | the files the providers delivered to the runs, with their sidecars |
 
 The project lands as `projects/<name>` of the workspace, with the same rules for its data. A

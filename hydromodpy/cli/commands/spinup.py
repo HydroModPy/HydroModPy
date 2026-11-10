@@ -125,7 +125,7 @@ def run(args: argparse.Namespace) -> None:
         else:
             print(
                 "Set [flow] restart_from to this path in the production run "
-                "(a generated mesh is read back from the project mesh cache).",
+                "(a generated mesh is read back from the product store).",
                 file=sys.stderr,
             )
 

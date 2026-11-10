@@ -29,12 +29,16 @@ FROZEN_CALAGE = (
     / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/calage"
 )
 
-NEW_AT_DEFAULT = {"flow.sinks_sources.recharge.factor": 1.0}
+NEW_AT_DEFAULT = {
+    "flow.sinks_sources.recharge.factor": 1.0,
+    "workspace.products_cap_mb": 5000,
+}
 """What these copies do not write and a replay holds at its default, measured once.
 
-The key came with 2.0.0 after these runs were sealed by its release candidate, and its
-default reproduces the old computation. ``config_drift`` gave it as the one drift
-before a key absent from the sealed file counted for none.
+The recharge factor came with 2.0.0 after these runs were sealed by its release
+candidate, and its default reproduces the old computation. ``config_drift`` gave it as
+the one drift before a key absent from the sealed file counted for none. The cap of the
+product store came later and moves no number.
 """
 
 _COPIED = ("config.toml", "config.resolved.toml")

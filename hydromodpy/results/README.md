@@ -48,6 +48,7 @@ layout is `storage/contract.py`; the full contract is
 | `fit_metrics.py` | the scores of a run under its rule, from its own timeseries table: `fit_metrics(run_dir, rule=...)` returns the manifest rows and the headline NSE at the rule station |
 | `session/` | the formats of `sessions/<case>/`: `session.json` (`descriptor.py`), `trials.jsonl` with one trial number per session (`journal.py`), `phases/<phase>/session.json` (`phase.py`); `view.py` is `Session`, the read-only view of one session directory |
 | `plan_store.py` | `plan/<hash>/` written once (plan.json, sites.parquet, cases.parquet, one TOML per case) and `plan/current`; a different content under an existing hash is refused |
+| `products/` | the shared product store under `.hmp/products/`: `store.py` keeps one product per sha256 key with the cap and the oldest-first eviction, `key.py` the key of a product from its inputs, its processing and the code that computes it, `cited.py` the `products.json` a run writes and the keys a running attempt protects |
 | `publication.py` | `PublicationConfig`, `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
 | `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome; `read_sealed_json` and `read_transient_json`, which refuse a document of another version by the rule of `core/io/document_version.py` |
 | `catalog/` | the index and its reader: `index_schema.py` is the DDL (one version, a change is a rebuild), `indexer.py` writes the index from the directories (full or incremental, staging and rename, the label computed and dated; `reindex_project` and `reindex_if_indexed` are what the commands call), `facade.py` is `Catalog`, the read-only view, with `reads.py`, `discovery.py` and `schema.py` as its concerns, `views.py` the summary views (`v_cases`, `v_simulation_summary`), `constants.py` the sense of each metric and `SIMULATIONS_FROM`, the one join of a run row to its codes, `parquet_views.py` the per-connection views over the Parquet payloads, `federation.py` the cross-project read of `simulation.parquet` files and the runs of a workspace (`list_workspace_runs`), `listing.py` the rows `hmp catalog ls`, `show`, `query`, `point`, `diff` and `rank` print, `liveness.py` what `hmp catalog watch` and `hmp doctor` read of running attempts from the directories, `privacy.py` the purge of a run and its certificate; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `registration.py` the reservation of versions and `storage_paths.py` the directory of a run |
@@ -61,6 +62,13 @@ layout is `storage/contract.py`; the full contract is
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
 | `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
 | `calibration_trials.py`, `errors.py` | the trial rows of a session for one run, the typed errors of the reader |
+
+The product store is the one shared cache of a project, under `<project>/.hmp/products/`. A
+product is a folder keyed by a sha256 of the inputs the step read, the processing keys and the
+code of the package that computes it, so `workflow` asks the store for the mesh and the soil
+reservoir before it computes them. `[workspace] products_cap_mb` caps the store at 5000 megabytes,
+a write past it evicts the oldest products first and never one a running attempt cites, and a
+sealed run never depends on the store.
 
 ## Import rules
 
@@ -98,6 +106,7 @@ Who imports results: `display` (most), `cli`, `workflow`,
 hydromodpy/results/
   __init__.py                  lazy Catalog
   storage/       contract.py  parquet_io.py  parquet_schemas.py  diagnostics.py
+  products/      store.py  key.py  cited.py
   zarr_store/    simulation_zarr.py  zarr_writer.py  zarr_reader.py  zarr_finalizer.py  chunks.py ...
   field_registry.py  manifest.py  annotations.py  trash.py  retention.py  record.py  outcome.py
   request_identity.py

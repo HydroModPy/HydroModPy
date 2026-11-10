@@ -16,10 +16,10 @@ allowed:
   resample:          [planar, request]
   cells:             [planar, request]
   io:                [planar]
-  cache:             [planar, request]
+  stored:            [planar]
   port:              [planar, request]
   registry:          [port]
-  engines:           [cache, cells, planar, port, request, resample]
+  engines:           [stored, cells, planar, port, request, resample]
   planning:          ["<init>", io, mesh_config, planar, refinement_config, request, resample]
 
 # registry.py names the built-in engines by a dotted path written as text,
@@ -38,7 +38,7 @@ public:
   - hydromodpy.mesh.refinement_config
   - hydromodpy.mesh.port
   - hydromodpy.mesh.registry
-  - hydromodpy.mesh.cache
+  - hydromodpy.mesh.stored
   - hydromodpy.mesh.planar.*
   - hydromodpy.mesh.cells.*
   - hydromodpy.mesh.io.*

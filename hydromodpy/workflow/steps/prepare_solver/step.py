@@ -16,6 +16,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.workflow.products import write_products
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
@@ -139,6 +140,7 @@ class PrepareSolverStep:
                 calibrated_by=state.get("calibrated_by"),
                 run_overrides=state.get("run_overrides"),
             )
+            write_products(ctx)
             workspace = ctx.setup.workspace
             persistence = ctx.cfg.simulation.results.persistence
             facts = initial_facts(ctx, solution_key=state.get("solution_key"))
@@ -221,6 +223,7 @@ class PrepareSolverStep:
             ctx.run_dir = Path(run_dir)
             ctx.sim_id = outcome.sim_id
             ctx.attempt = outcome.attempt
+            write_products(ctx)
             with run_store(ctx) as store:
                 _resolve_plan_and_results(ctx, store=store)
                 step_build_model(ctx, store=store)

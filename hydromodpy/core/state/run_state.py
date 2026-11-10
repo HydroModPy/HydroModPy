@@ -25,6 +25,7 @@ executes one run inside it and must not be able to reach the rest.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -100,6 +101,15 @@ class SetupContext:
     # Soil reservoir outputs of this context (model.forcing.soil_forcing.SoilForcings),
     # None outside soil mode. Assigned on every binder call, never mutated.
     soil_forcings: Any = None
+    # Product keys this context asked the store for, ``{kind: key}``. Replaced
+    # whole and never mutated in place: a forked trial shares the object by
+    # reference, and an edit in one trial would leak into the others. A plain
+    # dict, because a parallel calibration pickles the context for its workers.
+    products: Mapping[str, str] = field(default_factory=dict)
+    # The digests of the soil inputs, computed once by the data step and shared
+    # by reference across forks, with what they were computed from: ``(sources,
+    # {input: digest})``. A reload replaces the sources, and the digests go.
+    soil_product_inputs: tuple[tuple[Any, ...], dict[str, str]] | None = None
 
 
 @dataclass
@@ -166,6 +176,10 @@ class ExecutionRegistry:
     is declared in ``[simulation]``: each consumer then uses
     ``np.random.default_rng()`` with a fresh entropy source.
 
+    ``resumed`` is set to ``True`` by the runner while it rebuilds the
+    prefix steps of a resumed run, so the product steps read the keys the
+    earlier attempt cited instead of recomputing them.
+
     Field types are ``Any`` because ``core`` cannot import from sibling
     layers. ``simulation_plan``, ``process_runs_by_id`` values and
     ``solver_runs`` values are ``solver.base.plan`` types.
@@ -175,6 +189,7 @@ class ExecutionRegistry:
     process_runs_by_id: dict[str, Any] = field(default_factory=dict)
     solver_runs: dict[str, Any] = field(default_factory=dict)
     lightweight: bool = False
+    resumed: bool = False
     rng: RngManager | None = None
 
 

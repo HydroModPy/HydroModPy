@@ -18,8 +18,10 @@ from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import import_project, import_run
 from hydromodpy.project.exchange.share import inputs_of, run_bundle
-from hydromodpy.results.export.project_package import consumed_mesh_entries, export_project
+from hydromodpy.results.export.project_package import cited_mesh_products, export_project
 from hydromodpy.results.export.publish import publish, verify
+from hydromodpy.results.products.cited import CitedProduct, write_cited
+from hydromodpy.results.products.store import products_root
 from hydromodpy.results.publication import read_publication
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests._helpers.cli_runner import CliRunner
@@ -168,38 +170,31 @@ def test_a_data_file_with_other_bytes_refuses_the_import_and_leaves_no_project(t
     assert dem.read_bytes() == b"another DEM"
 
 
-def _mesh_entry(cache: Path, key: str, request_hash: str) -> None:
-    entry = cache / key
+def _mesh_product(store: Path, key: str, *, kind: str = "mesh") -> None:
+    entry = store / key[:2] / key
     entry.mkdir(parents=True)
     (entry / "mesh.npz").write_bytes(b"arrays")
     (entry / "mesh.json").write_text(
-        json.dumps(
-            {
-                "identity": {
-                    "engine_id": "gmsh",
-                    "engine_version": "1.0",
-                    "request_hash": request_hash,
-                }
-            }
-        ),
+        json.dumps({"identity": {"engine_id": "gmsh", "engine_version": "1.0"}}),
+        encoding="utf-8",
+    )
+    (entry / "meta.json").write_text(
+        json.dumps({"key": key, "kind": kind, "bytes": 12, "written_at": 1.0}),
         encoding="utf-8",
     )
 
 
-def test_with_mesh_the_package_takes_the_cache_entries_the_runs_read(tmp_path) -> None:
-    import zarr
-
+def test_with_mesh_the_package_takes_the_mesh_products_the_runs_cite(tmp_path) -> None:
     project = _project(tmp_path)
     run = project / "runs" / RUN_NAME
-    root = zarr.open_group(str(run / "fields.zarr"), mode="w")
-    root.attrs["zarr_schema_version"] = ZARR_SCHEMA_VERSION
-    mesh = root.create_group("mesh")
-    mesh.attrs.update(engine="gmsh", engine_version="1.0", mesh_request_hash="r1")
-    cache = project / ".hmp" / "mesh_cache"
-    _mesh_entry(cache, "a" * 64, "r1")
-    _mesh_entry(cache, "b" * 64, "r2")
+    write_cited(run, [CitedProduct(kind="mesh", key="a" * 64)])
+    store = products_root(project)
+    _mesh_product(store, "a" * 64)
+    _mesh_product(store, "b" * 64)
 
-    assert [entry.name for entry in consumed_mesh_entries(project, [run])] == ["a" * 64]
+    cited = cited_mesh_products(project, [run])
+    assert [product.name for product in cited.products] == ["a" * 64]
+    assert cited.missing == ()
     package = export_project(
         project,
         tmp_path / "nancon.tar",
@@ -212,8 +207,38 @@ def test_with_mesh_the_package_takes_the_cache_entries_the_runs_read(tmp_path) -
     imported = import_project(package, workspace)
 
     assert imported.mesh_entries == ("a" * 64,)
-    assert (imported.project_dir / ".hmp" / "mesh_cache" / ("a" * 64) / "mesh.npz").is_file()
-    assert not (imported.project_dir / ".hmp" / "mesh_cache" / ("b" * 64)).exists()
+    assert (
+        imported.project_dir / ".hmp" / "products" / ("a" * 64)[:2] / ("a" * 64) / "mesh.npz"
+    ).is_file()
+    assert not (imported.project_dir / ".hmp" / "products" / ("b" * 64)[:2]).exists()
+    assert imported.mesh_present == ()
+    assert imported.mesh_skipped == ()
+    assert imported.legacy_mesh_cache == ()
+
+
+def test_with_mesh_a_cited_key_missing_from_the_store_is_skipped(tmp_path, caplog) -> None:
+    project = _project(tmp_path)
+    run = project / "runs" / RUN_NAME
+    write_cited(run, [CitedProduct(kind="mesh", key="a" * 64)])
+
+    cited = cited_mesh_products(project, [run])
+    assert cited.products == ()
+    assert cited.missing == ("a" * 64,)
+    package = export_project(
+        project,
+        tmp_path / "nancon.tar",
+        with_=("mesh",),
+        bundle_of=inputs_of(project),
+        root_config=ROOT_CONFIG,
+    )
+
+    import tarfile
+
+    unpacked = tmp_path / "unpacked"
+    with tarfile.open(package) as archive:
+        archive.extractall(unpacked, filter="data")
+    assert not (unpacked / "nancon" / "products").exists()
+    assert "Skipped 1 mesh product" in caplog.text
 
 
 def test_the_commands_export_and_import_a_project(tmp_path) -> None:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import geopandas as gpd
 import numpy as np
@@ -25,7 +27,12 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
 )
 from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.run_state import ExecutionRegistry, LoadedDataContext, SetupContext
+from hydromodpy.core.state.run_state import (
+    ExecutionRegistry,
+    LoadedDataContext,
+    SetupContext,
+    WorkflowContext,
+)
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -36,6 +43,7 @@ from hydromodpy.model.forcing.soil_config import (
     steady_start_refusal,
 )
 from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
+from hydromodpy.results.products.store import products_root
 from hydromodpy.workflow.steps import data as data_step
 from hydromodpy.workflow.steps.data import (
     apply_structural_updates_from_data,
@@ -329,6 +337,14 @@ def _patch_capture(monkeypatch, calls: dict[str, dict]) -> None:
         lambda **kwargs: _soil_forcings(),
     )
     monkeypatch.setattr(
+        "hydromodpy.workflow.steps.data._soil_input_digests",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.data.ask",
+        lambda ctx, kind, *, key, build, read: build(),
+    )
+    monkeypatch.setattr(
         "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
         _capture("recharge"),
     )
@@ -482,6 +498,8 @@ def _patch_binder_internals(monkeypatch) -> None:
     monkeypatch.setattr(
         data_step, "compute_soil_forcings", lambda **kwargs: _printed_soil_forcings()
     )
+    monkeypatch.setattr(data_step, "_soil_input_digests", lambda *args, **kwargs: {})
+    monkeypatch.setattr(data_step, "ask", lambda ctx, kind, *, key, build, read: build())
     monkeypatch.setattr(data_step, "apply_recharge_load_result_to_flow", lambda **kwargs: False)
     monkeypatch.setattr(data_step, "apply_etp_load_result_to_flow", lambda **kwargs: False)
     monkeypatch.setattr(data_step, "apply_runoff_to_sfr_networks", lambda **kwargs: False)
@@ -794,3 +812,182 @@ def test_a_stale_flow_is_rebuilt_and_takes_its_model_with_it(
 
     assert (state.setup.flow is not flow) is rebuilt
     assert (state.setup.model is None) is rebuilt
+
+
+# --- test_a_fork_reuses_the_soil_without_recomputing ---
+# The data step computes the soil once and a fork that leaves the soil
+# parameters alone reuses the prepared SoilForcings in memory, without running
+# the kernel or hashing its grids again.
+
+_SOIL_PRODUCT_CRS = "EPSG:2154"
+
+
+def _soil_grid_result(variable, values, *, days, x, y):
+    dataset = xr.Dataset(
+        {variable: (("time", "y", "x"), values)},
+        coords={"time": days, "y": y, "x": x},
+    )
+    record = FieldRecord(
+        variable=variable,
+        source="sim2",
+        unit="mm/day",
+        data=dataset,
+        bbox=(x.min(), y.min(), x.max(), y.max()),
+        crs=_SOIL_PRODUCT_CRS,
+        date_start=days[0],
+        date_end=days[-1],
+    )
+    return LoadResult(fields=[record])
+
+
+def _soil_window(days):
+    return ResolvedSimulationTimeWindow(
+        start=days[0],
+        end=days[-1],
+        step_value=1,
+        step_unit="day",
+        coverage_policy="error",
+    )
+
+
+def _soil_flow_config(soil_config):
+    return SimpleNamespace(
+        sinks_sources=SimpleNamespace(recharge=SimpleNamespace(soil=soil_config)),
+        flow_regime="transient",
+        first_period_steady=False,
+    )
+
+
+def _soil_ctx(soil_config, *, precipitation, etp, workspace=None):
+    cfg = SimpleNamespace(flow=_soil_flow_config(soil_config), mesh=None)
+    ctx = WorkflowContext(cfg=cfg, config_path=Path("run.toml"), raw_toml={})
+    ctx.setup = SetupContext(
+        geographic=SimpleNamespace(crs_proj=_SOIL_PRODUCT_CRS),
+        flow=cfg.flow,
+        workspace=workspace,
+    )
+    ctx.setup.soil_product_inputs = None
+    ctx.loaded_data = LoadedDataContext(
+        precipitation=precipitation,
+        etp=etp,
+        recharge=None,
+        runoff=None,
+        soil_capacity=None,
+    )
+    ctx.execution.lightweight = True
+    ctx.execution.resumed = False
+    ctx.run_dir = None
+    return ctx
+
+
+def _soil_forcing_results():
+    days = pd.date_range("2015-01-01", periods=400, freq="D")
+    x = np.array([0.0, 100.0])
+    y = np.array([100.0, 0.0])
+    rng = np.random.default_rng(0)
+    precipitation = rng.gamma(2.0, 2.0, size=(len(days), 2, 2))
+    etp = np.full((len(days), 2, 2), 2.0)
+    return (
+        days,
+        _soil_grid_result("precipitation", precipitation, days=days, x=x, y=y),
+        _soil_grid_result("etp", etp, days=days, x=x, y=y),
+    )
+
+
+def test_a_fork_reuses_the_soil_without_recomputing():
+    days, precip, etp = _soil_forcing_results()
+    parent = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
+    with (
+        patch.object(
+            data_step, "compute_soil_forcings", wraps=data_step.compute_soil_forcings
+        ) as compute,
+        patch.object(data_step, "apply_recharge_load_result_to_flow"),
+        patch.object(data_step, "apply_etp_load_result_to_flow"),
+    ):
+        soil = data_step._bind_soil_recharge_etp(parent, _soil_window(days))
+    assert soil is not None
+    assert compute.call_count == 1
+    assert parent.setup.soil_forcings is soil
+
+    fork = WorkflowContext(cfg=parent.cfg, config_path=parent.config_path, raw_toml={})
+    fork.setup = copy.copy(parent.setup)
+    fork.loaded_data = parent.loaded_data
+    fork.execution.lightweight = True
+    fork.execution.resumed = False
+    fork.run_dir = None
+    with (
+        patch.object(
+            data_step, "compute_soil_forcings", wraps=data_step.compute_soil_forcings
+        ) as compute,
+        patch.object(data_step, "apply_recharge_load_result_to_flow"),
+        patch.object(data_step, "apply_etp_load_result_to_flow"),
+    ):
+        reused = data_step._bind_soil_recharge_etp(fork, _soil_window(days))
+    assert compute.call_count == 0
+    assert reused is soil
+
+
+def test_a_reload_of_the_precipitation_computes_a_new_soil():
+    days, precip, etp = _soil_forcing_results()
+    ctx = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
+    with (
+        patch.object(data_step, "apply_recharge_load_result_to_flow"),
+        patch.object(data_step, "apply_etp_load_result_to_flow"),
+    ):
+        soil = data_step._bind_soil_recharge_etp(ctx, _soil_window(days))
+        first_key = ctx.setup.products["soil"]
+        values = precip.fields[0].data["precipitation"].values * 2.0
+        x = precip.fields[0].data["x"].values
+        y = precip.fields[0].data["y"].values
+        ctx.loaded_data.precipitation = _soil_grid_result(
+            "precipitation", values, days=days, x=x, y=y
+        )
+        with patch.object(
+            data_step, "compute_soil_forcings", wraps=data_step.compute_soil_forcings
+        ) as compute:
+            reloaded = data_step._bind_soil_recharge_etp(ctx, _soil_window(days))
+    assert compute.call_count == 1
+    assert reloaded is not soil
+    assert ctx.setup.products["soil"] != first_key
+
+
+def test_a_ru_change_computes_in_memory_and_writes_nothing(tmp_path):
+    days, precip, etp = _soil_forcing_results()
+    parent = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
+    with (
+        patch.object(
+            data_step, "compute_soil_forcings", wraps=data_step.compute_soil_forcings
+        ) as compute,
+        patch.object(data_step, "apply_recharge_load_result_to_flow"),
+        patch.object(data_step, "apply_etp_load_result_to_flow"),
+    ):
+        soil = data_step._bind_soil_recharge_etp(parent, _soil_window(days))
+    assert compute.call_count == 1
+
+    fork = WorkflowContext(
+        cfg=SimpleNamespace(
+            flow=_soil_flow_config(SoilReservoirConfig(ru=200.0, spinup="none")),
+            mesh=None,
+            workspace=SimpleNamespace(products_cap_mb=1, project_root=tmp_path),
+        ),
+        config_path=parent.config_path,
+        raw_toml={},
+    )
+    fork.setup = copy.copy(parent.setup)
+    fork.setup.workspace = SimpleNamespace()
+    fork.loaded_data = parent.loaded_data
+    fork.execution.lightweight = True
+    fork.execution.resumed = False
+    fork.run_dir = None
+    with (
+        patch.object(
+            data_step, "compute_soil_forcings", wraps=data_step.compute_soil_forcings
+        ) as compute,
+        patch.object(data_step, "apply_recharge_load_result_to_flow"),
+        patch.object(data_step, "apply_etp_load_result_to_flow"),
+    ):
+        recomputed = data_step._bind_soil_recharge_etp(fork, _soil_window(days))
+    assert compute.call_count == 1
+    assert recomputed is not soil
+    assert parent.setup.soil_forcings is soil
+    assert list(products_root(tmp_path).rglob("soil.npz")) == []

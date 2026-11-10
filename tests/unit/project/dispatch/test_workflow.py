@@ -153,7 +153,7 @@ def test_run_simulation_hands_on_the_mesh_summary_of_a_run_that_built_its_mesh(
     """The summary lives in process memory only; a run given back computed nothing."""
     from hydromodpy.project.request import RunOutcome
 
-    summary = {"engine": "gmsh", "cache_key": "k1"}
+    summary = {"engine": "gmsh", "product_key": "k1"}
     fake_project.result = RunOutcome(
         name="case",
         run_dir=tmp_path / "runs" / "case",

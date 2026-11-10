@@ -1,20 +1,18 @@
-"""A mesh stored in the project cache comes back whole, under a key that names its request."""
+"""A mesh written by the codec comes back whole, whatever engine built it."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import replace
-from importlib import metadata
 from importlib.util import find_spec
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.mesh import cache, registry
+from hydromodpy.mesh import registry, stored
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.planar.quality import SHAPE_KEYS
 from hydromodpy.mesh.request import LineFamilySpec, MeshRequest
@@ -86,8 +84,8 @@ def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
     built = RegularMeshEngine().build(_request())
     assert built.cell_chains and built.face_families is not None
 
-    cache.save_cell_mesh(built, tmp_path / "entry")
-    back = cache.load_cell_mesh(tmp_path / "entry")
+    stored.write_mesh(built, tmp_path / "entry")
+    back = stored.read_mesh(tmp_path / "entry")
 
     _assert_same_mesh(back, built)
 
@@ -97,66 +95,35 @@ def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
 def test_a_generated_mesh_comes_back_whole(tmp_path, engine_id) -> None:
     built = registry.mesh_engines.create(engine_id).build(_request(size=60.0))
 
-    cache.save_cell_mesh(built, tmp_path / "entry")
-    back = cache.load_cell_mesh(tmp_path / "entry")
+    stored.write_mesh(built, tmp_path / "entry")
+    back = stored.read_mesh(tmp_path / "entry")
 
     _assert_same_mesh(back, built)
 
 
-def test_a_complete_entry_is_not_replaced(tmp_path) -> None:
-    built = RegularMeshEngine().build(_request())
-    cache.save_cell_mesh(built, tmp_path / "entry")
-    stored = (tmp_path / "entry" / cache.ARRAYS_FILENAME).stat().st_mtime_ns
-
-    cache.save_cell_mesh(RegularMeshEngine().build(_request(n=20)), tmp_path / "entry")
-
-    assert (tmp_path / "entry" / cache.ARRAYS_FILENAME).stat().st_mtime_ns == stored
-    assert not [p for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
-
-
-def test_an_entry_without_its_description_is_not_an_entry(tmp_path) -> None:
+def test_a_directory_without_its_description_is_not_a_mesh(tmp_path) -> None:
     (tmp_path / "entry").mkdir()
-    (tmp_path / "entry" / cache.ARRAYS_FILENAME).write_bytes(b"")
+    (tmp_path / "entry" / stored.ARRAYS_FILENAME).write_bytes(b"")
 
-    assert not cache.has_cell_mesh(tmp_path / "entry")
-    with pytest.raises(MeshError, match="No cached mesh"):
-        cache.load_cell_mesh(tmp_path / "entry")
+    with pytest.raises(MeshError, match="No stored mesh"):
+        stored.read_mesh(tmp_path / "entry")
 
 
 def test_an_entry_of_another_schema_is_refused_by_name(tmp_path) -> None:
-    cache.save_cell_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
-    description = tmp_path / "entry" / cache.DESCRIPTION_FILENAME
-    description.write_text(description.read_text().replace(cache.SCHEMA_VERSION, "older"))
+    stored.write_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
+    description = tmp_path / "entry" / stored.DESCRIPTION_FILENAME
+    description.write_text(description.read_text().replace(stored.SCHEMA_VERSION, "older"))
 
     with pytest.raises(MeshError, match="schema 'older'"):
-        cache.load_cell_mesh(tmp_path / "entry")
+        stored.read_mesh(tmp_path / "entry")
 
 
-def test_the_key_names_the_request_the_engine_and_its_version(tmp_path, monkeypatch) -> None:
-    class Engine:
-        engine_id = "probe"
-        engine_version = "1.0.0"
+def test_an_entry_whose_arrays_are_unreadable_is_refused_by_name(tmp_path) -> None:
+    stored.write_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
+    (tmp_path / "entry" / stored.ARRAYS_FILENAME).write_bytes(b"not an npz")
 
-    class NewerEngine(Engine):
-        engine_version = "1.0.1"
-
-    class OtherEngine(Engine):
-        engine_id = "other"
-
-    key = cache.cache_key(_request(), Engine)
-
-    assert key == cache.cache_key(_request(), Engine)
-    assert key != cache.cache_key(_request(size=80.0), Engine)
-    assert key != cache.cache_key(_request(), NewerEngine)
-    assert key != cache.cache_key(_request(), OtherEngine)
-    monkeypatch.setattr(cache.metadata, "version", lambda name: "9.9.9")
-    assert key != cache.cache_key(_request(), Engine)
-
-
-def test_an_entry_lives_under_the_project_cache_directory(tmp_path) -> None:
-    key = cache.cache_key(_request(), RegularMeshEngine)
-
-    assert cache.cache_dir(tmp_path, key) == tmp_path / ".hmp" / "mesh_cache" / key
+    with pytest.raises(MeshError, match="is unreadable: .* Delete it"):
+        stored.read_mesh(tmp_path / "entry")
 
 
 @pytest.mark.parametrize(
@@ -172,16 +139,16 @@ def test_an_entry_stored_before_the_shape_entries_is_read_with_them_measured(
 ) -> None:
     request = _request() if engine_id == "regular" else _request(size=60.0)
     built = registry.mesh_engines.create(engine_id).build(request)
-    cache.save_cell_mesh(built, tmp_path / "entry")
-    path = tmp_path / "entry" / cache.DESCRIPTION_FILENAME
+    stored.write_mesh(built, tmp_path / "entry")
+    path = tmp_path / "entry" / stored.DESCRIPTION_FILENAME
     description = json.loads(path.read_text())
     for name in SHAPE_KEYS:
         del description["qa"][name]
     path.write_text(json.dumps(description))
 
-    back = cache.load_cell_mesh(tmp_path / "entry")
+    back = stored.read_mesh(tmp_path / "entry")
 
-    assert description["schema"] == cache.SCHEMA_VERSION
+    assert description["schema"] == stored.SCHEMA_VERSION
     _assert_same_mesh(back, built)
 
 
@@ -192,9 +159,9 @@ def test_a_mesh_without_family_and_with_node_fields_comes_back_whole(tmp_path) -
     )
     assert built.face_families is None and built.cell_zone is None
 
-    cache.save_cell_mesh(built, tmp_path / "entry")
+    stored.write_mesh(built, tmp_path / "entry")
 
-    _assert_same_mesh(cache.load_cell_mesh(tmp_path / "entry"), built)
+    _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)
 
 
 def test_a_mesh_with_cell_fields_comes_back_whole(tmp_path) -> None:
@@ -203,60 +170,18 @@ def test_a_mesh_with_cell_fields_comes_back_whole(tmp_path) -> None:
         grid, mesh=grid.mesh.with_cell_data(k=np.linspace(1e-5, 1e-4, grid.mesh.n_cells))
     )
 
-    cache.save_cell_mesh(built, tmp_path / "entry")
+    stored.write_mesh(built, tmp_path / "entry")
 
-    _assert_same_mesh(cache.load_cell_mesh(tmp_path / "entry"), built)
-
-
-def test_an_absent_gmsh_is_part_of_the_key(monkeypatch) -> None:
-    installed = metadata.version
-
-    def without_gmsh(name: str) -> str:
-        if name == "gmsh":
-            raise metadata.PackageNotFoundError(name)
-        return installed(name)
-
-    key = cache.cache_key(_request(), RegularMeshEngine)
-    monkeypatch.setattr(cache.metadata, "version", without_gmsh)
-
-    assert cache.library_versions()["gmsh"] == "absent"
-    assert cache.cache_key(_request(), RegularMeshEngine) != key
+    _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)
 
 
-def test_an_entry_stored_first_by_a_concurrent_run_stands(tmp_path, monkeypatch) -> None:
-    target = tmp_path / "entry"
-    theirs = RegularMeshEngine().build(_request(n=20))
-    rename = Path.rename
+def test_an_entry_written_under_the_2_0_schema_still_decodes(tmp_path) -> None:
+    """The stored format keeps its 2.0 identifier, so a 2.0 entry still reads."""
+    built = RegularMeshEngine().build(_request())
 
-    def lose_the_race(self: Path, destination: Path) -> Path:
-        # The other run, another process, renames its staging first; ours then
-        # meets a full directory.
-        monkeypatch.setattr(Path, "rename", rename)
-        monkeypatch.setattr(cache, "os", SimpleNamespace(getpid=lambda: 1))
-        cache.save_cell_mesh(theirs, destination)
-        return rename(self, destination)
+    stored.write_mesh(built, tmp_path / "entry")
+    description = json.loads((tmp_path / "entry" / stored.DESCRIPTION_FILENAME).read_text())
 
-    monkeypatch.setattr(Path, "rename", lose_the_race)
-    cache.save_cell_mesh(RegularMeshEngine().build(_request()), target)
-
-    assert cache.load_cell_mesh(target).n_cells == theirs.n_cells
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["entry"]
-
-
-def test_a_failed_write_leaves_no_entry_and_no_staging(tmp_path, monkeypatch) -> None:
-    def full_disk(self: Path, destination: Path) -> Path:
-        raise OSError("No space left on device")
-
-    monkeypatch.setattr(Path, "rename", full_disk)
-
-    with pytest.raises(OSError, match="No space left"):
-        cache.save_cell_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
-    assert list(tmp_path.iterdir()) == []
-
-
-def test_an_entry_whose_arrays_are_unreadable_is_refused_by_name(tmp_path) -> None:
-    cache.save_cell_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
-    (tmp_path / "entry" / cache.ARRAYS_FILENAME).write_bytes(b"not an npz")
-
-    with pytest.raises(MeshError, match="is unreadable: .* Delete it"):
-        cache.load_cell_mesh(tmp_path / "entry")
+    assert stored.SCHEMA_VERSION == "hydromodpy.mesh_cache.v1"
+    assert description["schema"] == "hydromodpy.mesh_cache.v1"
+    _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)

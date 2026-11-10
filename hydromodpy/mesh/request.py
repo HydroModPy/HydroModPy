@@ -3,8 +3,8 @@
 An engine reads no file and no config. The planner turns ``[mesh]`` and the
 project inputs into one :class:`MeshRequest`; the engine turns that request into
 a ``PlanarCellMesh``. ``MeshRequest.canonical_hash`` names the request: two
-requests with the same hash ask for the same mesh, which is what the mesh cache
-and the run provenance rely on.
+requests with the same hash ask for the same mesh, which is what the product
+store and the run provenance rely on.
 
 Arrays handed to these classes are copied and made read-only, so a request
 cannot change after its hash was taken. A request refuses what an engine

@@ -18,8 +18,8 @@ their registries hold. On demand:
 - ``runs``: every sealed run, published with its results under ``runs/<name>/``
   (:mod:`hydromodpy.results.export.publish`), and every user file a run read;
 - ``sessions``: every session directory under ``sessions/<name>/``, redacted;
-- ``mesh``: the ``.hmp/mesh_cache/<key>/`` entries the runs consumed, since gmsh
-  does not draw the same mesh twice;
+- ``mesh``: the mesh products the runs cite in their ``products.json``, copied
+  from ``.hmp/products/``, since gmsh does not draw the same mesh twice;
 - ``fetched``: every file a provider delivered to a run, with the row of the
   data cache that serves it, so the import does not fetch it again.
 
@@ -30,16 +30,17 @@ Nothing in the package names the machine: a copy that would is refused.
 
 from __future__ import annotations
 
-import json
 import shutil
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Literal
 
 from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.exceptions import ExportError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import (
     InstallIndex,
     PayloadBundle,
@@ -52,7 +53,7 @@ from hydromodpy.core.payload import (
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.payload.resolve import authored_files, project_data
 from hydromodpy.core.site import SiteRow
-from hydromodpy.core.state.layout import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import (
@@ -78,12 +79,14 @@ from hydromodpy.results.publication import (
 )
 from hydromodpy.results.run_identity import read_sealed_manifest
 
+logger = get_logger(__name__)
+
 ProjectExtra = Literal["runs", "sessions", "mesh", "fetched"]
 """What ``hmp publish --package --with`` adds to the files of the author and their data."""
 
 PACKAGE_RUNS_DIRNAME: Final[str] = "runs"
 PACKAGE_SESSIONS_DIRNAME: Final[str] = "sessions"
-PACKAGE_MESH_DIRNAME: Final[str] = "mesh_cache"
+PACKAGE_PRODUCTS_DIRNAME: Final[str] = "products"
 """Folders of a project package beside ``INSTALL.toml`` and ``inputs/``."""
 
 AUTHORED_EXTRAS: Final[tuple[str, ...]] = ("sites.csv", "site_overrides")
@@ -92,7 +95,6 @@ AUTHORED_EXTRAS: Final[tuple[str, ...]] = ("sites.csv", "site_overrides")
 _USER_PROVIDERS: Final[frozenset[str]] = frozenset(
     {"file", "url", "custom", "constant", "synthetic"}
 )
-_MESH_DESCRIPTION: Final[str] = "mesh.json"
 _LOC_SUFFIX: Final[str] = "_LOC.csv"
 
 
@@ -156,8 +158,15 @@ def export_project(
                     project_root=root,
                 )
         if "mesh" in extras:
-            for entry in consumed_mesh_entries(root, runs):
-                shutil.copytree(entry, staging / PACKAGE_MESH_DIRNAME / entry.name)
+            cited = cited_mesh_products(root, runs)
+            if cited.missing:
+                logger.warning(
+                    "Skipped %d mesh product(s) the runs cite but the store does not hold: %s",
+                    len(cited.missing),
+                    ", ".join(cited.missing),
+                )
+            for product in cited.products:
+                shutil.copytree(product, staging / PACKAGE_PRODUCTS_DIRNAME / product.name)
         _refuse_leaks(staging, prefixes)
         write_publication(
             staging,
@@ -300,60 +309,55 @@ def _registry_of(dest: str) -> tuple[str, str]:
     return folder, name.removesuffix(_LOC_SUFFIX).rsplit("_", 1)[-1]
 
 
-def consumed_mesh_entries(project_root: Path, runs: Sequence[Path]) -> list[Path]:
-    """Return the entries of ``.hmp/mesh_cache/`` the meshes of *runs* were read from.
+@dataclass(frozen=True, slots=True)
+class CitedMeshProducts:
+    """The mesh products the runs cite, and the cited keys the store lacks."""
 
-    An entry describes the request and the engine build it meshes
-    (``mesh.json``); a run records the same in the attributes of its mesh
-    group (``fields.zarr/mesh``).
+    products: tuple[Path, ...]
+    """Directories of the store to copy under ``products/``."""
+    missing: tuple[str, ...]
+    """Keys the runs cite but the store no longer holds, so the package skips."""
+
+
+def cited_mesh_products(project_root: Path, runs: Sequence[Path]) -> CitedMeshProducts:
+    """Return the mesh products *runs* cite, from the store of *project_root*.
+
+    A run cites the products it read in ``products.json``. A cited key the store
+    no longer holds (evicted) is reported as missing, not exported: the package
+    carries only what the author still holds.
     """
-    wanted = {identity for run in runs if (identity := _run_mesh_identity(run)) is not None}
-    cache = Path(project_root) / INTERNAL_DIRNAME / "mesh_cache"
-    if not wanted or not cache.is_dir():
-        return []
-    entries: list[Path] = []
-    for entry in sorted(path for path in cache.iterdir() if path.is_dir()):
-        description = entry / _MESH_DESCRIPTION
-        if not description.is_file():
-            continue
-        identity = json.loads(description.read_text(encoding="utf-8")).get("identity") or {}
-        key = (
-            str(identity.get("engine_id")),
-            str(identity.get("engine_version")),
-            str(identity.get("request_hash")),
-        )
-        if key in wanted:
-            entries.append(entry)
-    return entries
+    from hydromodpy.results.products.cited import read_cited
+    from hydromodpy.results.products.store import ProductStore, products_root
 
-
-def _run_mesh_identity(run: Path) -> tuple[str, str, str] | None:
-    """Return the engine, its version and the request hash the mesh of a run records."""
-    import zarr
-
-    store = run / "fields.zarr"
-    if not store.is_dir():
-        return None
-    try:
-        root = zarr.open_group(str(store), mode="r", use_consolidated=False)
-    except (FileNotFoundError, KeyError, ValueError, zarr.errors.GroupNotFoundError):
-        return None
-    mesh = root.get("mesh")
-    if mesh is None or mesh.attrs.get("mesh_request_hash") is None:
-        return None
-    return (
-        str(mesh.attrs.get("engine")),
-        str(mesh.attrs.get("engine_version")),
-        str(mesh.attrs.get("mesh_request_hash")),
-    )
+    store = ProductStore(products_root(project_root))
+    keys: list[str] = []
+    seen: set[str] = set()
+    for run in runs:
+        for product in read_cited(run):
+            if product.kind == "mesh" and product.key not in seen:
+                seen.add(product.key)
+                keys.append(product.key)
+    products: list[Path] = []
+    missing: list[str] = []
+    for key in keys:
+        try:
+            path = store.get(key)
+        except ValueError:
+            path = None
+        if path is None:
+            missing.append(key)
+        else:
+            products.append(path)
+    return CitedMeshProducts(tuple(products), tuple(missing))
 
 
 __all__ = [
     "AUTHORED_EXTRAS",
-    "PACKAGE_MESH_DIRNAME",
+    "PACKAGE_PRODUCTS_DIRNAME",
     "PACKAGE_RUNS_DIRNAME",
     "PACKAGE_SESSIONS_DIRNAME",
+    "CitedMeshProducts",
     "ProjectExtra",
-    "consumed_mesh_entries",
+    "cited_mesh_products",
     "export_project",
 ]

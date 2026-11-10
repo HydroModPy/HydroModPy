@@ -7710,7 +7710,7 @@
             }
           ],
           "default": null,
-          "description": "Optional hotstart: a prior run whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. Name it by its run name, its sim_id, the path of its Zarr store, or the table {sim_id, path} the frozen config.toml of a run writes (the sim_id is looked up first, the path second). The prior run must share this run's mesh: a regular grid is rebuilt identically and a generated triangle or voronoi mesh is read back from the mesh cache of the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] kind='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), kind='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
+          "description": "Optional hotstart: a prior run whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. Name it by its run name, its sim_id, the path of its Zarr store, or the table {sim_id, path} the frozen config.toml of a run writes (the sim_id is looked up first, the path second). The prior run must share this run's mesh: a regular grid is rebuilt identically and a generated triangle or voronoi mesh is read back from the product store of the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] kind='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), kind='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
           "title": "Restart From",
           "x-hmp-profile": "user"
         },
@@ -20664,7 +20664,7 @@
             }
           ],
           "default": null,
-          "description": "The earlier run of this project whose field draws the zone, for watertable_depth and seepage: its name, with or without its .vN (the latest version without), or its full sim_id. The run must be sealed and hold the field. The mesh then depends on that run: its sim_id enters the mesh request and the mesh cache key.",
+          "description": "The earlier run of this project whose field draws the zone, for watertable_depth and seepage: its name, with or without its .vN (the latest version without), or its full sim_id. The run must be sealed and hold the field. The mesh then depends on that run: its sim_id enters the mesh request and the product key.",
           "examples": [
             "nancon_coarse"
           ],
@@ -26017,6 +26017,18 @@
           "default": null,
           "description": "Folder the input data are read from and downloads are cached in. Unset, it is <root>/data.",
           "title": "Data Dir",
+          "x-hmp-profile": "user"
+        },
+        "products_cap_mb": {
+          "default": 5000,
+          "description": "Size cap of the product store under .hmp/products/, in megabytes. The oldest products go first when a run writes past it.",
+          "examples": [
+            5000
+          ],
+          "minimum": 1,
+          "title": "Products Cap Mb",
+          "type": "integer",
+          "unit": "MB",
           "x-hmp-profile": "user"
         }
       },

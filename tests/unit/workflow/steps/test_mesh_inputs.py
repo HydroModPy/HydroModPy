@@ -16,12 +16,12 @@ from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.raster_support import RasterSupport
 from hydromodpy.catchment.surface import Surface
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.mesh.cache import cache_key
 from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.lake_structures import lake_structures
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.refinement_config import LakeRefinementConfig
+from hydromodpy.workflow.steps.mesh import mesh_product_key
 from hydromodpy.workflow.steps.mesh_inputs import (
     barrier_lines,
     criterion_inputs,
@@ -100,7 +100,7 @@ def _ctx(geographic: GeographicConfig, *, cells: int = 10) -> SimpleNamespace:
 def _key(ctx: SimpleNamespace) -> str:
     mesh_cfg = MeshConfig(engine="triangle", families={"rivers": "none", "geology": "none"})
     request = plan_mesh_request(mesh_cfg, planning_inputs(ctx, mesh_cfg))
-    return cache_key(request, TriangleMeshEngine)
+    return mesh_product_key(request, TriangleMeshEngine)
 
 
 def test_the_bed_regularisation_keeps_the_cached_mesh() -> None:

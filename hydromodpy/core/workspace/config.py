@@ -105,6 +105,16 @@ class WorkspaceConfig(HydroModelBase):
         ),
     )
 
+    products_cap_mb: Annotated[int, Profile.USER] = Field(
+        default=5000,
+        ge=1,
+        description=(
+            "Size cap of the product store under .hmp/products/, in megabytes. "
+            "The oldest products go first when a run writes past it."
+        ),
+        json_schema_extra=field_metadata(unit="MB"),
+    )
+
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "catalog_path": (
             "the index of a project is <project>/.hmp/index.duckdb, fixed by the storage "

@@ -22,6 +22,7 @@ from hydromodpy.core import code_fingerprint as fingerprint_module
 from hydromodpy.core.code_fingerprint import (
     COMPUTE_DATA_FILES,
     COMPUTE_LAYERS,
+    LAYER_READS,
     OTHER_DATA_SUFFIXES,
     OUTSIDE_LAYERS,
     OUTSIDE_SUBTREES,
@@ -29,10 +30,11 @@ from hydromodpy.core.code_fingerprint import (
     clear_fingerprint_cache,
     code_fingerprint,
     fingerprint_tree,
+    layers_under,
     normalised_source,
 )
 from hydromodpy.core.exceptions import HydroModPyError
-from tools.doc_contracts import load_layer_matrix, present_layers
+from tools.doc_contracts import layer_rows, load_layer_matrix, present_layers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -284,6 +286,27 @@ def test_the_scope_covers_the_layer_matrix() -> None:
     assert not set(COMPUTE_LAYERS) & set(OUTSIDE_LAYERS)
     assert {"display", "project", "cli"} <= set(OUTSIDE_LAYERS)
     assert set(RUN_LAYERS) == set(COMPUTE_LAYERS) - {"calibration"}
+
+
+def test_layers_under_reads_the_matrix_closure() -> None:
+    """The closure of each compute layer is its matrix row, outside layers dropped."""
+    rows = layer_rows(load_layer_matrix()).target
+    compute = set(COMPUTE_LAYERS)
+    expected = {
+        layer: tuple(target for target in rows[layer] if target in compute)
+        for layer in COMPUTE_LAYERS
+    }
+    assert LAYER_READS == expected
+
+
+def test_layers_under_names_the_closure() -> None:
+    assert layers_under("mesh") == ("core", "catchment", "mesh")
+    assert layers_under("model") == ("core", "catchment", "mesh", "model")
+
+
+def test_layers_under_refuses_a_layer_outside_the_scope() -> None:
+    with pytest.raises(ValueError, match="not a compute layer: display"):
+        layers_under("display")
 
 
 def test_every_package_file_of_the_scope_is_classified() -> None:

@@ -273,13 +273,13 @@ def test_lake_and_wall_inputs_hold_still(tmp_path: Path, monkeypatch: pytest.Mon
         assert matches, f"Missing {suffix} file in {solver_dir}"
         digests[key] = _sha256_without_flopy_header(matches[0])
 
-    mesh_cache = tmp_path / ".hmp" / "mesh_cache"
-    assert mesh_cache.is_dir(), "No mesh cache found"
-    npz_matches = sorted(mesh_cache.glob("*/mesh.npz"))
+    mesh_cache = tmp_path / ".hmp" / "products"
+    assert mesh_cache.is_dir(), "No stored mesh found"
+    npz_matches = sorted(mesh_cache.glob("??/*/mesh.npz"))
     assert npz_matches, "Missing mesh.npz"
     digests["mesh_npz"] = _sha256_of(npz_matches[0])
 
-    json_matches = sorted(mesh_cache.glob("*/mesh.json"))
+    json_matches = sorted(mesh_cache.glob("??/*/mesh.json"))
     assert json_matches, "Missing mesh.json"
     digests["mesh_json"] = _sha256_of(json_matches[0])
 

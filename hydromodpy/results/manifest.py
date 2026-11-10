@@ -57,6 +57,7 @@ from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
     RUN_MANIFEST_FILENAME,
+    RUN_PRODUCTS_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SCRATCH_ENTRIES,
@@ -384,6 +385,7 @@ _ARTEFACT_ROLES: dict[str, str] = {
     RUN_RESOLVED_CONFIG_FILENAME: "config_resolved",
     RUN_PROVENANCE_FILENAME: "provenance",
     RUN_MANIFEST_FILENAME: "manifest",
+    RUN_PRODUCTS_FILENAME: "products",
 }
 
 
