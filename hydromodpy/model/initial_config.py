@@ -229,8 +229,7 @@ class FlowICSpinupCyclic(_FlowICBase):
         description=(
             "Repeat the simulated period, each cycle starting from the state the "
             "previous one ended on, until the head field stops moving. The cycle carries "
-            "the heads only, so a declared lake is refused: its stage would start again "
-            "from initial_stage at each cycle. Beside a soil reservoir that settles on "
+            "the heads and the stage of each declared lake. Beside a soil reservoir that settles on "
             'its first year (spinup = "first_year"), the soil and the heads start from '
             "states computed over two windows. That pair is allowed without a warning, "
             "because it is sometimes what the study wants."

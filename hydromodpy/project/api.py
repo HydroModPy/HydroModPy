@@ -3,7 +3,8 @@
 Today the module holds ``check``, the verb that says what is wrong with a
 configuration, and what is not written yet, before anything runs. It takes a
 document in memory or a file, reads nothing it was not given, and gives back
-every :class:`~hydromodpy.core.diagnostic.Diagnostic` at once.
+every :class:`~hydromodpy.core.diagnostic.Diagnostic` at once. It also holds
+``stop``, which writes the stop flag of a running run or calibration session.
 """
 
 from __future__ import annotations
@@ -18,6 +19,9 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.config.loading import MEMORY_NEEDS_BASE
 from hydromodpy.core.diagnostic import Diagnostic
+from hydromodpy.core.exceptions import ConfigMissingError, NothingThereError
+from hydromodpy.core.state.layout import RUNS_DIRNAME
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.error_locator import locate_loc
 from hydromodpy.core.toml_io.loader import (
     ChainFile,
@@ -33,6 +37,8 @@ from hydromodpy.project.launch.sites.expansion import (
     find_sites_file,
 )
 from hydromodpy.project.launch.sites.issues import group_diagnostics
+from hydromodpy.results.session.descriptor import resolve_session_dir
+from hydromodpy.results.storage.attempt import request_stop, run_dir_for_name
 from hydromodpy.workflow.dispatch import (
     WorkflowError,
     check_workflow_name,
@@ -342,4 +348,57 @@ def _with_lines(found: Sequence[Diagnostic], text: str) -> list[Diagnostic]:
     return placed
 
 
-__all__ = ["PathLike", "check"]
+def stop(ref: str, *, workspace: PathLike | None = None) -> Path:
+    """Ask a running run or calibration session to stop, and return its flag.
+
+    The call writes ``<run or session>/.hmp/stop.json`` and returns at once,
+    without waiting. The run reads the flag between two steps, between two runs
+    of its plan, and, through ``libmf6`` or Boussinesq, between two time steps.
+    It then ends ``aborted`` with ``StopRequested``, and ``hmp.run(...,
+    resume=ref)`` takes it up from the step it stopped in. A calibration session
+    reads it between two batches of trials.
+
+    Parameters
+    ----------
+    ref
+        A run of the project, ``<name>[.vN]`` or ``runs/<name>[.vN]`` (a bare
+        name is its latest version), or a calibration session,
+        ``sessions/<case>[.vN]``. A bare name is looked for among the runs first.
+    workspace
+        The project directory, or a folder inside it. Defaults to the
+        current working directory.
+
+    Returns
+    -------
+    pathlib.Path
+        The flag written, ``<dir>/.hmp/stop.json``.
+
+    Raises
+    ------
+    hydromodpy.core.exceptions.NothingThereError
+        If ``ref`` names no run and no session, or one that is not running.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.stop("baseline_w3", workspace="~/ws/projects/my_project")  # doctest: +SKIP
+    """
+    start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
+    root = resolve_project_root(start)
+    prefix = f"{RUNS_DIRNAME}/"
+    name = ref[len(prefix) :] if ref.startswith(prefix) else ref
+    directory = None if "/" in name else run_dir_for_name(root, name)
+    if directory is None and not ref.startswith(prefix):
+        try:
+            directory = resolve_session_dir(root, ref)
+        except ConfigMissingError:
+            directory = None
+    if directory is None:
+        raise NothingThereError(
+            f"{ref!r} names no run and no calibration session under {root}, "
+            "there is nothing to stop."
+        )
+    return request_stop(directory)
+
+
+__all__ = ["PathLike", "check", "stop"]

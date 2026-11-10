@@ -9,6 +9,7 @@ from typing import Any
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
+from hydromodpy.data.provenance.lockfile import LockedInputs
 from hydromodpy.data.source.file import FileSource
 from hydromodpy.data.source.port import FetchRequest
 from hydromodpy.data.source.url import UrlSource
@@ -41,13 +42,15 @@ def resolve_inputs(
     *,
     bounds: Bounds | None = None,
     data_dir: Path | None = None,
+    locked: LockedInputs | None = None,
 ) -> ResolvedInputs:
     """Resolve file and url sources of each data section into FileRecords before run registration.
 
     Each file source goes through :class:`FileSource`, so ``bounds.allowed_roots``
     holds for every section and not only for the DEM. Each url source fills the
     cache under ``bounds``. The DEM goes through its own resolver, whose refusals
-    reach the caller.
+    reach the caller. *locked* is the lockfile of a frozen run: a file or url source
+    the lockfile does not pin is refused, and ``None`` is a run that is not frozen.
     """
     from hydromodpy.data.variables.dem.resolver import resolve_dem
 
@@ -78,7 +81,7 @@ def resolve_inputs(
                     if path_val:
                         p = Path(path_val)
                         resolved_path = (project_root / p).resolve() if not p.is_absolute() else p
-                        fs = FileSource(path=resolved_path)
+                        fs = FileSource(path=resolved_path, locked=locked)
                         fs.section = var_name
                         fs.variables = (var_name,)
                         req = FetchRequest(out_dir=out_dir, bounds=effective_bounds)
@@ -90,7 +93,9 @@ def resolve_inputs(
                     if url_val:
                         sha256_val = getattr(src, "sha256", None)
                         license_val = getattr(src, "license", None)
-                        us = UrlSource(url=url_val, sha256=sha256_val, license=license_val)
+                        us = UrlSource(
+                            url=url_val, sha256=sha256_val, license=license_val, locked=locked
+                        )
                         us.section = var_name
                         us.variables = (var_name,)
                         req = FetchRequest(out_dir=out_dir, bounds=effective_bounds)

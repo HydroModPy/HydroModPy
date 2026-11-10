@@ -91,7 +91,19 @@ class SetupContext:
     # What a calibration trial asks of the slot of each run. None outside a trial.
     slot_request: SlotRequest | None = None
     run_id: str = "default"
+    # The grid of the periods this run solves: the whole simulation, or one
+    # window of a chain (``core.time.window.window_grid``).
     time_grid: Any = None
+    # The grid of the whole simulation. The data and the soil reservoir run on it
+    # in every window of a chain, so each window sees the forcing of the run in
+    # one piece. ``None`` outside a chain, where ``time_grid`` is the whole one.
+    whole_time_grid: Any = None
+    # The window of the chain this run solves (``core.time.window.ChainWindow``),
+    # ``None`` for a run that is not a window.
+    chain_window: Any = None
+    # The frozen inputs of the run (``data.provenance.lockfile.LockedInputs``), read
+    # once by the runner when the request is frozen. ``None`` for an unfrozen run.
+    locked_inputs: Any = None
     # The DEM file record of the run (data.records FileRecord), set by the setup
     # step from [[data.dem.sources]]. None for a synthetic domain.
     dem_record: Any = None

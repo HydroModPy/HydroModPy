@@ -12,9 +12,11 @@ from hydromodpy.results import run_identity
 from hydromodpy.results.checks import Checks, Validity
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.run_identity import label_of
+from hydromodpy.results.run_identity import declared_start_tokens, label_of
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.validity_rules import (
+    CYCLIC_LAKE_START,
+    RESTART_START,
     ValidityRules,
     known_issues_hitting,
     label_for,
@@ -243,10 +245,10 @@ def _a_known_token(token: str, allowed: set[str]) -> bool:
     return token in allowed
 
 
-def test_every_register_token_names_a_real_solver_mesh_engine_or_source():
+def test_every_register_token_names_a_real_solver_mesh_engine_source_or_start():
     solvers = set(solver_registry.solvers.names("flow"))
     engines = set(mesh_registry.mesh_engines.names(shipped_only=True))
-    allowed = {"metrics"}
+    allowed = {"metrics", RESTART_START, CYCLIC_LAKE_START}
     allowed |= {f"{kind}@{solver}" for kind in ("heads", "fluxes") for solver in solvers}
     allowed |= {f"mesh@{engine}" for engine in engines}
 
@@ -351,3 +353,28 @@ def test_the_label_carries_the_rule_version_a_reader_can_cite():
         .label
         == "calibrated"
     )
+
+
+LAKE = "[flow.sinks_sources.lakes.pond]\nstage = 1.0\n"
+CYCLIC = '[flow.ic.h]\nkind = "spinup_cyclic"\n'
+
+
+@pytest.mark.parametrize(
+    ("config", "tokens"),
+    [
+        ('[flow]\nrestart_from = "runs/spin"\n', (RESTART_START,)),
+        (CYCLIC + LAKE, (CYCLIC_LAKE_START,)),
+        (CYCLIC + "[flow.sinks_sources.lakes]\n", ()),
+        ('[flow.ic.h]\nkind = "top"\n' + LAKE, ()),
+        ("[simulation]\n", ()),
+    ],
+)
+def test_a_start_token_names_only_the_starts_a_fix_moved(config, tokens):
+    assert declared_start_tokens(config) == tokens
+
+
+def test_a_restart_bug_declasses_a_restarted_run_and_not_a_plain_one():
+    plain = {i.id for i in known_issues_hitting("2.0.0a5", MF6)}
+    restarted = {i.id for i in known_issues_hitting("2.0.0a5", (*MF6, RESTART_START))}
+    assert "restart_read_the_rounded_head" not in plain
+    assert "restart_read_the_rounded_head" in restarted

@@ -98,6 +98,8 @@ calibration files of example 04 and to the Python API. {doc}`many-catchments` ru
 model on a table of catchments, and {doc}`cluster` on a Slurm cluster. {doc}`share-a-simulation`
 hands a run or a project, with its data, to a colleague. {doc}`../how-to/use-your-own-files`
 explains how to bring your own local files or remote URLs into a project.
+{doc}`../how-to/long-transient-runs-in-windows` cuts a long run into windows that are sealed one by one,
+stops it and starts it again.
 
 Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
 
@@ -109,6 +111,7 @@ Concepts <concepts>
 The staircase <staircase/index>
 After the staircase <staircase/next>
 Use your own files <../how-to/use-your-own-files>
+Long transient runs in windows <../how-to/long-transient-runs-in-windows>
 Calibrate on a network and a discharge <calibrate-k>
 Many catchments <many-catchments>
 On a cluster <cluster>

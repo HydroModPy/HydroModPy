@@ -273,6 +273,7 @@ OUTPUTS: tuple[Output, ...] = (
         "config_hash",
         "exports",
         "figures",
+        "profile",
         "zarr_path",
         "zarr_exists",
         "zarr_groups",
@@ -321,6 +322,7 @@ OUTPUTS: tuple[Output, ...] = (
     ),
     _object("catalog import", "applied", "rel_dir", "name", "written", "unchanged", "next"),
     _object("catalog rerun", "applied", "source", "rel_dir", "sim_id"),
+    _object("stop", "ref", "flag"),
     # Reports and figures
     _object("report render", "path"),
     _object("report compare", "folder"),

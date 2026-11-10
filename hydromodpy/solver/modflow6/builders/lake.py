@@ -31,6 +31,7 @@ plain ``ValueError`` naming the offending TOML path, exactly as ``wells.py`` doe
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -38,7 +39,7 @@ import numpy as np
 from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.quantities import parse_to_per_s
-from hydromodpy.model.initial.state import PriorState
+from hydromodpy.model.initial.state import PriorState, SolvedState
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,
@@ -80,6 +81,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+LAK_STAGE_SUFFIX = ".lak.stage"
+"""The end of the binary file MODFLOW 6 writes the stage of each lake in, at every time step."""
 
 # CONNECTIONDATA claktype labels (FloPy passes these strings through to MF6).
 _VERTICAL = "VERTICAL"
@@ -494,11 +497,12 @@ def build_lak_package_args(
     laktab_specs: list[dict[str, Any]] = []
     lake_conn_info: list[dict[str, Any]] = []
 
-    # Hotstart: the prior run ([flow] restart_from) seeds each lake's initial
-    # stage from its last value, overriding initial_stage. Absent lake / older
-    # store -> empty map, so the initial_stage fallback below still applies.
+    # Hotstart: the prior run ([flow] restart_from) or the spin-up cycle before
+    # this one seeds each lake's initial stage from its last value, overriding
+    # initial_stage. Absent lake / older store -> empty map, so the
+    # initial_stage fallback below still applies.
     initial = model.inputs.initial
-    restart_stages = initial.lake_stages if isinstance(initial, PriorState) else {}
+    restart_stages = initial.lake_stages if isinstance(initial, PriorState | SolvedState) else {}
 
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         cell_ids = list(lake_cell_ids_by_lake.get(lake_id, []))
@@ -562,7 +566,9 @@ def build_lak_package_args(
         )
         initial_stage = definition.get("initial_stage")
         if lake_id in restart_stages:
-            strt = float(restart_stages[lake_id])
+            # Written with all its digits: the text FloPy makes of a float keeps
+            # eight decimals, which moves a lake by 2e-9 m between two windows.
+            strt = repr(float(restart_stages[lake_id]))
         elif initial_stage is not None:
             strt = _scalar(initial_stage)
         else:
@@ -607,7 +613,7 @@ def build_lak_package_args(
         "print_stage": True,
         "print_flows": True,
         "save_flows": True,
-        "stage_filerecord": f"{stem}.lak.stage",
+        "stage_filerecord": f"{stem}{LAK_STAGE_SUFFIX}",
         "budget_filerecord": f"{stem}.lak.cbc",
         "budgetcsv_filerecord": f"{stem}.lak.budget.csv",
     }
@@ -639,6 +645,63 @@ def build_lak_package_args(
     args["obs_continuous"] = obs_continuous
     args["lake_obs_meta"] = lake_obs_meta
     return args
+
+
+def read_final_lake_stages(stage_path: Path, lake_ids: Sequence[str]) -> dict[str, float] | None:
+    """Return the stage of each lake at the last time step, from a LAK stage file.
+
+    ``stage_path`` is the binary file ``stage_filerecord`` names, written in
+    double precision at every time step. ``lake_ids`` are the lakes in LAK
+    packagedata order, the order of the records. The stages come back with
+    every digit MODFLOW 6 computed, where the observation file keeps ten
+    significant digits. ``None`` when the file does not exist, which is a run
+    without a lake or a folder whose scratch is gone.
+    """
+    if not Path(stage_path).is_file():
+        return None
+    import flopy.utils.binaryfile as bf
+
+    stage_file = bf.HeadFile(str(stage_path), text="STAGE", precision="double")
+    try:
+        times = stage_file.get_times()
+        if not times:
+            return None
+        last = np.asarray(stage_file.get_data(totim=times[-1]), dtype=np.float64).reshape(-1)
+    finally:
+        stage_file.close()
+    if last.size != len(lake_ids):
+        raise ValueError(
+            f"{stage_path.name} holds {last.size} lake stage(s) and the model declares "
+            f"{len(lake_ids)} lake(s): {list(lake_ids)}."
+        )
+    return {str(lake): float(stage) for lake, stage in zip(lake_ids, last, strict=True)}
+
+
+def lake_ids_in_package_order(model) -> list[str]:
+    """Return the ids of the active lakes of ``model`` in LAK packagedata order, ``[]`` without one."""
+    return list(_active_lake_definitions(model))
+
+
+def apply_lake_stages(lak: Any, stages: Mapping[str, float]) -> None:
+    """Set the starting stage of each lake in the built LAK package ``lak``, all digits kept.
+
+    ``stages`` maps a lake id to its stage in metres. A lake absent from it
+    keeps its stage. The package names its lakes by boundname, which the
+    builder sets to the lake id. Each stage is written as ``repr`` of the
+    float, as ``build_lak_package_args`` does for a restart. FloPy casts a
+    string to the type of the column the package holds, a float of eight
+    decimals, so the column is made of objects first, which it writes as they are.
+    """
+    current = lak.packagedata.get_data()
+    names = list(current.dtype.names)
+    kinds = [(name, "O" if name == "strt" else current.dtype[name]) for name in names]
+    rows = [list(row) for row in current]
+    strt, boundname = names.index("strt"), names.index("boundname")
+    for row in rows:
+        lake_id = str(row[boundname])
+        if lake_id in stages:
+            row[strt] = repr(float(stages[lake_id]))
+    lak.packagedata.set_data(np.rec.fromrecords([tuple(row) for row in rows], dtype=kinds))
 
 
 def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:
@@ -795,10 +858,14 @@ def convert_bedleak_to_per_s(value: object, *, lake_id: str, unit: str | None = 
 
 
 __all__ = [
+    "LAK_STAGE_SUFFIX",
+    "apply_lake_stages",
     "build_lak_package_args",
     "build_lake_connectiondata",
     "build_lake_period_data",
     "build_lake_table",
     "convert_bedleak_to_per_s",
     "lake_definitions_for_bedleak",
+    "lake_ids_in_package_order",
+    "read_final_lake_stages",
 ]

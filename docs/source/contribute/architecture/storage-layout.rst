@@ -129,7 +129,8 @@ attempts of a case, and ``plan/`` keeps the immutable plans. None of them is und
 deleting the internals never empties the trash nor loses an attempt.
 
 **A run** ``.hmp/`` **is the state of the attempt in progress**: its solver scratch (``scratch/``),
-its file locks (``locks/``) and its step checkpoints (``checkpoints/``). It is outside the seal, never packaged and never published. The seal of
+its file locks (``locks/``), its step checkpoints (``checkpoints/``) and, while a stop is asked, its
+stop flag (``stop.json``). It is outside the seal, never packaged and never published. The seal of
 a ``completed`` run removes it. It is never touched on a ``failed``, ``aborted`` or ``stale`` run
 until a new attempt or a ``gc`` decides so, because the next attempt resumes from it.
 ``HMP_SCRATCH_ROOT`` (an environment variable, never an author key and never part of the config
@@ -153,8 +154,8 @@ Classes of artifacts
      - Sealed
      - Regenerable
    * - raw result
-     - ``fields.zarr/``, ``tables.parquet/``, ``config.toml``, ``config.resolved.toml``,
-       ``inputs.json``, ``provenance.json``, ``manifest.json``
+     - ``fields.zarr/``, ``final_state/``, ``tables.parquet/``, ``config.toml``,
+       ``config.resolved.toml``, ``inputs.json``, ``provenance.json``, ``manifest.json``
      - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
      - ``plan/<hash>/``
      - yes
@@ -196,7 +197,7 @@ Classes of artifacts
      - no
      - no
    * - diagnostic
-     - ``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``
+     - ``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``; ``profile.json``
      - ``logs/``
      - ``.hmp/logs/``
      - no
@@ -225,13 +226,15 @@ A run folder
    ├── manifest.json       the seal, written last
    ├── annotations.json    tags and notes, written after the seal
    ├── fields.zarr/        the array store
+   ├── final_state/        sealed: last head, lake and reach stages in float64, read by a restart and the next window
+   ├── profile.json        time and memory of each step, solve, figure and export; outside the seal and the identity
    ├── tables.parquet/     the tabular payloads
    ├── figures/            index.json + the figures of this run
    ├── exports/            index.json + the files of each [[export]]
    ├── report/             index.html
    ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per publication of this run; absent until published
-   ├── attempts/<n>/       outcome.json and logs/ of an earlier attempt; absent at the first
+   ├── attempts/<n>/       outcome.json, logs/ and stop.json of an earlier attempt; absent at the first
    ├── solver/             the solver folder, kept only with keep_solver_files = true
    ├── ro-crate-metadata.json, stac-item.json, prov.jsonld: views rendered from the seal
    └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
@@ -245,6 +248,29 @@ redacted: it holds the document, the ``set`` changes and the options exactly as 
 neither the base of the relative paths nor the environment of the call. A run given as a TOML file
 or as a built configuration writes none, because its ``config.toml`` already says what it was
 given. The file is outside the seal, so ``manifest.json`` does not list it.
+
+``final_state/`` is a Zarr 3 group in float64, written by the extractor of each flow solver when
+the solve is done: ``head`` shaped ``(nlay, ncpl)`` with NaN on inactive cells, ``lake_stage``
+with its ``lake_ids`` attribute when the run has lakes, ``sfr_stage`` with its ``reaches``
+attribute under SFR storage, and the attributes ``schema`` (``hydromodpy.final_state.v1``) and
+``at``, the end of the last period. It is sealed with the run. The head of ``fields.zarr`` may be
+rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m, so a restart and the next
+window of a chain read ``final_state/`` first, and the last step of ``fields.zarr`` only for a run
+of 2.0, which has none.
+
+``profile.json`` (schema ``hydromodpy.profile.v1``) holds one line per step, solve, figure and
+export: kind, name, attempt, start, duration, memory peak of the process, and whether the work was
+done, rebuilt from an earlier attempt (``prefix``) or read from the product store (``store``, with
+its key). The pipeline rewrites it after each step through one rename, so a stopped run keeps the
+profile of what it did, and a resume adds its lines under its own attempt. It describes one
+machine, so it is outside the seal and the identity. The wall time of the solve is there and in
+no table.
+
+A stop is asked by writing ``.hmp/stop.json`` (schema ``hydromodpy.stop.v1``, with ``at`` and
+``host``) in the run or session folder, through ``hmp stop`` or ``hmp.stop``. The run reads it
+between two steps, and the attempt ends ``aborted`` with ``StopRequested`` and no seal. A stopped
+run leaves its outcome, its journal, its partial stores and the flag. The next attempt files the
+flag under ``attempts/<k>/stop.json``, and a seal removes it with ``.hmp/``.
 
 ``outcome.json`` carries the ``request_id`` of the attempt, written as soon as the inputs are
 resolved. It is a sha256 and the field is optional, so an outcome written before the inputs are

@@ -32,8 +32,7 @@ from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.mesh.refinement_config import RUN_FIELDS
 from hydromodpy.model.flow_config import RestartReference
-from hydromodpy.model.initial.state import PriorState
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import InputEntry, is_sealed, read_manifest
 from hydromodpy.results.request_identity import (
     RESTART_KEY,
     ZONE_RUN_KEY,
@@ -43,9 +42,9 @@ from hydromodpy.results.request_identity import (
 from hydromodpy.results.run.field_envelope import read_run_field
 from hydromodpy.results.source_runs import source_run_id
 from hydromodpy.results.storage.attempt import run_dir_for_name
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, FINAL_STATE_DIRNAME
 from hydromodpy.results.storage.json_io import readable
-from hydromodpy.results.storage.prior_state import read_final_head, read_restart_lake_stages
+from hydromodpy.results.storage.prior_state import prior_state_at
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +59,43 @@ class RestartSource:
 
     rel_dir: str | None
     """``runs/<name>`` of the source run, for the lineage hint."""
+
+
+@dataclass(frozen=True, slots=True)
+class WindowSource:
+    """The sealed run window ``k - 1`` of a chain left, which window ``k`` starts from."""
+
+    run_dir: Path
+    """The run folder, whose ``final_state/`` holds the state."""
+
+    sim_id: str | None
+    """Id of that run, for the lineage of the window."""
+
+
+INITIAL_STATE_VARIABLE = "initial_state"
+"""The ``variable`` of the ``inputs.json`` row that names the source of a window."""
+
+
+def window_input_entry(project_root: Path, source: WindowSource) -> InputEntry:
+    """The ``inputs.json`` row of the state a window starts from.
+
+    The path is the ``final_state/`` of the source relative to the project, and
+    the digest the one of its :class:`~hydromodpy.model.initial.state.PriorState`
+    (:func:`~hydromodpy.results.request_identity.prior_state_digest`), which is also
+    the ``window_state`` of the request id of the window.
+    """
+    folder = Path(source.run_dir) / FINAL_STATE_DIRNAME
+    try:
+        path = folder.relative_to(project_root).as_posix()
+    except ValueError:
+        path = folder.as_posix()
+    state = prior_state_at(str(source.run_dir), sim_id=source.sim_id)
+    return InputEntry(
+        variable=INITIAL_STATE_VARIABLE,
+        provider="run",
+        path=path,
+        sha256=prior_state_digest(state),
+    )
 
 
 def resolve_restart_source(project_root: Path, reference: str | RestartReference) -> RestartSource:
@@ -95,9 +131,10 @@ def resolve_restart_source(project_root: Path, reference: str | RestartReference
 def source_state_digests(cfg: Any, project_root: Path) -> dict[str, str]:
     """Return ``{key: digest}`` of the state a run reads from each earlier run it names.
 
-    ``[flow] restart_from`` enters by the digest of its last head and its lake
-    stages, and each ``[[mesh.refinement_zone]]`` that reads a run by the digest
-    of the field it draws from it. The name of the run and its ``sim_id`` count
+    ``[flow] restart_from`` enters by the digest of the state it starts from, the
+    one :func:`~hydromodpy.results.storage.prior_state.read_prior_state` gives,
+    and each ``[[mesh.refinement_zone]]`` that reads a run by the digest of the
+    field it draws from it. The name of the run and its ``sim_id`` count
     for nothing: two runs that leave the same state give the same digest. The
     keys are those the request id replaces in the document
     (:data:`~hydromodpy.results.request_identity.RESTART_KEY`,
@@ -111,14 +148,7 @@ def source_state_digests(cfg: Any, project_root: Path) -> dict[str, str]:
     if reference:
         source = resolve_restart_source(project_root, reference)
         path = str(source.path)
-        found[RESTART_KEY] = prior_state_digest(
-            PriorState(
-                head=read_final_head(path),
-                lake_stages=read_restart_lake_stages(path),
-                path=path,
-                sim_id=source.sim_id,
-            )
-        )
+        found[RESTART_KEY] = prior_state_digest(prior_state_at(path, sim_id=source.sim_id))
     zones = getattr(getattr(cfg, "mesh", None), "refinement_zone", None) or ()
     for index, zone in enumerate(zones):
         if zone.run is None or zone.where not in RUN_FIELDS:
@@ -210,4 +240,12 @@ def _sim_id_of(run_dir: Path) -> str | None:
     return None if sim_id is None else str(sim_id)
 
 
-__all__ = ["RestartSource", "resolve_restart_source", "source_state_digests", "zone_run_ids"]
+__all__ = [
+    "INITIAL_STATE_VARIABLE",
+    "RestartSource",
+    "WindowSource",
+    "resolve_restart_source",
+    "source_state_digests",
+    "window_input_entry",
+    "zone_run_ids",
+]

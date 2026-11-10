@@ -19,6 +19,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.results.catalog.constants import UnrankedMetricError, metric_sense
+from hydromodpy.results.catalog.listing import SEALED_SOLVE_METRIC, solve_seconds
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.run.ranking import (
     clean_cell,
@@ -134,9 +135,6 @@ _FROM_INDEX: Final[tuple[str, ...]] = (
 
 _FROM_SESSION: Final[tuple[str, ...]] = ("started_at", "ended_at")
 """Columns of a calibration row read from its session, not from the promoted run."""
-
-FLOW_SOLVE_METRIC: Final[str] = "flow_solve_time_seconds"
-"""Metric of the seal holding the wall time of the flow solve."""
 
 SITE_HEAD_COLUMNS: Final[tuple[str, ...]] = (
     "site",
@@ -273,11 +271,14 @@ def by_case_table(
     *,
     parameters: Sequence[str],
     recipe_sets: Mapping[str, Mapping[str, Any]],
+    root: Path | None = None,
 ) -> pd.DataFrame:
     """Return one row per case: the plan joined to the latest run and session of each case.
 
     ``overrides`` is the ``set`` of the recipe of the case, with what
-    ``--set`` changed in the run on top.
+    ``--set`` changed in the run on top. ``root`` is the project the ``rel_dir``
+    of a run is relative to: with it the solve time is read from the
+    ``profile.json`` of the run, without it from the seal alone.
     """
     import pandas as pd
 
@@ -315,7 +316,7 @@ def by_case_table(
             row["mesh_engine"] = first_present(
                 fact.manifest.geometry.mesh_engine, row["mesh_engine"]
             )
-            row["flow_solve_time_s"] = _flow_solve_time(fact.manifest)
+            row["flow_solve_time_s"] = _flow_solve_time(fact.manifest, root, str(row["rel_dir"]))
         for name in metrics:
             row[name] = None if fact is None else fact.metrics.get(name)
         for name in parameters:
@@ -355,10 +356,18 @@ def _seconds_between(start: Any, end: Any) -> float | None:
     return max(0.0, (pd.Timestamp(end) - pd.Timestamp(start)).total_seconds())
 
 
-def _flow_solve_time(manifest: Manifest) -> float | None:
-    """Return the wall time of the flow solve the seal recorded, in seconds."""
+def _flow_solve_time(manifest: Manifest, root: Path | None, rel_dir: str) -> float | None:
+    """Return the wall time of the flow solve in seconds.
+
+    It is read from ``profile.json`` first. A run of HydroModPy 2.0 has none and
+    holds the time as a row of its seal, which is the floor of the reading.
+    """
+    if root is not None:
+        measured = solve_seconds(root / rel_dir)
+        if measured is not None:
+            return measured
     return next(
-        (row.value for row in manifest.metrics if row.metric == FLOW_SOLVE_METRIC),
+        (row.value for row in manifest.metrics if row.metric == SEALED_SOLVE_METRIC),
         None,
     )
 
@@ -482,7 +491,6 @@ def _any_sited_fact(
 __all__ = [
     "CASE_COLUMNS",
     "DATE_COLUMNS",
-    "FLOW_SOLVE_METRIC",
     "PLANNED_STATUS",
     "SITE_HEAD_COLUMNS",
     "SITE_PLACE_COLUMNS",

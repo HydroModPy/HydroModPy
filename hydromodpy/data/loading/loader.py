@@ -35,6 +35,7 @@ from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.provenance.lockfile import LockedInputs
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -47,15 +48,22 @@ class DataLoader:
     """Load data products for the resolved active variable families.
 
     The loader holds one :class:`DataStore` on the data folder of the run,
+    built with the ``locked`` lockfile when the run is frozen,
     resolves each configured variable section, applies the simulation time
     window when relevant, and stores loaded products on the workflow context.
     """
 
     def __init__(
-        self, *, config_path: str | Path, data_plan: DataLoadPlan, bounds: Any = None
+        self,
+        *,
+        config_path: str | Path,
+        data_plan: DataLoadPlan,
+        bounds: Any = None,
+        locked: LockedInputs | None = None,
     ) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
+        self.locked = locked
         self.bounds = bounds if bounds is not None else Bounds()
         self._store: DataStore | None = None
 
@@ -69,6 +77,7 @@ class DataLoader:
             data_root=data_root,
             workspace_root=workspace_paths.root,
             bounds=self.bounds,
+            locked=self.locked,
         )
 
     def _require_store(self) -> DataStore:
@@ -83,7 +92,7 @@ class DataLoader:
         try:
             workspace_paths = self._workspace_paths(result)
         except (AttributeError, ValueError):
-            self._store = DataStore(bounds=self.bounds)
+            self._store = DataStore(bounds=self.bounds, locked=self.locked)
             return
         self._init_store(workspace_paths)
 

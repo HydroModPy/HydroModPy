@@ -132,6 +132,7 @@ def step_data_loading(ctx: WorkflowContext) -> None:
         config_path=ctx.config_path,
         data_plan=data_plan,
         bounds=ctx.bounds,
+        locked=getattr(ctx.setup, "locked_inputs", None),
     )
     loader.load_all(ctx)
     check_run_gauge_area(
@@ -197,9 +198,11 @@ def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
 
 
 def _resolved_window(run_state: WorkflowContext):
-    resolved_grid = getattr(run_state.setup, "time_grid", None)
-    if resolved_grid is not None:
-        return resolved_grid.window
+    """The window the data load and the soil run on: the whole simulation, never one chain window."""
+    for name in ("whole_time_grid", "time_grid"):
+        resolved_grid = getattr(run_state.setup, name, None)
+        if resolved_grid is not None:
+            return resolved_grid.window
     return resolve_simulation_time_window(run_state.cfg)
 
 

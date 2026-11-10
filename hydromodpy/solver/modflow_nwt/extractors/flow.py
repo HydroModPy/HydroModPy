@@ -26,6 +26,7 @@ from hydromodpy.core.units.time import (
     CF_TIME_UNITS,
     cf_time_axis_seconds,
 )
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow_common.budget_components import (
@@ -40,6 +41,10 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar_to_store,
 )
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+    end_of_last_period,
+    final_state_head,
+)
 from hydromodpy.solver.modflow_common.period_steps import (
     budget_file_steps,
     group_steps_by_stamp,
@@ -212,6 +217,10 @@ class ModflowNwtOutputAdapter:
         The vertical layout, as ``[domain.layers]`` gives it, and the start date
         come from the ``Model`` of the run; the store keeps the layout on
         ``mesh/``. A run without a ``Model`` takes the default layout and no date.
+
+        The extraction ends by writing ``final_state/`` of the run folder: the
+        head of the last period, read in double precision, with the two
+        sentinels masked. MODFLOW-NWT has no lake or reach stage to keep.
         """
         import flopy.utils.binaryfile as bf
 
@@ -308,7 +317,22 @@ class ModflowNwtOutputAdapter:
                 stamp_keys=[(int(kstp), int(kper)) for kstp, kper in kstpkpers],
             )
 
+        final_head = final_state_head(
+            head_file.get_data(totim=times[-1]),
+            nlay=nlay,
+            n_cells=n_cells,
+            sentinels=(hdry, hnoflo),
+        )
         head_file.close()
+        write_final_state(
+            Path(store.run_dir_for(sim_id)),
+            FinalState(
+                head=final_head,
+                at=end_of_last_period(
+                    start_datetime, float(times[-1]) * seconds_per_itmuni(itmuni)
+                ),
+            ),
+        )
 
         self._write_surface_elevation(
             sim_id,

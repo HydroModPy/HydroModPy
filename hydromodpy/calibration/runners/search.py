@@ -106,6 +106,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
+from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.session.descriptor import (
     CostInterval,
@@ -1231,6 +1232,7 @@ def run_calibration_core(
         session_id=persistence.descriptor.session_id,
         on_iteration=on_iteration,
         on_stop=evaluator.close if isinstance(evaluator, TrialWorkerPool) else None,
+        stop_flag=stop_flag_for(persistence.directory),
     )
 
     t0 = time.perf_counter()

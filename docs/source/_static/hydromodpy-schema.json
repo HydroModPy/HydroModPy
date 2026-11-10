@@ -8278,7 +8278,7 @@
         "kind": {
           "const": "spinup_cyclic",
           "default": "spinup_cyclic",
-          "description": "Repeat the simulated period, each cycle starting from the state the previous one ended on, until the head field stops moving. The cycle carries the heads only, so a declared lake is refused: its stage would start again from initial_stage at each cycle. Beside a soil reservoir that settles on its first year (spinup = \"first_year\"), the soil and the heads start from states computed over two windows. That pair is allowed without a warning, because it is sometimes what the study wants.",
+          "description": "Repeat the simulated period, each cycle starting from the state the previous one ended on, until the head field stops moving. The cycle carries the heads and the stage of each declared lake. Beside a soil reservoir that settles on its first year (spinup = \"first_year\"), the soil and the heads start from states computed over two windows. That pair is allowed without a warning, because it is sometimes what the study wants.",
           "examples": [
             "spinup_cyclic"
           ],
@@ -21697,6 +21697,43 @@
           ],
           "title": "Coverage Policy",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "window_length": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calendar length of the windows a long transient run is cut into, written '<n> <unit>' with unit hour, day, month or year. The windows start at start_datetime and follow one another; the last one ends with the simulation and may be shorter. Every window edge must fall on a stress period end. Each window is a sealed run of its own, named after the run with _w1, _w2 and so on, that starts from the final state of the window before it. The forcings and the soil reservoir are computed over the whole simulation, so the chain gives the heads of the run in one piece. Absent, the run is one window.",
+          "examples": [
+            "1 year",
+            "6 months"
+          ],
+          "title": "Window Length",
+          "x-hmp-profile": "user"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "default": "all",
+          "description": "Which windows of window_length this launch plays. 'all' plays them one after the other and skips those already sealed with the same request. A number k, from 1, plays window k alone, which needs window k - 1 sealed first.",
+          "examples": [
+            "all",
+            2
+          ],
+          "title": "Window",
           "x-hmp-profile": "user"
         }
       },

@@ -208,6 +208,10 @@ class Modflow6FlowAdapter:
         On top of the shared lifecycle, the run carries the share of the asked
         pumping its wells delivered, as a metric, and whether the steady solve
         it started from converged, which the runner reads before a transport.
+        The wall time of the solve is ``solve_s``, set by the shared lifecycle.
+        With libmf6 the solve reads the stop flag of the slot at the end of each
+        time step. With the executable it never does, and the stop waits for the
+        solve to end.
         """
         result = run_flow_model(solver_run, solver_name=self.name)
         solver_model = result.solver_model

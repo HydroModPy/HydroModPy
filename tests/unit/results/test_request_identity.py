@@ -170,8 +170,17 @@ def test_the_roles_of_the_resolved_inputs_name_their_section() -> None:
     assert section_of_role("geology:inputs/geology.tif") is None
 
 
-def _state(head: np.ndarray, stages: dict[str, float], *, sim_id: str = "a", path: str = "p"):
-    return PriorState(head=head, lake_stages=stages, path=path, sim_id=sim_id)
+def _state(
+    head: np.ndarray,
+    stages: dict[str, float],
+    *,
+    sim_id: str = "a",
+    path: str = "p",
+    reaches: dict[int, float] | None = None,
+):
+    return PriorState(
+        head=head, lake_stages=stages, path=path, sim_id=sim_id, sfr_stages=reaches or {}
+    )
 
 
 HEAD = np.array([[1.0, np.nan, -0.0], [2.0, 3.0, 4.0]])
@@ -190,10 +199,45 @@ HEAD = np.array([[1.0, np.nan, -0.0], [2.0, 3.0, 4.0]])
         pytest.param(_state(HEAD, {"l2": 5.0}), False, id="another lake id"),
         pytest.param(_state(HEAD, {"l1": 5.5}), False, id="another stage"),
         pytest.param(_state(HEAD * 2, {"l1": 5.0}), False, id="another head"),
+        pytest.param(_state(HEAD, {"l1": 5.0}, reaches={0: 3.0}), False, id="a reach stage"),
     ],
 )
 def test_a_prior_state_is_hashed_by_what_a_run_reads(other: PriorState, same: bool) -> None:
     assert (prior_state_digest(other) == prior_state_digest(_state(HEAD, {"l1": 5.0}))) is same
+
+
+REACHES = {0: 3.0, 1: 2.5}
+
+
+@pytest.mark.parametrize(
+    ("other", "same"),
+    [
+        pytest.param(_state(HEAD, {}, reaches={1: 2.5, 0: 3.0}), True, id="any order"),
+        pytest.param(_state(HEAD, {}, reaches={0: 3.0, 2: 2.5}), False, id="another reach"),
+        pytest.param(_state(HEAD, {}, reaches={0: 3.0, 1: 2.6}), False, id="another stage"),
+        pytest.param(_state(HEAD, {}, reaches={0: 3.0}), False, id="one reach fewer"),
+    ],
+)
+def test_the_reach_stages_and_their_numbers_count(other: PriorState, same: bool) -> None:
+    assert (
+        prior_state_digest(other) == prior_state_digest(_state(HEAD, {}, reaches=REACHES))
+    ) is same
+
+
+def test_a_state_without_reach_stages_keeps_the_digest_it_had() -> None:
+    """The digest of 2.0 restarts, written out here, so their request_id does not move."""
+    import hashlib
+    import json
+
+    from hydromodpy.results.request_identity import array_digest
+
+    state = _state(HEAD, {"l1": 5.0})
+    before = hashlib.sha256()
+    before.update(json.dumps(["l1"]).encode("utf-8"))
+    before.update(b"\0")
+    before.update(array_digest({"head": HEAD, "lake_stages": np.array([5.0])}).encode("ascii"))
+
+    assert prior_state_digest(state) == before.hexdigest()
 
 
 def test_named_arrays_hash_alike_in_any_order_and_any_float_type() -> None:

@@ -64,7 +64,9 @@ def test_run_solver_step_uses_injected_launcher() -> None:
     assert called_plan is plan
     assert called_state is ctx
     assert callbacks is not None
-    assert out.get("wall_seconds") is not None
+    # The time of the solve is no key of the state: it goes to the profile of the run.
+    assert out.get("ctx") is ctx
+    assert "wall_seconds" not in RunSolverStep.writes
 
 
 def test_run_solver_step_hands_the_run_store_to_the_launcher(monkeypatch) -> None:

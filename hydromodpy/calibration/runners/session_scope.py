@@ -38,6 +38,12 @@ from hydromodpy.calibration.protocols import (
     deviations_in_force,
     get_protocol,
 )
+from hydromodpy.calibration.runners.document import (
+    metrics_window_of,
+    session_cost_name,
+    session_method,
+    site_name,
+)
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.promotion import (
     PromotionOutcome,
@@ -67,7 +73,12 @@ from hydromodpy.core.exceptions import (
     CalibrationError,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.runtime.interrupts import TerminationRequested, terminate_as_interrupt
+from hydromodpy.core.runtime.interrupts import (
+    StopRequested,
+    TerminationRequested,
+    terminate_as_interrupt,
+)
+from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
@@ -87,13 +98,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
-
-from hydromodpy.calibration.runners.document import (
-    metrics_window_of,
-    session_cost_name,
-    session_method,
-    site_name,
-)
 
 
 def keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
@@ -415,9 +419,9 @@ class SessionScope:
 def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     """Close the session of ``scope`` on every exit the runner did not close itself.
 
-    A signal (SIGTERM, SIGINT) writes ``aborted`` and the pointer first
-    (:func:`abort_session`), then promotes the pointed trial from its kept
-    solve (:func:`promote_best_after_abort`). An error of the search writes
+    A signal (SIGTERM, SIGINT) or a stop asked through the flag of the session
+    writes ``aborted`` and the pointer first (:func:`abort_session`), then
+    promotes the pointed trial from its kept solve (:func:`promote_best_after_abort`). An error of the search writes
     ``failed`` with its message. The kept solves and the scratch of the phase
     are released last, after the promotion that reads them.
     """
@@ -432,9 +436,7 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     except KeyboardInterrupt as exc:
         # TerminationRequested is a KeyboardInterrupt: SIGTERM and SIGINT alike.
         if scope.persistence is not None:
-            abort_and_promote(
-                scope, error="SIGTERM" if isinstance(exc, TerminationRequested) else "SIGINT"
-            )
+            abort_and_promote(scope, error=_interruption_error(exc))
         raise
     except Exception as exc:
         if scope.persistence is not None:
@@ -445,6 +447,19 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
             scope.persistence.stop_pulse()
         release_trial_solves(scope.trial_ctx)
         release_session_scratch(scope.trial_ctx)
+
+
+def _interruption_error(exc: KeyboardInterrupt) -> str:
+    """Name what interrupted a session, for the error of its descriptor.
+
+    A stop asked through the flag says when it was asked (``stop requested at
+    <date>``), and the descriptor keeps that sentence as its error. The flag
+    itself is removed when the session is reopened, because a session has no
+    ``attempts/<k>/`` folder to file it under.
+    """
+    if isinstance(exc, StopRequested):
+        return str(exc)
+    return "SIGTERM" if isinstance(exc, TerminationRequested) else "SIGINT"
 
 
 def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
@@ -567,6 +582,9 @@ def open_calibration_session(
             objective=objective,
         )
         persistence.resume_session()
+        # Reopening answers the stop that ended the session. The flag goes only once the
+        # reopening is allowed, so a session another process still writes keeps its flag.
+        stop_flag_for(session_dir).unlink(missing_ok=True)
         persistence.start_pulse()
         return persistence, True
     freeze_session_config(session_dir, raw, cfg)

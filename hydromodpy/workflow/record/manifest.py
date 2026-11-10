@@ -276,6 +276,21 @@ def config_sections_that_moved(before: Any, after: Any) -> tuple[str, ...]:
     )
 
 
+def config_sections_moved_since(run_dir: Path, config: BaseModel) -> tuple[str, ...]:
+    """Return the sections of *config* that differ from the one *run_dir* was launched on.
+
+    Both sides are dumped by this version's model, without the keys that only
+    observe the run, so a key added with its default since names nothing. A run
+    that kept no resolved configuration gives an empty tuple.
+    """
+    stored = read_resolved_config(run_dir)
+    if stored is None:
+        return ()
+    current = _strip_observability_keys(config.model_dump(mode="json", exclude_none=True))
+    before = _current_dump(stored)
+    return config_sections_that_moved(stored if before is None else before, current)
+
+
 def _step_divergence(recorded: Sequence[str], current: Sequence[str]) -> str | None:
     """Return why two step sequences diverge, or None when one is the other's prefix.
 
@@ -381,6 +396,7 @@ __all__ = [
     "RESOLVED_MANIFEST_FILENAME",
     "SCHEMA_VERSION",
     "ResolvedRunManifest",
+    "config_sections_moved_since",
     "config_sections_that_moved",
     "read_resolved_config",
     "resolved_config_path",

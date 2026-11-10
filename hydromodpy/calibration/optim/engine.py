@@ -46,6 +46,7 @@ from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any, Protocol
 
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
@@ -67,6 +68,7 @@ from hydromodpy.calibration.optim.stopping import (
 )
 from hydromodpy.core.exceptions import OptimizerError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
 from hydromodpy.results.checks import BUDGET_RULE, StopState, stop_text
 from hydromodpy.results.derive.stream.geometry import recharge_session
 
@@ -185,6 +187,15 @@ class CalibrationEngine:
     The workers of a pool are not on the terminal of the caller, so only this call
     reaches their solves. Without it a stop waits for the longest trial in flight.
     """
+    stop_flag: Path | None = None
+    """The stop flag of the session, ``<session>/.hmp/stop.json``, or ``None``.
+
+    The engine reads it before each ``ask``, so a stop asked from outside ends the
+    search between two batches of trials, the trials of the batch in flight
+    finished and journaled. :class:`~hydromodpy.core.runtime.interrupts.StopRequested`
+    leaves :meth:`run` as a ``KeyboardInterrupt`` does, and the session closes
+    ``aborted`` like it does on a signal.
+    """
     _live: bool = field(default=False, init=False, repr=False)
     """Whether the last batch was journaled trial by trial, as each one ended."""
 
@@ -288,6 +299,8 @@ class CalibrationEngine:
     ) -> tuple[bool, int]:
         """Ask and tell until *budget* is spent or the optimizer stops.
 
+        The stop flag is read before each ask, never inside a batch.
+
         Returns whether the optimizer ran out of suggestions, and the count of
         evaluations spent. Ran dry means more budget would buy nothing, so no
         extension is granted then. Only the evaluations the optimizer counts
@@ -301,6 +314,7 @@ class CalibrationEngine:
             traits = getattr(self.optimizer, "traits", DEFAULT_ENGINE_TRAITS)
             if self.parallel <= 1 or not traits.fixed_plan:
                 take = min(max(self.batch_size, self.parallel), take)
+            raise_if_stop_requested(self.stop_flag)
             suggestions = self.optimizer.ask(n=take)
             if not suggestions:
                 return True, n_done

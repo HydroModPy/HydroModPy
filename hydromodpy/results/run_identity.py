@@ -17,6 +17,8 @@ derived file. It reads the directory alone: no index, no workspace.
 
 from __future__ import annotations
 
+import tomllib
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -27,7 +29,13 @@ from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_facts import identity_of, read_facts
-from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
+from hydromodpy.results.validity_rules import (
+    CYCLIC_LAKE_START,
+    RESTART_START,
+    LabelResult,
+    label_for,
+    run_quantities,
+)
 from hydromodpy.schema.sources import declared_source_tokens
 
 
@@ -39,16 +47,44 @@ def read_sealed_manifest(run_dir: str | Path) -> Manifest | None:
     return read_seal(directory)
 
 
+def declared_start_tokens(config_text: str) -> tuple[str, ...]:
+    """Return the ``start@<kind>`` tokens of how a sealed ``config.toml`` starts its heads.
+
+    ``start@restart_from`` marks a run that starts from an earlier one by
+    ``[flow] restart_from``. ``start@spinup_cyclic_lake`` marks a cyclic spin-up
+    (``[flow.ic.h] kind = "spinup_cyclic"``) beside a declared lake
+    (``[flow.sinks_sources.lakes.<name>]``). The text is read as TOML alone,
+    whatever grammar wrote it.
+    """
+    flow = tomllib.loads(config_text).get("flow")
+    if not isinstance(flow, Mapping):
+        return ()
+    tokens = []
+    if flow.get("restart_from"):
+        tokens.append(RESTART_START)
+    ic = flow.get("ic")
+    head = ic.get("h") if isinstance(ic, Mapping) else None
+    sinks = flow.get("sinks_sources")
+    lakes = sinks.get("lakes") if isinstance(sinks, Mapping) else None
+    has_lake = isinstance(lakes, Mapping) and any(isinstance(v, Mapping) for v in lakes.values())
+    if isinstance(head, Mapping) and head.get("kind") == "spinup_cyclic" and has_lake:
+        tokens.append(CYCLIC_LAKE_START)
+    return tuple(tokens)
+
+
 def label_of(seal: Manifest | RunRecord, run_dir: str | Path) -> LabelResult:
     """Return the label of a sealed run today, under the shipped rules and register.
 
     *run_dir* is the folder of the run. A run has metrics for the register when its
     headline score holds a value, and a source for each one its sealed
-    ``config.toml`` declares. A run without that file declares none.
+    ``config.toml`` declares, and a start token for how its heads start. A run
+    without that file declares none.
     """
     score = seal.score
     config = Path(run_dir) / RUN_CONFIG_FILENAME
-    sources = declared_source_tokens(config.read_text(encoding="utf-8")) if config.is_file() else ()
+    text = config.read_text(encoding="utf-8") if config.is_file() else ""
+    sources = declared_source_tokens(text) if text else ()
+    starts = declared_start_tokens(text) if text else ()
     return label_for(
         seal.checks,
         hydromodpy_version=seal.identity.hydromodpy_version,
@@ -58,6 +94,7 @@ def label_of(seal: Manifest | RunRecord, run_dir: str | Path) -> LabelResult:
             has_metrics=score is not None and score.value is not None,
             derive_rule_version=seal.derive_rule_version,
             sources=sources,
+            starts=starts,
         ),
     )
 
@@ -103,4 +140,10 @@ def identity_of_run_dir(run_dir: str | Path, *, today: date | None = None) -> Id
     )
 
 
-__all__ = ["identity_of_run_dir", "label_of", "labelled_identity", "read_sealed_manifest"]
+__all__ = [
+    "declared_start_tokens",
+    "identity_of_run_dir",
+    "label_of",
+    "labelled_identity",
+    "read_sealed_manifest",
+]

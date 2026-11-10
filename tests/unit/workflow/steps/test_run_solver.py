@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -14,6 +15,7 @@ import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.solver.base import plan as plan_mod
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.workflow.state import PipelineState
@@ -38,6 +40,7 @@ def _ctx(*, persisted: bool, plan: Any = "PLAN", run_dir: Any = "/run") -> Simpl
     return SimpleNamespace(
         sim_id="sim-1",
         run_dir=run_dir,
+        attempt=1,
         execution=SimpleNamespace(simulation_plan=plan, lightweight=False, solver_runs={}),
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
@@ -81,16 +84,16 @@ def test_run_without_a_store_executes_the_plan_and_advances(
     assert out.step_name == "run_solver"
     assert out.step_index == 4
     assert out.get("ctx") is ctx
-    assert out.get("wall_seconds") >= 0
+    assert "wall_seconds" not in out.data, "the time of the solve is in profile.json, not the state"
 
 
 def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
-    monkeypatch: pytest.MonkeyPatch, store: _Store
+    monkeypatch: pytest.MonkeyPatch, store: _Store, tmp_path: Path
 ) -> None:
     run_a = SimpleNamespace(id=7)
     run_b = SimpleNamespace(id=8)
-    res_a = SimpleNamespace(output_dir=Path("/out/a"))
-    res_b = SimpleNamespace(output_dir=None)
+    res_a = SimpleNamespace(output_dir=Path("/out/a"), solve_s=1.5)
+    res_b = SimpleNamespace(output_dir=None, solve_s=None)
     metrics: list[Any] = []
     says: list[Any] = []
     refreshed: list[Any] = []
@@ -111,13 +114,51 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
         prepare_dispatch, "refresh_run_environment", lambda ctx, *, store: refreshed.append(store)
     )
     launcher = _Launcher([(run_a, res_a), (run_b, res_b)])
-    ctx = _ctx(persisted=True)
+    ctx = _ctx(persisted=True, run_dir=tmp_path)
     RunSolverStep(launcher=launcher).run(_state(ctx=ctx))
     assert launcher.calls[0]["store"] is None
     assert metrics == [(run_a, "sim-1", res_a), (run_b, "sim-1", res_b)]
     assert says == [(run_a, "sim-1"), (run_b, "sim-1")]
     assert store.facts.solver_output_dirs == {"7": "/out/a"}
     assert refreshed == [store]
+
+
+def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
+    monkeypatch: pytest.MonkeyPatch, store: _Store, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        plan_mod.RunContext, "of", lambda ctx, *, plan, run, store: SimpleNamespace(run=run)
+    )
+    monkeypatch.setattr(run_outputs, "record_run_execution_metrics", lambda **_: None)
+    monkeypatch.setattr(run_outputs, "record_what_the_model_says", lambda **_: None)
+    monkeypatch.setattr(prepare_dispatch, "refresh_run_environment", lambda ctx, *, store: None)
+    executed = [
+        (SimpleNamespace(id="flow"), SimpleNamespace(output_dir=None, solve_s=2.5)),
+        (SimpleNamespace(id="mesh"), SimpleNamespace(output_dir=None, solve_s=None)),
+        (SimpleNamespace(id="transport"), SimpleNamespace(output_dir=None, solve_s=0.5)),
+    ]
+    ctx = _ctx(persisted=True, run_dir=tmp_path)
+    ctx.attempt = 2
+    RunSolverStep(launcher=_Launcher(executed)).run(_state(ctx=ctx))
+
+    lines = read_profile(tmp_path).lines
+    assert [(line.kind, line.name, line.attempt, line.reused) for line in lines] == [
+        ("solve", "flow", 2, "no"),
+        ("solve", "transport", 2, "no"),
+    ]
+    assert [line.duration_s for line in lines] == [2.5, 0.5]
+    assert lines[1].started_at - lines[0].started_at == timedelta(seconds=2.5)
+
+
+def test_a_run_without_a_directory_writes_no_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run = SimpleNamespace(id="flow")
+    result = SimpleNamespace(output_dir=None, solve_s=1.0)
+    RunSolverStep(launcher=_Launcher([(run, result)])).run(
+        _state(ctx=_ctx(persisted=False, run_dir=None))
+    )
+    assert not list(tmp_path.iterdir())
 
 
 def test_run_with_a_store_tolerates_a_launcher_returning_nothing(
@@ -194,20 +235,17 @@ MESH = ProcessRun(id="mesh::catchment", process_id="mesh", process_type="mesh", 
 FLOW = ProcessRun(id="flow::fake", process_id="flow", process_type="flow", solver="fake")
 
 
-def test_rebuild_state_reads_runtime_and_output_dirs_from_the_facts(
+def test_rebuild_state_reads_the_output_dirs_from_the_facts(
     monkeypatch: pytest.MonkeyPatch, store: _Store, isolated_solvers
 ) -> None:
     isolated_solvers.solvers.register(fake_adapter("fake"))
-    store.facts.metrics = [
-        SimpleNamespace(variable="head", metric="rmse", value=9.0),
-        SimpleNamespace(variable="runtime", metric="duration_s", value=12.5),
-    ]
+    store.facts.metrics = [SimpleNamespace(variable="head", metric="rmse", value=9.0)]
     store.facts.solver_output_dirs = {FLOW.id: "/scratch/island", MESH.id: "/scratch/mesh"}
     ctx = _resumed_ctx(MESH, FLOW)
     out = RunSolverStep().rebuild_state(
         prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r"
     )
-    assert out.get("wall_seconds") == 12.5
+    assert "wall_seconds" not in out.data
     assert out.step_name == "run_solver"
     assert out.step_index == 4
 

@@ -108,7 +108,12 @@ def resolve_geographic_inputs(cfg: object, run_state: WorkflowContext) -> Path |
     # bounds of the call. Without one, they are resolved here, before the run is named.
     resolved = run_state.inputs
     if resolved is None:
-        resolved = resolve_inputs(cfg, bounds=run_state.bounds, data_dir=data_path)
+        resolved = resolve_inputs(
+            cfg,
+            bounds=run_state.bounds,
+            data_dir=data_path,
+            locked=getattr(run_state.setup, "locked_inputs", None),
+        )
     dem_record = resolved.dem
     run_state.setup.dem_record = dem_record
     crossings_resolver.fill_crossings_path(

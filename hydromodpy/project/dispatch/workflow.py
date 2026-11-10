@@ -23,6 +23,7 @@ which every calibration entry point asks before choosing a runner.
 from __future__ import annotations
 
 import dataclasses
+import functools
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from hydromodpy.project.request import RunOutcome, RunRequest
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.overview import OverviewResult
+    from hydromodpy.workflow.steps.prepare_solver.restart import WindowSource
 
 
 def run_overview(
@@ -382,7 +384,70 @@ def run_simulation(
     calibrated_by: Any = None,
     replay_of: Path | None = None,
 ) -> RunOutcome | None:
-    """Execute one attempt of a case, the worker verb.
+    """Execute a case, the worker verb: one run, or the windows of a chain one after the other.
+
+    A document with ``[simulation.time] window_length`` is cut into windows, each a run
+    of its own that :func:`run_single_simulation` plays
+    (:func:`hydromodpy.project.windows.run_windows`); the outcome of the last window
+    played comes back. The windows are counted with the ``set`` of the request
+    applied, as the runs solve them. The frozen configuration of a sealed run, and a
+    published copy, replay as one run: a window ``k > 1`` replays from the source its
+    ``inputs.json`` names. Every other document is one run, and the rest of this
+    docstring is about it.
+    """
+    from hydromodpy.workflow.replay_checks import sealed_run_of
+
+    root = Path(base).expanduser().resolve()
+    environment = _checked_environment(environment, root)
+    cfg = _loaded(request, root)
+    config_path = _source_path(request, root)
+    cut = getattr(getattr(cfg.simulation, "time", None), "window_length", None) is not None
+    source_run = replay_of or (None if config_path is None else sealed_run_of(config_path))
+    if cut and source_run is None:
+        from hydromodpy.project.windows import run_windows
+
+        return run_windows(
+            request,
+            cfg=_changed(cfg, request.set),
+            base=root,
+            environment=environment,
+            play=functools.partial(
+                run_single_simulation,
+                base=root,
+                environment=environment,
+                lineage=lineage,
+                calibrated_by=calibrated_by,
+            ),
+        )
+    window_source = None
+    if cut and source_run is not None:
+        from hydromodpy.project.windows import recorded_window_source
+
+        window_source = recorded_window_source(source_run, Path(cfg.workspace.project_root))
+    return run_single_simulation(
+        request,
+        base=root,
+        environment=environment,
+        lineage=lineage,
+        calibrated_by=calibrated_by,
+        replay_of=replay_of,
+        window_source=window_source,
+        cfg=cfg,
+    )
+
+
+def run_single_simulation(
+    request: RunRequest,
+    *,
+    base: str | Path,
+    environment: Environment | None = None,
+    lineage: Any = None,
+    calibrated_by: Any = None,
+    replay_of: Path | None = None,
+    window_source: WindowSource | None = None,
+    cfg: HydroModPyConfig | None = None,
+) -> RunOutcome | None:
+    """Execute one attempt of a case, the worker of one run.
 
     *request* carries the document of the case and the options that steer the run;
     *base* is the folder its relative paths are read from. The run is named by
@@ -406,15 +471,18 @@ def run_simulation(
     inputs checked already. ``lineage`` and ``calibrated_by`` are the blocks a
     promotion seals its run with. ``environment`` is the Environment of the call: only
     its bounds cross into the setup context, and ``None`` keeps the default of the
-    machine. Returns ``None`` for a window that owns no run record.
+    machine. ``window_source`` is the run window ``k - 1`` of a chain left, which window
+    ``k > 1`` starts from. ``cfg`` is the document of *request* when the caller loaded it
+    and checked the environment already. Returns ``None`` for a window that owns no run record.
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.state.names import check_name
     from hydromodpy.project import Project
 
     root = Path(base).expanduser().resolve()
-    environment = _checked_environment(environment, root)
-    cfg = _loaded(request, root)
+    if cfg is None:
+        environment = _checked_environment(environment, root)
+        cfg = _loaded(request, root)
     config_path = _source_path(request, root)
     run_name = request.resume or request.name or cfg.simulation.name
     if request.resume == "":
@@ -457,6 +525,7 @@ def run_simulation(
             calibrated_by=calibrated_by,
             frozen=frozen,
             skip_identical=plain_run,
+            window_source=window_source,
         )
         if result is None:
             return None

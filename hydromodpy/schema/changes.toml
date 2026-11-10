@@ -23,7 +23,9 @@
 #   value, the new value and the size of the change.
 # - quantities are the tokens a run exposes, as in results/validity_rules.py:
 #   "metrics", "heads@<solver>", "fluxes@<solver>", "mesh@<engine>", "derived@<v>",
-#   and "source@<section>_<source>" for each [[data.<section>.sources]] of its config.toml.
+#   "source@<section>_<source>" for each [[data.<section>.sources]] of its config.toml,
+#   "start@restart_from" for a run started by [flow] restart_from and
+#   "start@spinup_cyclic_lake" for a cyclic spin-up beside a declared lake.
 # - A path is dotted, with [*] for each table of a list and {*} for the tables under
 #   free names, as in the dotted paths of the TOML grammar.
 
@@ -142,13 +144,6 @@ old = "solver.backend.kind"
 new = "solver.backend"
 since = "2.1.0"
 rule = "flatten_the_backend_table"
-
-[[recipe]]
-id = "lake_refused_under_a_cyclic_start"
-since = "2.1.0"
-effect = "refusal"
-quantities = []
-text = "A file that declares an active lake and flow.ic.kind = \"spinup_cyclic\" is refused when it is read. The cycle carries the heads and not the lake stage, which started again from initial_stage at each cycle. Run hmp spinup, which carries both, then start from its result with flow.restart_from. A sealed run that holds the pair still reads, with a warning."
 
 [[recipe]]
 id = "keys_the_flow_solver_ignores_are_refused"
@@ -479,3 +474,38 @@ instead = 'The regional flow folder is the terrain product since 2.1.0. To reuse
 since = "2.1.0"
 sealed = "drop"
 rule = "drop_the_cache_switches"
+
+[[recipe]]
+id = "solve_time_leaves_the_tables"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The wall time of the solve is no longer a row of metrics.parquet nor of the seal. It is in profile.json, with the time of every step. A 2.0 run keeps its row, and show reads it."
+
+[[recipe]]
+id = "restart_head_written_exact"
+since = "2.1.0"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6"]
+text = "The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m."
+
+[[bug]]
+id = "restart_read_the_rounded_head"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["start@restart_from"]
+text = "A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision."
+
+[[bug]]
+id = "cyclic_spinup_restarted_the_lake"
+since = "2.1.0"
+versions = "<2.1.0"
+quantities = ["start@spinup_cyclic_lake"]
+text = "The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one."
+
+[[recipe]]
+id = "restart_reach_stage_under_sfr_storage"
+since = "2.1.0"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6"]
+text = "MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before."

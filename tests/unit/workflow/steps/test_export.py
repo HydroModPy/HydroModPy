@@ -35,6 +35,7 @@ from hydromodpy.results.storage.contract import (
     RUN_SOLVER_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing, step_cleanup_scratch
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
@@ -55,7 +56,7 @@ def sealed(tmp_path):
         run_dir.mkdir(parents=True, exist_ok=True)
         make_record(run=run, score=score).write(run_dir)
         return SimpleNamespace(
-            sim_id="0123456789abcdef", run_dir=run_dir, cfg=SimpleNamespace(export=[])
+            sim_id="0123456789abcdef", run_dir=run_dir, attempt=1, cfg=SimpleNamespace(export=[])
         )
 
     return make
@@ -116,7 +117,7 @@ def test_a_lightweight_run_never_opens_its_store(monkeypatch) -> None:
             workspace=SimpleNamespace(solver_scratch_folder=Path("/nonexistent/scratch")),
         ),
     )
-    state = PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx, "wall_seconds": 2.0})
+    state = PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx})
 
     export_module.ExportStep().run(state)
 
@@ -166,7 +167,7 @@ def test_the_run_recap_waits_for_the_export_phase_to_close(caplog, sealed) -> No
     caplog.set_level(logging.INFO, logger="hydromodpy")
     ctx = sealed()
     with progress.phase("seal"):
-        export_module.step_after_seal(ctx, wall_seconds=42.0)
+        export_module.step_after_seal(ctx)
         assert _recap_lines(caplog) == []
         get_logger("hydromodpy.test").info("views written")
     lines = _recap_lines(caplog)
@@ -185,20 +186,16 @@ def test_the_run_recap_prints_at_once_outside_a_phase(caplog, sealed) -> None:
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] nse=0.46"
 
 
-def test_the_recap_duration_is_the_seals_wall_time_not_the_solver_step_time(caplog, sealed) -> None:
-    """wall_seconds only times run_solver and undercounts the run.
-
-    The seal carries ``duration_s`` from ``started_at``/``ended_at``, the
-    figure the catalog reports; the recap prints that, not the solver timer.
-    """
+def test_the_recap_duration_is_the_seals_wall_time(caplog, sealed) -> None:
+    """The seal carries ``duration_s`` from ``started_at``/``ended_at``, the figure the catalog reports."""
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_after_seal(sealed(duration_s=26.0), wall_seconds=6.0)
+    export_module.step_after_seal(sealed(duration_s=26.0))
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 26s nse=0.46"
 
 
 def test_a_run_without_a_score_says_no_nse(caplog, sealed) -> None:
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_after_seal(sealed(nse=None), wall_seconds=3.0)
+    export_module.step_after_seal(sealed(nse=None))
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 42s"
 
 
@@ -358,6 +355,7 @@ def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
     return SimpleNamespace(
         sim_id="0123456789abcdef",
         run_dir=run_dir,
+        attempt=1,
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg), export=requests),
         execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=()), lightweight=False),
         setup=SimpleNamespace(run_id="run-1", workspace=None),
@@ -391,6 +389,8 @@ def test_the_export_step_writes_the_data_requests_only(monkeypatch, tmp_path: Pa
     )
 
     assert seen == [requests]
+    lines = read_profile(tmp_path).lines
+    assert [(line.kind, line.name, line.attempt) for line in lines] == [("export", "data", 1)]
 
 
 @pytest.mark.parametrize("keep", [False, True])
@@ -456,6 +456,7 @@ def test_the_views_are_written_after_the_seal_from_the_directory(tmp_path: Path,
     assert [entry.file for entry in Ledger.read(run_dir / "exports").entries] == [
         "crate/ro-crate-metadata.json"
     ]
+    assert [(line.kind, line.name) for line in read_profile(run_dir).lines] == [("export", "views")]
     announced = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Exported")]
     assert announced == [announced[0]]
     assert announced[0].startswith("Exported 1 file(s) -> ")

@@ -31,8 +31,9 @@ files has no extent to ask for. The helpers `extent_for`, `require_period` and
 
 The generic sources `file` and `url` both declare `payload_kind = "files"` and
 `selectors = ()`, asking for no extent and no station. A `file` source reads
-local files already on disk without caching, and in frozen mode it refuses a file
-that `hydromodpy.lock` does not pin by path and digest. An `url` source downloads
+local files already on disk without caching. A `FileSource` built with `locked`, the
+lockfile of a frozen run, refuses a file that `hydromodpy.lock` does not pin by path
+and digest, and one built without it reads any file. An `url` source downloads
 a remote file to fill the data cache, verified by a pinned sha256 or remote
 headers, and writes its sidecar through the `CacheIndex` it is given (by default
 the one of the parent of `out_dir`), so the file is a row of the cache.

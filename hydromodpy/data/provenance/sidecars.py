@@ -578,13 +578,20 @@ class CacheIndex:
     the same call. Without a data folder the index finds nothing and refuses
     to write.
 
+    *locked* is the lockfile of a frozen run, read once by the runner. With it,
+    :meth:`find` and :meth:`record` refuse what the lockfile does not pin. With
+    ``None`` the run is not frozen.
+
     The index notes the instant it opened and the rows it recorded itself.
     :meth:`subsume` uses both to leave alone a file another process wrote
     after that instant, which that process may still be reading.
     """
 
-    def __init__(self, data_root: Path | str | None) -> None:
+    def __init__(
+        self, data_root: Path | str | None, *, locked: frozen.LockedInputs | None = None
+    ) -> None:
         self.data_root = None if data_root is None else Path(data_root).expanduser().resolve()
+        self.locked = locked
         self._rows: dict[Path, CacheRow] | None = None
         self._report: ScanReport | None = None
         self._guard = threading.RLock()
@@ -686,6 +693,7 @@ class CacheIndex:
             ]
         if not candidates:
             frozen.reject_frozen_cache_miss(
+                self.locked,
                 data_root=self.data_root,
                 variable=variable,
                 source=source,
@@ -695,10 +703,11 @@ class CacheIndex:
         row = max(candidates, key=_newest_first)
         if row.empty:
             frozen.reject_frozen_empty(
-                variable=row.variable, source=row.source, station_id=row.station_id
+                self.locked, variable=row.variable, source=row.source, station_id=row.station_id
             )
         else:
             frozen.reject_frozen_row(
+                self.locked,
                 variable=row.variable,
                 source=row.source,
                 station_id=row.station_id,
@@ -832,6 +841,7 @@ class CacheIndex:
             raise DataCacheError(f"{target} is not a file, so it cannot be recorded.")
         digest = compute_sha256(target)
         frozen.reject_frozen_record(
+            self.locked,
             variable=variable,
             source=source,
             station_id=station_id,
@@ -899,6 +909,7 @@ class CacheIndex:
         """
         target = self._require_root(Path(path).parent) / Path(path).name
         frozen.reject_frozen_record(
+            self.locked,
             variable=variable,
             source=source,
             station_id=station_id,

@@ -347,6 +347,13 @@ needs one year to fill, and an aquifer that needs the mean of many years to reac
 A modeller who wants both states of one window runs `hmp spinup` over that window and starts from its
 result with {toml}`flow.restart_from`.
 
+Under {toml}`simulation.time.window_length` the reservoir still runs on the whole simulation, from its
+starting state, and each window takes its own periods of that run. `final_state/` keeps no soil
+state. This is possible because the reservoir never reads a head ({ref}`soil-limits`), so the soil
+of a window does not depend on the aquifer. The warm-up reads the first 365 days of the series, and
+the three stores and the runoff of the days before day 0 would have to be written and read again
+to give anything better. The windows of a chain share one soil product, computed once.
+
 ## Columns and capacity classes
 
 Without {toml}`data.soil_capacity`, each cell of the rain and ETP grid is one column with the same
@@ -376,6 +383,7 @@ assembly, and the search was not a systematic review.
 - One value of $\alpha$, $k_c$, $f$, $b$, $\tau$, CN, $\tau_q$ and $L$ holds for the catchment and the run.
 - Snow counts as rain on the day it falls, and the file is refused unless `components = ["total"]`.
 
+(soil-limits)=
 ## Limits
 
 - The soil never reads the water table, so a shallow water table does not reduce the capacity.

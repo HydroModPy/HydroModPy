@@ -43,10 +43,18 @@ class _RecordingStore:
 
     save_zarr = False
 
-    def __init__(self, sim_id: str = "sim") -> None:
+    def __init__(self, sim_id: str = "sim", *, run_dir: Path | None = None) -> None:
         self.sim_id = sim_id
+        self._run_dir = run_dir
         self.timeseries: list[dict] = []
         self.budgets: list[dict] = []
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        """The run folder the extractor writes ``final_state/`` in."""
+        del sim_id
+        if self._run_dir is None:
+            raise AssertionError("this store was built without a run folder")
+        return self._run_dir
 
     def write_time(self, sim_id, values, *, epoch=None, calendar=None, units=None) -> None:
         del sim_id, values, epoch, calendar, units
@@ -211,7 +219,7 @@ def test_lake_extractor_end_to_end_disv(tmp_path: Path) -> None:
     success, _buff = sim.run_simulation(silent=True)
     assert success, "MF6 single-lake DISV run did not converge"
 
-    store = _RecordingStore("sim-lake")
+    store = _RecordingStore("sim-lake", run_dir=tmp_path / "run")
     Modflow6OutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     station = lake_station_id("lac0")

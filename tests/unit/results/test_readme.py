@@ -6,6 +6,8 @@ import re
 from dataclasses import replace
 from datetime import UTC, date, datetime
 
+import pytest
+
 from hydromodpy.results.manifest import ManifestPeriod
 from hydromodpy.results.outcome import Outcome, OutcomeError
 from hydromodpy.results.readme import (
@@ -24,6 +26,7 @@ from hydromodpy.results.session.descriptor import (
     ScoredSamples,
 )
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
+from hydromodpy.results.storage.run_profile import Profile, ProfileLine
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
 from tests._helpers.run_records import NOW, WINDOW, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
@@ -95,6 +98,83 @@ def test_the_label_of_the_day_is_the_one_rendered(tmp_path):
     text = render_run_readme(record, None, result, manifest_sha256="0" * 64)
     assert "**exploratory** under rules 2." in text
     assert "known issues: mf6_computation_top" in text
+
+
+def _line(kind, name, seconds, *, attempt=1, reused="no", key=None, rss=None) -> ProfileLine:
+    return ProfileLine(
+        kind=kind,
+        name=name,
+        attempt=attempt,
+        started_at=NOW,
+        duration_s=seconds,
+        max_rss_mb=rss,
+        reused=reused,
+        key=key,
+    )
+
+
+def _replay_text(profile: Profile | None) -> str:
+    text = render_run_readme(make_record(), None, LABEL, manifest_sha256="0" * 64, profile=profile)
+    start = text.index("## Cost of a replay")
+    return text[start : text.index("## Where is what")].strip()
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        pytest.param(
+            (
+                _line("step", "build_mesh", 1.5, rss=400.0),
+                _line("step", "run_solver", 9.0, rss=900.0),
+                _line("solve", "flow_main::modflow6", 8.5),
+            ),
+            "A replay of this run computes 2 steps in 10.5 s, 8.5 s of it in the solve, "
+            "and needs up to 900 MiB of memory.",
+            id="one_attempt",
+        ),
+        pytest.param(
+            (
+                _line("step", "load_data", 1.0),
+                _line("step", "run_solver", 3.0),
+                _line("step", "load_data", 0.2, attempt=2, reused="prefix"),
+                _line("step", "run_solver", 9.0, attempt=2),
+                _line("solve", "flow_main::modflow6", 8.5, attempt=2),
+            ),
+            "A replay of this run computes 2 steps in 10.0 s, 8.5 s of it in the solve.",
+            id="a_resumed_run_counts_each_step_once_and_not_the_rebuilt_ones",
+        ),
+        pytest.param(
+            (_line("step", "build_mesh", 600.0), _line("step", "run_solver", 7500.0)),
+            "A replay of this run computes 2 steps in 2 h 15 min.",
+            id="hours",
+        ),
+        pytest.param(
+            (_line("step", "build_mesh", 90.0),),
+            "A replay of this run computes 1 step in 90.0 s.",
+            id="seconds_up_to_two_minutes",
+        ),
+        pytest.param(
+            (_line("step", "build_mesh", 130.0),),
+            "A replay of this run computes 1 step in 2 min.",
+            id="minutes",
+        ),
+    ],
+)
+def test_the_run_readme_says_what_a_replay_costs(lines, expected) -> None:
+    text = _replay_text(Profile(lines=lines))
+
+    assert expected in text
+    assert "`profile.json`, measured on the machine that ran it." in text
+
+
+def test_a_step_read_from_the_store_says_a_replay_on_an_empty_store_is_longer() -> None:
+    profile = Profile(lines=(_line("step", "build_geographic", 0.4, reused="store", key="t/ab"),))
+
+    assert "A replay on an empty store computes them too" in _replay_text(profile)
+
+
+def test_a_run_without_a_profile_says_a_replay_was_not_timed() -> None:
+    assert "This run has no `profile.json`, so a replay was not timed." in _replay_text(None)
 
 
 def test_write_readme_lands_atomically(tmp_path):

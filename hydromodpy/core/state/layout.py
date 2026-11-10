@@ -99,6 +99,13 @@ RUN_INTERNAL_LOCKS_DIRNAME = "locks"
 RUN_INTERNAL_CHECKPOINTS_DIRNAME = "checkpoints"
 """Step checkpoints of the attempt in progress, ``runs/<case>/.hmp/checkpoints/``."""
 
+STOP_FLAG_FILENAME = "stop.json"
+"""Stop flag of a run or a session in progress, ``<dir>/.hmp/stop.json``.
+
+It lives in ``.hmp/`` because it is no result: the seal removes it with the
+attempt state, and the next attempt files it under ``attempts/<k>/``.
+"""
+
 CATALOG_FILENAME = "index.duckdb"
 """Project index database living at ``<project>/.hmp/index.duckdb``."""
 
@@ -115,6 +122,11 @@ WORKSPACE_DATA_DIRNAME = "data"
 def internal_dir(project_root: Path) -> Path:
     """Return ``<project>/.hmp``, the disposable internals directory."""
     return Path(project_root) / INTERNAL_DIRNAME
+
+
+def stop_flag_for(directory: Path) -> Path:
+    """Return ``<dir>/.hmp/stop.json``, the stop flag of a run or a session folder."""
+    return Path(directory) / INTERNAL_DIRNAME / STOP_FLAG_FILENAME
 
 
 def catalog_path_for(project_root: Path) -> Path:
@@ -231,6 +243,7 @@ __all__ = (
     "RUN_INTERNAL_SCRATCH_DIRNAME",
     "SESSIONS_DIRNAME",
     "SITE_OVERRIDES_DIRNAME",
+    "STOP_FLAG_FILENAME",
     "SUMMARY_DIRNAME",
     "TOMBSTONES_FILENAME",
     "TRASH_DIRNAME",
@@ -247,6 +260,7 @@ __all__ = (
     "project_roots_under",
     "runs_dir_for",
     "sessions_dir_for",
+    "stop_flag_for",
     "summary_dir_for",
     "trash_dir_for",
 )

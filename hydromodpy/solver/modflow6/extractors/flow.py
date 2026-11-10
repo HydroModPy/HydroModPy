@@ -24,9 +24,12 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
+from hydromodpy.solver.modflow6.builders.lake import LAK_STAGE_SUFFIX, read_final_lake_stages
+from hydromodpy.solver.modflow6.builders.sfr import SFR_STAGE_SUFFIX, read_final_sfr_stages
 from hydromodpy.solver.modflow6.extractors.budget import extract_budget
 from hydromodpy.solver.modflow6.extractors.grid_check import (
     grb_geometry,
@@ -57,6 +60,10 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar_to_store,
 )
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+    end_of_last_period,
+    final_state_head,
+)
 from hydromodpy.solver.modflow_common.period_steps import (
     group_steps_by_stamp,
     period_mean_balance,
@@ -248,6 +255,12 @@ class Modflow6OutputAdapter:
         The files are found by the ``.hds`` in the output folder, never by the
         name of the slot: a rerun keeps the file names of the build it started
         from.
+
+        The extraction ends by writing ``final_state/`` of the run folder: the
+        last record of the head file read in double precision, the stage of
+        each lake from its stage file and, when SFR routes with storage, the
+        stage of each reach. The run or the window that starts from this one
+        reads it back.
         """
         import flopy.utils.binaryfile as bf
 
@@ -347,7 +360,10 @@ class Modflow6OutputAdapter:
                     seconds_per_time_unit=seconds_per_time_unit,
                 )
 
-            self._extract_lake_series(
+            final_head = final_state_head(
+                head_file.get_data(totim=times[-1]), nlay=nlay, n_cells=n_cells
+            )
+            lake_stages = self._extract_lake_series(
                 sim_id,
                 store,
                 solver_output_dir,
@@ -375,6 +391,19 @@ class Modflow6OutputAdapter:
         finally:
             head_file.close()
 
+        write_final_state(
+            Path(store.run_dir_for(sim_id)),
+            FinalState(
+                head=final_head,
+                lake_stages=lake_stages,
+                sfr_stages=_final_sfr_stages(solver_output_dir),
+                at=end_of_last_period(
+                    _read_start_datetime(tdis_path) or start_datetime,
+                    float(times[-1]) * seconds_per_time_unit,
+                ),
+            ),
+        )
+
         self._write_surface_elevation(
             sim_id,
             store,
@@ -397,7 +426,7 @@ class Modflow6OutputAdapter:
         time_units: str,
         seconds_per_time_unit: float,
         start_datetime: object | None = None,
-    ) -> None:
+    ) -> dict[str, float]:
         """Read the LAK obs CSV into per-lake (lake_id, totim) timeseries.
 
         Per-lake stage / volume / surface-area, the lake-aquifer exchange and the
@@ -407,10 +436,16 @@ class Modflow6OutputAdapter:
         ``_extract_budget``. Stage / volume / surface-area keep their native units;
         rate terms are scaled to m3/s. Without the sidecar the model has no lake
         and this is a no-op.
+
+        It returns the final stage of each lake, ``{}`` without a lake. They are
+        read from the binary stage file, in double precision, where the
+        observation file keeps ten significant digits, and from the series
+        only when the stage file is absent.
         """
         spec = read_lake_meta(solver_output_dir / f"{model_name}.lak.meta.json")
         if spec is None:
-            return
+            return {}
+        final_stages: dict[str, float] = {}
         with progress.status("Building lake timeseries"):
             obs_path = solver_output_dir / spec.obs_csv
             calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
@@ -446,6 +481,10 @@ class Modflow6OutputAdapter:
                         lake_zarr.close()
             if budgets:
                 store.write_budgets(sim_id, budgets)
+        lake_ids = [entry.lake_id for entry in spec.entries if entry.quantity == "stage"]
+        stage_files = sorted(solver_output_dir.glob(f"*{LAK_STAGE_SUFFIX}"))
+        exact = read_final_lake_stages(stage_files[0], lake_ids) if stage_files else None
+        return final_stages if exact is None else exact
 
     def _extract_lake_abacus(
         self,
@@ -790,6 +829,12 @@ class Modflow6OutputAdapter:
             return None
         vertices = np.column_stack([vertices_xy, np.zeros(vertices_xy.shape[0])])
         return vertices, connectivity
+
+
+def _final_sfr_stages(solver_output_dir: Path) -> dict[int, float]:
+    """Return the final stage of each reach, ``{}`` unless SFR routes with storage."""
+    stage_files = sorted(solver_output_dir.glob(f"*{SFR_STAGE_SUFFIX}"))
+    return read_final_sfr_stages(stage_files[0]) if stage_files else {}
 
 
 def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) -> None:

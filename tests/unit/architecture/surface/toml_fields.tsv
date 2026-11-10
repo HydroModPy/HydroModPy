@@ -1488,6 +1488,8 @@ simulation.time.start_datetime	datetime | None	None	stable
 simulation.time.step_unit	Literal['hour', 'day', 'month', 'year'] | None	None	stable
 simulation.time.step_value	int | float | str	'1 month'	stable
 simulation.time.substeps_per_period	int	1	stable
+simulation.time.window	int | Literal['all']	'all'	stable
+simulation.time.window_length	str | None	None	stable
 site	table | None	None	stable
 site.gauge	str | None	None	stable
 site.label	str | None	None	stable

@@ -95,6 +95,7 @@ def configure(
         support_provider_names,
     )
     from hydromodpy.model.forcing.soil_config import soil_reservoir_of
+    from hydromodpy.project.windows import cut_grid
     from hydromodpy.workflow.steps.data import log_data_plan
 
     raw_toml = _read_config(project, config, base=base, document=document, source=source)
@@ -103,7 +104,10 @@ def configure(
     project._solver = solver or detect_solver(project)
     _ensure_simulation_block(project)
 
-    project._time_grid = require_flow_simulation_time_grid(project._cfg)
+    whole_time_grid = require_flow_simulation_time_grid(project._cfg)
+    project._time_grid, chain_window = cut_grid(
+        whole_time_grid, getattr(project._cfg.simulation, "time", None)
+    )
 
     project._cfg.geographic = river_network_for_the_mesh(project._cfg)
 
@@ -137,6 +141,8 @@ def configure(
     )
     project._ctx.data_plan = data_plan
     project._ctx.setup.time_grid = project._time_grid
+    project._ctx.setup.whole_time_grid = whole_time_grid
+    project._ctx.setup.chain_window = chain_window
 
     project._environment = environment
     project._headless = headless

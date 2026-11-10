@@ -347,6 +347,55 @@ forcing of that period puts them. Example 04 states the regime:
 
 In the code: `sto_period_settings`.
 
+(gwf-windows)=
+### A long run in windows
+
+A long transient run can be cut into windows. {toml}`simulation.time.window_length` gives the
+length of a window as a calendar length, such as `"6 months"`, and {toml}`simulation.time.window`
+plays all the windows one after the other (`"all"`) or only window $k$. Each window is a run of its
+own, sealed with its own `final_state/`, and window $k$ starts from the final state of window
+$k-1$. A window edge must fall on the end of a stress period, because a period cut in two would be
+another problem than the one the run in one piece solves.
+
+```{hmp-params}
+simulation.time.window_length
+simulation.time.window
+```
+
+A chain is meant to give the same heads as the run in one piece, and it does when the state that
+passes from one window to the next is not changed on the way. I measured it on a transient
+MODFLOW 6 model of twelve monthly periods, five time steps each, on a grid of 25 by 25 convertible
+cells, with a variable recharge and a constant head on one edge, cut after six periods. The first
+window always equals the start of the run in one piece to the last bit. The second window differs
+from the end of the run in one piece by the size the start head was written at.
+
+| Start head of window 2 | Newton | Largest difference, window 2 |
+|---|---|---|
+| text, as FloPy writes it | no | 1.13e-9 m |
+| text, as FloPy writes it | yes | 1.14e-9 m |
+| binary, float64 | no | none, equal to the bit |
+| binary, float64 | yes | none, equal to the bit |
+
+HydroModPy reads `final_state/` in float64 and gives the head to MODFLOW 6 as a binary array of
+float64, so a chain of windows equals the run in one piece to the last bit. A lake stage is written
+with all its digits for the same reason. On a lake linked to the cells below it, a window that
+started again from `initial_stage` was 2.3e-2 m away in head and 3.6e-2 m in stage after six
+months, a stage written with eight decimals was 1.3e-9 m and 2.1e-9 m away, and a stage written
+with all its digits was equal to the bit.
+
+One case stays short of the last bit. With SFR and its `STORAGE` option, `final_state/` also
+keeps the stage of each reach and the next window gives it to MODFLOW 6 as `INITIALSTAGES`.
+Without it window 2 is 1.0e-4 m away in head and 1.0e-7 m in stage. With it the difference is
+6.4e-10 m in head and 9.0e-13 m in stage. MODFLOW 6 keeps a routing state of the reach beyond its
+stage, and nothing reads that state again. Writing the stage with 17 digits gives the same
+difference, so it does not come from the text.
+
+The starting heads of a computed start (`steady_state` and `spinup_cyclic`) are those of the run
+in one piece, and they apply to window 1 only. {toml}`flow.restart_from` is the start of window 1.
+The soil reservoir runs on the whole simulation, and each window takes its own periods of that
+run ({doc}`soil-reservoir`). A transport process and a backend that cannot restart from a state
+refuse a chain, and the file is refused when it is read.
+
 (gwf-start)=
 ## The starting heads
 
@@ -580,6 +629,7 @@ hydromodpy.solver.modflow_nwt.nwt
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
 | Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |
 | The Model a solver reads, and its variants | `hydromodpy/model/model.py` (`Model`, `steady_variant`, `cycle_variant`, `model_from_flow`) |
+| The windows of a chain | `hydromodpy/core/time/window.py` (`chain_windows`, `window_grid`), `hydromodpy/project/windows.py` (`run_windows`), `hydromodpy/results/storage/final_state.py` (`FinalState`) |
 | The starting heads | `hydromodpy/model/initial_config.py` (`initial_state_of`), `hydromodpy/model/initial/state.py` (the five states), `hydromodpy/model/initial/heads.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
 
 ## See also

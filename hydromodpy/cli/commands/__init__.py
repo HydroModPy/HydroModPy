@@ -25,6 +25,7 @@ from hydromodpy.cli.commands import (
     run,
     site,
     spinup,
+    stop,
     viz,
     workspace,
 )
@@ -45,6 +46,7 @@ ALL_COMMANDS = (
     run,
     calibrate,
     spinup,
+    stop,
     site,
     report,
     doctor,

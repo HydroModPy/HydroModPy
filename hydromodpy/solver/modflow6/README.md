@@ -16,7 +16,7 @@ MODFLOW 6 through FloPy: a GWF flow model, and GWT or PRT transport on the same 
 
 `modflow6` imports `base`, `modflow_common` and `modflow_grid`, never `modflow_nwt` or `boussinesq`.
 
-The start heads of a restart are read before the solve, by the `prepare_solver` step, into a `PriorState` on the model. The builder fills its inactive cells with the top of the grid and takes the lake stages from it.
+The start heads of a restart are read before the solve, by the `prepare_solver` step, into a `PriorState` on the model. The builder fills its inactive cells with the top of the grid and takes the lake stages from it. It writes the start head of a `PriorState` as a binary float64 array and its lake and reach stages with all their digits, so a chain of windows gives back the run in one piece to the bit. A cyclic spin-up starts each cycle from the final lake stages of the cycle before, and settles only when the heads and the lake stages have settled. The extractor writes `final_state/`, the last head in float64 and the last lake and reach stages, which the next run or window reads first. Through `libmf6` the run reads the stop flag of its slot at the end of each time step. Through the `mf6` executable it reads nothing, and the runner checks the flag after the solve.
 
 ## Rerun
 

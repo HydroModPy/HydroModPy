@@ -96,7 +96,7 @@ class TestSimulationGroup:
         monkeypatch.setattr(
             ProjectRunner,
             "_claim_documents",
-            lambda self, handle, request, cfg_run, workspace_path, *, name, skip_identical: (
+            lambda self, handle, request, cfg_run, workspace_path, *, name, skip_identical, window_source=None: (
                 "k",
                 None,
             ),

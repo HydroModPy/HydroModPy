@@ -22,6 +22,7 @@ from hydromodpy.config.cross_checks import (
     check_against_the_solver,
     coarse_conductivity_profile,
     refuse_a_transport_its_flow_does_not_feed,
+    refuse_a_window_chain_the_run_cannot_carry,
     refuse_an_export_that_cannot_be_written,
     refuse_the_contaminations,
     refuse_the_reads_the_flow_does_not_write,
@@ -432,12 +433,6 @@ def test_a_shipped_transport_whose_reads_the_shipped_flow_writes_passes_the_read
             {"flow": {"restart_from": "runs/a/fields.zarr", "ic": {"kind": "spinup_cyclic"}}},
             "flow.restart_from is set and flow.ic.kind = 'spinup_cyclic' computes",
         ),
-        (
-            "lake_under_a_cyclic_start",
-            {"flow": {"sinks_sources": {"lakes": {"lac": LAKE}}, "ic": {"kind": "spinup_cyclic"}}},
-            "flow.sinks_sources.lakes declares a lake and flow.ic.kind = 'spinup_cyclic' repeats "
-            "the run until the heads settle. The cycle carries the heads and not the lake stage",
-        ),
     ],
 )
 def test_each_contamination_is_refused_with_its_two_keys(
@@ -450,16 +445,14 @@ def test_each_contamination_is_refused_with_its_two_keys(
     assert fragment in str(excinfo.value)
 
 
-def test_the_lake_row_names_the_way_out(tmp_path: Path) -> None:
+def test_a_lake_under_a_cyclic_start_is_no_contamination(tmp_path: Path) -> None:
+    """Each cycle starts from the final lake stages of the cycle before, so the lake settles."""
     cfg = _load(tmp_path, {"flow": {"sinks_sources": {"lakes": {"lac": LAKE}}}})
     cyclic = _load(tmp_path, {"flow": {"ic": {"kind": "spinup_cyclic"}}})
     cfg = cfg.model_copy(update={"flow": cfg.flow.model_copy(update={"ic": cyclic.flow.ic})})
 
-    with pytest.raises(ValueError) as excinfo:
-        refuse_the_contaminations(cfg, sealed=False)
-
-    assert "Run hmp spinup, which carries both" in str(excinfo.value)
-    assert "flow.restart_from" in str(excinfo.value)
+    assert "lake_under_a_cyclic_start" not in CONTAMINATIONS
+    refuse_the_contaminations(cfg, sealed=False)
 
 
 @pytest.mark.parametrize(
@@ -473,8 +466,14 @@ def test_the_lake_row_names_the_way_out(tmp_path: Path) -> None:
                 "ic": {"kind": "spinup_cyclic"},
             }
         },
+        {"flow": {"sinks_sources": {"lakes": {"lac": LAKE}}, "ic": {"kind": "spinup_cyclic"}}},
     ],
-    ids=["restart-from-a-head-rule", "lake-from-a-steady-start", "switched-off-lake-cycled"],
+    ids=[
+        "restart-from-a-head-rule",
+        "lake-from-a-steady-start",
+        "switched-off-lake-cycled",
+        "lake-under-a-cyclic-start",
+    ],
 )
 def test_a_pair_that_does_not_spoil_loads(tmp_path: Path, extra: dict[str, Any]) -> None:
     _load(tmp_path, extra)
@@ -811,6 +810,7 @@ ORDER = (
     "refuse_a_native_step_finer_than_the_time_grid",
     "refuse_a_transport_its_flow_does_not_feed",
     "refuse_the_contaminations",
+    "refuse_a_window_chain_the_run_cannot_carry",
     "coarse_conductivity_profile",
     "refuse_the_soil_forcing_a_file_doubles_or_leaves_out",
     "refuse_a_soil_recharge_that_cannot_reach_the_streams",
@@ -1141,6 +1141,109 @@ ROWS: list[tuple[str, str, Any, str]] = [
         "no run can export export[0]: 'hed'",
     ),
 ]
+
+
+def _windowed(documents: SimpleNamespace, **time: Any) -> Any:
+    """The simulation of the soil document, two daily years, cut into windows of ``time``."""
+    held = documents.soil.simulation
+    return held.model_copy(update={"time": held.time.model_copy(update=time)})
+
+
+def _windowed_document(documents: SimpleNamespace, **sections: Any) -> SimpleNamespace:
+    return _document(
+        documents.soil, simulation=_windowed(documents, window_length="6 months"), **sections
+    )
+
+
+ROWS += [
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "steady",
+        lambda d: _windowed_document(d, flow=_soil_flow(d, flow_regime="steady")),
+        "flow.flow_regime is 'steady': a steady run has no period to cut",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "calibration",
+        lambda d: _windowed_document(d, workflow=_ns(mode="calibration")),
+        "workflow.mode = 'calibration' plays the whole simulation at every trial",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "transport",
+        lambda d: _document(
+            d.soil,
+            simulation=_windowed(d, window_length="6 months").model_copy(
+                update={"process": [_ns(id="nitrate", kind="transport", solvers=["modflow6"])]}
+            ),
+        ),
+        "the transport nitrate would start every window from its first concentration",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "edge inside a period",
+        lambda d: _document(d.soil, simulation=_windowed(d, window_length="36 hours")),
+        "puts a window edge at",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "steady first period averaged over the window",
+        lambda d: _windowed_document(d, flow=_soil_flow(d, first_period_steady=True)),
+        "gives the first period of window 1 the mean of "
+        "flow.sinks_sources.recharge.first_clim = 'mean' over the periods of that window",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "solver without restart",
+        lambda d: _windowed_document(
+            d, solver=d.soil.solver.model_copy(update={"backend": "modflow_nwt"})
+        ),
+        "the flow solver 'modflow_nwt' does not read an earlier state (prior_state)",
+    ),
+    (
+        "refuse_a_window_chain_the_run_cannot_carry",
+        "a later window alone without restart",
+        lambda d: _document(
+            d.soil,
+            simulation=_windowed(d, window_length="6 months", window=2),
+            solver=d.soil.solver.model_copy(update={"backend": "modflow_nwt"}),
+        ),
+        "does not read an earlier state (prior_state)",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("time", "backend"),
+    [
+        ({"window_length": "6 months"}, "modflow6"),
+        ({"window_length": "6 months", "window": 1}, "modflow_nwt"),
+        ({"window_length": "5 years"}, "modflow_nwt"),
+    ],
+    ids=["a chain on a solver that restarts", "window 1 alone", "one window"],
+)
+def test_a_window_chain_the_run_can_carry_passes(
+    documents: SimpleNamespace, time: dict[str, Any], backend: str
+) -> None:
+    document = _document(
+        documents.soil,
+        simulation=_windowed(documents, **time),
+        solver=documents.soil.solver.model_copy(update={"backend": backend}),
+    )
+
+    refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
+
+
+@pytest.mark.parametrize("first_clim", ["first", 2.0], ids=["first", "a number"])
+def test_a_steady_first_period_that_reads_no_mean_passes_a_chain(
+    documents: SimpleNamespace, first_clim: Any
+) -> None:
+    rates = _ns(recharge=_ns(first_clim=first_clim), etp=None)
+    document = _windowed_document(
+        documents, flow=_soil_flow(documents, first_period_steady=True, sinks_sources=rates)
+    )
+
+    refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
 
 
 def test_the_rows_here_and_the_solver_rows_are_the_table() -> None:

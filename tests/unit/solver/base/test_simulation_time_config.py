@@ -224,3 +224,55 @@ def test_simulation_mesh_process_rejects_solvers() -> None:
                 ],
             }
         )
+
+
+def _time(**extra: object) -> dict[str, object]:
+    return {
+        "start_datetime": "2020-01-01",
+        "end_datetime": "2020-12-31",
+        "step_value": "1 month",
+        **extra,
+    }
+
+
+def test_a_time_section_without_windows_is_one_window() -> None:
+    """The two keys are absent from every 2.0 document and their defaults give its run."""
+    cfg = SimulationConfig.model_validate({"name": "w", "time": _time(), "process": []})
+
+    assert cfg.time.window_length is None
+    assert cfg.time.window == "all"
+
+
+@pytest.mark.parametrize(
+    ("extra", "window_length", "window"),
+    [
+        ({"window_length": "6 months"}, "6 months", "all"),
+        ({"window_length": "1 year", "window": 2}, "1 year", 2),
+        ({"window_length": "30 days", "window": "all"}, "30 days", "all"),
+        ({"window": 1}, None, 1),
+    ],
+    ids=["length", "one window", "all", "one window of one"],
+)
+def test_the_windows_are_read_from_the_time_section(
+    extra: dict[str, object], window_length: str | None, window: object
+) -> None:
+    cfg = SimulationConfig.model_validate({"name": "w", "time": _time(**extra), "process": []})
+
+    assert (cfg.time.window_length, cfg.time.window) == (window_length, window)
+
+
+@pytest.mark.parametrize(
+    ("extra", "match"),
+    [
+        ({"window_length": "6"}, "window_length is a calendar length"),
+        ({"window_length": "2 weeks"}, "positive whole number"),
+        ({"window_length": "6 months", "window": 0}, "window is 'all' or a window number"),
+        ({"window_length": "6 months", "window": True}, "window is 'all' or a window number"),
+        ({"window_length": "6 months", "window": "last"}, "window is 'all' or a window number"),
+        ({"window": 2}, "window_length, which is not set"),
+    ],
+    ids=["bare number", "weeks", "zero", "boolean", "word", "window without length"],
+)
+def test_a_bad_window_is_refused_with_its_key(extra: dict[str, object], match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        SimulationConfig.model_validate({"name": "w", "time": _time(**extra), "process": []})

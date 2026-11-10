@@ -51,6 +51,7 @@ from hydromodpy.results.storage.contract import (
     RUN_INPUTS_FILENAME,
     RUN_LOGS_DIRNAME,
     RUN_MANIFEST_FILENAME,
+    RUN_PROFILE_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_REPORT_DIRNAME,
     RUN_RESOLVED_CONFIG_FILENAME,
@@ -60,6 +61,7 @@ from hydromodpy.results.storage.contract import (
     SESSION_TRIALS_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.run_profile import Profile
 from hydromodpy.results.validity_rules import LabelResult
 
 
@@ -102,8 +104,13 @@ def render_run_readme(
     label: LabelResult,
     *,
     manifest_sha256: str,
+    profile: Profile | None = None,
 ) -> str:
-    """Return the README of a sealed run."""
+    """Return the README of a sealed run.
+
+    ``profile`` is the ``profile.json`` of the run as it stands when the seal is
+    written, and gives the cost of a replay. ``None`` is a run that has none.
+    """
     run = record.run
     lines = [
         f"# {run.case_id}",
@@ -129,6 +136,7 @@ def render_run_readme(
     lines += _lineage_section(record)
     if outcome is not None:
         lines += _outcome_section(outcome)
+    lines += _replay_section(profile)
     lines += [
         "## Where is what",
         "",
@@ -455,6 +463,57 @@ def _outcome_section(outcome: Outcome) -> list[str]:
         lines.append(f"- {outcome.error.type}: {outcome.error.message}")
     lines.append("")
     return lines
+
+
+def _replay_section(profile: Profile | None) -> list[str]:
+    """Say what a replay of the run costs, from its profile.
+
+    Each step counts once, by its last line that was not rebuilt from an earlier
+    attempt, so a run that was stopped and resumed does not count the step it
+    was stopped in twice. The solve is the sum of the solve lines of the last
+    attempt that solved.
+    """
+    if profile is None:
+        return [
+            "## Cost of a replay",
+            "",
+            f"This run has no `{RUN_PROFILE_FILENAME}`, so a replay was not timed.",
+            "",
+        ]
+    computed = {
+        line.name: line
+        for line in profile.lines
+        if line.kind == "step" and line.reused != "prefix" and line.duration_s is not None
+    }
+    solves = [line for line in profile.lines if line.kind == "solve" and line.duration_s]
+    last = max((line.attempt for line in solves), default=None)
+    solve_s = sum(line.duration_s for line in solves if line.attempt == last)
+    total_s = sum(line.duration_s for line in computed.values())
+    peaks = [line.max_rss_mb for line in profile.lines if line.max_rss_mb is not None]
+    steps = f"{len(computed)} step" + ("" if len(computed) == 1 else "s")
+    text = f"A replay of this run computes {steps} in {_duration_text(total_s)}"
+    text += f", {_duration_text(solve_s)} of it in the solve" if solves else ""
+    text += f", and needs up to {max(peaks):.0f} MiB of memory." if peaks else "."
+    lines = ["## Cost of a replay", "", text]
+    if any(line.reused == "store" for line in computed.values()):
+        lines.append(
+            "Some steps were read from the project store. A replay on an empty store computes "
+            "them too and takes longer."
+        )
+    lines.append(
+        f"The times come from `{RUN_PROFILE_FILENAME}`, measured on the machine that ran it."
+    )
+    return [*lines, ""]
+
+
+def _duration_text(seconds: float) -> str:
+    """Return a duration for people: seconds under two minutes, then minutes, then hours."""
+    if seconds < 120:
+        return f"{seconds:.1f} s"
+    minutes = round(seconds / 60)
+    if minutes < 120:
+        return f"{minutes} min"
+    return f"{minutes // 60} h {minutes % 60:02d} min"
 
 
 def _to_wgs84(crs: str, x: float, y: float) -> tuple[float, float]:

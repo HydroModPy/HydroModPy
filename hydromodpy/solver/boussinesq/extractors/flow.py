@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import NothingThereError
@@ -15,6 +16,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import DOMAIN
 from hydromodpy.core.time.window import time_grid_start
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
@@ -104,6 +106,12 @@ class BoussinesqOutputAdapter:
         lumped budget table always holds every term. The start date comes from
         the ``Model`` of the run, and the VI runtime diagnostics go to the
         diagnostics folder of the store before the fields are read.
+
+        ``final_state/`` of the run folder takes the head of the last period.
+        It is read from the state history, which holds the float64 state the
+        solver ended on, so it is the same whether the solve ran in this
+        process or an earlier attempt left its files. The solver has no lake or
+        reach stage to keep.
         """
         sim_id = store.sim_id
         budget_terms = retention.budget
@@ -166,6 +174,20 @@ class BoussinesqOutputAdapter:
             ).reshape(n_timesteps, 1, n_cells)
             store.write_field_stack(sim_id, "head", head_stack)
 
+            write_final_state(
+                Path(store.run_dir_for(sim_id)),
+                FinalState(
+                    head=np.asarray(
+                        head_history[first + n_timesteps - 1], dtype=np.float64
+                    ).reshape(1, n_cells),
+                    at=(
+                        None
+                        if start_datetime is None
+                        else pd.Timestamp(start_datetime)
+                        + pd.to_timedelta(float(time_values[first + n_timesteps - 1]), unit="s")
+                    ),
+                ),
+            )
             self._persist_state_history(sim_id, store, payload)
             components = self._budget_components(
                 payload,

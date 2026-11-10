@@ -154,7 +154,6 @@ class BoussinesqFlowAdapter:
         slot: RunSlot,
         upstream: tuple[SolverRun, ...] = (),
     ) -> SolverRun:
-        del upstream
         """Build the Boussinesq solver of ``model`` in memory, under ``slot``.
 
         The layering is checked here: an assignment after the file was read, or a
@@ -163,6 +162,7 @@ class BoussinesqFlowAdapter:
         cell mesh, the domain and the profiles of the ``Model`` give. The solver
         creates its folder, ``slot.directory``, and nothing is solved.
         """
+        del upstream
         options = BoussinesqOptions() if options is None else options
         layers = getattr(getattr(model.geometry.domain, "config", None), "layers", None)
         if layers is not None and LAYERS not in self.supports and asks_for_layers(layers):
@@ -194,24 +194,24 @@ class BoussinesqFlowAdapter:
         reads into its folder. It has no input file to write, so ``input_files``
         stays empty. A solve that fails raises ``SolverDivergedError`` naming the
         run by its slot.
+
+        The solver reads the stop flag of the slot between two stress periods,
+        and ``solve_s`` is the wall time of the solve, which the solver measured.
         """
         solver_model = solver_run.solver_model
+        solver_model.stop_flag = solver_run.slot.stop_flag
         success = solver_model.processing(write_model=not solver_run.written, run_model=True)
         if not success:
             raise SolverDivergedError(
                 f"[HMPY.E401] Flow solver 'boussinesq' failed for run '{solver_run.slot.name}'. "
                 f"See {solver_model.full_path} for diagnostics."
             )
-        metrics: dict[str, float] = {}
-        flow_solve_time = getattr(solver_model, "last_flow_solve_time_seconds", None)
-        if flow_solve_time is not None:
-            metrics["flow_solve_time_seconds"] = float(flow_solve_time)
         return replace(
             solver_run,
             output_dir=Path(solver_model.full_path),
             written=True,
             solved=True,
-            metrics={**solver_run.metrics, **metrics},
+            solve_s=getattr(solver_model, "last_flow_solve_time_seconds", None),
         )
 
     def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:

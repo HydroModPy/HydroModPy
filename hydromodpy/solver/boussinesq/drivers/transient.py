@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
@@ -247,7 +248,12 @@ def _solve_steady_period(
 
 
 def run_transient_runtime(solver: Boussinesq) -> bool:
-    """Advance the head state over all launcher stress periods."""
+    """Advance the head state over all launcher stress periods.
+
+    The stop flag of the run, ``solver.stop_flag`` set by the adapter from the
+    slot, is read before each period, so a stop asked during the solve ends it
+    between two periods. A solver without a flag never stops.
+    """
     if solver.mesh is None:
         raise RuntimeError("Mesh must be built before running the runtime.")
     if solver.state is None:
@@ -292,7 +298,9 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     runtime_ts_step_diagnostics: list[dict[str, object]] = []
     last_residual_norm = 0.0
 
+    stop_flag = solver.stop_flag
     for kper, dt_seconds in enumerate(period_lengths):
+        raise_if_stop_requested(stop_flag)
         ocean_supported_cell_mask = np.asarray(
             ocean_supported_cell_masks[kper],
             dtype=bool,

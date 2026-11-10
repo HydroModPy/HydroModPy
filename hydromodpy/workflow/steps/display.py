@@ -22,16 +22,21 @@ downstream tooling/tests.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import Measure, measured
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.runner import record_measure
 from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.run import Run
 
@@ -44,12 +49,14 @@ def _render_figures_tracked(
     *,
     output_dir: Path,
     figure_names: list[str],
+    on_measure: Callable[[Measure], None] | None = None,
 ) -> list[Path]:
     """Render figures one at a time so the progress bar advances per figure.
 
     Individual figures log nothing on success (a skip or a per-figure failure
     warning aside); this emits a single summary line for the whole batch,
-    naming every requested figure that produced nothing.
+    naming every requested figure that produced nothing. ``on_measure`` receives
+    the time of each figure once it ends, a figure that failed included.
     """
     from hydromodpy.display.runs import (
         FigureRenderReport,
@@ -59,14 +66,17 @@ def _render_figures_tracked(
 
     report = FigureRenderReport()
     for figure_name in progress.track(figure_names, "Rendering figures"):
-        report = report.merged_with(
-            render_figures_for_run(
-                run,
-                display_cfg,
-                output_dir=output_dir,
-                figure_names=[figure_name],
+        with measured("figure", figure_name) as measure:
+            report = report.merged_with(
+                render_figures_for_run(
+                    run,
+                    display_cfg,
+                    output_dir=output_dir,
+                    figure_names=[figure_name],
+                )
             )
-        )
+        if on_measure is not None:
+            on_measure(measure)
     log_render_summary(report, destination=output_dir)
     return list(report.written)
 
@@ -152,6 +162,7 @@ class DisplayStep:
                         display_cfg,
                         output_dir=out_dir,
                         figure_names=list(display_cfg.figures),
+                        on_measure=partial(record_measure, ctx.run_dir, attempt=ctx.attempt),
                     )
                 if rendered:
                     logger.debug(

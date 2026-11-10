@@ -30,12 +30,14 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.quantities import parse_to_m_per_s
+from hydromodpy.model.initial.state import PriorState
 from hydromodpy.solver.modflow6.builders._sfr_bed import solve_reach_bed_profile
 from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,
@@ -399,6 +401,10 @@ def _terminal_reaches(network: ResolvedSfrNetwork, *, location: str) -> list[Sfr
 # --------------------------------------------------------------------------- #
 
 
+SFR_STAGE_SUFFIX = ".sfr.stage"
+"""The end of the binary file MODFLOW 6 writes the stage of each reach in, at every time step."""
+
+
 def build_sfr_package_args(
     model,
     *,
@@ -564,6 +570,13 @@ def build_sfr_package_args(
         args["perioddata"] = perioddata
     if definition.get("storage"):
         args["storage"] = True
+        # The stage of every reach at every time step, in double precision: the
+        # extractor takes the last one for ``final_state/``, which a later run or
+        # window hands back as INITIALSTAGES.
+        args["stage_filerecord"] = f"{stem}{SFR_STAGE_SUFFIX}"
+        initial_stages = _initial_stages(model, reaches, location=location)
+        if initial_stages:
+            args["initialstages"] = initial_stages
     if has_mover_records or external_mover:
         args["mover"] = True
     if ts_series:
@@ -572,6 +585,57 @@ def build_sfr_package_args(
     sfr_obs_meta["reaches"] = reach_geometry
     args["sfr_obs_meta"] = sfr_obs_meta
     return args
+
+
+def read_final_sfr_stages(stage_path: Path) -> dict[int, float]:
+    """Return the stage of each reach at the last time step, from an SFR stage file.
+
+    ``stage_path`` is the binary file ``stage_filerecord`` names, written in
+    double precision at every time step, one record per reach in ``ifno``
+    order. The stages come back with every digit MODFLOW 6 computed, keyed by
+    the reach number from 0. ``{}`` when the file does not exist, which is a
+    routing without storage.
+    """
+    if not Path(stage_path).is_file():
+        return {}
+    import flopy.utils.binaryfile as bf
+
+    stage_file = bf.HeadFile(str(stage_path), text="STAGE", precision="double")
+    try:
+        times = stage_file.get_times()
+        if not times:
+            return {}
+        last = np.asarray(stage_file.get_data(totim=times[-1]), dtype=np.float64).reshape(-1)
+    finally:
+        stage_file.close()
+    return {index: float(stage) for index, stage in enumerate(last)}
+
+
+def _initial_stages(model, reaches: Sequence[SfrReachRecord], *, location: str) -> list[list[Any]]:
+    """Return the INITIALSTAGES rows a restart gives the routing with storage, or ``[]``.
+
+    A ``PriorState`` that holds reach stages gives each reach the stage it ended
+    on. MODFLOW 6 keeps an internal state beyond the stage, so a chain is not
+    exact to the bit under SFR storage, but without the stages the second
+    window is 1e-4 m off in head and with them 6e-10 m. A stage is written with
+    all its digits, as the lake stages are. A prior state without reach stages,
+    a run that had no storage or no stream, gives none, and the reaches start
+    as the package says. Stages for another set of reaches are refused: they
+    would start each reach from the stage of another one.
+    """
+    initial = model.inputs.initial
+    if not isinstance(initial, PriorState) or not initial.sfr_stages:
+        return []
+    wanted = sorted(int(record.ifno) for record in reaches)
+    held = sorted(initial.sfr_stages)
+    if wanted != held:
+        raise ValueError(
+            f"{location} has {len(wanted)} reach(es) and the state to restart from holds the "
+            f"stage of {len(held)} reach(es), {held[:5]}{'...' if len(held) > 5 else ''}, "
+            f"where the network has {wanted[:5]}{'...' if len(wanted) > 5 else ''}. "
+            "Restart from a run of the same network."
+        )
+    return [[ifno, repr(float(initial.sfr_stages[ifno]))] for ifno in wanted]
 
 
 def _build_diversions(
@@ -637,6 +701,7 @@ def _sfr_output_stem(model) -> str:
 
 
 __all__ = [
+    "SFR_STAGE_SUFFIX",
     "ResolvedSfrNetwork",
     "SfrReachRecord",
     "build_drainage_mover_records",

@@ -33,6 +33,7 @@ VERBS = {
     "report",
     "run",
     "spinup",
+    "stop",
 }
 RAISED_BY_PATH = re.compile(r"^\s*hydromodpy\.[\w.]*\.(\w+Error)$", re.M)
 OBJECTS = {"Catalog", "HydroModPyConfig", "Project", "Run", "RunSet", "Session", "Workspace"}

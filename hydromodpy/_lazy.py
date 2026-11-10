@@ -272,6 +272,7 @@ before it."""
 
 LAZY_IMPORTS: dict[str, str] = {
     "check": "hydromodpy.project.api",
+    "stop": "hydromodpy.project.api",
     "Project": "hydromodpy.project",
     "Run": "hydromodpy.results.run",
     "RunSet": "hydromodpy.results.run.group",

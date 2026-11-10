@@ -57,11 +57,16 @@ class _FakeStore:
     # No field store: the extractor records no budget policy.
     save_zarr = False
 
-    def __init__(self) -> None:
+    def __init__(self, run_dir: Path) -> None:
+        self.run_dir = run_dir
         self.times = None
         self.fields: list = []
         self.budgets: list | None = None
         self.mass: list | None = None
+
+    def run_dir_for(self, sim_id: str) -> Path:
+        """The run folder the extractor writes ``final_state/`` in."""
+        return self.run_dir
 
     def write_time(self, sim_id, values, *, epoch=None, calendar=None, units=None) -> None:
         self.times = np.asarray(values)
@@ -168,7 +173,7 @@ def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str
     (tmp_path / "flow.tdis").write_text(
         f"BEGIN OPTIONS\n  TIME_UNITS {time_units}\nEND OPTIONS\n", encoding="utf-8"
     )
-    store = _FakeStore()
+    store = _FakeStore(tmp_path)
     Modflow6OutputAdapter().extract(solved_run(tmp_path), store, retention(BudgetKeep.of_terms(())))
     return store
 
@@ -194,7 +199,7 @@ def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
         _fake_cbc_factory({"DRN": np.array([5.0, -5.0])}),
         raising=True,
     )
-    store = _FakeStore()
+    store = _FakeStore(tmp_path)
     extract_budget(
         "sim",
         store,
@@ -238,7 +243,7 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
             return inc, None
 
     monkeypatch.setattr("flopy.utils.Mf6ListBudget", _FakeListBudget, raising=True)
-    store = _FakeStore()
+    store = _FakeStore(tmp_path)
     Modflow6OutputAdapter()._extract_mass_balance(
         "sim", store, tmp_path / "flow.lst", stamp_keys=[(0, 0)], seconds_per_time_unit=86400.0
     )
@@ -446,7 +451,7 @@ def test_mf6_transient_recharge_reads_back_m3_per_s(tmp_path) -> None:
     for grb in tmp_path.glob("*.grb"):
         grb.unlink()
 
-    store = _FakeStore()
+    store = _FakeStore(tmp_path)
     Modflow6OutputAdapter().extract(solved_run(tmp_path), store, keep_all)
 
     by_component_inflow: dict[str, float] = {}

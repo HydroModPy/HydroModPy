@@ -15,6 +15,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import HINT, MILESTONE
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
@@ -34,34 +35,34 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def step_after_seal(ctx: WorkflowContext, *, wall_seconds: float = 0.0) -> list[Path]:
+def step_after_seal(ctx: WorkflowContext) -> list[Path]:
     """Write the metadata views the ``[[export]]`` blocks ask for, then schedule the recap.
 
     Called right after the seal of the run: a view (STAC, RO-Crate, PROV)
     renders ``manifest.json`` and reads the directory alone. The recap is
     read from the seal and printed once the enclosing phase has printed its
-    checkmark, as the last lines of the run. Returns the views written.
+    checkmark, as the last lines of the run. Returns the views written. The
+    views are one ``export`` line of ``profile.json``.
     """
     from hydromodpy.results.exporters.request import export_views
+    from hydromodpy.workflow.runner import record_measure
 
     run_dir = Path(ctx.run_dir)
-    written = export_views(run_dir, list(ctx.cfg.export))
+    with measured("export", "views") as measure:
+        written = export_views(run_dir, list(ctx.cfg.export))
+    record_measure(run_dir, measure, attempt=ctx.attempt)
     _announce_exports(written)
-    lines = _run_epilogue_lines(ctx, run_dir=run_dir, wall_seconds=wall_seconds)
+    lines = _run_epilogue_lines(ctx, run_dir=run_dir)
     progress.after_phase(partial(_log_run_epilogue, lines))
     return written
 
 
-def _run_epilogue_lines(
-    ctx: WorkflowContext, *, run_dir: Path, wall_seconds: float
-) -> tuple[str, ...]:
+def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> tuple[str, ...]:
     """Best-effort self-teaching epilogue: identity card + next commands.
 
-    Read from ``manifest.json``, never from the index. ``wall_seconds`` only
-    covers the ``run_solver`` step, so it understates the run; the seal
-    carries ``duration_s`` from ``ended_at - started_at``, the figure
-    ``hmp catalog show`` reads. ``wall_seconds`` is the fallback of a seal
-    that has none.
+    Read from ``manifest.json``, never from the index. The seal carries
+    ``duration_s`` from ``ended_at - started_at``, the figure ``hmp catalog
+    show`` reads, and the epilogue says nothing of the duration when it has none.
     """
     from hydromodpy.results.run_identity import read_sealed_manifest
 
@@ -74,8 +75,7 @@ def _run_epilogue_lines(
     run_duration_s = manifest.run.duration_s if manifest is not None else None
     score = manifest.score if manifest is not None else None
     metric = f" nse={score.value:.2f}" if score is not None and score.value is not None else ""
-    duration_s = run_duration_s if run_duration_s is not None else wall_seconds
-    duration = f" {duration_s:.0f}s" if duration_s else ""
+    duration = f" {run_duration_s:.0f}s" if run_duration_s else ""
     return (
         f"Run completed: {name} [{sid[:8]}]{duration}{metric}",
         f"next: hmp catalog show {name} | hmp publish {name} --to <folder> "
@@ -204,13 +204,16 @@ class ExportStep:
         if plan is not None and ctx.sim_id is not None:
             from hydromodpy.results.exporters.request import export_data_requests
             from hydromodpy.solver.base.plan import RunContext
+            from hydromodpy.workflow.runner import record_measure
             from hydromodpy.workflow.steps.extract import retention_of
             from hydromodpy.workflow.steps.run_outputs import cleanup_solver_outputs
 
             retention = retention_of(ctx, plan)
             with run_store(ctx) as store:
                 # The data requests read the fields of the run, not its seal.
-                exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
+                with measured("export", "data") as measure:
+                    exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
+                record_measure(ctx.run_dir, measure, attempt=ctx.attempt)
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
@@ -295,7 +298,7 @@ class SealStep:
     """
 
     name = "seal"
-    reads: ClassVar[tuple[str, ...]] = ("ctx", "wall_seconds")
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ()
 
@@ -329,7 +332,7 @@ class SealStep:
             with run_store(ctx) as store:
                 record = seal_completed(store)
             logger.info("Run %s sealed: %s", record.run.name, ctx.run_dir)
-            step_after_seal(ctx, wall_seconds=float(state.get("wall_seconds", 0.0) or 0.0))
+            step_after_seal(ctx)
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,

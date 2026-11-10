@@ -25,6 +25,7 @@ from hydromodpy.display.catchment_report.simulation_source import (
     read_simulated_discharge,
     simulation_parquet_dir,
 )
+from hydromodpy.results.catalog.listing import SEALED_SOLVE_METRIC, solve_seconds
 
 logger = get_logger(__name__)
 
@@ -104,7 +105,7 @@ def build_context(inputs: CatchmentReportInputs, *, root: RootConfig | None) -> 
         "simulation_parquet": _rel(parquet_dir) if parquet_dir else None,
         "n_cells": n_cells,
         "n_timesteps": int(len(simulated)),
-        "runtime_seconds": _read_runtime_seconds(parquet_dir),
+        "runtime_seconds": _read_runtime_seconds(inputs.run_dir, parquet_dir),
         "figure_dir": _rel(inputs.simulation_figures),
         "reference_segments": _read_parquet_count(
             parquet_dir,
@@ -336,13 +337,21 @@ def _read_parquet_count(parquet_dir: Path | None, file_name: str) -> int | None:
     return None if count is None else int(count)
 
 
-def _read_runtime_seconds(parquet_dir: Path | None) -> float | None:
+def _read_runtime_seconds(run_dir: Path, parquet_dir: Path | None) -> float | None:
+    """Return the wall time of the flow solve, from ``profile.json`` first.
+
+    A run of HydroModPy 2.0 has no profile and holds the time as a row of its
+    ``metrics.parquet``, which is the floor of the reading.
+    """
+    measured = solve_seconds(run_dir)
+    if measured is not None:
+        return measured
     return _finite_float(
         _parquet_scalar(
             parquet_dir,
             "metrics.parquet",
             "select value from read_parquet(?) "
-            "where metric_name = 'flow_solve_time_seconds' limit 1",
+            f"where metric_name = '{SEALED_SOLVE_METRIC}' limit 1",
         )
     )
 

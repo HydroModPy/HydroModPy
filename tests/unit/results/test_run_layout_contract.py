@@ -33,8 +33,10 @@ from hydromodpy.core.state.layout import (
     RUNS_DIRNAME,
     SESSIONS_DIRNAME,
     SITE_OVERRIDES_DIRNAME,
+    STOP_FLAG_FILENAME,
     SUMMARY_DIRNAME,
     TRASH_DIRNAME,
+    stop_flag_for,
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.data.workspace.scaffold import INPUTS_DIRNAME, create_project
@@ -47,17 +49,21 @@ from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
+    FINAL_STATE_DIRNAME,
     PARQUET_FILE_SUFFIX,
     README_FILENAME,
     REQUIRED_RUN_ENTRIES,
     RUN_INPUTS_FILENAME,
     RUN_LOGS_DIRNAME,
     RUN_OUTCOME_FILENAME,
+    RUN_PROFILE_FILENAME,
     RUN_REQUEST_FILENAME,
     RUN_RESOLVED_CONFIG_FILENAME,
     TABLES_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
+from hydromodpy.results.storage.final_state import FinalState, write_final_state
+from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
@@ -278,6 +284,57 @@ def test_a_completed_run_keeps_no_internal_directory(solved_run):
     project, _, _ = solved_run
 
     assert not (project / RUNS_DIRNAME / RUN_NAME / INTERNAL_DIRNAME).exists()
+
+
+def test_the_final_state_is_sealed_and_the_profile_is_not(tmp_path):
+    """``final_state/`` is a result of the run; ``profile.json`` describes one machine."""
+    assert FINAL_STATE_DIRNAME == "final_state"
+    assert FINAL_STATE_DIRNAME in ALLOWED_RUN_ENTRIES
+    assert FINAL_STATE_DIRNAME not in UNSEALED_RUN_ENTRIES
+    assert RUN_PROFILE_FILENAME == "profile.json"
+    assert RUN_PROFILE_FILENAME in UNSEALED_RUN_ENTRIES
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    store = open_run_store(project, RUN_NAME, n_cells=4, n_layers=1, n_timesteps=3)
+    run_dir = store.run_dir
+    write_final_state(
+        run_dir,
+        FinalState(head=np.ones((1, 4)), at=pd.Timestamp("2020-01-04"), lake_stages={"L": 3.5}),
+    )
+    started = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
+    write_profile(
+        run_dir,
+        Profile().with_line(ProfileLine("step", "run_solver", 1, started, 2.0)),
+    )
+
+    seal_completed(store)
+    close_sealed_attempt(run_dir)
+
+    sealed = {artifact["path"]: artifact for artifact in read_manifest(run_dir)["artifacts"]}
+    assert sealed[FINAL_STATE_DIRNAME]["sha256"], "the seal holds the digest of the whole group"
+    assert RUN_PROFILE_FILENAME not in sealed
+    assert (run_dir / RUN_PROFILE_FILENAME).is_file(), "the seal keeps the profile beside it"
+    assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
+
+
+def test_the_stop_flag_is_internal_and_leaves_with_the_seal(tmp_path):
+    """``.hmp/stop.json`` is state of the attempt, never a result: the seal removes it."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    store = open_run_store(project, RUN_NAME, n_cells=4, n_layers=1, n_timesteps=3)
+    flag = stop_flag_for(store.run_dir)
+    assert flag == store.run_dir / INTERNAL_DIRNAME / STOP_FLAG_FILENAME
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text("{}", encoding="utf-8")
+
+    seal_completed(store)
+    close_sealed_attempt(store.run_dir)
+
+    assert not flag.exists()
+    assert not (store.run_dir / INTERNAL_DIRNAME).exists()
+    assert STOP_FLAG_FILENAME not in ALLOWED_RUN_ENTRIES
 
 
 def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_run):

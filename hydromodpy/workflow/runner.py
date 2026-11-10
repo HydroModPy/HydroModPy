@@ -28,10 +28,24 @@ Two-phase execution
 
 A pipeline without a run directory (a head-only window, a calibration trial)
 keeps no journal and no checkpoint: it owns no run record.
+
+Stop and profile
+----------------
+
+Before each cohort the pipeline reads the stop flag of the run
+(``<run>/.hmp/stop.json``) and raises
+:class:`~hydromodpy.core.runtime.interrupts.StopRequested` when it is there, so a
+stop asked between two steps ends the run before the next step, the seal included.
+A step that was running when the flag was read by the solver ends ``aborted`` in
+the journal, and a resume plays it again from its start. Each step is timed by
+:func:`~hydromodpy.core.runtime.stopwatch.measured` and its line is added to
+``profile.json`` as soon as it ends, so a stopped run keeps the profile of what it
+did. A step rebuilt from the artifacts of an earlier attempt is a ``prefix`` line.
 """
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -40,6 +54,15 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ResumeIntegrityError, StepError, WorkflowDAGCycleError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
+from hydromodpy.core.runtime.stopwatch import Measure, measured, process_age_s
+from hydromodpy.core.state.layout import stop_flag_for
+from hydromodpy.results.storage.run_profile import (
+    Profile,
+    ProfileLine,
+    read_profile,
+    write_profile,
+)
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.step import Step, step_name
 
@@ -49,6 +72,37 @@ if TYPE_CHECKING:
     from hydromodpy.workflow.record.manifest import ResolvedRunManifest
 
 logger = get_logger(__name__)
+
+_PROFILE_LOCK = threading.Lock()
+"""Orders the read and the rewrite of ``profile.json`` when the steps of a cohort run in threads."""
+
+
+def record_measure(
+    run_dir: Path | None,
+    measure: Measure,
+    *,
+    attempt: int,
+    reused: str = "no",
+    key: str | None = None,
+) -> None:
+    """Add the line of a finished ``measure`` to ``<run>/profile.json``.
+
+    A step, a solve, a figure and an export all come through here. ``reused`` says
+    whether the work was done (``no``), rebuilt from an earlier attempt (``prefix``)
+    or read from the project store (``store``, with its ``key``). Without a run
+    directory there is no profile and nothing is written.
+    """
+    if run_dir is None:
+        return
+    line = ProfileLine.of(measure, attempt=attempt, reused=reused, key=key)
+    with _PROFILE_LOCK:
+        profile = read_profile(run_dir) or Profile()
+        write_profile(run_dir, profile.with_line(line))
+
+
+def _attempt_of(state: PipelineState) -> int:
+    """The attempt the context of ``state`` runs in, 1 when it carries none."""
+    return int(getattr(state.get("ctx"), "attempt", 1) or 1)
 
 
 class Pipeline:
@@ -136,6 +190,7 @@ class Pipeline:
         if self.run_dir is not None:
             state = state.with_data(run_dir=self.run_dir)
         manifest = self._open_manifest(state, restart_index, model_phase_ready)
+        self._open_profile(state)
 
         # A from-scratch run and a model-phase-ready re-run rebuild their prefix
         # from the live ctx (is_prebuilt), never from a previous attempt's
@@ -158,6 +213,14 @@ class Pipeline:
             heartbeat=heartbeat,
             previous_hashes=prefix_hashes,
         )
+
+    def _open_profile(self, state: PipelineState) -> None:
+        """Note the age of the process when this attempt began, in ``profile.json``."""
+        if self.run_dir is None:
+            return
+        with _PROFILE_LOCK:
+            profile = read_profile(self.run_dir) or Profile()
+            write_profile(self.run_dir, profile.with_start(_attempt_of(state), process_age_s()))
 
     def _open_manifest(
         self, state: PipelineState, restart_index: int, model_phase_ready: bool
@@ -218,7 +281,8 @@ class Pipeline:
             row = journal_rows.get(index)
             row_completed = row is not None and row.status == "completed"
             try:
-                state = self._rebuild_step(step, index, state, row)
+                with measured("step", step_name(step)) as measure:
+                    state = self._rebuild_step(step, index, state, row)
             except Exception as exc:
                 # Any failure of a step rebuilt from disk is a broken resume, said as one.
                 raise ResumeIntegrityError(
@@ -226,6 +290,7 @@ class Pipeline:
                     run_id=state.run_id,
                 ) from exc
 
+            record_measure(self.run_dir, measure, attempt=_attempt_of(state), reused="prefix")
             previous_hashes.append(
                 self._journal_rebuilt_step(
                     step,
@@ -361,6 +426,7 @@ class Pipeline:
             ThreadPoolCohortExecutor() if getattr(self, "_parallel", True) else SequentialExecutor()
         )
         cohort_layout = self._cohort_layout()
+        stop_flag = None if self.run_dir is None else stop_flag_for(self.run_dir)
 
         for cohort_indices in cohort_layout:
             pending = [idx for idx in cohort_indices if idx >= restart_index]
@@ -368,6 +434,7 @@ class Pipeline:
                 continue
             if heartbeat is not None:
                 heartbeat.set_step(step_name(self.steps[pending[0]]))
+            raise_if_stop_requested(stop_flag)
             state = self._execute_cohort(
                 pending,
                 state,
@@ -507,8 +574,9 @@ class Pipeline:
             )
 
         t0 = time.monotonic()
+        measure: Measure | None = None
         try:
-            with progress.phase(name):
+            with measured("step", name) as measure, progress.phase(name):
                 out = step.run(state)
         except (KeyboardInterrupt, SystemExit):
             self._finish_journal_step(
@@ -527,6 +595,9 @@ class Pipeline:
                 error_message=f"{type(exc).__name__}: {exc}",
             )
             raise StepError(name, exc, run_id=state.run_id) from exc
+        finally:
+            if measure is not None:
+                record_measure(self.run_dir, measure, attempt=_attempt_of(state))
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         out = out.advance(
             step_index=index,
@@ -610,4 +681,4 @@ def _config_sha256_from_manifest(manifest: object | None) -> str | None:
     return getattr(manifest, "config_sha256", None) if manifest is not None else None
 
 
-__all__ = ("Pipeline",)
+__all__ = ("Pipeline", "record_measure")

@@ -276,6 +276,25 @@ def _averaged_over_periods(payloads: Mapping[str, Any], period_lengths: Any) -> 
     return averaged
 
 
+def _whole_simulation(model: Model) -> Model:
+    """The model an auxiliary solve derives from: ``initial.over`` in a chain, else ``model``.
+
+    The first window of a chain starts as the run in one piece does, so its
+    steady solve and its cycles read the forcings of the whole simulation,
+    which ``SteadyStart.over`` and ``CyclicStart.over`` carry. The properties
+    stay those of ``model``, which holds the per-cell overrides of the run.
+    """
+    over = getattr(model.initial, "over", None)
+    if over is None:
+        return model
+    if not isinstance(over, Model):
+        raise TypeError(
+            f"{type(model.initial).__name__}.over is the Model of the whole simulation; "
+            f"got {type(over).__name__}."
+        )
+    return replace(over, properties=model.properties)
+
+
 def steady_variant(model: Model, *, start: HeadRule | None = None) -> Model:
     """The model of the auxiliary steady solve, a new object.
 
@@ -285,22 +304,27 @@ def steady_variant(model: Model, *, start: HeadRule | None = None) -> Model:
     its strategy, else it is unchanged, as for the first cycle of a spin-up
     that starts from the steady state. The solve starts from ``start``, the
     top by default for every backend.
+
+    In the first window of a chain, the run is the whole simulation that
+    ``initial.over`` holds, so the steady state is the one of the run in one
+    piece.
     """
-    lengths = getattr(model.time.grid, "period_lengths_seconds", None)
-    recharge = model.recharge
+    source = _whole_simulation(model)
+    lengths = getattr(source.time.grid, "period_lengths_seconds", None)
+    recharge = source.recharge
     if isinstance(model.initial, SteadyStart):
         recharge = _steady_recharge(recharge, model.initial.strategy)
     return replace(
-        model,
+        source,
         time=ModelTime(
-            grid=single_period_mean_forcing_time_grid(model.time.grid),
+            grid=single_period_mean_forcing_time_grid(source.time.grid),
             regime="steady",
-            first_period_steady=model.time.first_period_steady,
+            first_period_steady=source.time.first_period_steady,
         ),
         recharge=recharge,
-        lakes=_averaged_over_periods(model.lakes, lengths),
-        sfr=_averaged_over_periods(model.sfr, lengths),
-        flow_barriers=_averaged_over_periods(model.flow_barriers, lengths),
+        lakes=_averaged_over_periods(source.lakes, lengths),
+        sfr=_averaged_over_periods(source.sfr, lengths),
+        flow_barriers=_averaged_over_periods(source.flow_barriers, lengths),
         initial=start if start is not None else HeadRule("top"),
     )
 
@@ -308,9 +332,12 @@ def steady_variant(model: Model, *, start: HeadRule | None = None) -> Model:
 def cycle_variant(model: Model, seed: SolvedState | None) -> Model:
     """The model of one spin-up cycle, a new object that starts from ``seed`` or the top.
 
-    Only the heads cycle. A lake starts each cycle from its ``initial_stage``.
+    The heads cycle, and so do the lake stages: a cycle that starts from
+    ``seed`` starts its lakes from ``seed.lake_stages``, and the first cycle
+    starts them from their ``initial_stage``. In the first window of a chain,
+    each cycle repeats the whole simulation that ``initial.over`` holds.
     """
-    return replace(model, initial=seed if seed is not None else HeadRule("top"))
+    return replace(_whole_simulation(model), initial=seed if seed is not None else HeadRule("top"))
 
 
 def model_from_flow(

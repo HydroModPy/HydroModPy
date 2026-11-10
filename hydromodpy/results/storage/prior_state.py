@@ -1,14 +1,22 @@
 """Read an earlier run as the state a new run starts from.
 
-``[flow] restart_from`` names the field store of an earlier run. This module
-opens that store once, before the solve, and returns a
-:class:`~hydromodpy.model.initial.state.PriorState`: the last head, the final
-stage of each lake and the store it came from. Before it reads, it checks that
-the earlier run was solved on the mesh of this run, because the heads are copied
-cell by cell. ``read_final_head`` is the same read for the spin-up loop.
+``[flow] restart_from`` names an earlier run, and the next window of a chain
+names the window before it. This module reads that run once, before the solve,
+and returns a :class:`~hydromodpy.model.initial.state.PriorState`: the last
+head, the final stage of each lake and of each SFR reach, and where it came
+from. Before it reads, it checks that the earlier run was solved on the mesh of
+this run, because the heads are copied cell by cell. ``read_final_head`` is the
+same read for the spin-up loop.
+
+The state comes from ``final_state/`` when the earlier run wrote it, in float64,
+and from the last time step of ``fields.zarr`` otherwise, which is how a run of
+HydroModPy 2.0 is read. The path given may be the run folder, its
+``fields.zarr`` or its ``final_state/``.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 
@@ -17,6 +25,8 @@ from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.core.logging import get_logger
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.initial.state import PriorState
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, FINAL_STATE_DIRNAME
+from hydromodpy.results.storage.final_state import FinalState, read_final_state
 
 logger = get_logger(__name__)
 
@@ -141,13 +151,22 @@ def _last_head(root, path: str, who: str) -> np.ndarray:
 
 
 def read_restart_lake_stages(path: str) -> dict[str, float]:
-    """Return each lake's final stage ``{lake_id: stage}`` from a prior run's Zarr.
+    """Return each lake's final stage ``{lake_id: stage}`` from a prior run.
 
-    Reads the ``lake_state_final`` group written at extraction time, the lake
-    companion of the ``head`` field for ``[flow] restart_from``. Returns an empty
-    mapping when the prior run had no lake (older stores, non-lake runs), so
-    callers keep the per-lake ``initial_stage``.
+    Reads ``final_state/`` when the run has one, else the ``lake_state_final``
+    group of its field store, the lake companion of the ``head`` field for
+    ``[flow] restart_from``. Returns an empty mapping when the prior run had no
+    lake (older stores, non-lake runs), so callers keep the per-lake
+    ``initial_stage``.
     """
+    state, store = _final_state(path)
+    if state is not None:
+        return dict(state.lake_stages)
+    return _stored_lake_stages(store)
+
+
+def _stored_lake_stages(path: str) -> dict[str, float]:
+    """The ``lake_state_final`` group of the field store at ``path``, by lake id."""
     root = _open_restart_zarr(path)
     if "lake_state_final" not in root:
         return {}
@@ -161,42 +180,115 @@ def read_restart_lake_stages(path: str) -> dict[str, float]:
     return {lake_id: float(value) for lake_id, value in zip(lake_ids, stages, strict=True)}
 
 
-def read_final_head(path: str) -> np.ndarray:
-    """Return a prior run's last-step head field ``(nlay, ncpl)`` for convergence.
+def _sources(path: str) -> tuple[str | None, Path | None]:
+    """Return the field store and the run folder with a ``final_state/`` that ``path`` names.
 
-    Inactive cells (NaN / large sentinel) come back as NaN so a cycle-to-cycle
-    diff can ignore them. The spin-up loop reads this to compare two cycles.
+    ``path`` is a run folder, its ``fields.zarr`` or its ``final_state/``. The
+    field store is ``None`` when there is none to read (a ``final_state/``
+    copied alone); the run folder is ``None`` when it has no ``final_state/``.
     """
-    return _last_head(_open_restart_zarr(path), path, "read_final_head")
+    given = Path(path)
+    if given.name == FINAL_STATE_DIRNAME:
+        run_dir = given.parent
+    elif given.name == FIELDS_STORE_NAME or str(path).endswith(".zip"):
+        run_dir = given.parent
+    elif (given / FIELDS_STORE_NAME).exists() or (given / FINAL_STATE_DIRNAME).is_dir():
+        run_dir = given
+    else:
+        return str(path), None
+    fields = run_dir / FIELDS_STORE_NAME
+    if given.name == FIELDS_STORE_NAME or str(path).endswith(".zip"):
+        store: str | None = str(path)
+    else:
+        store = str(fields) if fields.exists() else None
+    final = run_dir if (run_dir / FINAL_STATE_DIRNAME).is_dir() else None
+    return store, final
+
+
+def _final_state(path: str) -> tuple[FinalState | None, str | None]:
+    """The final state ``path`` leads to, if any, and the field store beside it."""
+    store, run_dir = _sources(path)
+    state = None if run_dir is None else read_final_state(run_dir)
+    if state is None and store is None:
+        raise ValueError(f"{path!r} holds neither a final_state/ nor a fields.zarr to read.")
+    return state, store
+
+
+def read_final_head(path: str) -> np.ndarray:
+    """Return a prior run's last head ``(nlay, ncpl)`` for convergence, in float64.
+
+    The head of ``final_state/`` when the run has one, else the last step of
+    its field store. Inactive cells (NaN / large sentinel) come back as NaN so
+    a cycle-to-cycle diff can ignore them. The spin-up loop reads this to
+    compare two cycles.
+    """
+    state, store = _final_state(path)
+    if state is not None:
+        return np.array(state.head, dtype=np.float64, copy=True)
+    return _last_head(_open_restart_zarr(store), store, "read_final_head")
+
+
+def prior_state_at(path: str, *, sim_id: str | None = None) -> PriorState:
+    """Return the state the run at ``path`` left, without checking any mesh.
+
+    The read of ``read_prior_state`` without its mesh check, for a caller
+    that only needs the digest of the state, such as the request id of a
+    restart or of a window. ``path`` is the run folder, its ``fields.zarr``
+    or its ``final_state/``.
+    """
+    state, store = _final_state(path)
+    if state is not None:
+        return PriorState(
+            head=state.head,
+            lake_stages=state.lake_stages,
+            path=str(Path(_sources(path)[1]) / FINAL_STATE_DIRNAME),
+            sim_id=sim_id,
+            sfr_stages=state.sfr_stages,
+        )
+    return PriorState(
+        head=_last_head(_open_restart_zarr(store), store, "restart_from"),
+        lake_stages=_stored_lake_stages(store),
+        path=str(store),
+        sim_id=sim_id,
+    )
 
 
 def read_prior_state(
     path: str, cell_mesh: PlanarCellMesh, *, sim_id: str | None = None
 ) -> PriorState:
-    """Return the state a run restarts from, read from the field store at ``path``.
+    """Return the state a run restarts from, read from the run at ``path``.
 
-    The mesh of the store is checked against ``cell_mesh`` first, so a store
-    solved on another mesh is refused before any head is read. ``sim_id`` is the
-    run the store belongs to, when the caller knows it.
+    ``path`` is the run folder, its ``fields.zarr`` or its ``final_state/``.
+    The mesh stored in ``fields.zarr`` is checked against ``cell_mesh`` first,
+    so a run solved on another mesh is refused before any head is read; a
+    ``final_state/`` copied without its field store keeps the cell-count rule
+    of the head shape and a warning. The state is read from ``final_state/``
+    when the run has one, exact in float64, and from the last step of the
+    field store otherwise. ``path`` of the state is where it was read from.
+    ``sim_id`` is the run the state belongs to, when the caller knows it.
 
     Raises
     ------
     IncompatibleMeshError
-        When the store was solved on another mesh.
+        When the run was solved on another mesh.
     ValueError
-        When the store holds no ``head`` field.
+        When the run holds neither a final state nor a ``head`` field.
     """
-    verify_restart_mesh(path, cell_mesh)
-    head = _last_head(_open_restart_zarr(path), path, "restart_from")
-    return PriorState(
-        head=head,
-        lake_stages=read_restart_lake_stages(path),
-        path=str(path),
-        sim_id=sim_id,
-    )
+    store, _ = _sources(path)
+    if store is not None:
+        verify_restart_mesh(store, cell_mesh)
+    else:
+        logger.warning(
+            "restart_from: %r has no fields.zarr beside its final state, so only the cell "
+            "count is checked; the heads are copied cell by cell and are wrong if the cell "
+            "order differs.",
+            path,
+        )
+    return prior_state_at(path, sim_id=sim_id)
 
 
 __all__ = [
+    "prior_state_at",
     "read_final_head",
     "read_prior_state",
     "read_restart_lake_stages",

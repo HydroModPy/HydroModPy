@@ -9,10 +9,12 @@ from pathlib import Path
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
 from hydromodpy.model.initial.state import CyclicStart, SteadyStart
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     apply_modflow6_cyclic_spinup_heads,
+    apply_modflow6_cyclic_spinup_lakes,
     apply_modflow6_steady_state_initial_heads,
     is_auxiliary_folder,
     run_modflow6_cyclic_spinup,
@@ -61,6 +63,7 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         raise TypeError("processing options must be ModflowRunOptions")
 
     steady_initial_heads_applied = False
+    cycle_lakes_applied = False
     model.initial_state_converged = None
     inputs = model.inputs
     if (
@@ -86,13 +89,15 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
                 model, verbose=bool(options.verbose)
             )
         apply_modflow6_cyclic_spinup_heads(model, heads)
+        apply_modflow6_cyclic_spinup_lakes(model, cycles)
+        cycle_lakes_applied = getattr(model, "lak", None) is not None
         steady_initial_heads_applied = True
         if settled:
             logger.info("Cyclic spin-up settled after %d cycle(s).", cycles)
         else:
             message = (
                 f"the cyclic spin-up ran its {cycles} allowed cycle(s) without the head "
-                "field settling, and the run starts from the last one anyway. Raise "
+                "and the lake stages settling, and the run starts from the last one anyway. Raise "
                 "flow.ic.max_cycles, or loosen flow.ic.tol_head, and say in the write-up "
                 "that the antecedent state did not converge."
             )
@@ -105,6 +110,8 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         model.input_files = written_input_files(getattr(model, "full_path", None))
     elif steady_initial_heads_applied:
         model.ic.write()
+        if cycle_lakes_applied:
+            model.lak.write()
 
     success_model = False
     model.last_flow_solve_time_seconds = None
@@ -213,6 +220,23 @@ def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
         pass
 
 
+def _stopping(callback, stop_flag):
+    """Return ``callback`` composed with a read of ``stop_flag`` at the end of each time step.
+
+    A flag on disk raises ``StopRequested``, a ``KeyboardInterrupt``, which the
+    runner of libmf6 does not wrap in a solver error and finalizes the library
+    on. The flag is read before ``callback``, so a stopped step does no more work.
+    """
+    from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, Mf6ApiStep
+
+    def stop_then_call(ctx: Mf6ApiContext) -> None:
+        if ctx.step is Mf6ApiStep.timestep_end:
+            raise_if_stop_requested(stop_flag)
+        callback(ctx)
+
+    return stop_then_call
+
+
 def _run_via_api(model, *, verbose: bool) -> bool:
     """Drive the already-written workspace through libmf6 instead of the exe.
 
@@ -225,6 +249,13 @@ def _run_via_api(model, *, verbose: bool) -> bool:
     so each gets a private libmf6 instance. A developer callback attached as
     ``_mf6_api_callback`` replaces the exposed-band one, and ``_mf6_api_lib_path``
     overrides the library path.
+
+    Whatever the callback is, it is composed with a read of the stop flag of the
+    slot at the end of each time step, so a stop asked while the solve runs ends
+    it between two steps. The executable path never reads the flag: FloPy reads
+    the output of the child process, and an exception raised in its loop would
+    leave the executable writing into a folder that a resume rewrites. The stop
+    waits for the solve to end, and the runner of the plan reads the flag after.
     """
     from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
 
@@ -252,4 +283,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             def callback(ctx: Mf6ApiContext) -> None:
                 return None
 
+    stop_flag = getattr(getattr(model, "slot", None), "stop_flag", None)
+    if stop_flag is not None:
+        callback = _stopping(callback, stop_flag)
     return run_mf6_api(model.full_path, callback, lib_path=lib_path, verbose=verbose)

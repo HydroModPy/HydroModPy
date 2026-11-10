@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import inspect
 import os
+import pickle
 import re
-from collections.abc import Iterator
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,33 +25,19 @@ from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LOCKFILE_SCHEMA,
     LockedInput,
-    frozen_project_root,
-    is_frozen_mode,
-    locked_inputs,
+    LockedInputs,
     project_lockfile_path,
+    read_locked_inputs,
     read_lockfile_inputs,
     read_lockfile_meta,
     read_lockfile_schema_sha256,
     reject_frozen_record,
     reject_frozen_row,
-    set_frozen_mode,
     user_file_input,
     verify_lockfile,
     write_lockfile,
 )
 from hydromodpy.data.provenance.sidecars import CacheIndex, empty_path_for
-
-
-@pytest.fixture
-def frozen_mode_reset() -> Iterator[None]:
-    """Leave the process-wide frozen mode as it was found."""
-    was_enabled = is_frozen_mode()
-    bound_root = frozen_project_root()
-    yield
-    if was_enabled and bound_root is not None:
-        set_frozen_mode(True, project_root=bound_root)
-    else:
-        set_frozen_mode(False)
 
 
 def _seed(tmp: Path, stations: tuple[str, ...] = ("A",)) -> tuple[Path, list[Path]]:
@@ -433,41 +420,99 @@ def test_project_lockfile_path_is_the_project_root(tmp_path: Path) -> None:
     assert project_lockfile_path(tmp_path) == tmp_path / LOCKFILE_NAME
 
 
-def test_locked_inputs_names_the_expected_path_when_missing(
-    tmp_path: Path, frozen_mode_reset: None
-) -> None:
+def test_read_locked_inputs_names_the_expected_path_when_missing(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
-    set_frozen_mode(True, project_root=project_root)
 
     expected = project_lockfile_path(project_root.resolve())
-    with pytest.raises(RuntimeError, match=re.escape(str(expected))):
-        locked_inputs()
+    with pytest.raises(FrozenDataError, match=f"existing lockfile at {expected}"):
+        read_locked_inputs(project_root)
 
 
-def test_locked_inputs_without_a_bound_project_says_so(frozen_mode_reset: None) -> None:
-    set_frozen_mode(False)
-    with pytest.raises(RuntimeError, match="no project bound"):
-        locked_inputs()
+def test_read_locked_inputs_reads_the_lockfile_once(tmp_path: Path) -> None:
+    data_root, _ = _seed(tmp_path, ("A", "B"))
+    project_root = data_root.parent
+    written = write_lockfile(project_lockfile_path(project_root), data_root)
+
+    locked = read_locked_inputs(project_root)
+
+    assert locked.project_root == project_root.resolve()
+    assert locked.path == project_lockfile_path(project_root.resolve())
+    assert [item.station_id for item in locked.inputs] == ["A", "B"]
+    written.unlink()
+    assert len(locked.inputs) == 2, "the lockfile is read once, not at each refusal"
 
 
-def test_enabling_frozen_mode_without_a_project_is_refused(frozen_mode_reset: None) -> None:
-    with pytest.raises(ValueError, match="project_root"):
-        set_frozen_mode(True)
-    assert is_frozen_mode() is False
+def test_read_locked_inputs_refuses_a_lockfile_of_another_shape(tmp_path: Path) -> None:
+    (tmp_path / LOCKFILE_NAME).write_text('schema = "hydromodpy.lock.v1"\n')
+    with pytest.raises(SchemaVersionMismatchError):
+        read_locked_inputs(tmp_path)
 
 
-def test_every_enable_names_its_own_project(tmp_path: Path, frozen_mode_reset: None) -> None:
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-    set_frozen_mode(True, project_root=first)
-    assert frozen_project_root() == first.resolve()
-    set_frozen_mode(True, project_root=second)
-    assert frozen_project_root() == second.resolve()
-    with pytest.raises(ValueError, match="project_root"):
-        set_frozen_mode(True)
-    set_frozen_mode(False)
-    assert frozen_project_root() is None
+def test_locked_inputs_crosses_a_process_by_pickle(tmp_path: Path) -> None:
+    data_root, _ = _seed(tmp_path)
+    project_root = data_root.parent
+    write_lockfile(project_lockfile_path(project_root), data_root)
+    locked = read_locked_inputs(project_root)
+
+    assert pickle.loads(pickle.dumps(locked)) == locked
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "_FROZEN_MODE",
+        "_FROZEN_PROJECT_ROOT",
+        "set_frozen_mode",
+        "is_frozen_mode",
+        "frozen_project_root",
+        "locked_inputs",
+    ],
+)
+def test_the_lockfile_module_keeps_no_frozen_state_of_the_process(name: str) -> None:
+    assert not hasattr(lockfile, name)
+
+
+def test_two_threads_one_frozen_and_one_not_do_not_see_each_other(tmp_path: Path) -> None:
+    data_root, _ = _seed(tmp_path)
+    project_root = data_root.parent
+    write_lockfile(project_lockfile_path(project_root), data_root)
+    locked = read_locked_inputs(project_root)
+    both_running = threading.Barrier(2, timeout=10)
+    outcome: dict[str, object] = {}
+
+    def run(name: str, handed: LockedInputs | None) -> None:
+        try:
+            for _ in range(50):
+                try:
+                    reject_frozen_row(
+                        handed,
+                        variable="hydrometry",
+                        source="hubeau",
+                        station_id="Z",
+                        path="hydrometry/none.csv",
+                        sha256=None,
+                    )
+                    refused = False
+                except FrozenDataError:
+                    refused = True
+                assert refused is (handed is not None)
+                if _ == 0:
+                    both_running.wait()
+            outcome[name] = "ok"
+        except BaseException as exc:
+            outcome[name] = exc
+
+    threads = [
+        threading.Thread(target=run, args=("frozen", locked)),
+        threading.Thread(target=run, args=("free", None)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert outcome == {"frozen": "ok", "free": "ok"}
 
 
 @pytest.mark.parametrize(
@@ -480,35 +525,35 @@ def test_every_enable_names_its_own_project(tmp_path: Path, frozen_mode_reset: N
     ids=["pinned", "another digest", "not pinned"],
 )
 def test_frozen_matching_reads_the_one_record(
-    tmp_path: Path, frozen_mode_reset: None, station: str, digest: str | None, refusal: str | None
+    tmp_path: Path, station: str, digest: str | None, refusal: str | None
 ) -> None:
     """A row and a new record are both matched against ``[[input]]``."""
     data_root, (src,) = _seed(tmp_path)
     project_root = data_root.parent
     write_lockfile(project_lockfile_path(project_root), data_root)
-    set_frozen_mode(True, project_root=project_root)
+    locked = read_locked_inputs(project_root)
     found = {"variable": "hydrometry", "source": "hubeau", "station_id": station}
     sha256 = digest or sha256_of(src)
     path = _key(data_root, src)
 
     for check in (reject_frozen_row, reject_frozen_record):
         if refusal is None:
-            check(**found, path=path, sha256=sha256)
+            check(locked, **found, path=path, sha256=sha256)
         else:
             with pytest.raises(FrozenDataError, match=refusal):
-                check(**found, path=path, sha256=sha256)
+                check(locked, **found, path=path, sha256=sha256)
+        check(None, **found, path=path, sha256=sha256)
 
 
-def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path, frozen_mode_reset: None) -> None:
+def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
     """A frozen run that meets a refusal exits as a data failure."""
     from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 
     project_root = tmp_path / "project"
     project_root.mkdir()
-    set_frozen_mode(True, project_root=project_root)
 
     with pytest.raises(DataCacheError) as info:
-        locked_inputs()
+        read_locked_inputs(project_root)
 
     assert isinstance(info.value, FrozenDataError)
     assert exit_code_for(info.value) == EXIT_VALIDATION
@@ -518,7 +563,7 @@ def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path, frozen_mode_re
 
 
 def test_frozen_mode_reads_the_lockfile_lock_data_wrote(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, frozen_mode_reset: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from hydromodpy.project.data_cache import lock_data
 
@@ -529,8 +574,7 @@ def test_frozen_mode_reads_the_lockfile_lock_data_wrote(
     assert project_lockfile_path(project_root).is_file()
     assert not (workspace / LOCKFILE_NAME).exists()
     assert not (workspace / "data" / LOCKFILE_NAME).exists()
-    set_frozen_mode(True, project_root=project_root)
-    assert [item.station_id for item in locked_inputs()] == ["A"]
+    assert [item.station_id for item in read_locked_inputs(project_root).inputs] == ["A"]
 
 
 def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(
@@ -585,13 +629,13 @@ def test_the_lockfile_records_the_project_commit(
     assert read_lockfile_meta(written.path)["project_git_commit"] == "commit-of-demo"
 
 
-def test_project_runner_binds_the_project_root_it_runs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, frozen_mode_reset: None
+def test_project_runner_hands_the_lockfile_it_reads_to_the_setup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``ProjectRunner.run(frozen=True)`` reaches the lockfile, not a RuntimeError.
+    """``ProjectRunner.run(frozen=True)`` reads the lockfile once and puts it on ``setup``.
 
-    Only the pipeline is replaced: the frozen binding and its restore are the
-    real ones from :mod:`hydromodpy.project.runner`.
+    Only the pipeline is replaced: the lockfile is read by the real runner from
+    :mod:`hydromodpy.project.runner`.
     """
     from hydromodpy.project.data_cache import lock_data
     from hydromodpy.project.runner import ProjectRunner
@@ -607,9 +651,7 @@ def test_project_runner_binds_the_project_root_it_runs(
             seen["workspace"] = workspace
 
         def run(self, initial: object, **kwargs: object) -> dict:
-            seen["frozen"] = is_frozen_mode()
-            seen["root"] = frozen_project_root()
-            seen["stations"] = [a.station_id for a in locked_inputs()]
+            seen["locked"] = ctx.setup.locked_inputs
             return {"ctx": ctx}
 
     monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", RecordingPipeline)
@@ -654,11 +696,10 @@ def test_project_runner_binds_the_project_root_it_runs(
     )
 
     assert ProjectRunner(project).run(name="frozen_run", frozen=True) is None
-    assert seen["frozen"] is True
-    assert seen["root"] == project_root.resolve()
-    assert seen["stations"] == ["A"]
-    assert is_frozen_mode() is False
-    assert frozen_project_root() is None
+    locked = seen["locked"]
+    assert isinstance(locked, LockedInputs)
+    assert locked.project_root == project_root.resolve()
+    assert [item.station_id for item in locked.inputs] == ["A"]
 
 
 def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

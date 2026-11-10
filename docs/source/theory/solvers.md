@@ -545,10 +545,12 @@ warning instead of a refusal. The refusals are these.
   MODFLOW 6, the only solver that lists the two traits in `supports`. A restart beside a
   steady or a cyclic start is refused for every solver, because the computed start would
   overwrite the restart.
-- **Lake and cyclic spin-up.** A lake with a `spinup_cyclic` start is refused for every solver
-  that models lakes. The cycle carries the heads and not the lake stage, which starts again from
-  `initial_stage` at each cycle. `hmp spinup` carries both from one cycle to the next. Start from
-  its result with {toml}`flow.restart_from`.
+- **Lake and cyclic spin-up.** A lake with a `spinup_cyclic` start runs on MODFLOW 6. Each cycle
+  starts from the final lake stages of the cycle before, the main run starts from those of the
+  last cycle, and the loop settles only when the heads and the lake stages have both settled.
+- **Windows.** {toml}`simulation.time.window_length` is refused under a steady run, a transport,
+  a calibration, and, for a chain of more than one window, a flow solver that does not read an
+  earlier state, because window 2 starts from the final state of window 1.
 - **A steady start that did not converge.** The convergence of the auxiliary steady solve is
   known only at the solve. A transport run behind a steady start whose heads did not converge
   stops with `SolverDivergedError`, and says how to tighten the closure in

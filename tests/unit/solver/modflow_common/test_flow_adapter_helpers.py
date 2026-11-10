@@ -11,6 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import MeshError, ObservableNotAvailableError, SolverDivergedError
@@ -25,6 +27,8 @@ from hydromodpy.solver.modflow6.support.names import mf6_output_name, mf6_safe_n
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_flow_model,
     build_preprocess_options,
+    end_of_last_period,
+    final_state_head,
     nwt_safe_name,
     resolve_solver_run_output,
     run_flow_model,
@@ -197,7 +201,15 @@ def test_a_run_writes_the_input_files_of_a_build_and_solves(tmp_path: Path) -> N
     assert solved.input_files == ("a.nam", "a.dis")
     assert (solved.written, solved.solved) == (True, True)
     assert solved.solver_model is solver and solved.slot is built.slot
-    assert solved.metrics == {"flow_solve_time_seconds": 1.5}
+    assert solved.solve_s == 1.5
+    assert solved.metrics == {}  # the time of a solve is no result of the run
+
+
+def test_a_solver_that_measured_no_time_leaves_solve_s_unset(tmp_path: Path) -> None:
+    built, solver = _built(tmp_path / "island")
+    solver.last_flow_solve_time_seconds = None
+
+    assert run_flow_model(built, solver_name="modflow_nwt").solve_s is None
 
 
 def test_a_run_whose_files_are_written_does_not_write_them_again(tmp_path: Path) -> None:
@@ -242,7 +254,8 @@ def test_a_run_keeps_the_metrics_the_build_carried(tmp_path: Path) -> None:
 
     solved = run_flow_model(replace(built, metrics={"carried": 3.0}), solver_name="modflow_nwt")
 
-    assert solved.metrics == {"carried": 3.0, "flow_solve_time_seconds": 1.5}
+    assert solved.metrics == {"carried": 3.0}
+    assert solved.solve_s == 1.5
 
 
 def test_a_failed_solve_names_the_run_by_its_slot(tmp_path: Path) -> None:
@@ -333,3 +346,68 @@ def test_a_run_with_no_trace_to_read_is_refused_by_its_slot_name(
 )
 def test_nwt_collapses_whitespace_in_the_name_of_a_model(name: str, safe: str) -> None:
     assert nwt_safe_name(name) == safe
+
+
+FINAL_HEADS = (
+    ("a head without sentinel", [[1.0, 2.0], [3.0, 4.0]], (), [[1.0, 2.0], [3.0, 4.0]]),
+    ("the MODFLOW 6 sentinels", [[1.0, 1e30], [-1e30, 4.0]], (), [[1.0, np.nan], [np.nan, 4.0]]),
+    (
+        "the NWT sentinels of the run, within a metre",
+        [[1.0, -9999.0], [-100.2, 4.0]],
+        (-100.0, -9999.0),
+        [[1.0, np.nan], [np.nan, 4.0]],
+    ),
+    ("a head near a sentinel no one configured", [[1.0, -100.2]], (), [[1.0, -100.2]]),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "raw", "sentinels", "expected"), FINAL_HEADS, ids=[c[0] for c in FINAL_HEADS]
+)
+def test_the_head_of_final_state_is_float64_with_the_sentinels_masked(
+    case: str, raw: list, sentinels: tuple, expected: list
+) -> None:
+    del case
+    raw = np.array(raw, dtype=np.float32 if sentinels else np.float64)
+    shape = raw.shape
+
+    head = final_state_head(
+        raw.reshape(1, *shape), nlay=shape[0], n_cells=shape[1], sentinels=sentinels
+    )
+
+    assert head.dtype == np.float64 and head.shape == shape
+    np.testing.assert_allclose(head, expected, rtol=1e-6)
+    assert np.array_equal(np.isnan(head), np.isnan(np.array(expected)))
+
+
+def test_the_head_of_final_state_does_not_alias_the_record() -> None:
+    raw = np.array([[1.0, 1e30]])
+
+    final_state_head(raw, nlay=1, n_cells=2)
+
+    assert raw[0, 1] == 1e30
+
+
+END_OF_LAST_PERIOD = (
+    ("a calendar start", "2020-01-01", 86400.0 * 31, pd.Timestamp("2020-02-01")),
+    (
+        "a timestamp start",
+        pd.Timestamp("2020-01-01 06:00"),
+        3600.0,
+        pd.Timestamp("2020-01-01 07:00"),
+    ),
+    ("no calendar", None, 86400.0, None),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "start", "seconds", "expected"),
+    END_OF_LAST_PERIOD,
+    ids=[c[0] for c in END_OF_LAST_PERIOD],
+)
+def test_the_end_of_the_last_period_is_the_start_plus_the_elapsed_time(
+    case: str, start: object, seconds: float, expected: pd.Timestamp | None
+) -> None:
+    del case
+
+    assert end_of_last_period(start, seconds) == expected

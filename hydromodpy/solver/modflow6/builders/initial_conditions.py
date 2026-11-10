@@ -25,7 +25,7 @@ def rewet_is_enabled(model) -> bool:
     return bool(enable_rewet) if enable_rewet is not None else False
 
 
-def build_start_heads(model, solver_mesh) -> np.ndarray:
+def build_start_heads(model, solver_mesh) -> np.ndarray | dict[str, object]:
     """Build MF6 starting heads as flat (nlay, ncpl) for DISV.
 
     ``Model.initial`` says where the heads come from. A ``SolvedState`` is the
@@ -35,6 +35,14 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     rule they name, the top for a steady or a cyclic start, whose auxiliary
     solve replaces the array once it has run. The constant heads of the ocean,
     the stream and the sides are laid over every state but a ``SolvedState``.
+
+    The array is what ``ModflowGwfic`` takes as ``strt``, except for a
+    ``PriorState``. Its head leaves as the FloPy record of a binary file in
+    double precision, ``<name>.ic_strt.bin`` beside the input files, because the
+    text FloPy writes keeps eight decimals and a restart must not alter the
+    state it takes up (1.1e-9 m on the second window of a chain, none with the
+    binary file). The record is what a ``strt`` of FloPy accepts, so the caller
+    hands the return value to ``ModflowGwfic`` whatever the start is.
     """
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
@@ -64,7 +72,20 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     if np.any(stream_mask):
         for ilay in range(nlay):
             strt[ilay][stream_mask] = float(stream_series[0])
-    return apply_side_boundary_start_heads(model, strt)
+    strt = apply_side_boundary_start_heads(model, strt)
+    if isinstance(initial, PriorState):
+        return _binary_record(model, strt)
+    return strt
+
+
+def _binary_record(model, strt: np.ndarray) -> dict[str, object]:
+    """The FloPy ``strt`` record that writes ``strt`` as a double precision binary array."""
+    return {
+        "filename": f"{model.model_name_mf6}.ic_strt.bin",
+        "binary": True,
+        "data": np.asarray(strt, dtype=np.float64),
+        "iprn": -1,
+    }
 
 
 def _solved_start_heads(initial: SolvedState, *, nlay: int, ncpl: int) -> np.ndarray:

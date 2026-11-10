@@ -42,6 +42,7 @@ from the same parsers.
 | `run` | execute the workflow a TOML file or a JSON run request names in `[workflow].mode`, or the one its sections imply |
 | `calibrate` | run a calibration workflow from a TOML file or a JSON run request |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
+| `stop` | ask a running run or calibration session to stop, by its flag `.hmp/stop.json` |
 | `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `ls`, `show` |
 | `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
 | `doctor` | diagnose Python, dependencies, solver binaries and the workspace; it reads and reports, it rewrites no file |

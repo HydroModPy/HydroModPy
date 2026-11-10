@@ -132,7 +132,12 @@ class ModflowNwtFlowAdapter:
         return build_flow_model(solver_model, model, options, slot, preprocess_options)
 
     def run(self, solver_run: SolverRun) -> SolverRun:
-        """Write the NWT input files, solve, and return the solved run."""
+        """Write the NWT input files, solve, and return the solved run.
+
+        The wall time of the solve is ``solve_s``, set by the shared lifecycle.
+        The solve runs the executable, which never reads the stop flag: a stop
+        waits for it to end, and the runner of the plan reads the flag after.
+        """
         return run_flow_model(solver_run, solver_name=self.name)
 
     def extract(self, solver_run: SolverRun, store: Any, retention: Retention) -> None:

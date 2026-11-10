@@ -9,7 +9,8 @@ cycles) and drives ``hmp.spinup`` for real. It proves the driver:
 * actually restarts each cycle from the previous one -- cycle 1's initial head
   equals cycle 0's final head, and that head is a solved, spatially varying field
   (not the flat ``top`` initial condition);
-* emits a reusable converged-state Zarr for ``[flow] restart_from``.
+* emits a reusable converged-state Zarr for ``[flow] restart_from``;
+* leaves a ``final_state/`` in every cycle, and the loop compares the cycles on it.
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.storage.final_state import read_final_state
+from hydromodpy.results.storage.prior_state import read_final_head
 from tests.e2e.test_lake_project_e2e import (
     _write_lake_abacus_fixture,
     _write_lake_config,
@@ -85,3 +88,10 @@ def test_spinup_e2e_converges_and_restarts_each_cycle(tmp_path: Path) -> None:
     assert np.nanstd(c1_initial[finite]) > 0.1, (
         "cycle 1 initial head is flat; it looks like the top IC, not a restart"
     )
+
+    # Every cycle left its final state, in double precision, and the loop reads it.
+    for cycle in result.cycles:
+        final = read_final_state(Path(cycle.zarr_path).parent)
+        assert final is not None, f"cycle {cycle.index} wrote no final_state/"
+        assert final.head.dtype == np.float64
+        np.testing.assert_array_equal(final.head, read_final_head(cycle.zarr_path))

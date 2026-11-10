@@ -15,8 +15,19 @@ import pytest
 
 import hydromodpy.results.outcome as outcome_module
 import hydromodpy.results.storage.attempt as attempt_module
-from hydromodpy.core.exceptions import ConfigError, WriteConflictError
-from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUNS_DIRNAME
+from hydromodpy.core.exceptions import (
+    ConfigError,
+    NothingThereError,
+    ResumeError,
+    WriteConflictError,
+)
+from hydromodpy.core.runtime.interrupts import (
+    STOP_FLAG_SCHEMA,
+    StopRequested,
+    TerminationRequested,
+    raise_if_stop_requested,
+)
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUNS_DIRNAME, STOP_FLAG_FILENAME
 from hydromodpy.core.state.scratch import (
     SCRATCH_ROOT_ENV,
     run_scratch,
@@ -31,6 +42,9 @@ from hydromodpy.results.storage.attempt import (
     claim_run_directory,
     finish_attempt,
     record_request_id,
+    refuse_resume_if_changed,
+    request_stop,
+    signal_of,
     start_over_if_changed,
     withdraw_claim,
 )
@@ -509,3 +523,175 @@ def test_a_claim_names_the_folder_a_disk_without_case_holds(
         claim_run_directory(project, "j0014010-base", case_id="j0014010-base", project="demo")
 
     assert sorted(path.name for path in (project / RUNS_DIRNAME).iterdir()) == ["J0014010-base"]
+
+
+# A run is asked to stop by a flag in its attempt state. The flag stops it at the
+# next check, the outcome reads aborted with the error StopRequested and no
+# signal, the next attempt files the flag under attempts/<k>/, and a resume asked
+# on a request that changed since the stop is refused.
+
+
+def _stop_flag(run_dir: Path) -> Path:
+    return run_dir / INTERNAL_DIRNAME / STOP_FLAG_FILENAME
+
+
+def test_a_running_run_is_asked_to_stop_by_its_flag(tmp_path: Path) -> None:
+    claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
+    at = datetime(2026, 11, 10, 8, 0, tzinfo=UTC)
+
+    flag = request_stop(claim.run_dir, now=at)
+
+    assert flag == _stop_flag(claim.run_dir)
+    document = json.loads(flag.read_text(encoding="utf-8"))
+    assert document == {
+        "schema": STOP_FLAG_SCHEMA,
+        "at": "2026-11-10T08:00:00+00:00",
+        "host": socket.gethostname(),
+    }
+    with pytest.raises(StopRequested, match="stop requested at 2026-11-10T08:00:00"):
+        raise_if_stop_requested(flag)
+
+
+def test_a_repeated_request_writes_the_date_again(tmp_path: Path) -> None:
+    claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
+    request_stop(claim.run_dir, now=datetime(2026, 11, 10, 8, 0, tzinfo=UTC))
+
+    flag = request_stop(claim.run_dir, now=datetime(2026, 11, 10, 9, 0, tzinfo=UTC))
+
+    assert json.loads(flag.read_text(encoding="utf-8"))["at"] == "2026-11-10T09:00:00+00:00"
+
+
+def _session(folder: Path, status: str, monkeypatch: pytest.MonkeyPatch) -> Path:
+    folder.mkdir(parents=True)
+    (folder / "session.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        attempt_module, "read_session", lambda directory: argparse.Namespace(status=status)
+    )
+    return folder
+
+
+def test_a_running_session_is_asked_to_stop_by_its_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _session(tmp_path / "sessions" / "calib", "running", monkeypatch)
+
+    assert request_stop(session) == _stop_flag(session)
+
+
+@pytest.mark.parametrize(
+    ("state", "message"),
+    [
+        pytest.param("completed", "runs/case is completed, there is nothing to stop", id="sealed"),
+        pytest.param("failed", "runs/case is failed, there is nothing to stop", id="failed"),
+        pytest.param("aborted", "runs/case is aborted, there is nothing to stop", id="aborted"),
+        pytest.param("absent", "runs/case does not exist, there is nothing to stop", id="absent"),
+        pytest.param(
+            "closed session", "sessions/calib is completed, there is nothing to stop", id="session"
+        ),
+    ],
+)
+def test_nothing_that_is_not_running_is_asked_to_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, state: str, message: str
+) -> None:
+    project = make_project(tmp_path / "demo")
+    folder = project / RUNS_DIRNAME / "case"
+    if state == "completed":
+        seal_run(project, "case")
+    elif state in ("failed", "aborted"):
+        claim = claim_run_directory(project, "case", case_id="c", project="d")
+        finish_attempt(claim.run_dir, status=state, error=RuntimeError("boom"))
+    elif state == "closed session":
+        folder = _session(project / "sessions" / "calib", "completed", monkeypatch)
+
+    with pytest.raises(NothingThereError, match=message):
+        request_stop(folder)
+    assert not _stop_flag(folder).exists()
+
+
+@pytest.mark.parametrize("fresh", [False, True], ids=["resumed", "fresh"])
+def test_the_next_attempt_files_the_flag_of_the_stopped_one(tmp_path: Path, fresh: bool) -> None:
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    flag = request_stop(first.run_dir)
+    finish_attempt(first.run_dir, status="aborted", error=StopRequested("stop requested at x"))
+    written = flag.read_bytes()
+
+    retry = claim_run_directory(project, "case", case_id="case", project="demo", fresh=fresh)
+
+    assert not _stop_flag(retry.run_dir).exists()
+    assert (retry.run_dir / "attempts" / "1" / STOP_FLAG_FILENAME).read_bytes() == written
+    raise_if_stop_requested(_stop_flag(retry.run_dir))
+
+
+def test_a_withdrawn_retry_puts_the_flag_back_in_the_attempt_state(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    request_stop(first.run_dir)
+    finish_attempt(first.run_dir, status="aborted", error=StopRequested("stop requested at x"))
+    before = _tree(first.run_dir)
+
+    withdraw_claim(claim_run_directory(project, "case", case_id="case", project="demo"))
+
+    assert _tree(first.run_dir) == before
+
+
+def test_a_stopped_attempt_reads_aborted_with_its_error_and_no_signal(tmp_path: Path) -> None:
+    claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
+    error = StopRequested("stop requested at 2026-11-10T08:00:00+00:00")
+
+    finish_attempt(claim.run_dir, status="aborted", error=error, signal=signal_of(error))
+
+    outcome = read_outcome(claim.run_dir)
+    assert outcome.status == "aborted" and outcome.signal is None
+    assert outcome.error.type == "StopRequested"
+    assert outcome.error.message == "stop requested at 2026-11-10T08:00:00+00:00"
+    assert effective_status(claim.run_dir) == "aborted"
+
+
+@pytest.mark.parametrize(
+    ("error", "signal"),
+    [
+        pytest.param(StopRequested("stop requested at x"), None, id="a stop"),
+        pytest.param(TerminationRequested("signal 15"), 15, id="SIGTERM"),
+        pytest.param(KeyboardInterrupt(), 2, id="SIGINT"),
+        pytest.param(RuntimeError("boom"), None, id="an error"),
+        pytest.param(None, None, id="nothing"),
+    ],
+)
+def test_a_signal_is_read_off_the_error_and_a_stop_is_none(error, signal) -> None:
+    assert signal_of(error) == signal
+
+
+@pytest.mark.parametrize(
+    ("recorded", "now", "refused"),
+    [
+        pytest.param("a" * 64, "a" * 64, False, id="the same request resumes"),
+        pytest.param("a" * 64, "b" * 64, True, id="another request is refused"),
+        pytest.param(None, "a" * 64, False, id="nothing recorded resumes"),
+    ],
+)
+def test_a_resume_asked_on_a_changed_request_is_refused(
+    tmp_path: Path, recorded: str | None, now: str, refused: bool
+) -> None:
+    project = make_project(tmp_path / "demo")
+    first = claim_run_directory(project, "case", case_id="case", project="demo")
+    _failed(first.run_dir, request_id=recorded)
+    retry = claim_run_directory(project, "case", case_id="case", project="demo")
+
+    if not refused:
+        refuse_resume_if_changed(retry, now)
+        return
+    with pytest.raises(ResumeError, match="without --resume to start it over") as raised:
+        refuse_resume_if_changed(retry, now)
+    assert "runs/case cannot resume: an input or a key of the request changed" in str(raised.value)
+
+
+@pytest.mark.parametrize("fresh", [False, True], ids=["first attempt", "fresh retry"])
+def test_an_attempt_that_continues_nothing_is_never_refused(tmp_path: Path, fresh: bool) -> None:
+    project = make_project(tmp_path / "demo")
+    claim = claim_run_directory(project, "case", case_id="case", project="demo")
+    if fresh:
+        _failed(claim.run_dir, request_id="a" * 64)
+        claim = claim_run_directory(project, "case", case_id="case", project="demo", fresh=True)
+
+    refuse_resume_if_changed(claim, "b" * 64)

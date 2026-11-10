@@ -134,7 +134,7 @@ def test_a_prior_state_starts_from_the_last_step_and_fills_inactive_with_the_top
     prior = PriorState(head=read_final_head(path), lake_stages={}, path=path)
     model.inputs = replace(model.inputs, initial=prior)
 
-    strt = build_start_heads(model, mesh)
+    strt = build_start_heads(model, mesh)["data"]
 
     assert np.array_equal(strt, [[1.0, 2.0, 3.0], [4.0, 5.0, 30.0]])
     assert prior.head[1, 2] != prior.head[1, 2]  # the state itself keeps its NaN
@@ -159,6 +159,83 @@ def test_a_prior_state_of_another_cell_count_is_refused(tmp_path) -> None:
         build_start_heads(model, mesh)
 
 
+STARTS: tuple[tuple[str, object, bool], ...] = (
+    ("a head rule", HeadRule("top"), False),
+    ("a steady start", SteadyStart(), False),
+    ("a cyclic start", CyclicStart(CyclicSpinupStrategy()), False),
+    ("a solved state", SolvedState(head=np.zeros((1, 6)), solver="modflow6"), False),
+    ("a prior state", PriorState(head=np.zeros((1, 6)), lake_stages={}, path="prior.zarr"), True),
+)
+
+
+@pytest.mark.parametrize(("case", "initial", "binary"), STARTS, ids=[c for c, *_ in STARTS])
+def test_only_a_prior_state_is_written_as_a_binary_double_precision_record(
+    case: str, initial: object, binary: bool
+) -> None:
+    del case
+    model = toy_model()
+    model.inputs = replace(model.inputs, initial=initial)
+
+    strt = build_start_heads(model, model.solver_mesh)
+
+    if not binary:
+        assert isinstance(strt, np.ndarray)
+        return
+    assert set(strt) == {"filename", "binary", "data", "iprn"}
+    assert strt["filename"] == f"{model.model_name_mf6}.ic_strt.bin"
+    assert strt["binary"] is True
+    assert strt["data"].dtype == np.float64
+    assert strt["data"].shape == (1, 6)
+
+
+def _disv_head_after_writing(tmp_path, strt, *, n_cells: int) -> np.ndarray:
+    """Write a two-layer vertex grid with ``strt`` as the IC package, read the package back."""
+    import flopy
+
+    vertices, cell2d = [], []
+    for cell in range(n_cells):
+        x = 10.0 * cell
+        corners = [(x, 0.0), (x, 10.0), (x + 10.0, 10.0), (x + 10.0, 0.0)]
+        first = len(vertices)
+        vertices += [[first + k, cx, cy] for k, (cx, cy) in enumerate(corners)]
+        cell2d.append([cell, x + 5.0, 5.0, 4, first, first + 1, first + 2, first + 3])
+    sim = flopy.mf6.MFSimulation(sim_name="s", sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
+    flopy.mf6.ModflowIms(sim)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="m")
+    flopy.mf6.ModflowGwfdisv(
+        gwf,
+        nlay=2,
+        ncpl=n_cells,
+        nvert=len(vertices),
+        top=20.0,
+        botm=[10.0, 0.0],
+        vertices=vertices,
+        cell2d=cell2d,
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=strt)
+    flopy.mf6.ModflowGwfnpf(gwf)
+    sim.write_simulation(silent=True)
+    loaded = flopy.mf6.MFSimulation.load(sim_ws=str(tmp_path), verbosity_level=0)
+    return np.asarray(loaded.get_model("m").ic.strt.get_data())
+
+
+def test_the_record_of_a_prior_state_gives_the_head_back_to_the_last_bit(tmp_path) -> None:
+    head = np.array([[13.123456789012345, 13.5, 12.000000000000002], [9.987654321098765] * 3])
+    model, mesh = _two_layer_row([20.0, 20.0, 20.0])
+    model.inputs = replace(
+        model.inputs, initial=PriorState(head=head, lake_stages={}, path="prior.zarr")
+    )
+
+    record = build_start_heads(model, mesh)
+
+    assert np.array_equal(_disv_head_after_writing(tmp_path / "binary", record, n_cells=3), head)
+    # Written as the text FloPy makes of an array, the same head loses its last digits.
+    assert not np.array_equal(
+        _disv_head_after_writing(tmp_path / "text", record["data"], n_cells=3), head
+    )
+
+
 def _west_head() -> BoundaryConditionBundle:
     return BoundaryConditionBundle(
         conditions={"west_side": SimpleNamespace(value=[50.0, 51.0])}, active_ids=("west_side",)
@@ -173,7 +250,7 @@ def test_a_prior_state_keeps_the_constant_heads_over_it() -> None:
         boundaries=_west_head(),
     )
 
-    strt = build_start_heads(model, model.solver_mesh)
+    strt = build_start_heads(model, model.solver_mesh)["data"]
 
     # The west side of the 2 x 3 grid is cells 0 and 3.
     assert np.array_equal(strt, [[50.0, 7.0, 7.0, 50.0, 7.0, 7.0]])
