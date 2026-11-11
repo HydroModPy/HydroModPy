@@ -727,3 +727,54 @@ def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     run_cmd.run(args)
 
     assert not (workspace / LOCKFILE_NAME).exists()
+
+
+# -- a station folder of the user, pinned as a run records it -------------------
+
+
+@pytest.mark.parametrize(
+    ("pins", "lock_name", "edit", "refusal"),
+    [
+        ("series+location", "inputs.json", None, None),
+        ("series", "inputs.json", None, r"absent from inputs\.json.*LOC\.csv.*hmp run"),
+        ("series", LOCKFILE_NAME, None, r"absent from hydromodpy\.lock.*hmp data lock"),
+        ("series+location", "inputs.json", "notes.csv", r"absent from inputs\.json.*notes\.csv"),
+        ("series+location", "inputs.json", "piezometry_custom_LOC.csv", "does not match"),
+    ],
+)
+def test_a_station_folder_replays_frozen_from_the_files_its_records_name(
+    tmp_path: Path, pins: str, lock_name: str, edit: str | None, refusal: str | None
+) -> None:
+    """The series and the location file a record names are the pins a frozen replay checks."""
+    from hydromodpy.data.ingest.custom_points import load_file_points
+    from hydromodpy.data.source.file import FileSource
+    from hydromodpy.data.source.port import FetchRequest
+
+    folder = tmp_path / "data" / "piezometry"
+    folder.mkdir(parents=True)
+    (folder / "piezometry_custom_LOC.csv").write_text("id,x,y\nW1,305.0,305.0\n")
+    (folder / "piezometry_custom_W1_D.csv").write_text("datetime,value\n2003-01-01,2.0\n")
+    (record,) = load_file_points(
+        data_dir=folder, variable_name="piezometry", internal_unit="m", default_unit="m"
+    )
+    named = [record.file_path, *record.location_files]
+    assert [path.name for path in named] == [
+        "piezometry_custom_W1_D.csv",
+        "piezometry_custom_LOC.csv",
+    ]
+    kept = named if pins == "series+location" else named[:1]
+    items = tuple(
+        user_file_input(path, variable="piezometry", project_root=tmp_path, sha256=sha256_of(path))
+        for path in kept
+    )
+    locked = LockedInputs(project_root=tmp_path, path=tmp_path / lock_name, inputs=items)
+    if edit is not None:
+        (folder / edit).write_text("id,x,y\nW1,0.0,0.0\n")
+    source = FileSource(path=folder, locked=locked)
+    source.section = "piezometry"
+
+    if refusal is None:
+        assert len(source.fetch(FetchRequest(out_dir=tmp_path)).files) == 2
+    else:
+        with pytest.raises(FrozenDataError, match=refusal):
+            source.fetch(FetchRequest(out_dir=tmp_path))

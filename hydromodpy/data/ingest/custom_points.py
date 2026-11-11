@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.catchment.preprocess.geographic_tree import SHAPEFILE_SIDECARS
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.files import (
@@ -111,6 +112,7 @@ def load_file_points(
         locations = [loc for loc in locations if loc.id in requested]
 
     logger.debug("Custom: %d stations from %s", len(locations), loc_file.name)
+    location_files = _location_parts(loc_file)
 
     var_label = record_variable or variable_name
     records: list[PointRecord] = []
@@ -183,6 +185,7 @@ def load_file_points(
                 is_constant=is_constant,
                 file_path=chronicle_path,
                 source_unit=source_unit,
+                location_files=location_files,
             )
         )
 
@@ -292,6 +295,14 @@ def _file_prefixes(variable_name: str) -> list[str]:
     if alias and alias != variable_name:
         return [variable_name, alias]
     return [variable_name]
+
+
+def _location_parts(loc_file: Path) -> tuple[Path, ...]:
+    """Return the files a location file is read from: a shapefile brings its parts."""
+    if loc_file.suffix != ".shp":
+        return (loc_file,)
+    parts = (loc_file.with_suffix(ext) for ext in SHAPEFILE_SIDECARS)
+    return tuple(path for path in parts if path.is_file())
 
 
 def _find_location_file(data_dir: Path, variable_name: str) -> Path:

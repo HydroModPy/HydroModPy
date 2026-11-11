@@ -776,6 +776,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `calibration_landscape`, `calibration_pairplot` and `calibration_objective_surface` raise `FigureNotApplicable` when the session sampled too few parameters, too few finite trials or collinear trials. A malformed `parameters=` argument is still a `ValueError`.
 - `simulated_active_network_reference_overlay` reports a run without a reference hydrographic network as unavailable instead of raising `KeyError`.
 - On Windows, promoting a kept trial and importing a published run no longer fail on the reserved folder, and a calibration worker ends together with the solver it started.
+- `hmp replay` no longer refuses with HMPY.E210 a run that read station files from a user folder (hydrometry,
+  piezometry, intermittency, and the grid families read from a CSV folder). The run now pins the location file
+  beside each series in `inputs.json`. A run stored before this fix stays refused, and the refusal names the
+  remedy: `hmp data lock` for a pin of `hydromodpy.lock`, a new `hmp run` for a pin of `inputs.json`.
 
 ### Numbers
 

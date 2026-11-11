@@ -42,6 +42,7 @@ from typing import Any
 from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 
 logger = get_logger(__name__)
 
@@ -88,6 +89,25 @@ def record_source_path(record: object) -> Path | None:
     if isinstance(data, (str, Path)):
         return Path(data)
     return None
+
+
+def record_input_files(record: object, source_path: Path | None) -> list[tuple[Path, str | None]]:
+    """Return the files one record was read from, each with its provider when it says one.
+
+    A record built from files it does not point at lists them in its metadata
+    (:data:`~hydromodpy.data.contracts.spatial_field.INPUT_FILES_KEY`): the
+    mapped network is rasterized in the scratch, its inputs are the files of its
+    sources. Any other record was read from its own source path, and a station
+    also from the files of its location, which a frozen replay must find pinned.
+    """
+    metadata = getattr(record, "metadata", None)
+    listed = metadata.get(INPUT_FILES_KEY) if isinstance(metadata, dict) else None
+    if listed:
+        return [(Path(str(entry["path"])), str(entry["provider"])) for entry in listed]
+    if source_path is None:
+        return []
+    located = getattr(record, "location_files", None) or ()
+    return [(source_path, None), *((Path(path), None) for path in located)]
 
 
 def sha256_file_or_none(path: Path | None) -> str | None:
@@ -310,6 +330,7 @@ __all__ = (
     "description_path",
     "iter_loaded_records",
     "read_data_description",
+    "record_input_files",
     "source_digests",
     "record_source_path",
     "sha256_file_or_none",

@@ -26,7 +26,6 @@ from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import encode_workspace_path
-from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
@@ -35,6 +34,7 @@ from hydromodpy.workflow.steps.data_description import (
     LoadedRecord,
     iter_loaded_records,
     read_data_description,
+    record_input_files,
     record_source_path,
     sha256_file_or_none,
     source_digests,
@@ -246,7 +246,7 @@ def step_write_provenance(ctx: WorkflowContext, *, store: RunStore) -> None:
                 period_start=getattr(rec, "date_start", None),
                 period_end=getattr(rec, "date_end", None),
             )
-            for input_path, provider in _input_files(item, source_path):
+            for input_path, provider in record_input_files(item.record, source_path):
                 if is_run_product(input_path, project_root):
                     continue
                 input_digest = (
@@ -274,21 +274,6 @@ def step_write_provenance(ctx: WorkflowContext, *, store: RunStore) -> None:
 
     if written:
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
-
-
-def _input_files(item: LoadedRecord, source_path: Path | None) -> list[tuple[Path, str | None]]:
-    """Return the files one record was read from, each with its provider when it says one.
-
-    A record built from files it does not point at lists them in its
-    metadata (:data:`~hydromodpy.data.contracts.spatial_field.INPUT_FILES_KEY`):
-    the mapped network is rasterized in the scratch, its inputs are the files
-    of its sources. Any other record was read from its own source path.
-    """
-    metadata = getattr(item.record, "metadata", None)
-    listed = metadata.get(INPUT_FILES_KEY) if isinstance(metadata, dict) else None
-    if listed:
-        return [(Path(str(entry["path"])), str(entry["provider"])) for entry in listed]
-    return [] if source_path is None else [(source_path, None)]
 
 
 def _loaded_input_entry(

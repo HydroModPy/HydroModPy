@@ -406,9 +406,18 @@ def reject_frozen_user_file(locked: LockedInputs | None, *, variable: str, path:
                     f"hydromodpy.lock: {variable}/file/{resolved}."
                 )
             return
+    if locked.path.name == LOCKFILE_NAME:
+        remedy = "Pin it with `hmp data lock`."
+    else:
+        # The pins of a replay come from the inputs.json of the run it plays.
+        remedy = (
+            f"{locked.path} does not list it, so this run cannot be replayed frozen. "
+            "Run its configuration again with `hmp run`: the new run records every "
+            "file it reads."
+        )
     raise FrozenDataError(
-        f"Frozen data mode forbids a user file absent from hydromodpy.lock: "
-        f"{variable}/file/{resolved}."
+        f"Frozen data mode forbids a user file absent from {locked.path.name}: "
+        f"{variable}/file/{resolved}. {remedy}"
     )
 
 
