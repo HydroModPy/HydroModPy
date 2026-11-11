@@ -266,7 +266,9 @@ def test_the_commands_export_and_import_a_project(tmp_path) -> None:
 # variable, provider, request, licence and the digest of its sidecar. A station
 # series brings its registry row, a file a provider delivered the cache row its
 # sidecar holds, the run its ``[site]``. A declared folder is never
-# taken whole: a station the run did not read stays out.
+# taken whole: a station the run did not read stays out. A registry the run
+# read is no file of the index, its rows are merged into the registry of the
+# workspace that imports.
 def test_the_index_lists_every_file_the_run_read_and_nothing_else(tmp_path) -> None:
     run_dir = make_shared_run(tmp_path / "ws")
 

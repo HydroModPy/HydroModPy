@@ -1,4 +1,8 @@
-"""Point-record discretization on cell centers."""
+"""Point-record discretization on cell centers.
+
+A station whose location is in another CRS than the mesh is refused. ``period_means`` takes the
+mean of each series over each period.
+"""
 
 from __future__ import annotations
 

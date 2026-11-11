@@ -3,6 +3,9 @@
 V1 knows one actor, the local user. :class:`AuthBackend` reports the current
 OS user and allows every read and write. A real backend (keyring-backed
 secrets, IAM roles, SSO) would replace this class when it exists.
+
+The local user is the one that the privacy certificate and the notes of ``catalog note``
+name.
 """
 
 from __future__ import annotations

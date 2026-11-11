@@ -1,4 +1,9 @@
-"""Where each cell of a D8 pointer raster drains, read from the code table of the port."""
+"""Where each cell of a D8 pointer raster drains, read from the code table of the port.
+
+``tests/unit/catchment/algorithms/test_stream_dem_agreement.py`` tilts a plane in each
+direction and reads back the code Whitebox writes, which holds the table against the
+ESRI one.
+"""
 
 from __future__ import annotations
 

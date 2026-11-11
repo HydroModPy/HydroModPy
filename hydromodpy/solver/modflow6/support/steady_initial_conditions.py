@@ -1,4 +1,8 @@
-"""Same-solver steady-state initial-condition support for MODFLOW 6."""
+"""Same-solver steady-state initial-condition support for MODFLOW 6.
+
+It runs the auxiliary steady solve or the cyclic spin-up whose final heads start the
+run.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,7 @@
-"""Pumping/injection well payloads for the flow process."""
+"""Pumping/injection well payloads for the flow process.
+
+The module also holds the report of a well whose pumping MODFLOW 6 cut.
+"""
 
 from __future__ import annotations
 

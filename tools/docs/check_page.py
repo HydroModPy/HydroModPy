@@ -13,7 +13,10 @@ For each page (Markdown or reStructuredText under docs/source):
   of example 04. A block whose first line is ``# not checked: <reason>`` is
   skipped, for a block that shows a mistake on purpose. A whole file of the
   catchment report is read by its own model, as ``hmp show RUN --report`` reads it;
-- no French, no em dash, no wording of the mock-up.
+- no French, no em dash, no wording of the mock-up;
+- a key of the field registry written between backticks outside a code block is
+  refused: it goes through the ``toml`` role, so the card generated from the
+  model is the one place that gives its default and its unit.
 
 Reads ``docs/source/_data/registry.json``, written by the last build. Exit
 code 1 when a page has a problem.
@@ -34,9 +37,14 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "docs" / "source"
 EX04 = ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
 SKIP_DIRS = ("_data", "_static", "_templates", "_ext")
+# A page of history, which records keys as they were written then.
+BARE_KEYS_ALLOWED = ("about/changes-during-the-alphas.md",)
 
 TOML_ROLE = re.compile(r"(?:\{toml\}|:toml:)`([^`]+)`")
 DOC_ROLE = re.compile(r"(?:\{doc\}|:doc:)`([^`]+)`")
+ANY_ROLE = re.compile(r"(?:\{[a-z:-]+\}|:[a-z:-]+:)`[^`]+`")
+CODE_SPAN = re.compile(r"`+([^`\s][^`]*?)`+")
+RST_CODE = re.compile(r"^(\s*)\.\. (?:code-block|code|sourcecode|hmp-toml|hmp-params)::")
 CARD_LINK = re.compile(r"^\s*:link:\s*(\S+)\s*$")
 MD_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\s]+)\)")
 FENCE = re.compile(r"^(`{3,}|:{3,})\s*(\{[a-z-]+\}|[a-z]+)?\s*(.*)$")
@@ -64,6 +72,27 @@ BANNED = (
     "in the target",
     "In the target",
 )
+
+
+def looks_french(text: str) -> bool:
+    """Tell whether a line of prose is French: an accent, or two common French words.
+
+    Code spans and the names of places that carry an accent are left out.
+    """
+    prose = re.sub(r"`[^`]*`", "", text)
+    for name in ALLOWED_NAMES:
+        prose = prose.replace(name, "")
+    return bool(ACCENT.search(prose) or len(FRENCH.findall(prose.lower())) >= 2)
+
+
+def bare_keys(line: str, reg: Registry) -> list[str]:
+    """The registry keys a line writes between backticks without the ``toml`` role."""
+    rest = ANY_ROLE.sub("", line)
+    return [
+        m.group(1)
+        for m in CODE_SPAN.finditer(rest)
+        if "." in m.group(1) and m.group(1) in reg.nodes
+    ]
 
 
 def docnames() -> set[str]:
@@ -233,11 +262,19 @@ def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:
 
     in_code = False
     in_params = False
+    code_fence: str | None = None  # the open backtick fence of a Markdown page
+    rst_code: int | None = None  # the indent of the open code directive of a reST page
     titles = 0
+    key_role = "{toml}" if is_md else ":toml:"
     for n, line in enumerate(lines, start=1):
         stripped = line.strip()
         if is_md and FENCE.match(stripped):
             m = FENCE.match(stripped)
+            if m.group(1)[0] == "`":
+                if code_fence is None:
+                    code_fence = m.group(1)
+                elif stripped.startswith(code_fence):
+                    code_fence = None
             if not in_code:
                 in_code = True
                 in_params = m.group(2) == "{hmp-params}"
@@ -250,6 +287,18 @@ def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:
             else:
                 in_code = in_params = False
             continue
+        if not is_md:
+            indent = len(line) - len(line.lstrip())
+            if rst_code is not None and stripped and indent <= rst_code:
+                rst_code = None
+            opened = RST_CODE.match(line)
+            if opened:
+                rst_code = len(opened.group(1))
+        if rel not in BARE_KEYS_ALLOWED and (code_fence is None if is_md else rst_code is None):
+            for key in bare_keys(line, reg):
+                problems.append(
+                    f"{where(n)}: write the key {key_role}`{key}` so its card gives the default and the unit"
+                )
         if in_params and stripped and not stripped.startswith(":"):
             if reg.resolve(stripped) is None:
                 problems.append(f"{where(n)}: unknown key in hmp-params: {stripped}")
@@ -291,10 +340,7 @@ def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:
             path = target.split("#", 1)[0]
             if path and not (SRC / base / path).exists():
                 problems.append(f"{where(n)}: link to a file that does not exist: {target}")
-        prose = re.sub(r"`[^`]*`", "", line)
-        for name in ALLOWED_NAMES:
-            prose = prose.replace(name, "")
-        if ACCENT.search(prose) or len(FRENCH.findall(prose.lower())) >= 2:
+        if looks_french(line):
             problems.append(f"{where(n)}: looks French: {stripped[:80]}")
         if "—" in line:
             problems.append(f"{where(n)}: em dash")

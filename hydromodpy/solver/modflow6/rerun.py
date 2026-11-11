@@ -20,6 +20,13 @@ first build: the extractor finds them by their ``.hds``, never by the slot.
 
 ``plan_rerun`` checks everything before anything is touched, and says why a
 rerun is refused. A refusal is no error: the runner builds instead.
+
+It returns ``None``, and the runner builds, in five cases. The earlier run is not
+solved, not written, or no longer owns its solver model. The model starts from a steady
+or a cyclic solve, which depend on K and Sy. The change turns XT3D on or off, which
+changes IMS and HFB. The drain cells or the MVR lines are no longer the ones of the
+earlier run. The simulation of the earlier run carries a model other than the GWF flow,
+because a rerun that copied it would solve a transport again without saying so.
 """
 
 from __future__ import annotations

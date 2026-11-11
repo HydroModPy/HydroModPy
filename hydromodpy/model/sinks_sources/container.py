@@ -1,4 +1,8 @@
-"""Top-level container grouping wells, recharge, and ETP payloads."""
+"""Top-level container grouping wells, recharge, and ETP payloads.
+
+``Flow.set_sinks_sources`` reads it. The kinds are wells, recharge, ETP, lakes, SFR networks and
+flow barriers, one module each in this folder.
+"""
 
 from __future__ import annotations
 

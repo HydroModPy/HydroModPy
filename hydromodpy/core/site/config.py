@@ -23,6 +23,9 @@ JSON document (sorted keys, no spaces). :func:`resolve_gauge` makes
 names a station falls back to it, and a key that writes a different station is
 refused by name. A station list (``station_ids``) that contains the gauge is
 accepted.
+
+``resolve_gauge`` is the one source of the station that other keys fall back to, and it
+raises ``GaugeConflictError`` when they disagree.
 """
 
 from __future__ import annotations

@@ -3,6 +3,9 @@
 The registry is derived from ``root.model_fields`` so callers that need to
 enumerate root sections (TOML scaffolding, JSON Schema export, interactive UI)
 stay automatically in sync with the root model.
+
+It walks the ``root`` argument (``root_sections``, ``repeated_root_sections``,
+``root_scalar_fields``) and keeps no module cache.
 """
 
 from __future__ import annotations

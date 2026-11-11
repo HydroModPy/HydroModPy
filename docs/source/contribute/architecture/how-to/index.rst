@@ -15,6 +15,14 @@ Extend the code
 .. grid:: 1 2 2 2
    :gutter: 2
 
+   .. grid-item-card:: Plug into a port
+      :link: plug-into-a-port
+      :link-type: doc
+
+      Every port with what a plugin declares, how it registers and the tests that
+      cover it, read from the registries. Start here for a solver, a mesh or terrain
+      engine, a data source, an evaluator, an optimizer, an export format or a figure.
+
    .. grid-item-card:: Add a config field
       :link: add-a-config-field
       :link-type: doc
@@ -121,6 +129,7 @@ Check and ship
    :hidden:
    :maxdepth: 1
 
+   plug-into-a-port
    add-a-config-field
    add-a-solver
    add-a-process

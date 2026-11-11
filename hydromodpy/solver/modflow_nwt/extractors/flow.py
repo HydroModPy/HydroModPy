@@ -1,4 +1,8 @@
-"""Output adapter for MODFLOW-NWT flow solver results."""
+"""Output adapter for MODFLOW-NWT flow solver results.
+
+The flow extractor takes the dry-cell sentinels from the options of the run, and the
+start date and the vertical layout from its ``Model``.
+"""
 
 from __future__ import annotations
 

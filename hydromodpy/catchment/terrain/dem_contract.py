@@ -6,6 +6,11 @@ input check of a document hold a raster file to the same bounds through its
 header and its outlet: ``read_dem_header`` reads only the header of an open
 raster, and ``check_dem_header``, ``check_dem_outlet`` and ``check_dem_values``
 refuse a raster that breaks one of them. The caller opens the file once.
+
+The bounds are a declared projected CRS in metres, a grid that is not rotated, pixels
+square within 1 % on the source header, a cell size from 1 to 250 m on the grid the
+chain routes, elevations from -500 to 9000 m on the valid cells, and an outlet on a
+valid cell. A DEM that fails one is refused with ``DataContractViolation`` (HMPY.E201).
 """
 
 from __future__ import annotations

@@ -61,11 +61,16 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
         # reaching the real backend: it drives the terrain engine with the
         # double of ``tests/_helpers/whitebox_double.py``, and serializing a
         # file that never calls Whitebox only makes the group slower.
+        "test_delineation_determinism.py",
+        "test_downslope_whitebox_golden.py",
         "test_run_case_river_network_nancon.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_dem_processing_golden.py",
         "test_run_geographic_river_network_golden.py",
+        "test_shared_backend.py",
+        "test_stream_dem_agreement.py",
         "test_terrain.py",
+        "test_whitebox_depression_child.py",
         "test_whitebox_workflows_backend.py",
     }
 )
@@ -447,6 +452,15 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(pytest.mark.xdist_group(name=_WHITEBOX_XDIST_GROUP))
 
+        # A file that names the group itself, or sits in the list above, drives
+        # the native binding. The marker lets a workflow select it by name.
+        if not any(mark.name == "whitebox" for mark in item.iter_markers()) and any(
+            mark.name == "xdist_group"
+            and _WHITEBOX_XDIST_GROUP in (*mark.args, *mark.kwargs.values())
+            for mark in item.iter_markers()
+        ):
+            item.add_marker(pytest.mark.whitebox)
+
         # 2) Regression tier default markers (fast vs extensive).
         # Same trap as the layer marker above: `keywords` carries every ancestor
         # directory name, so "fast" and "extensive" are always in there for a
@@ -462,8 +476,34 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(getattr(pytest.mark, tier))
 
 
+_WINDOWS_SKIP_REASON = "a Windows behaviour, proved by the weekly Windows job"
+# Read by pytest_runtest_setup; tests/unit/tools/test_ci_markers.py sets it to play
+# the body of a ``windows`` test on another system.
+_ON_WINDOWS = os.name == "nt"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Turn a skipped ``windows`` test into a failure when HMP_REQUIRE_WINDOWS is set."""
+    outcome = yield
+    report = outcome.get_result()
+    if (
+        report.skipped
+        and not hasattr(report, "wasxfail")
+        and os.environ.get("HMP_REQUIRE_WINDOWS")
+        and item.get_closest_marker("windows") is not None
+    ):
+        reason = report.longrepr
+        if isinstance(reason, tuple):
+            reason = str(reason[2]).removeprefix("Skipped: ")
+        report.outcome = "failed"
+        report.longrepr = f"HMP_REQUIRE_WINDOWS is set and {reason}"
+
+
 def pytest_runtest_setup(item):
     """Keep pytest's shared temp roots available even after test-side cleanup."""
+    if not _ON_WINDOWS and item.get_closest_marker("windows") is not None:
+        pytest.skip(_WINDOWS_SKIP_REASON)
     if "petsc" in item.keywords:
         if platform.system().strip().lower() != "linux" or find_spec("petsc4py") is None:
             pytest.skip("Boussinesq PETSc runtime is Linux-only and requires petsc4py.")

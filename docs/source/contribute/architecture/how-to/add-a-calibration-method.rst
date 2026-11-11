@@ -174,7 +174,7 @@ before anything solves.
            libraries=("scipy",),        # distributions whose versions session.json records
        )
 
-The last two are what lets a file state its precision once. ``calibration.precision``
+The last two are what lets a file state its precision once. :toml:`calibration.precision`
 is a relative precision on the parameter, and it is translated into whichever
 option the engine names:
 
@@ -196,7 +196,7 @@ is then refused with a message naming what does bound it, rather than accepted
 and dropped: a run reporting that it honored a request it never read is worse
 than a run refusing the request.
 
-The budget is the same kind of statement. ``calibration.max_trials`` is the one
+The budget is the same kind of statement. :toml:`calibration.max_trials` is the one
 number that bounds a search, and no engine option counts evaluations of its own:
 an engine that sizes its plan on the budget (an initial design, a restart
 schedule) declares ``takes_max_trials=True`` and receives it as its

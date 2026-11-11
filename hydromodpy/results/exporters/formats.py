@@ -6,6 +6,9 @@ itself lives on :class:`~hydromodpy.results.exporters.job.ExportJob`, the one
 object that reads the run, so the body of a format decision is one line a
 kind. The seventh shipped format, the RO-Crate view, is declared where it
 lives, in :mod:`hydromodpy.results.export.rocrate`.
+
+A new format of the wheel is a writer here, its dotted path in ``_BUILTIN_PATHS`` of
+``registry.py`` and a case in ``tests/ports/test_export.py``.
 """
 
 from __future__ import annotations

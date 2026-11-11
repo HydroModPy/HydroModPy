@@ -24,6 +24,9 @@ DRN-drainage and PERIOD/OBS internals live in the sibling ``_sfr_network`` /
 ``_sfr_drainage`` / ``_sfr_period`` modules; the two shared dataclasses stay
 defined here so their dotted paths (``builders.sfr.SfrReachRecord`` /
 ``ResolvedSfrNetwork``) are stable.
+
+The ``_sfr_*`` modules hold the network, the bed, the period data and the drains under a
+reach.
 """
 
 from __future__ import annotations

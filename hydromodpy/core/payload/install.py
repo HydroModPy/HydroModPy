@@ -7,6 +7,10 @@ kept (``hmp example add``), replaced (``--force``) or refused by name with
 both digests (an import), and :func:`refuse_conflicts` refuses before
 anything is written. A station row is merged into its registry the same way:
 a row of the same id with other values is a conflict.
+
+``plan_files`` and ``plan_stations`` plan every placement before one is written.
+Identical bytes cost nothing, an absent file is copied with its sidecar, and other bytes
+at the same path are a conflict named with both digests (``PayloadConflictError``).
 """
 
 from __future__ import annotations

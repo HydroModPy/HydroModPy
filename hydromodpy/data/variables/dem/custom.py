@@ -1,5 +1,11 @@
 """Custom DEM data loaders.
 
+A file without a CRS is refused. The file is read where it lies and is no row of the cache, and
+a copy made from it goes under ``data/blobs/dem/file/``. A ``file`` or ``url`` source takes
+``state = "raw"`` or ``state = "conditioned"``. A conditioned DEM was filled or breached by
+another tool, so HydroModPy skips its own conditioning and still computes the D8 directions and
+the accumulation.
+
 Supports:
 - TIF/TIFF: GeoTIFF raster elevation files
 - ASC: Esri ASCII Grid elevation files (converted to GeoTIFF on load)

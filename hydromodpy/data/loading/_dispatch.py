@@ -3,8 +3,9 @@
 Used by the user-facing :class:`DataStore` facade (``store.py``), by the
 plan-driven :class:`DataLoader` (``loader.py``), by the validation of ``[data]``
 (``config_schema.py``) and by the workspace scaffold. Adding a variable means
-adding one entry to :data:`VARIABLE_SPECS`, then the lists that ``loading/README.md``
-names.
+adding one entry to :data:`VARIABLE_SPECS`, then a field of ``DataConfig``, a field of
+``LoadedDataContext`` and, for a provider, an entry in ``schema/sources.py``. The page
+``packages/data.rst`` of the developer docs gives the recipe.
 """
 
 from __future__ import annotations

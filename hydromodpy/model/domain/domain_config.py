@@ -1,3 +1,9 @@
+"""The ``[domain]`` table, ``DomainConfig``.
+
+Its three parts are the depth model (``depth_model_config.py``), the layers
+(``layers_config.py``) and the supports (``spatial_support_config.py``).
+"""
+
 from __future__ import annotations
 
 from typing import Annotated

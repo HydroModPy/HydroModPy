@@ -1,4 +1,8 @@
-"""Piezometry variable: custom chronicles and Hub'Eau."""
+"""Piezometry variable: custom chronicles and Hub'Eau.
+
+``PiezometryVariable`` dispatches to the configured source (``custom`` or ``hubeau``), with the
+``level`` and ``depth`` products. Its config models forbid extra keys.
+"""
 
 from __future__ import annotations
 

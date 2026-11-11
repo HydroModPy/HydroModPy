@@ -24,6 +24,14 @@ command is the local launcher instead: it writes the plan, runs the prepare
 phase, then one worker per case (:mod:`hydromodpy.project.launch`).
 ``--only``, ``--site``, ``--parallel``, ``--until data``, ``--fresh``,
 ``--force`` and a bare ``--resume`` choose what the launch does.
+
+A run identical to a completed one is not computed again: ``hmp run`` and ``hmp
+calibrate`` give back the completed run and name it, and ``--force`` computes anyway. A
+resume, a partial window and a replay never skip. ``hmp run`` calls the verb ``run`` for
+a simulation and an overview, and ``dispatch_workflow`` of
+``project/dispatch/workflow.py`` for a calibration. A ``[sites]`` child is a ``hmp
+run``. Docker holds the same program, so ``docker run <image> run /project/request.json
+--base /project`` plays a request found in a mounted project folder.
 """
 
 from __future__ import annotations

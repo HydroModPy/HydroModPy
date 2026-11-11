@@ -8,6 +8,9 @@ fixed in that source, never in a page.
 
 The pages under ``contribute/architecture/generated/`` hold one directive each
 and are read again at every build, because their sources are not pages.
+``hmp-module-table`` and ``hmp-port-table`` sit in hand-written pages, where the
+sources are the docstrings of the modules and the registries of the code; a page
+that holds one is read again at every build as well.
 
 The layer graph needs Graphviz. When ``dot`` cannot be found the figure is
 left out with an info message and the tables still render, so a strict build
@@ -16,8 +19,10 @@ does not fail on a machine without Graphviz.
 
 from __future__ import annotations
 
+import posixpath
 import re
 import shutil
+from pathlib import Path
 from typing import Any
 
 from docutils import nodes
@@ -695,12 +700,95 @@ class ExtrasDirective(_Generated):
         ]
 
 
+# -- module tables and ports ---------------------------------------------------
+
+
+class ModuleTableDirective(_Generated):
+    """The modules of one package with the first line of their docstring, folder by folder."""
+
+    required_arguments = 1
+
+    def run(self) -> list[nodes.Node]:
+        data = _data()
+        package = self.arguments[0]
+        try:
+            rows = data.module_table(package)
+        except ValueError as exc:
+            raise self.error(str(exc)) from exc
+        folders: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            folders.setdefault(posixpath.dirname(row["path"]), []).append(row)
+        out: list[nodes.Node] = []
+        for folder, members in folders.items():
+            label = f"{folder}/" if folder else "top level"
+            head = nodes.paragraph()
+            head += nodes.strong(label, label)
+            readme = members[0]["readme"]
+            if readme:
+                head += nodes.Text(": ")
+                head.extend(inline(data.readme_summary(data.ROOT / readme)))
+            out.append(head)
+            out.append(
+                table(
+                    ["Module", "What it does", "Lines"],
+                    [
+                        [literal(posixpath.basename(m["path"])), m["summary"], m["lines"]]
+                        for m in members
+                    ],
+                    [24, 66, 10],
+                )
+            )
+        return out
+
+
+class PortTableDirective(_Generated):
+    """One row per registry: what a plugin declares, how it joins and the tests."""
+
+    def run(self) -> list[nodes.Node]:
+        rows = []
+        for r in _data().port_table():
+            joins = f"entry-point group ``{r['group']}``" if r["group"] else "in the code only"
+            readme = r["readme"]["path"] if r["readme"] else "-"
+            rows.append(
+                [
+                    literal(r["registry"]),
+                    r["kind"],
+                    literal_list(r["members"]),
+                    joins,
+                    len(r["names"]),
+                    literal(readme) if readme != "-" else "-",
+                    len(r["tests"]),
+                ]
+            )
+        return [
+            self.source_note("the ``PluginRegistry`` instances of ``hydromodpy``"),
+            table(
+                ["Registry", "Kind", "A plugin declares", "Joins by", "Served", "README", "Tests"],
+                rows,
+                [22, 9, 20, 15, 7, 17, 10],
+            ),
+        ]
+
+
 # -- setup ---------------------------------------------------------------------
+
+
+def _holds_a_table(path: str) -> bool:
+    """Whether a page writes one of the two directives that read the code."""
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False  # not a text source, so no directive in it
+    return any(f"hmp-{name}-table" in text for name in ("module", "port"))
 
 
 def _always_reread(app: Sphinx, env, added, changed, removed) -> list[str]:
     """The sources of these pages are not pages: read them again at every build."""
-    return [doc for doc in env.found_docs if doc.startswith(GENERATED_PREFIX)]
+    return [
+        doc
+        for doc in env.found_docs
+        if doc.startswith(GENERATED_PREFIX) or _holds_a_table(env.doc2path(doc))
+    ]
 
 
 DIRECTIVES = {
@@ -712,6 +800,8 @@ DIRECTIVES = {
     "hmp-contribute-storage": StorageDirective,
     "hmp-contribute-env": EnvDirective,
     "hmp-contribute-extras": ExtrasDirective,
+    "hmp-module-table": ModuleTableDirective,
+    "hmp-port-table": PortTableDirective,
 }
 
 

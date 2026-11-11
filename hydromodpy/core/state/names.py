@@ -13,6 +13,11 @@ sentence that proposes the folded name. :func:`fold_name` folds a text the code
 made into a name (a case of a plan, a file stem); the caller then passes the
 result through :func:`check_name`, which still refuses it when it is too long
 or reserved.
+
+The reserved device names are ``con``, ``prn``, ``aux``, ``nul``, ``com1`` to ``com9``
+and ``lpt1`` to ``lpt9``. The refusal is a ``ConfigError`` of exit code 14. A name is
+checked when a project is created, when a run takes its folder and when a case is
+renamed.
 """
 
 from __future__ import annotations

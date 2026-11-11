@@ -40,17 +40,17 @@ cli/privacy.rst               reference/cli/privacy
 cli/process.rst               reference/cli/index
 cli/project.rst               reference/cli/project
 cli/run.rst                   reference/cli/run
-cli/viz.rst                   reference/cli/viz
+cli/viz.rst                   reference/cli/show
 cli/workspace.rst             reference/cli/workspace
 python_api/calibrate.rst      reference/python/hmp-calibrate
-python_api/compare_pair.rst   reference/python/hmp-compare_pair
+python_api/compare_pair.rst   reference/python/hmp-compare
 python_api/doctor.rst         reference/python/hmp-doctor
 python_api/index.rst          reference/python/index
 python_api/index_verb.rst     reference/python/hmp-open
 python_api/open.rst           reference/python/hmp-open
 python_api/project.rst        reference/python/Project
-python_api/read.rst           reference/python/hmp-read
-python_api/report.rst         reference/python/hmp-report
+python_api/read.rst           reference/python/Catalog
+python_api/report.rst         reference/python/hmp-show
 python_api/run.rst            reference/python/hmp-run
 user_guide/cli-reference.rst  reference/cli/index
 
@@ -108,9 +108,9 @@ theory/streams_and_seepage/worked-examples.rst                                  
 
 # User guide
 user_guide/catalog.rst                                   reference/cli/catalog
-user_guide/catchment-report.rst                          reference/cli/report
-user_guide/concepts/comparison-output-reading-order.rst  reference/cli/report
-user_guide/concepts/comparison-workflow.rst              reference/cli/report
+user_guide/catchment-report.rst                          reference/cli/show
+user_guide/concepts/comparison-output-reading-order.rst  reference/cli/show
+user_guide/concepts/comparison-workflow.rst              reference/cli/show
 user_guide/concepts/index.rst                            get-started/concepts
 user_guide/concepts/project-vs-run.rst                   get-started/concepts
 user_guide/concepts/reading-results-pages.rst            understand/reading-results
@@ -130,14 +130,14 @@ user_guide/modflow6-flow-barrier.rst                     reference/parameters/fl
 user_guide/modflow6-lake.rst                             reference/parameters/flow/sinks_sources/lakes
 user_guide/modflow6-prt.rst                              reference/parameters/transport
 user_guide/modflow6-sfr.rst                              reference/parameters/flow/sinks_sources/sfr
-user_guide/point-queries.rst                             reference/python/hmp-read
+user_guide/point-queries.rst                             reference/python/Catalog
 user_guide/results-and-exports.rst                       understand/reading-results
 user_guide/solvers.rst                                   reference/solvers
 user_guide/troubleshooting.rst                           reference/cli/exit-codes
 user_guide/workflows/calibration-recipes.rst             reference/calibration-methods
 user_guide/workflows/calibration-uncertainty.rst         understand/how-sure
 user_guide/workflows/calibration.rst                     reference/calibration-methods
-user_guide/workflows/comparison.rst                      reference/cli/report
+user_guide/workflows/comparison.rst                      reference/cli/show
 user_guide/workflows/index.rst                           get-started/concepts
 user_guide/workflows/overview.rst                        reference/parameters/overview
 user_guide/workflows/regional_lab.rst                    get-started/many-catchments
@@ -147,7 +147,7 @@ user_guide/workflows/stream-network-calibration.rst      reference/parameters/ca
 user_guide/workflows/testbed.rst                         get-started/many-catchments
 
 # Configuration reference
-user_guide/config_reference/analysis.rst         reference/cli/report
+user_guide/config_reference/analysis.rst         reference/cli/show
 user_guide/config_reference/calibration.rst      reference/parameters/calibration/index
 user_guide/config_reference/complete_toml.rst    reference/parameters/index
 user_guide/config_reference/config_index.rst     reference/parameters/explorer
@@ -320,7 +320,7 @@ api/generated/hydromodpy.calibration.register_optimizer           reference/cali
 api/generated/hydromodpy.calibration.validate_calib_output        reference/python/hmp-calibrate
 api/generated/hydromodpy.catalog                                  reference/python/index
 api/generated/hydromodpy.catalog.InputsNamespace                  reference/python/Catalog
-api/generated/hydromodpy.compare_pair                             reference/python/hmp-compare_pair
+api/generated/hydromodpy.compare_pair                             reference/python/hmp-compare
 api/generated/hydromodpy.config                                   reference/python/index
 api/generated/hydromodpy.core                                     reference/python/index
 api/generated/hydromodpy.core.ExecutionRegistry                   reference/python/index
@@ -342,9 +342,9 @@ api/generated/hydromodpy.data.DataStore                           reference/pyth
 api/generated/hydromodpy.data.run_request                         reference/python/index
 api/generated/hydromodpy.discretization                           reference/python/index
 api/generated/hydromodpy.display                                  reference/python/index
-api/generated/hydromodpy.display.BaseFigure                       reference/python/Figure
-api/generated/hydromodpy.display.Figure                           reference/python/Figure
-api/generated/hydromodpy.display.FigureSpec                       reference/python/Figure
+api/generated/hydromodpy.display.BaseFigure                       reference/python/hmp-show
+api/generated/hydromodpy.display.Figure                           reference/python/hmp-show
+api/generated/hydromodpy.display.FigureSpec                       reference/python/hmp-show
 api/generated/hydromodpy.display.get                              reference/figures
 api/generated/hydromodpy.display.list_figures                     reference/figures
 api/generated/hydromodpy.display.names                            reference/figures
@@ -364,8 +364,8 @@ api/generated/hydromodpy.project.ProjectCatalog                   reference/pyth
 api/generated/hydromodpy.project.ProjectDataAccessor              reference/python/Project
 api/generated/hydromodpy.project.ProjectRunner                    reference/python/Project
 api/generated/hydromodpy.project.ProjectRunsAccessor              reference/python/Project
-api/generated/hydromodpy.read                                     reference/python/hmp-read
-api/generated/hydromodpy.report                                   reference/python/hmp-report
+api/generated/hydromodpy.read                                     reference/python/Catalog
+api/generated/hydromodpy.report                                   reference/python/hmp-show
 api/generated/hydromodpy.reporting                                reference/python/index
 api/generated/hydromodpy.results                                  reference/python/index
 api/generated/hydromodpy.results.Catalog                          reference/python/Catalog
@@ -435,7 +435,7 @@ _modules/hydromodpy/data/managers/container                         reference/py
 _modules/hydromodpy/data/managers/plan                              reference/python/index
 _modules/hydromodpy/data/managers/planner                           reference/python/index
 _modules/hydromodpy/data/request/engine                             reference/python/index
-_modules/hydromodpy/display/figure                                  reference/python/Figure
+_modules/hydromodpy/display/figure                                  reference/python/hmp-show
 _modules/hydromodpy/display/figure_registry                         reference/figures
 _modules/hydromodpy/physics/base/process_spatial                    reference/python/index
 _modules/hydromodpy/physics/flow/flow                               reference/parameters/flow/index
@@ -493,9 +493,9 @@ capability_gallery/cases/dupuit_seepage_limit_1d.rst                            
 capability_gallery/cases/dupuit_uniform_recharge_1d.rst                                                  theory/validation
 capability_gallery/cases/ex12_mf6_nwt_moderate.rst                                                       theory/solvers
 capability_gallery/cases/ex12_mf6_nwt_moderate_same_s60.rst                                              theory/solvers
-capability_gallery/cases/ex12_multi_simulation_moderate.rst                                              reference/cli/report
-capability_gallery/cases/ex12_multi_simulation_moderate_causes.rst                                       reference/cli/report
-capability_gallery/cases/example12_map_simulation_comparison.rst                                         reference/cli/report
+capability_gallery/cases/ex12_multi_simulation_moderate.rst                                              reference/cli/show
+capability_gallery/cases/ex12_multi_simulation_moderate_causes.rst                                       reference/cli/show
+capability_gallery/cases/example12_map_simulation_comparison.rst                                         reference/cli/show
 capability_gallery/cases/example12_mf6_vs_nwt_different_meshes_demonstrative.rst                         theory/solvers
 capability_gallery/cases/geographic_bdtopage_hydrography_overlay.rst                                     reference/figures
 capability_gallery/cases/geographic_nancon_identity_card.rst                                             reference/figures
@@ -565,15 +565,15 @@ capability_gallery/hydraulic_properties.rst                                     
 capability_gallery/index.rst                                                                             reference/figures
 capability_gallery/mesh.rst                                                                              theory/mesh
 capability_gallery/simulation.rst                                                                        get-started/staircase/index
-capability_gallery/simulation_comparison.rst                                                             reference/cli/report
+capability_gallery/simulation_comparison.rst                                                             reference/cli/show
 capability_gallery/validation.rst                                                                        theory/validation
 
 # Generated pages of the references, retired with their section, command or object.
 # A name without extension: the build wrote the page, no source file was deleted.
 reference/parameters/analysis/batch               get-started/many-catchments
 reference/parameters/analysis/capability_gallery  reference/figures
-reference/parameters/analysis/comparison          reference/cli/report
-reference/parameters/analysis/index               reference/cli/report
+reference/parameters/analysis/comparison          reference/cli/show
+reference/parameters/analysis/index               reference/cli/show
 reference/parameters/hydrometry                   reference/parameters/data/hydrometry
 reference/parameters/persistence                  reference/parameters/simulation
 reference/parameters/site_selection/criteria      reference/cli/site

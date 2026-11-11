@@ -21,6 +21,11 @@ A format is a name the export registry serves
 (:mod:`hydromodpy.results.exporters.registry`), never an enum value here: the
 registry derives the tables this module plans files with, so a format added
 anywhere is refused or served everywhere on the same lines.
+
+A new key of the ``[[export]]`` request is a field of ``ExportRequest``, and a rule on
+the output path or the file name goes in ``plan_outputs``. The file name of a view is a
+fact of the stored layout, in ``schema/generated_views.py``, and the ledger entry of an
+export is written by ``results/ledger.py``.
 """
 
 from __future__ import annotations

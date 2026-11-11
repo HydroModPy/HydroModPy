@@ -1,4 +1,9 @@
-"""Shared nodata sentinels."""
+"""Shared nodata sentinels.
+
+``RASTER_NODATA`` is the nodata value a raster carries in memory, and ``valid_cells`` is
+the mask of the cells that hold a value. A new nodata convention is written here once,
+never as a literal in a caller.
+"""
 
 from __future__ import annotations
 

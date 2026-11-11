@@ -17,6 +17,15 @@ The easiest way to read the package is:
 3. ``local_runtime.py``, ``scipy_runtime.py`` or ``scipy_sparse_runtime.py``
    for the nonlinear solve,
 4. this module for orchestration.
+
+A ``steady_state`` start solves its steady problem on a second solver built over
+``steady_variant(model)``: one steady period, the mean recharge of the start strategy
+and a start at the top. The second solver shares the mesh and the head of the first one.
+With ``backend = "petsc"`` and ``surface_interaction_model = "ts_vi_obstacle"``, PETSc
+integrates the closure in time, so the steady solve runs ``regularized_partition`` and
+the main solve keeps ``ts_vi_obstacle``. The solver never writes the ``Model``. The
+transient driver reads ``Boussinesq.stop_flag``, set from the ``RunSlot``, between two
+periods.
 """
 
 from __future__ import annotations

@@ -13,6 +13,10 @@ interface, so it works the same on MODFLOW-NWT, MODFLOW 6 and Boussinesq
 runs, on structured DIS grids and on unstructured DISV meshes. An overlay
 whose data the run does not carry raises :class:`OverlayUnavailable`, which
 the caller turns into an explicit skip.
+
+A layer that a run cannot feed raises ``OverlayUnavailable``. The layer is then skipped
+and the map is still drawn, so one ``[display]`` section works across runs with
+different processes.
 """
 
 from __future__ import annotations

@@ -206,6 +206,18 @@ told apart: they are one number and a ratio.
 - The observed data enter the cost only. A mapped network or a gauged record is never an
   input of the model it scores.
 
+## Checked by
+
+The tests that import the code of this page. The box is generated: a new test
+appears here on the next build.
+
+```{hmp-tested-by}
+hydromodpy.calibration.optim.objective
+hydromodpy.calibration.optim.parameters
+hydromodpy.calibration.optim.optimizer
+hydromodpy.core.scoring
+```
+
 ## See also
 
 - {doc}`../downslope-distance`: the network criterion, its equations and its biases.

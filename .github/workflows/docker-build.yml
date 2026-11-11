@@ -1,13 +1,15 @@
-# Builds the HydroModPy Docker image on every push/PR touching the Dockerfile,
-# the package source or the HTTP server. The image is not pushed to a registry
-# yet, only built inside the runner to check the build, the hmp entry point and
-# the server it carries.
+# Builds the HydroModPy Docker image on every push or pull request touching the
+# Dockerfile, the package source or the HTTP server, and checks the hmp entry
+# point, the server and one small run played then replayed at the bit inside the
+# image. On a version tag the publish job pushes the image to ghcr.io.
 
 name: Docker / Build Smoke
 
 on:
   push:
     branches: [main, dev]
+    # Path filters are not evaluated for tag pushes, so every version tag builds.
+    tags: ["v*.*.*"]
     paths:
       - "Dockerfile"
       - "pyproject.toml"
@@ -43,6 +45,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build image (no push)
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -65,4 +68,110 @@ jobs:
 
       - name: Run hmp doctor inside image (advisory)
         continue-on-error: true
-        run: docker run --rm hydromodpy:ci doctor --json
+        run: docker run --rm hydromodpy:ci doctor --format json
+
+      # The nwt island of tests/scenarios/factory.py: no network, no data file,
+      # a few seconds. The run seals the digest it was given, then a strict
+      # replay in the same image must come out bit for bit. The image user is
+      # not the runner user, so the mounted folder is opened to every user.
+      - name: Play and replay a small run in the image
+        env:
+          IMAGE: hydromodpy:ci
+          DIGEST: ${{ steps.build.outputs.imageid }}
+        run: |
+          python3 -c "import sys; from pathlib import Path; from tests.scenarios.factory import island_files, write_project; write_project(Path(sys.argv[1]), island_files('nwt'))" "$RUNNER_TEMP/island"
+          chmod -R a+rwX "$RUNNER_TEMP/island"
+          docker run --rm -e HMP_IMAGE_DIGEST="$DIGEST" -v "$RUNNER_TEMP/island:/project" -w /project "$IMAGE" run project.toml
+          python3 -c "import json, sys; sealed = json.load(open(sys.argv[1]))['environment']['image']; sys.exit(0 if sealed.get('digest') == sys.argv[2] else f'provenance.json seals {sealed}, expected {sys.argv[2]}')" "$RUNNER_TEMP/island/runs/nwt/provenance.json" "$DIGEST"
+          docker run --rm -e HMP_IMAGE_DIGEST="$DIGEST" -v "$RUNNER_TEMP/island:/project" -w /project "$IMAGE" replay runs/nwt --strict --format json > "$RUNNER_TEMP/replay.json"
+          python3 -c "import json, sys; c = json.load(open(sys.argv[1]))['data']['class']; sys.exit(0 if c == 'bit' else f'the replay in the same image is {c}, expected bit')" "$RUNNER_TEMP/replay.json"
+
+  # On a version tag only. The image goes to ghcr.io under the owner of the
+  # repository, tagged with the version, and with latest only when the version
+  # is not a pre-release (no a, b or rc, the rule of publish.yml). The digest
+  # goes to the job summary and to an artifact. An operator passes it to a
+  # container with -e HMP_IMAGE_DIGEST, and the run seals it.
+  publish:
+    name: Docker / publish on ghcr.io
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the image and its tags
+        id: names
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          name="ghcr.io/${OWNER,,}/hydromodpy"
+          version="${REF_NAME#v}"
+          tags="$name:$version"
+          if [[ ! "$version" =~ (a|b|rc)[0-9]*$ ]]; then
+            tags="$tags,$name:latest"
+          fi
+          {
+            echo "name=$name"
+            echo "version=$version"
+            echo "tags=$tags"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.names.outputs.tags }}
+          build-args: |
+            HMP_IMAGE_TAG=${{ steps.names.outputs.version }}
+          cache-from: type=gha
+
+      - name: Write the digest
+        env:
+          NAME: ${{ steps.names.outputs.name }}
+          VERSION: ${{ steps.names.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          echo "$NAME@$DIGEST" > image-digest.txt
+          {
+            echo "Published $NAME:$VERSION"
+            echo
+            echo "Digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest
+          path: image-digest.txt
+
+      # The same play and replay, on the published image pulled by its digest.
+      - name: Play and replay a small run in the published image
+        env:
+          IMAGE: ${{ steps.names.outputs.name }}@${{ steps.push.outputs.digest }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          docker pull "$IMAGE"
+          python3 -c "import sys; from pathlib import Path; from tests.scenarios.factory import island_files, write_project; write_project(Path(sys.argv[1]), island_files('nwt'))" "$RUNNER_TEMP/island"
+          chmod -R a+rwX "$RUNNER_TEMP/island"
+          docker run --rm -e HMP_IMAGE_DIGEST="$DIGEST" -v "$RUNNER_TEMP/island:/project" -w /project "$IMAGE" run project.toml
+          python3 -c "import json, sys; sealed = json.load(open(sys.argv[1]))['environment']['image']; sys.exit(0 if sealed.get('digest') == sys.argv[2] else f'provenance.json seals {sealed}, expected {sys.argv[2]}')" "$RUNNER_TEMP/island/runs/nwt/provenance.json" "$DIGEST"
+          docker run --rm -e HMP_IMAGE_DIGEST="$DIGEST" -v "$RUNNER_TEMP/island:/project" -w /project "$IMAGE" replay runs/nwt --strict --format json > "$RUNNER_TEMP/replay.json"
+          python3 -c "import json, sys; c = json.load(open(sys.argv[1]))['data']['class']; sys.exit(0 if c == 'bit' else f'the replay in the same image is {c}, expected bit')" "$RUNNER_TEMP/replay.json"

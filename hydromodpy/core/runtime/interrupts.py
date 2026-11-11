@@ -19,6 +19,9 @@ folder, and the loops of a run call ``raise_if_stop_requested`` between two
 steps, two runs of a plan or two time steps. A server can then stop a run
 without a process id that may be its own. ``StopRequested`` inherits
 KeyboardInterrupt for the same reason ``TerminationRequested`` does.
+
+``raise_if_stop_requested`` costs about two microseconds, so a loop may call it at every
+time step. The writer of the flag is ``request_stop`` in ``results/storage/attempt.py``.
 """
 
 from __future__ import annotations

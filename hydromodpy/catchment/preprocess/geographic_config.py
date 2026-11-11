@@ -1,3 +1,10 @@
+"""The ``[geographic]`` table, ``GeographicConfig``, that drives the preprocess run.
+
+Each sub-table has its own ``*_config.py`` file, in this folder, in ``algorithms/`` or in
+``synthetic/``. The modules of ``algorithms/`` read no configuration of the pipeline and take the
+config they need as an argument.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

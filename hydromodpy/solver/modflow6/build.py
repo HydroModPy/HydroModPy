@@ -1,4 +1,26 @@
-"""MODFLOW 6 pre_processing: flopy package wiring and grid template helpers."""
+"""MODFLOW 6 pre_processing: flopy package wiring and grid template helpers.
+
+``run_pre_processing`` runs its steps in the order MODFLOW 6 needs: inputs, time, grid,
+properties, simulation, lakes, constant heads, streams, grid packages, recharge and EVT,
+drains, CHD and wells, LAK, HFB, SFR, MVR and OC. Each package step is a function of the
+builder that makes the package (``build_recharge_and_evt`` in ``builders/recharge.py``,
+``build_drains`` and ``build_sfr`` in ``builders/sfr.py``,
+``build_constant_heads_and_wells`` in ``builders/wells.py``, ``build_lakes`` in
+``builders/lake.py``, ``build_flow_barriers`` in ``builders/flow_barrier.py``,
+``build_mover_and_output`` in ``builders/mvr.py``, ``build_storage_package`` in
+``builders/period_forcing.py``), and this module keeps the order of the calls.
+
+A builder reads another builder only along the build order, never back. ``lake.py``
+reads ``sfr.py`` for the lake-river exchange, ``sfr.py`` reads
+``boundary_conditions.py`` and ``mvr.py`` for the drain-to-river mover, and ``wells.py``
+and ``recharge.py`` read ``boundary_conditions.py``. ``period_forcing.py``,
+``solver_options.py`` and ``sidecar.py`` read no other builder.
+
+The builder fills the inactive cells of a ``PriorState`` with the top of the grid and
+takes the lake stages from it. It writes the start head of a ``PriorState`` as a binary
+float64 array and its lake and reach stages with all their digits, so a chain of windows
+gives back the run in one piece to the bit.
+"""
 
 from __future__ import annotations
 

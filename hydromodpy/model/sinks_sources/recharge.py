@@ -1,4 +1,8 @@
-"""Diffuse recharge payload for the flow process."""
+"""Diffuse recharge payload for the flow process.
+
+``first_clim``, the rate of the steady first period, is normalized by
+``model/forcing/steady_periods.py``.
+"""
 
 from __future__ import annotations
 

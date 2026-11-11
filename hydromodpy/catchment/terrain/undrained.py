@@ -4,6 +4,11 @@ A D8 pointer needs a strictly lower neighbour to drain. The count is read on
 the conditioned DEM of one terrain product, once, and kept in its
 ``terrain.json``. A cell on the raster edge or beside a nodata cell drains out,
 so it is never counted.
+
+A ``fill`` leaves 0 strict pits and 0 cells without descent. A Whitebox ``breach``
+leaves 13 strict pits and 18 cells without descent on the Nançon 25 m, and 30 and 873 on
+the massif 75 m. A QGIS fill without a minimal slope leaves 0 strict pits and 14 274
+flat cells on the Nançon.
 """
 
 from __future__ import annotations

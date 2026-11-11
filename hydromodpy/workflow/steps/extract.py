@@ -1,4 +1,8 @@
-"""Extract step - solver result extraction, observation ingestion, modpath helpers."""
+"""Extract step - solver result extraction, observation ingestion, modpath helpers.
+
+``retention_of`` says what the level of the run keeps. The functions shared with the
+steps after it are in ``run_outputs.py``.
+"""
 
 from __future__ import annotations
 

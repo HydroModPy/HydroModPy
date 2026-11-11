@@ -20,6 +20,9 @@ This module reads the committed files and renders a schema from a model it is
 given; it imports no model. The pairing of a file with its model is made by the
 test that refreshes the files: the layer matrix gives ``schema`` no edge towards
 ``results``.
+
+``tests/unit/schema/test_results_schemas_match_models.py`` refuses a committed file that
+its model no longer reproduces, and run as a script it writes the files again.
 """
 
 from __future__ import annotations

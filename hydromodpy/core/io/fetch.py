@@ -3,6 +3,11 @@
 Every remote asset and user URL downloaded by HydroModPy passes through this
 module. The client is created per call with its own bounds (allowed hosts,
 download size ceiling, timeout) and session lifecycle.
+
+The client caps a download at 2 GiB unless the bounds say otherwise, refuses a private
+address unless the bounds allow the host by name, resolves the final target of a
+redirect itself and checks a pinned sha256 digest. ``vsicurl_path`` gives the GDAL path
+of a remote file.
 """
 
 from __future__ import annotations

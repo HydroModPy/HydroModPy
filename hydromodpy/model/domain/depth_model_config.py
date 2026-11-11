@@ -1,3 +1,10 @@
+"""The depth models of ``[domain]``, the four ways to place the base of the aquifer.
+
+Each model has its own ``kind``: ``constant_thickness``, ``flat_substratum``,
+``raster_substratum`` and ``raster_thickness``. The first two need no file. The two raster
+models read a raster from ``[data.substratum]``, which ``build.py`` reads.
+"""
+
 from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias

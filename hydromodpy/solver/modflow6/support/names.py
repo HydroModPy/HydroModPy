@@ -1,6 +1,8 @@
 """The names MODFLOW 6 gives a model and its output files.
 
 MODFLOW 6 caps a model name at 16 characters and refuses a space in it.
+
+The output stem stays below the Windows path limit.
 """
 
 from __future__ import annotations

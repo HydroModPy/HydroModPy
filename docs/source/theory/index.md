@@ -134,6 +134,7 @@ downslope-distance
 notation
 bibliography
 validation
+science-map
 ```
 
 ## How we know the code solves them
@@ -141,6 +142,9 @@ validation
 {doc}`validation` is generated from `tests/validation/`: each check, its
 reference, the solvers it runs and the thresholds it must stay under. A check
 appears there only when a test exists for it.
+
+{doc}`science-map` gives one row per page of this section: the modules that
+compute it, their unit tests and the validation cases that check it.
 
 How a theory page is written, and what its build checks, is in
 {doc}`../contribute/write-a-theory-page`.

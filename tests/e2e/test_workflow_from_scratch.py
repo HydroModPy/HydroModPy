@@ -35,6 +35,7 @@ import pytest
 import rasterio
 
 from hydromodpy.core.state.layout import CATALOG_FILENAME, catalog_path_for
+from tests.regression.golden_utils import stage_fixture_project
 
 _FIXTURE_DEM = Path(__file__).resolve().parents[1] / "data" / "sfr_cheze" / "dem_valley.tif"
 
@@ -290,19 +291,18 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
             f"required solver binaries missing: {missing}. Run `hmp install-binaries` first."
         )
 
-    # The fixture names ``../../data/...`` and ``../../../../../examples/data/...``
-    # from the project folder, so the project sits five levels below a root that
-    # holds ``examples/data``, and two levels below a folder that holds ``data``.
+    # ``hmp run --base`` reads the relative paths of a run from the folder it
+    # writes the run in, and the fixture names its data as ``inputs/...``. The
+    # staged project links every folder of the example data under ``inputs/``.
     example_data = Path(__file__).resolve().parents[2] / "examples" / "data"
     regional_dem = example_data / "dem" / "regional_dem_naizin.tif"
     if not regional_dem.is_file():
         pytest.skip(f"example data missing: {regional_dem}")
-    root = tmp_path / "root"
-    (root / "examples").mkdir(parents=True)
-    (root / "examples" / "data").symlink_to(example_data, target_is_directory=True)
-    out_path = root / "a" / "b" / "c" / "d" / "run_out"
-    out_path.mkdir(parents=True)
-    (out_path.parents[1] / "data").symlink_to(example_data, target_is_directory=True)
+    out_path = tmp_path / "run_out"
+    project_dir = stage_fixture_project(
+        fixture_dir, out_path, {entry.name: entry for entry in sorted(example_data.iterdir())}
+    )
+    run_toml = project_dir / "run_fast_nwt.toml"
     env = {"MPLBACKEND": "Agg"}
     # Filter out any env that would lock to a host-bound output, then merge.
     import os

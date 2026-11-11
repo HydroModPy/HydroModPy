@@ -3,6 +3,11 @@
 The verb :func:`hydromodpy.project.api.check` turns a source into one call of
 :func:`check_document` or :func:`check_file`. A file is read the way ``hmp run``
 reads it, and each diagnostic of a file carries the line its key is written on.
+
+``check`` is the one check of ``hmp check`` for a run, a calibration or a whole project,
+and it gives each case of a ``[sites]`` project the diagnostic ``sites_case``. A
+``[site]`` alone is resolved against the site catalog of the workspace by
+``data/sites/single_site.py``.
 """
 
 from __future__ import annotations

@@ -1,4 +1,8 @@
-"""Walk a Pydantic config tree and collect ``InputFile``-annotated paths."""
+"""Walk a Pydantic config tree and collect ``InputFile``-annotated paths.
+
+``collect_input_files`` collects every marked path, and ``rewrite_input_paths`` rewrites
+those paths when a project moves.
+"""
 
 from __future__ import annotations
 

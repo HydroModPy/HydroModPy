@@ -14,6 +14,10 @@ splits the runtime in three concerns:
 - ``petsc_vi.petsc``: pure PETSc utility helpers (SNES configuration, diagnostics).
 - ``petsc_vi.obstacle``: obstacle-specific math (clipping, reactions, projected residual).
 - ``petsc_vi.vi``: VI orchestration (substeps, diagnostics, top-level SNESVI).
+
+The head is bounded between the bottom and the top, and the surface and bottom reactions
+are rebuilt after convergence. The helpers of ``petsc_vi/`` hold the parts this engine
+shares with the TS engine.
 """
 
 from __future__ import annotations

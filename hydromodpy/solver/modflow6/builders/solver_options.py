@@ -1,4 +1,7 @@
-"""MF6 solver and NPF option resolution."""
+"""MF6 solver and NPF option resolution.
+
+It resolves IMS, Newton, XT3D, ATS and output control.
+"""
 
 from __future__ import annotations
 

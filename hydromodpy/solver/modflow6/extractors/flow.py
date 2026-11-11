@@ -1,4 +1,8 @@
-"""Output adapter for MODFLOW 6 flow solver results."""
+"""Output adapter for MODFLOW 6 flow solver results.
+
+``Modflow6OutputAdapter`` reads the heads, the time axis, the mass balance of the
+listing, the surface elevation, and the lake and stream series into the store.
+"""
 
 from __future__ import annotations
 

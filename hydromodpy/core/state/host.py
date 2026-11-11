@@ -5,6 +5,11 @@ the process that writes them. A reader takes the process for dead only when it
 ran on this host and its pid is gone: a process of another host is never
 judged. The host name comes from the deployment (``docker run --hostname``, or
 the name of the Windows server), so no environment variable sets it.
+
+``host_name()`` is the only place that reads ``socket.gethostname()``.
+``death_is_proven(host, pid)`` is true when the record comes from this host and its
+process is gone, and ``alive_here(host, pid)`` is true when its process lives. A
+container needs a fixed ``--hostname``, or every interrupted run stays ``stale``.
 """
 
 from __future__ import annotations

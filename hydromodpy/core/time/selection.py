@@ -23,6 +23,13 @@ A selector is one of:
   ``Timestamp`` (a bare TOML date reads as a ``date``);
 - ``"first"`` or ``"last"``;
 - an integer period index, negative counting from the end.
+
+``period_label`` names a period (``2002-10``, ``2002-10-15`` or a span), and
+``grid_edges`` reads the edges of a resolved time grid when a config is checked. A date
+outside the record raises ``TimeSelectionError``, which names the record span.
+``in_series_window`` is the one reading of a window over a series: it keeps the periods
+that ``resolve_period`` keeps, a simulated value by its stamp and a measurement by its
+date.
 """
 
 from __future__ import annotations

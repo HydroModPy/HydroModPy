@@ -5,6 +5,9 @@ number the engine computes itself is the report of a capped breach, measured
 from the DEM before and after so a user sees what was dug. The import of
 ``whitebox_workflows`` stays where it always was, one file deep in
 ``catchment/delineation/whitebox_workflows_backend/raster.py``.
+
+``WhiteboxTerrainEngine.__init__`` imports ``catchment.delineation`` only when it is
+given no backend, so a third-party engine and the numpy engine never load Whitebox.
 """
 
 from __future__ import annotations

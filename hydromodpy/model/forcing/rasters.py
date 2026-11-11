@@ -1,4 +1,9 @@
-"""xarray and file-based fields on cell centers, and their spatial mean."""
+"""xarray and file-based fields on cell centers, and their spatial mean.
+
+A record whose CRS is not the CRS of the mesh is refused, because a grid is never reprojected. A
+dataset or a NetCDF file is averaged in time over each period. A GeoTIFF gives one band per time
+step, and a rotated GeoTIFF is refused.
+"""
 
 from __future__ import annotations
 

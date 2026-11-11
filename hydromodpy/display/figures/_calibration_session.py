@@ -20,6 +20,11 @@ network distances in meters, else five per cent of the best cost. It is the
 range of the sampled values whose cost stays within that width of the lowest
 cost. A value combined from two roots has none: its width is the spread of
 the roots, ``Delta``, and the calibration reports no interval of trials.
+
+It reads the unit of each parameter (the journal bounds first, then the frozen
+configuration), the metric of each objective block, the trial the search returned, the
+roots record, and the width the calibration reads its interval with. ``display`` may not
+import ``calibration``, so that width is restated here.
 """
 
 from __future__ import annotations

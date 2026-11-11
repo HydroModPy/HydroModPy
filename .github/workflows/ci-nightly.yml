@@ -59,19 +59,20 @@ jobs:
       - name: Install solver binaries
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
-      # The Whitebox case runs on its own: the native binding dies when several
-      # DEM workflows share one long-lived xdist worker.
+      # The tests marked `whitebox` run on their own: the native binding dies
+      # when several DEM workflows share one long-lived xdist worker. The
+      # serial step appends to the coverage data of the first one.
       - name: Run extensive regression
         run: |
           python -m pytest tests/regression/extensive/ \
-            --ignore=tests/regression/extensive/test_run_geographic_case_regression.py \
+            -m "not whitebox" \
             -n auto --dist loadgroup \
             --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Run Whitebox-backed extensive regression (serial)
         run: |
-          python -m pytest tests/regression/extensive/test_run_geographic_case_regression.py \
-            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+          python -m pytest tests/regression/extensive/ -m whitebox \
+            --cov=hydromodpy --cov-append --cov-report= --cov-fail-under=0 -q
 
       - name: Combine and report coverage
         if: always()

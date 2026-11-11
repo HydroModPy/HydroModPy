@@ -15,6 +15,9 @@ analytical line is the only number left to read.
 Everything is computed on a volume-per-day clock: a discharge in m3/s is
 converted to m3/day first, so ``K`` is read in m/day and ``a`` comes out in
 ``day^-1 (m3/day)^-1/2``, the system the coefficient above is written in.
+
+The recession cloud comes from ``results/derive/recession.py``, because a figure never
+computes a hydrological quantity itself.
 """
 
 from __future__ import annotations

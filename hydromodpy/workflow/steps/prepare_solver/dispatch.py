@@ -17,6 +17,7 @@ from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.catalog.registration import portable_config_source, split_stem_version
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
@@ -421,6 +422,17 @@ def _solver_category(process_type: str, solver: str) -> str | None:
     return solvers.get(process_type, solver).category
 
 
+def _writes_face_flow(process_type: str, solver: str) -> bool | None:
+    """Return whether the flow backend of the primary run writes the flow between cells.
+
+    The loader refuses ``keep_face_flows`` on the same test, so the README of the
+    run gives that setting only when the loader would accept it.
+    """
+    if process_type != "flow":
+        return None
+    return FACE_FLOW in solvers.get(process_type, solver).writes
+
+
 def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> RunFacts:
     """Return the facts of the attempt as the context knows them at opening.
 
@@ -454,6 +466,7 @@ def initial_facts(ctx: WorkflowContext, *, solution_key: str | None = None) -> R
         started_at=outcome.started_at,
         solver=primary_solver,
         solver_category=_solver_category(process_type, primary_solver),
+        writes_face_flow=_writes_face_flow(process_type, primary_solver),
         lineage=ctx.lineage if ctx.lineage is not None else Lineage(),
         calibrated_by=ctx.calibrated_by,
         **facts,

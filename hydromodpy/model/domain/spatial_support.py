@@ -1,3 +1,9 @@
+"""The support providers, their registry and the contract of the supports a parameter asks for.
+
+A provider builds a support field (``support_fields.py``), which gives the zone share of each
+cell of a mesh. ``build_phase_supports`` builds the supports of a phase.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

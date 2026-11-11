@@ -5,6 +5,9 @@ instant; one that writes into the live file leaves it half-written for much
 longer. Both are visible to whoever reads the file meanwhile, so the only
 safe publish is one atomic rename. This module is that rename, for the two
 platforms HydroModPy runs on.
+
+``rename_over_open_file`` publishes a file over one that a reader may hold, with the
+same tries on Windows.
 """
 
 from __future__ import annotations

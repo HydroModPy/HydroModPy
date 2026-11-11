@@ -6,7 +6,7 @@ Scope
 
 These diagrams document the architecture around:
 
-- ``domain.supports`` and ``domain.zone_ids``,
+- :toml:`domain.supports` and :toml:`domain.zone_ids`,
 - the different support-definition cases (generated bands, rings, catchment,
   geology),
 - the bridge from domain-side supports to the generic ``Field`` contract,

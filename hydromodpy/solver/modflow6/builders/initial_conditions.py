@@ -1,4 +1,8 @@
-"""MF6 initial-condition and rewet builders."""
+"""MF6 initial-condition and rewet builders.
+
+It builds the start heads of the start states of ``Model.initial`` and the REWET options
+of NPF.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,12 @@
-"""MODFLOW 6 GWT transport solver class."""
+"""MODFLOW 6 GWT transport solver class.
+
+GWT works in the folder of the flow run, on the simulation FloPy built for it. The
+engine adds its model to that simulation, couples it to the GWF model, writes the whole
+simulation again and solves it. The flow is then solved twice in the same folder, and
+the two solves are equal to the bit. The IMS of the transport model is the one the flow
+solved with, read on the options of ``[solver.modflow6]``. A transport reads nothing of
+the setup and no store.
+"""
 
 from __future__ import annotations
 

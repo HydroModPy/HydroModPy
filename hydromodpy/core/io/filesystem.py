@@ -20,6 +20,15 @@ window suffix ``_w01`` and a version suffix ``.v9999``.
 The window suffix is as wide as the count of windows (``project/windows.py``),
 so ``_w01`` holds up to 99 windows. A kept trial reaches 159 characters with
 100 windows and 160 with 1000, hence a budget of 160.
+
+``native_io_path`` is the one place that adds the long path prefix, and
+``check_project_root`` refuses a project folder over 99 characters on Windows with a
+``ConfigError``. ``link_or_copy`` hard-links a file and copies it when the system
+refuses the link, and it never overwrites the target. ``unlink_when_free`` and
+``replace_when_free`` try again six times on a ``PermissionError``, because Windows
+refuses to remove or move a file a reader holds open. They try again on Windows only,
+and elsewhere the error is permanent and raised at once. ``LockFile`` uses
+``replace_when_free`` to move a lock aside before it removes it.
 """
 
 from __future__ import annotations

@@ -1,4 +1,11 @@
-"""MODFLOW 6 PRT particle-tracking solver class."""
+"""MODFLOW 6 PRT particle-tracking solver class.
+
+PRT works in the folder of the flow run, on the simulation FloPy built for it. It adds a
+model named ``<name>_prt``, couples it to the GWF model with a ``GWF6-PRT6`` exchange,
+writes the whole simulation again and solves it. The adapter builds from the frozen
+``Model`` of the flow, the ``SolverRun`` of that flow and the options of
+``[transport.modflow6_prt]``. The particle tracks are read from the CSV of PRT.
+"""
 
 from __future__ import annotations
 

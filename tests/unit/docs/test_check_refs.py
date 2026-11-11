@@ -1,7 +1,8 @@
 """References to the documentation, written outside the pages, name files that exist.
 
 The scan is ``tools/docs/check_refs.py``: a ``docs/...`` path must exist and a
-link to the published site must name a page with a source.
+link to the published site must name a page with a source. In a README of a
+package and on a contributor page, a repository path between backticks must exist.
 """
 
 from __future__ import annotations
@@ -67,3 +68,54 @@ def test_a_site_link_is_checked_against_the_built_site(tmp_path: Path) -> None:
     )
     problems = check_refs.check(site=site, root=tmp_path, files=["README.md"])
     assert problems == ["README.md:1: not in the built site: guides/real.html"]
+
+
+def _code_tree(tmp_path: Path, name: str, text: str) -> list[str]:
+    (tmp_path / "hydromodpy" / "core").mkdir(parents=True)
+    (tmp_path / "hydromodpy" / "core" / "units.py").write_text('"""Units."""\n', encoding="utf-8")
+    (tmp_path / "tests" / "unit").mkdir(parents=True)
+    page = tmp_path / name
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(text, encoding="utf-8")
+    return check_refs.check(root=tmp_path, files=[name])
+
+
+PACKAGE_README = "hydromodpy/core/README.md"
+CONTRIBUTE_PAGE = "docs/source/contribute/architecture/packages/core.rst"
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "expected"),
+    [
+        (PACKAGE_README, "The table is `hydromodpy/core/units.py`.\n", []),
+        (CONTRIBUTE_PAGE, "Its folder is ``hydromodpy/core/`` and ``tests/unit/``.\n", []),
+        (
+            PACKAGE_README,
+            "See `hydromodpy/core/gone.py`.\n",
+            [f"{PACKAGE_README}:1: no such path: hydromodpy/core/gone.py"],
+        ),
+        (
+            CONTRIBUTE_PAGE,
+            "Tested by ``tests/unit/core/test_gone.py``.\n",
+            [f"{CONTRIBUTE_PAGE}:1: no such path: tests/unit/core/test_gone.py"],
+        ),
+        (PACKAGE_README, "Copy `hydromodpy/cli/commands/myverb.py`.\n", []),
+        (PACKAGE_README, "One folder per package, `tests/unit/<pkg>/`.\n", []),
+        (PACKAGE_README, "A path out of backticks, hydromodpy/core/gone.py, is prose.\n", []),
+        ("docs/source/how-to/page.md", "See `hydromodpy/core/gone.py`.\n", []),
+    ],
+    ids=[
+        "readme-file-exists",
+        "contribute-folder-exists",
+        "readme-dead-file",
+        "contribute-dead-test",
+        "placeholder-my",
+        "pattern",
+        "no-backticks",
+        "page-outside-contribute",
+    ],
+)
+def test_a_repository_path_in_a_readme_or_contributor_page_must_exist(
+    tmp_path: Path, name: str, text: str, expected: list[str]
+) -> None:
+    assert _code_tree(tmp_path, name, text) == expected

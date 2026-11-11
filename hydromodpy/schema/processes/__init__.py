@@ -14,6 +14,11 @@ major and survives a minor bump.
 Nothing here generates anything. This module reads package data with
 ``importlib.resources``, so it works the same from a source checkout and from
 an installed wheel, and it imports no model, no engine and no runtime.
+
+``index.json`` lists the capabilities and ``<id>@<major>.json`` describes one, with its
+inputs taken from the JSON Schema of its request model and its outputs.
+``read_description``, ``read_description_text`` and ``described_ids`` read the files,
+and the module imports no model.
 """
 
 from __future__ import annotations

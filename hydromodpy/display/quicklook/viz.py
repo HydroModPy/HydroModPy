@@ -10,6 +10,10 @@ auto-dispatches based on the input type:
 - :class:`geopandas.GeoDataFrame` -> render via geopandas
   (datashader/holoviews layered backends are reserved for the
   ``interactive`` extra).
+
+A large series is thinned by LTTB (``hydromodpy.results.derive.downsample``) and a large
+array is rasterized, so a dense result still opens quickly. Datashader is an optional
+dependency of the ``viz`` extra, and without it an array is drawn at full resolution.
 """
 
 from __future__ import annotations

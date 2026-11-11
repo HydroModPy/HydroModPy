@@ -21,6 +21,9 @@ A failure under ``--format json`` prints the envelope ``hmp.error.v1`` on stdout
 as well as its line on stderr, unless a result was already written. A mistake on
 the command line itself is found before the format is read, so it has only the
 line on stderr. The promise is ``docs/source/reference/cli/machine-output.md``.
+
+``print_table`` prints rows for people with the columns that ``OUTPUTS`` declares, so a
+listing names its columns once.
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.docs import catalogs, check_page, field_registry, tests_index, toml_changelog
+from tools.docs import catalogs, field_registry, tests_index, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -87,6 +87,19 @@ def test_the_test_index_finds_the_validation_tier_and_its_cases() -> None:
     assert dupuit["launcher"] is True
 
 
+def test_every_test_file_sits_in_a_folder_the_index_names_as_a_tier() -> None:
+    folders = {
+        p.relative_to(ROOT / "tests").parts[0]
+        for p in (ROOT / "tests").rglob("test_*.py")
+        if "__pycache__" not in p.parts and len(p.relative_to(ROOT / "tests").parts) > 1
+    }
+    assert folders <= set(tests_index.TIERS)
+    assert "contract" not in tests_index.TIERS
+    assert {"scenarios", "refusals", "ports", "processes"} <= set(tests_index.TIERS)
+    index = tests_index.build(ROOT)
+    assert {info["tier"] for info in index["imports"].values()} <= set(tests_index.TIERS)
+
+
 def test_the_catalogs_read_the_solver_figure_and_source_registries(registry: dict) -> None:
     result = catalogs.build(registry["nodes"])
     pairs = {(row["process"], row["solver"]) for row in result["solvers"]}
@@ -94,48 +107,6 @@ def test_the_catalogs_read_the_solver_figure_and_source_registries(registry: dic
     assert len(result["figures"]) > 20
     dem = next(row for row in result["data_sources"] if row["variable"] == "dem")
     assert {"file", "url", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
-
-
-@pytest.fixture()
-def page_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, registry: dict):
-    """A docs tree with one existing page and the registry the check reads."""
-    src = tmp_path / "docs" / "source"
-    (src / "_data").mkdir(parents=True)
-    (src / "_data" / "registry.json").write_text(json.dumps(registry))
-    (src / "guides").mkdir()
-    (src / "guides" / "other.md").write_text("# Other\n")
-    monkeypatch.setattr(check_page, "SRC", src)
-    return src
-
-
-def test_the_page_check_accepts_a_clean_page(page_env: Path) -> None:
-    page = page_env / "guides" / "good.md"
-    page.write_text(
-        "# Good\n\nSet {toml}`the start|simulation.time.start_datetime` and read {doc}`other`.\n\n"
-        "```{hmp-params}\nsimulation.time.start_datetime\n```\n"
-    )
-    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
-
-
-def test_the_page_check_catches_an_unknown_key_a_dead_link_and_a_bad_block(page_env: Path) -> None:
-    page = page_env / "guides" / "bad.md"
-    page.write_text(
-        "# Bad\n\nSet {toml}`simulation.time.no_such_key` and read {doc}`missing`.\n\n"
-        "```toml\n[simulation\n```\n"
-    )
-    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
-    joined = "\n".join(problems)
-    assert "unknown TOML path: simulation.time.no_such_key" in joined
-    assert "link to a page that does not exist: missing" in joined
-    assert "TOML syntax" in joined
-
-
-def test_a_block_marked_not_checked_is_skipped(page_env: Path) -> None:
-    page = page_env / "guides" / "skip.md"
-    page.write_text(
-        "# Skip\n\n```toml\n# not checked: a mistake on purpose\n[workflow]\nmode = 3\n```\n"
-    )
-    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
 
 
 def test_k_ss_sy_and_porosity_are_named_nodes_with_unit_and_range(registry: dict) -> None:

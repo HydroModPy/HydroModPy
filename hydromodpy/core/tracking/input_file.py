@@ -1,4 +1,9 @@
-"""Marker and result types for input-file tracking."""
+"""Marker and result types for input-file tracking.
+
+A config field that points to a file is annotated with ``InputFile`` and nothing else.
+``TrackedFileEntry`` is the record kept for each file, and a new fact kept about each
+file is a field of it.
+"""
 
 from __future__ import annotations
 

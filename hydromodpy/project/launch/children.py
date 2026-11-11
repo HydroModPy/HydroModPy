@@ -9,6 +9,10 @@ workflow and how many solves it runs side by side), starts the child with
 the environment of a launched case and its own log file, and closes what
 the child left behind: the outcome of a child that died without writing
 one (and the descriptor of its session, for a calibration).
+
+``worker_command`` builds the line of a worker with the three environment options
+(``--credentials``, ``--allow-host`` and ``--max-download-bytes``) that each worker
+carries.
 """
 
 from __future__ import annotations

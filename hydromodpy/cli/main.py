@@ -6,6 +6,10 @@ Unhandled exceptions are mapped to typed exit codes by
 :func:`hydromodpy.cli.exit_codes.exit_code_for` so the shell sees a meaningful
 status (POSIX-conventional 130 for SIGINT, 10..23 for specific failure
 categories).
+
+It also sets the console verbosity of ``-q``, ``-v`` or ``--debug``, and it turns
+SIGTERM into an exception for the whole process. A command that leaves the first level
+has a refusal or a forward in ``OLD_CLI_FORMS`` of ``conventions.py``.
 """
 
 # PYTHON_ARGCOMPLETE_OK

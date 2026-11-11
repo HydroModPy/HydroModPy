@@ -30,7 +30,7 @@ pytestmark = pytest.mark.fast
 
 HERE = Path(__file__).resolve().parent
 
-# The twenty-eight scenarios, in the order of what they cover. A new scenario
+# The twenty-nine scenarios, in the order of what they cover. A new scenario
 # file gets its line here.
 SCENARIOS: tuple[str, ...] = (
     "test_backends_write_what_they_declare.py",
@@ -56,6 +56,7 @@ SCENARIOS: tuple[str, ...] = (
     "test_runs_weigh_what_their_level_keeps.py",
     "test_a_copy_is_published_and_the_index_is_shared.py",
     "test_a_run_and_a_session_report_themselves.py",
+    "test_a_run_readme_says_what_it_does_not_give.py",
     "test_a_sites_plan_and_a_two_layer_budget.py",
     "test_a_run_holds_on_a_shared_install.py",
     "test_the_read_verbs_play_a_basin.py",
@@ -110,9 +111,9 @@ REGISTRIES = {
 }
 
 
-def test_the_scenarios_are_the_twenty_eight_named():
+def test_the_scenarios_are_the_twenty_nine_named():
     found = {p.name for p in HERE.glob("test_*.py")} - {Path(__file__).name}
-    assert len(SCENARIOS) == 28
+    assert len(SCENARIOS) == 29
     assert len(set(SCENARIOS)) == len(SCENARIOS)
     assert found == set(SCENARIOS)
 

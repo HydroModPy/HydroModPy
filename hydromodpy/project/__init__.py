@@ -5,5 +5,5 @@
 :mod:`.runner` the runner behind ``simulate`` and ``calibrate``, and
 :mod:`.accessors` the read-only accessors of a project and its catalog. This
 module imports nothing, so ``import hydromodpy.project.environment`` loads that
-module alone. ``README.md`` in this folder is the map of the package.
+module alone. The page of the package in the developer docs is the map of the package.
 """

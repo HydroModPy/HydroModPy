@@ -11,6 +11,9 @@ read the same facts from the same files.
 
 The two point layers beside a catchment are written here too, by both engines,
 so their attribute table is the same whatever engine delineated.
+
+It reads the constants of ``port.py``, and ``port.py`` imports it only inside three
+functions, because a module-level import the other way would be a cycle.
 """
 
 from __future__ import annotations

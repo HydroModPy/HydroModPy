@@ -7,7 +7,10 @@
 #
 # SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-"""Accumulation of a flow or a mass downslope on the model grid (``Masstransfer``)."""
+"""Accumulation of a flow or a mass downslope on the model grid (``Masstransfer``).
+
+MT3DMS reads this downslope accumulation.
+"""
 
 from __future__ import annotations
 

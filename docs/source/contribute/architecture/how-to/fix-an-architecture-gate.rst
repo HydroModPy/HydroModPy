@@ -2,7 +2,7 @@ Fix a failing architecture gate
 ===============================
 
 ``tests/unit/architecture/`` holds the structural contracts of the code. CI runs
-it as the job ``Architecture / layer matrix``. It fails on a pull request when an
+it as the job ``Architecture / layers, surface and two threads``. It fails on a pull request when an
 import, a declaration or an allowlist no longer matches the contract, and the
 failure names the rule. This page says how to read it and what to do for each
 kind of failure. The list of every rule, with the file that holds it, is
@@ -57,12 +57,12 @@ What to do, by failing test
    ``python -m tools.doc_contracts`` and commit the result.
 
 ``test_package_layouts.py``
-   A package with a ``<package>_layout.yaml`` (``data``, ``calibration``,
-   ``display``) orders its parts, and a part may import only the parts in its row.
-   The message names the part and the import. Either move the import, or, if the
-   dependency is real, reorder the rows in the layout file and in the package
-   README together. A row may name only rows above it, so a cycle cannot be
-   declared. Another layer may import only the modules listed under ``public``.
+   A package with a ``<package>_layout.yaml`` orders its parts, and a part may
+   import only the parts in its row. The message names the part and the import.
+   Either move the import, or, if the dependency is real, reorder the rows in the
+   layout file and the sentences of the package page together. A row may name
+   only rows above it, so a cycle cannot be declared. Another layer may import
+   only the modules listed under ``public``.
 
 ``test_layers.py``, a port that stands alone
    A port promises a third-party plugin that it needs nothing of HydroModPy beyond
@@ -125,8 +125,9 @@ When the contract is what is wrong
 ----------------------------------
 
 Sometimes the code is right and the contract is old. The contract files are
-``layer_matrix.yaml`` (rows, tolerances, exempt files) and the three
+``layer_matrix.yaml`` (rows, tolerances, exempt files) and the
 ``*_layout.yaml`` files. Change them in a pull request of their own, with the
 reason in the tolerance entry, because a tolerance without a rationale fails
 review. Then regenerate the pages (``python -m tools.doc_contracts``) and update
-the README of the package whose rows moved. Never add a tolerance silently.
+the page of the package whose rows moved, under "Inside the package". Never add a
+tolerance silently.

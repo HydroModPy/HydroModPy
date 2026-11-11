@@ -17,6 +17,9 @@ The bytes of a package are stored by content beside the index, under
 A destination is relative to the workspace root (``data/dem/dem.tif``), or to
 the project when ``root = "project"`` (``step1.toml``). A reader refuses an
 index whose ``schema`` it does not know (:mod:`hydromodpy.core.io.document_version`).
+
+The schema id is ``hydromodpy.install.v1``. A change of the index fields comes with a
+new schema version.
 """
 
 from __future__ import annotations

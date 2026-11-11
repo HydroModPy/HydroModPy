@@ -10,6 +10,11 @@ raises :class:`~hydromodpy.core.exceptions.ExportError` naming
 
 Every export lands under ``runs/<run>/exports/``: the run directory holds
 everything the run produced. A copy out of the project is ``hmp publish``.
+
+The seal step writes ``simulation.parquet``, ``parameters.parquet``,
+``provenance.json``, ``inputs.json``, ``manifest.json`` last and then ``README.md``. The
+outcome and ``<run>/.hmp/`` belong to the attempt protocol, after the pipeline. A
+research run has no export and no view after the seal.
 """
 
 from __future__ import annotations

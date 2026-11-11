@@ -8,6 +8,10 @@ next example costs a few hundred kilobytes.
 
 Blobs live under ``<cache>/examples/blobs/<sha256[:2]>/<sha256>``, beside the
 solver binaries ``hmp install-binaries`` caches.
+
+A file comes from ``HMP_EXAMPLES_SOURCE`` when it is set, as a URL or a local checkout,
+and from the release tag of the installed version otherwise. A sha256 that does not
+match the catalog is a hard failure, and nothing reaches the workspace.
 """
 
 from __future__ import annotations

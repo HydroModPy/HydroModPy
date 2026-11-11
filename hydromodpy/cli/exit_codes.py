@@ -1,4 +1,18 @@
-"""Exit codes of the hmp CLI and the functions that end a command with one."""
+"""Exit codes of the hmp CLI and the functions that end a command with one.
+
+A failure prints one line on stderr that starts with its ``HMPY.Exxx`` code. An
+exception says its ``Category`` once, on its class (``core/exceptions.py``), and
+``EXIT_CODE_OF`` gives the code of the category. ``exit_code_for(exc)`` reads the
+category of a ``HydroModPyError`` and the code of the cause of a ``StepError``, and it
+maps a ``FileNotFoundError`` or a ``FileExistsError`` raised outside our classes to 10
+and 12. A new exception takes the code of its category and touches no table, and a new
+category is a value of ``Category`` and a line of ``EXIT_CODE_OF``. The code 0 is
+success, 1 a generic error, 2 a usage error (a refused confirmation without ``-y``
+included) and 130 an interruption. ``fail`` ends a command on an exception,
+``refuse(message, code)`` ends it on a refusal, and ``confirm`` asks before a removal.
+The exit-codes page of the CLI reference lists the exception behind each code, and
+``tests/unit/architecture/surface/exit_codes.tsv`` holds it.
+"""
 
 from __future__ import annotations
 

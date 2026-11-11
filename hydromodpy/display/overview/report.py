@@ -3,6 +3,12 @@
 The panels are drawn before the seal from the state in memory and from the
 rows of the data inventory, which the seal then writes. The page is written
 after the seal by ``display.report``, from the sealed directory.
+
+The seal writes the inventory to ``tables.parquet/data_inventory.parquet``
+(``DATA_INVENTORY_SCHEMA``) and lists the loaded inputs in ``inputs.json``, so every
+count of the page can be read from the sealed run. The page is written after the seal by
+``display.report`` into ``runs/<overview>/report/``, and the level pages are always
+written.
 """
 
 from __future__ import annotations

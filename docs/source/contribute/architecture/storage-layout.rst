@@ -621,7 +621,7 @@ identity is known and enters the request by its declaration. ``if_exists`` is ``
 Two fingerprints say whether two runs compute the same thing
 (``hydromodpy/results/record/request_identity.py``). The request id says what a run asks for. It is the
 sha256 of the document as a file writes it, so a key written at its default value is another
-request than no key. It leaves out ``[workspace]``, ``[workflow]``, ``simulation.name``, every
+request than no key. It leaves out ``[workspace]``, ``[workflow]``, :toml:`simulation.name`, every
 ``deliver_to`` key, the mesh the run builds and ``[resolved_at_build]``. Each input enters by the
 digest and the state of its bytes in place of its path, a URL by its pinned sha256 in place of its
 address, and a window that starts from an earlier state adds the digest of the ``final_state/`` of
@@ -782,7 +782,7 @@ reader of that document applies. A key that only a pre-release of 2.0 wrote has 
 listed in ``config/prerelease_forms.txt`` and refused, with the way to the doctor of a 2.0.x
 release. A file another one inherits stays as it is when its rewrite hangs on a key only
 that child writes, since a sibling can write another one, and the doctor says what to write.
-``tests/unit/results/test_every_document_carries_its_version.py`` holds the rule and lists the
+``tests/unit/results/test_run_storage.py`` holds the rule and lists the
 exempt files with their reason.
 
 Attempt protocol
@@ -1342,8 +1342,8 @@ overrides included, written once at the claim from the loaded configuration, so 
 before the mesh can be resumed. It holds the keys as written, so a validator that tells a written key from its default answers on it as it
 did on the run. ``config.resolved.toml`` holds every key with its value, ``edition`` included, and is never read
 back as a configuration. A resolved file without ``edition`` reads as edition 2.0. Its body adds what a rule derives from the configuration alone, by the rule the
-builders use: ``geographic.terrain_engine``, ``mesh.lake_refinement.shoreline_band`` and
-``hfb_buffer``, ``metrics.station``. Its table ``[resolved_at_build]`` holds what the build decided:
+builders use: :toml:`geographic.terrain_engine`, :toml:`mesh.lake_refinement.shoreline_band` and
+``hfb_buffer``, :toml:`metrics.station`. Its table ``[resolved_at_build]`` holds what the build decided:
 the ETP the data step injected, with ``surface_offset_m`` and its reference, the cell sizes the mesh
 took from the DEM pixel (``pixel``, ``cell_size``, ``river_cell_size``, ``river_band``), and the
 station a run deduced. What the solver adapter decides later goes to ``provenance.json``, block
@@ -1466,7 +1466,7 @@ Tested invariants
   and every file outside ``.hmp/``.
 - **Naming.** ``tests/unit/results/test_reserve_version_dirname.py`` covers the version
   computation and two real processes reserving one name;
-  ``tests/unit/results/test_a_name_is_never_reassigned.py`` trashes a version, with and without
+  ``tests/unit/results/test_catalog_names.py`` trashes a version, with and without
   gc, and checks the next run takes the next number.
 - **Trash.** ``tests/unit/results/test_trash_move.py`` checks the move, the identical restore, the
   tombstones written by gc and the trash of a session.

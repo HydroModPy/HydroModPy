@@ -1,4 +1,8 @@
-"""Hydrometry variable: custom chronicles and Hub'Eau."""
+"""Hydrometry variable: custom chronicles and Hub'Eau.
+
+``HydrometryVariable`` dispatches to the configured source (``custom`` or ``hubeau``). Its
+config models forbid extra keys.
+"""
 
 from __future__ import annotations
 

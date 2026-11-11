@@ -353,7 +353,7 @@ its name, `[solver.modflow_nwt]` and `[solver.modflow6]`. This page ranks neithe
 
 | Topic | MODFLOW-NWT | MODFLOW 6 |
 |---|---|---|
-| Newton | always | on by default, can be switched off |
+| Newton | always | {toml}`solver.modflow6.runtime.mf6_newton` |
 | Dry cells | no rewetting (`laywet = 0`) | rewetting off, refused with Newton |
 | Layering | `[domain.layers]`, shares or surfaces with `keep_min_thickness` | `[domain.layers]`, shares or surfaces, with `pass_through` cells |
 | Non-orthogonal flux | not available | `XT3D`, automatic on irregular meshes and off-axis tensors |
@@ -527,7 +527,7 @@ warning instead of a refusal. The refusals are these.
   needs MODFLOW 6 or Boussinesq. With {toml}`solver.backend` at `modflow_nwt`, the file is
   refused when it is read if it declares a stream network, a lake or a `stream` boundary, flow
   barriers or a dam cutoff wall. The message names the table the file wrote, for instance
-  `flow.sinks_sources.sfr` for a stream network.
+  {toml}`flow.sinks_sources.sfr` for a stream network.
 - **Layers and tensor.** MODFLOW-NWT has no pass-through cell: `pinch_out = "pass_through"` is
   refused when the file is read, and the build refuses a grid that holds one. `K22` and the
   angles need MODFLOW 6, and the file is refused with MODFLOW-NWT or Boussinesq. An `angle2` outside

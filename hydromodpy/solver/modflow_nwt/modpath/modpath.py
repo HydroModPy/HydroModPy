@@ -7,7 +7,15 @@
 #
 # SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-"""MODPATH particle tracking on a MODFLOW-NWT flow model."""
+"""MODPATH particle tracking on a MODFLOW-NWT flow model.
+
+The seepage raster that MODPATH releases particles from, ``zone_partic =
+"seepage_clip"``, is built by the adapter from the head file of the flow, with the
+seepage rule the run store derives, and never by a read of the store during the solve.
+The historical TIFF maps and the MODPATH post-processing are in
+``hydromodpy_annex/solver/nwt_postprocess/`` and
+``hydromodpy_annex/solver/modpath_post/``, because no adapter calls them.
+"""
 
 from __future__ import annotations
 

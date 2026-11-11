@@ -14,6 +14,9 @@ in the cell even when the vertex mean of a concave catchment falls outside it.
 
 The engine refuses lines, a size field and an input triangulation. One cell holds
 no chain, no face and no grading, so it would only drop them in silence.
+
+It refuses lines, a size field and a triangulation, and it fills the holes of the
+catchment.
 """
 
 from __future__ import annotations

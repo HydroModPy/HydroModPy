@@ -6,6 +6,11 @@ collides with the title), comma-separated tick labels, sane tick density,
 and an optional watershed outline drawn on top of the field.
 
 The helpers stay backend-agnostic - they only touch a matplotlib Axes.
+
+A map is drawn in the CRS of the mesh, which is projected and in metres. A vector layer
+in another CRS is put in metres by
+``hydromodpy.core.io.crs.project_gdf_for_metric_operations`` before it is drawn or
+measured.
 """
 
 from __future__ import annotations

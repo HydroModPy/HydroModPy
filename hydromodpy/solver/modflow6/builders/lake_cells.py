@@ -1,4 +1,8 @@
-"""Where a lake sits on the mesh: its cells, its carved bed and its inactive footprint."""
+"""Where a lake sits on the mesh: its cells, its carved bed and its inactive footprint.
+
+The ``_lake_*`` modules hold the geometry, the definitions, the connection rows and the
+outlet rows of a lake, and ``lake.py`` builds LAK from them.
+"""
 
 from __future__ import annotations
 

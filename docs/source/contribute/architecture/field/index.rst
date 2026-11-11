@@ -31,7 +31,7 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/model/properties/README.md``
+1. :doc:`../packages/model`, the section on properties
 2. ``hydromodpy/model/properties/field_spatial.py``
 3. ``hydromodpy/model/properties/field_param.py``
 4. ``hydromodpy/model/properties/mesh_cells.py``

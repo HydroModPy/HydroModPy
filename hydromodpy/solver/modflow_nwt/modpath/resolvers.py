@@ -1,4 +1,9 @@
-"""Resolvers of the delineation members and the zone-partic aliases for the MODPATH backend."""
+"""Resolvers of the delineation members and the zone-partic aliases for the MODPATH backend.
+
+The raster and shapefile lookups of the MODPATH inputs are public because the annex
+reads them. They read the DEM grid and the catchment from ``Model.geometry`` through the
+``inputs`` of the solver.
+"""
 
 from __future__ import annotations
 

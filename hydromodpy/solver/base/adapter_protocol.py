@@ -15,6 +15,37 @@ come together or not at all. The conformance suite of ``tests/ports/test_solver.
 ``RERUN_MEMBERS`` and ``OPTIONAL_MEMBERS`` to check both rules. A flow backend
 also answers :class:`CellLocator`. The extractor a backend registers apart
 answers :class:`OutputAdapter`.
+
+A flow adapter reads one object, the frozen ``Model`` of ``model/model.py``. Its members
+are ``geometry`` (the cell mesh, the domain, the raster facts, the catchment facts and
+the river network A read on the cells), ``properties`` (one ``FieldParam`` per parameter
+and the per-cell values of ``with_properties``), ``boundaries``, ``recharge``, ``etp``
+and ``wells`` in SI units, ``lakes``, ``sfr`` and ``flow_barriers`` in the units the
+user declared, ``initial`` (``HeadRule``, ``SteadyStart``, ``CyclicStart``,
+``PriorState`` or ``SolvedState``), ``time`` and ``options``. The step
+``prepare_solver`` builds it once and reads a prior run into a ``PriorState`` through
+``results/storage/prior_state.py``. The ``Model`` does not change during a solve: a
+change is a new object from ``with_properties``, ``with_initial``, ``steady_variant`` or
+``cycle_variant``. ``tests/unit/architecture/test_run_path.py`` holds these rules.
+
+``supports`` is a closed set so that a name written in a backend and a name asked by a
+model cannot drift. It is the union of the sources of ``SUPPORT_SOURCES`` in
+``model/supports.py``: the boundary kinds, the fields of ``ModelOptions``, the initial
+states, the sinks and sources, the soil reservoir, the K tensor and the layering. A
+default document already uses ``head_rule``, so a backend lists every trait it honours.
+
+A global backend meshes the catchment as one cell of the ``catchment`` engine and
+declares ``category`` ``lumped``. It may declare ``native_step``, a pandas frequency
+alias, and a native step finer than a transient period is refused when the file is read.
+``Model.native_recharge`` carries the series of a spatialized source at the step of the
+source. The options of a backend may carry ``wall_clock_limit_s``, which bounds one
+calibration trial, and ``runner``, which names the way the backend solves.
+
+``face_flow`` is the flux across each connection of two cells, in m3/s, positive from
+the smaller flat index to the larger, at every stored step. A flow that declares it
+writes it beside ``connection_cells`` when ``[simulation.results] keep_face_flows`` is
+true. A file whose flow does not write what a transport reads is refused when the file
+is read, in ``config/cross_checks.py``.
 """
 
 from __future__ import annotations

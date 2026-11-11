@@ -9,6 +9,10 @@ the entry list and the presence of the caller's own document: a job carries
 The write order is the contract. Everything a reader needs is on disk before
 the seal names it, and a crash between any two steps leaves no seal, which is
 the one unambiguous signal a caller outside this process can read.
+
+The caller creates the directory and writes ``request.json``. The process writes
+``outputs/``, ``inputset.json``, ``provenance.json``, ``outcome.json`` and
+``manifest.json``, in that order, so the seal exists if and only if the job succeeded.
 """
 
 from __future__ import annotations

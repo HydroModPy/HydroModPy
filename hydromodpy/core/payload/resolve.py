@@ -7,6 +7,9 @@ inherits the source of its parent, and returns the files of ``data/`` each
 one names, the station rows their registries hold, and the files of the
 project it names. A reference it cannot resolve to exactly one file is an
 error, never a pick.
+
+``authored_configs``, ``authored_files`` and ``project_data`` find the data that the
+TOML files of a project reference, the way a run resolves them.
 """
 
 from __future__ import annotations

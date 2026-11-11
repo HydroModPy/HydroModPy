@@ -94,6 +94,13 @@ class RunFacts(HydroModelBase):
     started_at: datetime = Field(description="Start of this attempt, UTC")
     solver: str | None = None
     solver_category: str | None = None
+    writes_face_flow: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the flow solver of the run writes the flow between cells; "
+            "None for a run with no flow solver"
+        ),
+    )
     flow_regime: FlowRegime | None = None
     solution_key: str | None = Field(
         default=None,

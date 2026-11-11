@@ -15,6 +15,10 @@ shipped source writes no host of its own: it reads them from
 is :mod:`hydromodpy.data.source.registry`, which this module must not depend
 on, and the check that a declaration matches a real fetch is
 ``tests/ports/test_data_source.py``.
+
+``FileRecord.of`` builds a record and hashes the file with
+``core.io.file_digest.sha256_of``. The ``state`` of a record uses the vocabulary of
+``schema/job/inputset.py``.
 """
 
 from __future__ import annotations

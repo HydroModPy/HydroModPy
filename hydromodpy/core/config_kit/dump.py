@@ -6,6 +6,8 @@ commented TOML document (tomlkit) filtered by the requested :class:`Profile`:
 full one. Loading is covered by ``toml_io/loader.py`` and
 :meth:`HydroModPyConfig.from_toml`; the re-load of a dumped config yields a
 config equal to the original.
+
+``dump_toml_with_comments`` is the code behind ``HydroModelBase.to_toml``.
 """
 
 from __future__ import annotations

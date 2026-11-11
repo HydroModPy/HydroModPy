@@ -3,6 +3,10 @@
 Each ``render_*`` function takes a matplotlib ``Axes`` and the data it needs
 already converted to generic types (paths, DataFrames, GeoDataFrames). This
 keeps the rendering decoupled from any state dataclass.
+
+This is the one part of ``display`` that reads raw files (rasters and shapefiles named
+by the state), because no run exists yet. A panel that misses its data draws an explicit
+empty state rather than failing.
 """
 
 from __future__ import annotations

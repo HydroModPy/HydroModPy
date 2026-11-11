@@ -8,6 +8,11 @@ What the build decided otherwise, and the provenance entries that differ, are
 recorded in the lineage of the new run and never refused; only ``--strict``
 refuses a moved value, and :mod:`hydromodpy.results.record.replay_class` does
 that at the seal.
+
+The module sits at the root of ``workflow`` and not in ``record/``, because it reads
+``steps.prepare_solver.resolved`` and ``steps`` imports ``record``: inside ``record/``
+it would close a cycle. A check at replay is a function of this module, and the checks
+cover the inputs, the configuration and the solver binary.
 """
 
 from __future__ import annotations

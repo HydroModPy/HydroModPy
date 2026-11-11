@@ -2,8 +2,9 @@ MODFLOW and Boussinesq backends
 ===============================
 
 How the three flow backends are put together, what they share, and the contracts the
-MODFLOW family honors. The code is in ``hydromodpy/solver/``, and the README of that
-package (:doc:`../packages/solver`) is the map. The mathematics of each solver is in
+MODFLOW family honors. The code is in ``hydromodpy/solver/``, and the page of that
+package (:doc:`../packages/solver`) lists its modules. Each backend folder has a README,
+which is its contract on the solver port. The mathematics of each solver is in
 :doc:`/theory/solvers`. The in-house Boussinesq backend has its own diagrams in
 :doc:`boussinesq-uml-diagrams`.
 
@@ -53,9 +54,9 @@ Every flow backend reads one frozen ``Model`` (``hydromodpy/model/model.py``), b
 once by ``prepare_solver`` in SI units and handed to the adapter by the runner, with
 the validated options of ``[solver.<name>]`` and a ``RunSlot``. A backend does not read
 the ``Flow``, the configuration or the geographic object, it does not change the
-``Model``, and it never opens the Zarr store of a prior run. The contract is the README
-of ``solver/base``, and ``tests/unit/architecture/test_run_path.py`` holds
-it. The auxiliary solves of the starting head are variants of the ``Model``
+``Model``, and it never opens the Zarr store of a prior run. The contract is
+``hydromodpy/solver/base/README.md``, the README of the solver port, and
+``tests/unit/architecture/test_run_path.py`` holds it. The auxiliary solves of the starting head are variants of the ``Model``
 (``steady_variant``, ``cycle_variant``). Each runs in a slot of its own, which has the
 folder and the binaries of the run, and each backend builds them from the top.
 

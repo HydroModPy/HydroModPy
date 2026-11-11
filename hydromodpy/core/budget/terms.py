@@ -8,6 +8,11 @@ policy: field name -> per-cell terms the field reads.
 
 The store says what it kept through two attributes of the ``budget/`` group,
 so a reader can tell a term that was dropped from one that is simply zero.
+
+``BudgetKeep`` and ``kept_budget`` say which terms a store kept, so a run that dropped
+the full budget still tells what it can rebuild. ``TERM_FAMILIES`` names the terms a
+reader sums for one name, ``storage`` for ``storage_ss`` and ``storage_sy``. A derived
+field that needs a new term adds a row to the table behind ``budget_terms_for``.
 """
 
 from __future__ import annotations

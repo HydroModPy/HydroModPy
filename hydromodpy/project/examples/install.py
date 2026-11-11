@@ -3,6 +3,9 @@
 Every file goes through the blob cache first, so a second install of the same
 example downloads nothing, and two examples sharing the regional DEM share the
 90 MiB blob instead of fetching it twice.
+
+The example goes into a workspace that already has a ``data/`` folder. An install keeps
+a destination whose content differs, and ``hmp example add --force`` overwrites it.
 """
 
 from __future__ import annotations

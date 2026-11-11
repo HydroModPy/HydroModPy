@@ -70,7 +70,7 @@ steps 1 and 2 leaves nothing on the disk.
 10. The pipeline runs.
 
 The request id says what a run asks for. It is the sha256 of the document as a file writes it,
-without ``[workspace]``, ``[workflow]``, ``simulation.name`` and every ``deliver_to`` key, and
+without ``[workspace]``, ``[workflow]``, :toml:`simulation.name` and every ``deliver_to`` key, and
 without the mesh the run builds. Each input enters by the digest and the state of its bytes, and a
 URL enters by its pinned sha256, so the address leaves the document. The edition of the
 defaults enters too, and so does the digest of the ``final_state/`` a window starts from, when

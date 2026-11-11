@@ -7,6 +7,10 @@ canonical and which family they belong to. ``[flow.bc]`` accepts the ids that ar
 not an advanced package, and their kinds come from the same table. A solver
 backend says which ids it builds through its ``supports``, so no backend is named
 here.
+
+``BoundaryConditionBundle`` is the view of the conditions the solvers read.
+``boundary_conditions.py`` reads this table, and the package reads ``model/model.py``
+for the annotation of ``Flow`` only.
 """
 
 from __future__ import annotations

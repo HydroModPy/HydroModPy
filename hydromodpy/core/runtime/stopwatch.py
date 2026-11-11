@@ -9,6 +9,9 @@ that moment, not the peak of the block alone: a per-block peak would need
 
 ``process_age_s`` says how long the process has lived, which tells the start-up
 cost of a command apart from the time of its steps.
+
+The lines go to ``profile.json``, written by ``results/storage/run_profile.py``.
+``MEASURE_KINDS`` lists the kinds of block, and a new kind is added there.
 """
 
 from __future__ import annotations

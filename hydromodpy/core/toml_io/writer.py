@@ -3,6 +3,9 @@
 A config model is written, with comments and a profile, by
 :func:`hydromodpy.core.config_kit.dump.dump_toml_with_comments`. Loading is
 covered by ``loader.py`` and :meth:`HydroModPyConfig.from_toml`.
+
+``dumps`` and ``dump`` render a plain mapping. A model with comments is written by
+``core/config_kit/dump.py``.
 """
 
 from __future__ import annotations

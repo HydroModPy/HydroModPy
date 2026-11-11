@@ -15,6 +15,17 @@ Key conventions
 
 The functions below are pure helpers around these conventions, with explicit
 validation errors intended to be user-facing.
+
+``chain_windows(grid, length)`` cuts a long transient run into windows. It reads
+``[simulation.time] window_length``, a calendar length such as ``6 months``, and gives
+one ``ChainWindow`` per window over the grid of the whole simulation. The edges are
+``start + j * length``, and the last window ends with the simulation and may be shorter.
+Every inner edge must fall on the end of a stress period, because a window cut inside a
+period would give another result than the run in one piece. An edge that does not raises
+``ConfigError`` with the edge and the two period ends around it. ``window_grid`` gives
+the grid of the periods of one window, with the same lengths and sub-steps. The temporal
+grid of the MODFLOW family is built in
+``solver/modflow_grid/discretization_temporal.py``.
 """
 
 from __future__ import annotations

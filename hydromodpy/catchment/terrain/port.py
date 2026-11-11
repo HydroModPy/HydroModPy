@@ -2,6 +2,8 @@
 
 The README of this folder holds the facts a caller must not guess, such as the natural
 logarithm of ``ln``, the width of a snap window and the float32 bound of an accumulation.
+
+A new member of the port is a method of the Protocol, and both engines must serve it.
 """
 
 from __future__ import annotations

@@ -18,6 +18,9 @@ and give that run back (:func:`run_simulation`).
 It also owns the staged-calibration routing question
 (:func:`declared_calibration_phases`, :func:`calibration_phases_or_raise`),
 which every calibration entry point asks before choosing a runner.
+
+``completed_identical_run`` tells whether a plain run was already sealed with the same
+resolved config, so that ``hmp run`` gives it back instead of computing it again.
 """
 
 from __future__ import annotations

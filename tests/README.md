@@ -94,6 +94,8 @@ Declared in the repository-root `pytest.ini`:
 | `allow_subprocess` | permits subprocess calls inside `unit/` |
 | `timeout`     | per-test timeout in seconds |
 | `xdist_group` | pytest-xdist worker grouping |
+| `whitebox`    | drives the Whitebox native binding, auto-applied to the files of `_WHITEBOX_XDIST_GROUP_TEST_FILES` in `tests/conftest.py`; the workflows run `-m "not whitebox"` in parallel, then `-m whitebox` in a serial session |
+| `windows`     | proves a Windows behaviour; skipped elsewhere with one reason, and a failure when it skips under `HMP_REQUIRE_WINDOWS` |
 
 The `fast`/`extensive` markers under `tests/regression/` are auto-applied
 based on the file's subdirectory (see `tests/conftest.py`).
@@ -159,6 +161,7 @@ tree clean:
 | `HMP_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
 | `HMP_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
 | `PYTEST_DEBUG_TEMPROOT`        | `<scratch>/pytest` | Points pytest's `tmp_path` generator inside the scratch root. |
+| `HMP_REQUIRE_WINDOWS`   | unset | When set, a test marked `windows` that skips fails instead. The weekly Windows job sets it. |
 
 The conftest sets `TMPDIR`/`TMP`/`TEMP` to a subdirectory of the scratch root
 so spawned subprocesses inherit the same cleanup policy.
@@ -249,16 +252,26 @@ The active GitHub Actions gates are split across `.github/workflows/`:
 
 - **main-ci.yml** - PR + push gate: quality (ruff), secrets, architecture,
   a `--collect-only` gate over the whole tree, fast / unit (`-m "not slow"`) /
-  ports / refusals / integration / regression-fast tiers, package-smoke, typing.
+  ports / refusals / scenarios / integration / regression-fast tiers, the
+  coverage floor of each sub-package (`tools/ci/coverage_floors.toml`), the
+  proof that removed tests lose nothing (`tools/ci/proof.py`), package-smoke,
+  typing.
 - **ci-nightly.yml** - nightly extensive regression, validation (not petsc; the
   petsc variants run in ci-nightly-petsc.yml), integration with coverage.
 - **ci-nightly-petsc.yml** - nightly PETSc validation variants
   (`tests/validation -m petsc`, conda env with petsc4py), uploads
   `validation-results-petsc-<branch>`.
 - **ci-weekly.yml** - cross-OS unit + fast-regression + analytical, serial
-  e2e, full regression.
+  e2e, full regression, the frozen MODFLOW 6 replay with one and four BLAS
+  threads, the package proof of the week, and every `windows` test on
+  Windows under `HMP_REQUIRE_WINDOWS`.
 - **perf.yml** - pytest-benchmark drift gate over `tests/performance/`.
 - **petsc-smoke.yml** - Linux PETSc Boussinesq smoke subset (conda env).
+
+`python tools/ci/local.py run --out <dir> [--job <job>]` replays the Linux,
+Python 3.13 steps of the workflows on a local machine, with one log per step
+and a `status` file. `python tools/ci/local.py list` prints the steps it plays
+and, for every other step, the reason it is not played locally.
 
 Validation, extensive regression, and e2e are not part of the fast
 PR-blocking suite; run validation manually before a release with

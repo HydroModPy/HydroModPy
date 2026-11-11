@@ -5,6 +5,8 @@ observed lake level on the simulated stage, draws a 1:1 scatter on the
 period-aligned pairs, and annotates the standard goodness-of-fit metrics.
 Series in, PNG out; the function never touches the catalog or the solver,
 so any caller can feed it two pandas Series.
+
+It carries no ``spec`` and is not a figure.
 """
 
 from __future__ import annotations

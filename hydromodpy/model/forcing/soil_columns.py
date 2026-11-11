@@ -1,4 +1,8 @@
-"""The soil columns: capacity classes inside each SAFRAN cell, and their catchment weights."""
+"""The soil columns: capacity classes inside each SAFRAN cell, and their catchment weights.
+
+There is one column per SAFRAN cell, or one per capacity class inside each cell when
+``[data.soil_capacity]`` gives a raster. Each column is weighed by its share of the catchment.
+"""
 
 from __future__ import annotations
 

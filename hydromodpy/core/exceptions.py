@@ -7,8 +7,10 @@ messages, and a ``category`` class attribute, a :class:`Category`, that the
 CLI maps to its exit code. A class that has two parents of different
 categories says its own.
 
-See ``architecture_cible/13_coherence_globale.md`` §1.5 for the canonical
-code assignments. Codes follow the ``HMPY.Exxx`` convention.
+Codes follow the ``HMPY.Exxx`` convention.
+
+There are sixteen categories. A new exception takes the code of its category and touches
+no table of the command line.
 """
 
 from __future__ import annotations

@@ -37,6 +37,9 @@ run identical to a completed one gives the completed run back.
 The scratch of the attempt is under the run, ``runs/<case>/.hmp/scratch/``,
 or under ``$HMP_SCRATCH_ROOT/<project>/<case>.a<attempt>/`` when that root
 is set (:func:`hydromodpy.results.storage.attempt.scratch_dir_for_attempt`).
+
+The claim holds no identity. ``start_over_if_changed`` restarts a resumed attempt when
+the ``request_id`` changed.
 """
 
 from __future__ import annotations

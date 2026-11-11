@@ -28,6 +28,9 @@ pinned run, a running case. It never skips a question, which is ``-y``.
 
 A guard test (``tests/unit/cli/test_cli_conventions.py``) introspects the
 argparse tree and fails if a command drifts from this grammar.
+
+A name is ``--name``, the file format of ``export`` is ``--as`` and the container of
+``publish`` is ``--container``.
 """
 
 from __future__ import annotations

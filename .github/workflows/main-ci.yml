@@ -1,6 +1,8 @@
 # Main CI gate for pushes and pull requests.
 # Keep this workflow readable in the GitHub checks list: each job name starts
 # with the domain that failed, then the tier and Python version when relevant.
+# The test commands stay written here in clear. tools/ci/local.py replays the
+# Linux steps on a local machine by reading this file.
 
 name: CI / Main Gate
 
@@ -61,8 +63,11 @@ jobs:
               --config /repo/.gitleaks.toml \
               --source /repo
 
+  # The layer matrix, the run layouts, the public surface, the code rules and
+  # the gate that plays two runs in two threads of one process. The two-thread
+  # gate uses the global backend and needs no solver binary.
   architecture:
-    name: Architecture / layer matrix
+    name: Architecture / layers, surface and two threads
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -140,47 +145,52 @@ jobs:
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
+      # Every binary, because a port test with HMP_REQUIRE_BINARIES fails when
+      # its binary is missing instead of skipping.
       - name: Install solver binaries for fast tests
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
+        run: python -m hydromodpy install-binaries --quiet
 
       # A single bad import aborts the whole pytest session, which silently
       # turns a tier into zero executed tests. This step fails loudly instead.
       - name: Collection gate
         run: python -m pytest tests/ --collect-only -q
 
-      # The Whitebox native binding dies outright when several DEM workflows run
-      # in one long-lived xdist worker, and --dist loadgroup is what puts them
-      # there: tests/conftest.py groups every Whitebox test under one name, so
-      # they all land on the same node. Run them in their own serial session
-      # instead, like the weekly job already does for the backend unit tests.
+      # The Whitebox native binding dies when several DEM workflows share one
+      # long-lived xdist worker. tests/conftest.py marks every file that drives
+      # it with `whitebox`, so those tests run in their own serial session.
       - name: Run fast marker suite
         run: |
-          python -m pytest -m fast \
-            --ignore=tests/regression/fast/geographic \
+          python -m pytest -m "fast and not whitebox" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
             -q
 
       - name: Run Whitebox-backed fast tests (serial)
-        run: python -m pytest -m fast tests/regression/fast/geographic --timeout=300 -q
+        run: python -m pytest -m "fast and whitebox" --timeout=300 -q
 
       # tests/ports/ holds one file per port registry. It runs serially because
-      # tests/ports/test_terrain.py reaches Whitebox. HMP_REQUIRE_GMSH turns a
-      # skipped gmsh engine into a failure: a mesh port test proves nothing on
-      # an engine it did not run.
+      # tests/ports/test_terrain.py reaches Whitebox. HMP_REQUIRE_GMSH and
+      # HMP_REQUIRE_BINARIES turn a skipped engine or a missing binary into a
+      # failure: a port test proves nothing on a backend it did not run.
       - name: Run port tests
         env:
           HMP_REQUIRE_GMSH: "1"
+          HMP_REQUIRE_BINARIES: "1"
         run: python -m pytest tests/ports/ -q
 
       - name: Run refusal tests
         run: python -m pytest tests/refusals -q -n 2
 
+  # The unit tier and every test that feeds the coverage floors of a package:
+  # the mesh port, the mesh regression, the domain-build worker and the
+  # calibration tests. The data go to the coverage job as an artifact.
+  # --cov-append keeps the data of an earlier step in the same file, which the
+  # serial Whitebox step needs and which the local replay needs for every step.
   unit:
     name: Tests / unit py3.13
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -203,73 +213,74 @@ jobs:
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
-      # Docstring examples were never executed, so they drifted: two showed a
-      # wrong repr, one named the wrong exception class, one called an attribute
-      # that does not exist. Scoped to the modules that carry examples - a
-      # blanket --doctest-modules on hydromodpy/ would import every
-      # optional-dependency module and fail for unrelated reasons.
-      - name: Run docstring examples
-        run: |
-          python -m pytest --doctest-modules -q \
-            hydromodpy/project/api.py \
-            hydromodpy/core/io/proj_bootstrap.py \
-            hydromodpy/core/logging.py \
-            hydromodpy/core/units/types.py \
-            hydromodpy/display/__init__.py \
-            hydromodpy/display/quicklook/viz.py \
-            hydromodpy/project/facade.py \
-            hydromodpy/results/catalog/ \
-            hydromodpy/results/exporters/ \
-            hydromodpy/results/run/ \
-            hydromodpy/core/units/physical_bounds.py
+      - name: Install the solver binary the mesh and calibration tests need
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # The whitebox-heavy tiers ran here for a while, on the assumption that
-      # pinning the Whitebox fd-level stdio redirect off in tests/conftest.py made
-      # them safe under xdist. It did not: a worker still died on main. The native
-      # binding cannot share a long-lived worker with other DEM workflows, so it
-      # gets its own serial step again.
+      # Every module of hydromodpy/ that carries a docstring example, found by
+      # git grep, so that no list of files drifts from the tree.
+      - name: Run docstring examples
+        run: python -m pytest --doctest-modules -q $(git grep -l -E '^\s*>>> ' -- 'hydromodpy/*.py')
+
       - name: Run unit tests in parallel
+        env:
+          HMP_REQUIRE_GMSH: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/unit/.coverage
         run: |
           python -m pytest tests/unit/ tests/processes/ \
+            tests/ports/test_mesh.py \
+            tests/regression/mesh/ \
+            tests/integration/domain/test_worker.py \
+            tests/integration/calibration \
+            tests/regression/fast/calibration \
             --ignore=tests/unit/architecture \
-            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
-            -m "not slow" \
+            -m "not slow and not whitebox" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
             --durations=25 \
             --cov=hydromodpy \
+            --cov-branch \
+            --cov-append \
             --cov-report= \
             --cov-fail-under=0 \
             -q
 
       - name: Run Whitebox-backed unit tests (serial)
+        env:
+          HMP_REQUIRE_GMSH: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/unit/.coverage
         run: |
-          python -m pytest \
-            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
-            -m "not slow" --timeout=300 -q
+          python -m pytest tests/unit/ tests/processes/ \
+            tests/ports/test_mesh.py \
+            tests/regression/mesh/ \
+            tests/integration/domain/test_worker.py \
+            tests/integration/calibration \
+            tests/regression/fast/calibration \
+            --ignore=tests/unit/architecture \
+            -m "whitebox and not slow" \
+            --timeout=300 \
+            --cov=hydromodpy \
+            --cov-branch \
+            --cov-append \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
 
-      - name: Write unit coverage XML
-        if: always()
-        run: |
-          coverage combine || true
-          coverage xml || true
-
-      - name: Upload unit coverage to Codecov
-        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: codecov/codecov-action@v5
+      - name: Keep the unit coverage data
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
-          flags: unit
-          fail_ci_if_error: false
+          name: coverage-unit
+          path: ${{ runner.temp }}/coverage/unit/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
 
-  mesh-coverage:
-    name: Coverage / mesh gate py3.13
+  # The scenarios are small synthetic projects played once by the real
+  # pipeline. A scenario skips when its binary is missing, so every binary is
+  # installed. Their python -m hydromodpy children write into the same coverage
+  # file through patch = ["subprocess"] of pyproject.toml.
+  scenarios:
+    name: Tests / scenarios py3.13
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -283,99 +294,51 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package, test, docs and mesh extras
+      # Three scenarios stop and resume a run through the MODFLOW 6 API.
+      - name: Install package, test, calibration, mesh and mf6api extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,docs,mesh]"
+          pip install -e ".[test,calibration,mesh,mf6api]"
 
-      - name: Install external validity_frame package
-        run: pip install -e validity_frame
+      - name: Install every solver binary
+        run: python -m hydromodpy install-binaries --quiet
 
-      - name: Install the solver binary the mesh regression needs
-        run: python -m hydromodpy install-binaries --subset mf6 --quiet
-
-      # Branch coverage of catchment/ and mesh/ over the unit tier, the mesh port tests,
-      # the mesh regression and the domain-build worker, which only its integration
-      # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
-      - name: Run the tests that reach the catchment package
+      # The floor table of the coverage job is the gate, so this step does not
+      # apply the fail_under of pyproject.toml to the scenarios alone.
+      - name: Run the scenarios
         env:
-          HMP_REQUIRE_GMSH: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/scenarios/.coverage
         run: |
-          python -m pytest tests/unit/ \
-            tests/ports/test_mesh.py \
-            tests/regression/mesh/ \
-            tests/integration/domain/test_worker.py \
-            --ignore=tests/unit/architecture \
-            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
-            -m "not slow" \
-            -n 2 --dist loadgroup \
+          python -m pytest tests/scenarios \
+            -n 4 --dist loadgroup \
             --max-worker-restart=0 \
-            --timeout=300 \
-            --cov=hydromodpy/catchment \
-            --cov=hydromodpy/mesh \
-            --cov=hydromodpy/model \
-            --cov=hydromodpy/results/derive/stream_network \
-            --cov-branch \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
-
-      # The Whitebox-backed files are left out above, because the native binding
-      # dies under xdist. They run here one at a time into the same coverage.
-      - name: Run the serial Whitebox tests into the same coverage
-        env:
-          HMP_REQUIRE_GMSH: "1"
-        run: |
-          python -m pytest \
-            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
-            -m "not slow" \
-            --timeout=300 \
-            --cov=hydromodpy/catchment \
-            --cov=hydromodpy/mesh \
-            --cov=hydromodpy/model \
-            --cov=hydromodpy/results/derive/stream_network \
+            --timeout=900 \
+            --cov=hydromodpy \
             --cov-branch \
             --cov-append \
             --cov-report= \
             --cov-fail-under=0 \
             -q
 
-      # One floor per sub-package, so that no small package drops unseen inside
-      # an average. The floors only go up: raise each to the value a clean-up
-      # lot reaches. A floor goes down only when files enter or leave a package, or
-      # covered code leaves it, with no covered line lost, and the commit says so.
-      # The domain, properties, forcing and lake bed lines gate the parts of model/ that
-      # came from the old spatial package, on the same files as before the move. The
-      # algorithms, preprocess and synthetic line gates the old geographic files as one set.
-      # The line before the last gates the modules at the top of catchment/ and the job
-      # inputs of model/domain, the old top of spatial. The last one gates the stream
-      # criterion as one set, the kernels in catchment/stream_network and the readers of
-      # a run in results/derive/stream_network. No other job measures them. Their tests run in
-      # this unit tier, under tests/unit/catchment/stream_network and tests/unit/results.
-      - name: Gate the catchment coverage
-        run: |
-          coverage combine || true
-          coverage report --include='hydromodpy/mesh/*' --precision=2 --fail-under=99.24
-          coverage report --include='hydromodpy/catchment/administrative/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/catchment/delineation/*' --precision=2 --fail-under=97.2
-          coverage report --include='hydromodpy/model/domain/*' --omit='hydromodpy/model/domain/lake_bed_*,hydromodpy/model/domain/structure_binders.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.3
-          coverage report --include='hydromodpy/catchment/drainage/*' --precision=2 --fail-under=93.7
-          coverage report --include='hydromodpy/model/properties/*' --omit='hydromodpy/model/properties/physical_properties.py,hydromodpy/model/properties/property_ids.py,hydromodpy/model/properties/property_table.py' --precision=2 --fail-under=98.7
-          coverage report --include='hydromodpy/model/forcing/__init__.py,hydromodpy/model/forcing/area_weights.py,hydromodpy/model/forcing/cells.py,hydromodpy/model/forcing/interpolation.py,hydromodpy/model/forcing/rasters.py,hydromodpy/model/forcing/recharge_rates.py,hydromodpy/model/forcing/sources.py,hydromodpy/model/forcing/stations.py' --precision=2 --fail-under=99.7
-          coverage report --include='hydromodpy/catchment/algorithms/*,hydromodpy/catchment/preprocess/*,hydromodpy/catchment/synthetic/*' --precision=2 --fail-under=96.4
-          coverage report --include='hydromodpy/model/domain/lake_bed_*' --precision=2 --fail-under=98.9
-          coverage report --include='hydromodpy/catchment/terrain/*' --precision=2 --fail-under=94.6
-          coverage report --include='hydromodpy/catchment/*.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/results/derive/stream_network/*,hydromodpy/catchment/stream_network/*' --precision=2 --fail-under=92.66
+      - name: Keep the scenario coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-scenarios
+          path: ${{ runner.temp }}/coverage/scenarios/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
 
-  core-coverage:
-    name: Coverage / core gate py3.13
+  # One floor per sub-package of hydromodpy/ and one for the modules at the
+  # top of each package, all in tools/ci/coverage_floors.toml. The floors only
+  # go up: `python tools/ci/coverage_floors.py measure tools/ci/coverage_floors.toml
+  # --write` raises each to half a point under the measure. A floor goes down
+  # only when files enter or leave its sub-package, with the reason on its line.
+  coverage:
+    name: Coverage / floors per sub-package
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    needs: [unit, scenarios]
     steps:
       - uses: actions/checkout@v4
 
@@ -384,103 +347,66 @@ jobs:
           python-version: "3.13"
           cache: pip
 
-      - name: Install package and test extras
-        run: |
-          pip install --upgrade pip
-          pip install -e ".[test,calibration,mesh]"
+      - name: Install coverage
+        run: pip install "coverage[toml]>=7.10"
 
-      - name: Install external validity_frame package
-        run: pip install -e validity_frame
-
-      # Branch coverage of core/ by its own tests, tests/unit/core, which mirror
-      # the sub-packages of core.
-      - name: Run the tests of the core package
-        run: |
-          python -m pytest tests/unit/core/ \
-            -n 2 --dist loadgroup \
-            --max-worker-restart=0 \
-            --timeout=300 \
-            --cov=hydromodpy/core \
-            --cov-branch \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
-
-      # One floor per sub-package, half a point under the value measured on
-      # 2026-11-05 with Python 3.12, so that the change of interpreter does not
-      # trip it. The floors only go up. The last line gates the modules at the
-      # top of core/.
-      - name: Gate the core coverage
-        run: |
-          coverage combine || true
-          coverage report --include='hydromodpy/core/budget/*' --precision=2 --fail-under=99.1
-          coverage report --include='hydromodpy/core/config_kit/*' --precision=2 --fail-under=93.6
-          coverage report --include='hydromodpy/core/console/*' --precision=2 --fail-under=89.8
-          coverage report --include='hydromodpy/core/contracts/*' --precision=2 --fail-under=98.1
-          coverage report --include='hydromodpy/core/fields/*' --precision=2 --fail-under=79.2
-          coverage report --include='hydromodpy/core/io/*' --precision=2 --fail-under=88.3
-          coverage report --include='hydromodpy/core/payload/*' --precision=2 --fail-under=93.0
-          coverage report --include='hydromodpy/core/runtime/*' --precision=2 --fail-under=94.0
-          coverage report --include='hydromodpy/core/scoring/*' --precision=2 --fail-under=79.5
-          coverage report --include='hydromodpy/core/site/*' --precision=2 --fail-under=92.9
-          coverage report --include='hydromodpy/core/state/*' --precision=2 --fail-under=83.8
-          coverage report --include='hydromodpy/core/time/*' --precision=2 --fail-under=93.1
-          coverage report --include='hydromodpy/core/toml_io/*' --precision=2 --fail-under=86.5
-          coverage report --include='hydromodpy/core/tracking/*' --precision=2 --fail-under=95.0
-          coverage report --include='hydromodpy/core/units/*' --precision=2 --fail-under=89.3
-          coverage report --include='hydromodpy/core/workspace/*' --precision=2 --fail-under=81.1
-          coverage report --include='hydromodpy/core/*.py' --precision=2 --fail-under=83.4
-
-  project-workflow-coverage:
-    name: Coverage / project and workflow gate py3.13
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.13"
-          cache: pip
+          name: coverage-unit
+          path: ${{ runner.temp }}/coverage/unit
 
-      - name: Install package and test extras
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-scenarios
+          path: ${{ runner.temp }}/coverage/scenarios
+
+      # The two data files are named one by one: a folder given to combine
+      # reads only the files whose name carries a suffix.
+      - name: Combine the unit and scenario data
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
         run: |
-          pip install --upgrade pip
-          pip install -e ".[test,calibration,mesh]"
+          coverage combine --rcfile=/dev/null --keep \
+            "$RUNNER_TEMP/coverage/unit/.coverage" \
+            "$RUNNER_TEMP/coverage/scenarios/.coverage"
 
-      - name: Install external validity_frame package
-        run: pip install -e validity_frame
+      - name: Check the floor of each sub-package
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
+        run: python tools/ci/coverage_floors.py check tools/ci/coverage_floors.toml
 
-      # Branch coverage of project/ and workflow/ by the tests of their own
-      # layers and of the launchers.
-      - name: Run the tests of the project and workflow packages
-        run: |
-          python -m pytest tests/unit/project tests/unit/workflow tests/unit/launchers \
-            -n 2 --dist loadgroup \
-            --max-worker-restart=0 \
-            --timeout=300 \
-            --cov=hydromodpy/project \
-            --cov=hydromodpy/workflow \
-            --cov-branch \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
+      - name: Write the coverage XML
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/coverage/.coverage
+        run: coverage xml -o "$RUNNER_TEMP/coverage.xml"
 
-      # One floor per package, half a point under the value measured on
-      # 2026-11-05 with Python 3.12 (project 81.27, workflow 81.85). The floors
-      # only go up.
-      - name: Gate the project and workflow coverage
-        run: |
-          coverage combine || true
-          coverage report --include='hydromodpy/project/*' --precision=2 --fail-under=80.7
-          coverage report --include='hydromodpy/workflow/*' --precision=2 --fail-under=81.3
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ runner.temp }}/coverage.xml
+          flags: unit
+          fail_ci_if_error: false
 
-  calibration-coverage:
-    name: Coverage / calibration gate py3.13
+  # A change that removes test functions must lose no covered line, branch or
+  # killed mutant of the modules those tests stood for. proof.py picks the
+  # removed functions and the tests that import their modules, then
+  # tools/ci/removal_proof.py check measures both sides on the same library
+  # code. A change that also edits hydromodpy/ is refused: remove the tests in a
+  # change of their own. A pull request is proved as one change against its
+  # base. A push is proved commit by commit against each parent, so a push that
+  # removes tests and edits hydromodpy/ in separate commits passes. Exit 0
+  # proved, 1 a loss named in proof/report.json, 2 a refusal. Almost every push
+  # removes no test and ends in under a minute.
+  proof:
+    name: Proof / tests removed lose nothing
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -490,47 +416,45 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package, test, calibration and mesh extras
+      - name: Install package, test extras and mutmut
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,mesh]"
+          pip install -e ".[test,calibration,mesh,mf6api]" "mutmut==3.8.0"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
-      - name: Install the solver binary the calibration tests need
-        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+      - name: Install solver binaries for the proof
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
 
-      # Branch coverage of calibration/ over its own unit, integration and regression
-      # tests. They are what the rework of the calibration will lean on.
-      - name: Run the tests of the calibration package
+      - name: Prove that the removed tests lose nothing
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
         run: |
-          python -m pytest tests/unit/calibration tests/integration/calibration \
-            tests/regression/fast/calibration \
-            -m "not slow" \
-            -n 2 --dist loadgroup \
-            --max-worker-restart=0 \
-            --timeout=300 \
-            --cov=hydromodpy/calibration \
-            --cov-branch \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "no base to compare with"
+            exit 0
+          fi
+          if [ "$EVENT" = "pull_request" ]; then
+            python tools/ci/proof.py select --base "$BASE" --head "$GITHUB_SHA" \
+              --work "$RUNNER_TEMP/proof" --out proof/selection.json
+            python tools/ci/proof.py prove proof/selection.json \
+              --work "$RUNNER_TEMP/proof" --out proof/report.json \
+              --budget-minutes 45 --processes 4 --workers 4
+          else
+            python tools/ci/proof.py range --base "$BASE" --head "$GITHUB_SHA" \
+              --work "$RUNNER_TEMP/proof" --out proof/report.json \
+              --budget-minutes 45 --processes 4 --workers 4
+          fi
 
-      # One floor per sub-package, the first measure rounded down to a half point.
-      # The floors only go up, by the rule of the catchment gate above. The last line
-      # gates the modules at the top of calibration/.
-      - name: Gate the calibration coverage
-        run: |
-          coverage combine || true
-          coverage report --include='hydromodpy/calibration/criteria/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/calibration/evaluation/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/calibration/metrics/*' --precision=2 --fail-under=99.5
-          coverage report --include='hydromodpy/calibration/observations/*' --precision=2 --fail-under=99.5
-          coverage report --include='hydromodpy/calibration/optim/*' --precision=2 --fail-under=99.0
-          coverage report --include='hydromodpy/calibration/protocols/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/calibration/runners/*' --precision=2 --fail-under=98.0
-          coverage report --include='hydromodpy/calibration/*.py' --omit='hydromodpy/calibration/*/*' --precision=2 --fail-under=99.5
+      - name: Keep the selection and the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof
+          path: proof/
+          if-no-files-found: ignore
 
   integration:
     name: Tests / integration py3.13
@@ -588,19 +512,16 @@ jobs:
       - name: Install solver binaries for regression tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
-      # The Whitebox native binding dies outright when several DEM workflows run
-      # in one long-lived xdist worker, and --dist loadgroup is what puts them
-      # there: tests/conftest.py groups every Whitebox test under one name, so
-      # they all land on the same node. Run them in their own serial session
-      # instead, like the weekly job already does for the backend unit tests.
+      # The Whitebox native binding dies when several DEM workflows share one
+      # long-lived xdist worker, so the tests marked `whitebox` run serially.
       - name: Run fast regression suite
         run: |
           python -m pytest tests/regression/fast/ \
-            --ignore=tests/regression/fast/geographic \
+            -m "not whitebox" \
             -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
 
       - name: Run Whitebox-backed fast regression (serial)
-        run: python -m pytest tests/regression/fast/geographic --timeout=600 -q
+        run: python -m pytest tests/regression/fast/ -m whitebox --timeout=600 -q
 
   example-catalog:
     name: Package / example catalog matches the tree
