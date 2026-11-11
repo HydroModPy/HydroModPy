@@ -173,6 +173,10 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
     "data.*.sources.sha256": (_UNSET, _A_SOURCE_PIN),
     "data.*.sources.url": (_UNSET, _A_SOURCE_PIN),
     "edition": ("2.0", "A file that writes none is read with the defaults of 2.0."),
+    "export.deliver_to": (
+        _UNSET,
+        "Unset, a block delivers nothing, as a block of 2.0 did; the file it writes is the same.",
+    ),
     "data.dem.sources.state": (
         "raw",
         "Raw, so HydroModPy conditions the DEM as a file of 2.0 did; a file of 2.0 wrote no state.",

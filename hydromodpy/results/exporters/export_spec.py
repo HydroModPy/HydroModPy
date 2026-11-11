@@ -37,6 +37,7 @@ from pydantic import AfterValidator, Field, TypeAdapter, field_validator, model_
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.results.exporters.destination import DELIVER_TO_KEY, parse_destination
 from hydromodpy.results.exporters.registry import (
     check_format_name,
     format_suffix,
@@ -273,6 +274,14 @@ class ExportRequest(HydroModelBase):
         default=-9999.0,
         description="Fill value of the cells a raster has no data for.",
     )
+    deliver_to: Annotated[list[str] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Where to send the files of this block once the run is sealed: a local or "
+            "UNC folder ending with /, a file, or an ftp://, ftps:// or sftp:// address, "
+            "whose identity comes from credentials.toml."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -331,6 +340,27 @@ class ExportRequest(HydroModelBase):
             )
         return value
 
+    @field_validator(DELIVER_TO_KEY, mode="before")
+    @classmethod
+    def _one_as_a_list(cls, value: Any) -> Any:
+        """Read a single destination as the list of one."""
+        return [value] if isinstance(value, str) else value
+
+    @field_validator(DELIVER_TO_KEY)
+    @classmethod
+    def _destinations(cls, value: list[str] | None) -> list[str] | None:
+        """Refuse a destination no delivery reaches, with the phrase of its form."""
+        if value is None:
+            return None
+        if not value:
+            raise ValueError(
+                "deliver_to is empty: name the folder, the file or the address to deliver "
+                "to, or remove the key."
+            )
+        for text in value:
+            parse_destination(text)
+        return value
+
     @field_validator("time", mode="before")
     @classmethod
     def _dates_as_text(cls, value: Any) -> Any:
@@ -384,6 +414,7 @@ class ExportRequest(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_request(self) -> ExportRequest:
+        self._check_delivery()
         if self.time is not None and self.period is not None:
             raise ValueError(
                 "time and period are both given. Write time for instants, or period for "
@@ -407,6 +438,41 @@ class ExportRequest(HydroModelBase):
         if self.file is not None:
             self._check_single_file(fmt)
         return self
+
+    def _check_delivery(self) -> None:
+        """Refuse a delivery this block cannot answer: a repeated target, no file, a view."""
+        if not self.deliver_to:
+            return
+        destinations = [parse_destination(text) for text in self.deliver_to]
+        seen: set[tuple[str, str | None, int | None, str, bool]] = set()
+        for text, destination in zip(self.deliver_to, destinations, strict=True):
+            key = (
+                destination.scheme,
+                destination.host,
+                destination.port,
+                destination.path,
+                destination.folder,
+            )
+            if key in seen:
+                raise ValueError(f"deliver_to names {text!r} twice.")
+            seen.add(key)
+        if (
+            self.folder is None
+            and self.file is None
+            and self.output_format is not None
+            and self.output_format in run_formats()
+        ):
+            raise ValueError(
+                "a view is delivered from exports/: give this block folder or file, or "
+                "remove deliver_to."
+            )
+        files = [destination for destination in destinations if not destination.folder]
+        if files and self.file is None:
+            raise ValueError(
+                f"deliver_to = {files[0].text!r} names one remote file, so the block must "
+                'write one file with file = "...". End the address with / to deliver into '
+                "a folder."
+            )
 
     def _resolve_format(self) -> str | None:
         """Return the declared format, checked against the extension of ``file``."""

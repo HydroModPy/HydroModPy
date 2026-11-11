@@ -6278,6 +6278,23 @@
           "title": "Nodata",
           "type": "number",
           "x-hmp-profile": "expert"
+        },
+        "deliver_to": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where to send the files of this block once the run is sealed: a local or UNC folder ending with /, a file, or an ftp://, ftps:// or sftp:// address, whose identity comes from credentials.toml.",
+          "title": "Deliver To",
+          "x-hmp-profile": "user"
         }
       },
       "title": "ExportRequest",
@@ -6286,6 +6303,18 @@
         "^.+__delete$": {
           "const": true,
           "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^deliver_to__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^deliver_to__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "^period__append$": {
           "type": "array"

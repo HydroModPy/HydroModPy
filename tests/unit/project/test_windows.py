@@ -48,6 +48,7 @@ def _cfg(root: Path, *, length: str | None = "6 months", window: Any = "all", **
     return SimpleNamespace(
         simulation=SimpleNamespace(name="island", time=_time(length, window, **time), process=None),
         workspace=SimpleNamespace(project_root=root, data_path=root / "data"),
+        export=[],
     )
 
 

@@ -180,6 +180,7 @@ OUTPUTS: tuple[Output, ...] = (
     # Files out of a run
     _object("export", "files", "regenerated"),
     _rows("export list", "name", "kind"),
+    _object("export deliver", "deliveries"),
     _object("publish", "applied", "copies", "package", "next"),
     _object("publish verify", "copy", "members", "problems"),
     # Workspace

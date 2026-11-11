@@ -2,21 +2,27 @@
 
 The verb is a thin wrapper of ``hmp.export``: positionals say what, ``--time``
 or ``--period`` when, ``--folder`` or ``--file`` where under
-``runs/<run>/exports/``, ``--list`` prints what the run can export and
-``--regen`` writes again what ``exports/index.json`` records. The three verbs
-it replaces are gone.
+``runs/<run>/exports/``, ``--list`` prints what the run can export,
+``--regen`` writes again what ``exports/index.json`` records, and ``--deliver``
+sends once more what the ``[[export]]`` blocks of the sealed run name, with no
+other word. The three verbs it replaces are gone.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from hydromodpy.cli.commands.export import _destination
+from hydromodpy.cli.output import output_of
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.publication import PublishedLine
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 
@@ -203,6 +209,127 @@ def test_an_unknown_as_format_is_refused_with_the_candidates(workspace: Path) ->
     for served in ("csv", "geotiff", "netcdf", "rocrate", "vtu"):
         assert served in message
     assert "hydromodpy.export.format" in message
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        ["head"],
+        ["--list"],
+        ["--regen"],
+        ["--time", "last"],
+        ["--period", "2000-02-01", "2000-03-31"],
+        ["--as", "csv"],
+        ["--to", "maps/"],
+        ["--crs", "EPSG:4326"],
+        ["--resolution", "10"],
+        ["--layer", "0"],
+        ["--nodata", "-1"],
+    ],
+    ids=[
+        "variable",
+        "list",
+        "regen",
+        "time",
+        "period",
+        "as",
+        "to",
+        "crs",
+        "resolution",
+        "layer",
+        "nodata",
+    ],
+)
+def test_deliver_takes_no_other_word(workspace: Path, words: list[str]) -> None:
+    result = _invoke("demo", "--deliver", *words, "-w", str(workspace))
+
+    assert result.exit_code == 2
+    assert "--deliver" in result.stderr
+
+
+def _freeze_config(workspace: Path, extra: str = "") -> None:
+    """Write the ``config.toml`` a seal freezes, with no ``[[export]]`` block by default."""
+    (workspace / "runs" / RUN_NAME / "config.toml").write_text(
+        f"[workspace]\n{extra}", encoding="utf-8"
+    )
+
+
+def test_deliver_without_a_destination_delivers_nothing(workspace: Path) -> None:
+    _freeze_config(workspace)
+
+    result = _invoke("demo", "--deliver", "-w", str(workspace))
+
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout == ""
+    assert "Delivered 0 of 0 file(s)" in result.stderr
+
+
+def test_deliver_json_holds_the_lines_of_the_run(workspace: Path) -> None:
+    _freeze_config(workspace)
+
+    result = _invoke("demo", "--deliver", "--format", "json", "-w", str(workspace))
+
+    assert result.exit_code == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "schema": output_of("export deliver").schema,
+        "data": {"deliveries": []},
+    }
+
+
+def test_a_delivered_file_is_listed_and_counted(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hydromodpy
+
+    line = _delivery_line("delivered")
+    seen: dict = {}
+
+    def fake_export(run, **kwargs):
+        seen.update(kwargs)
+        return (line,)
+
+    monkeypatch.setattr(hydromodpy, "export", fake_export)
+
+    result = _invoke("demo", "--deliver", "-w", str(workspace))
+
+    assert result.exit_code == 0, result.stderr
+    assert seen["deliver"] is True
+    assert seen["environment"] is not None
+    assert result.stdout.splitlines() == [
+        "delivered exports/head_last.tif ftp://example.org/incoming/head_last.tif"
+    ]
+    assert "Delivered 1 of 1 file(s)" in result.stderr
+
+
+def test_a_failed_delivery_says_the_file_and_leaves_with_one(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hydromodpy
+
+    line = _delivery_line("failed", error="the server did not answer")
+    monkeypatch.setattr(hydromodpy, "export", lambda run, **kwargs: (line,))
+
+    result = _invoke("demo", "--deliver", "-w", str(workspace))
+
+    assert result.exit_code == 1
+    assert "failed exports/head_last.tif" in result.stdout
+    assert "1 of 1 file(s) did not arrive" in result.stderr
+    assert "hmp export demo --deliver" in result.stderr
+
+
+def _delivery_line(state: str, *, error: str | None = None) -> PublishedLine:
+    payload = b"head"
+    return PublishedLine(
+        kind="delivery",
+        published_at=datetime(2026, 11, 10, tzinfo=UTC),
+        file="exports/head_last.tif",
+        destination="ftp://example.org/incoming/head_last.tif",
+        state=state,
+        sha256=hashlib.sha256(payload).hexdigest(),
+        bytes=len(payload),
+        attempts=1,
+        error=error,
+    )
 
 
 @pytest.mark.parametrize(

@@ -746,6 +746,10 @@ def _summary_of(outcome: RunOutcome | None) -> dict[str, Any]:
         summary["skipped"] = True
     # A run that built a mesh says it, key by key, as the --verbose recap and --json show.
     summary.update(outcome.mesh_summary or {})
+    # A run whose [[export]] blocks asked for delivery says what the destination took.
+    summary["deliveries"] = [
+        line.model_dump(mode="json", exclude_none=True) for line in outcome.deliveries
+    ]
     return summary
 
 

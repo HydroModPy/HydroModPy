@@ -13,6 +13,7 @@ from typing import Any
 
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.state.result_dirs import project_root_at
+from hydromodpy.results.publication import deliveries_of
 from hydromodpy.results.storage.run_profile import Profile, read_profile
 
 SEALED_SOLVE_METRIC = "flow_solve_time_seconds"
@@ -217,10 +218,27 @@ def _sealed_solve_s(run_dir: Path) -> float | None:
     return next((row.value for row in manifest.metrics if row.metric == SEALED_SOLVE_METRIC), None)
 
 
-def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
-    """Return the facts of one sealed run: its row, its label, its exports and its profile.
+def delivery_entries(run_dir: str | Path) -> list[dict[str, Any]]:
+    """Return the latest delivery of each pair of a run, as ``show`` lists it."""
+    return [
+        {
+            "file": line.file,
+            "destination": line.destination,
+            "state": line.state,
+            "attempts": line.attempts,
+            "sha256": line.sha256,
+            "bytes": line.bytes,
+            "error": line.error,
+        }
+        for line in deliveries_of(run_dir)
+    ]
 
-    ``profile`` is read from the run folder, not from the index (:func:`profile_of_run`).
+
+def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
+    """Return the facts of one sealed run: its row, its label, its files and its profile.
+
+    ``exports`` and ``deliveries`` are read from the run folder, not from the
+    index, and ``profile`` with them (:func:`profile_of_run`).
 
     Raises ``FileNotFoundError`` without an index and
     :class:`~hydromodpy.results.catalog.SimulationNotFoundError` when
@@ -260,6 +278,7 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
                 {"file": entry.file, "producer": entry.producer}
                 for entry in Ledger.read(run_dir / RUN_FIGURES_DIRNAME).entries
             ],
+            "deliveries": delivery_entries(run_dir),
             "profile": profile_of_run(run_dir),
         }
         if detail:
@@ -389,6 +408,7 @@ def rank_simulations(
 
 
 __all__ = [
+    "delivery_entries",
     "diff_simulations",
     "list_simulations",
     "point_simulations",

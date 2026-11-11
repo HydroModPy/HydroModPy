@@ -15,6 +15,7 @@ import io
 import json
 import shutil
 import tarfile
+import tomllib
 
 import pytest
 
@@ -86,9 +87,34 @@ def test_the_source_remembers_where_its_copy_went(tmp_path) -> None:
     copy = publish(run_dir, target, project_root=project)
 
     (line,) = read_published(run_dir)
+    assert line.kind == "copy"
     assert line.to == str(target.resolve())
     assert line.format == "dir"
     assert line.publication_sha256 == sha256_of(copy / "PUBLICATION.json")
+
+
+def test_a_copy_loses_deliver_to_and_its_source_keeps_it(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    block = (
+        '\n[[export]]\nvariables = ["head"]\nfile = "head_last.tif"\n'
+        'deliver_to = ["/data/depot/"]\n'
+    )
+    for name in ("config.toml", "config.resolved.toml"):
+        path = run_dir / name
+        before = path.read_text(encoding="utf-8") if path.is_file() else ""
+        path.write_text(before + block, encoding="utf-8")
+
+    copy = publish(run_dir, tmp_path / "out" / "nancon", project_root=project)
+
+    for name in ("config.toml", "config.resolved.toml"):
+        copied = tomllib.loads((copy / name).read_text(encoding="utf-8"))
+        source = tomllib.loads((run_dir / name).read_text(encoding="utf-8"))
+        assert copied["export"] == [{"variables": ["head"], "file": "head_last.tif"}]
+        assert source["export"] == [
+            {"variables": ["head"], "file": "head_last.tif", "deliver_to": ["/data/depot/"]}
+        ]
+    assert verify(copy) == []
 
 
 def test_the_crate_lists_the_copied_files_under_the_declared_licence(tmp_path) -> None:

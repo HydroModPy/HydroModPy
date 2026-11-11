@@ -24,6 +24,10 @@ by hand.
 block of the run and the entry in `exports/index.json` come from the target,
 so a writer returns its paths and both are written for it.
 
+`destination.py` reads the `deliver_to` text of a block. It parses one
+destination, names the address a file takes on it, and removes the key from a
+published copy.
+
 `[[export]].format` and `hmp export --as` take a registered name, and an
 unknown name is refused with the list of what this installation serves. A
 declared format whose module cannot be imported is refused with its entry
@@ -41,6 +45,7 @@ exporters/
 ├── export_spec.py      ExportRequest, the derived tables, plan_outputs
 ├── vocabulary.py       names a user may export, their kind
 ├── request.py          export_run, export_request, regen_exports
+├── destination.py      the deliver_to syntax: parse, address, remove
 ├── fields.py          one step, one layer and the CRS, read the same for every field writer
 ├── _tables.py         tables of one run read from its directory
 ├── mesh_layers.py     the cells, seeds and line faces of the mesh as vector layers

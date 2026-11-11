@@ -42,6 +42,7 @@ from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS, mesh_quality_values
 from hydromodpy.results.derive.virtual_fields import SIMULATED_ACTIVE_NETWORK
+from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
 from hydromodpy.results.exporters.export_spec import (
     EXPORT_ALL,
     MESH_LAYERS,
@@ -299,7 +300,7 @@ def _stamp(path: Path, request: ExportRequest, target: ExportTarget) -> None:
         target.exports_dir,
         path,
         producer=EXPORT_PRODUCER,
-        options=request.model_dump(mode="json", exclude_none=True),
+        options=request.model_dump(mode="json", exclude_none=True, exclude={DELIVER_TO_KEY}),
         identity=target.identity,
     )
 

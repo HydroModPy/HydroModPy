@@ -51,6 +51,7 @@ from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import config_base_dir
 from hydromodpy.core.toml_io.paths import assign
 from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.publication import PublishedLine
 from hydromodpy.results.storage.contract import RUN_REQUEST_FILENAME
 from hydromodpy.results.storage.json_io import write_json_atomic
 from hydromodpy.workflow.dispatch import (
@@ -165,7 +166,9 @@ class RunOutcome:
     ``identical_to`` names the completed run a run gave back instead of computing
     it again, and is ``None`` for a run that computed. ``mesh_summary`` is what the
     mesh step of a run that computed one says of its mesh; no file of the run
-    directory holds it, so :meth:`read` leaves it ``None``.
+    directory holds it, so :meth:`read` leaves it ``None``. ``deliveries`` are the
+    ``delivery`` lines the call wrote for the run, empty for a run that delivered
+    nothing; :meth:`read` leaves them empty.
     """
 
     name: str
@@ -176,6 +179,7 @@ class RunOutcome:
     identical_to: str | None
     project_root: Path
     mesh_summary: Mapping[str, Any] | None = None
+    deliveries: tuple[PublishedLine, ...] = ()
 
     @classmethod
     def read(

@@ -616,3 +616,12 @@ effect = "refusal"
 quantities = []
 text = "hmp replay REF plays a sealed run or a published copy again, and --strict refuses a value that did not reproduce its source before the seal. hmp run --frozen on the config.toml of a sealed run or of a published copy is refused and names the verb; it used to replay them, and a copy no longer replays through hmp run."
 
+
+# A delivery and a copy share published.jsonl, in its second version.
+
+[[recipe]]
+id = "delivery_lines_in_published"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A run delivers the files of an [[export]] block that names deliver_to once it is sealed, to a local or UNC folder or an ftp, ftps or sftp address. Each line of published.jsonl now says kind = \"copy\" or \"delivery\" (hydromodpy.published.v2); a line written by HydroModPy 2.0 is refused with a sentence that names this form. No number of a run changes."

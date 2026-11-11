@@ -8,7 +8,9 @@ binaries and the numeric packages.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, Any
@@ -21,7 +23,8 @@ from hydromodpy.core.exceptions import CalibrationError, ConfigError
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
-from hydromodpy.project.request import RunRequest
+from hydromodpy.project.request import RunOutcome, RunRequest
+from hydromodpy.results.publication import PublishedLine
 from hydromodpy.results.record.manifest import ManifestConfig, ManifestRun
 from hydromodpy.results.record.request_identity import request_id, solution_key
 from tests._helpers.run_records import make_identity, make_record
@@ -72,10 +75,11 @@ class _FakeProject:
         return None
 
 
-def _cfg(root: Path, name: str | None = "case") -> SimpleNamespace:
+def _cfg(root: Path, name: str | None = "case", *, export: Any = ()) -> SimpleNamespace:
     return SimpleNamespace(
         simulation=SimpleNamespace(name=name),
         workspace=SimpleNamespace(project_root=str(root)),
+        export=list(export),
     )
 
 
@@ -87,12 +91,14 @@ def _request(**members: Any) -> RunRequest:
 def fake_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> type[_FakeProject]:
     """A ``Project`` double, a loader that gives ``_cfg(tmp_path)`` and an unchecked environment."""
     _FakeProject.instances = []
-    _FakeProject.result = SimpleNamespace(
+    _FakeProject.result = RunOutcome(
         name="case",
-        sim_id="s" * 32,
         run_dir=Path("/r/case"),
+        sim_id="s" * 32,
+        request_id="r" * 64,
         status="completed",
         identical_to=None,
+        project_root=tmp_path,
     )
     monkeypatch.setattr(project_pkg, "Project", _FakeProject)
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base)))
@@ -151,8 +157,6 @@ def test_run_simulation_hands_on_the_mesh_summary_of_a_run_that_built_its_mesh(
     identical_to: str | None,
 ) -> None:
     """The summary lives in process memory only; a run given back computed nothing."""
-    from hydromodpy.project.request import RunOutcome
-
     summary = {"engine": "gmsh", "product_key": "k1"}
     fake_project.result = RunOutcome(
         name="case",
@@ -349,6 +353,192 @@ def test_mesh_summary_is_given_only_when_the_plan_runs_a_mesh_process() -> None:
     assert wf.mesh_summary_of(SimpleNamespace()) == {}
 
 
+def _deliver_to_block() -> dict[str, Any]:
+    return {"variables": "all", "deliver_to": ["ftp://example.org/incoming/"]}
+
+
+def _preflight_spy(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, Any, Any]]:
+    """Record each preflight with the number of projects built before it."""
+    from hydromodpy.project import deliver as deliver_module
+
+    seen: list[tuple[int, Any, Any]] = []
+
+    def probe(requests, environment, *, project_root):
+        seen.append((len(_FakeProject.instances), requests, project_root))
+
+    monkeypatch.setattr(deliver_module, "preflight", probe)
+    return seen
+
+
+def _deliver_run_spy(monkeypatch: pytest.MonkeyPatch, lines: tuple) -> list[dict[str, Any]]:
+    """Record each delivery and give back *lines*."""
+    from hydromodpy.project import deliver as deliver_module
+
+    seen: list[dict[str, Any]] = []
+
+    def deliver(run_dir, requests, environment, *, project_root):
+        seen.append({"run_dir": run_dir, "requests": requests, "project_root": project_root})
+        return lines
+
+    monkeypatch.setattr(deliver_module, "deliver_run", deliver)
+    return seen
+
+
+def _published_line() -> PublishedLine:
+    return PublishedLine(
+        kind="delivery",
+        published_at=datetime(2026, 11, 10, tzinfo=UTC),
+        file="exports/head_last.tif",
+        destination="ftp://example.org/incoming/head_last.tif",
+        state="delivered",
+        sha256=hashlib.sha256(b"head").hexdigest(),
+        bytes=4,
+        attempts=1,
+    )
+
+
+def test_deliver_to_is_checked_before_the_claim(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """One probe covers every window, and a refused destination builds no project."""
+    blocks = [_deliver_to_block()]
+    monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
+    seen = _preflight_spy(monkeypatch)
+    _deliver_run_spy(monkeypatch, ())
+
+    wf.run_simulation(_request(), base=tmp_path)
+
+    assert seen == [(0, blocks, tmp_path.resolve())]
+    assert fake_project.instances[0].executed
+
+
+def test_a_document_without_deliver_to_checks_no_destination(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen = _preflight_spy(monkeypatch)
+
+    wf.run_simulation(_request(), base=tmp_path)
+
+    assert seen == []
+
+
+def test_a_replay_checks_no_destination(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A replay plays a recorded run again: it sends nothing out."""
+    monkeypatch.setattr(
+        wf, "_loaded", lambda request, base: _cfg(Path(base), export=[_deliver_to_block()])
+    )
+    seen = _preflight_spy(monkeypatch)
+
+    wf.run_simulation(_request(), base=tmp_path, replay_of=tmp_path / "copy")
+
+    assert seen == []
+
+
+def test_a_run_given_back_still_reaches_its_destinations(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``deliver_to`` is not part of the request id: a skip delivers the run it gave back."""
+    line = _published_line()
+    blocks = [_deliver_to_block()]
+    fake_project.result = RunOutcome(
+        name="case",
+        run_dir=tmp_path / "runs" / "case",
+        sim_id="s" * 32,
+        request_id="r" * 64,
+        status="completed",
+        identical_to="case",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
+    _preflight_spy(monkeypatch)
+    delivered = _deliver_run_spy(monkeypatch, (line,))
+
+    outcome = wf.run_simulation(_request(), base=tmp_path)
+
+    assert outcome.deliveries == (line,)
+    assert (outcome.status, outcome.identical_to) == ("completed", "case")
+    assert delivered == [
+        {"run_dir": tmp_path / "runs" / "case", "requests": blocks, "project_root": tmp_path}
+    ]
+
+
+def test_a_replay_delivers_nothing_even_when_given_back_as_identical(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_project.result = RunOutcome(
+        name="case",
+        run_dir=tmp_path / "runs" / "case",
+        sim_id="s" * 32,
+        request_id="r" * 64,
+        status="completed",
+        identical_to="case",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr(
+        wf, "_loaded", lambda request, base: _cfg(Path(base), export=[_deliver_to_block()])
+    )
+    seen = _deliver_run_spy(monkeypatch, (_published_line(),))
+
+    outcome = wf.run_simulation(_request(), base=tmp_path, replay_of=tmp_path / "copy")
+
+    assert outcome.deliveries == ()
+    assert seen == []
+
+
+@pytest.mark.parametrize("status", ["failed", "running"], ids=["failed", "unfinished"])
+def test_a_run_that_did_not_complete_delivers_nothing(
+    status: str, fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_project.result = RunOutcome(
+        name="case",
+        run_dir=tmp_path / "runs" / "case",
+        sim_id="s" * 32,
+        request_id="r" * 64,
+        status=status,
+        identical_to=None,
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr(
+        wf, "_loaded", lambda request, base: _cfg(Path(base), export=[_deliver_to_block()])
+    )
+    _preflight_spy(monkeypatch)
+    seen = _deliver_run_spy(monkeypatch, (_published_line(),))
+
+    outcome = wf.run_simulation(_request(), base=tmp_path)
+
+    assert outcome.deliveries == ()
+    assert seen == []
+
+
+def test_a_completed_run_is_delivered_and_keeps_its_status(
+    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    line = _published_line()
+    blocks = [_deliver_to_block()]
+    fake_project.result = RunOutcome(
+        name="case",
+        run_dir=tmp_path / "runs" / "case",
+        sim_id="s" * 32,
+        request_id="r" * 64,
+        status="completed",
+        identical_to=None,
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
+    _preflight_spy(monkeypatch)
+    delivered = _deliver_run_spy(monkeypatch, (line,))
+
+    outcome = wf.run_simulation(_request(), base=tmp_path)
+
+    assert outcome.deliveries == (line,)
+    assert outcome.status == "completed"
+    assert delivered == [
+        {"run_dir": tmp_path / "runs" / "case", "requests": blocks, "project_root": tmp_path}
+    ]
+
+
 def test_identical_run_message_falls_back_to_the_short_id() -> None:
     assert wf.identical_run_message("base", "abcdef123456") == (
         "Config identical to completed run 'base' [abcdef12]; nothing to do."
@@ -424,12 +614,35 @@ def test_no_such_phase_names_the_source_and_the_phase() -> None:
     assert "'fine'" in message
 
 
+_CALIBRATION = """\
+[simulation]
+name = "case"
+
+[calibration]
+method = "sceua"
+
+[[calibration.parameters]]
+name = "sy"
+"""
+
+_CALIBRATION_WITH_DELIVERY = (
+    _CALIBRATION
+    + """
+[[export]]
+variables = "all"
+deliver_to = "ftp://example.org/incoming/"
+"""
+)
+
+
 @pytest.fixture
-def calibration_runners(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def calibration_runners(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
     import hydromodpy.calibration.preflight as preflight
     import hydromodpy.calibration.runners.cli_runner as cli
     import hydromodpy.calibration.runners.staged_runner as staged
 
+    # The file of the requests exists and declares no [[export]] block.
+    (tmp_path / "c.toml").write_text(_CALIBRATION, encoding="utf-8")
     called: list[str] = []
     monkeypatch.setattr(preflight, "preflight_launch", lambda target: called.append("preflight"))
     monkeypatch.setattr(
@@ -551,7 +764,9 @@ def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
     monkeypatch.setattr(
         wf,
         "_loaded",
-        lambda request, base: SimpleNamespace(workspace=SimpleNamespace(project_root=str(base))),
+        lambda request, base: SimpleNamespace(
+            workspace=SimpleNamespace(project_root=str(base)), export=[]
+        ),
     )
     monkeypatch.setattr(
         "hydromodpy.project.run_overrides.override_changes", lambda cfg, changes: {}
@@ -567,6 +782,128 @@ def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
         "workspace": tmp_path,
         "force": True,
         "case": "other",
+    }
+
+
+@pytest.mark.parametrize(
+    ("summary", "delivered"),
+    [
+        ({"status": "completed", "best_rel_dir": "sessions/case/best"}, ["sessions/case/best"]),
+        ({"status": "completed", "best_rel_dir": None}, []),
+        (
+            {
+                "status": "completed",
+                "best_cases": {
+                    "north": {"rel_dir": "sessions/north/best"},
+                    "south": {"rel_dir": "sessions/south/best"},
+                },
+            },
+            ["sessions/north/best", "sessions/south/best"],
+        ),
+        ({"status": "partial", "best_rel_dir": "sessions/case/best"}, []),
+    ],
+    ids=["promoted", "no-best", "each-case", "partial"],
+)
+def test_run_calibration_delivers_the_runs_it_promoted_only(
+    summary: dict[str, Any],
+    delivered: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    calibration_runners: list[str],
+    tmp_path: Path,
+) -> None:
+    """The trials stay where they ran: only ``best_rel_dir`` reaches the destination."""
+    _phases_loader(monkeypatch, [])
+    (tmp_path / "c.toml").write_text(_CALIBRATION_WITH_DELIVERY, encoding="utf-8")
+    import hydromodpy.calibration.runners.cli_runner as cli
+
+    report = {"kind": "flat", "workspace": str(tmp_path), **summary}
+    monkeypatch.setattr(
+        cli,
+        "run_calibration_cli",
+        lambda target, *, bounds, **kw: SimpleNamespace(to_dict=lambda: report),
+    )
+    from hydromodpy.project import deliver as deliver_module
+
+    probed: list[Path] = []
+    monkeypatch.setattr(
+        deliver_module,
+        "preflight",
+        lambda requests, environment, *, project_root: probed.append(project_root),
+    )
+    line = _published_line()
+    seen = _deliver_run_spy(monkeypatch, (line,))
+
+    result = wf.run_calibration(_file_request(), base=tmp_path)
+
+    assert probed == [tmp_path.resolve()]
+
+    assert seen == [
+        {
+            "run_dir": tmp_path / rel_dir,
+            "requests": wf._export_requests_of(tmp_path / "c.toml"),
+            "project_root": tmp_path.resolve(),
+        }
+        for rel_dir in delivered
+    ]
+    assert result["deliveries"] == [line.model_dump(mode="json", exclude_none=True)] * len(
+        delivered
+    )
+
+
+def test_a_calibration_held_in_memory_delivers_the_run_it_promoted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import hydromodpy.project as project_package
+
+    (tmp_path / "c.toml").write_text(_CALIBRATION_WITH_DELIVERY, encoding="utf-8")
+    blocks = wf._export_requests_of(tmp_path / "c.toml")
+    cfg = SimpleNamespace(workspace=SimpleNamespace(project_root=str(tmp_path)), export=blocks)
+
+    class _Project:
+        def __init__(self, cfg, **kwargs) -> None:
+            self.cfg = cfg
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+        def calibrate(self, **options):
+            return SimpleNamespace(
+                to_dict=lambda: {"status": "completed", "best_rel_dir": "sessions/case/best"}
+            )
+
+    monkeypatch.setattr(wf, "_loaded", lambda request, base: cfg)
+    monkeypatch.setattr(
+        "hydromodpy.project.run_overrides.override_changes", lambda cfg, changes: {}
+    )
+    monkeypatch.setattr(project_package, "Project", _Project)
+    from hydromodpy.project import deliver as deliver_module
+
+    probed: list[Path] = []
+    monkeypatch.setattr(
+        deliver_module,
+        "preflight",
+        lambda requests, environment, *, project_root: probed.append(project_root),
+    )
+    line = _published_line()
+    seen = _deliver_run_spy(monkeypatch, (line,))
+
+    result = wf._calibrate_in_memory(_file_request(name="other"), tmp_path, None)
+
+    assert probed == [tmp_path]
+    assert seen == [
+        {
+            "run_dir": tmp_path / "sessions" / "case" / "best",
+            "requests": blocks,
+            "project_root": tmp_path,
+        }
+    ]
+    assert result == {
+        "status": "completed",
+        "best_rel_dir": "sessions/case/best",
+        "deliveries": [line.model_dump(mode="json", exclude_none=True)],
     }
 
 

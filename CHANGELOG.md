@@ -97,6 +97,13 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The README of a sealed run says what a replay costs, read from `profile.json`.
 - `hmp replay REF` and `hmp.replay(ref)` play a sealed run or a published copy again and class it: bit when every value hashes the same in double precision, deviation otherwise. `--strict` refuses a deviation.
 - The seal of a run gives the digest of the values of every field, every column of a quantity and the final state, taken in double precision before a field is rounded for storage.
+- An `[[export]]` block takes `deliver_to`, local or UNC folders or files and `ftp://`, `ftps://` or `sftp://` addresses (sftp through the `sftp` extra, with `host_fingerprint`). Once the run is sealed each file is copied there through `<name>.part`, three attempts each, and every address is checked before the run computes.
+- `hmp export <run> --deliver` and `hmp.export(run, deliver=True)` send again what is not delivered, and every file whose bytes changed since.
+- A resumed delivery checks each destination against the allowed hosts and folders as the run does, gives a `failed` line for a refused one, and warns of a clear `ftp://` password.
+- A file of `exports/` that cannot be read gives a `failed` delivery line without sha256 or bytes, and `hmp export <run> --deliver` exits 1.
+- A calibration delivers the promoted run of each case, only once the session is `completed`, and logs a warning when it delivers nothing.
+- The refusal of an address no `[[host]]` block answers advises a `prefix` with the port of the address.
+- An `sftp://` `key_file` may hold an ed25519, ECDSA or RSA private key.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -493,6 +500,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A replay that read the mesh sealed beside its source seals those bytes in its own `mesh/`, and a sealed mesh whose bytes no longer match its seal is rebuilt. A run with a sealed mesh is still found identical to a later request, and can still be shared.
 - A job seal of a later or an earlier `manifest_version` is refused with the sentence that says to upgrade or to run again.
 - The RO-Crate view gives each property value of a run its own `@id`, as the RO-Crate library requires.
+- Each line of `published.jsonl` says `kind = "copy"` or `"delivery"` (`hydromodpy.published.v2`); a line written by HydroModPy 2.0 is refused.
+- `hmp publish` removes `deliver_to` from `config.toml` and `config.resolved.toml` of a copy; `exports/index.json` no longer records it; `deliver_to` is refused in a `[sites]` project.
 
 ### Removed
 

@@ -81,6 +81,7 @@ from hydromodpy.project.launch.sites.tables import (
     read_table,
     table_from_site_rows,
 )
+from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
 
 CaseKind = Literal["simulation", "calibration", "overview"]
 
@@ -236,6 +237,14 @@ def _issue(exc: Exception, *, case_id: str | None = None) -> PlanIssue:
             case_id=case_id,
         )
     return PlanIssue(message=str(exc), case_id=case_id)
+
+
+def _deliver_to_written(document: Mapping[str, Any]) -> bool:
+    """Whether one ``[[export]]`` block of a case names ``deliver_to``."""
+    blocks = document.get("export")
+    if not isinstance(blocks, list):
+        return False
+    return any(isinstance(block, Mapping) and DELIVER_TO_KEY in block for block in blocks)
 
 
 def _relative_label(path: Path, root: Path) -> str:
@@ -832,7 +841,21 @@ def _resolve_case(
         )
         return None
     assign(document, _SIMULATION_NAME_PATH, case_id)
-
+    if _deliver_to_written(document):
+        # Every case would send its files to the same destination, one over the other.
+        errors.append(
+            PlanIssue(
+                message=(
+                    "deliver_to is refused in a [sites] project, because every case would "
+                    "send its files to the same destination. Remove it from [[export]], "
+                    "and take files out with hmp publish."
+                ),
+                origin=recipe.file.name,
+                target=f"export.{DELIVER_TO_KEY}",
+                case_id=case_id,
+            )
+        )
+        return None
     varying = leaf_paths(site_payload) | leaf_paths(site.override)
     literal = literal_site_scoped_keys(document, varying)
     if literal:

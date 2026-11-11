@@ -28,6 +28,7 @@ from hydromodpy.project.request import (
     write_request_file,
 )
 from hydromodpy.results.outcome import Outcome, write_outcome
+from hydromodpy.results.publication import PublishedLine
 from hydromodpy.results.storage.contract import RUN_REQUEST_FILENAME
 from hydromodpy.workflow.solution_key import input_digests, planned_request_id
 
@@ -272,6 +273,37 @@ def test_the_outcome_of_a_run_reads_typed(
     )
     assert read.identical_to == identical_to
     assert read.project_root == tmp_path
+
+
+def test_the_outcome_of_a_run_carries_the_delivery_lines_it_wrote(tmp_path: Path) -> None:
+    """``read`` tells them nothing: a delivery is a line of the run, not of its outcome."""
+    run_dir = tmp_path / "runs" / "island"
+    _finished(run_dir, request_id="r" * 64)
+
+    fresh = RunOutcome.read(run_dir, project_root=tmp_path)
+    line = PublishedLine(
+        kind="delivery",
+        published_at=datetime(2026, 11, 10, tzinfo=UTC),
+        file="exports/head_last.tif",
+        destination="ftp://example.org/incoming/head_last.tif",
+        state="delivered",
+        sha256=hashlib.sha256(b"head").hexdigest(),
+        bytes=4,
+        attempts=1,
+    )
+    delivered = RunOutcome(
+        name=fresh.name,
+        run_dir=fresh.run_dir,
+        sim_id=fresh.sim_id,
+        request_id=fresh.request_id,
+        status=fresh.status,
+        identical_to=fresh.identical_to,
+        project_root=fresh.project_root,
+        deliveries=(line,),
+    )
+
+    assert fresh.deliveries == ()
+    assert delivered.deliveries == (line,)
 
 
 def test_a_directory_without_outcome_is_no_finished_run(tmp_path: Path) -> None:

@@ -417,6 +417,7 @@ hmp export --as
 hmp export --credentials	
 hmp export --crs	
 hmp export --debug	nargs=0
+hmp export --deliver	nargs=0
 hmp export --format	choices=['csv', 'json', 'table'] default='table'
 hmp export --layer	
 hmp export --list	nargs=0

@@ -9,7 +9,9 @@ run without a README.
 Both views end with a Profile block read from ``profile.json`` in the run
 folder: the total time, the start-up, the solve of each run of the plan, the
 longest steps and what was reused. A run of HydroModPy 2.0 has no profile, and
-the block says so and prints the solve time its seal holds.
+the block says so and prints the solve time its seal holds. A run of
+HydroModPy 2.1 also lists where its files were delivered, read from its
+``published.jsonl``.
 """
 
 from __future__ import annotations
@@ -99,6 +101,17 @@ def _seconds(value: float | None) -> str:
     return "unknown" if value is None else f"{value:.1f} s"
 
 
+def _print_deliveries(deliveries: list[dict[str, Any]]) -> None:
+    """Print where each file of the run was sent, and what became of it."""
+    print(f"Deliveries ({len(deliveries)}):")
+    for entry in deliveries:
+        state = entry["state"] or "unknown"
+        print(
+            f"  - {entry['file']} -> {entry['destination']}"
+            f"  ({state}, {entry['attempts']} attempt(s))"
+        )
+
+
 def _print_profile(profile: dict[str, Any]) -> None:
     """Print the Profile block of one run, from :func:`profile_of_run`."""
     print("\nProfile")
@@ -169,6 +182,10 @@ def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Nam
             for entry in entries:
                 print(f"  - {entry['file']}  ({entry['producer']})")
 
+    deliveries = payload.get("deliveries") or []
+    if deliveries:
+        _print_deliveries(deliveries)
+
     with Catalog(project_root) as catalog:
         sim = catalog[payload["sim_id"]]
         tags = sim.tags or []
@@ -204,7 +221,7 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
     """
     from hydromodpy.results.annotations import read_annotations
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
-    from hydromodpy.results.catalog.listing import profile_of_run
+    from hydromodpy.results.catalog.listing import delivery_entries, profile_of_run
     from hydromodpy.results.storage.contract import README_FILENAME
 
     try:
@@ -224,6 +241,9 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
         print("notes:")
         for note in annotations.notes:
             print(f"  - {note.at:%Y-%m-%d %H:%M} {note.text}")
+    deliveries = delivery_entries(run_dir)
+    if deliveries:
+        _print_deliveries(deliveries)
     _print_profile(profile_of_run(run_dir))
     print(f"\nnext: hmp catalog show {rel_dir} --detail | hmp catalog diff {rel_dir} <other>")
     return True

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.request import RunOutcome, RunRequest
+    from hydromodpy.results.exporters.export_spec import ExportRequest
+    from hydromodpy.results.publication import PublishedLine
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.overview import OverviewResult
     from hydromodpy.workflow.steps.prepare_solver.restart import WindowSource
@@ -198,19 +200,36 @@ def run_calibration(
     from hydromodpy.calibration.preflight import preflight_launch
 
     preflight_launch(target)
+    export_requests = _export_requests_of(target)
+    if _delivery_asked(export_requests):
+        # Before the trials: a refused destination costs no solver time. The
+        # destination is checked once, and only the promoted run is delivered.
+        from hydromodpy.project.deliver import preflight
+
+        preflight(export_requests, environment, project_root=root)
     if request.phase is None and request.resume is None and not request.force:
         done = _completed_session(target)
         if done is not None:
-            return done
+            return _with_deliveries(done, export_requests, environment, project_root=root)
     if declared:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        return run_staged_calibration(target, phase=request.phase, **runner_options).to_dict()
+        return _with_deliveries(
+            run_staged_calibration(target, phase=request.phase, **runner_options).to_dict(),
+            export_requests,
+            environment,
+            project_root=root,
+        )
     if request.phase is not None:
         raise CalibrationError(no_such_phase(target.name, request.phase))
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-    return run_calibration_cli(target, **runner_options).to_dict()
+    return _with_deliveries(
+        run_calibration_cli(target, **runner_options).to_dict(),
+        export_requests,
+        environment,
+        project_root=root,
+    )
 
 
 def _calibrate_in_memory(
@@ -230,10 +249,18 @@ def _calibrate_in_memory(
     cfg = _changed(_loaded(request, base), request.set)
     # The project root of the configuration, which its sessions/ lives under: a
     # project held in memory has no file to find it from.
+    project_root = Path(cfg.workspace.project_root)
+    requests = cfg.export
+    if _delivery_asked(requests):
+        # This path has no file of its own: the destinations are read from the
+        # configuration the request already loaded.
+        from hydromodpy.project.deliver import preflight
+
+        preflight(requests, environment, project_root=project_root)
     options: dict[str, Any] = {
         "phase": request.phase,
         "resume": request.resume is not None,
-        "workspace": Path(cfg.workspace.project_root),
+        "workspace": project_root,
     }
     if request.force:
         options["force"] = True
@@ -251,7 +278,7 @@ def _calibrate_in_memory(
         environment=environment,
     ) as project:
         report = project.calibrate(**options)
-    return report.to_dict()
+    return _with_deliveries(report.to_dict(), requests, environment, project_root=project_root)
 
 
 def _completed_session(target: Path) -> dict[str, Any] | None:
@@ -375,6 +402,113 @@ def _changed(cfg: HydroModPyConfig, overrides: Mapping[str, Any]) -> HydroModPyC
     return cfg.with_changes(changes) if changes else cfg
 
 
+def _export_requests_of(target: Path) -> list[ExportRequest]:
+    """Return the ``[[export]]`` blocks a calibration file declares, validated."""
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+    from hydromodpy.config.loading import read_document
+    from hydromodpy.results.exporters.export_spec import load_export_requests
+
+    return load_export_requests(read_document(target, root=ROOT_CONFIG).get("export", []))
+
+
+def _delivery_asked(blocks: Any) -> bool:
+    """Whether one block of an export table names ``deliver_to``.
+
+    *blocks* is the raw table of a document, whose blocks are mappings, or the
+    validated ``cfg.export``, whose blocks are requests.
+    """
+    from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
+
+    if not isinstance(blocks, list | tuple):
+        return False
+    for block in blocks:
+        if isinstance(block, Mapping):
+            if DELIVER_TO_KEY in block:
+                return True
+        elif block.deliver_to:
+            return True
+    return False
+
+
+def _delivered(
+    outcome: RunOutcome,
+    requests: Sequence[ExportRequest],
+    environment: Environment | None,
+) -> RunOutcome:
+    """Deliver the files of a sealed run to the destinations of *requests*.
+
+    A refusal is a ``failed`` line, never an exception: the run is sealed. A
+    delivery reason never changes the outcome, which keeps its status and its
+    ``identical_to``.
+    """
+    from hydromodpy.project.deliver import deliver_run
+    from hydromodpy.project.environment import Environment as CallEnvironment
+
+    lines = deliver_run(
+        outcome.run_dir,
+        requests,
+        environment or CallEnvironment.default(),
+        project_root=outcome.project_root,
+    )
+    return dataclasses.replace(outcome, deliveries=lines)
+
+
+def _with_deliveries(
+    summary: dict[str, Any],
+    requests: Sequence[ExportRequest],
+    environment: Environment | None,
+    *,
+    project_root: Path,
+) -> dict[str, Any]:
+    """Deliver the promoted runs of a completed calibration and add their lines to *summary*.
+
+    The run of each case of ``best_cases`` is delivered, or the one
+    ``best_rel_dir`` names, never a trial. A session that did not complete,
+    or that promoted no run, delivers nothing and says so. A document whose
+    blocks name no ``deliver_to`` leaves *summary* untouched.
+    """
+    if not _delivery_asked(requests):
+        return summary
+    from hydromodpy.core.logging import get_logger
+    from hydromodpy.project.deliver import deliver_run
+    from hydromodpy.project.environment import Environment as CallEnvironment
+
+    logger = get_logger(__name__)
+    lines: list[PublishedLine] = []
+    status = summary.get("status")
+    rel_dirs = _promoted_rel_dirs(summary)
+    if status != "completed":
+        logger.warning("the calibration closed as %s: nothing is delivered.", status)
+    elif not rel_dirs:
+        logger.warning("the calibration promoted no run: nothing is delivered.")
+    else:
+        workspace = Path(summary.get("workspace") or project_root)
+        for rel_dir in rel_dirs:
+            lines.extend(
+                deliver_run(
+                    workspace / rel_dir,
+                    requests,
+                    environment or CallEnvironment.default(),
+                    project_root=project_root,
+                )
+            )
+    summary["deliveries"] = [line.model_dump(mode="json", exclude_none=True) for line in lines]
+    return summary
+
+
+def _promoted_rel_dirs(summary: Mapping[str, Any]) -> list[str]:
+    """Return the run folder of each case a calibration summary names, once each."""
+    best = summary.get("best_rel_dir")
+    if best:
+        return [best]
+    found: list[str] = []
+    for case in (summary.get("best_cases") or {}).values():
+        rel_dir = case.get("rel_dir") if isinstance(case, Mapping) else None
+        if rel_dir and rel_dir not in found:
+            found.append(rel_dir)
+    return found
+
+
 def run_simulation(
     request: RunRequest,
     *,
@@ -395,6 +529,11 @@ def run_simulation(
     published copy, replay as one run: a window ``k > 1`` replays from the source its
     ``inputs.json`` names. Every other document is one run, and the rest of this
     docstring is about it.
+
+    A document whose ``[[export]]`` blocks name ``deliver_to`` has every
+    destination checked before the claim, unless the call replays a run. The
+    checked environment reaches the probe, so an address off the allowed hosts is
+    refused there.
     """
     from hydromodpy.workflow.replay_checks import sealed_run_of
 
@@ -402,6 +541,12 @@ def run_simulation(
     environment = _checked_environment(environment, root)
     cfg = _loaded(request, root)
     config_path = _source_path(request, root)
+    if replay_of is None and _delivery_asked(cfg.export):
+        # Before the claim and before the windows are cut: a refused destination
+        # leaves nothing on the disk, and one probe covers every window.
+        from hydromodpy.project.deliver import preflight
+
+        preflight(cfg.export, environment, project_root=root)
     cut = getattr(getattr(cfg.simulation, "time", None), "window_length", None) is not None
     window_source = None
     if cut:
@@ -477,6 +622,10 @@ def run_single_simulation(
     ``k - 1`` of a chain left, which window ``k > 1`` starts from. ``cfg`` is the
     document of *request* when the caller loaded it and checked the environment
     already. Returns ``None`` for a window that owns no run record.
+
+    A completed run whose document names ``deliver_to`` is delivered once it is
+    sealed, and so is a run given back for an identical one. A replay delivers
+    nothing, and a delivery failure leaves the outcome ``completed``.
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.state.names import check_name
@@ -532,10 +681,16 @@ def run_single_simulation(
         if result is None:
             return None
         if result.identical_to is not None:
+            # A run given back is already sealed: the document's destinations
+            # still receive it, because deliver_to is not part of the request id.
+            if replay_of is None and _delivery_asked(cfg.export):
+                return _delivered(result, cfg.export, environment)
             return result
         mesh_summary = mesh_summary_of(project)
         if mesh_summary:
             result = dataclasses.replace(result, mesh_summary=mesh_summary)
+        if replay_of is None and result.status == "completed" and _delivery_asked(cfg.export):
+            result = _delivered(result, cfg.export, environment)
         return result
 
 

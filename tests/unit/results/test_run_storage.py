@@ -110,6 +110,7 @@ from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome, effective_status
 from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan, PlanCase, read_plan, write_plan
 from hydromodpy.results.publication import (
     PUBLICATION_SCHEMA,
+    PUBLISHED_REMEDY,
     PUBLISHED_SCHEMA,
     Publication,
     PublicationSource,
@@ -729,7 +730,9 @@ def pristine(tmp_path_factory: pytest.TempPathFactory) -> Tree:
     )
     append_published(
         run,
-        PublishedLine(to=str(copy), format="dir", published_at=NOW, publication_sha256="b" * 64),
+        PublishedLine(
+            kind="copy", to=str(copy), format="dir", published_at=NOW, publication_sha256="b" * 64
+        ),
     )
     write_index(copy, InstallIndex(hydromodpy_version=WRITER))
     acquire_lease(project)
@@ -842,6 +845,7 @@ DOCUMENTS: tuple[Document, ...] = (
         PUBLISHED_SCHEMA,
         lambda t: read_published(t.run),
         kind="jsonl",
+        remedy=PUBLISHED_REMEDY,
     ),
     Document(
         "logs/heartbeat.json",

@@ -86,6 +86,7 @@ Run.catchment_mask	method
 Run.checks	property	Checks
 Run.config_snapshot	property	dict | None
 Run.delete	method	(self) -> None
+Run.deliveries	property	tuple[PublishedLine, ...]
 Run.dem	method	
 Run.dir	property	Path
 Run.export	method	(self, variables: str | list[str], *, time: Any = None, period: tuple[Any, Any] | None = None, format: str | None = None, folder: str | Path | None = None, file: str | Path | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]

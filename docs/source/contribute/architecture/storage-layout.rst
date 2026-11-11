@@ -245,7 +245,7 @@ A run folder
    ├── exports/            index.json + the files of each [[export]]
    ├── report/             index.html
    ├── logs/               run.log, heartbeat.json
-   ├── published.jsonl     one line per publication of this run; absent until published
+   ├── published.jsonl     one line per copy and per delivered file; absent until one is made
    ├── attempts/<n>/       outcome.json, logs/ and stop.json of an earlier attempt; absent at the first
    ├── solver/             the solver folder, kept only with keep_solver_files = true
    ├── ro-crate-metadata.json, stac-item.json, prov.jsonld: views rendered from the seal
@@ -589,6 +589,10 @@ change that a reader can ignore (a new optional key, column or array) does not c
 version. A change it cannot ignore raises the current version, keeps the oldest one and brings
 the reader of the old version with it. Nothing upgrades a stored document to another version:
 a sealed file stays as it was written.
+
+``published.jsonl`` is at ``hydromodpy.published.v2``. Each line says ``kind = "copy"`` or
+``kind = "delivery"``. A line at v1, written by 2.0, is refused with a sentence that names the
+form of 2.1.
 
 A seal of the 2.0.0 converts on read, one row per key that moved, and the file keeps its form.
 The seal of a run at ``manifest_version`` 3 loses ``identity.config_hash`` and ``config.hash`` in
@@ -1169,8 +1173,12 @@ project, relative directory and ``sim_id``, the SHA-256 of the manifest and of e
 the label and its date, the version, the date). ``--with results`` adds the stores and
 ``--with inputs`` the install index ``INSTALL.toml`` (``hydromodpy/core/payload/``) and the bytes
 of every file the run read, addressed by content under ``inputs/``, sidecars included. The source
-receives one line in ``published.jsonl``. ``.hmp/``, ``logs/``, host, user and absolute paths
-never leave: one function redacts every copy.
+receives one line in ``published.jsonl``. A line says ``kind = "copy"`` for a published copy
+or ``kind = "delivery"`` for a delivered file. A delivery line carries the file, its address,
+its state ``pending``, ``delivered`` or ``failed``, its SHA-256, its size and its attempts. The
+state of a delivery is its last line for the (file, destination) pair. ``deliver_to`` is
+removed from ``config.toml`` and ``config.resolved.toml`` of a copy. ``.hmp/``, ``logs/``,
+host, user and absolute paths never leave: one function redacts every copy.
 
 The portable package **is** ``hmp publish --with results --with inputs --container tar``. Importing
 it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the

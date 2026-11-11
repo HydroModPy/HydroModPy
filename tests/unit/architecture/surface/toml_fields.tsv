@@ -707,6 +707,7 @@ domain.zone_ids	list[str]	[]	stable
 edition	str	'2.0'	stable
 export	list[table]	[]	stable
 export.crs	str | None	None	stable
+export.deliver_to	list[str] | None	None	stable
 export.file	Path | None	None	stable
 export.folder	Path | None	None	stable
 export.format	str | None	None	stable

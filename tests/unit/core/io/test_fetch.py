@@ -28,6 +28,7 @@ from hydromodpy.core.io.fetch import (
     _parse_retry_after,
     download,
     fetch_pinned,
+    guard_host,
     guard_url,
     open_client,
     resolve_final_url,
@@ -173,6 +174,53 @@ def test_guard_url_permits_non_global_ip_when_host_explicitly_in_allowed_hosts(
     monkeypatch.setattr("socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("127.0.0.1", 443))])
     # Explicitly allowed host can resolve to loopback/private IP
     guard_url("https://127.0.0.1/data.tif", bounds=bounds, resolve_dns=True)
+
+
+# ---------------------------------------------------------------------------
+# guard_host tests
+# ---------------------------------------------------------------------------
+
+
+def test_guard_host_accepts_a_public_host() -> None:
+    guard_host("example.com", Bounds(), what="delivery to example.com")
+
+
+def test_guard_host_refuses_an_unnamed_private_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("10.0.0.1", 0))])
+    with pytest.raises(BoundsError, match="non-public IP address"):
+        guard_host("intranet.example.com", Bounds(), what="delivery to intranet.example.com")
+
+
+def test_guard_host_accepts_a_named_private_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("127.0.0.1", 0))])
+    guard_host(
+        "127.0.0.1",
+        Bounds(allowed_hosts=frozenset({"127.0.0.1"})),
+        what="delivery to 127.0.0.1",
+    )
+
+
+def test_guard_host_refuses_a_host_outside_the_allowed_list() -> None:
+    bounds = Bounds(allowed_hosts=frozenset({"example.com"}))
+    with pytest.raises(BoundsError, match="not among the hosts"):
+        guard_host("other.com", bounds, what="delivery to other.com")
+
+
+def test_guard_host_refuses_an_empty_host() -> None:
+    with pytest.raises(BoundsError, match="names no host"):
+        guard_host("", Bounds(), what="delivery to nowhere")
+
+
+def test_guard_host_skips_resolution_when_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("guard_host resolved a host it was told not to resolve")
+
+    monkeypatch.setattr("socket.getaddrinfo", refuse)
+    guard_host("example.com", Bounds(), what="fetch guard", resolve_dns=False)
 
 
 # ---------------------------------------------------------------------------

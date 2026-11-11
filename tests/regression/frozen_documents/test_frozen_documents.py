@@ -7,12 +7,14 @@ holds what the raw files say, read without these readers when the tree was writt
 ``python -m tools.freeze_documents``. The job comes from a capability ``demo`` that the
 generator declares. No test writes under ``v2.0.0/``: every test reads a copy.
 
-HydroModPy 2.1 reads two of these forms no more. The lockfile is schema v1 and is
-refused with the sentence that names ``hmp data lock``. The data cache database of the
-island is refused by the scan of its data folder with the sentence that names
-``hmp workspace clean --data-cache``. The database of a launched case, kept under
-``jobs/*/caches/``, held a capability that is gone, since a case writes its files and
-sidecars into the shared data folder. See ``README.md`` beside it.
+HydroModPy 2.1 reads three of these forms no more. The lockfile is schema v1 and is
+refused with the sentence that names ``hmp data lock``. The published journal of the
+run is schema v1 and is refused with the sentence that names its new form, since a
+line now says ``kind``; the next copy or delivery starts a new journal. The data
+cache database of the island is refused by the scan of its data folder with the
+sentence that names ``hmp workspace clean --data-cache``. The database of a launched
+case, kept under ``jobs/*/caches/``, held a capability that is gone, since a case
+writes its files and sidecars into the shared data folder. See ``README.md`` beside it.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from hydromodpy.data.provenance.sidecars import (
 from hydromodpy.data.sites.catalog import read_catalog
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
-from hydromodpy.results.publication import read_publication, read_published
+from hydromodpy.results.publication import PUBLISHED_REMEDY, read_publication, read_published
 from hydromodpy.results.session.trial_series import read_trial_series
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_versioned
@@ -96,10 +98,21 @@ def test_the_corpus_names_no_machine() -> None:
 
 
 def test_published_lines(corpus: Path) -> None:
-    lines = read_published(corpus / "island" / "runs" / "calage")
+    """The journal of 2.0.0 is schema v1, which 2.1 refuses and tells how to write again."""
+    expected = EXPECTED["published"]
+    path = corpus / "island" / "runs" / "calage" / "published.jsonl"
+    raw = [
+        json.loads(text) for text in path.read_text(encoding="utf-8").splitlines() if text.strip()
+    ]
     assert [
-        {"schema": line.schema_, "to": line.to, "format": line.format} for line in lines
-    ] == EXPECTED["published"]
+        {"schema": line["schema"], "to": line["to"], "format": line["format"]} for line in raw
+    ] == expected
+    with pytest.raises(SchemaVersionMismatchError) as caught:
+        read_published(path.parent)
+    message = str(caught.value)
+    assert expected[0]["schema"] in message
+    assert "hydromodpy.published.v2" in message
+    assert PUBLISHED_REMEDY in message
 
 
 def test_publication(corpus: Path) -> None:
