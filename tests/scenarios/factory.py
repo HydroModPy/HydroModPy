@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from datetime import date
 from pathlib import Path, PurePosixPath
 
-ISLAND_VARIANTS: tuple[str, ...] = ("gwt", "nwt", "boussinesq", "spinup", "calage")
+ISLAND_VARIANTS: tuple[str, ...] = ("gwt", "nwt", "boussinesq", "spinup", "calage", "calage_sy")
 
 INITIAL_STATE_VARIANTS: tuple[str, ...] = (
     "steady_ic_modflow6",
@@ -341,6 +341,62 @@ enabled = false
 STATION_LOC = "id,x,y\nW1,305.0,305.0\n"
 STATION_RECORD = "datetime,value\n2003-01-01,2.0\n2003-01-02,2.0\n"
 
+# The island of three transient months, calibrated on Sy. The run starts from the head
+# rule of the island, never from a steady or a cyclic start, which a rerun refuses. The
+# records sit on the ends of periods 2 and 3, where the specific yield acts.
+SY_PIEZOMETRY = """
+
+[[data.piezometry.sources]]
+source = "file"
+path = "data/piezometry"
+default_crs = "EPSG:2154"
+source_unit = "m"
+"""
+
+SY_STATION_RECORD = "datetime,value\n2003-02-28,2.0\n2003-03-31,2.0\n"
+
+CALIB_SY = """\
+base_config = "project.toml"
+export__delete = true
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calage_sy"
+
+[calibration]
+save_runs = "best_n"
+use_cache = false
+persist_trial_series = true
+
+[calibration.parameters.Sy]
+bounds = [0.05, 0.3]
+search_space = "log"
+
+[calibration.outputs.crest_head]
+support = "point"
+variable = "head"
+observes = "W1"
+
+[[calibration.objective_blocks]]
+name = "heads"
+metric = "rmse"
+uses_outputs = ["crest_head"]
+
+[[calibration.phases]]
+name = "sy_grid"
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["heads"]
+method = "grid"
+max_trials = 3
+method_options = { points_per_dim = 3 }
+
+[display]
+enabled = false
+"""
+
 
 def transient_island(
     name: str, solver: str, *, mesh: str = "", process: str = "", tail: str = ""
@@ -430,6 +486,16 @@ def island_files(variant: str) -> dict[str, str]:
             "calib.toml": CALIB,
             "data/piezometry/piezometry_custom_LOC.csv": STATION_LOC,
             "data/piezometry/piezometry_custom_W1_D.csv": STATION_RECORD,
+        }
+    elif variant == "calage_sy":
+        text = transient_island("calage_sy", "modflow6", tail=SY_PIEZOMETRY).replace(
+            'types = ["oceanic"]', 'types = ["oceanic", "piezometry"]\ninference_mode = "warn"', 1
+        )
+        return {
+            "project.toml": text,
+            "calib.toml": CALIB_SY,
+            "data/piezometry/piezometry_custom_LOC.csv": STATION_LOC,
+            "data/piezometry/piezometry_custom_W1_D.csv": SY_STATION_RECORD,
         }
     else:
         raise KeyError(variant)

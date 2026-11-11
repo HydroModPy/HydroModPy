@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observables import (
@@ -51,7 +52,8 @@ class ModflowNwtFlowAdapter:
     geometry: ClassVar[str] = "raster"
     writes: ClassVar[tuple[str, ...]] = (
         "head",
-        "face_flow",
+        CONNECTION_CELLS,
+        FACE_FLOW,
         "budget/constant_head",
         "budget/drain",
         "budget/evapotranspiration",
@@ -128,7 +130,7 @@ class ModflowNwtFlowAdapter:
             bin_path=slot.bin_dir,
             modflow_config=options,
         )
-        solver_model.link_mt3dms = "face_flow" in slot.hand_off
+        solver_model.link_mt3dms = FACE_FLOW in slot.hand_off
         return build_flow_model(solver_model, model, options, slot, preprocess_options)
 
     def run(self, solver_run: SolverRun) -> SolverRun:

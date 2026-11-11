@@ -232,6 +232,29 @@ class Model:
             self, properties=Properties(profiles=self.properties.profiles, overrides=merged)
         )
 
+    def with_profiles(self, profiles: Mapping[str, Any]) -> Model:
+        """A new model whose property profiles named in ``profiles`` are replaced.
+
+        ``profiles`` maps a ``[flow.param]`` id to its new ``FieldParam``, as
+        :func:`hydromodpy.model.flow.flow_profiles` returns it. Every other
+        member, the other profiles and the per-cell overrides are the objects of
+        this model, so a backend that compares members by identity sees only the
+        replaced properties change. An id this model has no profile for is
+        refused: a new property is no replacement.
+        """
+        unknown = sorted(set(profiles) - set(self.properties.profiles))
+        if unknown:
+            raise ValueError(
+                f"Model.with_profiles replaces the profiles {', '.join(self.properties.profiles)}; "
+                f"{', '.join(unknown)} is none of them. Declare it in [flow] param_list."
+            )
+        merged = {
+            name: profiles.get(name, profile) for name, profile in self.properties.profiles.items()
+        }
+        return replace(
+            self, properties=Properties(profiles=merged, overrides=self.properties.overrides)
+        )
+
     def with_initial(self, initial: InitialState) -> Model:
         """A new model that starts from ``initial``."""
         return replace(self, initial=initial)

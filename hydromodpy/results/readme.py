@@ -191,7 +191,11 @@ def render_session_readme(
     phases: Sequence[PhaseDescriptor] = (),
     manifest_sha256: str | None = None,
 ) -> str:
-    """Return the README of a calibration session."""
+    """Return the README of a calibration session.
+
+    *trials* are the trials the journal holds, one per number as ``read_trials``
+    folds them, so the count in the README is a count of trials, not of lines.
+    """
     lines = [
         f"# Calibration {descriptor.case_id}",
         "",

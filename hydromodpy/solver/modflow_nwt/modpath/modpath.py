@@ -28,6 +28,7 @@ from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverI
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.transport.transport_config import ModpathParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
@@ -460,7 +461,7 @@ class ModpathTransportAdapter:
         "particles/endpoint_z",
         "particles/endpoint_time",
     )
-    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
     supports: ClassVar[frozenset[str]] = frozenset()
     options: ClassVar[type[BaseModel] | None] = ModpathParametersConfig
     category: ClassVar[str] = "distributed"

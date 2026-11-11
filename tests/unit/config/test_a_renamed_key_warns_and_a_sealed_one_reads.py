@@ -339,7 +339,9 @@ def test_a_moved_table_warns_in_a_file_and_reads_in_silence_in_a_sealed_run_conf
 
 def test_a_file_that_writes_only_current_forms_is_left_alone(tmp_path: Path) -> None:
     """Each current shape sits beside the one a pre-release wrote, and says nothing."""
+    # The edition is written, so no default of an earlier edition is written out.
     document = {
+        "edition": "2.1",
         "export": [{"variables": ["head"], "format": "netcdf", "time": "last"}],
         "flow": {
             "ic": {"kind": "steady_state", "source": "mean_recharge"},

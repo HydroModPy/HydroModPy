@@ -84,6 +84,7 @@ from hydromodpy.project.state import (
     PROJECT_ATTR_TO_STATE_FIELD,
     ProjectState,
 )
+from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, DEFAULT_TRIAL_FIELDS_DAYS
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
@@ -109,6 +110,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.record.checks import CalibratedBy
+    from hydromodpy.results.retention import GcReport
     from hydromodpy.results.run import Run
     from hydromodpy.schema.lineage import Lineage
 
@@ -619,6 +621,45 @@ class Project:
             summary, to, project_root=self.root, format=format, with_=with_, public=public
         )
 
+    def gc(
+        self,
+        *,
+        dry_run: bool = False,
+        keep_versions: int | None = DEFAULT_KEEP_VERSIONS,
+        max_age_days: int | None = None,
+        trial_fields_days: int | None = DEFAULT_TRIAL_FIELDS_DAYS,
+    ) -> GcReport:
+        """Collect what the project no longer needs, the words of ``hmp catalog gc``.
+
+        Marks the attempts of dead runs aborted, trashes the versions beyond
+        ``keep_versions`` and the runs older than ``max_age_days``, removes the
+        scratch of dead runs and the earlier attempts of sealed ones, evicts the
+        product store down to its cap, and removes the fields of kept trials
+        older than ``trial_fields_days``, all but the best. With ``dry_run`` it
+        reports the plan and the bytes of each category, and changes nothing.
+        """
+        from datetime import UTC, datetime
+
+        from hydromodpy.results.catalog.indexer import reindex_if_indexed
+        from hydromodpy.results.retention import RetentionPolicy
+        from hydromodpy.results.retention import gc as collect
+
+        policy = RetentionPolicy(
+            keep_versions=keep_versions,
+            max_age_days=max_age_days,
+            trial_fields_days=trial_fields_days,
+        )
+        report = collect(
+            self.root,
+            policy,
+            now=datetime.now(UTC),
+            products_cap_bytes=_products_cap_bytes(self.root),
+            dry_run=dry_run,
+        )
+        if not dry_run:
+            reindex_if_indexed(self.root)
+        return report
+
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
     def _run_scratch(self, name: str | None, resume: str | None):
@@ -1078,6 +1119,37 @@ def configure_opened(project: Project) -> None:
         # Leave the project unconfigured so the next read tries again, then let the error out.
         state.cfg = None
         raise
+
+
+def _products_cap_bytes(project_root: Path) -> int | None:
+    """Return the product store cap in bytes, read from ``[workspace]`` alone.
+
+    Maintenance runs on projects whose model section no longer configures, so
+    the cap is read from the section that owns it instead of the full model.
+    Without a readable ``project.toml`` the cap is unknown, so ``None`` leaves
+    the product store out of the collection and the rest reads the tree alone.
+    """
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.paths import resolve_declared_path
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+
+    marker = Path(project_root) / PROJECT_MARKER_FILENAME
+    if not marker.is_file():
+        return None
+    try:
+        loaded = load_toml_with_base_config(marker, root=ROOT_CONFIG)
+        section = dict(loaded.get("workspace") or {})
+        for key in ("root", "data_dir"):
+            if section.get(key) is not None:
+                section[key] = str(resolve_declared_path(section[key], base_dir=Path(project_root)))
+        section["project_root"] = str(project_root)
+        cap_mb = WorkspaceConfig.model_validate(section).products_cap_mb
+    except (OSError, ValueError, HydroModPyError) as exc:
+        logger.warning("%s does not read, so gc leaves the product store as it is: %s", marker, exc)
+        return None
+    return cap_mb * 1_000_000
 
 
 def open_project(path: str | Path, *, environment: Environment | None = None) -> Project:

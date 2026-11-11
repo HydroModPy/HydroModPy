@@ -16,10 +16,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+from datetime import UTC, datetime
 from multiprocessing.connection import Connection
 from pathlib import Path
 from types import SimpleNamespace
-from typing import ClassVar
+from typing import Any, ClassVar
 from unittest.mock import Mock
 
 import pytest
@@ -31,6 +32,7 @@ from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners import worker_pool
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
+from hydromodpy.calibration.runners.lanes import TrialParents
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.calibration.runners.worker_pool import (
@@ -42,6 +44,7 @@ from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+from hydromodpy.results.storage.run_profile import ProfileLine
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 
 pytestmark = pytest.mark.allow_subprocess
@@ -480,3 +483,61 @@ def test_a_worker_kills_its_group_when_the_parent_goes(monkeypatch) -> None:
     worker_pool._die_with_the_parent()
 
     assert kills == [["s"], (0, signal.SIGKILL)]
+
+
+class _Laned(_Scripted):
+    """Says which lanes its trial context holds, and returns a profile."""
+
+    evaluator_id: ClassVar[str] = "laned_for_the_pool"
+    seen: ClassVar[list[Any]] = []
+
+    def evaluate(self, request: TrialRequest) -> TrialOutcome:
+        parents = self._trial_ctx.parents
+        lane = parents.take() if parents is not None else None
+        self.seen.append((parents, None if lane is None else lane.key))
+        if lane is not None:
+            parents.give(lane, None)
+        line = ProfileLine(
+            kind="step", name="run_solver", attempt=1, started_at=_AT, duration_s=0.1
+        )
+        return TrialOutcome(cost=1.0, status="completed", duration_s=0.1, profile=(line,))
+
+
+_AT = datetime(2026, 11, 11, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("derives", [True, False], ids=["derived model", "built model"])
+def test_a_worker_keeps_its_own_lane_from_one_trial_to_the_next_and_sends_the_profile(
+    tmp_path: Path, derives: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(registry.evaluators, "classes", {})
+    _Laned.seen.clear()
+    trial_ctx = _trial_ctx(tmp_path, model_from_profiles=derives)
+    state = pickle.dumps((_Laned, {"trial_ctx": trial_ctx}, False, current_verbosity(), None))
+    requests = [TrialRequest(trial_id=n, values={}) for n in (1, 2)]
+    conn = Mock(recv_bytes=Mock(return_value=state), recv=Mock(side_effect=[*requests, EOFError()]))
+
+    _serve(conn)
+
+    (first, first_key), (second, second_key) = _Laned.seen
+    if derives:
+        assert first is second and first is not None
+        assert first_key == second_key == f"{os.getpid()}-1"
+        assert first.take() is not None and first.take() is None, "one lane at a time"
+    else:
+        assert first is None and second is None
+    outcomes = [call.args[0][0] for call in conn.send.call_args_list]
+    assert [[line.name for line in outcome.profile] for outcome in outcomes] == [
+        ["run_solver"],
+        ["run_solver"],
+    ]
+
+
+def test_the_state_sent_to_a_worker_carries_no_lane(tmp_path: Path) -> None:
+    trial_ctx = _trial_ctx(tmp_path, model_from_profiles=True)
+    trial_ctx.parents = TrialParents.of(trial_ctx)
+    with closing(TrialWorkerPool(_Scripted, {"trial_ctx": trial_ctx}, width=1)) as pool:
+        _, options, _, _, _ = pickle.loads(pool._state)
+    assert options["trial_ctx"].parents is None
+    assert options["trial_ctx"].model_from_profiles is True
+    assert trial_ctx.parents is not None

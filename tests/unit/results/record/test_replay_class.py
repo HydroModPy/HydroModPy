@@ -120,6 +120,60 @@ def test_a_key_the_replay_adds_is_a_deviation_and_is_named(tmp_path: Path):
     assert replay_class.removed == []
 
 
+def test_a_research_source_lets_the_replay_add_keys_and_stays_a_bit(tmp_path: Path):
+    source = _write_run(tmp_path / "source", _seal_payload(version=4), {"heads": HEADS})
+    replay = _write_run(
+        tmp_path / "replay",
+        _seal_payload(version=4),
+        {"heads": HEADS, "extra": np.asarray([1.0])},
+    )
+    payload = _seal_payload(version=4, values=_digests(source))
+    (source / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    replay_class = classify_replay(
+        source, replay, _digests(replay), strict=False, source_level="research"
+    )
+
+    assert replay_class.class_ == "bit"
+    assert replay_class.added == ["fields/extra"]
+
+
+def test_a_research_source_that_loses_a_key_is_still_a_deviation(tmp_path: Path):
+    source = _write_run(
+        tmp_path / "source",
+        _seal_payload(version=4),
+        {"heads": HEADS, "gone": np.asarray([1.0])},
+    )
+    replay = _write_run(tmp_path / "replay", _seal_payload(version=4), {"heads": HEADS})
+    payload = _seal_payload(version=4, values=_digests(source))
+    (source / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    replay_class = classify_replay(
+        source, replay, _digests(replay), strict=False, source_level="research"
+    )
+
+    assert replay_class.class_ == "deviation"
+    assert replay_class.removed == ["fields/gone"]
+
+
+def test_a_result_source_still_counts_a_key_the_replay_adds(tmp_path: Path):
+    source = _write_run(tmp_path / "source", _seal_payload(version=4), {"heads": HEADS})
+    replay = _write_run(
+        tmp_path / "replay",
+        _seal_payload(version=4),
+        {"heads": HEADS, "extra": np.asarray([1.0])},
+    )
+    payload = _seal_payload(version=4, values=_digests(source))
+    (source / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    replay_class = classify_replay(
+        source, replay, _digests(replay), strict=False, source_level="result"
+    )
+
+    assert replay_class.class_ == "deviation"
+    assert replay_class.added == ["fields/extra"]
+
+
 def test_a_key_the_replay_drops_is_a_deviation_with_no_measure(tmp_path: Path):
     source = _write_run(
         tmp_path / "source",

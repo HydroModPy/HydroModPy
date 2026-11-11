@@ -27,6 +27,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[solver.modflow_nwt]` and `[solver.boussinesq]` take `wall_clock_limit_s`, the wall-clock budget of one trial of a parallel calibration, as MODFLOW 6 does with `[solver.modflow6.runtime] mf6_api_timeout_s`. Unset, a trial keeps the built-in 14400 s.
 - A flow adapter declares `face_flow` among what it writes, and the GWT one declares `concentration/*`.
 - A transport whose flow does not write `face_flow` is refused when the file is read, with the flow solvers that write it.
+- `[simulation.results] keep_face_flows = true` under a flow solver that does not write `face_flow` is refused when the file is read, with the flow solvers that write it.
+- `[simulation.results] keep_face_flows` keeps the flow between each pair of connected cells under MODFLOW 6 and MODFLOW-NWT, as `face_flow` with `connection_cells`.
+- `Project.gc()` and `hmp catalog gc` measure the project and remove the scratch of dead attempts, what the earlier attempts of sealed runs hold beside their `outcome.json`, the products past the cap that the dry run lists, and the field store of kept trials that reached the project more than 90 days ago, all but the best; `--trial-fields-days` sets the age. The mesh of a trial stays for its replay, a session with no single best keeps every trial, and a project whose `project.toml` does not read is collected from its tree with its product store left as it is.
+- MODFLOW 6 and MODFLOW-NWT write `face_flow`, one value per connection of two active cells and positive from the smaller flat index to the larger, with `connection_cells`, the two cells of each connection. The diagonal of MODFLOW 6 `FLOW-JA-FACE` is never kept.
 - Series names have the shape `time` in the field registry, and a backend declares the series it writes in `writes`. The linear reservoir declares `discharge`, `reservoir_storage` and `budgets`, and writes the unit the registry gives, `m` for the stored depth.
 - source = "url" for the data variables read from one file. https, or http with a sha256. The URL only fills the data cache, and the run reads the file.
 - `hydromodpy.model.supports` holds the closed set of traits a solver backend lists in `supports`: the boundary kinds,
@@ -104,6 +108,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A calibration delivers the promoted run of each case, only once the session is `completed`, and logs a warning when it delivers nothing.
 - The refusal of an address no `[[host]]` block answers advises a `prefix` with the port of the address.
 - An `sftp://` `key_file` may hold an ed25519, ECDSA or RSA private key.
+- `session.json` names, for each phase, the options, the seed, the seed of each restart and the libraries of its optimizer, in an optional `optimizer` block. A 2.0 `session.json` has none and still reads.
+- The trial frame of a session (`Session.trials`) gains `batch`, `rule`, `window`, `solve_s` and `reused`, and `Session.profile()` sums where the search spent its time, by step and by `reused`.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -502,6 +508,15 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The RO-Crate view gives each property value of a run its own `@id`, as the RO-Crate library requires.
 - Each line of `published.jsonl` says `kind = "copy"` or `"delivery"` (`hydromodpy.published.v2`); a line written by HydroModPy 2.0 is refused.
 - `hmp publish` removes `deliver_to` from `config.toml` and `config.resolved.toml` of a copy; `exports/index.json` no longer records it; `deliver_to` is refused in a `[sites]` project.
+- `trials.jsonl` writes one line per event, schema `hydromodpy.trial.v3`: `proposed` when the optimizer asks, `finished` with the cost, its components, the rule and window they were scored under, and the time of each step, `linked` when the trial becomes a run. A reader keeps the highest event of each trial. A 2.0 journal still reads.
+- A calibration trial that moves only K or Sy reruns the previous trial of its lane through MODFLOW 6 `rerun` instead of building the model again. The cost is the same to the last bit.
+- Each `trial_series/*.parquet` file carries `hmp.schema_version = hydromodpy.trial_series.v1` and `hydromodpy_version` in its footer. A file without the key reads as v1, the form written by 2.0.
+- `TrialOutcome` takes an optional `profile`, the time of each step of the trial.
+- Under edition 2.1, a calibration writes the scored series of every trial by default (`persist_trial_series` is true). A file without edition keeps the 2.0 default, false.
+- `hmp init` writes `edition = "2.1"` in the `project.toml` of the example project.
+- A kept calibration trial keeps only the budget terms of its criterion and draws no figure; the best of an earlier phase keeps what the project asks.
+- `hmp campaign promote <case> --trial N` solves a kept trial again when `hmp catalog gc` removed its fields, and leaves its folder under the session.
+- A run is skipped only for an identical run of its level or above.
 
 ### Removed
 
@@ -607,6 +622,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[geographic] reuse_existing_outputs` and `[geographic] reg_fold`. A file that writes them is refused with the replacement to write, and a sealed config drops them in silence.
 - `hydromodpy.results.geographic_cache`, which nothing called.
 - `hydromodpy.catchment.preprocess.regional_flow_job`, which nothing called once `reg_fold` left. To share a conditioned DEM between projects, declare `state = "conditioned"` on its `[data.dem.sources]` entry.
+- `HANDOFF_PRODUCTS` of `hydromodpy.solver.base.adapter_protocol`; `face_flow` is a name of the field registry.
 ### Fixed
 
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.

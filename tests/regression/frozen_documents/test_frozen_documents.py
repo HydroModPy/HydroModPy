@@ -26,6 +26,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+import pyarrow.parquet as pq
 import pytest
 
 from hydromodpy.core.exceptions import DataCacheError, SchemaVersionMismatchError
@@ -40,6 +41,7 @@ from hydromodpy.data.sites.catalog import read_catalog
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.publication import PUBLISHED_REMEDY, read_publication, read_published
+from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.trial_series import read_trial_series
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_versioned
@@ -51,6 +53,8 @@ from hydromodpy.schema.job.seal import read_job_seal, verify_job
 from hydromodpy_annex.schema.job_chain.chain import read_chain_outcome
 
 FROZEN = Path(__file__).parent / "v2.0.0"
+FROZEN_RUNS = Path(__file__).resolve().parents[1] / "frozen_runs" / "v2.0.0"
+RUN_COPIES = ("current", "future")
 EXPECTED: dict[str, Any] = json.loads((FROZEN / "expected.json").read_text(encoding="utf-8"))
 
 SIZE_LIMIT_BYTES = 1_500_000
@@ -215,6 +219,70 @@ def test_trial_series(corpus: Path) -> None:
     for row in rows:
         row["time"] = row["time"].isoformat()
     assert rows == expected["rows"]
+
+
+def _copy_of_the_journal_session(copy: str, tmp_path: Path) -> Path:
+    """Copy the session folder of one frozen run corpus, so that the reader cannot touch it."""
+    source = FROZEN_RUNS / copy / "projects" / "example" / "sessions" / "calage"
+    target = tmp_path / copy / "calage"
+    shutil.copytree(source, target)
+    return target
+
+
+@pytest.mark.parametrize("copy", RUN_COPIES)
+def test_a_2_0_journal_reads_as_finished_trials(copy: str, tmp_path: Path) -> None:
+    """A line of the 2.0.0 journal has no event and reads as ``finished``, without rewrite."""
+    expected = json.loads((FROZEN_RUNS / "expected.json").read_text(encoding="utf-8"))["session"]
+    session = _copy_of_the_journal_session(copy, tmp_path)
+    before = (session / "trials.jsonl").read_bytes()
+    trials = read_trials(session)
+    assert [t.trial for t in trials] == [row["trial"] for row in expected["trials"]]
+    assert [t.cost for t in trials] == [row["cost"] for row in expected["trials"]]
+    assert [t.phase for t in trials] == [row["phase"] for row in expected["trials"]]
+    assert {t.event for t in trials} == {"finished"}
+    assert all(t.status == "completed" for t in trials)
+    cases = [case for trial in trials for case in trial.cases.values()]
+    assert cases
+    assert all(case.rule is None and case.window is None for case in cases)
+    assert all(t.profile == [] for t in trials)
+    assert (session / "trials.jsonl").read_bytes() == before, "a read rewrote the journal"
+
+
+def test_the_frozen_journals_are_untouched_by_the_reader() -> None:
+    """The reader runs on copies, so the corpus keeps the bytes the first freeze wrote."""
+    for copy in RUN_COPIES:
+        path = FROZEN_RUNS / copy / "projects" / "example" / "sessions" / "calage" / "trials.jsonl"
+        schemas = {json.loads(line)["schema"] for line in path.read_text("utf-8").splitlines()}
+        assert schemas == {"hydromodpy.trial.v2"}
+
+
+def test_trial_series_files_of_2_0_0_carry_no_version_key(corpus: Path) -> None:
+    """The footer of a 2.0.0 series has no ``hmp.schema_version``, and the reader accepts it."""
+    folder = corpus / "island" / "sessions" / "calage" / "trial_series"
+    files = sorted(folder.glob("trial-*.parquet"))
+    assert len(files) == 3
+    for path in files:
+        metadata = pq.read_schema(path).metadata or {}
+        assert b"hmp.schema_version" not in metadata
+    assert len(read_trial_series(folder.parent)) == len(EXPECTED["trial_series"]["rows"])
+
+
+def test_a_trial_series_of_an_unknown_version_is_refused_by_name(
+    corpus: Path, tmp_path: Path
+) -> None:
+    """A file that names a version this code does not know is refused, naming it."""
+    session = tmp_path / "calage"
+    folder = session / "trial_series"
+    folder.mkdir(parents=True)
+    source = next(
+        (corpus / "island" / "sessions" / "calage" / "trial_series").glob("trial-*.parquet")
+    )
+    table = pq.read_table(source)
+    metadata = dict(table.schema.metadata or {})
+    metadata[b"hmp.schema_version"] = b"hydromodpy.trial_series.v9"
+    pq.write_table(table.replace_schema_metadata(metadata), folder / source.name)
+    with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.trial_series.v9"):
+        read_trial_series(session)
 
 
 def test_sealed_job_and_its_chain(corpus: Path) -> None:

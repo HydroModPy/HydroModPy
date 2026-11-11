@@ -130,7 +130,7 @@ class TestTheTrialActsOnIt:
         assert "reject_water_budget_above=self._cfg.reject_water_budget_above" in source
 
     def test_a_rejected_trial_keeps_its_metrics_so_the_reason_is_readable(self) -> None:
-        rejected = inspect.getsource(trial.run_trial_light).split("water_budget_verdict")[1]
+        rejected = inspect.getsource(trial).split("water_budget_verdict(gate_metrics")[1]
 
         assert "metrics=dict(metrics)" in rejected
         assert 'status="failed"' in rejected

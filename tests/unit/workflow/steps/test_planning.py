@@ -92,6 +92,7 @@ _CONSUMERS = ResultsConfig(keep_per_cell_budget=False)
 def _keep(
     results: ResultsConfig = _CONSUMERS,
     *,
+    level: str = "result",
     plan: SimulationPlan | None = None,
     display: DisplayConfig | None = None,
     display_active: bool = True,
@@ -104,6 +105,7 @@ def _keep(
         results,
         plan or _flow_only_plan(),
         display or _no_figures(),
+        level=level,
         display_active=display_active,
         export_requests=load_export_requests(exports or []),
         calibration=calibration,
@@ -235,6 +237,62 @@ def test_a_lightweight_trial_logs_the_decision_at_debug() -> None:
     _, records = _records(lambda: _keep(lightweight=True))
 
     assert [r.levelno for r in records] == [logging.DEBUG]
+
+
+# ---------------------------------------------------------------------------
+# research - a kept calibration trial keeps the terms of its criterion alone
+# ---------------------------------------------------------------------------
+
+
+def test_a_kept_trial_keeps_only_the_terms_its_criterion_reads() -> None:
+    """Its figures and exports never run, so their terms are not consumers."""
+    calibration = SimpleNamespace(outputs={"network": SimpleNamespace(support="network")})
+
+    keep, records = _records(
+        lambda: _keep(
+            ResultsConfig(),
+            level="research",
+            display=DisplayConfig(figures=["recharge_map"]),
+            exports=[{"variables": "drain"}],
+            calibration=calibration,
+            observation=_observation(point_variables=["well"]),
+        )
+    )
+
+    assert keep.terms == frozenset(budget_terms_for("release_flux"))
+    assert keep.policy == POLICY_CONSUMERS
+    assert [r.levelno for r in records] == [logging.DEBUG]
+    assert "kept calibration trial" in records[0].getMessage()
+
+
+def test_a_kept_trial_keeps_its_criterion_terms_without_the_whole_budget() -> None:
+    calibration = SimpleNamespace(
+        outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
+    )
+
+    keep = _keep(
+        ResultsConfig(keep_per_cell_budget=False),
+        level="research",
+        calibration=calibration,
+        exports=[{"variables": "recharge"}],
+    )
+
+    assert keep == BudgetKeep.of_terms(("drain",))
+
+
+def test_a_kept_trial_keeps_the_seepage_mask_of_a_surface_excess_solver() -> None:
+    assert _keep(level="research", plan=_boussinesq_plan()).terms == {"surface_excess"}
+
+
+def test_a_result_run_keeps_its_whole_budget_at_the_result_level() -> None:
+    keep = _keep(
+        ResultsConfig(),
+        level="result",
+        display=DisplayConfig(figures=["recharge_map"]),
+        exports=[{"variables": "drain"}],
+    )
+
+    assert keep == BudgetKeep.everything()
 
 
 def test_an_overlay_asked_for_in_the_overrides_keeps_what_it_reads() -> None:

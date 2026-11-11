@@ -116,7 +116,34 @@ def test_a_project_built_from_a_config_keeps_its_root_from_the_config(tmp_path: 
     assert project._state.root is None
 
 
-MAX_PROJECT_METHODS = 18
+@pytest.mark.fast
+def test_project_gc_plans_without_touching_the_tree(
+    tmp_path: Path, configure_calls: list[Path]
+) -> None:
+    import hashlib
+
+    from hydromodpy.results.products.store import ProductStore, products_root
+    from hydromodpy.results.retention import project_weight
+
+    project = make_project(tmp_path / "p")
+    (project / "project.toml").write_text("[workspace]\nproducts_cap_mb = 1\n", encoding="utf-8")
+    key = hashlib.sha256(b"product").hexdigest()
+    store = ProductStore(products_root(project))
+    store.put(key, "mesh", lambda folder: (folder / "blob").write_bytes(b"x" * 1_500_000))
+    before = project_weight(project)
+
+    with open_project(project) as proj:
+        report = proj.gc(dry_run=True)
+
+    assert report.applied is False
+    assert report.freed == {}
+    assert report.plan.products, "the cap of project.toml is read from its [workspace] section"
+    assert store.get(key) is not None
+    assert project_weight(project) == before
+    assert configure_calls == []
+
+
+MAX_PROJECT_METHODS = 19
 
 
 def test_project_instance_methods_below_limit() -> None:

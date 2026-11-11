@@ -3406,10 +3406,10 @@
           "x-hmp-profile": "user"
         },
         "persist_trial_series": {
-          "default": false,
-          "description": "Write the simulated and observed series of every point/series output a completed trial scored (discharge at a gauge, head at a well...), as a small Parquet table per trial under the session folder. Off by default: a 300-400 point search otherwise writes nothing beyond trials.jsonl. Network and spatial outputs carry no series and are never written here.",
+          "default": true,
+          "description": "Write the simulated and observed series of every point/series output a completed trial scored (discharge at a gauge, head at a well...), as a small Parquet table per trial under the session folder. On by default under edition 2.1 (about 2 kB per trial on the island case), off under edition 2.0, the edition of a document that writes none. Network and spatial outputs carry no series and are never written here.",
           "examples": [
-            false
+            true
           ],
           "title": "Persist Trial Series",
           "type": "boolean",
@@ -20787,9 +20787,19 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
+        "keep_face_flows": {
+          "default": false,
+          "description": "Keep the flow between each pair of connected cells, at every saved time, in fields.zarr. The flow solver of the run must write it: MODFLOW 6 and MODFLOW-NWT do. It is the heaviest group a run can keep: about 350 MB in float32 for six daily years on about 21 000 cells, beside 312 MB for the whole per-cell budget. A kept calibration trial never keeps it.",
+          "examples": [
+            false
+          ],
+          "title": "Keep Face Flows",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "keep_per_cell_budget": {
           "default": true,
-          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp viz show, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
+          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp viz show, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A kept calibration trial keeps only the terms its criterion reads. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
           "examples": [
             true
           ],

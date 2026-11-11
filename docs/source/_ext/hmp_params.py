@@ -21,6 +21,8 @@ from sphinx.application import Sphinx
 from sphinx.util import logging
 from sphinx.util.docutils import SphinxDirective
 
+from hydromodpy.schema.changes import FIRST_EDITION, REGISTER
+
 logger = logging.getLogger(__name__)
 
 SNAPSHOTS = Path(__file__).resolve().parents[3] / "tools" / "docs" / "snapshots"
@@ -390,6 +392,21 @@ def unexplained(n: dict[str, Any]) -> set[str]:
     return out
 
 
+def edition_defaults(path: str) -> list[tuple[str, Any]]:
+    """The default of a key for each edition that moves it, read from the register.
+
+    The first pair is the default of a file that writes no edition. An empty list
+    means no edition moves the key, so the default of the model is the only one.
+    """
+    rows = sorted(
+        (row for row in REGISTER.defaults if row.key == path),
+        key=lambda row: tuple(int(x) for x in row.edition.split(".")),
+    )
+    if not rows:
+        return []
+    return [(FIRST_EDITION, rows[0].old)] + [(row.edition, row.new) for row in rows]
+
+
 def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None = None) -> str:
     """The card under a key line: what the line itself cannot say.
 
@@ -441,6 +458,15 @@ def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None
                 ' <span class="hmp-muted">(a bare number is read in the canonical unit)</span>'
             )
         add("Accepted", accepted)
+    by_edition = edition_defaults(path)
+    if by_edition:
+        add(
+            "Default by edition",
+            ", ".join(
+                f"<code>{esc(json.dumps(value))}</code> with edition {esc(edition)}"
+                for edition, value in by_edition
+            ),
+        )
     rng = range_text(n.get("range", {}))
     if rng:
         add("Valid range", f'{esc(rng)} <span class="hmp-muted">(refused outside)</span>')

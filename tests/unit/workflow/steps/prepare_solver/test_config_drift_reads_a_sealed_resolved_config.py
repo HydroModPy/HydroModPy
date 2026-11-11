@@ -31,6 +31,7 @@ FROZEN_CALAGE = (
 
 NEW_AT_DEFAULT = {
     "flow.sinks_sources.recharge.factor": 1.0,
+    "simulation.results.keep_face_flows": False,
     "simulation.time.window": "all",
     "workspace.products_cap_mb": 5000,
 }
@@ -39,7 +40,8 @@ NEW_AT_DEFAULT = {
 The recharge factor came with 2.0.0 after these runs were sealed by its release
 candidate, and its default reproduces the old computation. ``config_drift`` gave it as
 the one drift before a key absent from the sealed file counted for none. The cap of the
-product store came later and moves no number. A file of 2.0 writes no window key, and
+product store came later and moves no number, and so did ``keep_face_flows``, whose default
+writes no face flow. A file of 2.0 writes no window key, and
 the default of ``simulation.time.window`` plays the run in one piece. The default of
 ``window_length`` is ``None``, which is not counted.
 """

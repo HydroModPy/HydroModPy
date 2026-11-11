@@ -7,7 +7,11 @@ it and a deleted `.hmp/` costs nothing. `storage/` holds the layout contract and
 `record/` the seal of a run and its value digests, `catalog/` the index and its reader, `run/`
 the `Run` view, and `export/` and `exporters/` the files that leave a run. A seal weighs 24 to
 36 kB, of which 14 to 19 kB are value digests. The product store under `<project>/.hmp/products/`
-keeps one folder per sha256 key, and `[workspace] products_cap_mb` caps it at 5000 MB. The
+keeps one folder per sha256 key, and `[workspace] products_cap_mb` caps it at 5000 MB.
+A run has a level, read from its lineage: a kept calibration trial is a research run, keeps no figure
+and no export, and keeps neither its solver files nor its face flows, while every other run is a result
+run and keeps what `[simulation.results]` asks. `retention.py` weighs a project by family, and
+`Project.gc()` or `hmp catalog gc` removes what its policy allows and reports the bytes before and after. The
 package reads `core`, `schema`, `catchment`, `mesh`, `model` and itself, and never `data`,
 `solver`, `config` or `display`. `tests/unit/architecture/layer_matrix.yaml` holds the edges, and
 `tests/unit/results/test_run_layout_contract.py` the names of a run directory. The answers
@@ -39,7 +43,7 @@ column below is the first line of each module docstring.
 | `rel_dir.py` | One check for every `rel_dir` a result document carries. |
 | `retention.py` | What `hmp catalog gc` collects in a project, read from the tree alone. |
 | `run/` | Per-simulation and multi-simulation views over the results catalog. |
-| `session/` | The formats of a calibration session directory, `sessions/<case>/`. |
+| `session/` | The formats of a calibration session directory, `sessions/<case>/`: the trial journal in events (`proposed`, `finished`, `linked`) read as one line per trial, and the versioned trial series. |
 | `source_runs.py` | The earlier run a configuration reads, named by its `sim_id`. |
 | `spatial_index.py` | Point-in-cell lookup on unstructured meshes, cached per mesh geometry. |
 | `storage/` | The layout contract, the store of one run, the seal and the attempt protocol. |

@@ -16,6 +16,8 @@ from hydromodpy.results.storage.run_profile import (
     REUSED_KINDS,
     Profile,
     ProfileLine,
+    collect_line,
+    collected_profile,
     profile_path,
     read_profile,
     write_profile,
@@ -91,8 +93,13 @@ def test_a_line_is_made_from_a_measure() -> None:
     assert line.started_at == measure.started_at
 
 
-def test_the_reuse_vocabulary_is_no_prefix_store_sealed() -> None:
-    assert REUSED_KINDS == ("no", "prefix", "store", "sealed")
+def test_the_reuse_vocabulary_is_no_prefix_store_sealed_rerun() -> None:
+    assert REUSED_KINDS == ("no", "prefix", "store", "sealed", "rerun")
+
+
+def test_a_rerun_solve_line_round_trips(tmp_path: Path) -> None:
+    line = _line("flow", kind="solve", reused="rerun")
+    assert ProfileLine.from_dict(line.to_dict()) == line
 
 
 REFUSED_LINES = (
@@ -136,3 +143,15 @@ def test_a_rewrite_leaves_no_temporary_file(tmp_path: Path) -> None:
         write_profile(tmp_path, Profile(lines=tuple(_line(f"s{i}") for i in range(count))))
 
     assert sorted(path.name for path in tmp_path.iterdir()) == [RUN_PROFILE_FILENAME]
+
+
+def test_a_line_goes_to_the_collector_open_in_its_context() -> None:
+    assert collect_line(_line("outside")) is False
+    with collected_profile() as outer:
+        assert collect_line(_line("a")) is True
+        with collected_profile() as inner:
+            collect_line(_line("b"))
+        collect_line(_line("c"))
+    assert [line.name for line in outer] == ["a", "c"]
+    assert [line.name for line in inner] == ["b"]
+    assert collect_line(_line("after")) is False

@@ -61,6 +61,7 @@ def step_configure_results(
     plan: SimulationPlan,
     display: DisplayConfig,
     *,
+    level: str = "result",
     display_active: bool,
     export_requests: Sequence[ExportRequest],
     calibration: CalibrationConfig | None,
@@ -69,6 +70,13 @@ def step_configure_results(
 ) -> BudgetKeep:
     """Return the per-cell budget terms this run keeps.
 
+    ``level`` is read from the lineage of the run. A kept calibration trial is
+    ``research``: it keeps only the terms its criterion reads, those of
+    ``[calibration.outputs]`` and the seepage mask of a surface-excess solver,
+    whatever ``keep_per_cell_budget`` asks. It draws no figure and writes no
+    export, so no other consumer of its budget exists.
+
+    Every other run is ``result`` and follows the rules below.
     ``[simulation.results] keep_per_cell_budget = true`` (the default) keeps
     every term the extractor produces. ``false`` keeps the union of the terms
     the declared consumers read: the figures of ``[display].figures`` and the
@@ -81,7 +89,7 @@ def step_configure_results(
     ``hmp export <run> --regen figures`` can draw them later. ``lightweight`` is a calibration trial:
     it logs the decision at DEBUG, not INFO.
     """
-    if results.keep_per_cell_budget:
+    if level != "research" and results.keep_per_cell_budget:
         return BudgetKeep.everything()
     consumers: dict[str, list[str]] = {}
 
@@ -91,19 +99,20 @@ def step_configure_results(
             if consumer not in names:
                 names.append(consumer)
 
-    if display_active and display.enabled:
-        import hydromodpy.display.figure_registry as figure_registry
+    if level != "research":
+        if display_active and display.enabled:
+            import hydromodpy.display.figure_registry as figure_registry
 
-        for figure_name in display.figures:
-            spec = figure_registry.get(figure_name).spec
-            _add((*spec.required_fields, *spec.optional_fields), f"figure {figure_name!r}")
-            for overlay in _requested_overlays(display, figure_name):
-                _add(
-                    _OVERLAY_FIELDS.get(overlay, ()),
-                    f"overlay {overlay!r} of {figure_name!r}",
-                )
-    for request in export_requests:
-        _add(request.names, "[[export]]")
+            for figure_name in display.figures:
+                spec = figure_registry.get(figure_name).spec
+                _add((*spec.required_fields, *spec.optional_fields), f"figure {figure_name!r}")
+                for overlay in _requested_overlays(display, figure_name):
+                    _add(
+                        _OVERLAY_FIELDS.get(overlay, ()),
+                        f"overlay {overlay!r} of {figure_name!r}",
+                    )
+        for request in export_requests:
+            _add(request.names, "[[export]]")
     if calibration is not None:
         for name, output in (calibration.outputs or {}).items():
             support = str(getattr(output, "support", ""))
@@ -112,7 +121,7 @@ def step_configure_results(
                 str(getattr(output, "variable", "") or ""),
             )
             _add(fields, f"calibration output {name!r}")
-    if observation is not None:
+    if level != "research" and observation is not None:
         for point in observation.declarations():
             _add(
                 tuple(str(name) for name in point["variables"]),
@@ -122,13 +131,24 @@ def step_configure_results(
         _add((SURFACE_EXCESS_TERM,), "the seepage mask of a surface-excess solver")
 
     keep = BudgetKeep.of_terms(consumers)
+    described = (
+        "; ".join(f"{term} ({', '.join(consumers[term])})" for term in sorted(consumers))
+        or "no term"
+    )
+    if level == "research":
+        logger.debug(
+            "A kept calibration trial keeps only the per-cell budget terms its criterion "
+            "reads (policy %r): %s.",
+            keep.policy,
+            described,
+        )
+        return keep
     log = logger.debug if lightweight else logger.info
     log(
         "[simulation.results] keep_per_cell_budget = false: the run keeps the per-cell "
         "budget its consumers read (policy %r): %s.",
         keep.policy,
-        "; ".join(f"{term} ({', '.join(consumers[term])})" for term in sorted(consumers))
-        or "no term",
+        described,
     )
     return keep
 

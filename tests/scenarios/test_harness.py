@@ -24,7 +24,7 @@ from tests.scenarios.launcher import (
 
 pytestmark = pytest.mark.fast
 
-# Digests of the five islands, as the reference projects wrote them. A change of
+# Digests of the six islands, as the reference projects wrote them. A change of
 # a project text changes its digest, so this table is edited with the text.
 ISLAND_DIGESTS = {
     "gwt": "85a6c50d5a525986326544ec26114fdb5697b0fb3478919123479d58bf342e80",
@@ -32,6 +32,7 @@ ISLAND_DIGESTS = {
     "boussinesq": "b8b8ea245c619d8bd9caf3a7670abda9e1eebc80ed6cc2b707942b8dd9b173b3",
     "spinup": "670b1e536a888265bb674c5a0adb9d2e913698479722740c46168d46a299fb89",
     "calage": "adfabb52dccea078761acab5ea53b6120aaba88a235c976d8b6b699071f54fb5",
+    "calage_sy": "2b2e7d14cce593c58fdd2653cd998a8e3bc825463bbcec82480eb25887a4ff5c",
 }
 
 

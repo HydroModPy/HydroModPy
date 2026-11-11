@@ -33,7 +33,7 @@ class OptunaAdapter:
 
     name = "optuna"
     options = OptunaMethodConfig
-    traits = EngineTraits(draws_a_normal=False, takes_width=True)
+    traits = EngineTraits(libraries=("optuna",), draws_a_normal=False, takes_width=True)
 
     def __init__(
         self,

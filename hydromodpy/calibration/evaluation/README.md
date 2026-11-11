@@ -2,7 +2,8 @@
 
 An evaluator turns one parameter sample into one cost. It receives a
 `TrialRequest` (`trial_id`, `values`) and returns a `TrialOutcome` whose cost is
-always to be minimized, and a trial it cannot score comes back as `failed` or
+always to be minimized, with an optional `profile` (the timed steps and solves of the trial, empty by default, so
+an evaluator of a third party has nothing to change), and a trial it cannot score comes back as `failed` or
 `crashed` with the reason in `error`, never as an exception, because a search
 has to walk out of a region it cannot score. The port stops at the cost because
 the scoring path reads the live workflow context of a trial, which only the

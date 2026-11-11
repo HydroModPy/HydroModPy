@@ -26,6 +26,7 @@ from hydromodpy.core.units.time import (
     CF_TIME_UNITS,
     cf_time_axis_seconds,
 )
+from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
@@ -64,6 +65,121 @@ logger = get_logger(__name__)
 # The DIS arrays are written with six significant digits (E15.6), so the grid the
 # solver read is the stored one to this share of the larger grid side.
 _DIS_GRID_TOLERANCE = 1e-6
+
+# The three intercell flux records of a MODFLOW-NWT CBC file, in the direction
+# their face points: right along a row, front along a column, lower along a layer.
+_FACE_RECORDS = ("FLOW RIGHT FACE", "FLOW FRONT FACE", "FLOW LOWER FACE")
+
+
+def face_connections(
+    right: np.ndarray, front: np.ndarray, lower: np.ndarray, *, active: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Pair the cells each face record links and return the flux of the step.
+
+    ``right``, ``front`` and ``lower`` are one step of the three CBC records,
+    each shaped like ``active``. A value sits at the cell it leaves and is
+    positive towards the larger flat index ``k * nrow * ncol + i * ncol + j``,
+    so the flow from the right of ``(k, i, j)`` reaches ``(k, i, j+1)``, the
+    flow from its front reaches ``(k, i+1, j)`` and the flow below it reaches
+    ``(k+1, i, j)``. ``cells`` is ``(connection, 2)``, the smaller flat index
+    first and sorted by pair; ``flows`` holds the value of each pair with that
+    sign. The last column, row and layer carry no face, and a pair that touches
+    an inactive cell is left out.
+    """
+    shape = np.shape(active)
+    nlay, nrow, ncol = shape
+    is_active = np.asarray(active, dtype=bool).reshape(-1)
+    right_mask = np.ones(shape, dtype=bool)
+    right_mask[:, :, -1] = False
+    front_mask = np.ones(shape, dtype=bool)
+    front_mask[:, -1, :] = False
+    lower_mask = np.ones(shape, dtype=bool)
+    lower_mask[-1, :, :] = False
+    pairs = []
+    for record, mask, offset in (
+        (right, right_mask, 1),
+        (front, front_mask, ncol),
+        (lower, lower_mask, nrow * ncol),
+    ):
+        mask = mask.reshape(-1)
+        values = np.asarray(record, dtype="float64")
+        if values.shape != shape:
+            raise ExtractError(
+                f"A face record holds {values.shape} and the grid {shape}; the face "
+                "flows of this run cannot be read"
+            )
+        values = values.reshape(-1)
+        first = np.flatnonzero(mask)
+        second = first + offset
+        kept = is_active[first] & is_active[second]
+        pairs.append((first[kept], second[kept], values[first[kept]]))
+    first = np.concatenate([pair[0] for pair in pairs])
+    second = np.concatenate([pair[1] for pair in pairs])
+    flows = np.concatenate([pair[2] for pair in pairs])
+    order = np.lexsort((second, first))
+    cells = np.stack((first[order], second[order]), axis=1).astype(np.int32)
+    return cells, flows[order]
+
+
+def _step_face_records(
+    read: Any, records: dict[tuple[str, Any], int], key: Any, shape: tuple[int, int, int]
+) -> list[np.ndarray] | None:
+    """Return the three face records of one saved step, or ``None`` when it saved none.
+
+    MODFLOW-NWT writes no ``FLOW LOWER FACE`` on one layer, no ``FLOW FRONT
+    FACE`` on one row and no ``FLOW RIGHT FACE`` on one column: that axis has
+    no face, so its record is zero. A record missing on an axis longer than one
+    is a budget file this code cannot read, and it raises. ``read`` returns the
+    record at an index of the file, shaped like the grid.
+    """
+    nlay, nrow, ncol = shape
+    found = [records.get((name, key)) for name in _FACE_RECORDS]
+    if all(index is None for index in found):
+        return None
+    arrays: list[np.ndarray] = []
+    for name, index, length in zip(_FACE_RECORDS, found, (ncol, nrow, nlay), strict=True):
+        if index is not None:
+            arrays.append(np.asarray(read(index), dtype="float64"))
+        elif length == 1:
+            arrays.append(np.zeros(shape, dtype="float64"))
+        else:
+            raise ExtractError(
+                f"The budget file saved no {name!r} at step {key} of a grid {shape}; "
+                "the face flows of this run cannot be read"
+            )
+    return arrays
+
+
+def _active_cells(
+    solver_output_dir: Path, model_name: str, nlay: int, nrow: int, ncol: int
+) -> np.ndarray:
+    """Return the active mask of the grid, read from the IBOUND of BAS6.
+
+    IBOUND < 0 is a constant-head cell, which carries a face like any active
+    cell, so the mask is ``ibound != 0``.
+    """
+    import warnings
+
+    import flopy
+
+    nam_path = Path(solver_output_dir) / f"{model_name}.nam"
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = flopy.modflow.Modflow.load(
+                str(nam_path),
+                model_ws=str(solver_output_dir),
+                load_only=["DIS", "BAS6"],
+                check=False,
+                verbose=False,
+                exe_name="mfnwt",
+            )
+        ibound = np.asarray(model.bas6.ibound.array, dtype=np.int64).reshape(nlay, nrow, ncol)
+    except Exception as exc:
+        raise ExtractError(
+            f"Could not read the IBOUND of {nam_path}; the face flows of this run cannot be read"
+        ) from exc
+    return ibound != 0
 
 
 def verify_dis_grid(
@@ -304,6 +420,19 @@ class ModflowNwtOutputAdapter:
                 flux_scale_to_m3_s=flux_scale_to_m3_s,
                 catchment_mask=catchment_basin_the_build_left(solver_output_dir, n_cells=n_cells),
             )
+            if retention.face_flows:
+                self._extract_face_flows(
+                    sim_id,
+                    store,
+                    cbc_path,
+                    solver_output_dir,
+                    model_name,
+                    kstpkpers,
+                    nlay,
+                    nrow,
+                    ncol,
+                    flux_scale_to_m3_s=flux_scale_to_m3_s,
+                )
         else:
             record_budget_policy(store, sim_id, budget_terms, ())
 
@@ -373,7 +502,9 @@ class ModflowNwtOutputAdapter:
         to zero, so neither the scalar budget table nor a per-cell budget
         field means anything on them. Kept, they also write one full
         (n_steps, nlay, n_cells) array per direction that no field of the
-        registry names and that every walk of ``budget/`` picks up.
+        registry names and that every walk of ``budget/`` picks up. They feed
+        ``face_flow`` instead, one value per connection, in
+        ``_extract_face_flows``.
 
         The budget table holds every scalar record. A per-cell field is built
         and written only for a term ``budget_terms`` keeps. The ``budget/``
@@ -521,6 +652,71 @@ class ModflowNwtOutputAdapter:
             store.write_budgets(sim_id, budget_records)
         cbb.close()
         record_budget_policy(store, sim_id, budget_terms, written)
+
+    def _extract_face_flows(
+        self,
+        sim_id: str,
+        store: Any,
+        cbc_path: Path,
+        solver_output_dir: Path,
+        model_name: str,
+        kstpkpers: list,
+        nlay: int,
+        nrow: int,
+        ncol: int,
+        *,
+        flux_scale_to_m3_s: float = 1.0,
+    ) -> int:
+        """Write ``face_flow`` and ``connection_cells`` of a MODFLOW-NWT run.
+
+        Each stamp gets the mean of the three face records of the steps it
+        closes, weighted by their ``delt`` and multiplied by
+        ``flux_scale_to_m3_s`` so the stored values are m3/s. A stamp no saved
+        step reaches stays NaN, and a pair that touches an inactive cell is
+        left out. Returns the number of connections written.
+        """
+        cbb = open_cell_budget(cbc_path)
+        try:
+            active = _active_cells(solver_output_dir, model_name, nlay, nrow, ncol)
+            steps = budget_file_steps(cbb)
+            groups = group_steps_by_stamp(
+                steps.keys,
+                steps.lengths,
+                [(int(kstp), int(kper)) for kstp, kper in kstpkpers],
+            )
+            cells: np.ndarray | None = None
+            stack: np.ndarray | None = None
+            for group in groups:
+                arrays: list[np.ndarray] = []
+                weights: list[float] = []
+                for position, weight in zip(group.positions, group.weights, strict=True):
+                    flows = _step_face_records(
+                        lambda index: cbb.get_record(index, full3D=True),
+                        steps.record,
+                        steps.keys[position],
+                        (nlay, nrow, ncol),
+                    )
+                    if flows is None:
+                        continue
+                    pairs, values = face_connections(*flows, active=active)
+                    if cells is None:
+                        cells = pairs
+                        stack = np.full((len(groups), pairs.shape[0]), np.nan, dtype="float64")
+                    arrays.append(values * flux_scale_to_m3_s)
+                    weights.append(weight)
+                if arrays and stack is not None:
+                    stack[group.stamp] = weighted_period_mean(arrays, weights)
+        finally:
+            cbb.close()
+        if cells is None or stack is None:
+            return 0
+        store.write_field_stack(sim_id, FACE_FLOW, stack, n_timesteps=len(groups))
+        zarr = store.open_zarr(sim_id)
+        try:
+            zarr.write_static_field(CONNECTION_CELLS, cells)
+        finally:
+            zarr.close()
+        return int(cells.shape[0])
 
     def _extract_mass_balance(
         self,

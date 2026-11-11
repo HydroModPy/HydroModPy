@@ -151,7 +151,13 @@ def _holder_path(root: Path, key: str) -> Path:
     return root / f"{key}{_RUN_SCRATCH_HOLDER_SUFFIX}"
 
 
-def _scratch_pids(root: Path, key: str) -> set[int]:
+def run_scratch_stem(name: str) -> str | None:
+    """Return the run name of a run scratch folder ``<name>.p<pid>``, or ``None``."""
+    match = _RUN_SCRATCH_SUFFIX.search(name)
+    return None if match is None else name[: match.start()]
+
+
+def run_scratch_pids(root: Path, key: str) -> set[int]:
     """Return the process named by a run folder and the one that took it over, if any."""
     pids: set[int] = set()
     match = _RUN_SCRATCH_SUFFIX.search(key)
@@ -167,7 +173,7 @@ def _scratch_pids(root: Path, key: str) -> set[int]:
 
 
 def _held_by_another_process(root: Path, key: str) -> bool:
-    return any(pid != os.getpid() and process_is_alive(pid) for pid in _scratch_pids(root, key))
+    return any(pid != os.getpid() and process_is_alive(pid) for pid in run_scratch_pids(root, key))
 
 
 def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
@@ -187,7 +193,7 @@ def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
     for child in sorted(root.iterdir()):
         if not child.is_dir() or _RUN_SCRATCH_SUFFIX.search(child.name) is None:
             continue
-        if any(process_is_alive(pid) for pid in _scratch_pids(root, child.name)):
+        if any(process_is_alive(pid) for pid in run_scratch_pids(root, child.name)):
             continue
         shutil.rmtree(child, ignore_errors=True)
         if not child.exists():
@@ -286,6 +292,8 @@ __all__ = (
     "process_is_alive",
     "run_scratch",
     "run_scratch_of",
+    "run_scratch_pids",
+    "run_scratch_stem",
     "scratch_dir_for",
     "scratch_root_for",
     "sweep_dead_run_scratch",

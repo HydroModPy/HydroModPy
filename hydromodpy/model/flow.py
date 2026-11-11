@@ -19,6 +19,7 @@ to m3/s when they are set. The recharge binder also reads
 solver, in m/s; it stays ``None`` when no source gives one.
 """
 
+from collections.abc import Iterable
 from numbers import Real
 
 from hydromodpy.core.logging import get_logger
@@ -34,7 +35,7 @@ from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.native import NativeSeries
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.payloads import BoundaryCondition
-from hydromodpy.model.process_spatial import ProcessSpatial
+from hydromodpy.model.process_spatial import ProcessSpatial, _coerce_field_param
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
@@ -65,6 +66,35 @@ def _flux_payload_update(
 
 
 logger = get_logger(__name__)
+
+
+def flow_profiles(config: FlowConfig, ids: Iterable[str] | None = None) -> dict[str, object]:
+    """Return the property profiles of a flow configuration, by ``[flow.param]`` id.
+
+    The ids come in the order ``param_list`` declares. ``ids`` keeps only those
+    named, still in that order. A ``Flow`` takes its parameters from here, and a
+    calibration trial that moves only properties derives its ``Model`` from the
+    same function, so the two never build a profile two ways.
+    """
+    wanted = None if ids is None else set(ids)
+    profiles: dict[str, object] = {}
+    for param_id in config.param_list:
+        if wanted is not None and param_id not in wanted:
+            continue
+        param_cfg = config.param.get(param_id)
+        if param_cfg is None:
+            raise KeyError(f"Missing flow.param.{param_id} payload for declared parameter id")
+        resolved_payload = getattr(param_cfg, "resolved_payload", None)
+        payload = (
+            resolved_payload(param_id=param_id, section_label=f"flow.param.{param_id}")
+            if callable(resolved_payload)
+            else param_cfg
+        )
+        profiles[param_id] = _coerce_field_param(param_id, payload)
+    if wanted is not None and wanted - profiles.keys():
+        missing = ", ".join(sorted(wanted - profiles.keys()))
+        raise KeyError(f"flow.param_list declares no {missing}")
+    return profiles
 
 
 class Flow(ProcessSpatial):
@@ -128,11 +158,7 @@ class Flow(ProcessSpatial):
         self.flow_regime = config.flow_regime
         self.first_period_steady = config.first_period_steady
         # Parameters are resolved in the declared order from `flow.param_list`.
-        self.set_parameters_from_config(
-            self._runtime_parameter_payloads(config),
-            parameter_ids=config.param_list,
-            context_label="flow.param",
-        )
+        self.parameters = flow_profiles(config)
         # Flow has one typed IC structure (`FlowInitialConditions`).
         self.set_initial_conditions(config.ic)
         # Solver adapters process what is declared and not switched off.
@@ -145,21 +171,6 @@ class Flow(ProcessSpatial):
         # data-manager source, if the run carries one; ``None`` when no
         # source gives one.
         self.native_recharge = None
-
-    @staticmethod
-    def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:
-        """Resolve typed flow parameter sections for runtime ingestion."""
-        payloads: dict[str, object] = {}
-        for param_id, param_cfg in config.param.items():
-            resolved_payload = getattr(param_cfg, "resolved_payload", None)
-            if callable(resolved_payload):
-                payloads[param_id] = resolved_payload(
-                    param_id=param_id,
-                    section_label=f"flow.param.{param_id}",
-                )
-            else:
-                payloads[param_id] = param_cfg
-        return payloads
 
     def build_initial_conditions(
         self,

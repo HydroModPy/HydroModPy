@@ -108,6 +108,7 @@ hmp catalog gc --format	choices=['csv', 'json', 'table'] default='table'
 hmp catalog gc --keep-versions	default=5
 hmp catalog gc --max-age-days	
 hmp catalog gc --quiet,-q	nargs=0
+hmp catalog gc --trial-fields-days	default=90
 hmp catalog gc --verbose,-v	nargs=0
 hmp catalog gc --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp catalog gc --workspace,-w	

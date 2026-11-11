@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -15,6 +15,7 @@ from hydromodpy.results.session.descriptor import (
     SessionDescriptor,
 )
 from hydromodpy.results.session.journal import TrialCase, TrialLine, TrialParam
+from hydromodpy.results.storage.run_profile import ProfileLine
 
 CASE = "case"
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
@@ -62,9 +63,20 @@ def trial_line(
     speculative_unused: bool = False,
     started_at: datetime = NOW,
     ended_at: datetime | None = None,
+    event: str = "finished",
+    batch: int | None = None,
+    rule: str | None = None,
+    window: str | None = None,
+    profile: Sequence[ProfileLine] = (),
 ) -> TrialLine:
-    """Return one line of a journal of one case; a value in *params* may be a bare number."""
+    """Return one line of a journal of one case; a value in *params* may be a bare number.
+
+    ``event`` is the event the line records, ``rule`` and ``window`` how the case was scored.
+    """
     return TrialLine(
+        event=event,
+        batch=batch,
+        profile=list(profile),
         trial=trial,
         phase=phase,
         restart=restart,
@@ -84,6 +96,8 @@ def trial_line(
                 rel_dir=rel_dir,
                 error=error,
                 detail=dict(detail or {}),
+                rule=rule,
+                window=window,
             )
         },
         status=status,

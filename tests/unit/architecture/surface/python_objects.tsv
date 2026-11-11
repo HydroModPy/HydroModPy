@@ -59,6 +59,7 @@ Project.config	property	HydroModPyConfig
 Project.data	property	ProjectDataAccessor
 Project.data_loaded	property	set[str]
 Project.domain	property	Domain | None
+Project.gc	method	(self, *, dry_run: bool = False, keep_versions: int | None = 5, max_age_days: int | None = None, trial_fields_days: int | None = 90) -> GcReport
 Project.geographic	property	CatchmentDelineation | None
 Project.has_mesh	property	bool
 Project.launch	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None, environment: Environment | None = None) -> LaunchReport
@@ -152,6 +153,7 @@ Session.descriptor	property	SessionDescriptor
 Session.dir	property	Path
 Session.name	property	str
 Session.phases	property	list[PhaseDescriptor]
+Session.profile	method	(self) -> pd.DataFrame
 Session.sites	property	tuple[str, ...]
 Session.status	property	SessionStatus
 Session.trials	property	pd.DataFrame

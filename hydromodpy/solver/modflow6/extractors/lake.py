@@ -40,6 +40,7 @@ import pandas as pd
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
+from hydromodpy.solver.modflow6.extractors.face_flow import grid_connections
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     obs_rows_on_stamps,
     ordered_unique,
@@ -639,20 +640,6 @@ def read_applied_exchange(
     }
 
 
-def _grid_connections(solver_dir: Path) -> tuple[np.ndarray, np.ndarray, int] | None:
-    """Return ``(ia, ja, ncpl)`` of the GWF grid, 0-based, from its ``.grb``."""
-    grb_files = sorted(solver_dir.glob("*.disv.grb")) + sorted(solver_dir.glob("*.dis.grb"))
-    if not grb_files:
-        return None
-    from flopy.mf6.utils import MfGrdFile
-
-    grid = MfGrdFile(str(grb_files[0]), verbose=False)
-    ia = np.asarray(grid.ia, dtype=np.int64)
-    ja = np.asarray(grid.ja, dtype=np.int64)
-    ncpl = int(grid.ncpl) if grid.grid_type == "DISV" else int(grid.nrow) * int(grid.ncol)
-    return ia, ja, ncpl
-
-
 def _face_position(ia: np.ndarray, ja: np.ndarray, node: int, other: int) -> int | None:
     """Position of the ``node -> other`` connection in ``FLOW-JA-FACE``, or None."""
     if node + 1 >= ia.size:
@@ -681,7 +668,7 @@ def read_cutoff_wall_flow(
     if not walls:
         return {}
     budget_path = solver_dir / (spec.gwf_budget_bin or "")
-    grid = _grid_connections(solver_dir)
+    grid = grid_connections(solver_dir)
     if not spec.gwf_budget_bin or not budget_path.is_file() or grid is None:
         logger.warning(
             "The GWF budget or the binary grid of %s is missing; the cutoff wall flow "

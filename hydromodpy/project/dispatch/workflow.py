@@ -334,6 +334,8 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
     """
     from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.results.retention import level_at
+    from hydromodpy.results.storage.kept import at_least
     from hydromodpy.results.storage.sealing import sealed_solution_key
     from hydromodpy.workflow.replay_checks import api_inputs_intact
 
@@ -353,6 +355,12 @@ def completed_identical_run(project_root: Path, name: str, key: str | None) -> P
         if sealed_solution_key(run_dir) != key:
             continue
         if not api_inputs_intact(run_dir, Path(project_root)):
+            continue
+        try:
+            level = level_at(run_dir)
+        except (ValueError, OSError):
+            continue
+        if not at_least(level, "result"):
             continue
         return run_dir
     return None

@@ -309,7 +309,9 @@ OUTPUTS: tuple[Output, ...] = (
         "window_end",
         "metric_rule_version",
     ),
-    _object("catalog gc", "applied", "keep_versions", "max_age_days", "projects"),
+    _object(
+        "catalog gc", "applied", "keep_versions", "max_age_days", "trial_fields_days", "projects"
+    ),
     _object(
         "catalog reindex", "index", "full", "indexed", "sessions", "removed", "skipped", "rows"
     ),

@@ -75,8 +75,16 @@ line. So a key you did not write never changes your numbers. The day a default h
 key is a root key of the file. It is `"2.0"` when the file does not write it, and
 `config.resolved.toml` writes it with every other default. A file that names an edition this
 version does not know is refused, with the list of the editions it knows. Each default that
-moves is a `default` row of the register of changes. No default has moved yet, so `"2.0"` is
-the only edition.
+moves is a `default` row of the register of changes, and the page of each key in the
+parameter reference lists its default by edition.
+
+Edition `"2.1"` changes one default. `calibration.persist_trial_series` is `false` in edition
+2.0 and `true` in edition 2.1, so a calibration of that edition writes the series of every
+trial, one file per trial in `trial_series/`, about 2 kB for each trial of the example. `hmp init`
+writes `edition = "2.1"` in the project file it creates. A file without an edition stays in
+edition 2.0 and keeps writing no series. No number of a run moves. Because the identity of a
+calibration document counts the fields it writes, a calibration document of edition 2.0 that
+writes no `persist_trial_series` now has the identity of one that writes `false`.
 
 ### What makes two runs the same
 

@@ -76,7 +76,7 @@ calibration.parameters.search_space	Literal['identity', 'log', 'logit']	'identit
 calibration.parameters.target	str | None	None	experimental
 calibration.parameters.units	str | None	None	experimental
 calibration.persist_iteration_detail	Literal['none', 'summary', 'full']	'summary'	experimental
-calibration.persist_trial_series	bool	False	experimental
+calibration.persist_trial_series	bool	True	experimental
 calibration.phases	list[table] | None	None	experimental
 calibration.phases.batch_size	int | None	None	experimental
 calibration.phases.bounds	dict[str, list[float]] | None	None	experimental
@@ -1470,6 +1470,7 @@ simulation.process.kind	Literal['transport']	'transport'	stable
 simulation.process.solvers	list[str]	<required>	stable
 simulation.process.solvers	list[str]	[]	stable
 simulation.results	table	<table>	stable
+simulation.results.keep_face_flows	bool	False	stable
 simulation.results.keep_per_cell_budget	bool	True	stable
 simulation.results.keep_solver_files	bool	False	stable
 simulation.results.persistence	table	<table>	stable

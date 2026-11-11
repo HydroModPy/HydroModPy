@@ -118,6 +118,7 @@ def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> Simp
             calibration=None,
             observation=None,
         ),
+        level=None,
         budget_terms=None,
     )
     return ctx
@@ -195,6 +196,32 @@ def test_a_run_that_keeps_every_per_cell_budget_term_says_so(tmp_path) -> None:
 
     assert retention.budget == BudgetKeep.everything()
     assert ctx.budget_terms == BudgetKeep.everything(), "the decision is kept on the context"
+
+
+def test_the_retention_of_a_run_reads_the_level_of_the_context(tmp_path) -> None:
+    """A kept trial keeps neither the solver files nor the face flows, whatever it asks."""
+    ctx = _uncomputed_context(
+        tmp_path,
+        ResultsConfig(keep_solver_files=True, keep_face_flows=True),
+        display=None,
+    )
+    ctx.level = "research"
+    ctx.budget_terms = BudgetKeep.of_terms(("drain",))
+
+    retention = retention_of(ctx, ctx.execution.simulation_plan)
+
+    assert retention.level == "research"
+    assert retention.solver_files is False
+    assert retention.face_flows is False
+    assert retention.budget == BudgetKeep.of_terms(("drain",))
+
+
+def test_the_retention_of_a_run_defaults_to_the_result_level(tmp_path) -> None:
+    ctx = _uncomputed_context(tmp_path, ResultsConfig(), display=None)
+
+    retention = retention_of(ctx, ctx.execution.simulation_plan)
+
+    assert retention.level == "result"
 
 
 def test_a_run_that_keeps_no_catalog_extracts_nothing(monkeypatch, tmp_path) -> None:

@@ -19,6 +19,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
+from hydromodpy.results.storage.kept import renders
 from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
@@ -175,6 +176,10 @@ class ExportStep:
     seal comes next (``SealStep``), and the metadata views after it
     (:func:`step_after_seal`): a view renders the seal.
 
+    A run at the ``research`` level writes no export: the ``[[export]]``
+    blocks are rendered only where the run draws. The scratch cleanup still
+    runs.
+
     Everything the store does happens inside one scope this step opens and
     closes; the scratch is cleaned after it, when no handle is left to pin a
     file.
@@ -211,11 +216,13 @@ class ExportStep:
             from hydromodpy.workflow.steps.run_outputs import cleanup_solver_outputs
 
             retention = retention_of(ctx, plan)
+            exported: list[Path] = []
             with run_store(ctx) as store:
                 # The data requests read the fields of the run, not its seal.
-                with measured("export", "data") as measure:
-                    exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
-                record_measure(ctx.run_dir, measure, attempt=ctx.attempt)
+                if renders(getattr(ctx, "level", None) or "result"):
+                    with measured("export", "data") as measure:
+                        exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
+                    record_measure(ctx.run_dir, measure, attempt=ctx.attempt)
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
@@ -368,9 +375,12 @@ def _seal_replay(store: RunStore, cfg: Any, replay_of: Path, *, strict: bool) ->
     deviation raises there and the attempt keeps its fields and tables with no
     seal. The producer entries that differ and the drift of the configuration and
     of the build enter the lineage, with the source id, its directory name and the
-    kind of the source. The seal itself is the ordinary one.
+    kind of the source. The level of the source, read from its directory, lets
+    a replay add keys a source below ``result`` never kept without classing
+    them as deviations. The seal itself is the ordinary one.
     """
     from hydromodpy.results.record.manifest import read_seal
+    from hydromodpy.results.retention import level_at
     from hydromodpy.results.storage.sealing import build_provenance
     from hydromodpy.workflow.replay_checks import (
         producer_differences,
@@ -394,7 +404,13 @@ def _seal_replay(store: RunStore, cfg: Any, replay_of: Path, *, strict: bool) ->
             "drift": drift,
         }
     )
-    return seal_completed(store, replay_of=replay_of, strict=strict, producer=producer)
+    return seal_completed(
+        store,
+        replay_of=replay_of,
+        strict=strict,
+        producer=producer,
+        source_level=level_at(replay_of),
+    )
 
 
 __all__ = ["ExportStep", "SealStep"]

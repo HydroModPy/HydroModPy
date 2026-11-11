@@ -19,6 +19,11 @@ installer and imports nothing beyond the calibration package. A script that
 calibrates at ``parallel > 1`` needs the usual
 ``if __name__ == "__main__":`` guard, because ``spawn`` imports it again, and a
 pool built in a worker is refused.
+
+When the trials derive their ``Model``, each worker keeps its own lanes, one at
+a time since it answers one trial at a time, so its trials rerun the last trial
+it solved. The lanes are never sent over a pipe: the state the parent serializes
+carries none, and the profile of each trial comes back in its ``TrialOutcome``.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
+from hydromodpy.calibration.runners.lanes import TrialParents
 from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.trial import trial_pipeline_initializer
 from hydromodpy.core.exceptions import CalibrationError
@@ -100,8 +106,13 @@ def _serve(conn: Connection) -> None:
         # Keeps every solve of this worker until the parent, which alone sees the
         # costs of all the workers, has said which ones the session keeps.
         retention = TrialSolveRetention(None) if keeps_solves else None
-        if keeps_solves and "trial_ctx" in options and options["trial_ctx"] is not None:
-            options["trial_ctx"].kept_solves = retention
+        trial_ctx = options.get("trial_ctx")
+        if keeps_solves and trial_ctx is not None:
+            trial_ctx.kept_solves = retention
+        # One lane of its own, since this worker answers one trial at a time. Its
+        # key carries the process id, so two workers never share a lane folder.
+        if trial_ctx is not None and trial_ctx.model_from_profiles:
+            trial_ctx.parents = TrialParents.of(trial_ctx, width=1, owner=f"{os.getpid()}-")
         # A class registered at run time in the parent is not known to a new process.
         if evaluator_class.evaluator_id not in evaluation_registry.evaluators.names():
             evaluation_registry.evaluators.register(evaluator_class)
@@ -163,7 +174,7 @@ class TrialWorkerPool:
         self._limit_s = _wall_clock_limit(self._trial_ctx)
         readable = dict(options)
         if self._trial_ctx is not None:
-            readable["trial_ctx"] = replace(self._trial_ctx, kept_solves=None)
+            readable["trial_ctx"] = replace(self._trial_ctx, kept_solves=None, parents=None)
         keeps_solves = self._retention is not None
         initializer = trial_pipeline_initializer()
         try:

@@ -218,6 +218,7 @@ class ScipyDE(_ScipyAdapterBase):
     name = "scipy_de"
     options = ScipyDEMethodConfig
     traits = EngineTraits(
+        libraries=("numpy", "scipy"),
         takes_max_trials=True,
         takes_width=True,
         fixed_plan=True,
@@ -290,6 +291,7 @@ class ScipyNelderMead:
     # scipy's xatol is an absolute width in the variable the simplex walks, which
     # is the transformed one here.
     traits = EngineTraits(
+        libraries=("numpy", "scipy"),
         reach=lambda options, dim: 4,
         accepts_a_start_point=True,
         precision_option="xatol",

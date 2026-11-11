@@ -23,7 +23,7 @@ import copy
 import difflib
 import re
 import tomllib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
@@ -602,11 +602,19 @@ def refuse_prerelease_forms(layers: Sequence[Layer], *, register: Register = REG
         raise ConfigValidationError("\n".join(refusals), details=details, source=file)
 
 
-def apply_edition(doc: Any, *, edition: str, register: Register = REGISTER) -> list[str]:
+def apply_edition(
+    doc: Any,
+    *,
+    edition: str,
+    register: Register = REGISTER,
+    optional_sections: Collection[str] = (),
+) -> list[str]:
     """Write ``old`` of each ``[[default]]`` of a later edition than *edition* *doc* leaves out.
 
     A file keeps the defaults of the edition it writes. Return the keys written. An
     edition this version does not serve is refused, with the editions it serves.
+    A root section named in *optional_sections* is never created: a document that does
+    not write it keeps it absent, so a simulation stays without ``[calibration]``.
     """
     try:
         check_registered_name(edition, editions(register), key="edition")
@@ -616,6 +624,9 @@ def apply_edition(doc: Any, *, edition: str, register: Register = REGISTER) -> l
     written: list[str] = []
     for row in register.defaults:
         if Version(f"{row.edition}.0") <= Version(f"{edition}.0"):
+            continue
+        root = row.key.split(".", 1)[0]
+        if root in optional_sections and not isinstance(doc.get(root), Mapping):
             continue
         if not _wild(row.key):
             if _value_at(doc, row.key) is None:
@@ -692,8 +703,21 @@ def _labels_of(doc: Any, register: Register) -> set[str]:
         return set()
 
 
+def optional_root_sections() -> frozenset[str]:
+    """Return the root sections of ``HydroModPyConfig`` that are ``None`` when a document omits them."""
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+
+    return frozenset(
+        name for name, field in HydroModPyConfig.model_fields.items() if field.default is None
+    )
+
+
 def migrate_merged_doc(
-    doc: Any, layers: Sequence[Layer] = (), *, register: Register = REGISTER
+    doc: Any,
+    layers: Sequence[Layer] = (),
+    *,
+    register: Register = REGISTER,
+    optional_sections: Collection[str] | None = None,
 ) -> list[str]:
     """Run the rows on the merged document, in place, then fill in the defaults of its edition.
 
@@ -719,7 +743,14 @@ def migrate_merged_doc(
                 leaf,
             )
             _tell(holder, [change])
-    apply_edition(doc, edition=edition_of(doc), register=register)
+    apply_edition(
+        doc,
+        edition=edition_of(doc),
+        register=register,
+        optional_sections=optional_root_sections()
+        if optional_sections is None
+        else optional_sections,
+    )
     return changes
 
 
@@ -739,7 +770,12 @@ def migrate_config_doc(doc: Any, *, register: Register = REGISTER) -> list[str]:
     return _rows(doc, sealed=False, register=register)
 
 
-def migrate_sealed_config_doc(doc: Any, *, register: Register = REGISTER) -> list[str]:
+def migrate_sealed_config_doc(
+    doc: Any,
+    *,
+    register: Register = REGISTER,
+    optional_sections: Collection[str] | None = None,
+) -> list[str]:
     """Read a sealed run config under today's names, in silence, every row past its delay too.
 
     ``[workspace] project_root`` is dropped: a snapshot names its project there and the
@@ -755,7 +791,14 @@ def migrate_sealed_config_doc(doc: Any, *, register: Register = REGISTER) -> lis
         sentence = prerelease_refusal(_SEALED_SOURCE, keys)
         raise ConfigValidationError(sentence, details=_prerelease_details(keys, sentence))
     changes = _rows(doc, sealed=True, register=register)
-    apply_edition(doc, edition=edition_of(doc), register=register)
+    apply_edition(
+        doc,
+        edition=edition_of(doc),
+        register=register,
+        optional_sections=optional_root_sections()
+        if optional_sections is None
+        else optional_sections,
+    )
     return changes
 
 
@@ -1001,6 +1044,7 @@ __all__ = [
     "MovedPath",
     "PrereleaseForm",
     "apply_edition",
+    "optional_root_sections",
     "document_path",
     "edition_of",
     "fix_config_chain",

@@ -9,8 +9,11 @@ The seal is written in one order: the CRS in WKT2, the attributes of `fields.zar
 the run, then `README.md`. A run that reads a product of the store copies the mesh under `mesh/`
 when its engine caches one, and `final_state/` holds the last head and stages in float64, which
 a restart and the next window read before the last step of `fields.zarr`. `profile.json` sits
-outside the seal and the identity, because it describes one machine. The table below gives the
-module of each part, and its answers column is the first line of the module docstring.
+outside the seal and the identity, because it describes one machine. `kept.py` gives the level
+of a run and what that level keeps: a kept calibration trial is a research run, keeps no figure
+and no export, and leaves `purged.json` when `gc` removes fields older than its policy, a file
+outside the seal like the outcome. The table below gives the module of each part, and its
+answers column is the first line of the module docstring.
 
 | module | answers |
 |---|---|
@@ -23,7 +26,7 @@ module of each part, and its answers column is the first line of the module docs
 | `final_state.py` | The last state of a run, in double precision, for the run that starts from it. |
 | `geo_metadata.py` | Geographic facts a run states about itself, and how they are typed. |
 | `json_io.py` | Atomic JSON documents of a run, a session, a plan or a publication. |
-| `kept.py` | What a run keeps of its solver outputs, handed to the extractor of each run. |
+| `kept.py` | What a run keeps of its solver outputs, and the witness of a purged trial. |
 | `licence.py` | The licence a run may state, derived from the inputs it read. |
 | `parquet_io.py` | Atomic pyarrow Parquet writer with canonical V1 options forced. |
 | `parquet_schemas.py` | PyArrow schemas for every per-simulation Parquet file. |

@@ -45,6 +45,7 @@ from hydromodpy.calibration.runners.document import (
     site_name,
 )
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
+from hydromodpy.calibration.runners.lanes import release_trial_lanes
 from hydromodpy.calibration.runners.promotion import (
     PromotionOutcome,
     promote_best_after_abort,
@@ -241,6 +242,8 @@ def promote_and_close(
     a budget-only search or closed a root outside its bounds, written in
     ``session.json``. ``widths`` is the width of each calibrated value.
     """
+    # The search is over: its lanes go before the promotion, which never reruns.
+    release_trial_lanes(trial_ctx)
     stop_state, stopping_rule = search_stop(report, persistence, phase)
     promotion = PromotionOutcome()
     if trial_ctx is not None and cfg.save_runs != "none" and status != "failed":
@@ -422,8 +425,8 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     A signal (SIGTERM, SIGINT) or a stop asked through the flag of the session
     writes ``aborted`` and the pointer first (:func:`abort_session`), then
     promotes the pointed trial from its kept solve (:func:`promote_best_after_abort`). An error of the search writes
-    ``failed`` with its message. The kept solves and the scratch of the phase
-    are released last, after the promotion that reads them.
+    ``failed`` with its message. The lanes of the trials, the kept solves and the
+    scratch of the phase are released last, after the promotion that reads them.
     """
     try:
         # A calibration is hours long, so what ends it is often not a keyboard: a
@@ -445,6 +448,7 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     finally:
         if scope.persistence is not None:
             scope.persistence.stop_pulse()
+        release_trial_lanes(scope.trial_ctx)
         release_trial_solves(scope.trial_ctx)
         release_session_scratch(scope.trial_ctx)
 

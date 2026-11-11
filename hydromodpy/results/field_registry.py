@@ -28,6 +28,8 @@ SHAPE_TIME = "time"
 SHAPE_LAYER_FACE = "layer_face"
 SHAPE_FACE = "face"
 SHAPE_PARTICLES = "particles"
+SHAPE_TIME_CONNECTION = "time_connection"
+SHAPE_CONNECTION_PAIR = "connection_pair"
 
 # Axis vocabulary of a run store. Zarr v3 records the axis names of an array in
 # ``dimension_names``; without them no reader can tell which axis of a
@@ -49,6 +51,7 @@ AXIS_LAKE = "lake"
 AXIS_STAGE_LEVEL = "stage_level"
 AXIS_EDGE = "edge"
 AXIS_TWO = "two"
+AXIS_CONNECTION = "connection"
 
 _SHAPE_TO_DIMENSIONS: dict[str, tuple[str, ...]] = {
     SHAPE_TIME_LAYER_FACE: (AXIS_TIME, AXIS_LAYER, AXIS_FACE),
@@ -56,6 +59,8 @@ _SHAPE_TO_DIMENSIONS: dict[str, tuple[str, ...]] = {
     SHAPE_LAYER_FACE: (AXIS_LAYER, AXIS_FACE),
     SHAPE_FACE: (AXIS_FACE,),
     SHAPE_PARTICLES: (AXIS_PARTICLE, AXIS_TRACK_STEP),
+    SHAPE_TIME_CONNECTION: (AXIS_TIME, AXIS_CONNECTION),
+    SHAPE_CONNECTION_PAIR: (AXIS_CONNECTION, AXIS_TWO),
 }
 
 _SHAPE_TO_COORDINATES = {
@@ -69,6 +74,12 @@ UGRID_MESH_VARIABLE = "mesh/topology"
 BUDGET_GROUP = "budget/"
 NOT_AQUIFER_TERMS = frozenset({"lake_to_mover", "stream_to_mover", "mover"})
 """Budget records of the surface side of the water mover, which keep the sign MODFLOW 6 gives them."""
+
+FACE_FLOW = "face_flow"
+"""Registry name of the flow between two connected cells, the product a transport reads."""
+
+CONNECTION_CELLS = "connection_cells"
+"""Registry name of the two cells of each connection, the smaller flat index first."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +208,35 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: point area: mean",
         derived_by="solver",
         valid_min=0.0,
+    ),
+    # -- Connection geometry and flow (written by solver adapters) ------------
+    FACE_FLOW: FieldDescriptor(
+        public_name=FACE_FLOW,
+        zarr_path=FACE_FLOW,
+        standard_name="",
+        csdms_standard_name="subsurface_water__volume_flux",
+        long_name=(
+            "Volume flow from the first to the second cell of each connection, "
+            "mean of the steps of each saved period"
+        ),
+        units="m3 s-1",
+        shape=SHAPE_TIME_CONNECTION,
+        cell_methods="time: mean",
+        derived_by="solver",
+    ),
+    CONNECTION_CELLS: FieldDescriptor(
+        public_name=CONNECTION_CELLS,
+        zarr_path=CONNECTION_CELLS,
+        standard_name="",
+        csdms_standard_name="model_grid_cell__index",
+        long_name=(
+            "Flat index (layer x faces + face) of the two cells of each connection, "
+            "the smaller first"
+        ),
+        units="1",
+        shape=SHAPE_CONNECTION_PAIR,
+        cell_methods="area: point",
+        derived_by="solver",
     ),
     # -- Derived watertable variables (core postprocess) ---------------------
     "watertable_elevation": FieldDescriptor(
@@ -971,8 +1011,13 @@ __all__ = [
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
+    "SHAPE_TIME_CONNECTION",
+    "SHAPE_CONNECTION_PAIR",
     "BUDGET_SIGN_RULE",
+    "CONNECTION_CELLS",
+    "FACE_FLOW",
     "UGRID_MESH_VARIABLE",
+    "AXIS_CONNECTION",
     "AXIS_EDGE",
     "AXIS_ENDPOINT",
     "AXIS_FACE",

@@ -148,7 +148,9 @@ def _extracted(solver_run: SolverRun, project: Path) -> dict[str, np.ndarray]:
     store = open_run_store(project, "run", n_cells=int(solver.ncpl), n_layers=int(solver.nlay))
     try:
         Modflow6FlowAdapter().extract(
-            solver_run, store, Retention(budget=BudgetKeep.everything(), solver_files=True)
+            solver_run,
+            store,
+            Retention(level="result", budget=BudgetKeep.everything(), solver_files=True),
         )
     finally:
         store.close()

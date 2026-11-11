@@ -1046,7 +1046,7 @@ class _FakeTrialContext:
     override_paths: dict = {}
     ctx = SimpleNamespace(setup=None)
 
-    def fork(self, _values, slot_request=None):
+    def fork(self, _values, slot_request=None, derive_model=False):
         return SimpleNamespace(
             ctx=SimpleNamespace(cfg=None, execution=None),
             cfg_path=None,

@@ -208,7 +208,9 @@ class _Store:
 def _quiet(monkeypatch, calls: list, ctx) -> None:
     """Replace what the step writes on disk by records of the order of the calls."""
     store = _Store(calls)
-    monkeypatch.setattr(step_module, "_resolve_plan_and_results", lambda c, store=None: None)
+    monkeypatch.setattr(
+        step_module, "_resolve_plan_and_results", lambda c, lineage=None, store=None: None
+    )
     monkeypatch.setattr(step_module, "bind_run_directory", lambda *a, **k: None)
     monkeypatch.setattr(step_module, "initial_facts", lambda *a, **k: SimpleNamespace())
     monkeypatch.setattr(step_module.RunStore, "open", lambda *a, **k: store)

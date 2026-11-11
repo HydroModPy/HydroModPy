@@ -625,3 +625,69 @@ since = "2.1.0"
 effect = "layout"
 quantities = []
 text = "A run delivers the files of an [[export]] block that names deliver_to once it is sealed, to a local or UNC folder or an ftp, ftps or sftp address. Each line of published.jsonl now says kind = \"copy\" or \"delivery\" (hydromodpy.published.v2); a line written by HydroModPy 2.0 is refused with a sentence that names this form. No number of a run changes."
+
+
+# A calibration journal of events, the version of its trial series and the
+# optimizer its session names.
+
+[[recipe]]
+id = "trial_journal_in_events"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The trial journal writes one line per event, schema hydromodpy.trial.v3: proposed when the optimizer asks, finished with the cost, its components, their rule and window and where the time went, linked when the trial becomes a run. A reader keeps the highest event of each trial. A 2.0 line reads as a finished trial."
+
+[[recipe]]
+id = "session_names_its_optimizer"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "session.json names, for each phase, the options of its search method resolved to their defaults, the seed the session received, the seed each restart was given and the versions of the libraries the method runs on. The method itself stays in method. A 2.0 session.json has none and still reads."
+
+[[recipe]]
+id = "trial_series_carry_their_version"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "Each file of trial_series/ written by a calibration carries hmp.schema_version = \"hydromodpy.trial_series.v1\" and hydromodpy_version in its footer. The columns and the values are the same. A file without the key, written by 2.0.0, is read as v1, and a version this code does not know is refused by name."
+
+[[recipe]]
+id = "run_level_decides_what_is_kept"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A run keeps what its level asks. A kept calibration trial is research: it keeps its head, its final state and the per-cell budget terms its criterion reads, and draws no figure and writes no export. Every other run is a result and keeps the whole per-cell budget unless keep_per_cell_budget = false, so the best of an earlier phase keeps what the project asks instead of the terms its figures read. No value changes."
+
+[[recipe]]
+id = "face_flows_on_demand"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "[simulation.results] keep_face_flows = true keeps the flow between each pair of connected cells, once per connection, in face_flow beside connection_cells, under MODFLOW 6 and MODFLOW-NWT; a flow that does not write it is refused. About 350 MB in float32 on the daily six-year run of example 04, where FLOW-JA-FACE weighs 1.87 GB in float64."
+
+[[recipe]]
+id = "identical_run_needs_its_level"
+since = "2.1.0"
+effect = "identity"
+quantities = []
+text = "A run is skipped only for an identical completed run of its level or above. A kept calibration trial moved under runs/ no longer stands for a run that was asked, which then runs."
+
+[[recipe]]
+id = "gc_measures_and_purges"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "hmp catalog gc measures the project, removes the scratch of dead attempts and what the earlier attempts of sealed runs hold beside their outcome.json, removes the product keys over the store cap that its dry run lists, and removes fields.zarr of the kept trials that reached the project more than 90 days ago, all but the best of a session that names one, keeping their seal, mesh, tables, final state and series; purged.json says what left and when."
+
+
+# Edition 2.1 writes the series of every trial by default.
+
+[[default]]
+id = "trial_series_by_default"
+since = "2.1.0"
+edition = "2.1"
+key = "calibration.persist_trial_series"
+old = false
+new = true
+quantities = []
+text = "Under edition 2.1, a calibration writes the scored series of every trial to sessions/<case>/trial_series/ by default, about 2 kB per trial on the island case. A document without edition is of edition 2.0 and keeps false, and a calibration document of that edition receives false as a written value, so the value enters its identity. A document with no [calibration] section, a simulation for one, keeps none."

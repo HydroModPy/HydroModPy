@@ -43,7 +43,6 @@ never read from the map, and the map is drawn from that run. Tolerances:
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -68,6 +67,7 @@ from hydromodpy.results.derive.stream.extent import (
     yearly_flow_counts,
 )
 from hydromodpy.results.derive.stream.heads import trace_from_heads
+from hydromodpy.results.session.journal import read_trials
 from tests._helpers.tolerances import tol
 from tests.validation.calibration.helpers import (
     MODFLOW6_RUNTIME_TOML,
@@ -629,13 +629,13 @@ def test_a_search_walks_out_of_the_infeasible_trial_it_crosses(grid_truth: Truth
         bounds=(1.0e-5, 30.0),
         settings="reject_water_budget_above = 100.0",
     )
-    journal = (Path(report.session_dir) / "trials.jsonl").read_text(encoding="utf-8")
-    trials = [json.loads(line) for line in journal.splitlines() if line.strip()]
-    failed = [trial for trial in trials if trial["status"] != "completed"]
+    # read_trials folds the events of a trial: a proposed line is not a failure.
+    trials = read_trials(Path(report.session_dir))
+    failed = [trial for trial in trials if trial.status != "completed"]
     assert len(failed) == 1, failed
-    assert failed[0]["params"]["K"]["value"] > 100.0, failed
-    case = next(iter(failed[0]["cases"].values()))
-    assert case["error"].startswith("infeasible"), case
+    assert failed[0].params["K"].value > 100.0, failed
+    case = next(iter(failed[0].cases.values()))
+    assert case.error is not None and case.error.startswith("infeasible"), case
     k_hat = float(report.best_parameters["K"])
     assert abs(k_hat / K_TRUE_M_S - 1.0) <= K_RECOVERY_REL, k_hat
 

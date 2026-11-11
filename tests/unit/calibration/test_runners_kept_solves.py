@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import pickle
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
@@ -156,6 +156,7 @@ def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path)
 
     kept, _ = retention.take(7)
     assert (kept.trial_id, kept.cost, kept.folders) == (7, 1.0, solves[0].folders)
+    # The solver object stays with the kept solve.
     assert kept.results == solves[0].results
     assert solves[0].folders[0].is_dir() and not solves[1].folders[0].exists()
 
@@ -610,3 +611,50 @@ def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
     assert "trial 1" in replayed[0] and "cheapest" in replayed[0]
     retention.release()
     assert second.is_dir(), "a promoted solve is left to its run"
+
+
+def test_a_kept_solve_keeps_its_solver_object(tmp_path: Path) -> None:
+    # The promotion reads the solver object for the series at the stations and
+    # the grid of the run, and the files of the kept folder for the rest.
+    retention = TrialSolveRetention(None, keep_everything=False)
+    folder = _folder(tmp_path, "trial_1")
+    run = _solved(folder, SimpleNamespace(name="trial_1"))
+
+    assert retention.offer(1, 0.5, (folder,), {"flow_main": run})
+
+    kept, _ = retention.take(1)
+    assert kept.results["flow_main"] is run
+
+
+class _RunnerThatRemembers:
+    """Stands in for ``SimulationRunner`` and remembers the previous runs it was given."""
+
+    given: ClassVar[list[Any]] = []
+
+    def execute(self, plan, state, *, callbacks=None, previous=None):
+        del state, callbacks
+        self.given.append(previous)
+        return tuple((run, _solved(Path("scratch") / str(run.id))) for run in plan.runs)
+
+
+LAUNCHES: tuple[tuple[str, dict | None, dict | None], ...] = (
+    ("no lane", None, None),
+    ("an empty lane", {}, None),
+    ("a lane with a parent", {"flow_main": "parent"}, {"flow_main": "parent"}),
+)
+
+
+@pytest.mark.parametrize(("case", "previous", "given"), LAUNCHES, ids=[c for c, *_ in LAUNCHES])
+def test_the_recording_launcher_hands_the_parent_of_its_lane_to_the_runner(
+    monkeypatch, case: str, previous: dict | None, given: dict | None
+) -> None:
+    del case
+    monkeypatch.setattr("hydromodpy.solver.base.runner.SimulationRunner", _RunnerThatRemembers)
+    _RunnerThatRemembers.given.clear()
+    plan = SimpleNamespace(runs=(SimpleNamespace(id="flow_main"),))
+
+    launcher = RecordingLauncher(previous=previous)
+    launcher.execute(plan, SimpleNamespace())
+
+    assert _RunnerThatRemembers.given == [given]
+    assert set(launcher.results) == {"flow_main"}

@@ -24,7 +24,7 @@ In the order a run meets them.
 | `window.py` | which steps a run executes: `from_step`, `until_step` and the model phase (`step_window`) |
 | `state.py` | `PipelineState`, the immutable object that flows from step to step (`advance`) |
 | `step.py` | the `Step` protocol: `name`, `run`, and the class variables `reads`, `writes`, `config_sections` |
-| `runner.py` | `Pipeline(steps, workspace=..., run_dir=...)`: runs the steps, writes the journal, names the current step to the heartbeat, resumes, checks the resolved manifest, reads the stop flag before each cohort and writes one line of `profile.json` per step (`record_measure`) |
+| `runner.py` | `Pipeline(steps, workspace=..., run_dir=...)`: runs the steps, writes the journal, names the current step to the heartbeat, resumes, checks the resolved manifest, reads the stop flag before each cohort and writes one line of `profile.json` per step (`record_measure`), or into the collector of `results.storage.run_profile` when the pipeline has no run directory, which is how a calibration trial keeps its profile |
 | `dag.py` | the step graph built from `depends_on()` and its cohorts (Kahn sort) |
 | `parallel.py` | the executors that run one cohort |
 | `overview.py` | `DataOverviewLauncher`: the data overview ("identity card" of a watershed) without a solver run |

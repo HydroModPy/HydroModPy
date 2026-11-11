@@ -40,14 +40,15 @@ from hydromodpy.model.properties.property_table import OVERRIDE_PROPERTY_NAMES
 from hydromodpy.model.supports import SUPPORT_SOURCES, SUPPORTS
 from hydromodpy.results.field_registry import (
     BUDGET_GROUP,
+    FACE_FLOW,
     TIME_SERIES_REGISTRY,
     all_zarr_paths,
 )
 from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
+from hydromodpy.solver.base import adapter_protocol
 from hydromodpy.solver.base.adapter_protocol import (
     CATEGORIES,
     GEOMETRIES,
-    HANDOFF_PRODUCTS,
     OPTIONAL_MEMBERS,
     RERUN_MEMBERS,
     CellLocator,
@@ -162,14 +163,17 @@ def test_each_required_key_is_a_backend_the_registry_serves(backend: type) -> No
 
 def test_each_written_name_is_known_to_the_store(backend: type) -> None:
     assert isinstance(backend.writes, tuple) and backend.writes
-    unknown = sorted(
-        name for name in backend.writes if not (_known_name(name) or name in HANDOFF_PRODUCTS)
-    )
+    unknown = sorted(name for name in backend.writes if not _known_name(name))
     assert unknown == []
 
 
+def test_the_hand_off_tuple_is_gone_and_the_registry_names_the_product() -> None:
+    assert not hasattr(adapter_protocol, "HANDOFF_PRODUCTS")
+    assert _known_name(FACE_FLOW)
+
+
 def test_a_flow_reads_nothing_and_a_transport_reads_the_face_flows(backend: type) -> None:
-    expected = {"flow": (), "transport": HANDOFF_PRODUCTS}.get(backend.process_type)
+    expected = {"flow": (), "transport": (FACE_FLOW,)}.get(backend.process_type)
     if expected is not None:
         assert backend.reads == expected
 
@@ -180,19 +184,22 @@ def test_a_transport_declares_reads_and_never_observables(backend: type) -> None
         return
     assert backend.reads, "a transport with no read has nothing to follow"
     for name in backend.reads:
-        in_hand_off = name in HANDOFF_PRODUCTS
-        in_registry = _known_name(name)
-        assert in_hand_off ^ in_registry, name
+        assert _known_name(name), name
     for name in OPTIONAL_MEMBERS:
         assert not callable(getattr(backend, name, None)), name
 
 
-def test_a_flow_declares_writes_the_store_or_the_hand_off_names(backend: type) -> None:
-    """A name a flow writes is one the registry describes, a table, or a hand-off product."""
+def test_a_flow_declares_writes_the_store_names(backend: type) -> None:
+    """A name a flow writes is one the registry describes or a table the store holds."""
     if backend.process_type != "flow":
         return
     for name in backend.writes:
-        assert _known_name(name) or name in HANDOFF_PRODUCTS, name
+        assert _known_name(name), name
+
+
+@pytest.mark.parametrize("flow", ["flow_modflow6", "flow_modflow_nwt"])
+def test_the_two_flows_write_the_cells_of_each_connection(flow: str) -> None:
+    assert "connection_cells" in solvers.get(flow).writes
 
 
 def test_each_supported_trait_belongs_to_the_closed_set(backend: type) -> None:

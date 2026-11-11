@@ -25,17 +25,18 @@ produced it, under a name fixed by its class::
         report/index.html                rendered report
         logs/                            run log, heartbeat.json
         published.jsonl                  where this run was published, one line per copy
+        purged.json                      what gc removed from a kept trial, with the date
         attempts/<n>/                    outcome.json, logs/ and stop.json of an earlier attempt
         .hmp/                            scratch, locks, checkpoints, stop flag of the running attempt
     <project>/sessions/<name>/           one calibration session
         outcome.json                     issue of the session
         config.toml                      frozen resolved configuration of the case
         session.json                     identity, search space, best trial, status
-        trials.jsonl                     one line per evaluated trial, trial unique per case
+        trials.jsonl                     one line per trial event, trial unique per case
         methods.md                       the method, in words
         phases/<phase>/session.json      descriptor of one phase: status, frozen, best
         trials/<n>/                      kept trials, each in the form of a run
-        trial_series/trial-NNNNNN.parquet  opt-in: simulated/observed series of one trial
+        trial_series/trial-NNNNNN.parquet  simulated/observed series of one trial, one file per trial
         candidates/                      TOML overlays of materialized candidates
         README.md  figures/  report/  logs/
 
@@ -151,6 +152,13 @@ README_FILENAME = "README.md"
 RUN_PUBLISHED_FILENAME = "published.jsonl"
 """Where a run was published, one JSON line per copy. Absent until the first one."""
 
+RUN_PURGED_FILENAME = "purged.json"
+"""What ``gc`` removed from one kept trial, and when, ``hydromodpy.purged.v1``.
+
+It sits outside the seal, which is immutable, and exists only on a kept
+calibration trial.
+"""
+
 RUN_EXPORTS_DIRNAME = "exports"
 """Deliverables of one run, written by ``[[export]]`` requests."""
 
@@ -195,6 +203,7 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
         RUN_ANNOTATIONS_FILENAME,
         README_FILENAME,
         RUN_PUBLISHED_FILENAME,
+        RUN_PURGED_FILENAME,
         RUN_FIGURES_DIRNAME,
         RUN_EXPORTS_DIRNAME,
         RUN_REPORT_DIRNAME,
@@ -208,7 +217,7 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
 """Entries of a run directory the seal never inventories.
 
 Derived (figures, exports, report, README, generated views), mutable after
-the seal (outcome, annotations, published lines), diagnostic (logs, kept
+the seal (outcome, annotations, published lines, the purge witness), diagnostic (logs, kept
 solver folders, profile), history (attempts) or the request as it came (request). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
 is left out for a different reason: it is not a result.
 """
@@ -232,6 +241,15 @@ CERTIFIED_RUN_ENTRIES: frozenset[str] = frozenset(
 its own length before it is written. An entry found in the directory and named
 here by none stays inventoried under the role ``other``, with its digest, so no
 file becomes invisible.
+"""
+
+PURGEABLE_TRIAL_ENTRIES: frozenset[str] = frozenset({FIELDS_STORE_NAME})
+"""What ``gc`` may remove from a kept trial, and the only names ``purged.json`` holds.
+
+The seal certifies it. The purge witness beside it says what left, so a
+verification reads the trial as complete with what it still holds. ``mesh/``
+stays: a replay of an engine that does not rebuild its mesh bit for bit reads
+it, and it is a hard link to the product, so removing it frees nothing.
 """
 
 ALLOWED_RUN_ENTRIES: frozenset[str] = (
@@ -388,6 +406,7 @@ __all__ = [
     "PLAN_SITES_FILENAME",
     "PROJECT_STORAGE_LAYER_NAMES",
     "PUBLICATION_FILENAME",
+    "PURGEABLE_TRIAL_ENTRIES",
     "README_FILENAME",
     "REPORT_INDEX_FILENAME",
     "RESULT_STORAGE_LAYERS",
@@ -405,6 +424,7 @@ __all__ = [
     "RUN_PROFILE_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
+    "RUN_PURGED_FILENAME",
     "RUN_REPORT_DIRNAME",
     "RUN_REQUEST_FILENAME",
     "RUN_RESOLVED_CONFIG_FILENAME",

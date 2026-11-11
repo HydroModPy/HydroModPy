@@ -57,16 +57,18 @@ From the file to the trials
    * - ``run_trial_light``
      - Forks the context, writes the parameter values into a copy of the
        configuration, replays the remaining steps up to ``extract``, scores the
-       objective in memory, appends one line to ``trials.jsonl`` and one row to
-       the index.
+       objective in memory and hands the result to the session, which writes
+       the events of the trial in ``trials.jsonl``. When every calibrated path
+       is a property profile (``K`` or ``Sy``), the trials of a lane after the
+       first go through ``rerun`` and only solve again.
    * - ``promote_trial``
      - After the loop, replays the chosen trials through the whole pipeline
        with ``Project.simulate``, so they get fields, tables, figures and
        exports.
    * - Session journal
      - ``sessions/<session>/session.json`` is written before the first trial
-       and rewritten at the end; ``trials.jsonl`` grows one line per trial, so
-       an interrupted search keeps what it evaluated. ``hmp catalog reindex``
+       and rewritten at the end; ``trials.jsonl`` grows by events (``proposed``, ``finished``, ``linked``), so
+       an interrupted search keeps what it evaluated and what it had asked. ``hmp catalog reindex``
        rebuilds the index from these files.
 
 ``hmp.calibrate`` and ``Project.calibrate`` always return a ``CalibrationReport``, with or
@@ -167,10 +169,10 @@ memory and are dropped at the end of the trial. Only scalars reach disk:
    * - Written
      - Where
    * - Parameters, cost, per-block costs, diagnostics, ``params_hash``
-     - ``sessions/<session>/trials.jsonl``, one line per trial
+     - ``sessions/<session>/trials.jsonl``, one line per event, folded to one line per trial when read
    * - Session identity, cases, bounds, periods, best trial, root-search bracket
      - ``sessions/<session>/session.json``
-   * - Series of every trial, when ``persist_trial_series`` is set
+   * - Series of every trial, when ``persist_trial_series`` is set (the default of edition 2.1)
      - ``sessions/<session>/trial_series/trial-NNNNNN.parquet``
        (:toml:`calibration.persist_trial_series`)
    * - Fields, tables, figures of a promoted trial

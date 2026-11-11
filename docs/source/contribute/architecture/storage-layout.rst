@@ -215,7 +215,7 @@ seal certifies, one role each: ``config.toml``, ``config.resolved.toml``, ``inpu
 ``products.json``, ``provenance.json``, ``final_state/``, ``fields.zarr/``, every file of
 ``tables.parquet/`` and ``mesh/`` when the run built one. ``UNSEALED_RUN_ENTRIES`` names what it
 never inventories: ``outcome.json``, ``request.json``, ``annotations.json``, ``README.md``,
-``profile.json``, ``published.jsonl``, ``figures/``, ``exports/``, ``report/``, ``logs/``,
+``profile.json``, ``published.jsonl``, ``purged.json``, ``figures/``, ``exports/``, ``report/``, ``logs/``,
 ``attempts/``, ``solver/`` and the generated views. A name found in a run folder that is on
 neither list is inventoried under the role ``other``, with its sha256, so no file of a run is
 invisible to the reader of the seal and the seal judges nothing.
@@ -246,6 +246,7 @@ A run folder
    ├── report/             index.html
    ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per copy and per delivered file; absent until one is made
+   ├── purged.json         gc removed the field store of this kept trial; what left, and when; outside the seal
    ├── attempts/<n>/       outcome.json, logs/ and stop.json of an earlier attempt; absent at the first
    ├── solver/             the solver folder, kept only with keep_solver_files = true
    ├── ro-crate-metadata.json, stac-item.json, prov.jsonld: views rendered from the seal
@@ -267,6 +268,14 @@ redacted: it holds the document, the ``set`` changes and the options exactly as 
 neither the base of the relative paths nor the environment of the call. A run given as a TOML file
 or as a built configuration writes none, because its ``config.toml`` already says what it was
 given. The file is outside the seal, so ``manifest.json`` does not list it.
+
+``purged.json`` (schema ``hydromodpy.purged.v1``) is written by ``gc`` on a kept calibration trial
+whose ``fields.zarr/`` it removes, and on no other run. It names the entry that left and the date,
+and it sits outside the seal, which keeps certifying it: a verification reads the trial as complete
+with what it still holds. The witness is written before the removal, and a ``gc`` that finds it
+beside a field store still on the disk takes the removal up again. The purge takes ``fields.zarr/``
+and nothing else, so the seal, the mesh a replay reads, the tables, the final state and the trial
+series stay, and the best trial of the session is never purged. A reader of an absent field store names the date of the purge instead of a corruption.
 
 ``final_state/`` is a Zarr 3 group in float64, written by the extractor of each flow solver when
 the solve is done: ``head`` shaped ``(nlay, ncpl)`` with NaN on inactive cells, ``lake_stage``
@@ -354,6 +363,61 @@ loses ``config_hash``: ``solution_key`` holds what that field held, ``request_id
 of one base, and ``solver`` names the flow backend. A block of 2.0 carries ``config_hash``, which
 the reader ignores, and the GeoPackage reader still finds it by ``md_standard_uri``.
 
+Levels of a run
+---------------
+
+A run has a level, read from its lineage and never written into the seal: ``research``, ``result`` or
+``publication``, lowest first. :func:`~hydromodpy.results.storage.kept.level_of` gives ``research``
+for a kept calibration trial (``lineage.kind = "trial"``), ``publication`` for a copy that carries
+``PUBLICATION.json``, and ``result`` for every other run. The level decides what the run keeps:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 22 22 22
+
+   * - kept
+     - research
+     - result
+     - publication
+   * - log line, series at scored points
+     - yes
+     - n/a
+     - n/a
+   * - end-of-period head, compact
+     - if the trial is kept
+     - yes
+     - yes
+   * - per-cell budget
+     - the criterion's terms
+     - all
+     - all
+   * - final state in float64
+     - yes
+     - yes
+     - yes
+   * - tables, seal, inputs by digest
+     - yes
+     - yes
+     - yes
+   * - figures and exports
+     - no
+     - dated
+     - at the copy
+   * - bytes of inputs, image digest
+     - no
+     - no
+     - by default
+   * - face flows, solver files
+     - no
+     - on demand
+     - on demand
+
+:class:`~hydromodpy.results.storage.kept.Retention` carries the level of one run with the
+``BudgetKeep`` its planning decided and the two switches ``solver_files`` and ``face_flows``, which
+a research run keeps false whatever the configuration asks. A promotion writes the best trial of a
+session under ``runs/<case>`` and keeps the other trials under ``sessions/<case>/trials/<n>/``,
+each with ``lineage.kind = "trial"``, and a skip reads a completed run of the level asked or above.
+
 A session folder
 ----------------
 
@@ -364,11 +428,11 @@ A session folder
    ├── README.md           method, phases, best trial, the promoted run and its sim_id
    ├── config.toml         the resolved configuration of the case: the base of a promotion replay
    ├── session.json        session_id, sites, cases, bounds, cost, windows, best trial, status
-   ├── trials.jsonl        one trial per line; trial unique within the session; phase, restart, cases
+   ├── trials.jsonl        one line per event (proposed, finished, linked); trial unique within the session
    ├── methods.md
    ├── phases/<phase>/     session.json of the phase: status, frozen values, best, cost, windows
    ├── trials/<nnnn>/      kept trials, each shaped like a run; <nnnn>/<case_id>/ with several cases
-   ├── trial_series/       opt-in scored series per trial (persist_trial_series)
+   ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default from edition 2.1)
    ├── candidates/         TOML overlays of the candidates (materialize_candidates)
    ├── figures/            trajectory, cost profile
    ├── report/             index.html
@@ -377,15 +441,20 @@ A session folder
 ``session.json`` and ``trials.jsonl`` are written while the calibration runs: the descriptor
 before the first trial, one line per trial as it completes, the descriptor again at the end with
 the outcome. An interrupted calibration keeps every trial it evaluated. A trial number is unique
-within a case across phases and restarts; a number written twice is one trial written twice and
-the last line wins. ``ALLOWED_SESSION_ENTRIES`` in ``hydromodpy/results/storage/contract.py`` lists
+within a case across phases and restarts. The journal grows by events: a ``proposed`` line when
+the optimizer asks, written in the order of ``ask`` before any of the points is evaluated, a
+``finished`` line when the trial ends, and a ``linked`` line when the trial is promoted. Each
+line holds the whole trial as it is known at that moment. A reader keeps for each number the
+line of the highest event (``linked``, then ``finished``, then ``proposed``) and, at equal rank,
+the last one in the file. A trial with a ``proposed`` line only, from a killed session, reads as
+``running`` with no cost. ``ALLOWED_SESSION_ENTRIES`` in ``hydromodpy/results/storage/contract.py`` lists
 the names. While a search runs it writes ``logs/heartbeat.json``, the pulse a run writes, so a live
 session does not read as abandoned.
 
 A session is one search over one or several cases, and it stores everything by table. Whatever
 depends on a case has the ``case_id`` as its key, with one entry for a session of one case. Whatever
 depends on a period has the name of that period as its key, with one entry for a search with one
-window. So a reader of ``session.v4``, ``phase.v2`` and ``trial.v2`` already walks N cases and N
+window. So a reader of ``session.v4``, ``phase.v2`` and ``trial.v3`` already walks N cases and N
 periods, and a joint calibration or a validation period adds keys, not meanings.
 
 - ``session.json`` holds ``sites``, ``cases`` (site, config hash, frozen file, cost and the
@@ -404,7 +473,10 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
   keeps no single cost, and ``best`` is null when it keeps no single best.
 - A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimized, and
   ``cases``: for each case its cost, the ``components`` that make it, its ``params_hash``, its run,
-  its ``error`` and a free ``detail``. A cached trial reads ``components`` and the cost, and never the
+  its ``error`` and a free ``detail``. Each case also names the ``rule`` (the version of the metric
+  rule) and the ``window`` (the period the phase scores). A ``batch`` gives the rank of the ``ask``
+  call within the phase and the restart, and ``profile`` lists the timed steps and solves of the
+  trial. A line of ``hydromodpy.trial.v2`` reads as a ``finished`` line without these. A cached trial reads ``components`` and the cost, and never the
   run of another session.
 - The key of the trial cache reads the code by a fingerprint per layer, and the configuration as it
   was written. A release that touches no computing code keeps ``--resume`` and the cache working, and
@@ -564,6 +636,19 @@ versions is refused with the list.
 directory in ``trash/tombstones.txt``: ``rel_dir,sim_id,date``. The tombstones are written and
 flushed before any byte is removed, so a crash can leave a directory with its tombstone, never a
 freed name without one. ``ls runs/`` shows only the living.
+
+Collection
+----------
+
+``hmp catalog gc`` and ``Project.gc()`` measure a project and remove what its policy allows, from
+the tree alone. :mod:`hydromodpy.results.retention` sums the bytes of nine families (runs, trials,
+series, solver files, figures, tables, products, index, trash), and the same sum is taken after the
+removal, so ``dry_run`` says what would leave and changes nothing. ``keep_versions`` (5 by default)
+bounds the versions of each run, ``max_age_days`` the age of a run, and ``trial_fields_days`` (90 by
+default) the age of the fields of a kept trial; ``never`` removes none on age. ``gc`` also removes
+the scratch of a dead attempt, the earlier attempts of a sealed run, and the products of the store
+past its cap, and it purges a kept trial past its window but the best. The report gives the plan,
+what it applied, the bytes freed and the weight before and after.
 
 Versions of the stored documents
 --------------------------------
@@ -773,7 +858,8 @@ suffix would break those readers.
 The groups are ``meta``, ``mesh`` (topology, cell types, coordinates, thicknesses, routing
 descent), ``state`` (solver state fields), ``forcing`` (recharge and other forcings, and
 ``forcing/soil/`` in soil mode), ``particles``, ``derived``, ``budget`` and ``geographic``, and the
-root arrays ``head``, ``time`` and ``crs`` (plus ``quantization_info`` when a field is rounded).
+root arrays ``head``, ``time`` and ``crs`` (plus ``quantization_info`` when a field is rounded, and
+``face_flow`` with ``connection_cells`` when the run keeps face flows).
 The generated :doc:`generated/storage-tree` lists them.
 
 ``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
@@ -812,13 +898,24 @@ interfaces, static parameter fields, indices, coordinates and timestamps
 are never rounded. Every library reader returns float fields as float64
 whichever precision the store holds.
 
-**Per-cell budget.** A run writes under ``budget/`` every per-cell term its
+**Face flows.** ``[simulation.results] keep_face_flows = true`` keeps the flow between each pair of
+connected cells, under MODFLOW 6 and MODFLOW-NWT. ``face_flow`` holds one value per connection of
+two active cells and per stored stamp, the mean of the steps of the period weighted by their length,
+in m3/s and positive from the smaller flat index to the larger. ``connection_cells`` holds the two
+flat cell indices of each connection, int32, smaller first, so a reader reads a pair without the
+grid. ``mesh/edge_face_connectivity`` gives the edges and ``mesh/idomain`` the active cells. The
+diagonal of MODFLOW 6 ``FLOW-JA-FACE`` is never kept, and a flow that writes neither array is refused
+when a transport reads ``face_flow``.
+
+**Per-cell budget.** A run of the result level writes under ``budget/`` every per-cell term its
 extractor produces, under the canonical CBC name: the exchange terms
 (``recharge``, ``drain``, ``river``, ``constant_head``, ``lake``, ``stream``,
 ``evapotranspiration``, ...) and the storage terms (``storage`` under
 MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
-exported and read with ``run.field``. The group carries two attributes that
+exported and read with ``run.field``. A kept calibration trial is a research run and writes only
+the terms its criterion reads, about 170 MB on the island case instead of the whole budget. The
+group carries two attributes that
 say what the run kept (:mod:`hydromodpy.core.budget.terms`):
 
 - ``policy``: ``all`` (the default) or ``consumers``, set by

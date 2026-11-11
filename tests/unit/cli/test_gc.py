@@ -77,7 +77,9 @@ def _gc(monkeypatch, capsys, target: Path, *extra: str) -> dict:
 
 def test_gc_help_displays(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "catalog", "gc", "--help"]) == 0
-    assert "--keep-versions" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "--keep-versions" in out
+    assert "--trial-fields-days" in out
 
 
 def test_gc_plans_by_default_and_touches_nothing(monkeypatch, capsys, tmp_path) -> None:
@@ -87,8 +89,12 @@ def test_gc_plans_by_default_and_touches_nothing(monkeypatch, capsys, tmp_path) 
     report = _gc(monkeypatch, capsys, project)
 
     block = report["projects"][str(project.resolve())]
+    assert block["applied"] is False
     assert block["plan"]["superseded_runs"] == ["runs/x", "runs/x.v2"]
-    assert block["summary"] == {}
+    assert block["freed"] == {}
+    assert set(block["bytes"]) == set(block["plan"])
+    assert block["weight"]["total_before"] > 0
+    assert block["weight"]["total_after"] == block["weight"]["total_before"]
     assert all(run.is_dir() for run in runs)
     assert list_trash(project) == []
 
@@ -99,7 +105,9 @@ def test_gc_apply_moves_the_superseded_versions_to_the_trash(monkeypatch, capsys
 
     report = _gc(monkeypatch, capsys, project, "-y")
 
-    assert report["projects"][str(project.resolve())]["summary"]["superseded_runs"] == 2
+    block = report["projects"][str(project.resolve())]
+    assert block["applied"] is True
+    assert block["freed"]["superseded_runs"] == block["bytes"]["superseded_runs"]
     assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/x", "runs/x.v2"]
     assert sorted(p.name for p in (project / RUNS_DIRNAME).iterdir()) == [
         f"x.v{n}" for n in range(3, 8)
@@ -208,7 +216,9 @@ def test_gc_removes_the_expired_trash_with_tombstones(monkeypatch, capsys, tmp_p
 
     report = _gc(monkeypatch, capsys, project, "-y")
 
-    assert report["projects"][str(project.resolve())]["summary"]["expired_trash"] == 1
+    block = report["projects"][str(project.resolve())]
+    assert len(block["plan"]["expired_trash"]) == 1
+    assert block["freed"]["expired_trash"] == block["bytes"]["expired_trash"]
     assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/fresh", "runs/kept"]
     assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/gone"]
 
@@ -235,3 +245,101 @@ def test_gc_rejects_a_retention_window_of_zero(monkeypatch, tmp_path) -> None:
     project = _project(tmp_path)
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "-w", str(project), "--keep-versions", "0"])
     assert code == 2
+
+
+def _sealed_trial(project: Path, trial: str, *, days: int) -> Path:
+    """Write the sealed directory of a kept trial, its fields and its mesh."""
+    from hydromodpy.results.session.descriptor import write_session
+    from hydromodpy.results.storage.contract import (
+        FIELDS_STORE_NAME,
+        MESH_DIRNAME,
+        RUN_MANIFEST_FILENAME,
+    )
+    from tests._helpers.sealed_runs import manifest_document
+    from tests._helpers.session_documents import best_trial, session_descriptor
+
+    session = project / "sessions" / "calib"
+    write_session(
+        session,
+        session_descriptor("calib", site="demo", best=best_trial(1), status="completed"),
+    )
+    directory = session / "trials" / trial
+    directory.mkdir(parents=True)
+    document = manifest_document(
+        name=trial,
+        sealed_at=(datetime.now(UTC) - timedelta(days=days)).isoformat(),
+        lineage={"kind": "trial", "trial": int(trial), "session_id": "sess0001"},
+    )
+    (directory / RUN_MANIFEST_FILENAME).write_text(json.dumps(document), encoding="utf-8")
+    (directory / FIELDS_STORE_NAME).mkdir()
+    (directory / FIELDS_STORE_NAME / "chunk").write_bytes(b"x" * 64)
+    (directory / MESH_DIRNAME).mkdir()
+    (directory / MESH_DIRNAME / "grid.npz").write_bytes(b"x" * 16)
+    return directory
+
+
+def test_gc_purges_the_fields_of_an_old_kept_trial(monkeypatch, capsys, tmp_path) -> None:
+    from hydromodpy.results import retention
+    from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, MESH_DIRNAME
+    from hydromodpy.results.storage.kept import read_purged
+
+    project = _project(tmp_path)
+    trial = _sealed_trial(project, "0002", days=100)
+    # No call sets the inode change of a directory: the trial arrives with its seal.
+    arrived = datetime.now(UTC) - timedelta(days=100)
+    monkeypatch.setattr(retention, "_arrival", lambda directory: arrived)
+
+    report = _gc(monkeypatch, capsys, project, "--trial-fields-days", "90")
+
+    block = report["projects"][str(project.resolve())]
+    assert block["plan"]["old_trial_fields"] == ["sessions/calib/trials/0002"]
+    assert block["bytes"]["old_trial_fields"] == 64
+    assert block["weight"]["total_before"] == block["weight"]["total_after"]
+    assert (trial / FIELDS_STORE_NAME).is_dir()
+
+    report = _gc(monkeypatch, capsys, project, "--trial-fields-days", "90", "-y")
+
+    block = report["projects"][str(project.resolve())]
+    assert block["freed"]["old_trial_fields"] == 64
+    assert not (trial / FIELDS_STORE_NAME).exists()
+    assert (trial / MESH_DIRNAME / "grid.npz").is_file()
+    purged = read_purged(trial)
+    assert purged is not None
+    assert purged.entries == {FIELDS_STORE_NAME: 64}
+
+
+def test_gc_never_purges_trial_fields_when_the_rule_is_off(monkeypatch, capsys, tmp_path) -> None:
+    project = _project(tmp_path)
+    _sealed_trial(project, "0002", days=400)
+
+    report = _gc(monkeypatch, capsys, project, "--trial-fields-days", "never")
+
+    block = report["projects"][str(project.resolve())]
+    assert block["plan"]["old_trial_fields"] == []
+    assert block["bytes"]["old_trial_fields"] == 0
+
+
+def test_gc_rejects_a_trial_fields_window_of_zero(monkeypatch, tmp_path) -> None:
+    project = _project(tmp_path)
+    code = _run(
+        monkeypatch,
+        ["hmp", "catalog", "gc", "-w", str(project), "--trial-fields-days", "0"],
+    )
+    assert code == 2
+
+
+def test_gc_collects_a_project_whose_project_toml_does_not_read(
+    monkeypatch, capsys, tmp_path
+) -> None:
+    project = _project(tmp_path)
+    (project / "project.toml").write_text("[[[ not toml\n", encoding="utf-8")
+    scratch = project / ".hmp" / "scratch" / f"gone.p{_dead_pid()}"
+    scratch.mkdir(parents=True)
+    (scratch / "work").write_bytes(b"x" * 8)
+
+    report = _gc(monkeypatch, capsys, project, "-y")
+
+    block = report["projects"][str(project.resolve())]
+    assert block["freed"]["dead_scratch"] == 8
+    assert block["plan"]["products"] == []
+    assert not scratch.exists()

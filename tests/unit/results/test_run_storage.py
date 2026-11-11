@@ -1150,7 +1150,10 @@ def test_a_version_below_the_window_says_a_pre_release_wrote_it(
         document.read(tree)
 
     assert f"{document.key} = {older!r}" in str(refused.value)
-    assert OLDER_REMEDY in str(refused.value)
+    # A trial.v1 line is refused by the one sentence of a pre-release, which names
+    # the line; every other document by the remedy of a version below its window.
+    remedy = "written by a pre-release" if document.name == "trials.jsonl" else OLDER_REMEDY
+    assert remedy in str(refused.value)
 
 
 @pytest.mark.parametrize("document", DOCUMENTS, ids=IDS)
@@ -1199,8 +1202,11 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
     module: str, name: str, current: object
 ) -> None:
     window = getattr(import_module(module), name)
-    # The run seal reads the manifest_version 3 of the 2.0.0 beside its own 4.
-    oldest = 3 if name == "MANIFEST_VERSIONS" else window.current
+    # The run seal reads the manifest_version 3 of the 2.0.0 beside its own 4, and
+    # the trial journal reads the trial.v2 lines of the 2.0.0 beside its v3.
+    oldest = {"MANIFEST_VERSIONS": 3, "TRIAL_VERSIONS": "hydromodpy.trial.v2"}.get(
+        name, window.current
+    )
     assert window.oldest == oldest
     assert current is None or window.current == current
 

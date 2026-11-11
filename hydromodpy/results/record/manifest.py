@@ -39,7 +39,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any, Final, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
@@ -62,12 +62,19 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_PRODUCTS_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_PURGED_FILENAME,
     RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.digests import sha256_directory
-from hydromodpy.results.storage.json_io import read_json, read_sealed_json
+from hydromodpy.results.storage.json_io import (
+    UNREADABLE_ERRORS,
+    read_json,
+    read_sealed_json,
+    reason_text,
+)
+from hydromodpy.results.storage.kept import read_purged
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 from hydromodpy.schema.seal import (
     SEAL_VERSION,
@@ -475,13 +482,50 @@ def seal_problems(run_dir: Path | str) -> list[str]:
     are not recomputed here: a table whose bytes did not change has the same
     values, and the re-reading belongs to a replay. Nothing is repaired. An
     unreadable manifest is reported, never raised.
+
+    A kept trial may carry ``purged.json``, the witness of what ``gc``
+    removed. It excuses an absent certified entry only on a seal whose lineage
+    is ``trial``, only for an entry :data:`PURGEABLE_TRIAL_ENTRIES` names, and
+    only when the witness reads. Any other witness costs one line naming it,
+    so a hand-written file never hides the loss of a result run. A named entry
+    still present keeps its verification.
     """
     root = Path(run_dir)
     try:
         seal = read_seal(root)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return [f"{RUN_MANIFEST_FILENAME}: {exc}"]
-    return list(verify_artifacts(root, seal, tree_digest=sha256_directory))
+    named, problems = _purged_witness(root, seal)
+    artifacts = [
+        record
+        for record in seal.artifacts
+        if not (record.path in named and not (root / record.path).exists())
+    ]
+    kept = seal.model_copy(update={"artifacts": artifacts})
+    problems.extend(verify_artifacts(root, kept, tree_digest=sha256_directory))
+    return problems
+
+
+def _purged_witness(root: Path, seal: Seal) -> tuple[set[str], list[str]]:
+    """Return the entries ``purged.json`` excuses and the lines it costs.
+
+    The witness is read only when the file exists. On a run that is not a kept
+    trial it excuses nothing and costs one line. A witness that does not read,
+    because of its schema or of an entry gc never removes, costs one line
+    saying why.
+    """
+    if not (root / RUN_PURGED_FILENAME).is_file():
+        return set(), []
+    if seal.lineage.kind != "trial":
+        return set(), ["purged.json: on a run that is not a kept trial"]
+    try:
+        purged = read_purged(root)
+    except ValidationError as exc:
+        message = str(exc.errors()[0]["msg"]).removeprefix("Value error, ")
+        return set(), [f"purged.json: {message}"]
+    except UNREADABLE_ERRORS as exc:
+        return set(), [f"purged.json: {reason_text(exc)}"]
+    return set(purged.entries) if purged is not None else set(), []
 
 
 def is_sealed(run_dir: Path | str) -> bool:

@@ -1038,7 +1038,8 @@ def test_a_sealed_document_holding_the_forward_model_at_null_loses_it_in_silence
 
     migrate_sealed_config_doc(doc)
 
-    assert doc == {"calibration": {}}
+    # A document of no edition keeps the default of 2.0: no series per trial.
+    assert doc == {"calibration": {"persist_trial_series": False}}
 
 
 def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
@@ -1047,7 +1048,7 @@ def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
     with pytest.warns(ConfigKeyRenamedWarning, match="calibration.forward_model retired"):
         migrate_sealed_config_doc(doc)
 
-    assert doc == {"calibration": {}}
+    assert doc == {"calibration": {"persist_trial_series": False}}
 
 
 # --- the two cache keys removed in 2.1.0 ---------------------------------------
@@ -1083,3 +1084,16 @@ def test_a_sealed_run_drops_a_removed_cache_key_in_silence(key: str, fragment: s
 
     assert changes == [f"geographic.{key} dropped (sealed)"]
     assert doc == {"geographic": {"dem_resolution": 25.0}}
+
+
+def test_a_root_section_the_caller_names_is_never_created_by_an_edition() -> None:
+    doc: dict = {"flow": {"bc": {}}}
+
+    written = apply_edition(doc, edition="2.0", register=EDITIONS, optional_sections={"solver"})
+
+    assert written == ["flow.bc.{*}.y"][:0]
+    assert doc == {"flow": {"bc": {}}}
+    kept: dict = {"solver": {}}
+    assert apply_edition(kept, edition="2.0", register=EDITIONS, optional_sections={"solver"}) == [
+        "solver.x"
+    ]

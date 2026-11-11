@@ -437,6 +437,12 @@ that flow.
 
 What a transport declares as its `reads` is `face_flow`: the flux across each connection
 between two cells, at every time step, in the format the solver files of the flow carry.
+The name is the one of the field registry, where `connection_cells` sits beside it and
+names the two cells of each connection, the smaller flat index first. The run store keeps
+the pair only when {toml}`simulation.results.keep_face_flows` is true, in m3/s, one value
+per connection at each stored stamp, the mean of the steps of the stamp weighted by their
+length. A run of the default keeps no inter-cell flow, and the diagonal of `FLOW-JA-FACE`,
+the residual of each cell, is never kept, because the per-cell budget already carries it.
 MODFLOW 6 writes it as `FLOW-JA-FACE` in the cell-by-cell budget file of every step;
 MODFLOW-NWT writes its face flows in the same file, and the link file of MT3DMS reads
 from it. The flow solver writes what `reads` needs: a file that pairs a transport with a

@@ -56,7 +56,7 @@ mean this:
   their stored names (``head``, ``budget/drain``, ``budgets``). A ``*`` stands
   only for a part the user names, such as a species or a lake.
 - ``reads`` lists the products of an earlier run it needs. A transport reads
-  ``face_flow``, a flow reads none.
+  ``face_flow``, the name of the field registry, and a flow reads none.
 - ``supports`` lists the traits of the ``Model`` it honours. The names come from
   the closed set of ``hydromodpy/model/supports.py``: the boundaries, the
   fields of ``ModelOptions``, the initial states, the sinks and sources, the
@@ -120,8 +120,9 @@ record that every call returns:
   converts to a finite float and skips the rest. Optional.
 
 ``extract`` receives a ``Retention`` of ``hydromodpy/results/storage/kept.py``. It
-says which per-cell budget terms the run keeps, and whether the raw solver files
-stay. The extractor writes the terms it names and no other.
+says which per-cell budget terms the run keeps, whether the raw solver files
+stay, and whether the flow between connected cells is kept:
+``retention.face_flows``. The extractor writes the terms it names and no other.
 
 A flow adapter reads nothing of the setup, the configuration or the store: the
 ``Model``, the options and the slot are all it needs, and a static gate in
@@ -129,8 +130,11 @@ A flow adapter reads nothing of the setup, the configuration or the store: the
 takes ``upstream``, the ``SolverRun`` objects the plan ran before it. A flow
 backend receives none, a transport receives exactly one, the flow of the family
 its ``requires`` names, and reads ``face_flow`` from the files and the solver
-object of that run. A backend reads nothing of the setup, the configuration or
-the store, and keeps no reference to the store's handle.
+object of that run. A flow adapter writes ``face_flow`` and ``connection_cells``
+to the store only when ``retention.face_flows`` is true, one value per connection
+at each stored stamp; a flow solver that writes neither is refused when a
+transport names ``face_flow`` in its ``reads``. A backend reads nothing of the
+setup, the configuration or the store, and keeps no reference to the store's handle.
 
 ``extract`` calls a separate **extractor**, which ingests the persisted outputs
 into the catalog. It is registered under the same ``<process_type>_<name>`` key

@@ -889,6 +889,9 @@ class _IndexWriter:
         self, entry: DiskEntry, descriptor: SessionDescriptor, outcome: Outcome | None
     ) -> dict[str, int]:
         trials = read_trials(entry.path)
+        # A trial with only its proposed line has not started: it has no
+        # started_at, and the iterations table holds the trials that ran.
+        ran = [trial for trial in trials if trial.event != "proposed"]
         phases = list_phases(entry.path)
         best = descriptor.best
         self.insert(
@@ -950,7 +953,7 @@ class _IndexWriter:
                 },
             )
         n_trial_cases = 0
-        for trial in trials:
+        for trial in ran:
             self.insert(
                 "calibration_iterations",
                 {
@@ -986,7 +989,7 @@ class _IndexWriter:
             "calibration_sessions": 1,
             "calibration_session_cases": len(descriptor.cases),
             "calibration_phases": len(phases),
-            "calibration_iterations": len(trials),
+            "calibration_iterations": len(ran),
             "calibration_trial_cases": n_trial_cases,
         }
 

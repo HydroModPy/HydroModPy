@@ -67,6 +67,7 @@ def _record_solves(
     The backend measures the duration around the call that solves and not the
     instant it began, so the line starts where the previous solve of the plan ended,
     counted from the start of the step. The memory is the peak of the process now.
+    A run that came from ``rerun`` writes ``reused = "rerun"``.
     """
     from hydromodpy.workflow.runner import record_measure
 
@@ -84,6 +85,7 @@ def _record_solves(
                 max_rss_mb=max_rss_mb(),
             ),
             attempt=ctx.attempt,
+            reused="rerun" if result.reran else "no",
         )
         started_at += timedelta(seconds=result.solve_s)
 
@@ -201,7 +203,10 @@ class RunSolverStep:
                         store=store,
                     )
         else:
-            launcher.execute(plan, ctx, callbacks=callbacks)
+            # A run without a store, a calibration trial, still says where its
+            # time went: the lines reach the collector the trial opened.
+            executed_results = launcher.execute(plan, ctx, callbacks=callbacks) or ()
+            _record_solves(ctx, executed_results, started_at)
 
         return state.advance(
             step_index=state.step_index + 1,

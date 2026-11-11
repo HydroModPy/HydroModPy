@@ -43,7 +43,7 @@ from tests._helpers.sealed_runs import (
     write_attempt,
     write_session_dir,
 )
-from tests._helpers.session_documents import joint_session, joint_trial
+from tests._helpers.session_documents import joint_session, joint_trial, trial_line
 
 SESSION_ID = "sess0001"
 
@@ -276,6 +276,20 @@ def test_a_joint_session_names_no_single_site_or_run_in_cases(tmp_path):
     ((sites, windows),) = _rows(root, "SELECT sites, windows FROM calibration_sessions")
     assert json.loads(sites) == ["S1", "S2"]
     assert set(json.loads(windows)["calibration"]["by_case"]) == {"a", "b"}
+
+
+def test_a_session_with_a_trial_still_proposed_stays_in_the_index(tmp_path):
+    # A stopped or running session journals trials that only have their
+    # proposed line, with no started_at: they are not iterations yet.
+    root = make_project(tmp_path / "demo")
+    write_session_dir(root, "calib", session_id="calib001", status="running")
+    proposed = trial_line(3, cost=None, status="running", started_at=None, event="proposed")
+    append_trial(root / "sessions" / "calib", proposed.model_copy(update={"cases": {}}))
+
+    rebuild_index(root)
+
+    assert _rows(root, "SELECT session_id, n_trials FROM calibration_sessions") == [("calib001", 3)]
+    assert _rows(root, "SELECT trial FROM calibration_iterations ORDER BY trial") == [(1,), (2,)]
 
 
 def test_a_session_keeps_its_root_search_in_the_index(tmp_path):

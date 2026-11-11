@@ -16,8 +16,8 @@ from pydantic import BaseModel
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.model.model import Model
 from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
-from hydromodpy.solver.base.adapter_protocol import HANDOFF_PRODUCTS
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.protocols import FlowModelLike
@@ -274,7 +274,7 @@ class Modflow6GwtTransportAdapter:
     accepted_meshes: ClassVar[frozenset[str]] = frozenset()
     geometry: ClassVar[str] = "cells"
     writes: ClassVar[tuple[str, ...]] = ("concentration/*", "mass_balance")
-    reads: ClassVar[tuple[str, ...]] = HANDOFF_PRODUCTS
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
     supports: ClassVar[frozenset[str]] = frozenset()
     options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
     category: ClassVar[str] = "distributed"

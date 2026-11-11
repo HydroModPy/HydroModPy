@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -199,6 +199,7 @@ def solve_one(
     :func:`~hydromodpy.solver.base.rerun.chooses_rerun` says so and the backend
     accepts, else ``build`` into ``slot`` with ``upstream``. ``run`` follows
     unless ``slot.stop_before_solve``, which returns the built run unsolved. A
+    run that came from ``rerun`` returns with ``reran`` set. A
     :class:`~hydromodpy.core.exceptions.SolverError` names the run by
     ``slot.name``; the runner fills its ``run_id``.
     """
@@ -206,11 +207,12 @@ def solve_one(
     solver_run = None
     if chooses_rerun(adapter, previous, model):
         solver_run = adapter.rerun(previous, model, slot)
+    reran = solver_run is not None
     if solver_run is None:
         solver_run = adapter.build(model, options, slot, upstream)
-    if slot.stop_before_solve:
-        return solver_run
-    return adapter.run(solver_run)
+    if not slot.stop_before_solve:
+        solver_run = adapter.run(solver_run)
+    return replace(solver_run, reran=True) if reran else solver_run
 
 
 # ---------------------------------------------------------------------------

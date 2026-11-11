@@ -43,6 +43,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import ClassVar, Literal, Protocol, runtime_checkable
 
+from hydromodpy.results.storage.run_profile import ProfileLine
+
 TrialStatus = Literal["completed", "failed", "crashed"]
 """The three ends of a trial, the vocabulary ``TrialResult`` already uses.
 
@@ -80,6 +82,11 @@ class TrialOutcome:
     already states. A non-``completed`` outcome carries ``nan`` and says why in
     ``error``; returning a large finite number instead would let a failed trial
     win a search whose other trials were worse.
+
+    ``profile`` is where the time of the trial went, in the lines of
+    ``profile.json``: one step line per step played, one solve line per run.
+    It is optional, and a surrogate or a foreign evaluator leaves it empty. The
+    session writes it in the finished line of the trial journal.
     """
 
     cost: float
@@ -87,6 +94,7 @@ class TrialOutcome:
     duration_s: float
     components: Mapping[str, float] = field(default_factory=dict)
     error: str | None = None
+    profile: tuple[ProfileLine, ...] = ()
 
 
 @runtime_checkable

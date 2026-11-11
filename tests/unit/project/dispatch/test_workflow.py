@@ -1184,6 +1184,7 @@ def test_a_simulation_configuration_drafts_through_a_dry_run_of_the_project(
 def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    import hydromodpy.results.retention as retention
     import hydromodpy.results.storage.sealing as sealing
     import hydromodpy.workflow.replay_checks as replay_checks
 
@@ -1194,6 +1195,7 @@ def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_n
     sealed = {"case": "H", "case.v2": "H", "case.v3": "unsealed-or-other", "other": "H"}
     monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: sealed[run_dir.name])
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: True)
+    monkeypatch.setattr(retention, "level_at", lambda run_dir: "result")
 
     assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case.v2"
     sealed["case.v2"] = sealed["case"] = "different"
@@ -1201,16 +1203,40 @@ def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_n
     assert wf.completed_identical_run(tmp_path, "case", None) is None
 
 
+def test_a_research_version_does_not_answer_a_run_of_its_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An identical trial keeps its level: only a run of ``result`` or above answers."""
+    import hydromodpy.results.retention as retention
+    import hydromodpy.results.storage.sealing as sealing
+    import hydromodpy.workflow.replay_checks as replay_checks
+
+    runs = tmp_path / "runs"
+    for name in ("case", "case.v2"):
+        (runs / name).mkdir(parents=True)
+    monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: "H")
+    monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: True)
+    levels = {"case": "research", "case.v2": "result"}
+    monkeypatch.setattr(retention, "level_at", lambda run_dir: levels[run_dir.name])
+
+    assert wf.completed_identical_run(tmp_path, "case", "H") == runs / "case.v2"
+
+    levels.update({"case": "research", "case.v2": "research"})
+    assert wf.completed_identical_run(tmp_path, "case", "H") is None
+
+
 def test_a_run_whose_api_file_left_the_cache_is_not_given_back(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The request holds the declaration of such a file, so the guard reads its bytes."""
+    import hydromodpy.results.retention as retention
     import hydromodpy.results.storage.sealing as sealing
     import hydromodpy.workflow.replay_checks as replay_checks
 
     (tmp_path / "runs" / "case").mkdir(parents=True)
     monkeypatch.setattr(sealing, "sealed_solution_key", lambda run_dir: "K")
     monkeypatch.setattr(replay_checks, "api_inputs_intact", lambda run_dir, root: False)
+    monkeypatch.setattr(retention, "level_at", lambda run_dir: "result")
 
     assert wf.completed_identical_run(tmp_path, "case", "K") is None
 

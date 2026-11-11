@@ -42,6 +42,12 @@ declarations (bounds, search space, sampling, dotted path).
 metadata. ``ask`` proposes one or more points at once; ``tell`` feeds back
 the matching batch of results.
 
+The session journal sees what ``ask`` returns. Each point becomes a ``proposed``
+line in the order of the list, with the rank of the call (``batch``), before any
+of them is evaluated. So the order of the list is a part of the contract, and an
+adapter that reorders its points between two calls of ``ask`` changes the
+trial numbers.
+
 Files to create
 ---------------
 
@@ -165,6 +171,7 @@ before anything solves.
            precision_option="rel_tol",       # this engine's own stopping option
            precision_reads="relative_value",  # how that option reads its number
            announced=False,             # runs when named, but not in the printed list
+           libraries=("scipy",),        # distributions whose versions session.json records
        )
 
 The last two are what lets a file state its precision once. ``calibration.precision``

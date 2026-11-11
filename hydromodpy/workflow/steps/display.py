@@ -6,7 +6,8 @@ in the TOML is written into ``runs/<run>/figures/``, stamped with the
 identity of the run and recorded in ``figures/index.json``.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
-is empty, or when the pipeline was set to headless via
+is empty, when the run is a kept calibration trial (the ``research`` level,
+which draws nothing), or when the pipeline was set to headless via
 ``state.data["skip_display"]`` (honored by the CLI ``--no-display`` flag).
 
 Inputs
@@ -30,6 +31,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import Measure, measured
+from hydromodpy.results.storage.kept import renders
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.runner import record_measure
 from hydromodpy.workflow.state import PipelineState
@@ -140,6 +142,8 @@ class DisplayStep:
             sim_id = getattr(ctx, "sim_id", None)
             if display_cfg is None or sim_id is None or not run_is_persisted(ctx):
                 logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
+            elif not renders(getattr(ctx, "level", None) or "result"):
+                logger.info("DisplayStep skipped: a kept calibration trial draws nothing")
             elif not display_cfg.enabled or not display_cfg.figures:
                 # At info, not debug: a run that draws nothing looks exactly
                 # like a run whose figure list silently emptied, and the second

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar
@@ -19,7 +20,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.runtime.interrupts import StopRequested
 from hydromodpy.core.state.layout import stop_flag_for
-from hydromodpy.results.storage.run_profile import read_profile
+from hydromodpy.results.storage.run_profile import collected_profile, read_profile
 from hydromodpy.workflow.record.journal import WorkflowJournal
 from hydromodpy.workflow.record.resume import resolve_resume_step_index
 from hydromodpy.workflow.runner import Pipeline
@@ -882,3 +883,61 @@ def test_a_rebuilt_step_is_a_prefix_line_and_a_run_step_is_not(tmp_path: Path) -
         ("b", "prefix"),
         ("c", "no"),
     ]
+
+
+# --- a pipeline without a run directory profiles into the collector of its context ---
+# A calibration trial has no run directory: its step lines reach the collector the
+# trial opened, and no collector means no line, as before.
+
+
+class _Apart:
+    """A step that depends on no other, so it shares its cohort and runs in a thread."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.thread: str | None = None
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ()
+
+    def run(self, state: PipelineState) -> PipelineState:
+        self.thread = threading.current_thread().name
+        return state.advance(step_index=state.step_index + 1, step_name=self.name)
+
+
+def test_a_pipeline_without_a_run_directory_profiles_into_the_open_collector() -> None:
+    with collected_profile() as lines:
+        Pipeline([_AddOne(), _Multiply(2)]).run(PipelineState(run_id="r", data={"counter": 1}))
+    assert [(line.kind, line.name, line.reused) for line in lines] == [
+        ("step", "add_one", "no"),
+        ("step", "multiply", "no"),
+    ]
+
+
+def test_a_pipeline_without_a_collector_profiles_nowhere(tmp_path: Path) -> None:
+    Pipeline([_AddOne()]).run(PipelineState(run_id="r", data={"counter": 1}))
+    assert read_profile(tmp_path) is None
+
+
+def test_the_steps_of_a_cohort_in_threads_reach_the_collector() -> None:
+    steps = [_Apart("left"), _Apart("right")]
+    with collected_profile() as lines:
+        Pipeline(steps).run(PipelineState(run_id="r", data={}))
+    assert sorted(line.name for line in lines) == ["left", "right"]
+    assert any(step.thread != threading.current_thread().name for step in steps)
+
+
+def test_two_trials_in_two_threads_keep_their_own_lines() -> None:
+    collected: dict[str, list[str]] = {}
+
+    def trial(name: str) -> None:
+        with collected_profile() as lines:
+            Pipeline([_Apart(name)]).run(PipelineState(run_id=name, data={}))
+        collected[name] = [line.name for line in lines]
+
+    threads = [threading.Thread(target=trial, args=(name,)) for name in ("one", "two")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert collected == {"one": ["one"], "two": ["two"]}

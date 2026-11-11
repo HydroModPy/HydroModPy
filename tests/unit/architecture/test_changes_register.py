@@ -191,6 +191,10 @@ NEW_FIELDS: dict[str, tuple[Any, str]] = {
         None,
         "The table of a new backend, read only when solver.backend names it.",
     ),
+    "simulation.results.keep_face_flows": (
+        False,
+        "False, a run keeps no inter-cell flow, as a file of 2.0 did.",
+    ),
     "simulation.time.window": ("all", "Absent, the run is one window, as in 2.0."),
     "simulation.time.window_length": (
         _UNSET,

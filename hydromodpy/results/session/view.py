@@ -69,8 +69,22 @@ TRIAL_COLUMNS: tuple[str, ...] = (
     "sim_id",
     "rel_dir",
     "duration_s",
+    "batch",
+    "rule",
+    "window",
+    "solve_s",
+    "reused",
 )
-"""Columns of the trial frame, one row per trial and per case."""
+"""Columns of the trial frame, one row per trial and per case.
+
+``batch`` is the optimizer call that proposed the trial, ``rule`` and ``window``
+say how and on which period the case was scored, ``solve_s`` is the solve time
+of the trial and ``reused`` is ``rerun`` or ``no``. The five are null where
+the journal does not say.
+"""
+
+PROFILE_COLUMNS: tuple[str, ...] = ("kind", "name", "reused", "lines", "duration_s", "max_rss_mb")
+"""Columns of :meth:`Session.profile`, one row per kind, name and ``reused``."""
 
 
 class Session:
@@ -182,6 +196,34 @@ class Session:
                 )
         return pd.DataFrame(rows, columns=list(TRIAL_COLUMNS))
 
+    def profile(self) -> pd.DataFrame:
+        """Where the time of the search went, by step and by ``reused`` (:data:`PROFILE_COLUMNS`).
+
+        It adds the profile lines of every trial the journal holds, read from the
+        last line of each trial. ``lines`` counts the lines added, ``duration_s``
+        sums their time and ``max_rss_mb`` is the peak of their memory. A trial read
+        from the cost cache or written by the 2.0.0 has no profile and adds nothing.
+        """
+        totals: dict[tuple[str, str, str], list[float]] = {}
+        for line in read_trials(self._dir):
+            for entry in line.profile:
+                total = totals.setdefault((entry.kind, entry.name, entry.reused), [0, 0.0, 0.0])
+                total[0] += 1
+                total[1] += entry.duration_s or 0.0
+                total[2] = max(total[2], entry.max_rss_mb or 0.0)
+        rows = [
+            {
+                "kind": kind,
+                "name": name,
+                "reused": reused,
+                "lines": int(lines),
+                "duration_s": duration,
+                "max_rss_mb": rss or None,
+            }
+            for (kind, name, reused), (lines, duration, rss) in sorted(totals.items())
+        ]
+        return pd.DataFrame(rows, columns=list(PROFILE_COLUMNS))
+
     @property
     def phases(self) -> list[PhaseDescriptor]:
         """The phases of a staged search, by rank; empty for a single search."""
@@ -264,4 +306,4 @@ class Session:
         return f"Session(name={self.name!r}, status={self.status!r})"
 
 
-__all__ = ["TRIAL_COLUMNS", "Session"]
+__all__ = ["PROFILE_COLUMNS", "TRIAL_COLUMNS", "Session"]

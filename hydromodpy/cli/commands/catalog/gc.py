@@ -1,16 +1,18 @@
-"""``hmp catalog gc`` - collect the runs and trash entries a project no longer needs.
+"""``hmp catalog gc`` - collect what a project no longer needs, and say what it weighs.
 
 Says what it would do; ``-y`` carries the plan out. Every decision reads the
 project tree (:mod:`hydromodpy.results.retention`): a run whose attempt
 stopped beating is marked aborted, the versions beyond the retention window
-and the runs past the age limit go to the trash, and the trash entries older
-than the trash retention are removed, each leaving a tombstone.
+and the runs past the age limit go to the trash, the scratch of dead runs and
+the earlier attempts of sealed runs leave all but their outcome, the products
+over the store cap leave, and the field store of kept trials older than
+``--trial-fields-days`` leaves behind a ``purged.json``. The output gives the bytes of each category
+and the weight of the project before and after.
 """
 
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.cli.conventions import (
@@ -24,10 +26,16 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import project_roots_under
 from hydromodpy.core.state.result_dirs import resolve_project_root
-from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, TRASH_RETENTION_DAYS
+from hydromodpy.results.retention import (
+    DEFAULT_KEEP_VERSIONS,
+    DEFAULT_TRIAL_FIELDS_DAYS,
+    TRASH_RETENTION_DAYS,
+)
 
 NAME: str = "gc"
-HELP: str = "Maintenance: mark dead attempts aborted, trash old versions, remove expired trash"
+HELP: str = (
+    "Maintenance: measure the project, close dead attempts, trash old versions, purge fields"
+)
 
 
 def _keep_versions(value: str) -> int | None:
@@ -56,6 +64,13 @@ def _positive_days(value: str) -> int:
     return days
 
 
+def _trial_fields_days(value: str) -> int | None:
+    """Parse ``--trial-fields-days``: a positive count, or ``never`` to disable."""
+    if value.strip().lower() == "never":
+        return None
+    return _positive_days(value)
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     from hydromodpy.results.trash import PROTECTED_TAG
 
@@ -73,12 +88,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         ],
         epilog=(
             f"A directory tagged '{PROTECTED_TAG}' is never collected. Trash entries are\n"
-            f"removed {TRASH_RETENTION_DAYS} days after their deletion.\n"
+            f"removed {TRASH_RETENTION_DAYS} days after their deletion. The fields of a kept\n"
+            f"trial leave after {DEFAULT_TRIAL_FIELDS_DAYS} days, all but the best.\n"
             "\n"
             "Examples:\n"
             "  hmp catalog gc\n"
             "  hmp catalog gc --dry-run --format json\n"
-            "  hmp catalog gc --keep-versions 3 --max-age-days 180 -y"
+            "  hmp catalog gc --keep-versions 3 --max-age-days 180 -y\n"
+            "  hmp catalog gc --trial-fields-days never -y"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -99,40 +116,77 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="DAYS",
         help="Also trash runs started more than DAYS ago (default: no age limit)",
     )
+    parser.add_argument(
+        "--trial-fields-days",
+        type=_trial_fields_days,
+        default=DEFAULT_TRIAL_FIELDS_DAYS,
+        metavar="DAYS|never",
+        help=(
+            "Remove the fields of kept trials older than DAYS, all but the best "
+            f"(default: {DEFAULT_TRIAL_FIELDS_DAYS}, 'never' disables the rule)"
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.results.retention import RetentionPolicy, apply_gc, plan_gc
+    from hydromodpy.project.facade import open_project
 
     target = Path(args.workspace or Path.cwd()).expanduser().resolve()
     if not target.is_dir():
         refuse(f"{target} is not a directory.", EXIT_NOT_FOUND)
     applied = bool(args.yes) and not args.dry_run
-    policy = RetentionPolicy(keep_versions=args.keep_versions, max_age_days=args.max_age_days)
-    now = datetime.now(UTC)
     report: dict[str, dict] = {}
     for root in project_roots_under(resolve_project_root(target)):
-        plan = plan_gc(root, policy, now=now)
-        summary = apply_gc(plan, now=now) if applied else {}
-        if applied:
-            from hydromodpy.results.catalog.indexer import reindex_if_indexed
-
-            reindex_if_indexed(root)
-        report[str(root)] = {"plan": plan.categories(), "summary": summary}
+        project = open_project(root)
+        try:
+            result = project.gc(
+                dry_run=not applied,
+                keep_versions=args.keep_versions,
+                max_age_days=args.max_age_days,
+                trial_fields_days=args.trial_fields_days,
+            )
+        finally:
+            project.close()
+        categories = result.plan.categories()
+        report[str(root)] = {
+            "applied": result.applied,
+            "plan": categories,
+            "bytes": {name: result.plan.bytes_of(name) for name in categories},
+            "freed": dict(result.freed),
+            "weight": {
+                "before": result.before.as_dict(),
+                "after": result.after.as_dict(),
+                "total_before": result.before.total(),
+                "total_after": result.after.total(),
+            },
+        }
 
     def table() -> None:
         label = "" if applied else "[plan] "
         for root, block in report.items():
             print(f"# {root}")
             for key, items in block["plan"].items():
-                print(f"{label}{key}: {len(items)}")
+                print(f"{label}{key}: {len(items)} ({block['bytes'][key]} bytes)")
                 for item in items:
                     print(f"  - {item}")
-        keep = "every version" if policy.keep_versions is None else policy.keep_versions
-        age = "no age limit" if policy.max_age_days is None else f"{policy.max_age_days} days"
-        print(f"\nRetention: {keep} kept per name, {age}, trash kept {TRASH_RETENTION_DAYS} days.")
+            weight = block["weight"]
+            print(
+                f"\nWeight: {weight['total_before']} bytes before, "
+                f"{weight['total_after']} bytes after."
+            )
+        keep = "every version" if args.keep_versions is None else args.keep_versions
+        age = "no age limit" if args.max_age_days is None else f"{args.max_age_days} days"
+        fields = (
+            "kept trials keep their fields"
+            if args.trial_fields_days is None
+            else f"{args.trial_fields_days} days"
+        )
+        print(
+            f"\nRetention: {keep} kept per name, {age}, trial fields {fields}, "
+            f"trash kept {TRASH_RETENTION_DAYS} days."
+        )
         if not applied:
             print("Plan only. Re-run with -y to carry it out.")
 
@@ -141,8 +195,9 @@ def run(args: argparse.Namespace) -> None:
         "catalog gc",
         {
             "applied": applied,
-            "keep_versions": policy.keep_versions,
-            "max_age_days": policy.max_age_days,
+            "keep_versions": args.keep_versions,
+            "max_age_days": args.max_age_days,
+            "trial_fields_days": args.trial_fields_days,
             "projects": report,
         },
         table=table,

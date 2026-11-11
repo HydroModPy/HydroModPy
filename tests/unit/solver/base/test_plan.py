@@ -177,3 +177,9 @@ def test_a_run_context_carries_no_model_and_no_folder_of_its_own() -> None:
     members = {field.name for field in dataclasses.fields(RunContext)}
 
     assert members == {"plan", "run", "state", "store", "solver_run", "upstream"}
+
+
+def test_a_solver_run_came_from_a_build_unless_the_runner_says_rerun() -> None:
+    slot = RunSlot(Path("scratch"), "island")
+    assert SolverRun(slot=slot).reran is False
+    assert dataclasses.replace(SolverRun(slot=slot), reran=True).reran is True

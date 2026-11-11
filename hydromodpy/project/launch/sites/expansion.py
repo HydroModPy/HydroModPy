@@ -983,7 +983,9 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
         return False
     from hydromodpy.results.catalog.registration import split_stem_version
     from hydromodpy.results.record.manifest import is_sealed, read_seal
+    from hydromodpy.results.retention import level_at
     from hydromodpy.results.storage.json_io import readable
+    from hydromodpy.results.storage.kept import at_least
 
     if kind == "calibration":
         from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
@@ -1010,7 +1012,13 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
         if split_stem_version(entry.name)[0] != case_id or not is_sealed(entry):
             continue
         seal = readable(read_seal, entry)
-        if seal is not None and seal.identity.solution_key == config_hash:
+        if seal is None or seal.identity.solution_key != config_hash:
+            continue
+        try:
+            level = level_at(entry)
+        except (ValueError, OSError):
+            continue
+        if at_least(level, "result"):
             return True
     return False
 

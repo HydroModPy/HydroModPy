@@ -15,4 +15,16 @@ The adapter builds `ModflowNwt` in the folder and under the name of the `RunSlot
 
 `ModflowNwt.pre_processing` receives the frozen `Model` and keeps it in `inputs`. It extrudes its grid from `Model.geometry.cells`, reads the DEM and the routing settings from `Model.geometry.raster`, and never changes the model. The transport models build the same way: MT3DMS and MODPATH work in the folder of the flow run, read its grid and its time steps on the `Model` of that flow, and read its head and budget files on disk. NWT writes the flow-transport link file of MT3DMS when a later transport run reads `face_flow` off it, a fact the runner puts in the `hand_off` member of the slot of the run. The seepage raster that MODPATH releases particles from, `zone_partic = "seepage_clip"`, is built by the MODPATH adapter from the head file of the flow, with the seepage rule the run store derives, and never by a read of the store during the solve.
 
+## Face flow
+
+A run that keeps its face flows writes `face_flow/`: one value per connection
+between two active cells, the mean of the period steps weighted by their
+`delt`, in m3/s. `FLOW RIGHT FACE` links a cell to the one after it in its row,
+`FLOW FRONT FACE` to the one after it in its column and `FLOW LOWER FACE` to
+the one below it, each positive towards the larger flat index
+`k * nrow * ncol + i * ncol + j`. The smaller flat index of the pair comes
+first, and `connection_cells/` names the two cells of each connection. A pair
+that touches a cell with `ibound = 0` is left out. A run without
+`keep_face_flows` keeps no inter-cell flow.
+
 `modflow_nwt` imports `base`, `modflow_common` and `modflow_grid`, never `modflow6` or `boussinesq`.

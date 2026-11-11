@@ -15,7 +15,7 @@ import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.results.storage.run_profile import read_profile
+from hydromodpy.results.storage.run_profile import collected_profile, read_profile
 from hydromodpy.solver.base import plan as plan_mod
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.workflow.state import PipelineState
@@ -92,8 +92,8 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
 ) -> None:
     run_a = SimpleNamespace(id=7)
     run_b = SimpleNamespace(id=8)
-    res_a = SimpleNamespace(output_dir=Path("/out/a"), solve_s=1.5)
-    res_b = SimpleNamespace(output_dir=None, solve_s=None)
+    res_a = SimpleNamespace(output_dir=Path("/out/a"), solve_s=1.5, reran=False)
+    res_b = SimpleNamespace(output_dir=None, solve_s=None, reran=False)
     metrics: list[Any] = []
     says: list[Any] = []
     refreshed: list[Any] = []
@@ -133,9 +133,12 @@ def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
     monkeypatch.setattr(run_outputs, "record_what_the_model_says", lambda **_: None)
     monkeypatch.setattr(prepare_dispatch, "refresh_run_environment", lambda ctx, *, store: None)
     executed = [
-        (SimpleNamespace(id="flow"), SimpleNamespace(output_dir=None, solve_s=2.5)),
-        (SimpleNamespace(id="mesh"), SimpleNamespace(output_dir=None, solve_s=None)),
-        (SimpleNamespace(id="transport"), SimpleNamespace(output_dir=None, solve_s=0.5)),
+        (SimpleNamespace(id="flow"), SimpleNamespace(output_dir=None, solve_s=2.5, reran=True)),
+        (SimpleNamespace(id="mesh"), SimpleNamespace(output_dir=None, solve_s=None, reran=False)),
+        (
+            SimpleNamespace(id="transport"),
+            SimpleNamespace(output_dir=None, solve_s=0.5, reran=False),
+        ),
     ]
     ctx = _ctx(persisted=True, run_dir=tmp_path)
     ctx.attempt = 2
@@ -143,7 +146,7 @@ def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
 
     lines = read_profile(tmp_path).lines
     assert [(line.kind, line.name, line.attempt, line.reused) for line in lines] == [
-        ("solve", "flow", 2, "no"),
+        ("solve", "flow", 2, "rerun"),
         ("solve", "transport", 2, "no"),
     ]
     assert [line.duration_s for line in lines] == [2.5, 0.5]
@@ -154,11 +157,35 @@ def test_a_run_without_a_directory_writes_no_profile(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     run = SimpleNamespace(id="flow")
-    result = SimpleNamespace(output_dir=None, solve_s=1.0)
+    result = SimpleNamespace(output_dir=None, solve_s=1.0, reran=False)
     RunSolverStep(launcher=_Launcher([(run, result)])).run(
         _state(ctx=_ctx(persisted=False, run_dir=None))
     )
     assert not list(tmp_path.iterdir())
+
+
+LIGHT_SOLVES: tuple[tuple[str, bool, str], ...] = (
+    ("a built run", False, "no"),
+    ("a rerun", True, "rerun"),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "reran", "reused"), LIGHT_SOLVES, ids=[c for c, *_ in LIGHT_SOLVES]
+)
+def test_a_trial_without_a_store_profiles_its_solves_into_its_collector(
+    case: str, reran: bool, reused: str
+) -> None:
+    del case
+    run = SimpleNamespace(id="flow")
+    result = SimpleNamespace(output_dir=None, solve_s=0.75, reran=reran)
+    with collected_profile() as lines:
+        RunSolverStep(launcher=_Launcher([(run, result)])).run(
+            _state(ctx=_ctx(persisted=False, run_dir=None))
+        )
+    assert [(line.kind, line.name, line.duration_s, line.reused) for line in lines] == [
+        ("solve", "flow", 0.75, reused)
+    ]
 
 
 def test_run_with_a_store_tolerates_a_launcher_returning_nothing(

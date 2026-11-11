@@ -27,26 +27,30 @@ logger = get_logger(__name__)
 def retention_of(ctx: WorkflowContext, plan: SimulationPlan) -> Retention:
     """Return what the run keeps of its solver outputs, from its ``[simulation.results]``.
 
-    The per-cell budget the plan keeps is ``ctx.budget_terms``, set by the
-    prepare-solver step or read back from the store on a resume. A run that
-    reaches here without it has it computed from the plan, as the planning does.
+    The level is ``ctx.level``, set by the prepare-solver step; a context that
+    never planned a run reads as a run at the ``result`` level. The per-cell
+    budget the plan keeps is ``ctx.budget_terms``, set by the prepare-solver
+    step or read back from the store on a resume. A run that reaches here
+    without it has it computed from the plan, as the planning does.
     """
     from hydromodpy.results.storage.kept import Retention
     from hydromodpy.workflow.steps.planning import step_configure_results
 
+    level = getattr(ctx, "level", None) or "result"
     results_cfg = ctx.cfg.simulation.results
     if ctx.budget_terms is None:
         ctx.budget_terms = step_configure_results(
             results_cfg,
             plan,
             ctx.cfg.display,
+            level=level,
             display_active=True,
             export_requests=ctx.cfg.export,
             calibration=ctx.cfg.calibration,
             observation=ctx.cfg.observation,
             lightweight=ctx.execution.lightweight,
         )
-    return Retention.of(results_cfg, ctx.budget_terms)
+    return Retention.of(level, results_cfg, ctx.budget_terms)
 
 
 # ---------------------------------------------------------------------------

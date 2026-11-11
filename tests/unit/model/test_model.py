@@ -11,7 +11,7 @@ import pytest
 
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.domain.geometry import CatchmentGeometry, ChannelRasters, RasterGeometry
-from hydromodpy.model.flow import Flow
+from hydromodpy.model.flow import Flow, flow_profiles
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial.state import (
     INITIAL_STATE_TYPES,
@@ -621,3 +621,153 @@ def test_a_model_built_by_hand_freezes_what_it_is_given() -> None:
     assert model.active_sinks_sources == ("recharge",)
     conditions["east_side"] = object()
     assert model.boundaries.get("east_side") is None
+
+
+# -- with_profiles: the Model of a calibration trial that moves properties only ---
+
+
+def _field(param_id: str, value: object, **section: object) -> dict[str, object]:
+    return {"field": {"id": param_id, "kind": "homogeneous", "value": value}, **section}
+
+
+def _zones(values: dict[str, float]) -> dict[str, object]:
+    return {
+        "field": {
+            "id": "K",
+            "kind": "heterogeneous",
+            "values": values,
+            "field_spatial_id": "geology",
+            "unit": "m/s",
+        }
+    }
+
+
+_EXPONENTIAL = {"field_vertical_profile": {"kind": "exponential", "characteristic_depth": 9.0}}
+_TWO_LAYERS = {
+    "field_vertical_profile": {"kind": "tabulated", "depths": [0.0, 20.0], "factors": [1.0, 0.1]}
+}
+
+
+def _flow_config(**param: dict[str, object]) -> FlowConfig:
+    return FlowConfig.model_validate({"param_list": list(param), "param": param})
+
+
+DERIVED: tuple[tuple[str, FlowConfig, FlowConfig, tuple[str, ...]], ...] = (
+    (
+        "K replaced",
+        _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.1 -")),
+        _flow_config(K=_field("K", "3e-5 m/s"), Sy=_field("Sy", "0.1 -")),
+        ("K",),
+    ),
+    (
+        "K scaled",
+        _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.1 -")),
+        _flow_config(K=_field("K", f"{1e-5 * 2.5!r} m/s"), Sy=_field("Sy", "0.1 -")),
+        ("K",),
+    ),
+    (
+        "Sy",
+        _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.1 -")),
+        _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.25 -")),
+        ("Sy",),
+    ),
+    (
+        "K by zones",
+        _flow_config(K=_zones({"granite": 1e-5, "schist": 2e-6})),
+        _flow_config(K=_zones({"granite": 4e-5, "schist": 8e-6})),
+        ("K",),
+    ),
+    (
+        "K in two layers",
+        _flow_config(K=_field("K", "1e-5 m/s", **_TWO_LAYERS)),
+        _flow_config(K=_field("K", "2e-5 m/s", **_TWO_LAYERS)),
+        ("K",),
+    ),
+    (
+        "K decaying with depth",
+        _flow_config(K=_field("K", "1e-5 m/s", **_EXPONENTIAL)),
+        _flow_config(K=_field("K", "5e-6 m/s", **_EXPONENTIAL)),
+        ("K",),
+    ),
+    (
+        "a free id of a plugin",
+        _flow_config(K=_field("K", "1e-5 m/s"), porosity=_field("porosity", 0.3)),
+        _flow_config(K=_field("K", "1e-5 m/s"), porosity=_field("porosity", 0.35)),
+        ("porosity",),
+    ),
+)
+
+
+def _same_objects(left: object, right: object) -> bool:
+    """Whether two members hold the same objects, as a backend compares them.
+
+    ``Model`` makes its read-only mappings again on each ``replace`` and keeps
+    the values they hold.
+    """
+    if isinstance(left, MappingProxyType) and isinstance(right, MappingProxyType):
+        return left.keys() == right.keys() and all(left[key] is right[key] for key in left)
+    if isinstance(left, BoundaryConditionBundle) and isinstance(right, BoundaryConditionBundle):
+        return _same_objects(left.conditions, right.conditions) and (
+            left.active_ids == right.active_ids
+        )
+    return left is right
+
+
+def _built(config: FlowConfig, geometry, time, options) -> Model:
+    return model_from_flow(Flow(config), geometry=geometry, time=time, options=options)
+
+
+@pytest.mark.parametrize(
+    ("case", "base", "trial", "moved"), DERIVED, ids=[case for case, *_ in DERIVED]
+)
+def test_a_derived_model_equals_the_model_built_on_the_trial_configuration(
+    case: str, base: FlowConfig, trial: FlowConfig, moved: tuple[str, ...]
+) -> None:
+    del case
+    geometry, options = small_geometry(), default_options()
+    time = ModelTime(grid=time_grid(10.0), regime="steady", first_period_steady=True)
+    prepared = _built(base, geometry, time, options)
+
+    derived = prepared.with_profiles(flow_profiles(trial, ids=moved))
+    built = _built(trial, geometry, time, options)
+
+    def contents(model: Model) -> dict[str, object]:
+        return {name: profile.as_dict() for name, profile in model.properties.profiles.items()}
+
+    assert contents(derived) == contents(built)
+    assert list(derived.properties.profiles) == list(built.properties.profiles)
+    for name, profile in derived.properties.profiles.items():
+        if name not in moved:
+            assert profile is prepared.properties.profiles[name]
+    for member in dataclasses.fields(Model):
+        if member.name != "properties":
+            assert _same_objects(getattr(derived, member.name), getattr(prepared, member.name))
+    assert derived.properties.overrides is not None
+    assert dict(derived.properties.overrides) == dict(prepared.properties.overrides)
+
+
+def test_with_profiles_keeps_the_overrides_and_leaves_the_old_model() -> None:
+    model = make_model(
+        properties=Properties(profiles={"K": 1e-5, "Sy": 0.1}, overrides={"Ss": 1e-6})
+    )
+    derived = model.with_profiles({"K": 2e-5})
+    assert dict(derived.properties.profiles) == {"K": 2e-5, "Sy": 0.1}
+    assert dict(derived.properties.overrides) == {"Ss": 1e-6}
+    assert dict(model.properties.profiles) == {"K": 1e-5, "Sy": 0.1}
+
+
+def test_with_profiles_refuses_an_id_the_model_has_no_profile_for() -> None:
+    model = make_model(properties=Properties(profiles={"K": 1e-5}))
+    with pytest.raises(ValueError, match="Ss is none of them"):
+        model.with_profiles({"Ss": 1e-6})
+
+
+def test_a_flow_takes_its_parameters_from_flow_profiles() -> None:
+    config = _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.1 -"))
+    flow = Flow(config)
+    assert {name: param.as_dict() for name, param in flow.parameters.items()} == {
+        name: param.as_dict() for name, param in flow_profiles(config).items()
+    }
+    assert list(flow_profiles(config, ids=["Sy"])) == ["Sy"]
+    with pytest.raises(KeyError, match="declares no Ss"):
+        flow_profiles(config, ids=["Ss"])

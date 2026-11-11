@@ -447,6 +447,8 @@ PROJECT_TOML_TEMPLATE = """\
 #   base_config = "project.toml"
 # ===========================================================================
 
+# The defaults this file keeps. A file with no edition keeps those of 2.0.
+edition = "2.1"
 
 [geographic]
 source_mode = "synthetic"
