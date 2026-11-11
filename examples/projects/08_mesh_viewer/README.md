@@ -6,7 +6,7 @@ plus a JSON summary. CRS is EPSG:2154.
 
 The TOML files in this project are not `HydroModPyConfig`. They use the
 `[mesh_distribution]` schema consumed by `tools/mesh_bundle_viewer/`, a
-standalone package with its own CLI. `hmp run` and `hmp config check` do not
+standalone package with its own CLI. `hmp run` and `hmp check` do not
 apply to them.
 
 ## Run

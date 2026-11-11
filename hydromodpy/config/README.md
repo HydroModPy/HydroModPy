@@ -144,7 +144,7 @@ cell: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet: ...`,
 grouped over the cases it touches. `write_plan_draft` writes the plan once
 under `plan/<hash>/` through `results/plan_store.py`; `plan_budget`
 gives the numbers of `hmp run --dry-run`; `hmp.check` (`project/api.py`) is the one
-check of `hmp config check` for a run, a calibration or a whole project, and it
+check of `hmp check` for a run, a calibration or a whole project, and it
 gives each case of a `[sites]` project the diagnostic `sites_case`. A `[site]` alone is resolved against the site catalog of
 the workspace by `data/sites/single_site.py`.
 

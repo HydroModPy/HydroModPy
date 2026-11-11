@@ -89,30 +89,30 @@ def test_dev_run_script_is_refused_with_its_new_form(monkeypatch, capsys) -> Non
     assert "python -m tools.dev run-script SCRIPT" in err
 
 
-def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
+def test_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
     missing = tmp_path / "nope.toml"
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(missing)])
+    code = _run_cli(monkeypatch, ["hmp", "check", str(missing)])
     assert code == 10
 
 
-def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> None:
+def test_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> None:
     """Invalid TOML syntax must exit with EXIT_CONFIG=14."""
     bad = tmp_path / "bad.toml"
     bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad)])
+    code = _run_cli(monkeypatch, ["hmp", "check", str(bad)])
     assert code == 14
     err = capsys.readouterr().err
     assert "invalid toml" in err.lower() or "config" in err.lower()
 
 
-def test_config_check_json_names_the_code_of_a_toml_fault(monkeypatch, capsys, tmp_path) -> None:
+def test_check_json_names_the_code_of_a_toml_fault(monkeypatch, capsys, tmp_path) -> None:
     """The machine output is ``{ok, diagnostics, workspace}``, each diagnostic with its code."""
     import json
 
     bad = tmp_path / "bad.toml"
     bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
 
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad), "--format", "json"])
+    code = _run_cli(monkeypatch, ["hmp", "check", str(bad), "--format", "json"])
 
     data = json.loads(capsys.readouterr().out)["data"]
     assert code == 14

@@ -6,7 +6,11 @@ model, units, workspace and path rules, runtime state, I/O primitives, the typed
 few numerical kernels that two layers must compute the same way. The root keeps the words every
 layer shares, and a sub-package answers one question and has its own README. `io/value_digest.py`
 holds the rule `values/1` of the seal, one digest for a block of values whatever their dtype, with
-`-0.0` read as `0.0` and one canonical NaN. Keep the package light: importing
+`-0.0` read as `0.0` and one canonical NaN. Each exception of `exceptions.py` carries a
+`Category`, one of sixteen, set once on the class that owns it and inherited below; `cli` maps a
+category to its exit code, so a new exception needs no line in the command line. `logging.py`
+holds `RUN_SINKS` and `SinkRouter`, the handlers a context adds for the span of a run, so no
+handler is added while a run writes its log. Keep the package light: importing
 `hydromodpy.core` loads neither the configuration nor the data stack. A helper used by one layer
 stays in that layer, and moves here when a second layer needs it and the matrix forbids the edge.
 The answers column below is the first line of each module or sub-package docstring.

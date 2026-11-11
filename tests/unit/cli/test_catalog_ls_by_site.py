@@ -1,4 +1,4 @@
-"""``hmp catalog ls``: the ``overrides`` column, ``--best``, ``--by site``, no silent fallback.
+"""``hmp ls``: the ``overrides`` column, ``--best``, ``--by site``, no silent fallback.
 
 The runs are sealed directories indexed by the indexer. A ``.v2`` launched
 with ``--set`` shows what it changed; ``--best nse`` ranks; ``--by site
@@ -55,18 +55,18 @@ def _rows(capsys) -> list[dict]:
 
 
 def test_a_version_shows_the_overrides_it_was_run_with(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "catalog", "ls", "-w", str(project), "--format", "json"]) == 0
+    assert _run(monkeypatch, ["hmp", "ls", "-w", str(project), "--format", "json"]) == 0
 
     by_name = {row["name"]: row for row in _rows(capsys)}
     assert by_name["J0014010-base.v2"]["overrides"] == "flow.param.K.field.value=2e-05"
     assert by_name["J0014010-base"]["overrides"] == ""
 
-    assert _run(monkeypatch, ["hmp", "catalog", "ls", "-w", str(project)]) == 0
+    assert _run(monkeypatch, ["hmp", "ls", "-w", str(project)]) == 0
     assert "overrides: flow.param.K.field.value=2e-05" in capsys.readouterr().out
 
 
 def test_best_refuses_runs_scored_at_different_stations(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "catalog", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
+    argv = ["hmp", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
 
     assert _run(monkeypatch, argv) != 0
 
@@ -76,7 +76,7 @@ def test_best_refuses_runs_scored_at_different_stations(monkeypatch, project, ca
 
 
 def test_best_ranks_the_runs_best_first(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "catalog", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
+    argv = ["hmp", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
     assert _run(monkeypatch, [*argv, "--mixed-windows"]) == 0
 
     assert [row["name"] for row in _rows(capsys)] == [
@@ -87,7 +87,7 @@ def test_best_ranks_the_runs_best_first(monkeypatch, project, capsys) -> None:
 
 
 def test_by_site_with_best_keeps_one_run_per_site(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "catalog", "ls", "-w", str(project), "--by", "site", "--best", "nse"]
+    argv = ["hmp", "ls", "-w", str(project), "--by", "site", "--best", "nse"]
     assert _run(monkeypatch, [*argv, "--format", "json"]) == 0
     assert [(row["site"], row["name"]) for row in _rows(capsys)] == [
         ("J0014010", "J0014010-base.v2"),
@@ -101,7 +101,7 @@ def test_by_site_with_best_keeps_one_run_per_site(monkeypatch, project, capsys) 
 
 
 def test_by_site_alone_groups_every_run_under_its_site(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "catalog", "ls", "-w", str(project), "--by", "site", "--format", "json"]
+    argv = ["hmp", "ls", "-w", str(project), "--by", "site", "--format", "json"]
     assert _run(monkeypatch, argv) == 0
 
     assert [row["site"] for row in _rows(capsys)] == ["J0014010", "J0014010", "J0170000"]
@@ -120,7 +120,7 @@ def test_scores_on_two_windows_are_refused_unless_mixed(monkeypatch, tmp_path, c
         window=DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31)),
     )
     rebuild_index(root)
-    argv = ["hmp", "catalog", "ls", "-w", str(root), "--best", "nse"]
+    argv = ["hmp", "ls", "-w", str(root), "--best", "nse"]
 
     assert _run(monkeypatch, argv) == EXIT_VALIDATION
     assert "--mixed-windows" in capsys.readouterr().err
@@ -128,7 +128,7 @@ def test_scores_on_two_windows_are_refused_unless_mixed(monkeypatch, tmp_path, c
 
 
 def test_a_metric_without_a_direction_is_a_usage_error(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "catalog", "ls", "-w", str(project), "--best", "log_nse"]
+    argv = ["hmp", "ls", "-w", str(project), "--best", "log_nse"]
 
     assert _run(monkeypatch, argv) == EXIT_USAGE
     assert "nse_log" in capsys.readouterr().err
@@ -139,7 +139,7 @@ def test_nothing_around_the_cwd_is_not_found(monkeypatch, tmp_path, capsys) -> N
     empty.mkdir()
     monkeypatch.chdir(empty)
 
-    assert _run(monkeypatch, ["hmp", "catalog", "ls"]) == EXIT_NOT_FOUND
+    assert _run(monkeypatch, ["hmp", "ls"]) == EXIT_NOT_FOUND
     assert "-w" in capsys.readouterr().err
 
 
@@ -148,7 +148,7 @@ def test_best_names_a_site_without_a_scored_run_and_why(monkeypatch, tmp_path, c
     seal_run(root, "a-base", project="unscored", site="a", recipe="base", nse=None, window=None)
     seal_run(root, "b-base", project="unscored", site="b", recipe="base", nse=0.7)
     rebuild_index(root)
-    argv = ["hmp", "catalog", "ls", "-w", str(root), "--by", "site", "--best", "nse"]
+    argv = ["hmp", "ls", "-w", str(root), "--by", "site", "--best", "nse"]
 
     assert _run(monkeypatch, argv) == 0
     out = capsys.readouterr().out
@@ -168,7 +168,7 @@ def test_best_on_unscored_runs_only_says_why_nothing_is_listed(
     seal_run(root, "a-base", project="steady", site="a", recipe="base", nse=None, window=None)
     rebuild_index(root)
 
-    assert _run(monkeypatch, ["hmp", "catalog", "ls", "-w", str(root), "--best", "nse"]) == 0
+    assert _run(monkeypatch, ["hmp", "ls", "-w", str(root), "--best", "nse"]) == 0
     out = capsys.readouterr().out
     assert "has a nse)" in out
     assert "no sealed run of a is scored: declare [metrics] window" in out
@@ -181,7 +181,7 @@ def test_best_on_unscored_runs_keeps_stdout_machine_readable(
     root = make_project(tmp_path / "steady")
     seal_run(root, "a-base", project="steady", site="a", recipe="base", nse=None, window=None)
     rebuild_index(root)
-    argv = ["hmp", "catalog", "ls", "-w", str(root), "--best", "nse", "--format", fmt]
+    argv = ["hmp", "ls", "-w", str(root), "--best", "nse", "--format", fmt]
 
     assert _run(monkeypatch, argv) == 0
     captured = capsys.readouterr()

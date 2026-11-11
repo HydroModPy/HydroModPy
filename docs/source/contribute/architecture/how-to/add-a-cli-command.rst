@@ -67,9 +67,8 @@ Two edits.
 
    import argparse
 
-   import hydromodpy as hmp
    from hydromodpy.cli.conventions import format_parser, workspace_parser
-   from hydromodpy.cli.helpers import resolve_workspace
+   from hydromodpy.cli.helpers import project_root_of
    from hydromodpy.cli.output import emit
 
 
@@ -91,10 +90,10 @@ Two edits.
 
 
    def run(args):
-       workspace = hmp.open(resolve_workspace(args.workspace))
-       project = workspace[args.project]
-       written = project.do_my_thing()
-       emit(args, "myverb", {"path": written}, table=lambda: print(f"wrote {written}"))
+       from hydromodpy.project.api import show
+
+       summary = show(args.project, what="summary", workspace=project_root_of(args))
+       emit(args, "myverb", summary, table=lambda: print(summary))
 
 **Declare what it writes** in ``OUTPUTS`` of ``hydromodpy/cli/output.py``. ``emit`` is the only
 function that writes JSON or CSV, and the page on what a program reads is generated from that
@@ -118,8 +117,10 @@ Conventions
 
 - Use kebab-case for the verb (``my-verb`` becomes ``NAME =
   "my-verb"``).
-- Keep the handler thin: defer business logic to the relevant
-  subpackage (``calibration``, ``project``, ``results``, etc.).
+- Keep the handler thin: it calls the verb of ``hydromodpy.project.api``
+  it stands for, and never ``import hydromodpy as hmp``. A verb needs a
+  ``workspace=``: the command passes ``-w``, or the project of its working
+  directory, which only the command line reads.
 - Import expensive subpackages (``flopy``, ``zarr``,
   ``geopandas``) **inside** the handler, not at the top of the
   module. The CLI must boot fast.
@@ -131,10 +132,12 @@ Conventions
   a refusal the verb makes because of what is already there or what
   protects it, and the refusal names ``--force``. A name is ``--name``.
 - Let an exception propagate: the dispatcher prints its ``HMPY.Exxx``
-  and ends with ``exit_code_for``. A refusal of the verb itself is
-  ``hydromodpy.cli.helpers.refuse(message, EXIT_...)``. Exit codes are
-  0 success, 1 generic, 2 usage, 10..23 specific failure categories,
-  130 SIGINT.
+  and ends with ``exit_code_for``, which reads the ``category`` of the
+  exception class in ``EXIT_CODE_OF``. A new exception sets its category
+  once on its class, and the command line needs no new line. A refusal of
+  the verb itself is ``hydromodpy.cli.helpers.refuse(message, EXIT_...)``.
+  Exit codes are 0 success, 1 generic, 2 usage, 10..23 specific failure
+  categories, 130 SIGINT.
 
 Workflow flags
 --------------
@@ -151,11 +154,12 @@ Subcommands
 -----------
 
 A verb with a handful of actions nests a second ``add_subparsers`` in
-its own module: ``hmp config template``, ``hmp config check``,
-``hmp report render``.
+its own module: ``hmp config template``, ``hmp check``,
+``hmp show SESSION --report``.
 
-``hmp config check`` shows how thin a handler stays. ``run`` parses the arguments
-and calls ``hmp.check(path, partial=args.partial, inputs=args.inputs)``, which
+``hmp check`` shows how thin a handler stays. ``run`` parses the arguments
+and calls ``check(path, partial=args.partial, inputs=args.inputs, ...)`` of
+``hydromodpy.project.api``, which
 gives a list of ``Diagnostic``. It prints ``line()`` of each one, or, under
 ``--format json``, emits ``{ok, diagnostics, workspace}``, and it ends with the
 exit code 14 when a diagnostic has the severity ``error``. Reading the file,

@@ -235,7 +235,7 @@ class RunGeographicMixin:
     ) -> np.ndarray:
         """Read one period of one field, persisted or recomputed on the fly, as an array.
 
-        Takes the words of :func:`hydromodpy.read`, for one period. Delegates to
+        Takes the words of :func:`Run.read`, for one period. Delegates to
         ``Catalog.query_field``, which falls back to the virtual derivations
         (watertable elevation/depth, seepage mask, drain outflow) when the field is not
         persisted. This keeps ``has_field`` honest: a variable it reports as available

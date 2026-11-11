@@ -1,6 +1,6 @@
 """Draw the figures of a run found through its project index.
 
-The verbs of ``hmp viz`` and ``hmp export --figures``: render one registered figure,
+The work behind ``hmp show --figure``, ``hmp config figures`` and ``hmp export --figures``: render one registered figure,
 draw again every figure a run recorded, list what a run can feed, and read
 ``--opt NAME=VALUE`` items into typed figure options.
 """
@@ -91,7 +91,7 @@ def parse_figure_options(figure: str, items: Sequence[str]) -> dict[str, Any]:
     checked against the type of the option. Raises ``ValueError`` for an item
     without ``=``, an option the figure does not take, or a value of the wrong
     type, naming what the figure takes. An option that takes a Python object,
-    such as another run, is refused with the ``hmp.figure`` call that sets it.
+    such as another run, is refused with the ``Run.figure`` call that sets it.
     """
     from hydromodpy.display.figure_registry import (
         figure_option_types,
@@ -113,7 +113,7 @@ def parse_figure_options(figure: str, items: Sequence[str]) -> dict[str, Any]:
         if name in python_only:
             raise ValueError(
                 f"figure '{figure}', option '{name}' takes a Python object: "
-                f"pass it to hmp.figure(run, '{figure}', {name}=...)."
+                f"pass it to run.figure('{figure}', {name}=...)."
             )
         options[name] = _typed_option(figure, name, raw, types[name])
     return options

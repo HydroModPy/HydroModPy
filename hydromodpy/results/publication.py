@@ -281,6 +281,10 @@ class PublishedLine(HydroModelBase):
         default=None, description="Why the last attempt failed; only on a failed delivery"
     )
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return the line as JSON, without the members it does not carry."""
+        return self.model_dump(mode="json", exclude_none=True)
+
     @property
     def pair(self) -> tuple[str, str]:
         """Return what the line is the latest state of: a delivered file, or a copy."""

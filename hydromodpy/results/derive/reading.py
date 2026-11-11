@@ -1,4 +1,4 @@
-"""Variable read dispatch shared by ``hmp.read`` and ``Catalog.read``.
+"""Variable read dispatch shared by ``Run.read`` and ``Catalog.read``.
 
 One type per nature of variable, whatever the selectors say (no ``lazy`` flag):
 
@@ -8,7 +8,7 @@ One type per nature of variable, whatever the selectors say (no ``lazy`` flag):
 - the particle paths -> ``pd.DataFrame``.
 
 The dispatch lives in the ``results`` layer so both the functional facade
-(:mod:`hydromodpy._api`) and the catalog facade
+(:meth:`Run.read` and :func:`hydromodpy.project.api.show`) and the catalog facade
 (:class:`hydromodpy.results.catalog.Catalog`) reach it without crossing layers.
 """
 

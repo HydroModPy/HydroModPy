@@ -451,7 +451,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         reference_color: Annotated[str, Opt("Color of the reference network lines.")] = "#9b1c1c",
         **_,
     ) -> Axes:
-        import matplotlib.pyplot as plt
+        from matplotlib import colormaps
         from matplotlib.colors import ListedColormap
         from matplotlib.patches import Patch
 
@@ -469,7 +469,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             display_values[display_values <= 0.0] = float("nan")
 
         if resolved_mode == "persistence":
-            active_cmap = plt.get_cmap(cmap).copy()
+            active_cmap = colormaps.get_cmap(cmap).copy()
         else:
             active_cmap = ListedColormap([active_color])
         active_cmap.set_bad((1.0, 1.0, 1.0, 0.0))

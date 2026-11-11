@@ -402,7 +402,7 @@ def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
         registry.evaluators.register(_Scripted)
     trial_ctx = _trial_ctx(tmp_path)
     state = pickle.dumps(
-        (_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity(), None)
+        (_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity(), None, None)
     )
     request = TrialRequest(trial_id=5, values={"cost": 0.5})
     conn = Mock(recv_bytes=Mock(return_value=state), recv=Mock(side_effect=[request, EOFError()]))
@@ -433,7 +433,7 @@ def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
 ) -> None:
     monkeypatch.setattr(registry.evaluators, "classes", {})
     state = pickle.dumps(
-        (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity(), None)
+        (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity(), None, None)
     )
     conn = Mock(
         recv_bytes=Mock(return_value=state),
@@ -576,7 +576,7 @@ def test_a_worker_keeps_its_own_lane_from_one_trial_to_the_next_and_sends_the_pr
     monkeypatch.setattr(registry.evaluators, "classes", {})
     _Laned.seen.clear()
     trial_ctx = _trial_ctx(tmp_path, model_from_profiles=derives)
-    state = pickle.dumps((_Laned, {"trial_ctx": trial_ctx}, False, current_verbosity(), None))
+    state = pickle.dumps((_Laned, {"trial_ctx": trial_ctx}, False, current_verbosity(), None, None))
     requests = [TrialRequest(trial_id=n, values={}) for n in (1, 2)]
     conn = Mock(recv_bytes=Mock(return_value=state), recv=Mock(side_effect=[*requests, EOFError()]))
 
@@ -600,7 +600,24 @@ def test_the_state_sent_to_a_worker_carries_no_lane(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path, model_from_profiles=True)
     trial_ctx.parents = TrialParents.of(trial_ctx)
     with closing(TrialWorkerPool(_Scripted, {"trial_ctx": trial_ctx}, width=1)) as pool:
-        _, options, _, _, _ = pickle.loads(pool._state)
+        _, options, *_ = pickle.loads(pool._state)
     assert options["trial_ctx"].parents is None
     assert options["trial_ctx"].model_from_profiles is True
     assert trial_ctx.parents is not None
+
+
+@pytest.mark.parametrize("key", ["island.p123", None])
+def test_the_state_sent_to_a_worker_carries_the_scratch_of_its_run(
+    tmp_path: Path, key: str | None
+) -> None:
+    import contextvars
+
+    from hydromodpy.core.state.scratch import RUN_SCRATCH
+
+    def sent() -> object:
+        if key is not None:
+            RUN_SCRATCH.set(key)
+        with closing(TrialWorkerPool(_Scripted, {}, width=1)) as pool:
+            return pickle.loads(pool._state)[5]
+
+    assert contextvars.copy_context().run(sent) == key

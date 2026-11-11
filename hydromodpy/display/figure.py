@@ -304,6 +304,47 @@ class Figure(Protocol):
     def unavailable_reason(self, subject: Any) -> str | None: ...
 
 
+_SUBPLOTS_KEYWORDS = frozenset(
+    {
+        "sharex",
+        "sharey",
+        "squeeze",
+        "width_ratios",
+        "height_ratios",
+        "subplot_kw",
+        "gridspec_kw",
+    }
+)
+
+
+def new_figure(**figure_kw: Any) -> MplFigure:
+    """Return an empty figure on its own Agg canvas, which the ``pyplot`` registry never holds.
+
+    No backend is chosen or switched, so a render in one thread leaves every
+    other thread alone. The canvas lets the figure be drawn, measured and
+    saved. A figure nobody keeps is freed with its last reference, so a skipped
+    render needs no ``close``.
+    """
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure as MplFigure
+
+    fig = MplFigure(**figure_kw)
+    FigureCanvasAgg(fig)
+    return fig
+
+
+def new_subplots(nrows: int = 1, ncols: int = 1, **kwargs: Any) -> tuple[MplFigure, Any]:
+    """Return a figure and its axes, as ``pyplot.subplots`` does, without ``pyplot``.
+
+    The keywords ``pyplot.subplots`` hands to its grid (``sharex``, ``squeeze``,
+    ``gridspec_kw``, ...) go to the grid and every other one to the figure
+    (``figsize``, ``dpi``, ``constrained_layout``).
+    """
+    grid_kw = {key: kwargs.pop(key) for key in tuple(kwargs) if key in _SUBPLOTS_KEYWORDS}
+    fig = new_figure(**kwargs)
+    return fig, fig.subplots(nrows, ncols, **grid_kw)
+
+
 class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
 
@@ -369,9 +410,7 @@ class BaseFigure(ABC):
         save_path: str | Path | None = None,
         **opts,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(
+        fig, ax = new_subplots(
             figsize=figsize or self.spec.default_figsize,
             dpi=dpi,
             constrained_layout=True,
@@ -380,10 +419,6 @@ class BaseFigure(ABC):
         token = _SHOW_RUN_NAME.set(bool(show_run_name) and _SHOW_RUN_NAME.get())
         try:
             self.render(subject, ax, **opts)
-        except FigureNotApplicable:
-            # A skipped figure must not stay open: a batch skips one per run.
-            plt.close(fig)
-            raise
         finally:
             _SHOW_RUN_NAME.reset(token)
         if title is not None:

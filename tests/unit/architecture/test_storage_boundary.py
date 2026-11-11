@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = REPO_ROOT / "hydromodpy"
 
 CHECKED_FILES = (
-    PACKAGE / "_api.py",
+    PACKAGE / "project" / "api.py",
     *sorted((PACKAGE / "cli" / "commands").rglob("*.py")),
 )
 

@@ -1,4 +1,4 @@
-"""Mutable state container for :class:`hydromodpy.project.Project`.
+"""Mutable state container for :class:`hydromodpy.project.facade.Project`.
 
 Encapsulates the runtime fields that previously lived directly on the
 ``Project`` instance and are assigned from :mod:`hydromodpy.project.phases`
@@ -58,7 +58,6 @@ class ProjectState:
     project_name: str | None = None
     run_counter: int = 0
     active_runs: dict[str, str] = field(default_factory=dict)
-    last_wall_seconds: dict[str, float] = field(default_factory=dict)
     phase: str = "uninitialized"
     data_loaded: set[str] = field(default_factory=set)
     run_history: list[Run] = field(default_factory=list)
@@ -82,7 +81,6 @@ PROJECT_ATTR_TO_STATE_FIELD: dict[str, str] = {
     "_project_name": "project_name",
     "_run_counter": "run_counter",
     "_active_runs": "active_runs",
-    "_last_wall_seconds": "last_wall_seconds",
     "_phase": "phase",
     "_data_loaded": "data_loaded",
     "_run_history": "run_history",

@@ -128,23 +128,35 @@ print(hydromodpy.__version__)
 ## Run in Docker
 
 The `Dockerfile` of the repository builds a slim image whose entry point is `hmp`, so a container
-runs the same program as the command line. Build it from a clone:
+runs the same program as the command line. The image holds HydroModPy with every extra, the
+solver binaries, which `hmp install-binaries` fetched under `/opt/hmp/bin` at the build and
+checked against their pinned sha256, and the HTTP server of the repository. The versions of the
+build are kept in `/opt/hmp/constraints.txt`. Build it from a clone, with the tag you give it:
 
 ```bash
-docker build -t hydromodpy .
+docker build --build-arg HMP_IMAGE_TAG=2.1.0 -t hydromodpy:2.1.0 .
 ```
 
 A run request is one JSON file that holds the configuration under `config`. A container plays it
 from a project folder you mount, and `--base` names the folder its relative paths are read from:
 
 ```bash
-docker run --rm -v "$PWD/project:/project" hydromodpy run /project/request.json --base /project
+docker run --rm -v "$PWD/project:/project" hydromodpy:2.1.0 run /project/request.json --base /project
 ```
 
-The image ships no solver binary. They download into `/home/hmp/.cache/hydromodpy/bin/` at the
-first run and are lost when the container stops, so add `-v hmp-cache:/home/hmp/.cache/hydromodpy`
-to keep them. The run folder, `request.json` included, is written under `/project/runs/`. The
-request itself is described in {doc}`../contribute/architecture/how-to/build-a-frontend`.
+The run folder, `request.json` included, is written under `/project/runs/`. The request itself
+is described in {doc}`../contribute/architecture/how-to/build-a-frontend`. An image cannot hold its
+own digest, so pass it with `-e HMP_IMAGE_DIGEST=sha256:<digest>`. For an image built here,
+`docker inspect --format '{{.Id}}' hydromodpy:2.1.0` gives it. A run then writes the tag
+and the digest of the image in its `provenance.json`. The server needs the digest to start:
+
+```bash
+docker run -d --hostname hmp-server -p 8765:8765 -v /srv/hmp:/project \
+  -e HMP_IMAGE_DIGEST=sha256:<digest> \
+  --entrypoint python hydromodpy:2.1.0 -m hydromodpy_server --root /project --host 0.0.0.0
+```
+
+{doc}`../contribute/architecture/how-to/serve-over-http` describes its routes.
 
 ## On a Windows server
 

@@ -26,7 +26,7 @@ from hydromodpy.display.overview.report import (
     _records_to_timeseries_df,
 )
 from hydromodpy.display.overview.summary import compute_overview_summary, station_table
-from hydromodpy.display.style import apply_theme
+from hydromodpy.display.style import themed
 from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.project.request import request_of
 from hydromodpy.results.outcome import effective_status, read_outcome
@@ -102,8 +102,9 @@ def _tables(plt):
 
 
 def test_the_tables_are_drawn_on_the_dark_background_in_the_dark_theme(mpl) -> None:
-    apply_theme("dark")
-    for table in _tables(mpl):
+    with themed("dark"):
+        tables = _tables(mpl)
+    for table in tables:
         for cell in table.get_celld().values():
             assert _luminance(cell.get_facecolor()) < 0.5, "a cell is still white"
             assert _luminance(cell.get_text().get_color()) > 0.5, "dark text on a dark cell"
@@ -111,28 +112,30 @@ def test_the_tables_are_drawn_on_the_dark_background_in_the_dark_theme(mpl) -> N
 
 
 def test_the_tables_keep_white_cells_in_the_default_theme(mpl) -> None:
-    apply_theme("default")
-    for table in _tables(mpl):
+    with themed("default"):
+        tables = _tables(mpl)
+    for table in tables:
         body = table[(1, 1)]
         assert _luminance(body.get_facecolor()) > 0.95
         assert _luminance(body.get_text().get_color()) < 0.1
 
 
 def test_the_header_of_the_inventory_is_a_grey_that_follows_the_theme(mpl) -> None:
-    apply_theme("default")
-    light = _tables(mpl)[1][(0, 0)].get_facecolor()
-    apply_theme("dark")
-    dark = _tables(mpl)[1][(0, 0)].get_facecolor()
+    with themed("default"):
+        light = _tables(mpl)[1][(0, 0)].get_facecolor()
+    with themed("dark"):
+        inventory = _tables(mpl)[1]
+    dark = inventory[(0, 0)].get_facecolor()
     assert _luminance(light) > 0.85
     assert _luminance(dark) < 0.5
-    assert _luminance(dark) > _luminance(_tables(mpl)[1][(1, 0)].get_facecolor())
+    assert _luminance(dark) > _luminance(inventory[(1, 0)].get_facecolor())
 
 
-def test_the_catchment_outline_is_black_on_light_and_light_on_dark(mpl) -> None:
-    apply_theme("default")
-    assert panels._outline_color() == "#000000"
-    apply_theme("dark")
-    assert _luminance(panels._outline_color()) > 0.8
+def test_the_catchment_outline_is_black_on_light_and_light_on_dark() -> None:
+    with themed("default"):
+        assert panels._outline_color() == "#000000"
+    with themed("dark"):
+        assert _luminance(panels._outline_color()) > 0.8
 
 
 # Unit tests for overview data transformations and panels.

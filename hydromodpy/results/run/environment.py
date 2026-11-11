@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.image import DIGEST_FORM, image_of
 from hydromodpy.core.state.host import host_name
 
 logger = get_logger(__name__)
@@ -60,6 +61,7 @@ class EnvironmentSnapshot(TypedDict, total=False):
     conda_env_hash: str | None
     env_packages: list[str]
     rng_seed: int | None
+    image: dict[str, str]
 
 
 @cache
@@ -280,5 +282,23 @@ def capture_environment(
         "solver_version_text": _solver_version_text(solver_binary_path),
         "conda_env_hash": _conda_env_hash(),
         "env_packages": list(_env_packages()),
+        "image": _image(),
     }
     return snapshot
+
+
+def _image() -> dict[str, str]:
+    """Return the image of the process without stopping the run on a bad digest.
+
+    The server refuses a malformed ``HMP_IMAGE_DIGEST`` when it starts. A run
+    started from the command line finds it only here, after the mesh and the
+    data, so it seals the value under ``digest_refused`` and says so.
+    """
+    image = image_of(refuse=False)
+    if "digest_refused" in image:
+        logger.warning(
+            "HMP_IMAGE_DIGEST is %r, expected %s: sealed under image.digest_refused.",
+            image["digest_refused"],
+            DIGEST_FORM,
+        )
+    return image

@@ -8,7 +8,7 @@
 #
 #   nancon-base, nancon-calibration, canut-base, canut-calibration
 #
-#   hmp config check project.toml          every case, every error at its cell
+#   hmp check project.toml          every case, every error at its cell
 #   hmp run project.toml --dry-run         the plan, the solves, the scratch; nothing written
 #   hmp run project.toml                   the four cases, under runs/ and sessions/
 #   hmp run calibration.toml               the calibration recipe alone, on both sites

@@ -53,7 +53,7 @@ Extend the code
       :link: add-a-figure
       :link-type: doc
 
-      A named figure for ``hmp.figure`` and the ``[display]`` section.
+      A named figure for ``Run.figure`` and the ``[display]`` section.
 
    .. grid-item-card:: Add a block HTML report
       :link: add-a-block-html-report
@@ -84,6 +84,13 @@ Extend the code
       :link-type: doc
 
       The JSON Schema and the partial validator, for any UI.
+
+   .. grid-item-card:: Serve over HTTP
+      :link: serve-over-http
+      :link-type: doc
+
+      The thin HTTP layer of the repository: one space per organisation, one
+      process per run.
 
 Check and ship
 --------------
@@ -125,6 +132,7 @@ Check and ship
    add-a-cli-command
    add-a-calibration-method
    build-a-frontend
+   serve-over-http
    add-a-test
    fix-an-architecture-gate
    cut-a-release

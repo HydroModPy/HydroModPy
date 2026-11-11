@@ -344,7 +344,7 @@ Tests to add
   combos).
 - **Integration** if the field changes the dispatched workflow.
 
-Run ``hmp config check <toml>`` to validate any candidate TOML
+Run ``hmp check <toml>`` to validate any candidate TOML
 against the new model. It lists every fault at once, and ``--partial`` accepts a
 file that still lacks required keys.
 

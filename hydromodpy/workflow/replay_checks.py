@@ -303,6 +303,7 @@ def _producer_facts(provenance: RunProvenance) -> dict[str, Any]:
         "platform.platform": provenance.platform.get("platform"),
         "solver.version": provenance.solver.get("version"),
         "solver.binary_sha256": provenance.solver.get("binary_sha256"),
+        "image.digest": (provenance.environment.get("image") or {}).get("digest"),
     }
     for name in KEY_PACKAGES:
         facts[f"packages.{name}"] = provenance.packages.get(name)

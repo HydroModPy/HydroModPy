@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,15 @@ from hydromodpy.solver.modflow_common.time_units import (
 )
 
 logger = get_logger(__name__)
+
+# Reading the IBOUND back loads the DIS and BAS6 packages by their bare ``mfnwt`` name,
+# and flopy says that the program is not on the PATH. The solver binary is not run here.
+warnings.filterwarnings(
+    "ignore",
+    message="The program .* does not exist or is not executable",
+    category=UserWarning,
+    module=r"flopy\.mbase",
+)
 
 
 # The DIS arrays are written with six significant digits (E15.6), so the grid the
@@ -158,22 +168,18 @@ def _active_cells(
     IBOUND < 0 is a constant-head cell, which carries a face like any active
     cell, so the mask is ``ibound != 0``.
     """
-    import warnings
-
     import flopy
 
     nam_path = Path(solver_output_dir) / f"{model_name}.nam"
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            model = flopy.modflow.Modflow.load(
-                str(nam_path),
-                model_ws=str(solver_output_dir),
-                load_only=["DIS", "BAS6"],
-                check=False,
-                verbose=False,
-                exe_name="mfnwt",
-            )
+        model = flopy.modflow.Modflow.load(
+            str(nam_path),
+            model_ws=str(solver_output_dir),
+            load_only=["DIS", "BAS6"],
+            check=False,
+            verbose=False,
+            exe_name="mfnwt",
+        )
         ibound = np.asarray(model.bas6.ibound.array, dtype=np.int64).reshape(nlay, nrow, ncol)
     except Exception as exc:
         raise ExtractError(
@@ -797,8 +803,6 @@ class ModflowNwtOutputAdapter:
         IBOUND < 0, is an active cell).
         """
         try:
-            import warnings
-
             import flopy
 
             nam_path = solver_output_dir / f"{model_name}.nam"
@@ -807,16 +811,14 @@ class ModflowNwtOutputAdapter:
             if not nam_path.exists():
                 return
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                m = flopy.modflow.Modflow.load(
-                    str(nam_path),
-                    model_ws=str(solver_output_dir),
-                    load_only=["DIS", "BAS6"],
-                    check=False,
-                    verbose=False,
-                    exe_name="mfnwt",
-                )
+            m = flopy.modflow.Modflow.load(
+                str(nam_path),
+                model_ws=str(solver_output_dir),
+                load_only=["DIS", "BAS6"],
+                check=False,
+                verbose=False,
+                exe_name="mfnwt",
+            )
             top = np.asarray(m.dis.top.array, dtype="float64").ravel()[:n_cells]
             botm = np.asarray(m.dis.botm.array, dtype="float64").reshape(-1, n_cells)
             interfaces = layer_interfaces(top, botm)

@@ -6,7 +6,7 @@ the objects the public API returns.
 
 No figure is built here. Figures are named entries of the HydroModPy
 registry, requested either through ``[display].figures`` in the TOML or
-through ``hmp.figure(run, name)`` below.
+through ``run.figure(name)`` below.
 
 Run it as a plain script, or cell by cell (the ``#%%`` markers) in an
 IDE::
@@ -26,7 +26,7 @@ CONFIG = HERE / "project.toml"
 # %% ---- RUN THE SIMULATION
 
 # The TOML is the source of truth; hmp.run returns the persisted Run.
-run = hmp.run(CONFIG, force=True)
+run = hmp.run(CONFIG, force=True).open()
 
 # %% ---- DESCRIBE THE RUN
 
@@ -50,8 +50,8 @@ print(budget.to_string())
 
 # %% ---- TIMESERIES
 
-discharge = hmp.read(run, "discharge", sel={"station": "catchment"})
-pumping = hmp.read(run, "well_pumping", sel={"station": "catchment"})
+discharge = run.read("discharge", sel={"station": "catchment"})
+pumping = run.read("well_pumping", sel={"station": "catchment"})
 print("\nCatchment discharge (m3/s), first and last period:")
 print(discharge.iloc[[0, -1]].to_string())
 print("\nTotal well pumping (m3/s), first and last period:")
@@ -59,8 +59,8 @@ print(pumping.iloc[[0, -1]].to_string())
 
 # %% ---- SPATIAL FIELDS
 
-depth = hmp.read(run, "watertable_depth", time=-1)
-seepage = hmp.read(run, "seepage_mask", time=-1)
+depth = run.read("watertable_depth", time=-1)
+seepage = run.read("seepage_mask", time=-1)
 print(
     f"\nWater-table depth at the last period: "
     f"min {depth.min():.2f} m, mean {depth.mean():.2f} m, max {depth.max():.2f} m"
@@ -69,21 +69,20 @@ print(f"Seepage cells at the last period     : {int(seepage.sum())} / {seepage.s
 
 # %% ---- RENDER FIGURES
 
-# hmp.figure is the Python door on the figure registry: same names and
+# Run.figure is the Python door on the figure registry: same names and
 # options as [display].figures / [display.overrides] in the TOML.
 # Figures belong to the run, exactly where `hmp run` puts them:
 # <project>/runs/<run>/figures/. The project root stays clean.
 out_dir = run.dir / "figures" / "from_python"
 
-hmp.figure(run, "mesh_map", save=out_dir)
-hmp.figure(run, "piezometric_map", save=out_dir)
-hmp.figure(run, "seepage_map", save=out_dir)
-hmp.figure(run, "flux_timeseries", save=out_dir)
+run.figure("mesh_map", save=out_dir)
+run.figure("piezometric_map", save=out_dir)
+run.figure("seepage_map", save=out_dir)
+run.figure("flux_timeseries", save=out_dir)
 
 # Per-figure options, mirroring [display.overrides] in the TOML.
-hmp.figure(run, "cross_section", save=out_dir, orientation="sn")
-hmp.figure(
-    run,
+run.figure("cross_section", save=out_dir, orientation="sn")
+run.figure(
     "watertable_depth_map",
     save=out_dir,
     overlays=["watershed", "seepage", "particles", "wells", "outlet"],

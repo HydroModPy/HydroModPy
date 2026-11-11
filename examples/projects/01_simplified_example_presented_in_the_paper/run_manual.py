@@ -4,7 +4,7 @@ Same configuration as ``project.toml`` (Canut, steady, MODFLOW 6 with a
 depth-decaying aquifer and PRT tracking). This script runs it, then reads
 the particle pathlines to summarize the residence-time distribution, the
 theme of the paper example. No figure is built here: ``particle_tracks``
-and ``cross_section`` are named registry figures rendered via ``hmp.figure``.
+and ``cross_section`` are named registry figures rendered via ``Run.figure``.
 
 Run it as a plain script, or cell by cell (the ``#%%`` markers) in an IDE::
 
@@ -28,7 +28,7 @@ CONFIG = HERE / "project.toml"
 
 # %% ---- RUN
 
-run = hmp.run(CONFIG, force=True)
+run = hmp.run(CONFIG, force=True).open()
 print(f"sim_id     : {run.sim_id}")
 print(f"grid       : {run.grid.shape} cells of {run.grid.cell_size:g} m")
 print(f"parameters : {run.params}")
@@ -60,6 +60,6 @@ print(
 # <project>/runs/<run>/figures/. The project root stays clean.
 OUT = run.dir / "figures" / "from_python"
 
-hmp.figure(run, "particle_tracks", save=OUT)
-hmp.figure(run, "cross_section", save=OUT, orientation="we")
+run.figure("particle_tracks", save=OUT)
+run.figure("cross_section", save=OUT, orientation="we")
 print(f"\nFigures written under {OUT}")

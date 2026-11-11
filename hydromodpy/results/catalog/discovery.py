@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from hydromodpy.core.exceptions import CatalogError, NothingThereError
+from hydromodpy.core.exceptions import CatalogError, Category, NothingThereError
 from hydromodpy.core.state.layout import catalog_path_for, project_roots_under, runs_dir_for
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.results.catalog.constants import (
@@ -101,6 +101,7 @@ class SimulationNotFoundError(ReferenceResolutionError):
     """Raised when a reference does not match any run or session."""
 
     code = NothingThereError.code
+    category = Category.NOT_FOUND
 
 
 class AmbiguousReferenceError(ReferenceResolutionError):
@@ -109,6 +110,8 @@ class AmbiguousReferenceError(ReferenceResolutionError):
     ``candidates`` holds ``(key, label)`` pairs. The key is a ``sim_id`` or a
     relative directory, the label says what it is.
     """
+
+    category = Category.AMBIGUOUS_REFERENCE
 
     def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
         self.ref = ref
@@ -219,7 +222,7 @@ def resolve_rel_dir(
     if rel_dir is not None:
         raise SimulationNotFoundError(
             f"Reference '{text}' not found: {root / rel_dir} is not a directory. "
-            "Run `hmp catalog ls` to list the runs."
+            "Run `hmp ls` to list the runs."
         )
     raise SimulationNotFoundError(f"Reference '{text}' not found in {root}.")
 
@@ -526,10 +529,7 @@ class DiscoveryMixin:
             tags = [str(r[0]) for r in self._backend.fetch_all("SELECT DISTINCT tag FROM tags")]
             close = difflib.get_close_matches(ref, tags, n=3, cutoff=0.4)
         suggestion = f" Closest: {', '.join(close)}." if close else ""
-        return (
-            f"Reference '{ref}' not found{context}. Run `hmp catalog ls` to list known runs."
-            f"{suggestion}"
-        )
+        return f"Reference '{ref}' not found{context}. Run `hmp ls` to list known runs.{suggestion}"
 
     def __getitem__(self, ref: str | UUID) -> Run:
         from hydromodpy.results.run import Run

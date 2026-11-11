@@ -371,5 +371,5 @@ See also
 - :doc:`storage-layout` for the on-disk contract, the three data classes and the
   rebuild invariants.
 - :doc:`contracts` for the protocols and the public facade.
-- :doc:`packages/results` for the Python surface of ``hmp.read`` and
+- :doc:`packages/results` for the Python surface of ``Run.read`` and
   ``CatalogBackend``.

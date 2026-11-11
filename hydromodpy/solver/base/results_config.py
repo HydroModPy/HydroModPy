@@ -50,7 +50,7 @@ class ResultsConfig(HydroModelBase):
         description=(
             "Keep every per-cell budget term the solver produces, storage terms included, "
             "so every flux can be mapped, exported and read after the run is sealed "
-            "(hmp export, hmp viz show, the Python API), and every derived field is rebuilt "
+            "(hmp export, hmp show --figure, the Python API), and every derived field is rebuilt "
             "on read. False keeps only the terms the run's own consumers read: the figures "
             "of [display].figures, the [[export]] blocks, the calibration criterion and the "
             "seepage mask of a surface-excess solver. A kept calibration trial keeps only the "

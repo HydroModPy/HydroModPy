@@ -9,7 +9,8 @@ Four mechanisms are resolved, each tagged by the ``kind`` field of an Edge:
   ``from importlib import import_module [as X]``, or as an attribute of a name
   it bound to the ``importlib`` module. The runtime form of an import
   statement.
-- ``lazy_map``            a string value of a dict literal that names a
+- ``lazy_map``            a string value of a dict literal, or of a dict
+  comprehension (``f"module:{name}"``), that names a
   submodule **that exists on disk**, optionally suffixed ``:Attribute``. This
   is the PEP 562 lazy-attribute map (``_LAZY_IMPORTS``, ``_BUILTIN_PATHS``,
   ``_MODULE_EXPORTS``, ...): a real cross-package edge that no import
@@ -99,6 +100,25 @@ def _top_level_packages(pkg_root: pathlib.Path) -> frozenset[str]:
     )
 
 
+@cache
+def sibling_packages(pkg_root: pathlib.Path) -> frozenset[str]:
+    """Return the folders beside the package named ``<package>_*`` that hold Python.
+
+    Found on disk, so a new sibling needs no list. A namespace folder without
+    ``__init__.py``, like the annex, counts.
+    """
+    prefix = f"{pkg_root.name}_"
+    return frozenset(
+        p.name
+        for p in pkg_root.parent.iterdir()
+        if p.is_dir() and p.name.startswith(prefix) and next(p.rglob("*.py"), None) is not None
+    )
+
+
+def _names_a_sibling(module: str, siblings: frozenset[str]) -> bool:
+    return module.split(".")[0] in siblings
+
+
 def package_of(path: pathlib.Path, pkg_root: pathlib.Path) -> str | None:
     """Return the top-level package this .py file belongs to.
 
@@ -134,7 +154,7 @@ def parse_source(py: pathlib.Path) -> ast.Module:
 def _module_of_literal(
     value: str,
     pkg_name: str,
-    annex_name: str,
+    siblings: frozenset[str],
     *,
     require_submodule: bool = False,
 ) -> str | None:
@@ -149,7 +169,7 @@ def _module_of_literal(
     if matched is None:
         return None
     module = matched.group("module")
-    for root in (pkg_name, annex_name):
+    for root in (pkg_name, *sorted(siblings)):
         if module.startswith(f"{root}."):
             return module
         if module == root and not require_submodule:
@@ -157,10 +177,31 @@ def _module_of_literal(
     return None
 
 
+def _text_of(value: ast.expr) -> str | None:
+    """Return the string a dict value holds, or ``None`` when it is not a string.
+
+    A value like ``f"hydromodpy.project.api:{name}"`` gives the module before the
+    colon, because the name after it changes from one key to the next.
+    """
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return value.value
+    if isinstance(value, ast.JoinedStr) and len(value.values) == 2:
+        head, tail = value.values
+        if (
+            isinstance(head, ast.Constant)
+            and isinstance(head.value, str)
+            and head.value.endswith(":")
+            and isinstance(tail, ast.FormattedValue)
+        ):
+            return head.value[:-1]
+    return None
+
+
 def _module_exists(module: str, pkg_root: pathlib.Path) -> bool:
     """Return whether *module* resolves to a file or a package on disk.
 
-    The scanned package and its annex are siblings, so one base covers both.
+    The scanned package and its sibling folders share a parent, so one base
+    covers all of them.
     """
     candidate = pkg_root.parent.joinpath(*module.split("."))
     return (candidate / "__init__.py").is_file() or candidate.with_suffix(".py").is_file()
@@ -224,7 +265,7 @@ def _import_module_literal(node: ast.Call, names: _ImportlibNames) -> str | None
 def _import_from_target(
     node: ast.ImportFrom,
     pkg_name: str,
-    annex_name: str,
+    siblings: frozenset[str],
     src_parts: list[str],
 ) -> str | None:
     """Return the module an ``ImportFrom`` targets, relative imports resolved."""
@@ -235,7 +276,11 @@ def _import_from_target(
         module = ".".join(base)
     else:
         module = node.module or ""
-    if module == pkg_name or module.startswith(f"{pkg_name}.") or module.startswith(annex_name):
+    if (
+        module == pkg_name
+        or module.startswith(f"{pkg_name}.")
+        or _names_a_sibling(module, siblings)
+    ):
         return module
     return None
 
@@ -251,7 +296,7 @@ def _targets(
     from its ancestry rather than from its line number.
     """
     pkg_name = pkg_root.name
-    annex_name = f"{pkg_name}_annex"
+    siblings = sibling_packages(pkg_root)
     src_parts = src_dotted.split(".")
     importlib_names = _importlib_names(tree)
     found: dict[tuple[int, str, str], tuple[ast.AST, int, str, str]] = {}
@@ -261,7 +306,7 @@ def _targets(
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
-            module = _import_from_target(node, pkg_name, annex_name, src_parts)
+            module = _import_from_target(node, pkg_name, siblings, src_parts)
             if module is not None:
                 keep(node, node.lineno, "from", module)
         elif isinstance(node, ast.Import):
@@ -270,23 +315,22 @@ def _targets(
                 if (
                     name == pkg_name
                     or name.startswith(f"{pkg_name}.")
-                    or name.startswith(annex_name)
+                    or _names_a_sibling(name, siblings)
                 ):
                     keep(node, node.lineno, "import", name)
         elif isinstance(node, ast.Call):
             literal = _import_module_literal(node, importlib_names)
             if literal is None:
                 continue
-            module = _module_of_literal(literal, pkg_name, annex_name)
+            module = _module_of_literal(literal, pkg_name, siblings)
             if module is not None:
                 keep(node, node.lineno, "import_module", module)
-        elif isinstance(node, ast.Dict):
-            for value in node.values:
-                if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+        elif isinstance(node, (ast.Dict, ast.DictComp)):
+            for value in node.values if isinstance(node, ast.Dict) else [node.value]:
+                text = _text_of(value)
+                if text is None:
                     continue
-                module = _module_of_literal(
-                    value.value, pkg_name, annex_name, require_submodule=True
-                )
+                module = _module_of_literal(text, pkg_name, siblings, require_submodule=True)
                 if module is not None and _module_exists(module, pkg_root):
                     keep(value, value.lineno, "lazy_map", module)
     return [found[key] for key in sorted(found)]
@@ -297,8 +341,8 @@ def parse_imports(py: pathlib.Path, pkg_root: pathlib.Path) -> list[tuple[int, s
 
     Covers the static statements, ``import_module`` on a literal, and the
     string values of dict literals. Resolves relative imports against the
-    source module path. Also matches ``hydromodpy_annex`` so the one-way rule
-    can be checked.
+    source module path. Also matches the sibling folders (``hydromodpy_*``)
+    so the one-way rule can be checked.
     """
     tree = parse_source(py)
     src_dotted = submodule_path(py, pkg_root)
@@ -353,11 +397,13 @@ def _scope_flags(node: ast.AST, parents: dict[int, ast.AST]) -> tuple[bool, bool
     return in_function, in_type_checking
 
 
-def _target_package(module: str, pkg_name: str, top_level: frozenset[str]) -> str:
+def _target_package(
+    module: str, pkg_name: str, top_level: frozenset[str], siblings: frozenset[str]
+) -> str:
     if module == pkg_name:
         return "<root>"
-    if module.startswith(f"{pkg_name}_annex"):
-        return "<annex>"
+    if _names_a_sibling(module, siblings):
+        return "<sibling>"
     parts = module.split(".")
     if len(parts) < 2:
         return "<root>"
@@ -365,9 +411,37 @@ def _target_package(module: str, pkg_name: str, top_level: frozenset[str]) -> st
     return head if head in top_level else "<root>"
 
 
+def _edges_of(
+    py: pathlib.Path, pkg_root: pathlib.Path, src_pkg: str, src_module: str
+) -> list[Edge]:
+    tree = parse_source(py)
+    targets = _targets(tree, pkg_root, src_module)
+    if not targets:
+        return []
+    top_level = _top_level_packages(pkg_root)
+    siblings = sibling_packages(pkg_root)
+    parents = _parent_map(tree)
+    edges: list[Edge] = []
+    for node, lineno, kind, module in targets:
+        in_function, in_type_checking = _scope_flags(node, parents)
+        edges.append(
+            Edge(
+                src_file=str(py),
+                src_pkg=src_pkg,
+                src_module=src_module,
+                lineno=lineno,
+                kind=kind,
+                target_module=module,
+                tgt_pkg=_target_package(module, pkg_root.name, top_level, siblings),
+                in_function=in_function,
+                in_type_checking=in_type_checking,
+            )
+        )
+    return edges
+
+
 def scan_package(pkg_root: pathlib.Path) -> list[Edge]:
     """Scan every .py file under ``pkg_root`` and return one Edge per import."""
-    top_level = _top_level_packages(pkg_root)
     edges: list[Edge] = []
     for py in sorted(pkg_root.rglob("*.py")):
         if "__pycache__" in py.parts:
@@ -375,28 +449,23 @@ def scan_package(pkg_root: pathlib.Path) -> list[Edge]:
         src_pkg = package_of(py, pkg_root)
         if src_pkg is None:
             continue
-        tree = parse_source(py)
-        src_module = submodule_path(py, pkg_root)
-        targets = _targets(tree, pkg_root, src_module)
-        if not targets:
+        edges.extend(_edges_of(py, pkg_root, src_pkg, submodule_path(py, pkg_root)))
+    return edges
+
+
+def scan_sibling(sibling: str, pkg_root: pathlib.Path) -> list[Edge]:
+    """Return one Edge per import of ``pkg_root`` written in a sibling folder.
+
+    ``src_pkg`` is the sibling's name and ``tgt_pkg`` the package of
+    ``pkg_root`` it reads, ``<root>`` for the facade.
+    """
+    root = pkg_root.parent / sibling
+    edges: list[Edge] = []
+    for py in sorted(root.rglob("*.py")):
+        if "__pycache__" in py.parts:
             continue
-        parents = _parent_map(tree)
-        src_file = str(py)
-        for node, lineno, kind, module in targets:
-            in_function, in_type_checking = _scope_flags(node, parents)
-            edges.append(
-                Edge(
-                    src_file=src_file,
-                    src_pkg=src_pkg,
-                    src_module=src_module,
-                    lineno=lineno,
-                    kind=kind,
-                    target_module=module,
-                    tgt_pkg=_target_package(module, pkg_root.name, top_level),
-                    in_function=in_function,
-                    in_type_checking=in_type_checking,
-                )
-            )
+        src_module = ".".join([sibling, *py.relative_to(root).with_suffix("").parts])
+        edges.extend(_edges_of(py, pkg_root, sibling, src_module))
     return edges
 
 

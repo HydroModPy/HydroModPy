@@ -23,7 +23,6 @@ searched in two different spaces depending on how it was spelled.
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 from hydromodpy.calibration.targets import (
@@ -33,6 +32,7 @@ from hydromodpy.calibration.targets import (
     targets_by_name,
     targets_by_path,
 )
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.forcing.soil_config import soil_reservoir_of
 
@@ -134,7 +134,7 @@ def resolve_parameter_targets(
                 # A path the catalog does not carry is the documented way out,
                 # and the space and the preflight judge it on their own terms.
                 if decl.mode == "replace":
-                    warnings.warn(
+                    say(
                         f"[calibration.parameters.{name}] writes {path!r}, which the catalogue "
                         "does not carry, so its unit is unknown and the sample is written as drawn.",
                         UserWarning,

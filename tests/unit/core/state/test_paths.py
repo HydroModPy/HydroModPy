@@ -6,6 +6,9 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -28,8 +31,9 @@ from hydromodpy.core.state.layout import (
 from hydromodpy.core.state.portable import cache_dir, resolve_workspace, state_dir
 from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
 from hydromodpy.core.state.scratch import (
-    RUN_SCRATCH_ENV,
+    RUN_SCRATCH,
     active_run_scratch,
+    inherit_run_scratch,
     kept_preprocessing_dir,
     preprocessing_dir,
     run_scratch,
@@ -323,11 +327,6 @@ def test_project_roots_under_drops_duplicate_symlinks(tmp_path: Path) -> None:
 pytestmark = pytest.mark.unit
 
 
-@pytest.fixture(autouse=True)
-def _no_inherited_run(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(RUN_SCRATCH_ENV, raising=False)
-
-
 def test_a_run_works_in_its_own_folder(tmp_path: Path) -> None:
     assert scratch_dir_for(tmp_path) == tmp_path / ".hmp" / "scratch"
 
@@ -335,10 +334,18 @@ def test_a_run_works_in_its_own_folder(tmp_path: Path) -> None:
         assert key == f"step1_minimal.p{os.getpid()}"
         assert scratch_dir_for(tmp_path) == tmp_path / ".hmp" / "scratch" / key
         assert preprocessing_dir(tmp_path) == scratch_dir_for(tmp_path) / "_preprocessing"
-        assert os.environ[RUN_SCRATCH_ENV] == key
+        assert RUN_SCRATCH.get() == key
 
     assert active_run_scratch() is None
     assert scratch_dir_for(tmp_path) == scratch_root_for(tmp_path)
+
+
+def test_a_run_writes_nothing_into_the_environment(tmp_path: Path) -> None:
+    before = dict(os.environ)
+    with run_scratch(tmp_path, "step1_minimal"):
+        with run_scratch(tmp_path, "trial"):
+            assert dict(os.environ) == before
+    assert dict(os.environ) == before
 
 
 def test_the_trials_of_a_session_share_its_folder(tmp_path: Path) -> None:
@@ -349,13 +356,57 @@ def test_the_trials_of_a_session_share_its_folder(tmp_path: Path) -> None:
     assert active_run_scratch() is None
 
 
-def test_a_child_process_works_in_its_parent_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv(RUN_SCRATCH_ENV, "parent.p1")
-    with run_scratch(tmp_path, "child") as key:
+def test_a_worker_works_in_the_folder_its_payload_names(tmp_path: Path) -> None:
+    with inherit_run_scratch("parent.p1") as key:
         assert key == "parent.p1"
-    assert os.environ[RUN_SCRATCH_ENV] == "parent.p1"
+        assert scratch_dir_for(tmp_path) == scratch_root_for(tmp_path) / "parent.p1"
+        with run_scratch(tmp_path, "child") as nested:
+            assert nested == "parent.p1"
+        assert active_run_scratch() == "parent.p1"
+    assert active_run_scratch() is None
+
+
+def _folder_of_a_run_in_a_thread(
+    tmp_path: Path, label: str, *, copy: bool, hold: threading.Barrier
+) -> tuple[str | None, str | None]:
+    """Return what a pool thread reads of the scratch of the run that submits to it."""
+    with run_scratch(tmp_path, label) as key:
+        hold.wait(timeout=30)
+        with ThreadPoolExecutor(1) as pool:
+            if copy:
+                future = pool.submit(copy_context().run, active_run_scratch)
+            else:
+                future = pool.submit(active_run_scratch)
+            seen = future.result(timeout=30)
+        hold.wait(timeout=30)
+        return key, seen
+
+
+@pytest.mark.parametrize(
+    ("copy", "sees_own_run"),
+    [
+        pytest.param(True, True, id="a task entered through copy_context"),
+        pytest.param(False, False, id="a task submitted bare reads nothing"),
+    ],
+)
+def test_two_runs_in_two_threads_keep_two_folders(
+    tmp_path: Path, copy: bool, sees_own_run: bool
+) -> None:
+    hold = threading.Barrier(2)
+    with ThreadPoolExecutor(2) as runs:
+        futures = [
+            runs.submit(_folder_of_a_run_in_a_thread, tmp_path, label, copy=copy, hold=hold)
+            for label in ("alpha", "beta")
+        ]
+        answers = [future.result(timeout=60) for future in futures]
+
+    (key_a, seen_a), (key_b, seen_b) = answers
+    assert key_a != key_b
+    assert {key_a.split(".")[0], key_b.split(".")[0]} == {"alpha", "beta"}
+    if sees_own_run:
+        assert (seen_a, seen_b) == (key_a, key_b)
+    else:
+        assert (seen_a, seen_b) == (None, None)
 
 
 def test_an_empty_run_folder_is_removed_at_the_end(tmp_path: Path) -> None:
@@ -376,7 +427,7 @@ def test_two_processes_of_one_project_get_two_folders(tmp_path: Path) -> None:
             time.sleep(1.0)
         """
     )
-    env = {k: v for k, v in os.environ.items() if k != RUN_SCRATCH_ENV}
+    env = dict(os.environ)
     procs = [
         subprocess.Popen([sys.executable, "-c", script], stdout=subprocess.PIPE, text=True, env=env)
         for _ in range(2)
@@ -436,7 +487,7 @@ def test_a_resume_works_in_the_folder_of_the_killed_run(tmp_path: Path) -> None:
         print([path.name for path in sweep_dead_run_scratch(Path({str(tmp_path)!r}))])
         """
     )
-    env = {k: v for k, v in os.environ.items() if k != RUN_SCRATCH_ENV}
+    env = dict(os.environ)
 
     with run_scratch(tmp_path, "resume", resumes=killed) as key:
         assert key == killed

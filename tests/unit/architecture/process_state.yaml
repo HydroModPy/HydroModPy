@@ -1,0 +1,153 @@
+# One row per site under hydromodpy/ that writes the state of the whole process:
+# a global statement, matplotlib.use, a write of rcParams, rc_context,
+# addHandler, removeHandler, catch_warnings, simplefilter, filterwarnings,
+# signal.signal, os.chdir and sys.path.insert.
+#
+# The gate test_no_global_written_during_a_run.py walks the AST of the tree and
+# refuses a site the table does not carry and a row no site matches, so a row
+# leaves only with its code and the table only shrinks. A site is named by its
+# file, its kind and the function that holds it (<module> at the top level).
+#
+# Classes. import, set once when the module is imported; process, set once per
+# process by the command line or the main thread of a launch; cli, what only the
+# command layer writes; trial_pipeline, the one global of rule 7; lock, written
+# and given back while a lock of the module is held; once, a flag that keeps a
+# repeated warning quiet; transitional, a row a later lot lifts, with the lot in
+# lifted_by.
+
+rows:
+- file: hydromodpy/calibration/optim/adapters/da_mh_gp_adapter.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/calibration/optim/adapters/gp_mapping_adapter.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/calibration/optim/adapters/optuna_adapter.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/calibration/runners/trial.py
+  site: global
+  scope: install_trial_pipeline
+  class: trial_pipeline
+  why: the one trial pipeline of the process, filled once by project before a calibration
+- file: hydromodpy/catchment/stream_network/geometry.py
+  site: global
+  scope: _report_poor_alpha
+  class: once
+  why: a flag that keeps a repeated warning quiet, the same value for every thread
+- file: hydromodpy/catchment/stream_network/geometry.py
+  site: global
+  scope: _log_heads
+  class: once
+  why: a flag that keeps a repeated warning quiet, the same value for every thread
+- file: hydromodpy/cli/banner.py
+  site: global
+  scope: print_hydromodpy
+  class: cli
+  why: the command line composes its own output once per process, never inside a run
+- file: hydromodpy/cli/output.py
+  site: global
+  scope: stdout_for_a_program
+  class: cli
+  why: the command line composes its own output once per process, never inside a run
+- file: hydromodpy/core/console/ndjson.py
+  site: global
+  scope: _handle_for
+  class: lock
+  why: the file of the NDJSON sink, opened once under the lock of the module
+- file: hydromodpy/core/console/ndjson.py
+  site: global
+  scope: _close_at_exit
+  class: process
+  why: the NDJSON sink closes its file once, at the exit of the process
+- file: hydromodpy/core/logging.py
+  site: addHandler
+  scope: ensure_sink_router
+  class: import
+  why: the sink router of the package logger, installed once when LogManager is created
+- file: hydromodpy/core/logging.py
+  site: removeHandler
+  scope: LogManager._setup_logging
+  class: process
+  why: the console handler of the package logger, set when the process picks its verbosity
+- file: hydromodpy/core/logging.py
+  site: addHandler
+  scope: LogManager._setup_logging
+  class: process
+  why: the console handler of the package logger, set when the process picks its verbosity
+- file: hydromodpy/core/logging.py
+  site: addHandler
+  scope: LogManager._add_user_log
+  class: process
+  why: the console handler of the package logger, set when the process picks its verbosity
+- file: hydromodpy/core/runtime/interrupts.py
+  site: signal.signal
+  scope: terminate_as_interrupt
+  class: process
+  why: the SIGTERM handler of the main thread, set and given back around a launch
+- file: hydromodpy/core/runtime/interrupts.py
+  site: signal.signal
+  scope: terminate_as_interrupt
+  class: process
+  why: the SIGTERM handler of the main thread, set and given back around a launch
+- file: hydromodpy/data/common/clients/sandre_topage.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/data/variables/hydrography/variable.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/data/variables/hydrography/variable.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/display/style.py
+  site: rc_context
+  scope: themed
+  class: lock
+  why: the style of one render, set and given back under RENDER_LOCK
+- file: hydromodpy/results/run/array.py
+  site: global
+  scope: _optional_dask_array
+  class: once
+  why: a flag that keeps a repeated warning quiet, the same value for every thread
+- file: hydromodpy/results/zarr_store/zarr_finalizer.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/results/zarr_store/zarr_reader.py
+  site: global
+  scope: _optional_dask_array
+  class: once
+  why: a flag that keeps a repeated warning quiet, the same value for every thread
+- file: hydromodpy/results/zarr_store/zarr_schema.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/solver/boussinesq/runtimes/scipy_sparse.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported
+- file: hydromodpy/solver/modflow_common/binaries.py
+  site: global
+  scope: warn_on_mf6_version_mismatch
+  class: once
+  why: a flag that keeps a repeated warning quiet, the same value for every thread
+- file: hydromodpy/solver/modflow_nwt/extractors/flow.py
+  site: filterwarnings
+  scope: <module>
+  class: import
+  why: a filter bounded by category, message and module, set once when the module is imported

@@ -7,7 +7,6 @@ writes HTML and no sentence is written here: the caller gives the texts.
 from __future__ import annotations
 
 import json
-import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -604,22 +603,13 @@ def draw_named_figures(run: Run, names: Sequence[str]) -> tuple[str, ...]:
 def _sealed_display(run: Run, figures: list[str]) -> DisplayConfig:
     """Return the ``[display]`` the run sealed, set to draw ``figures`` and save them.
 
-    Only a value away from its default counts as set, as ``hmp viz show`` reads
+    Only a value away from its default counts as set, as ``hmp show --figure`` reads
     it. The report always draws, headless, and a figure that fails is logged and
     skipped. A sealed ``[display]`` that no longer loads gives the defaults.
     """
-    snapshot = run.config_snapshot
-    section = snapshot.get("display") if isinstance(snapshot, Mapping) else None
-    fields = DisplayConfig.model_fields
-    sealed = (
-        {
-            key: value
-            for key, value in section.items()
-            if key not in fields or value != fields[key].get_default(call_default_factory=True)
-        }
-        if isinstance(section, Mapping)
-        else {}
-    )
+    from hydromodpy.display.runs import sealed_display_values
+
+    sealed = sealed_display_values(run.config_snapshot) or {}
     drawing = {
         "enabled": True,
         "save": True,
@@ -629,10 +619,7 @@ def _sealed_display(run: Run, figures: list[str]) -> DisplayConfig:
         "figures": figures,
     }
     try:
-        with warnings.catch_warnings():
-            # A former spelling in a sealed snapshot is not the reader's to fix.
-            warnings.simplefilter("ignore")
-            return DisplayConfig.model_validate({**sealed, **drawing})
+        return DisplayConfig.model_validate({**sealed, **drawing})
     except ValueError as exc:
         logger.warning(
             "Report: the [display] of this run no longer loads (%s); its figures use the defaults.",

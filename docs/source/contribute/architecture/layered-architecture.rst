@@ -19,7 +19,7 @@ as the in-tree implementation. The data cache uses a separate DuckDB cache adapt
 CLI diagnostics, migration runners and portable-package snapshots may open DuckDB
 directly, in the cases listed in :ref:`direct-duckdb-access`.
 
-Field readers go through ``hmp.read``, which dispatches to the Zarr or Parquet store
+Field readers go through ``Run.read``, which dispatches to the Zarr or Parquet store
 through the field registry. See :doc:`/contribute/architecture/packages/results`
 for the Python surface.
 

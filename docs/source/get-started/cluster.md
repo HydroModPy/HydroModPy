@@ -65,13 +65,13 @@ place.
 ## Follow and collect
 
 ```bash
-hmp project status .
+hmp ls --plan
 hmp project log . --failed
 hmp catalog reindex -w . --incremental
 hmp campaign collect .
 ```
 
-`hmp project status` reads the `outcome.json` and the heartbeat of each case. When `sacct`
+`hmp ls --plan` reads the `outcome.json` and the heartbeat of each case. When `sacct`
 is on the path, it also asks Slurm which jobs ended: a task whose job ended while its outcome
 still says running shows as failed instead of stale. `hmp project log` rebuilds the journal of the job from the
 outcomes. No task opens the index of the project: rebuild it once the array is done, then

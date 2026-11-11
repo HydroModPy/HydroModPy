@@ -1,0 +1,251 @@
+{
+ "site": {
+  "name": "nancon",
+  "label": "Le Nan\u00e7on \u00e0 L\u00e9cousse",
+  "gauge": "J001401001",
+  "uri": "hubeau:J0014010"
+ },
+ "metrics": {
+  "window": {
+   "start": "2016-01-01",
+   "end": "2020-12-31"
+  }
+ },
+ "simulation": {
+  "name": "nancon_api_daily",
+  "description": "Nancon, daily 2015-2020 on BD Topage, Hub'Eau and SIM2, K on five fixed values.",
+  "time": {
+   "start_datetime": "2015-01-01",
+   "end_datetime": "2020-12-31",
+   "step_value": "1 day"
+  },
+  "process": [
+   {
+    "id": "flow_main",
+    "kind": "flow",
+    "solvers": [
+     "modflow6"
+    ]
+   }
+  ]
+ },
+ "geographic": {
+  "crs_project": "EPSG:2154",
+  "catchment": {
+   "kind": "from_outlet_coord",
+   "x_outlet": 389285.91,
+   "y_outlet": 6816518.749,
+   "snap_dist": "150 m",
+   "buff_area": "10%"
+  }
+ },
+ "domain": {
+  "depth_model": {
+   "kind": "constant_thickness",
+   "thickness": "30.0 m"
+  }
+ },
+ "data": {
+  "types": [
+   "dem",
+   "hydrography",
+   "hydrometry",
+   "recharge",
+   "runoff"
+  ],
+  "dem": {
+   "sources": [
+    {
+     "source": "file",
+     "path": "../../data/dem/DEM_armorican_massif.tif"
+    }
+   ]
+  },
+  "hydrography": {
+   "sources": [
+    {
+     "source": "bdtopage"
+    }
+   ]
+  },
+  "hydrometry": {
+   "sources": [
+    {
+     "source": "hubeau",
+     "product": "QmnJ"
+    }
+   ]
+  },
+  "recharge": {
+   "sources": [
+    {
+     "source": "sim2",
+     "extent": "watershed"
+    }
+   ]
+  },
+  "runoff": {
+   "sources": [
+    {
+     "source": "sim2",
+     "extent": "watershed"
+    }
+   ]
+  }
+ },
+ "flow": {
+  "param_list": [
+   "K",
+   "Sy",
+   "Ss"
+  ],
+  "param": {
+   "K": {
+    "field": {
+     "kind": "homogeneous",
+     "unit": "m/s",
+     "value": 5e-05
+    }
+   },
+   "Sy": {
+    "field": {
+     "kind": "homogeneous",
+     "unit": "-",
+     "value": 0.05
+    }
+   },
+   "Ss": {
+    "field": {
+     "kind": "homogeneous",
+     "unit": "m-1",
+     "value": 1e-05
+    }
+   }
+  },
+  "bc": {
+   "drainage": {}
+  },
+  "sinks_sources": {
+   "recharge": {}
+  }
+ },
+ "display": {
+  "on_error": "warn",
+  "time": "2019-09-15",
+  "figures": [
+   "watershed_id_card",
+   "hydrographic_network_permanence",
+   "hydrograph_log_nse",
+   "hydrograph_sim_obs",
+   "duration_curve",
+   "recession",
+   "flux_timeseries",
+   "watertable_depth_map",
+   "seepage_map",
+   "cross_section",
+   "network_extent_bounds_map",
+   "flow_persistence_map",
+   "flow_intermittence_map",
+   "seepage_network_confusion_map",
+   "downslope_distance_map",
+   "parameter_cost_profile",
+   "calibration_progress"
+  ],
+  "overrides": {
+   "cross_section": {
+    "orientation": "sn"
+   },
+   "flow_intermittence_map": {
+    "cycle": "2019"
+   },
+   "seepage_map": {
+    "time": "2020-02-15"
+   }
+  }
+ },
+ "workflow": {
+  "mode": "calibration"
+ },
+ "calibration": {
+  "save_runs": "all",
+  "validation_window": {
+   "start": "2019-01-01",
+   "end": "2020-12-31"
+  },
+  "parameters": {
+   "K": {
+    "bounds": [
+     1e-06,
+     0.0001
+    ]
+   }
+  },
+  "outputs": {
+   "hydrograph": {
+    "support": "point",
+    "variable": "discharge"
+   }
+  },
+  "objective_blocks": [
+   {
+    "name": "hydrograph",
+    "metric": "nse_log",
+    "uses_outputs": [
+     "hydrograph"
+    ]
+   }
+  ],
+  "phases": [
+   {
+    "name": "conductivity_grid",
+    "description": "K on five fixed values, daily transient, ranked on the Hub'Eau discharge of 2016-2018.",
+    "parameters": [
+     "K"
+    ],
+    "regime": "transient",
+    "objective_blocks": [
+     "hydrograph"
+    ],
+    "method": "grid",
+    "max_trials": 5,
+    "method_options": {
+     "points_per_dim": 5
+    },
+    "parallel": 5,
+    "window": {
+     "start": "2016-01-01"
+    }
+   }
+  ],
+  "persist_trial_series": false
+ },
+ "export": [
+  {
+   "variables": [
+    "watershed",
+    "hydrographic_network_reference",
+    "hydrographic_network_reference_permanent"
+   ]
+  },
+  {
+   "variables": [
+    "watertable_depth",
+    "seepage_mask"
+   ],
+   "time": "2019-09-15"
+  },
+  {
+   "variables": [
+    "discharge",
+    "discharge_obs"
+   ],
+   "period": [
+    "2016-01-01",
+    "2020-12-31"
+   ]
+  },
+  {
+   "variables": "budget"
+  }
+ ]
+}

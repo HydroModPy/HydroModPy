@@ -141,7 +141,7 @@ def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> tuple[str, ..
     """Best-effort self-teaching epilogue: identity card + next commands.
 
     Read from ``manifest.json``, never from the index. The seal carries
-    ``duration_s`` from ``ended_at - started_at``, the figure ``hmp catalog
+    ``duration_s`` from ``ended_at - started_at``, the figure ``hmp
     show`` reads, and the epilogue says nothing of the duration when it has none.
     """
     from hydromodpy.results.record.label import read_sealed_manifest
@@ -158,8 +158,7 @@ def _run_epilogue_lines(ctx: WorkflowContext, *, run_dir: Path) -> tuple[str, ..
     duration = f" {run_duration_s:.0f}s" if run_duration_s else ""
     return (
         f"Run completed: {name} [{sid[:8]}]{duration}{metric}",
-        f"next: hmp catalog show {name} | hmp publish {name} --to <folder> "
-        f"| hmp export {name} --list",
+        f"next: hmp show {name} | hmp publish {name} --to <folder> | hmp export {name} --list",
     )
 
 

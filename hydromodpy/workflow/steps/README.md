@@ -34,7 +34,7 @@ In the order `standard_steps()` calls them. Helpers follow the step that uses th
 | `run_outputs.py` | what happens after a solve, each on the `RunContext` of one run: `extract_run_outputs` calls the `extract` of the adapter with the `SolverRun` and the `Retention`, `derive_run_outputs` and `cleanup_solver_outputs` follow, and `extract.py`, `derive.py` and `export.py` call them |
 | `derive.py` | step `derive`: catchment aggregates, observation points, fit metrics |
 | `export.py` | steps `export` and `seal`: the solver files and the scratch cleanup, the seal, then `step_after_seal` writes the `[[export]]` data requests and views from the sealed run (none for a research run) |
-| `display.py` | step `display`, after the seal: the figures of `[display]` drawn from the sealed run with its label, none for a research run; a failing figure raises DisplayError naming hmp viz show |
+| `display.py` | step `display`, after the seal: the figures of `[display]` drawn from the sealed run with its label, none for a research run; a failing figure raises DisplayError naming hmp show --figure |
 | `dependencies.py` | `earliest_affected_step`: the first step a set of overrides reaches |
 
 ## Tree

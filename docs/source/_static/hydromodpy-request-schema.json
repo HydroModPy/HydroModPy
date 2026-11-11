@@ -1,0 +1,159 @@
+{
+  "additionalProperties": false,
+  "description": "A run as it is asked for: the document and the options that steer it.\n\nThe base of the relative paths and the environment of the call are not part\nof it, so the request is the same on any machine.",
+  "properties": {
+    "schema": {
+      "const": "hydromodpy.request.v1",
+      "default": "hydromodpy.request.v1",
+      "description": "Schema id of the request.",
+      "title": "Schema",
+      "type": "string"
+    },
+    "config": {
+      "additionalProperties": true,
+      "description": "The whole configuration document: a TOML file and its base_config chain and overlays merged, or the document given as JSON or as a dict. It names no base_config and no [workspace] project_root.",
+      "title": "Config",
+      "type": "object"
+    },
+    "set": {
+      "additionalProperties": true,
+      "description": "Values set on top of config by dotted path, the grammar of --set, applied once at the load and sealed in lineage.overrides.",
+      "title": "Set",
+      "type": "object"
+    },
+    "overlays": {
+      "default": [],
+      "description": "The names of the overlay files merged into config, for lineage.overrides.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Overlays",
+      "type": "array"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The name of the run, which wins.",
+      "title": "Name"
+    },
+    "resume": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The run to continue in place; an empty text names the run of the request.",
+      "title": "Resume"
+    },
+    "from_step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "First step of a partial run.",
+      "title": "From Step"
+    },
+    "until_step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Last step of a partial run.",
+      "title": "Until Step"
+    },
+    "force": {
+      "default": false,
+      "description": "Compute a run identical to a completed one.",
+      "title": "Force",
+      "type": "boolean"
+    },
+    "fresh": {
+      "default": false,
+      "description": "File what a previous attempt left and start over.",
+      "title": "Fresh",
+      "type": "boolean"
+    },
+    "frozen": {
+      "default": false,
+      "description": "Require frozen input data references.",
+      "title": "Frozen",
+      "type": "boolean"
+    },
+    "dry_run": {
+      "default": false,
+      "description": "Say what would run, and run nothing.",
+      "title": "Dry Run",
+      "type": "boolean"
+    },
+    "no_display": {
+      "default": false,
+      "description": "Draw no figure. It changes neither the identity nor the seal.",
+      "title": "No Display",
+      "type": "boolean"
+    },
+    "phase": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The one phase of a staged calibration to run.",
+      "title": "Phase"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The file the request was read from, relative to the base when it lies under it.",
+      "title": "Source"
+    },
+    "form": {
+      "default": "json",
+      "description": "What the request was built from; json and dict write request.json.",
+      "enum": [
+        "toml",
+        "json",
+        "dict",
+        "object"
+      ],
+      "title": "Form",
+      "type": "string"
+    }
+  },
+  "required": [
+    "config"
+  ],
+  "title": "RunRequest",
+  "type": "object"
+}

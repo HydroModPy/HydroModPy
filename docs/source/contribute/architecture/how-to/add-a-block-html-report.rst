@@ -21,9 +21,9 @@ imports the schema, so the texts reach it as a ``ReportTexts`` value.
 Where to document it
 --------------------
 
-- The descriptions of the keys and the help of ``hmp report`` say when a report
+- The descriptions of the keys and the help of ``hmp show --report`` say when a report
   is produced, its output paths and how to read it. The reference pages are
-  generated from them. Example: :doc:`/reference/cli/report`.
+  generated from them. Example: :doc:`/reference/cli/show`.
 - This page is the contributor recipe.
 - :doc:`/contribute/architecture/packages/display` summarizes the ownership.
 
@@ -125,7 +125,7 @@ a run and ``sessions/<s>/report/`` for a session.
 
 The generated HTML is not a source of truth. The sealed run and the figure
 code are. The report is not in the seal inventory and can be written again with
-``hmp report catchment`` or ``hmp report render``.
+``hmp show RUN --report`` or ``hmp show SESSION --report``.
 
 Documentation illustrations
 ---------------------------
@@ -159,4 +159,4 @@ See also
 --------
 
 - :doc:`../packages/display` for the ownership of ``display/report``.
-- :doc:`/reference/cli/report` for the user-facing reports.
+- :doc:`/reference/cli/show` for the user-facing reports.

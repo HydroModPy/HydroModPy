@@ -46,6 +46,14 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# GDAL reads the bytes of a page under a /vsimem/ name with no .gpkg suffix and says so.
+warnings.filterwarnings(
+    "ignore",
+    message=".*non conformant file extension",
+    category=RuntimeWarning,
+    module=r"pyogrio\.raw",
+)
+
 SANDRE_WFS_URL: Final = "https://services.sandre.eaufrance.fr/geo/sandre"
 SANDRE_WFS_HOST: Final = "services.sandre.eaufrance.fr"
 
@@ -228,10 +236,7 @@ def _get_page(
             raise DataSourceError(f"Sandre WFS sent an empty zip for {typename!r}.")
         # The member is literally named "%TYPENAME%.gpkg": take it whatever its name.
         payload = archive.read(members[0])
-    with warnings.catch_warnings():
-        # GDAL reads the bytes under a /vsimem/ name with no .gpkg suffix and says so.
-        warnings.filterwarnings("ignore", message=".*non conformant file extension")
-        return gpd.read_file(io.BytesIO(payload))
+    return gpd.read_file(io.BytesIO(payload))
 
 
 def _get(params: dict[str, str], *, client: HTTPClient) -> requests.Response:

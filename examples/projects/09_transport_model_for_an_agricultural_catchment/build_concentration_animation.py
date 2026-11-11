@@ -41,7 +41,7 @@ with hmp.open(HERE) as proj:
     frames = []
     for step in range(n_steps):
         path = out / f"concentration_{step:02d}.png"
-        hmp.figure(run, "concentration_map", save=path, timestep=step, vmin=0.0, vmax=0.12)
+        run.figure("concentration_map", save=path, timestep=step, vmin=0.0, vmax=0.12)
         frames.append(path)
     print(f"{len(frames)} frames written under {out}")
 

@@ -3,7 +3,7 @@
 Four rules, measured on the tree of the refactoring.
 
 1. An injection site is a public module-level function of a module of
-   ``hydromodpy/`` or ``hydromodpy_annex/`` that writes a bare parameter
+   ``hydromodpy/``, ``hydromodpy_annex/`` or ``hydromodpy_server/`` that writes a bare parameter
    value into a module global. Each global written on this code is written
    once, by one function.
 2. The one global the library keeps is ``install_trial_pipeline`` of
@@ -20,7 +20,7 @@ from pathlib import Path
 
 _TREE = Path(__file__).resolve().parents[3]
 _TREE_FILES = _TREE / "hydromodpy"
-ANNEX = _TREE / "hydromodpy_annex"
+SIBLINGS = (_TREE / "hydromodpy_annex", _TREE / "hydromodpy_server")
 
 RETIRED_FILES = (
     "hydromodpy/_bootstrap.py",
@@ -115,8 +115,9 @@ def _find_injection_sites_in_ast(module: ast.Module, rel_path: str) -> set[tuple
 
 def test_the_only_injection_site_is_install_trial_pipeline() -> None:
     found = _find_injection_sites_in_tree(_TREE_FILES, _TREE)
-    if ANNEX.exists():
-        found |= _find_injection_sites_in_tree(ANNEX, _TREE)
+    for sibling in SIBLINGS:
+        if sibling.exists():
+            found |= _find_injection_sites_in_tree(sibling, _TREE)
     expected = {("hydromodpy/calibration/runners/trial.py", "install_trial_pipeline")}
     assert found == expected
 
@@ -136,7 +137,7 @@ def register_something(value):
 
 def test_install_trial_pipeline_is_called_from_project_only() -> None:
     callers: set[str] = set()
-    for root in (_TREE_FILES, ANNEX):
+    for root in (_TREE_FILES, *SIBLINGS):
         if not root.exists():
             continue
         for path in _python_files(root):

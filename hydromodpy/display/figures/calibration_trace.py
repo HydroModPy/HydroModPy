@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -59,7 +59,6 @@ class CalibrationTraceFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
         import numpy as np
 
         table = trial_table(session)
@@ -79,7 +78,7 @@ class CalibrationTraceFigure(BaseFigure):
         )
 
         n_panels = len(traces) + (1 if cost_name is not None else 0)
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             n_panels,
             1,
             figsize=figsize or self.spec.default_figsize,

@@ -242,7 +242,7 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 
 **One TOML to solver outputs**
 
-1. ``hydromodpy/cli/commands/run.py``, then ``hydromodpy/_api.py`` (``run``) and
+1. ``hydromodpy/cli/commands/run.py``, then ``hydromodpy/project/api.py`` (``run``) and
    ``hydromodpy/project/dispatch/workflow.py``;
 2. ``hydromodpy/project/facade.py`` (``Project``);
 3. ``hydromodpy/solver/base/planner.py``;

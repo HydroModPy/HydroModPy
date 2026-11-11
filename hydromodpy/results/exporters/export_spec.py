@@ -14,7 +14,7 @@ The model refuses what it can decide alone, without the run and without the
 kind of each name. :func:`plan_outputs` finishes the job once the kind of each
 name is known: it names every file a request writes and refuses what the kinds
 make impossible (a vector layer in a NetCDF, a reprojection a format cannot
-carry). The loader, ``hmp config check`` and the exporters all call it, so the
+carry). The loader, ``hmp check`` and the exporters all call it, so the
 plan checked before the solve is the plan written after it.
 
 A format is a name the export registry serves

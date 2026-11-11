@@ -51,13 +51,13 @@ print(len(names()), "figures:", ", ".join(names()))
 figures = HERE / "summary" / "figures" / run.name
 figures.mkdir(parents=True, exist_ok=True)
 for date in ["2001-01-15", "2002-10-15"]:
-    fig = hmp.figure(run, "seepage_map", time=date, extent="mesh")
+    fig = run.figure("seepage_map", time=date, extent="mesh")
     fig.savefig(figures / f"seepage_map_{date[:7]}.png", dpi=150)
     plt.close(fig)
 
 # A rendered figure is a matplotlib figure like any other: you can edit it
 # before you save it.
-fig = hmp.figure(run, "hydrograph_sim_obs", log_y=True)
+fig = run.figure("hydrograph_sim_obs", log_y=True)
 ax = fig.axes[0]
 ax.axvspan(pd.Timestamp("2000-01-01"), pd.Timestamp("2001-01-01"), color="0.9", zorder=0)
 ax.text(pd.Timestamp("2000-02-01"), 0.95, "spin-up", transform=ax.get_xaxis_transform())

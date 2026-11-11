@@ -223,3 +223,31 @@ def play(scenario: Scenario, workdir: Path, env: Mapping[str, str], cache_home: 
         raise AssertionError(f"the scenario tried to fetch a solver binary: {added}")
     targets = find_targets(root) if code == 0 else ()
     return Played(scenario.name, code, seconds, root, log, targets)
+
+
+def play_script(
+    name: str,
+    files: Mapping[str, str],
+    script: str,
+    workdir: Path,
+    env: Mapping[str, str],
+    cache_home: Path,
+    *,
+    needs: tuple[str, ...] = (),
+    timeout_s: float = 600.0,
+) -> Played:
+    """Write *files* under one folder and run the Python *script* there, in a child process.
+
+    A script plays what one command cannot: several projects, several threads of
+    one process, then a report of what it saw. It writes its findings to a file
+    of the folder, and the calling test reads them.
+    """
+    scenario = Scenario(
+        name=name,
+        covers="a Python script over several projects",
+        files=files,
+        python=script,
+        needs=needs,
+        timeout_s=timeout_s,
+    )
+    return play(scenario, workdir, env, cache_home)

@@ -187,7 +187,7 @@ def test_a_year_cut_in_two_windows_is_the_year_played_in_one_piece(
     assert {path: read_manifest(path)["sealed_at"] for path in (first, second)} == sealed
     assert "identical to completed run" in _tail(log)
     shown = subprocess.run(
-        [sys.executable, "-m", "hydromodpy", "catalog", "show", "island_w2"],
+        [sys.executable, "-m", "hydromodpy", "show", "island_w2"],
         cwd=root,
         env=dict(scenario_env),
         capture_output=True,

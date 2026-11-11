@@ -15,6 +15,7 @@ import pytest
 import sklearn  # noqa: F401
 
 from hydromodpy.calibration.optim import optimizer as optimizer_module
+from hydromodpy.calibration.optim.adapters import optuna_adapter
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.method_config import OptunaMethodConfig
 from hydromodpy.calibration.optim.optimizer import (
@@ -350,8 +351,11 @@ class TestOptunaAdapter:
         self, sampler, width, counts_the_trials_in_flight
     ):
         with warnings.catch_warnings():
-            # The option is experimental in Optuna, and the user is not told so.
+            # The option is experimental in Optuna, and the user is not told so. The
+            # adapter sets its filter when the module is first imported, and a test
+            # context drops it on exit, so the filter is set again here as it stands.
             warnings.simplefilter("error")
+            warnings.filterwarnings("ignore", **optuna_adapter._EXPERIMENTAL_ARGUMENT)
             opt = build_optimizer("optuna", _space_2d(), sampler=sampler, seed=0, **width)
         assert getattr(opt._study.sampler, "_constant_liar", False) is counts_the_trials_in_flight
 

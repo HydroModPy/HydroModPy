@@ -76,7 +76,7 @@ hmp export nancon_step5_export --list
 ```python
 import hydromodpy as hmp
 
-run = hmp.run("step5_export.toml")
+run = hmp.run("step5_export.toml").open()
 ```
 
 Once the run exists, `hmp.export(run, ["head", "watertable_depth"], time="2002-10-15")`

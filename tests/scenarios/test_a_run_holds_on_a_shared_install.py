@@ -12,7 +12,7 @@ One project folder, the island of ``factory.py`` played by MODFLOW 6 through
 2. ``hmp publish island --to copy``, then ``hmp workspace init`` and
    ``hmp project new other``, and in that project ``hmp catalog import copy
    --name island_copy``: the import moves the copy onto the folder it
-   reserved, and ``hmp catalog show island_copy`` reads the imported run.
+   reserved, and ``hmp show island_copy`` reads the imported run.
 3. The longest path written below each project folder, measured by a walk,
    holds ``PROJECT_TREE_DEPTH`` characters at most. A deeper file means the
    budget of ``core/io/filesystem.py`` must be measured again.
@@ -128,7 +128,7 @@ def test_a_run_holds_on_a_shared_install(tmp_path: Path) -> None:
     imported = _hmp(other, env, "catalog", "import", str(copy), "--name", "island_copy")
     assert imported.returncode == 0, _said(imported)
     assert (other / "runs" / "island_copy" / "manifest.json").is_file()
-    shown = _hmp(other, env, "catalog", "show", "island_copy")
+    shown = _hmp(other, env, "show", "island_copy")
     assert shown.returncode == 0, _said(shown)
 
     # 3. Nothing below a project folder is deeper than the budget of a Windows project.

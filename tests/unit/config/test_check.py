@@ -15,6 +15,7 @@ import sys
 import textwrap
 import time
 import typing
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -23,10 +24,11 @@ from pydantic import Field, ValidationError
 from pydantic_core.core_schema import ErrorType
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.check import CHECK_CODES, check, phrase
+from hydromodpy.config.check import CHECK_CODES, _said_by_the_sections, check, phrase
 from hydromodpy.config.config_migration import migrate_config_doc
 from hydromodpy.config.section_loader import PYDANTIC_CODES, code_of, severity_of
-from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
+from hydromodpy.core.config_kit.said import Said, collecting
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigValidationError, HydroModPyError
 from hydromodpy.core.plugin_registry import check_registered_name
@@ -589,6 +591,87 @@ def test_every_code_a_check_gives_has_its_phrase(tmp_path: Path) -> None:
 
     assert given <= CHECK_CODES
     assert len(given) >= 12
+
+
+# ---------------------------------------------------------------------------
+# The warnings of the validators are collected per call, never by the process filters
+# ---------------------------------------------------------------------------
+
+LAYERS_WITH_A_COUNT = {"layers": {"genmtd_lay": "list", "lay_proportions": [0.5, 0.5], "nlay": 5}}
+
+
+def test_a_validator_warning_is_a_diagnostic_and_the_process_hears_nothing(tmp_path: Path) -> None:
+    document = {"geographic": dict(SYNTHETIC), "domain": LAYERS_WITH_A_COUNT}
+    filters = list(warnings.filters)
+    with warnings.catch_warnings(record=True) as heard:
+        warnings.simplefilter("always")
+        inside = list(warnings.filters)
+        found = check(document, base=tmp_path)
+        assert warnings.filters == inside
+    assert heard == []
+    assert filters == warnings.filters
+    texts = [d.detail for d in found if d.code == "section_warning"]
+    assert len(texts) == 1
+    assert "nlay must not be provided" in texts[0]
+
+
+@pytest.mark.parametrize(
+    ("said", "expected"),
+    [
+        ([], []),
+        ([Said("a", UserWarning)], [("section_warning", "a")]),
+        ([Said("a", UserWarning), Said("a", UserWarning)], [("section_warning", "a")]),
+        ([Said("a", ConfigKeyRenamedWarning)], [("old_key", "a")]),
+        (
+            [Said("a", UserWarning), Said("a", ConfigKeyRenamedWarning)],
+            [("section_warning", "a"), ("old_key", "a")],
+        ),
+        ([Said("a", DeprecationWarning), Said("b", ResourceWarning)], []),
+        ([Said("a", FutureWarning)], [("section_warning", "a")]),
+    ],
+)
+def test_the_said_texts_become_old_key_or_section_warning_once_each(said, expected) -> None:
+    found = _said_by_the_sections(said)
+    assert [(d.code, d.detail) for d in found] == expected
+    assert {d.severity for d in found} <= {"warning"}
+
+
+def test_two_checks_in_a_row_each_give_their_own_warning(tmp_path: Path) -> None:
+    quiet = {"geographic": dict(SYNTHETIC)}
+    loud = {**quiet, "domain": LAYERS_WITH_A_COUNT}
+    seen = [
+        [d.code for d in check(document, base=tmp_path) if d.code == "section_warning"]
+        for document in (loud, quiet, loud)
+    ]
+    assert seen == [["section_warning"], [], ["section_warning"]]
+
+
+def test_a_parameter_outside_the_catalogue_is_said_into_the_sink(tmp_path: Path) -> None:
+    """The loader resolves the parameters, so the file the CLI reads keeps quiet under a sink."""
+    path = tmp_path / "run.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [geographic]
+            source_mode = "synthetic"
+            [flow]
+            param_list = ["K"]
+            [flow.param.K.field]
+            kind = "homogeneous"
+            value = 1e-5
+            [calibration.parameters.x]
+            bounds = [1.0, 2.0]
+            path = "flow.nowhere.value"
+            """
+        ),
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings(record=True) as heard:
+        warnings.simplefilter("always")
+        with collecting() as said:
+            HydroModPyConfig.from_toml(path)
+    assert heard == []
+    assert [(s.category, "unit is unknown" in s.text) for s in said] == [(UserWarning, True)]
 
 
 # ---------------------------------------------------------------------------

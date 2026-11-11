@@ -164,7 +164,7 @@ hmp run step1_minimal.toml
 ```python
 import hydromodpy as hmp
 
-run = hmp.run("step1_minimal.toml")
+run = hmp.run("step1_minimal.toml").open()
 print(run.name)
 ```
 
@@ -185,14 +185,14 @@ Config identical to completed run 'nancon_step1_minimal' [3fd2f8e3]; nothing to 
 Re-run with --force to run it again.
 ```
 
-`hmp run --force` computes it again. In Python, `hmp.run(path)` returns the existing `Run`
+`hmp run --force` computes it again. In Python, `hmp.run(path)` returns the outcome of the existing run
 and logs a warning, and `hmp.run(path, force=True)` computes it again.
 
 Edit the file, even one value, and the second run is a new one. It lands next to the first,
 as `runs/nancon_step1_minimal.v2/`, then `.v3`, because {toml}`simulation.if_exists` is
 `"version"` by default. Set it to `"fail"` and the second run stops instead. A name is never
-given out again: {doc}`hmp catalog <../../reference/cli/catalog>` lists, compares and deletes
-the versions, and a deleted run goes to the project trash.
+given out again: {doc}`hmp ls <../../reference/cli/ls>` lists the versions,
+{doc}`hmp diff <../../reference/cli/diff>` compares them, {doc}`hmp catalog <../../reference/cli/catalog>` deletes them, and a deleted run goes to the project trash.
 
 ```{toctree}
 :hidden:

@@ -8,7 +8,7 @@ sit on the same parameter, in an ``Annotated`` marker::
         float, Opt("Distance under which two lines match.", unit="m")
     ] = 50.0
 
-So the catalog of figures, ``[display.overrides]`` and ``hmp.figure`` read one
+So the catalog of figures, ``[display.overrides]`` and ``Run.figure`` read one
 declaration and nothing is written twice. Options many figures share have an
 alias here (:data:`Cmap`, :data:`Overlays`, :data:`Station`, ...).
 :func:`hydromodpy.display.figure.options_of` reads them back, and a test checks

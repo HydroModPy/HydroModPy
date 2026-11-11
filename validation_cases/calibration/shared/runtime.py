@@ -190,7 +190,6 @@ def _prune_benchmark_artifacts(
             sessions_dir_for(project_root),
             internal_dir(project_root),
             project_root / "results_stable",
-            project_root / "hydromodpy_debug.log",
         ):
             _remove_artifact_path(project_artifact, removed=removed)
         calibration_roots = project_root / "calibrations"
@@ -1715,7 +1714,7 @@ def synthesize_truth_observations_via_project_api(
     """
     from hydromodpy.calibration.optim.parameters import ParameterSpace
     from hydromodpy.calibration.runners.materialize import materialize_candidate
-    from hydromodpy.project import Project as _Project
+    from hydromodpy.project.facade import Project as _Project
 
     if definition.parameter_targets is None:
         raise ValueError(

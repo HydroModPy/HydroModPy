@@ -1,4 +1,4 @@
-"""A run and ``hmp config check`` name the experimental keys a file wrote, and only those.
+"""A run and ``hmp check`` name the experimental keys a file wrote, and only those.
 
 The mark is metadata on the field. The walker reads it through ``written_fields``,
 so a key the file left at its default never counts. A loader sets some fields a
@@ -27,9 +27,9 @@ from hydromodpy.core.config_kit.written import (
 )
 from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.project import Project
 from hydromodpy.project.api import check
 from hydromodpy.project.dispatch.workflow import run_overview
+from hydromodpy.project.facade import Project
 from hydromodpy.project.request import request_of
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
@@ -361,7 +361,7 @@ def test_a_calibration_says_it_at_its_gate_and_its_trials_say_nothing(
 def test_config_check_prints_the_same_line(tmp_path: Path) -> None:
     path = _write(tmp_path, tables=ADAPT)
 
-    result = CliRunner().invoke(["config", "check", str(path)])
+    result = CliRunner().invoke(["check", str(path)])
 
     assert result.exit_code == 0, result.stderr
     assert experimental_keys_line(("solver.boussinesq.ts_vi_adapt",)) in result.stderr
@@ -371,7 +371,7 @@ def test_config_check_prints_the_same_line(tmp_path: Path) -> None:
 def test_quiet_keeps_config_check_silent_on_a_sound_file(tmp_path: Path) -> None:
     path = _write(tmp_path, tables=ADAPT)
 
-    result = CliRunner().invoke(["config", "check", str(path), "--quiet"])
+    result = CliRunner().invoke(["check", str(path), "--quiet"])
 
     assert result.exit_code == 0, result.stderr
     assert result.stderr == ""

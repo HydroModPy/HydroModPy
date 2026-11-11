@@ -18,7 +18,7 @@ if __package__ is None or __package__ == "":
 from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
-from hydromodpy.project import Project
+from hydromodpy.project.facade import Project
 from hydromodpy.solver.modflow_nwt import (
     ModflowNwt,
     ModflowPostprocessOptions,

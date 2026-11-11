@@ -131,7 +131,7 @@ class DisplayConfig(HydroModelBase):
             "Names of registered figures to auto-render at the end of "
             "`hmp run`, written to runs/<run>/figures/ and recorded in "
             "figures/index.json, which `hmp export <run> --regen figures` replays. Every name must "
-            "exist in the figure registry; list them with `hmp viz list`. "
+            "exist in the figure registry; list them with `hmp config figures`. "
             "A figure whose requirements the run does not meet is skipped "
             "with an explicit reason. Empty list disables auto-rendering. "
             "Disable per-run via `hmp run --no-display` or for an entire "
@@ -182,7 +182,7 @@ class DisplayConfig(HydroModelBase):
         """Reject figure names that are not in the registry.
 
         Catching the typo here (config load) instead of at render time is
-        what makes a project TOML self-checking: `hmp config check` fails
+        what makes a project TOML self-checking: `hmp check` fails
         loudly rather than a run silently producing one figure less.
         """
         from hydromodpy.display.figure_registry import names, resolve

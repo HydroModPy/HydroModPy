@@ -101,7 +101,7 @@ def hmp_read_discharge(run):
     """Read the whole-catchment discharge series of one run."""
     import hydromodpy as hmp
 
-    return hmp.read(run, "discharge", sel={"station": "catchment"})
+    return run.read("discharge", sel={"station": "catchment"})
 
 
 def test_a_river_trace_written_beside_the_basin_is_refused(tmp_path, scenario_env, scenario_cache):

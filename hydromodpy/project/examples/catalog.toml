@@ -21,26 +21,26 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5982
-sha256 = "c834086aa2de22e3c54df6abb7822d8ecbc4eadbf1677d578edca566a5671b3c"
+size = 5975
+sha256 = "e5c9dcb24d09d3898f773e9271d0a5a43b16bfab9208ee3684f7014f983541ca"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 5105
-sha256 = "e99ee376a86b0ecf0af6c0b1bf4e06e446d89badac470e0c464760ee421c9165"
+size = 5115
+sha256 = "085fdd0fcfa02aa0acf99dff55c481249132d6cd79a15a0a1216528974e92e33"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
-size = 3607
-sha256 = "7724976b5d27d0dd399023f3dde60479703c4bf418ccdea52256fa196cfc5c97"
+size = 3599
+sha256 = "fa155b0dddbb8499fb1dea9171cb84e259a50ef238e65349df01f1c83f86fd7b"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-size = 3143
-sha256 = "39289844d45a6a531bcfbb84af9323fc74185d4607e1392483ea6a3818c0ee5e"
+size = 3142
+sha256 = "de384bb312e6a1fe731766e24c77e6d8b8d66acc06f071a09c9cd6a155306098"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
@@ -51,38 +51,38 @@ sha256 = "c1a3dd775f71639d90d2a5f50c44489664440bbd8598b86e558900d942cfd961"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-size = 3015
-sha256 = "aa9d98dd3828306e1a9961c4e1d246f2b5b34f87c851b2eac83c6825e5d40c5f"
+size = 3021
+sha256 = "691763f7986393a8a6a645b9689dde7355557e537248d63a1efd9f629a9efaab"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-size = 2845
-sha256 = "59c370a54332d5c0f37d5891a113ece20da8b918c7ce2e14a8ee5f28fe1b3cbf"
+size = 2835
+sha256 = "557e1bcdecff52059993e58e60df19e2c9c5c3cbc049723fb3515c693f407820"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
-size = 3181
-sha256 = "7b47d19a2f27a6d4c72614f95e3d76f61b7160888c54d5aacc6b9f3b85a2cab1"
+size = 3166
+sha256 = "60e12339e92635ba0a60294bdffe859aa3d2aa52ccc41a2df16c46dddab9acbf"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
-size = 1797
-sha256 = "bb46da6aadd583418aad2f3701c83ab88a376f96ef95dfda449610f6ac675bbe"
+size = 1790
+sha256 = "4a78ca47e9ae97db07c713f3cc3029b603b6bf4887b388f71f75b7543ef240ed"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-size = 5810
-sha256 = "34ada8a468f77ff888cbfc1774df4ee494772b0955a198e01336e5a7e8faf617"
+size = 5803
+sha256 = "f127bfa5b386b85c94c14c091681b67239f2b8d305948962ab77d1551cc9b410"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
-size = 4667
-sha256 = "c9644df01596d8491ddbf255704eef52c0da48891e50bb474584fec6478a143e"
+size = 4660
+sha256 = "4fdcafa78cd70c6cad29dc4b7f0f1013ae3ea5c84f3a9e25ecd783e3a501db6a"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"

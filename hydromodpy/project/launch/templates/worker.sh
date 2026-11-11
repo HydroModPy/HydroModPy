@@ -3,9 +3,8 @@
 # signal and waits. After the worker, the trap step writes `failed` in the run
 # directory when the worker exited without writing its own outcome.
 # The flags of `hmp run` are the local launcher's, read when the task starts.
-# The shell that submitted the job may carry the overrides of the plan or the
-# scratch of an enclosing run. A task takes none of them.
-unset HMP_RUN_SCRATCH
+# The shell that submitted the job may carry the overrides of the plan. A task
+# takes none of them.
 for _hmp_var in $(compgen -e | grep '^HMP_SET_'); do
     unset "$_hmp_var"
 done

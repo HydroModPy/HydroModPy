@@ -5,7 +5,10 @@ Why
 The first act of a run is to claim ``runs/<case>/`` and write its outcome as
 ``running``; its last act is to rewrite the outcome with how it ended. In
 between the pulse of the attempt is written by a thread, the package log is
-written into ``logs/run.log`` of the run, and the steps of the pipeline run.
+written into ``logs/run.log`` of the run and into the project debug log, and the
+steps of the pipeline run. Both files are sinks of the context of the attempt
+(:data:`hydromodpy.core.logging.RUN_SINKS`), so a second attempt in another thread
+of the process writes its own.
 :func:`run_attempt` is that bracket: it claims, pulses, logs, hands the claim
 to the caller, and closes the outcome whatever happens, a SIGTERM turned into
 ``KeyboardInterrupt`` included.
@@ -143,7 +146,7 @@ def run_attempt(
         force=force,
         if_exists=if_exists,
     )
-    log_handler = attach_run_log(claim.run_dir)
+    run_logs = attach_run_log(claim.run_dir, project_root)
     heartbeat = HeartbeatThread(
         claim.run_dir,
         attempt_id=claim.attempt_id,
@@ -170,7 +173,7 @@ def run_attempt(
             _close_if_running(claim.run_dir, status="completed", step=heartbeat.step, error=None)
     finally:
         heartbeat.stop()
-        detach_run_log(log_handler)
+        detach_run_log(run_logs)
         if handle.withdrawn:
             withdraw_claim(handle.claim)
 

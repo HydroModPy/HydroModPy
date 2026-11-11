@@ -37,13 +37,13 @@ cells = mesh.vertices[:, :2][mesh.face_node_connectivity]
 
 # Keep the cells of the catchment only: the mesh covers the whole rectangle
 # around it.
-seepage = hmp.read(run, "seepage_mask").to_numpy() > 0  # (months, cells)
+seepage = run.read("seepage_mask").to_numpy() > 0  # (months, cells)
 seepage &= run.catchment_mask.ravel()
 months = run.periods.edges[:-1]
 cell_km2 = run.grid.cell_size**2 / 1e6
 
-watershed = hmp.read(run, "watershed")
-network = hmp.read(run, "hydrographic_network_reference")
+watershed = run.read("watershed")
+network = run.read("hydrographic_network_reference")
 xmin, ymin, xmax, ymax = watershed.total_bounds
 
 # %% The sheet of 2002

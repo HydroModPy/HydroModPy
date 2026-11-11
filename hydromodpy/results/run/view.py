@@ -77,9 +77,9 @@ import tomllib
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import CommandUsageError, ConfigError, NothingThereError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.result_dirs import parse_rel_dir
@@ -113,12 +113,33 @@ from hydromodpy.results.validity_rules import LabelResult
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
+    import pandas as pd
+    from matplotlib.figure import Figure
     from pydantic import BaseModel
 
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.publication import PublishedLine
     from hydromodpy.results.record.checks import Checks
     from hydromodpy.results.record.manifest import InputEntry
+    from hydromodpy.results.run.group import RunSet
+    from hydromodpy.results.session.view import Session
+
+    Renderer: TypeAlias = Callable[
+        ["Run | Session | RunSet", str, Mapping[str, Any]], "Figure | Path"
+    ]
+    """Draws a figure, or writes a report, of a run, a session or a set of runs.
+
+    It is given the subject, the figure name (``report`` for the report) and the
+    options, ``save`` and ``dpi`` among them. It gives the figure, or with ``save``
+    the file written. ``hydromodpy.open`` and a ``Project`` hand it to what they
+    open, the way they hand ``read_config``.
+    """
+
+REPORT: Final[str] = "report"
+"""The name a renderer reads as the report of its subject, never as a figure."""
+
+REPORT_OPTIONS: Final[tuple[str, ...]] = ("preset", "lang", "station", "strict", "overview_dir")
+"""The options a report of a run takes, beside ``save``."""
 
 _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
 """``[workspace]`` members that derive from ``project_root`` and name outputs."""
@@ -220,10 +241,62 @@ def project_root_of(run_dir: Path) -> tuple[Path, str] | None:
     return None
 
 
+def draw(subject: Any, name: str, options: Mapping[str, Any]) -> Figure | Path:
+    """Draw figure *name* of *subject*, or write its report, with the renderer it was opened with.
+
+    The options that are ``None`` are left out, so the renderer applies its own
+    defaults. A subject opened without a renderer refuses by saying how to open it.
+    """
+    render = getattr(subject, "_render", None)
+    if render is None:
+        raise CommandUsageError(
+            f"This {type(subject).__name__} cannot draw: open it with hydromodpy.open "
+            "to draw a figure."
+        )
+    return render(
+        subject, name, {key: value for key, value in options.items() if value is not None}
+    )
+
+
+def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[str, ...]) -> Any:
+    """Read what *what* names of *subject*, one of *takes*, with the method that reads it.
+
+    This is the body of ``Run.show``, ``Session.show`` and ``RunSet.show``: a
+    ``table`` is read by ``table(name)``, a ``field`` or a ``series`` by
+    ``read(name, ...)``, a ``profile`` by the run or the session, a ``figure`` by
+    ``figure(name, ...)`` and a ``report`` by the renderer. A value that is not in
+    *takes* is refused with the ones that are.
+    """
+    if what not in takes:
+        raise CommandUsageError(
+            f"{type(subject).__name__}.show(what={what!r}) is not one of {', '.join(takes)}. "
+            "hydromodpy.show also reads summary, point and rank, which read the index of the project."
+        )
+    if what == "profile":
+        if hasattr(subject, "profile"):
+            return subject.profile()
+        from hydromodpy.results.catalog.listing import profile_of_run
+
+        return profile_of_run(subject.dir)
+    if what == REPORT:
+        keys = (*REPORT_OPTIONS, "save")
+        return draw(subject, REPORT, {key: options.get(key) for key in keys})
+    name = options.get("name")
+    if name is None:
+        raise CommandUsageError(f"show(what={what!r}) needs name=, the table, variable or figure.")
+    if what == "table":
+        return subject.table(name)
+    if what in ("field", "series"):
+        kept = {key: options[key] for key in ("time", "layer", "sel", "bbox") if key in options}
+        return subject.read(name, **kept)
+    return subject.figure(name, **{key: value for key, value in options.items() if key != "name"})
+
+
 def open_run_dir(
     run_dir: str | Path,
     *,
     read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+    render: Renderer | None = None,
 ) -> Run:
     """Open the sealed run in *run_dir* from its own files, without the index.
 
@@ -231,7 +304,8 @@ def open_run_dir(
     directory, so a run copied out of its project or a project never indexed
     reads the same. *read_config* is the function that validates a sealed
     configuration snapshot; without one, :attr:`Run.hydromodpy_config` is
-    refused and the raw mapping stays on :attr:`Run.config_snapshot`. Raises
+    refused and the raw mapping stays on :attr:`Run.config_snapshot`. *render* is
+    the function that draws a figure; without one, :meth:`Run.figure` is refused. Raises
     :class:`~hydromodpy.results.errors.RunNotSealedError` for a directory
     without ``manifest.json``: a run that never completed is read through the
     index of its project, or from its ``outcome.json``.
@@ -246,7 +320,11 @@ def open_run_dir(
         )
     located = project_root_of(directory)
     store = RunStore.open(directory, workspace=None if located is None else located[0])
-    return Run(store.sim_id, store, read_config=read_config)  # type: ignore[arg-type]
+    return Run(store.sim_id, store, read_config=read_config, render=render)  # type: ignore[arg-type]
+
+
+RUN_SHOWS: Final[tuple[str, ...]] = ("table", "field", "series", "profile", "figure", "report")
+"""The values of ``what`` that :meth:`Run.show` reads."""
 
 
 def _ledger_files(directory: Path) -> list[Path]:
@@ -306,12 +384,14 @@ class Run(
         catalog: Catalog,
         *,
         read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+        render: Renderer | None = None,
     ) -> None:
         self._sim_id = sim_id
         self._catalog_handle = catalog
         self._read_config = (
             read_config if read_config is not None else getattr(catalog, "read_config", None)
         )
+        self._render = render if render is not None else getattr(catalog, "render", None)
         self._row: dict | None = None
         self._sealed: RunRecord | None = None
         self.array = RunArrayProvider(self)
@@ -493,6 +573,146 @@ class Run(
             {key: value for key, value in fields.items() if value is not None}
         )
         return export_run(self._catalog, self._sim_id, request)
+
+    # -- Reads -----------------------------------------------------------------
+
+    def read(
+        self,
+        variable: str,
+        *,
+        time: Any = None,
+        layer: int | None = None,
+        sel: dict | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+    ) -> Any:
+        """Read a variable of this run, one type for each nature of variable.
+
+        - a field gives an ``xarray.DataArray`` with the dimensions ``time``,
+          ``layer`` and ``cell`` it has. One period in ``time`` removes ``time``.
+        - a time series gives a ``pandas.Series`` indexed by date. It takes
+          ``sel`` and no ``time``.
+        - a geographic feature gives a ``geopandas.GeoDataFrame``, one row per
+          shape. It takes no ``time``.
+        - ``"particles"`` gives a ``pandas.DataFrame``, one row per recorded
+          position. It takes no ``time``.
+
+        Every field the run reports through ``has_field`` reads back here. A
+        stored field is lazy when dask is installed. Fields rebuilt on the fly
+        (water-table elevation and depth, seepage mask, drain outflow) are
+        loaded at once, and ``time`` is ignored for a field without a time axis.
+
+        Parameters
+        ----------
+        variable
+            Name resolved against the field registry, then the ``timeseries``
+            table, then the geographic features.
+        time
+            The period of a field: an index (negative counts from the end), a
+            date that resolves to the stress period holding it, ``"first"`` or
+            ``"last"``, or a ``slice`` of indexes. ``None`` keeps every period.
+        layer
+            Layer index of a three-dimensional field, 0 for the top layer.
+        sel
+            Selectors of the reader: ``{"station": ...}`` for a series,
+            ``{"period": (start, end)}`` for a window of dates.
+        bbox
+            ``(xmin, ymin, xmax, ymax)`` in the CRS of the run; keeps the cells
+            whose centre lies in the box.
+
+        Raises
+        ------
+        hydromodpy.results.errors.FieldNotFoundError
+            If no reader resolves *variable*.
+        ValueError
+            If ``time`` names a date outside the run, or is given for a series
+            or a feature.
+        IndexError
+            If ``time`` is an index outside the run.
+
+        Examples
+        --------
+        >>> head = run.read("head")  # doctest: +SKIP
+        >>> last = run.read("head", time=-1, layer=0)  # doctest: +SKIP
+        >>> ts = run.read("discharge", sel={"station": "outlet"})  # doctest: +SKIP
+        """
+        from hydromodpy.results.derive.reading import read_variable
+
+        return read_variable(self, variable, time=time, layer=layer, sel=sel, bbox=bbox)
+
+    def table(self, name: str) -> pd.DataFrame:
+        """Return the sealed table *name* of this run.
+
+        ``metrics`` is the score table of the seal and ``parameters`` the
+        parameter table. Any other name is a table of ``tables.parquet/`` in
+        the run directory. A name the run does not hold is refused with the
+        names it does hold.
+        """
+        from hydromodpy.results.run.tables import read_run_table
+        from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+
+        if name == "metrics":
+            return self.metrics
+        folder = self._catalog.tables_dir_for(self.sim_id)
+        held = sorted(
+            path.name.removesuffix(PARQUET_FILE_SUFFIX)
+            for path in folder.glob(f"*{PARQUET_FILE_SUFFIX}")
+        )
+        if name not in held:
+            raise NothingThereError(
+                f"{self.dir.name} holds no table {name!r}. It holds: {', '.join(['metrics', *held])}."
+            )
+        return read_run_table(self, name)
+
+    def figure(
+        self,
+        name: str,
+        *,
+        save: str | Path | None = None,
+        dpi: int | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> Figure | Path:
+        """Draw the registered figure *name* of this run, the same as ``[display].figures``.
+
+        The names are those of :func:`hydromodpy.display.list_figures`, and the
+        options are the figure's own. The run's ``[display]`` is not applied. A
+        figure declares its subject: a ``run`` figure draws this run, a
+        ``session`` figure draws the session that promoted it, and a run no
+        session promoted is refused.
+
+        Parameters
+        ----------
+        name
+            Registered figure name, for example ``"piezometric_map"``.
+        save
+            A file, or a folder that receives ``<name>.png``. With it the figure
+            is written and its path comes back.
+        dpi
+            Resolution of the PNG. ``None`` takes 150.
+        time
+            The instant a figure that draws one shows: a date, ``"first"`` or
+            ``"last"``. ``None`` leaves the figure its own default.
+        **options
+            The options of the figure, as in ``[display.overrides]``.
+
+        Raises
+        ------
+        hydromodpy.core.exceptions.CommandUsageError
+            If the run was not opened by ``hydromodpy.open`` or a project.
+        ValueError
+            If an option is not one the figure takes, or the run lacks what it needs.
+        """
+        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+
+    def show(self, what: str, **options: Any) -> Any:
+        """Read one thing of this run: ``table``, ``field``, ``series``, ``profile``, ``figure`` or ``report``.
+
+        It is the method of what ``hydromodpy.show`` reads for a run: ``name`` is
+        the table, variable or figure, ``time``, ``layer``, ``sel`` and ``bbox``
+        steer a field, and ``preset``, ``lang``, ``station`` and ``strict`` steer
+        a report.
+        """
+        return show_of(self, what, options, RUN_SHOWS)
 
     # -- Mutations (written in the run directory) ------------------------------
 

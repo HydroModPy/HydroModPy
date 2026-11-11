@@ -31,7 +31,7 @@ and optionally ``format``.
 3. :func:`~hydromodpy.results.exporters.export_spec.plan_outputs` names every
    file, from the kind of each name and the formats the declarations allow
    (a kind takes the formats that declare it, the first being its natural
-   one). The loader and ``hmp config check`` call the same function through
+   one). The loader and ``hmp check`` call the same function through
    the ``refuse_an_export_that_cannot_be_written`` row of ``CROSS_RULES``
    (``config/cross_checks.py``), so the plan checked before the solve is the
    plan written. That check plans before the run has a name, so the export

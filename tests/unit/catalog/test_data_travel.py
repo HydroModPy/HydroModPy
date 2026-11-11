@@ -526,4 +526,4 @@ def test_the_command_says_what_it_installed_and_how_to_replay(tmp_path) -> None:
     assert f"as runs/{RUN_NAME}" in result.stdout
     assert "3 file(s) written" in result.stdout
     assert f"hmp catalog rerun {RUN_NAME} -w" in result.stdout
-    assert f"hmp catalog diff {RUN_NAME} {RUN_NAME}.v2 -w" in result.stdout
+    assert f"hmp diff {RUN_NAME} {RUN_NAME}.v2 -w" in result.stdout

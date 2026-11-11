@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
+from hydromodpy.display.style import themed
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -60,33 +61,28 @@ def draw_cohort_figures(
     """
     if not names:
         return [], []
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     import hydromodpy.display.figure_registry as figure_registry
 
     written: list[Path] = []
     skipped: list[str] = []
-    for name in names:
-        figure = figure_registry.get(name)
-        for variable in variables:
-            target = figures_dir / f"{name}_{variable}.png"
-            try:
-                fig = figure.plot(map_frame, variable=variable, save_path=target)
-            except ValueError as exc:
-                skipped.append(f"{name} of {variable}: {exc}")
-                logger.warning("summary figure %s of %s skipped: %s", name, variable, exc)
-                continue
-            plt.close(fig)
-            record_collected_file(
-                figures_dir,
-                target,
-                producer=f"display.figures.{name}",
-                options={"variable": variable},
-            )
-            written.append(target)
+    with themed():
+        for name in names:
+            figure = figure_registry.get(name)
+            for variable in variables:
+                target = figures_dir / f"{name}_{variable}.png"
+                try:
+                    figure.plot(map_frame, variable=variable, save_path=target)
+                except ValueError as exc:
+                    skipped.append(f"{name} of {variable}: {exc}")
+                    logger.warning("summary figure %s of %s skipped: %s", name, variable, exc)
+                    continue
+                record_collected_file(
+                    figures_dir,
+                    target,
+                    producer=f"display.figures.{name}",
+                    options={"variable": variable},
+                )
+                written.append(target)
     return written, skipped
 
 

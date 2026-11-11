@@ -771,7 +771,7 @@ def gen_file_pages(srcdir: Path) -> list[Path]:
             info["doc"].replace("\n", " "),
             "",
             f"`{info['command']}` reads this file. It is not a project file: "
-            "`hmp config check` does not read it, and the command refuses a key "
+            "`hmp check` does not read it, and the command refuses a key "
             "it does not know, with the line of the file, before any step runs.",
             "",
             "```{hmp-legend}",
@@ -876,7 +876,7 @@ def gen_pages(srcdir: Path) -> None:
         "",
         "```bash",
         "hmp config template --modules flow > flow.toml   # the keys of one section",
-        "hmp config check my_run.toml                     # validate a file",
+        "hmp check my_run.toml                     # validate a file",
         "```",
         "",
         "```{hmp-legend}",
@@ -990,7 +990,7 @@ def gen_pages(srcdir: Path) -> None:
             "then the keys the section requires, each with its example value or its default. "
             "Each file below passed `HydroModPyConfig` when this page was built. "
             "`hmp config template --modules <section>` writes every key of a section, "
-            "commented, and `hmp config check file.toml` validates what you wrote.",
+            "commented, and `hmp check file.toml` validates what you wrote.",
             "hmp-minimal-files",
         ),
     }

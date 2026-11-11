@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Sequence
 from typing import Any
 
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.logging import get_logger
 
@@ -59,7 +59,7 @@ def report_dropped(
         message += f" Named in station_ids and dropped all the same: {named_dropped}."
 
     logger.warning("%s", message)
-    warnings.warn(message, UserWarning, stacklevel=2)
+    say(message, UserWarning, stacklevel=2)
 
 
 __all__ = ["report_dropped"]

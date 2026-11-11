@@ -3,7 +3,7 @@
 DuckDB opens the catalog file with a single-writer lock. When a concurrent
 process is also open on the same file, the second caller raises
 ``duckdb.IOException`` with a message about a conflicting lock. We retry
-with exponential backoff so short-lived contention (e.g. ``hmp catalog ls``
+with exponential backoff so short-lived contention (e.g. ``hmp ls``
 running while ``hmp run`` commits) resolves transparently.
 
 Only that lock-contention ``duckdb.IOException`` is retried. Any other

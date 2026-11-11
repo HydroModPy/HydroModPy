@@ -112,7 +112,8 @@ Two state roots
 ---------------
 
 **The project** ``.hmp/`` **is strictly rebuildable.** It holds the index (``index.duckdb``), the
-debug logs (``logs/``), the launcher lease (``launcher.lease``) and the product store
+debug log (``logs/hydromodpy_debug.log``, written by each attempt beside its ``run.log``, which
+rotates past 8 MiB and keeps ``.1`` to ``.3``), the launcher lease (``launcher.lease``) and the product store
 (``products/``). A product is a folder keyed by a sha256 of the inputs the step read, the
 processing keys and the code of the package that computes it, so the workflow asks the store for
 the mesh, the soil reservoir and the terrain (the conditioned DEM, its D8 directions and its
@@ -178,7 +179,7 @@ Classes of artifacts
      - ``report/index.html``, ``report/report.json``
      - ``summary/report/index.html``
      - no
-     - yes (``hmp report``)
+     - yes (``hmp show --report``)
    * - human map
      - ``README.md``, generated, sha256 of the manifest in its footer
      - ``README.md``
@@ -243,7 +244,7 @@ A run folder
    ├── tables.parquet/     the tabular payloads
    ├── figures/            index.json + the figures of this run; written after the seal
    ├── exports/            index.json + the files of each [[export]]; written after the seal
-   ├── report/             index.html, report.json, review/ or sheet-<lang>/; written by hmp report
+   ├── report/             index.html, report.json, review/ or sheet-<lang>/; written by hmp show --report
    ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per copy and per delivered file; absent until one is made
    ├── purged.json         gc removed the field store of this kept trial; what left, and when; outside the seal
@@ -261,10 +262,10 @@ exports and the views are written after the seal, from the sealed run, and carry
 day in their footer, or "unlabelled" for a directory without a seal. ``figures/``, ``exports/``
 and ``report/`` are not in the inventory of ``manifest.json`` (``artifacts``), and the STAC view
 has no figure asset. A figure or an export that fails after the seal leaves the run sealed and
-completed. The command then exits with an error that names ``hmp viz show <run> <figure>`` or
+completed. The command then exits with an error that names ``hmp show <run> --figure <figure>`` or
 ``hmp export <run>``.
 
-``report/`` holds what ``hmp report catchment`` writes from a sealed run. The research preset
+``report/`` holds what ``hmp show RUN --report`` writes from a sealed run. The research preset
 writes ``index.html`` and the pages ``review/compact/``, ``review/standard/``, ``review/audit/``
 and ``review/by_block/``, each with its own ``index.html``, and copies the figures it shows under
 ``figures/``. The management preset writes one page, ``sheet-<lang>/index.html``, in English or
@@ -462,7 +463,7 @@ A session folder
    ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default from edition 2.1)
    ├── candidates/         TOML overlays of the candidates (materialize_candidates)
    ├── figures/            trajectory, cost profile, and the figures of a session
-   ├── report/             index.html, report.json, review/; written by hmp calibrate or hmp report render
+   ├── report/             index.html, report.json, review/; written by hmp calibrate or hmp show SESSION --report
    └── logs/
 
 ``session.json`` and ``trials.jsonl`` are written while the calibration runs: the descriptor
@@ -750,9 +751,9 @@ status, a kind, a regime, a topology) is a string with a written vocabulary: a w
 is refused when the model is built to be written, and any word reads back. An append to a
 Parquet table keeps a column this code does not declare, and its own rows read it as null.
 
-Where a list or a decision reads a run or a session (``hmp project show``, the cases of ``hmp
-project status``, the skip of a case that is done, the trash, the gc, the session ``hmp report
-render`` picks when none is named), a document this code cannot read costs one warning naming it
+Where a list or a decision reads a run or a session (``hmp show``, the cases of ``hmp
+ls --plan``, the skip of a case that is done, the trash, the gc, the session ``hmp show
+--report`` picks when none is named), a document this code cannot read costs one warning naming it
 and is left out (:func:`~hydromodpy.results.storage.json_io.readable`). A manifest whose body its
 model refuses counts as one that cannot be read, at any version, and ``read_manifest`` and
 ``read_seal`` read it the same way. A case with an unreadable run is not done, and running it
@@ -762,14 +763,14 @@ phases and its journal all read.
 The seal says that a run is complete, so a document beside it never takes the run out of a list
 (:func:`~hydromodpy.results.storage.json_io.beside_seal`). An ``outcome.json``,
 ``annotations.json`` or heartbeat of a sealed run that is newer than the window, or damaged, costs
-one warning naming it. The run stays in the index, in ``hmp catalog ls``, ``hmp export``, ``hmp
+one warning naming it. The run stays in the index, in ``hmp ls``, ``hmp export``, ``hmp
 project status`` and the gc, as ``completed``, with what its seal gives. The seal does not say the
 host, the process or the last step, so these stay empty, and the tags and notes stay out of the
 index while the file stays on disk. A newer outcome inside the window reads, and its unknown keys
 are kept.
 
 A gesture that names one document keeps the refusal: ``hmp.open``, ``hmp calibrate --resume``,
-``hmp report render <session>``, and the plan ``hmp project status`` reads, because without its
+``hmp show <session> --report``, and the plan ``hmp ls --plan`` reads, because without its
 plan the command knows no case.
 
 The one migration of a file HydroModPy keeps is the grammar of a configuration. It is the
@@ -833,7 +834,7 @@ The effective status of a run directory is read from its files, in this order:
 #. a ``manifest.json`` or an ``outcome.json`` this code cannot read: ``unreadable``.
 
 ``effective_status`` in :mod:`hydromodpy.results.outcome` is the one implementation.
-``hmp project status`` and ``hmp catalog watch`` read the outcomes and the heartbeats, never the
+``hmp ls --plan`` and ``hmp catalog watch`` read the outcomes and the heartbeats, never the
 index.
 
 The index
@@ -883,7 +884,7 @@ of the site within the declared window. ``cases.status`` holds only what the dis
 attempt, the effective status at indexing time: ``running``, ``completed``, ``partial``,
 ``failed``, ``aborted`` or ``stale``. The states of the plan (``planned``, ``invalid``,
 ``skipped`` and ``stale_plan``, a case whose config hash no longer matches the current plan)
-are computed by ``hmp project status`` from ``plan/current`` and the outcomes, and never
+are computed by ``hmp ls --plan`` from ``plan/current`` and the outcomes, and never
 written in the index.
 
 **What the reindex loses is not needed.** The whole index is losable. The tables with no

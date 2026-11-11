@@ -147,15 +147,53 @@ def _holds_its_default(model: BaseModel, name: str) -> bool:
     the value. A default that cannot be built or compared counts as departed
     from: the copy then says more than needed, never less.
     """
-    info = type(model).model_fields[name]
     value = getattr(model, name)
+    cls = type(model)
+    raw, validated = _validated_default(cls, name)
     try:
-        default = info.get_default(call_default_factory=True, validated_data=dict(model.__dict__))
-        if _same(value, default):
+        if raw is _DEPENDS:
+            info = cls.model_fields[name]
+            default = info.get_default(
+                call_default_factory=True, validated_data=dict(model.__dict__)
+            )
+            if _same(value, default):
+                return True
+            return _same(value, _field_adapter(cls, name).validate_python(default))
+        if raw is _UNBUILT:
+            return False
+        if _same(value, raw):
             return True
-        return _same(value, _field_adapter(type(model), name).validate_python(default))
+        return validated is not _UNBUILT and _same(value, validated)
     except Exception:
         return False
+
+
+_DEPENDS = object()
+"""The default is built from the data of the model, so it is not cached."""
+
+_UNBUILT = object()
+"""The default, or its validation, raised."""
+
+
+@cache
+def _validated_default(cls: type[BaseModel], name: str) -> tuple[Any, Any]:
+    """Return the raw default of a field and the same default validated by the field type.
+
+    The pair depends on the class and the name only, so it is built once per
+    field of the process. A default factory that reads the validated data gives
+    ``_DEPENDS`` twice and the caller builds it for each model.
+    """
+    info = cls.model_fields[name]
+    if info.default_factory_takes_validated_data:
+        return _DEPENDS, _DEPENDS
+    try:
+        raw = info.get_default(call_default_factory=True)
+    except Exception:
+        return _UNBUILT, _UNBUILT
+    try:
+        return raw, _field_adapter(cls, name).validate_python(raw)
+    except Exception:
+        return raw, _UNBUILT
 
 
 @cache

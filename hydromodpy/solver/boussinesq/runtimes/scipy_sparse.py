@@ -53,18 +53,27 @@ from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
 
 _log = get_logger(__name__)
 
+# ``spsolve`` warns that a matrix is exactly singular and fills the answer with NaN.
+# The Newton step reads the NaN and falls back to a shifted system, so the warning
+# names this module (the caller) and adds nothing.
+warnings.filterwarnings(
+    "ignore",
+    message="Matrix is exactly singular",
+    category=UserWarning,
+    module=r"hydromodpy\.solver\.boussinesq\.runtimes\.scipy_sparse",
+)
+
 
 def _require_scipy_sparse():
     """Import SciPy sparse modules lazily so backend choice stays explicit."""
     try:
         from scipy import sparse as scipy_sparse
         from scipy.sparse import linalg as scipy_sparse_linalg
-        from scipy.sparse.linalg import MatrixRankWarning
     except Exception as exc:  # pragma: no cover - depends on optional import state
         raise RuntimeError(
             "Boussinesq runtime_backend='scipy_sparse' requires scipy to be installed."
         ) from exc
-    return scipy_sparse, scipy_sparse_linalg, MatrixRankWarning
+    return scipy_sparse, scipy_sparse_linalg
 
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
@@ -181,7 +190,7 @@ def _solve_nonlinear_system(
     backend_name: str,
 ) -> RuntimeSolveResult:
     """Run the shared sparse Newton loop for one head-only nonlinear system."""
-    scipy_sparse, scipy_sparse_linalg, matrix_rank_warning = _require_scipy_sparse()
+    scipy_sparse, scipy_sparse_linalg = _require_scipy_sparse()
 
     def _build_sparse_newton_jacobian(
         head_m: np.ndarray,
@@ -213,25 +222,13 @@ def _solve_nonlinear_system(
         initial_residual_norm_inf_value: float,
     ) -> np.ndarray:
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", matrix_rank_warning)
-                delta = scipy_sparse_linalg.spsolve(jacobian, -residual_m3_s)
-        except matrix_rank_warning:
-            try:
-                delta = _solve_shifted_sparse_system(
-                    scipy_sparse_linalg=scipy_sparse_linalg,
-                    scipy_sparse=scipy_sparse,
-                    jacobian=jacobian,
-                    rhs=-residual_m3_s,
-                    diagonal_shift=regularized_partition_jacobian_shift(
-                        jacobian.diagonal(),
-                        residual_norm_inf=residual_norm_inf_value,
-                        initial_residual_norm_inf=initial_residual_norm_inf_value,
-                    ),
-                )
-            except (RuntimeError, ValueError, TypeError) as exc:
-                raise RuntimeError("Sparse Newton Jacobian solve failed.") from exc
+            delta = scipy_sparse_linalg.spsolve(jacobian, -residual_m3_s)
+            # SciPy fills the whole answer with NaN when the matrix is exactly singular.
+            # Any other non-finite answer is a failed step, as it was under the warning.
+            singular = np.size(delta) > 0 and bool(np.isnan(delta).all())
         except (RuntimeError, ValueError, TypeError):
+            singular = True
+        if singular:
             try:
                 delta = _solve_shifted_sparse_system(
                     scipy_sparse_linalg=scipy_sparse_linalg,

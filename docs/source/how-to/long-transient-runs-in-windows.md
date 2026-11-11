@@ -10,6 +10,9 @@ a run, how I play it, how I stop it and how I start it again.
 I add a length to `[simulation.time]`. The length is a calendar length written with its unit.
 
 ```toml
+[flow]
+flow_regime = "transient"
+
 [simulation.time]
 start_datetime = "2010-01-01"
 end_datetime = "2019-12-31"
@@ -79,6 +82,6 @@ window 1 must still be in the project.
 ## Read the time of each window
 
 Each run writes `profile.json`, the time and the memory of each step, solve, figure and export.
-`hmp catalog show island_w2` prints the total, the start-up, the solve of each run of the plan,
+`hmp show island_w2` prints the total, the start-up, the solve of each run of the plan,
 the three longest steps and what was reused. A run from version 2.0 has no profile, and the
 command says so and prints the solve time its seal holds.

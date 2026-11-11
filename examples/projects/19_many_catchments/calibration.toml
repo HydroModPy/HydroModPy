@@ -2,7 +2,7 @@
 # space between the bounds of its row of sites.csv. Short on purpose: three
 # monthly runs per site.
 #
-#   hmp config check calibration.toml
+#   hmp check calibration.toml
 #   hmp run calibration.toml               this recipe alone, on every site
 
 base_config = "project.toml"

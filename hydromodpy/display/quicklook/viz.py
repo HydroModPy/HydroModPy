@@ -1,4 +1,4 @@
-"""The ``show`` dispatcher: one call that picks a plot for what ``hmp.read`` returns.
+"""The ``show`` dispatcher: one call that picks a plot for what ``Run.read`` returns.
 
 Single-entry function ``show(data, downsample="auto", crs=None)`` that
 auto-dispatches based on the input type:
@@ -60,9 +60,9 @@ def show(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> da = hmp.read(run, "head", time=-1)  # doctest: +SKIP
+    >>> da = run.read("head", time=-1)  # doctest: +SKIP
     >>> fig = show(da)  # doctest: +SKIP
-    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
+    >>> ts = run.read("discharge", sel={"station": "outlet"})  # doctest: +SKIP
     >>> show(ts, downsample="lttb", n_out=2_000)  # doctest: +SKIP
     """
     import geopandas as gpd

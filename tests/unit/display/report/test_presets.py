@@ -44,6 +44,6 @@ def test_research_names_eight_panels():
 
 
 def test_cli_choices_are_the_preset_keys():
-    from hydromodpy.cli.commands.report import REPORT_PRESETS
+    from hydromodpy.cli.commands.show import REPORT_PRESETS
 
     assert tuple(REPORT_PRESETS) == tuple(PRESETS)

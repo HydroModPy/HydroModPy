@@ -809,3 +809,10 @@ since = "2.1.0"
 effect = "refusal"
 quantities = []
 text = "On Windows a project folder longer than 99 characters is refused when the project is created and when a run or a calibration session takes its folder, before anything is computed: a project writes paths up to 160 characters below its folder, and MODFLOW 6 and DuckDB open no path longer than 259. A geographic feature file keeps its name on every system instead of a hash under a long Windows path. Nothing changes on Linux or macOS, and no value of a run changes."
+
+[[recipe]]
+id = "image_in_provenance"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A run played inside the HydroModPy image writes the image tag and digest under environment.image of provenance.json. The tag comes from the image, the digest from HMP_IMAGE_DIGEST, which the server requires when it starts. A run that finds a malformed digest keeps going and seals it under environment.image.digest_refused. A run outside an image writes the same provenance.json as before, and a replay in another image names the digest change in its lineage."

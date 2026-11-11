@@ -33,7 +33,7 @@ def rerun_config(
     source, the dotted paths that changed, and the keys that moved.
     """
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
     from hydromodpy.project.run_overrides import override_changes
     from hydromodpy.project.runner import pin_parent_sim_id
     from hydromodpy.schema.lineage import Lineage

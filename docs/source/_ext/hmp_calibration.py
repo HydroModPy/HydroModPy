@@ -115,7 +115,7 @@ def method_budget(m: dict[str, Any]) -> str:
         return (
             '``max_trials = "auto"`` counts the evaluations its rule needs before the first '
             "solve. A smaller number is refused or warned before anything is prepared, at "
-            "every launch and by ``hmp config check``."
+            "every launch and by ``hmp check``."
         )
     return f'``max_trials = "auto"`` gives {m["uncounted_budget"]} evaluations.'
 
@@ -135,7 +135,7 @@ def method_facts(m: dict[str, Any]) -> list[tuple[str, str]]:
             (
                 "Cost",
                 f"Read as ``{m['reads_cost_as']}``: score the search on that metric. "
-                "``hmp config check`` warns when it is scored on another one.",
+                "``hmp check`` warns when it is scored on another one.",
             )
         )
     facts.append(("Stops", method_stops(m)))

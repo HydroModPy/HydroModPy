@@ -86,7 +86,7 @@ hmp run step6_soil_reservoir.toml
 import hydromodpy as hmp
 
 hmp.run("step6_soil_reservoir.toml", until_step="load_data")  # the soil check, returns None
-run = hmp.run("step6_soil_reservoir.toml")
+run = hmp.run("step6_soil_reservoir.toml").open()
 ```
 :::
 

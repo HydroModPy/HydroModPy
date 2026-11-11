@@ -24,7 +24,7 @@ hmp run examples/projects/03_hydrographic_network_in_steady_state/project.toml
 # the K sweep, the core of the example, via the Python API
 python examples/projects/03_hydrographic_network_in_steady_state/run_manual.py
 
-hmp viz regen <run>  # draw the figures of a sealed run again
+hmp export <run> --regen figures  # draw the figures of a sealed run again
 ```
 
 Runtime: about 25 s for the reference run (catchment ~9300 cells, 5 layers),

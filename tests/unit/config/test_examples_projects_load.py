@@ -1,7 +1,7 @@
 """Validate bundled example projects against the root config schema.
 
 A project with ``[sites]`` is not one configuration but a plan of cases. It
-is checked the way ``hmp config check`` checks it, case by case, and its
+is checked the way ``hmp check`` checks it, case by case, and its
 recipe files are checked with it rather than loaded alone.
 """
 

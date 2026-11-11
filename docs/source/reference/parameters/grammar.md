@@ -45,7 +45,7 @@ Three rules hold for the whole file.
   models a real catchment, and `[geographic]`. In its standard mode, `[geographic]` needs
   `[geographic.catchment]` with {toml}`geographic.catchment.kind`, and
   `kind = "dem"` needs a DEM declared in {toml}`data.dem.sources`. With these keys,
-  `hmp config check` accepts the file. `[workflow]` can be left out: the sections of the file
+  `hmp check` accepts the file. `[workflow]` can be left out: the sections of the file
   say what it does. A file never writes the project root: it is the folder that holds
   `project.toml`.
 
@@ -350,7 +350,7 @@ match a name written elsewhere.
 | {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and `data.geology.id` for a geology support |
 | {toml}`calibration.parameters.<name>` | `K`, `Sy`, `Ss`, `thickness` or `drainage` resolve to their target; any other name needs `path` | `parameters` of a calibration phase |
 | {toml}`calibration.outputs.<name>` | a name you choose | `uses_outputs` of an objective block, `outputs` of a phase |
-| `[display.overrides.<figure>]`, see {toml}`display.overrides` | the name of a registered figure | `hmp viz list` prints the names; another name is refused with the list |
+| `[display.overrides.<figure>]`, see {toml}`display.overrides` | the name of a registered figure | `hmp config figures` prints the names; another name is refused with the list |
 
 One name can appear in three places. Here a support called `geology_zones` is declared,
 filled from a geology file, and used by K:
@@ -421,18 +421,18 @@ both are tagged `dev`. The `profile` key of `[workflow]` is unrelated: it times 
 
 ## Check a file
 
-`hmp config check` loads the file, follows `base_config`, checks the merged result section
+`hmp check` loads the file, follows `base_config`, checks the merged result section
 by section and prints every diagnostic at once. Each one gives its severity, the key it
 reaches, the line of that key when the file writes it, a phrase that says what kind of fault
 it is, and on the next line what the check said about this case.
 
 ```text
-$ hmp config check typo.toml
+$ hmp check typo.toml
 Config invalid: /home/me/project/typo.toml
   error flow: This value is refused by the check of its key or its table. The detail says why.
     Unknown TOML key(s) in [flow]: flow_regme
 
-$ hmp config check conflict.toml
+$ hmp check conflict.toml
 Config invalid: /home/me/project/conflict.toml
   error flow.param.K.field.homogeneous:3: This value is refused by the check of its key or its table. The detail says why.
     Value error, K.value mixes conflicting units: 'm/h' and 'm/s'.

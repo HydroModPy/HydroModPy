@@ -134,7 +134,7 @@ def test_an_output_without_a_suffix_is_written_and_named_as_png(monkeypatch, tmp
 
 
 class TestFigureOptionsFromTheCommandLine:
-    """``hmp viz show --opt NAME=VALUE`` gives a figure its options, typed."""
+    """``hmp show REF --figure NAME --opt NAME=VALUE`` gives a figure its options, typed."""
 
     def test_values_take_the_type_of_the_option(self) -> None:
         options = catalog_figures.parse_figure_options(

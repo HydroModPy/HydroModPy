@@ -30,7 +30,7 @@ writes itself, then `--set`.
 From this folder, in a HydroModPy workspace that holds `data/dem/DEM_armorican_massif.tif`:
 
 ```bash
-hmp config check project.toml          # the four cases, every error at its cell
+hmp check project.toml          # the four cases, every error at its cell
 hmp run project.toml --dry-run         # the plan, the solves, the scratch; nothing written
 hmp run project.toml                   # the four cases
 hmp run calibration.toml               # the calibration recipe alone, on both sites

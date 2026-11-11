@@ -265,7 +265,7 @@ def test_catchment_view_reads_an_unpersisted_derived_field(project):
 
 
 def test_read_returns_data_for_every_available_field(surface_run):
-    """``has_field`` and ``hmp.read`` must agree, with or without ``time``.
+    """``has_field`` and ``Run.read`` must agree, with or without ``time``.
 
     The virtual fields are not persisted, so the batch reader has to rebuild
     them: reporting a field as available and then raising on the documented
@@ -280,9 +280,9 @@ def test_read_returns_data_for_every_available_field(surface_run):
     available = [name for name in field_registry.all_names() if run.has_field(name)]
     assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= set(available)
     for name in available:
-        assert np.asarray(hmp.read(run, name)).size > 0, name
-        assert np.asarray(hmp.read(run, name, time=0)).size > 0, name
-        assert np.asarray(hmp.read(run, name, time=slice(0, 2))).size > 0, name
+        assert np.asarray(run.read(name)).size > 0, name
+        assert np.asarray(run.read(name, time=0)).size > 0, name
+        assert np.asarray(run.read(name, time=slice(0, 2))).size > 0, name
 
 
 def test_list_fields_matches_has_field(surface_run):

@@ -7,9 +7,11 @@ only when they cover the same dates, and two maps only at the same date.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -19,7 +21,9 @@ from hydromodpy.core.exceptions import ResultsError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.display.run_comparison import draw_maps, draw_series
 from hydromodpy.project.facade import read_sealed_config
+from hydromodpy.project.show import render
 from hydromodpy.results.derive import views
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run, open_run_dir
@@ -51,6 +55,30 @@ class Comparison:
     series: dict[tuple[str, str], pd.DataFrame]
     maps: dict[str, tuple[pd.Timestamp, list[np.ndarray]]]
 
+    @property
+    def table(self) -> pd.DataFrame:
+        """The headline scores of the runs side by side, from :func:`headline_table`."""
+        return headline_table(self.runs)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the comparison as JSON: the runs, the dates, the tables and the series.
+
+        Each table and each series is a list of records. A map is not carried,
+        only the variable and the date it is drawn at.
+        """
+        return {
+            "runs": [run.name for run in self.runs],
+            "reference": self.runs[0].name,
+            "start": _shown(self.start),
+            "end": _shown(self.end),
+            "tables": {name: _records(table) for name, table in self.tables.items()},
+            "series": {
+                f"{variable}/{station}": _records(frame.reset_index())
+                for (variable, station), frame in self.series.items()
+            },
+            "maps": {variable: _shown(date) for variable, (date, _) in self.maps.items()},
+        }
+
     def write(self, out: Path) -> Path:
         """Write the tables, the figures and the README into *out*, and return the README."""
         folder = Path(out).expanduser()
@@ -74,6 +102,45 @@ class Comparison:
         readme = folder / "README.md"
         readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return readme
+
+
+def _records(table: pd.DataFrame) -> list[dict[str, Any]]:
+    """Return the rows of *table* as JSON records: a missing value is ``None``, a date is ISO text."""
+    return json.loads(table.to_json(orient="records", date_format="iso"))
+
+
+def headline_table(runs: Sequence[Run]) -> pd.DataFrame:
+    """Return the headline scores of *runs* side by side.
+
+    One row per ``(metric, station, variable)``. Each run adds its score in the
+    column of its name, the window it was scored on in ``<name>_window`` (as
+    ``start/end``) and its samples in ``<name>_n``. A score one run lacks is
+    empty. The table is empty when no run holds a headline score.
+    """
+    keys = ["metric", "station", "variable"]
+    sides = []
+    for run in runs:
+        frame = run.metrics
+        scores = frame[frame["window_name"] == HEADLINE_WINDOW]
+        window = [
+            None if pd.isna(start) else f"{_day(start)}/{_day(end)}"
+            for start, end in zip(scores["window_start"], scores["window_end"], strict=True)
+        ]
+        side = pd.DataFrame(
+            {
+                **{key: scores[key] for key in keys},
+                run.name: scores["value"],
+                f"{run.name}_window": window,
+                f"{run.name}_n": scores["n_samples"],
+            }
+        )
+        sides.append(side.set_index(keys))
+    return pd.concat(sides, axis=1, join="outer").sort_index()
+
+
+def _day(stamp: Any) -> str:
+    """Return the date of *stamp* as ``YYYY-MM-DD``."""
+    return pd.Timestamp(stamp).date().isoformat()
 
 
 def compare(runs: Sequence[Run], variables: Sequence[str] | None = None) -> Comparison:
@@ -363,7 +430,7 @@ def resolve_references(refs: Sequence[str], *, project_root: Path | None) -> lis
         directories = [Path(ref).expanduser()] + ([runs_dir / ref] if runs_dir else [])
         direct = [path for path in directories if is_sealed(path)]
         runs = (
-            [open_run_dir(direct[0], read_config=read_sealed_config)]
+            [open_run_dir(direct[0], read_config=read_sealed_config, render=render)]
             if direct
             else _latest_of_recipe(runs_dir, ref)
         )
@@ -381,7 +448,7 @@ def _latest_of_recipe(runs_dir: Path | None, recipe: str) -> list[Run]:
     if runs_dir is None or not runs_dir.is_dir():
         return []
     sealed = [
-        open_run_dir(path, read_config=read_sealed_config)
+        open_run_dir(path, read_config=read_sealed_config, render=render)
         for path in sorted(runs_dir.iterdir())
         if is_sealed(path)
     ]

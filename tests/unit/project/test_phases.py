@@ -124,3 +124,27 @@ def test_the_mesh_summary_goes_with_the_mesh(drop) -> None:
     assert setup.cell_mesh is None
     assert setup.mesh_summary is None
     assert project._phase == "geographic"
+
+
+def test_the_catalog_a_project_reads_is_given_the_config_reader_and_the_renderer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    import hydromodpy.results.catalog as catalogs
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
+
+    made: list[tuple] = []
+    monkeypatch.setattr(
+        catalogs, "Catalog", lambda root, **kwargs: made.append((root, kwargs)) or "catalog"
+    )
+    index = catalog_path_for(tmp_path)
+    index.parent.mkdir(parents=True)
+    index.write_bytes(b"")
+    workspace = SimpleNamespace(project_root=tmp_path)
+    project = SimpleNamespace(
+        _store=None, _ctx=SimpleNamespace(setup=SimpleNamespace(workspace=workspace))
+    )
+    phases.open_catalog(project)
+    assert project._store == "catalog"
+    assert made == [(tmp_path, {"read_config": read_sealed_config, "render": render})]

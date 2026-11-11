@@ -44,8 +44,8 @@ data cache before the run?
 
 | You want to know | You ask for | Command |
 |---|---|---|
-| What exactly was run? | The summary of the run: solver, status, duration, size of the grid, parameters, scores and the start of the configuration fingerprint. The frozen configuration and the provenance record are files of the run folder, which you can open. | `hmp catalog show <run>` |
-| What differs between two runs? | The comparison of the two. | `hmp catalog diff <run A> <run B>` |
+| What exactly was run? | The summary of the run: solver, status, duration, size of the grid, parameters, scores and the start of the configuration fingerprint. The frozen configuration and the provenance record are files of the run folder, which you can open. | `hmp show <run>` |
+| What differs between two runs? | The comparison of the two. | `hmp diff <run A> <run B>` |
 | Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp data lock --check` |
 | To replay a stored run with exactly the same data and settings | A run that pins each input at the digest of the seal and refuses an input that moved before anything runs. The replay is classed `bit` or `deviation`, with the size of each gap, and `--strict` refuses a gap before the seal. For a bare name outside the project, or for a copy, name the project with `-w <project>`. | `hmp replay <run>` |
 | To replay a project file on its pinned data | A run that refuses any fresh download and stops on a checksum that does not match the lockfile. | `hmp run --frozen <file>` |

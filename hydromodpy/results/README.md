@@ -11,7 +11,13 @@ keeps one folder per sha256 key, and `[workspace] products_cap_mb` caps it at 50
 A run has a level, read from its lineage: a kept calibration trial is a research run, keeps no figure
 and no export, and keeps neither its solver files nor its face flows, while every other run is a result
 run and keeps what `[simulation.results]` asks. `retention.py` weighs a project by family, and
-`Project.gc()` or `hmp catalog gc` removes what its policy allows and reports the bytes before and after. The
+`Project.gc()` or `hmp catalog gc` removes what its policy allows and reports the bytes before and after.
+An attempt writes two logs, `<run>/logs/run.log` and `<project>/.hmp/logs/hydromodpy_debug.log`, and neither is a
+handler of the package logger. `core/logging.py` keeps one router on that logger, and the router sends each record
+to the files listed in the context variable `RUN_SINKS`. So two runs in two threads of one process fill two
+`run.log` files and no line crosses. The project log rotates at 8 MiB and keeps three old files. A thread pool of a run
+submits its tasks through `contextvars.copy_context().run`, so a task keeps the files of the thread that started it.
+The
 package reads `core`, `schema`, `catchment`, `mesh`, `model` and itself, and never `data`,
 `solver`, `config` or `display`. `tests/unit/architecture/layer_matrix.yaml` holds the edges, and
 `tests/unit/results/test_run_layout_contract.py` the names of a run directory. The plan of a

@@ -118,6 +118,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp show SESSION` prints the summary of a calibration session: the trials by status, the best trial, the bounds it reached, why the search stopped and the path of its report. A run goes to `hmp catalog show`.
 - `hmp calibrate` writes the report of each session directory it leaves, `sessions/<s>/report/`. `hmp calibrate --no-report` and `hmp.calibrate(..., report=False)` skip it, and a report that fails warns without failing the calibration.
 - The seal of a data overview writes `tables.parquet/data_inventory.parquet` and lists the loaded inputs in `inputs.json`. Its stats card, station table and page are drawn from those rows.
+- `Run.read`, `Run.table`, `Run.figure` and `Run.show`; `Session` and `RunSet` get `table`, `figure` and `show`. A figure is drawn by the renderer the object was opened with.
+- `to_dict` on `StatusReport`, `PlanDraft`, `PublishedProject`, `PublishedLine`, `SpinupResult`, `InstallReport`, `ExampleEntry` and `Comparison`, and two returned types, `CalibrationPlan` and `DoctorReport`.
+- `hmp ls --disk` lists runs and sessions from their directories, `hmp ls --plan` says where a `[sites]` plan stands, `hmp show` reads a profile (`--profile`), a cell (`--point`), a ranking (`--rank`), a figure (`--figure`), a report (`--report`) and a sealed table (`--table`), `hmp config figures` lists the figures, and `hmp catalog trash REF` moves a run to the trash.
+- `hydromodpy_server`, a thin HTTP layer on the verbs, outside the wheel. It serves one space per organisation, runs each run in its own process, takes a file upload into the project inputs, and needs an authenticating proxy in front. `python -m hydromodpy_server --root ROOT` starts it, and the Docker image carries it.
+- A run played inside the HydroModPy image seals the image tag and digest in `provenance.json`, and a replay in another image names the digest change in its lineage. The image installs every extra and the solver binaries at build time, and keeps the versions of its build in `/opt/hmp/constraints.txt`.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -565,6 +570,19 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The data overview page shows again the workflow, period, workspace, catchment area and definition, the hydrography objects, sources and period, a station count per family, the mean recharge, the pumping, the wells, the sources of the hydrography and of the recharge, the series of piezometry, intermittency and water quality, and the paths of its files.
 - The data identity card of the overview counts each station once. A station that gives one record per parameter, in water quality most of all, used to count once per record.
 - The report engine removes from `figures/` only the copies it made on a former call, listed under `copied` in `report.json`. A figure already in `figures/` stays in place, and a copy never overwrites a file it did not write.
+- `hydromodpy` exposes fifteen typed verbs and five objects. Every verb takes text, numbers, paths or mappings and returns a value with `to_dict`, a path or diagnostics. The verbs live in `hydromodpy.project.api`.
+- `hmp.run` returns the `RunOutcome` of the run; `RunOutcome.open()` gives the `Run`.
+- A verb never looks for a project above the working directory; a name is read in `workspace=`, else the reference is a path.
+- `hmp ls`, `hmp show`, `hmp diff` and `hmp check` read and check. `hmp catalog ls`, `show`, `diff`, `point` and `rank`, `hmp viz`, `hmp report`, `hmp config check`, `hmp project show` and `status` are refused with the command that replaces them.
+- An exception carries its category, and `hmp` maps the category to its exit code. No exit code changes.
+- `Comparison.table` gives the headline scores of the compared runs side by side, and replaces `compare_pair`.
+- The project log `.hmp/logs/hydromodpy_debug.log` is written by each run as a second sink of its context, rotates at 8 MiB and keeps three old files. `LogManager.set_simulation_log` and `setup_simulation_log` are gone.
+- `hydromodpy.display.style.apply_theme` is replaced by `theme_rc(name)` and `themed(name)`, and `hydromodpy.display.runs.matplotlib_backend` by `rendering(theme)`; both hold a render lock for the length of one render.
+- Importing `hydromodpy` sets `PROJ_DATA` once, for the CLI and for Python alike.
+- `hydromodpy.project` imports nothing. `Project` is read in `hydromodpy.project.facade`, `ProjectRunner` in `hydromodpy.project.runner` and the accessors of a project in `hydromodpy.project.accessors`.
+- `hmp.results` and the other packages no longer open from the top level; `import hydromodpy.results` gives them.
+- The help of `hmp run --resume` names the window form `<chain>_w<N>`.
+- `hmp check` and `hmp.check` collect the warnings of the sections per call, in a sink that belongs to the calling thread, so two checks in two threads, or a check beside a run, keep their own warnings and never change the warning filters of the process. A warning of a third-party library raised during a check is no longer a diagnostic and follows the filter of the process. A check of a whole document of example 04 takes about 8 ms warm instead of about 10 ms.
 
 ### Removed
 
@@ -579,7 +597,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   `Modpath.post_processing` and `Modpath.filt_processing` are gone; call `run_post_processing`, `write_shapefiles` and
   `filter_pathlines` of the annex. `hydromodpy.physics.hydrology.pyhelp` and the chain names of `hydromodpy.schema.job`
   are gone.
-- `hmp dev manage` is gone and has no replacement yet.
+- `hmp dev manage` is gone. It is refused with `python -m hydromodpy_server --root ROOT`, the HTTP server of the repository.
 - `is_boundary_condition_active` and `active_side_dirichlet_boundary_ids` of
   `hydromodpy.model.boundaries.boundary_condition_registry` are gone. A backend reads `Model.boundaries`.
 - The solver functions `get_solver_adapter`, `get_extractor`, `get_extractor_instance`, `capabilities`,
@@ -682,6 +700,11 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `SessionReportData` and `load_session_report_data` of `hydromodpy.calibration.report`, `step_render_calibration_report`, and `CATCHMENT_PRESETS` of `hydromodpy.cli.commands.report`. The summary of a session is `hydromodpy.results.session.summary`, its report `hydromodpy.project.report.report_session`.
 - The modules `hydromodpy.display.report_blocks`, `hydromodpy.display.catchment_report`, `hydromodpy.display.calibration_report`, `hydromodpy.display.overview.web` and `hydromodpy.workflow.steps.calibration`. The report engine is `hydromodpy.display.report` (`engine`, `pages`, `presets`) and its caller `hydromodpy.project.report`. An import of an old path is refused with the new one.
 - The variable `HMP_OVERVIEW_HTML_REVIEW_LEVELS`. The review pages of a data overview are always written.
+- `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`, `hmp.example_add`, `hmp.example_list`, `hmp.example_show` and `hmp.Workspace`. Each is refused with the call that replaces it. `hmp.read`, `hmp.index` and `hmp.Catalog` stay at the top level beside the fifteen verbs, because the runs of 2.0.0 are read through them.
+- `AmbiguousReferenceError`, `SimulationNotFoundError`, `CatalogError`, `RunNotSealedError`, `FieldNotFoundError`, `ComparisonCaseError` and `ComparisonReferenceError` at the top level. Each is refused with the module that defines it, where it stays.
+- `hydromodpy.results.catalog.facade.compare_pair`, use `compare([a, b]).table`.
+- The `HMP_RUN_SCRATCH` environment variable. The scratch folder of a run lives in a context variable and a calibration worker receives it in its payload.
+- `forget_old_forms_told` and the memory of the old forms already told are gone from `hydromodpy.core.config_kit.base`. The old form of a key is a `ConfigKeyRenamedWarning` shown once per file and key by the default filter of Python, so a script that wants to see it again sets the filter to `always`.
 
 ### Fixed
 
@@ -712,6 +735,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The root search of a calibration keeps one cost per point of its search variable, so a point that failed and was solved when asked again no longer breaks the interval around the root.
 - The catchment series and the calibration discharge keep no module state between runs. A reused id of an earlier context no longer silenced the runoff warning of a new one.
 - The matching card names the unit of a parameter from the session journal first, so `K (m/s)` instead of `K (-)`.
+- Two runs in two threads of one process write each its own run.log, keep each its own scratch folder, and no run saves or restores the warning filters of the process.
+- A figure render no longer switches the matplotlib backend or leaves a style in rcParams, so two renders in two threads of one process draw each its own style; figures are drawn without pyplot, and pyplot is kept only for quicklook and for the window that `[display] show` opens.
 
 ### Numbers
 

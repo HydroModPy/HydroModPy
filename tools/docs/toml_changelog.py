@@ -15,7 +15,7 @@ added.
 Pseudo-nodes (named instances such as ``flow.param.K``) are not fields of the
 file and never count as a change. Nor do the keys of another file, which the
 project file does not hold: the registry of 2.0.0 still lists the keys of the
-report file that ``hmp report catchment`` read then.
+report file that ``hmp show RUN --report`` read then.
 """
 
 from __future__ import annotations

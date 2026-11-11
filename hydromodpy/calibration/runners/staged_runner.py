@@ -138,6 +138,7 @@ from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.record.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus, latest_session_dir
 from hydromodpy.results.session.phase import FrozenValue
+from hydromodpy.results.storage.run_log import in_project_log
 from hydromodpy.solver.base.solver_config import SolverConfig
 
 if TYPE_CHECKING:
@@ -1081,7 +1082,7 @@ def objective_comparison_table(
 
     Reads declarations only, no project data: this is what lets
     ``--list-phases`` build it without the data on disk, and is why
-    ``hmp config check`` can show it for a plain calibration's one search, which
+    ``hmp check`` can show it for a plain calibration's one search, which
     ``--list-phases`` has no phase to attach it to.
     """
     single_metric = phase.is_single_metric if phase is not None else not cfg.objective_blocks
@@ -1183,11 +1184,16 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _root_of_call(config_path: Path | str, **kw: Any) -> Path:
+    return project_root_for(Path(config_path), kw.get("workspace"))
+
+
 @in_run_scratch(
-    lambda config_path, **kw: project_root_for(Path(config_path), kw.get("workspace")),
+    _root_of_call,
     lambda config_path, **_kw: Path(config_path).stem,
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
+@in_project_log(_root_of_call)
 def run_staged_calibration(
     config_path: Path | str,
     *,

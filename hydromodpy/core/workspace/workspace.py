@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.core.logging import get_logger, setup_simulation_log
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
@@ -45,7 +45,7 @@ def resolve_bin_path() -> str:
 
 class WorkspaceLayout:
     """
-    Prepare and expose the folder structure of one project: its folders, its log, its
+    Prepare and expose the folder structure of one project: its folders and its
     binaries. ``hmp.open`` on a workspace root gives another object,
     :class:`hydromodpy.project.accessors.Workspace`, which reads the projects it holds.
     """
@@ -59,7 +59,6 @@ class WorkspaceLayout:
         self.runs_dir = self.paths.runs_dir
 
         create_folder(self.project_root)
-        setup_simulation_log(self.project_root)
 
         self.solver_scratch_folder = self.paths.solver_scratch_folder
 

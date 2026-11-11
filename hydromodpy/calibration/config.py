@@ -65,6 +65,7 @@ from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.types import (
     NonEmptyStr,
     NonNegativeInt,
@@ -776,9 +777,7 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
         written = [key for key in ("x", "y", "geometry") if getattr(self, key) is not None]
         if not written:
             return
-        import warnings
-
-        warnings.warn(
+        say(
             f"an output observes station {self.observes!r} and also writes "
             f"{', '.join(written)}. The station's own record locates it, so "
             f"{'they are' if len(written) > 1 else 'it is'} not read. Drop "
@@ -2118,7 +2117,7 @@ class CalibPhaseDecl(HydroModelBase):
         "method beside them, or runs the method [calibration] writes. Unset, the phase "
         "takes the method_options of [calibration] when it runs the method that section "
         "writes, and none otherwise; an empty table states that it takes none. A key "
-        "the method does not take is refused when the file loads. hmp config check "
+        "the method does not take is refused when the file loads. hmp check "
         "names the phase.",
         json_schema_extra=field_metadata(renamed_from=["calibration.phases.optimizer_kwargs"]),
     )
@@ -2385,8 +2384,8 @@ class CalibUncertaintyDecl(HydroModelBase):
             "only by network distances, because a stream cannot move by less than a cell; "
             "5%, five per cent of the best cost, otherwise. The cell is the median distance "
             "between the centres of neighbouring cells, measured by the network criterion "
-            "on the mesh it scores. A phase may write its own, which wins. hmp config "
-            "check refuses a share on a search scored only by network distances."
+            "on the mesh it scores. A phase may write its own, which wins. hmp check "
+            "refuses a share on a search scored only by network distances."
         ),
         json_schema_extra=field_metadata(
             unit="% or m",
@@ -2915,7 +2914,7 @@ class CalibrationConfig(HydroModelBase):
         """Return the precision a search pins its parameters to: the phase's, else the section's.
 
         A precision written in the phase is returned as written, and
-        ``hmp config check`` refuses it on an engine that stops on its budget. The
+        ``hmp check`` refuses it on an engine that stops on its budget. The
         section's reaches a phase only when the phase's engine stops on a
         precision, and not when the phase already writes that stopping option
         itself: the phase's own option departs from it, deliberately.
@@ -3052,7 +3051,7 @@ class CalibrationConfig(HydroModelBase):
         way :class:`optim.objective.CompositeObjective` takes its own weights
         before dividing by their sum. Empty for a single-metric route
         (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
-        declares no block). ``hmp calibrate --list-phases`` and ``hmp config check``
+        declares no block). ``hmp calibrate --list-phases`` and ``hmp check``
         read this to say what each block compares with what.
         """
         blocks = self._blocks_scored_by(phase)
@@ -3416,7 +3415,7 @@ class CalibrationConfig(HydroModelBase):
         ``variable`` that names no output, the one-line form scores every
         loaded station of that variable, and an output declared beside it is
         never scored: the calibration fits the stations while the file reads as
-        fitting the output, and ``hmp config check`` used to say OK. An output
+        fitting the output, and ``hmp check`` used to say OK. An output
         that blocks exist beside may still feed the residuals of a linearized
         width, and a network output on this route has its own refusal in the
         preflight, so both are left to those.

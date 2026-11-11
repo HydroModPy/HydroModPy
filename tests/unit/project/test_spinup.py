@@ -238,14 +238,14 @@ def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
 
 
 def test_spinup_refuses_a_sites_project(tmp_path: Path) -> None:
-    import hydromodpy as hmp
     from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project import api
 
     project = tmp_path / "project.toml"
     project.write_text('[sites]\ntable = "sites.csv"\n\n[sites.recipes]\nbase = "base.toml"\n')
 
     with pytest.raises(ConfigError, match=r"declares \[sites\]"):
-        hmp.spinup(project)
+        api.spinup(project)
 
 
 @pytest.mark.parametrize(
@@ -303,3 +303,29 @@ def test_a_converged_result_has_nothing_to_warn_about() -> None:
     )
 
     assert result.antecedent_warning() is None
+
+
+@pytest.mark.parametrize("converged", [True, False])
+def test_the_result_gives_its_json_form_with_the_warning_a_cli_prints(converged: bool) -> None:
+    import json
+
+    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
+
+    result = SpinupResult(
+        converged=converged,
+        cycles=[SpinupCycle(0, "a", "a.zarr", None, None), SpinupCycle(1, "b", "b.zarr", 0.5, 0.0)],
+        restart_from="b.zarr",
+        production_sim_id="p1",
+    )
+    document = json.loads(json.dumps(result.to_dict()))
+    assert document["cycles"] == [
+        {"index": 0, "d_head": None, "d_stage": None},
+        {"index": 1, "d_head": 0.5, "d_stage": 0.0},
+    ]
+    assert document["warning"] == result.antecedent_warning()
+    assert {key: document[key] for key in ("converged", "n_cycles", "restart_from")} == {
+        "converged": converged,
+        "n_cycles": 2,
+        "restart_from": "b.zarr",
+    }
+    assert document["production_sim_id"] == "p1"

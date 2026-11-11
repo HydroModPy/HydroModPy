@@ -22,7 +22,7 @@ The reading of the document is in ``document.py``, the scope of the session in
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.runners.document import (
     load_calibration_document,
@@ -42,6 +42,7 @@ from hydromodpy.calibration.runners.trial import (
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.path_registry import in_run_scratch
+from hydromodpy.results.storage.run_log import in_project_log
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
@@ -50,11 +51,16 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _root_of_call(config_path: Path | str, **kw: Any) -> Path:
+    return project_root_for(Path(config_path), kw.get("workspace"))
+
+
 @in_run_scratch(
-    lambda config_path, **kw: project_root_for(Path(config_path), kw.get("workspace")),
+    _root_of_call,
     lambda config_path, **_kw: Path(config_path).stem,
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
+@in_project_log(_root_of_call)
 def run_calibration_cli(
     config_path: Path | str,
     *,

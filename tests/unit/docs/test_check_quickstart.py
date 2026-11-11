@@ -27,14 +27,14 @@ def test_the_commands_are_the_six_of_the_page() -> None:
 def test_the_page_promises_two_lines() -> None:
     first, second = qs.promised_lines(PAGE_TEXT)
     assert first.startswith("Run completed: ")
-    assert second.startswith("next: hmp catalog show ")
+    assert second.startswith("next: hmp show ")
 
 
 def test_the_promised_lines_match_themselves_and_a_real_run() -> None:
     done, following = qs.line_patterns(*qs.promised_lines(PAGE_TEXT))
     real = [
         "Run completed: demo [28693ca4] 2s",
-        "next: hmp catalog show demo | hmp publish demo --to <folder> | hmp export demo --list",
+        "next: hmp show demo | hmp publish demo --to <folder> | hmp export demo --list",
     ]
     assert qs.lines_match(done, following, real)
     assert qs.lines_match(done, following, list(qs.promised_lines(PAGE_TEXT)))
@@ -44,12 +44,12 @@ def test_the_promised_lines_match_themselves_and_a_real_run() -> None:
     "last",
     [
         ["Run completed: demo [28693ca4] 2s"],
-        ["Run completed: demo [28693ca4] 2s", "next: hmp catalog show demo"],
+        ["Run completed: demo [28693ca4] 2s", "next: hmp show demo"],
         [
             "Run completed: demo [28693ca4] 2s",
-            "next: hmp catalog show other | hmp publish other --to <folder> | hmp export other --list",
+            "next: hmp show other | hmp publish other --to <folder> | hmp export other --list",
         ],
-        ["Run failed: demo [28693ca4] 2s", "next: hmp catalog show demo"],
+        ["Run failed: demo [28693ca4] 2s", "next: hmp show demo"],
     ],
 )
 def test_a_line_that_differs_from_the_page_is_refused(last: list[str]) -> None:

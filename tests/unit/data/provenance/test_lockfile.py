@@ -716,9 +716,9 @@ def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         f'[workflow]\nmode = "overview"\n\n[workspace]\nroot = "{workspace.as_posix()}"\n',
         encoding="utf-8",
     )
-    monkeypatch.setitem(
-        project_workflow.DISPATCH,
-        "overview",
+    monkeypatch.setattr(
+        project_workflow,
+        "run_overview",
         lambda path, **_: SimpleNamespace(to_dict=lambda: {"sim_id": "stub", "name": "stub"}),
     )
     monkeypatch.chdir(workspace)

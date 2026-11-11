@@ -94,7 +94,7 @@ line carries the sentence that says what went wrong. A file of `exports/` that c
 gives a `failed` line with one attempt and no sha256 or bytes.
 
 A delivery failure does not fail the run. The run stays sealed and completed, `hmp run` exits
-0, and the log holds a `WARNING` for the file and its address. `hmp catalog show <run>` lists
+0, and the log holds a `WARNING` for the file and its address. `hmp show <run>` lists
 the deliveries after the exports, and the library reads `run.deliveries`.
 
 ## Deliver again

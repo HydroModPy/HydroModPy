@@ -19,12 +19,13 @@ VERBOSITY_OPTIONS = {"--verbosity", "-q", "--quiet", "-v", "--verbose", "--debug
 # What takes the verbosity flags, every leaf of it. A family that prints only a
 # line or two (site, example, lock) leaves the level to HMP_VERBOSITY.
 WITH_VERBOSITY = (
-    "viz",
+    "ls",
+    "show",
+    "diff",
     "data",
     "catalog",
     "project",
     "campaign",
-    "report",
     "export",
     "spinup",
     "run",
@@ -57,9 +58,10 @@ def test_the_level_is_applied_before_the_verb_runs(monkeypatch) -> None:
 
     seen: list[str] = []
     monkeypatch.setattr(
-        "hydromodpy.cli.commands.viz.list_cmd.run", lambda args: seen.append(current_verbosity())
+        "hydromodpy.cli.commands.config._cmd_config_figures",
+        lambda args: seen.append(current_verbosity()),
     )
-    assert run_hmp(monkeypatch, "viz", "list", "-q") == 0
+    assert run_hmp(monkeypatch, "config", "figures", "-q") == 0
     assert seen == ["quiet"]
 
 
@@ -74,28 +76,20 @@ def test_a_toml_verb_applies_the_level_of_its_file(verb: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("group", "action", "flag", "expected"),
+    ("words", "flag", "expected"),
     [
-        ("viz", "list", "-q", "quiet"),
-        ("viz", "list", "-v", "verbose"),
-        ("viz", "list", "--debug", "debug"),
-        ("data", "ls", "-q", "quiet"),
-        ("catalog", "ls", "-v", "verbose"),
-        ("project", "list", "--debug", "debug"),
-        ("report", "compare", "-q", "quiet"),
+        (("config", "figures"), "-q", "quiet"),
+        (("config", "figures"), "-v", "verbose"),
+        (("config", "figures"), "--debug", "debug"),
+        (("data", "ls"), "-q", "quiet"),
+        (("ls",), "-v", "verbose"),
+        (("project", "list"), "--debug", "debug"),
+        (("diff", "a", "b"), "-q", "quiet"),
     ],
 )
-def test_family_leaf_flag_maps_to_level(group: str, action: str, flag: str, expected: str) -> None:
+def test_family_leaf_flag_maps_to_level(words: tuple[str, ...], flag: str, expected: str) -> None:
     parser = _build_parser()
-    extra: dict[str, list[str]] = {
-        ("data", "ls"): [],
-        ("catalog", "ls"): [],
-        ("project", "list"): [],
-        ("viz", "list"): [],
-        ("report", "compare"): ["a", "b"],
-    }
-    positionals = extra.get((group, action), [])
-    args = parser.parse_args([group, action, *positionals, flag])
+    args = parser.parse_args([*words, flag])
     assert args.verbosity == expected
 
 

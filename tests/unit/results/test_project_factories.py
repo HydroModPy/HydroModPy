@@ -89,7 +89,7 @@ def test_project_constructor_passes_path_to_configure(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config_path = _write_minimal_toml(tmp_path)
     Project(config_path)
@@ -101,7 +101,7 @@ def test_project_constructor_validates_dict(
     stub_project_phases: dict,
 ) -> None:
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     payload = _build_payload(tmp_path)
     Project(payload, base=tmp_path)
@@ -115,7 +115,7 @@ def test_project_constructor_refuses_a_dict_without_a_base(
     stub_project_phases: dict,
 ) -> None:
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     with pytest.raises(ConfigError, match="needs base="):
         Project(_build_payload(tmp_path))
@@ -127,7 +127,7 @@ def test_project_constructor_validates_json_string(
     stub_project_phases: dict,
 ) -> None:
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     payload = json.dumps(_build_payload(tmp_path))
     Project(payload, base=tmp_path)
@@ -140,7 +140,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
     stub_project_phases: dict,
 ) -> None:
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     cfg = object()
     captured: dict[str, Any] = {}

@@ -3,7 +3,7 @@
 ``corpus/<tag>/`` holds example files as the tags ``v2.0.0a1`` to ``v2.0.0a5`` wrote
 them, comments removed, with their ``base_config`` parents and their data paths left as
 they are. A key only a pre-release of 2.0 wrote is refused, so a file whose chain holds
-one goes through ``hmp config check`` and is refused with every such key of each of its
+one goes through ``hmp check`` and is refused with every such key of each of its
 files, and the doctor of this version writes nothing on it. :data:`PRERELEASE_KEYS`
 lists them, as ``prerelease_forms.txt`` named them once. A file with no such key is
 refused only for a reason this table holds. Nothing here looks at a number.
@@ -376,7 +376,7 @@ def _error_text(path: Path) -> str:
 
 
 def _errors_of(path: Path) -> str:
-    """Return what ``hmp config check`` refuses in *path*, with ``[site]`` added when it asks."""
+    """Return what ``hmp check`` refuses in *path*, with ``[site]`` added when it asks."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         errors = _error_text(path)

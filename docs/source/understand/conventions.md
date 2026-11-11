@@ -40,7 +40,7 @@ A list of dates reads one period per date. A list where two dates read the same 
 and the message names them: `2000-01-01` and `2000-02-01` both read January on a monthly run. To
 read every period between two dates, write a window.
 
-The rule is the same in `hmp.read`, `run.field`, `run.timeseries`, `[[export]]`, `[display]` and the
+The rule is the same in `Run.read`, `run.field`, `run.timeseries`, `[[export]]`, `[display]` and the
 `time` of a network output of a calibration. How a run stamps its periods is on
 {doc}`/theory/time-alignment`.
 
@@ -93,7 +93,7 @@ as a zone label.
 ## A column says where a series comes from
 
 The `source` column of the `timeseries` table says `simulated` or `observed`. A simulated discharge
-and a gauged one have the same variable, `discharge`. To read the gauge by name, `hmp.read` and
+and a gauged one have the same variable, `discharge`. To read the gauge by name, `Run.read` and
 `[[export]]` take `discharge_obs`, which no table stores. A CSV export has the same `source` column.
 
 ## How things are counted

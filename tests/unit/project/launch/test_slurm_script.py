@@ -209,7 +209,7 @@ def test_walltime_forms(text: str, seconds: int) -> None:
 def test_a_task_script_strips_the_overrides_of_the_submitting_shell() -> None:
     from hydromodpy.project.launch.slurm_script import worker_block
 
-    env = {"PATH": "/usr/bin:/bin", "HMP_SET_a__b": "1", "HMP_RUN_SCRATCH": "/x"}
+    env = {"PATH": "/usr/bin:/bin", "HMP_SET_a__b": "1"}
     script = worker_block("solve").split('cd "$PROJECT_ROOT"')[0]
     probe = script + '\nenv | grep -c "^HMP_" || true\n'
     out = subprocess.run(["bash", "-c", probe], env=env, capture_output=True, text=True)

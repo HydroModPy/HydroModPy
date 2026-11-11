@@ -65,7 +65,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.project.api import spinup
 
     target = toml_target(args.config)
 
@@ -87,7 +87,7 @@ def run(args: argparse.Namespace) -> None:
     named = {} if base is None else {"base": base}
     try:
         with profile_run(profile_output, description=f"hmp spinup {target.name}"):
-            result = hmp.spinup(
+            result = spinup(
                 target,
                 then_run=args.then_run,
                 environment=environment_from_args(args),

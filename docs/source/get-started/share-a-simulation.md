@@ -18,7 +18,7 @@ On the other machine, import it into a project, rerun it, and compare the rerun 
 ```bash
 hmp catalog import sim.tar -w ~/hydromodpy/projects/lab
 hmp catalog rerun nancon_step5_export -w ~/hydromodpy/projects/lab
-hmp catalog diff nancon_step5_export nancon_step5_export.v2 -w ~/hydromodpy/projects/lab
+hmp diff nancon_step5_export nancon_step5_export.v2 -w ~/hydromodpy/projects/lab
 ```
 
 `hmp catalog import` prints the last two commands with the names they take in that project.

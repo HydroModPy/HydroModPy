@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Final
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.display.figure import new_subplots
 from hydromodpy.display.overview.location import (
     overview_figures_dir,
     overview_run_dir_of,
@@ -285,12 +286,7 @@ def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, *
     The figure never enters the pyplot registry and no backend is switched, so
     a panel drawn in one thread leaves the others alone.
     """
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-
-    fig = Figure(figsize=figsize, dpi=200, layout="constrained")
-    FigureCanvasAgg(fig)
-    ax = fig.subplots()
+    fig, ax = new_subplots(figsize=figsize, dpi=200, layout="constrained")
     render_fn(ax, **kwargs)
     fig.savefig(save_path, dpi=200, bbox_inches="tight")
     return save_path

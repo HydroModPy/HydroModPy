@@ -25,6 +25,7 @@ NOT_ENVIRONMENT: dict[str, str] = {
     "HMP_EXPORTED_AT": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_UNITS": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_VARIABLE": "GeoTIFF tag written by results/exporters/geotiff.py",
+    "HMP_RUN_SCRATCH": "the retired run scratch variable, which the tests check no run writes",
 }
 
 

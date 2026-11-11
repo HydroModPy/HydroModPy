@@ -35,7 +35,7 @@ python examples/projects/16_nancon_natural_calibration/build_observation_package
   --geometry-npz path/to/cell_geometry.npz \
   --mesh-bundle path/to/mesh_bundle
 
-# real Nancon catchment report, wraps `hmp report catchment`
+# real Nancon catchment report, wraps `hmp show RUN --report`
 python examples/projects/16_nancon_natural_calibration/build_nancon_real_figures_report.py
 ```
 

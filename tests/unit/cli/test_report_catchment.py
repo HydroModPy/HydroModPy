@@ -1,4 +1,4 @@
-"""Tests for the ``hmp report catchment`` command wiring: it reads a sealed run."""
+"""Tests for the ``hmp show --report`` command wiring: it reads a sealed run."""
 
 from __future__ import annotations
 
@@ -10,11 +10,23 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands.report import REFUSED_REPORT_FILE, REPORT_PRESETS
+from hydromodpy.cli.commands.show import REFUSED_REPORT_FILE, REPORT_PRESETS
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_USAGE
 from hydromodpy.display.report.presets import PRESETS
+from hydromodpy.results.run.view import Run
 
 pytestmark = pytest.mark.fast
+
+
+class _OpenedRun(Run):
+    """A run directory the report is asked for, with nothing sealed in it."""
+
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+
+    @property
+    def dir(self) -> Path:
+        return self._directory
 
 
 def _main(argv: list[str]) -> None:
@@ -34,30 +46,26 @@ def written(monkeypatch, tmp_path: Path) -> dict:
         return out / "index.html"
 
     monkeypatch.setattr("hydromodpy.project.report.report_run", fake_report_run)
+    monkeypatch.setattr(
+        "hydromodpy.project.api._subject", lambda ref, workspace, **_: _OpenedRun(Path(ref))
+    )
     return captured
 
 
-def test_report_catchment_reads_a_run_directory(written, capsys, tmp_path) -> None:
+def test_show_report_reads_a_run_directory(written, capsys, tmp_path) -> None:
     run_dir = tmp_path / "runs" / "base"
     run_dir.mkdir(parents=True)
 
-    _main(["report", "catchment", str(run_dir)])
+    _main(["show", str(run_dir), "--report"])
 
-    assert written == {
-        "run_dir": run_dir.resolve(),
-        "preset": "research",
-        "lang": "en",
-        "overview_dir": None,
-        "station": None,
-        "strict": False,
-    }
+    assert written == {"run_dir": run_dir.resolve(), "strict": False}
     out = capsys.readouterr().out
     assert f"html_report={tmp_path / 'report' / 'index.html'}" in out
     assert f"report_json={tmp_path / 'report' / 'report.json'}" in out
     assert "missing=seepage_map" in out
 
 
-def test_report_catchment_passes_its_options(written, tmp_path) -> None:
+def test_show_report_passes_its_options(written, tmp_path) -> None:
     run_dir = tmp_path / "base"
     overview = tmp_path / "selune"
     run_dir.mkdir()
@@ -65,9 +73,9 @@ def test_report_catchment_passes_its_options(written, tmp_path) -> None:
 
     _main(
         [
-            "report",
-            "catchment",
+            "show",
             str(run_dir),
+            "--report",
             "--overview",
             str(overview),
             "--preset",
@@ -87,25 +95,25 @@ def test_report_catchment_passes_its_options(written, tmp_path) -> None:
     assert written["strict"] is True
 
 
-def test_report_catchment_json_output_names_the_missing_figures(written, capsys, tmp_path) -> None:
+def test_show_report_json_output_names_the_missing_figures(written, capsys, tmp_path) -> None:
     run_dir = tmp_path / "base"
     run_dir.mkdir()
 
-    _main(["report", "catchment", str(run_dir), "--format", "json"])
+    _main(["show", str(run_dir), "--report", "--format", "json"])
 
     document = json.loads(capsys.readouterr().out)
-    assert document["schema"] == "hmp.report.catchment.v2"
+    assert document["schema"] == "hmp.show.report.v2"
     assert set(document["data"]) == {"html_report", "report_json", "missing"}
     assert document["data"]["missing"] == ["seepage_map"]
 
 
 @pytest.mark.parametrize("table", ["[report]\nname = 'x'\n", "[layout]\nname = 'x'\n"])
-def test_report_catchment_refuses_a_report_toml(written, capsys, tmp_path, table: str) -> None:
+def test_show_report_refuses_a_report_toml(written, capsys, tmp_path, table: str) -> None:
     config = tmp_path / "catchment_report.toml"
     config.write_text(table, encoding="utf-8")
 
     with pytest.raises(SystemExit) as exc_info:
-        _main(["report", "catchment", str(config)])
+        _main(["show", str(config), "--report"])
 
     assert exc_info.value.code == EXIT_CONFIG
     assert REFUSED_REPORT_FILE in " ".join(capsys.readouterr().err.split())
@@ -118,12 +126,12 @@ def test_report_catchment_refuses_a_report_toml(written, capsys, tmp_path, table
         ("--run-overview", "hmp run <toml>"),
         ("--run-simulation", "hmp run <toml>"),
         ("--context-only", "hmp run <toml>"),
-        ("--report-only", "hmp report catchment RUN"),
+        ("--report-only", "hmp show RUN --report"),
         ("--stream-run-logs", "hmp run <toml>"),
         ("--strict-figure-postflight", "--strict"),
     ],
 )
-def test_report_catchment_refuses_the_pipeline_flags(
+def test_show_report_refuses_the_pipeline_flags(
     written, capsys, tmp_path, flag: str, new_form: str
 ) -> None:
     with pytest.raises(SystemExit) as exc_info:
@@ -136,9 +144,44 @@ def test_report_catchment_refuses_the_pipeline_flags(
     assert written == {}
 
 
-def test_report_catchment_names_the_two_presets_when_given_another(capsys, tmp_path) -> None:
+def test_show_report_is_refused_whole_with_the_command_that_replaces_it(
+    written, capsys, tmp_path
+) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        _main(["report", "catchment", str(tmp_path), "--preset", "generic"])
+        _main(["report", "catchment", str(tmp_path)])
+
+    assert exc_info.value.code == EXIT_USAGE
+    assert "hmp report catchment is gone. Write: hmp show RUN --report" in capsys.readouterr().err
+    assert written == {}
+
+
+def test_a_report_without_a_reference_is_the_one_of_the_latest_session(
+    monkeypatch, capsys, tmp_path
+) -> None:
+    from tests._helpers.sealed_runs import make_project, write_session_dir
+
+    root = make_project(tmp_path / "p")
+    write_session_dir(root, "calage", trials=0, best_trial=None)
+    page = root / "sessions" / "calage" / "report" / "index.html"
+    seen: dict = {}
+
+    def fake_report_session(directory: Path) -> Path:
+        seen["directory"] = directory
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text("<html></html>", encoding="utf-8")
+        return page
+
+    monkeypatch.setattr("hydromodpy.project.report.report_session", fake_report_session)
+
+    _main(["show", "--report", "-w", str(root)])
+
+    assert seen["directory"].name == "calage"
+    assert f"wrote {page}" in capsys.readouterr().err
+
+
+def test_show_report_names_the_two_presets_when_given_another(capsys, tmp_path) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["show", str(tmp_path), "--report", "--preset", "generic"])
 
     assert exc_info.value.code == EXIT_USAGE
     err = capsys.readouterr().err
@@ -169,5 +212,5 @@ def test_building_the_hmp_parser_loads_neither_the_report_engine_nor_pyplot() ->
 def test_the_preset_choices_are_the_registered_presets() -> None:
     assert set(REPORT_PRESETS) == set(PRESETS), (
         "a report preset was added or removed in hydromodpy/display/report/presets.py; "
-        "write the same names in REPORT_PRESETS, hydromodpy/cli/commands/report.py"
+        "write the same names in REPORT_PRESETS, hydromodpy/cli/commands/show.py"
     )

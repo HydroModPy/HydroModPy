@@ -548,7 +548,7 @@ def test_a_steady_head_is_still_read_at_its_stamp() -> None:
 #
 # That output is dated at the stamp of the state it reads, the stamp that closes
 # its period. A window that holds the stamp scores it; one that does not is
-# refused, naming both, at the first trial and by ``hmp config check``
+# refused, naming both, at the first trial and by ``hmp check``
 # before any solve. So ``window.start`` is the one way to leave a spin-up
 # out of a composite that scores a hydrograph and a network together.
 

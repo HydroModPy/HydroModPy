@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.core.scoring.metrics import bias, correlation, mae, nse, rmse
+from hydromodpy.display.figure import new_subplots
 from hydromodpy.display.style import place_legend
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
@@ -64,11 +65,7 @@ def plot_lake_level_fit(
     annotated on the time-series panel. The returned mapping mirrors
     :func:`lake_level_fit_metrics`.
     """
-    import matplotlib
-
-    matplotlib.use("Agg")
     import matplotlib.dates as mdates
-    import matplotlib.pyplot as plt
 
     out_path = Path(out_path)
     sim = normalize_datetime_series(simulated).dropna()
@@ -80,7 +77,7 @@ def plot_lake_level_fit(
     metrics = lake_level_fit_metrics(obs, sim)
     paired = align_observed_simulated(obs, sim, method=time_method_for("lake_level"))
 
-    fig, (ax_ts, ax_sc) = plt.subplots(
+    fig, (ax_ts, ax_sc) = new_subplots(
         1, 2, figsize=(11, 4), dpi=150, gridspec_kw={"width_ratios": [3, 1]}
     )
 
@@ -129,5 +126,4 @@ def plot_lake_level_fit(
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
     return metrics

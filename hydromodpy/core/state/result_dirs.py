@@ -175,8 +175,8 @@ def refuse_a_sealed_run_as_project(project_root: str | Path) -> None:
     if is_sealed_run_dir(root):
         raise ConfigError(
             f"{root} is a sealed run outside any project, and nothing writes into a sealed "
-            f"run. Name the project it replays into: hmp run {root / 'config.toml'} --frozen "
-            "-w <project>, which reads its inputs from that project."
+            f"run. Name the project it replays into: hmp replay {root} -w <project>, "
+            "which reads its inputs from that project."
         )
 
 

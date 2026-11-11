@@ -10,8 +10,11 @@ starts one, so a free worker takes the next trial, and a parent always knows whi
 trial a dead worker held. ``concurrent.futures.ProcessPoolExecutor`` cannot say
 that: a dead worker breaks every pending future, and no limit can kill one worker.
 
-Workers start in ``spawn`` and inherit the environment, so the run scratch and the thread budget of the launcher
-hold in them. Each worker receives the dotted path of the trial-pipeline
+Workers start in ``spawn`` and inherit the environment, so the thread budget of the
+launcher holds in them. The run scratch is not in the environment, it is a context
+variable. The parent puts its key in the payload and the worker works inside that
+folder (:func:`~hydromodpy.core.state.scratch.inherit_run_scratch`). Each worker
+receives the dotted path of the trial-pipeline
 installer (:func:`~hydromodpy.calibration.runners.trial.trial_pipeline_initializer`)
 and runs it before it builds its evaluator, because a fresh process holds no
 installed pipeline. A pool of evaluators that need no prepared model carries no
@@ -38,6 +41,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import replace
 from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
@@ -53,6 +57,7 @@ from hydromodpy.calibration.runners.trial import trial_pipeline_initializer
 from hydromodpy.catchment.stream_network.geometry import recharge_session
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity, set_verbosity
+from hydromodpy.core.state.scratch import active_run_scratch, inherit_run_scratch
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext
@@ -94,7 +99,7 @@ def _serve(conn: Connection) -> None:
     cannot read the worker's stderr, and a failure here is a bug or a bad setup.
     """
     try:
-        evaluator_class, options, keeps_solves, verbosity, initializer = pickle.loads(
+        evaluator_class, options, keeps_solves, verbosity, initializer, scratch_key = pickle.loads(
             conn.recv_bytes()
         )
         set_verbosity(verbosity)
@@ -104,36 +109,45 @@ def _serve(conn: Connection) -> None:
             mod_name, func_name = initializer.split(":")
             module = importlib.import_module(mod_name)
             getattr(module, func_name)()
-        # Keeps every solve of this worker until the parent, which alone sees the
-        # costs of all the workers, has said which ones the session keeps.
-        retention = TrialSolveRetention(None) if keeps_solves else None
-        trial_ctx = options.get("trial_ctx")
-        if keeps_solves and trial_ctx is not None:
-            trial_ctx.kept_solves = retention
-        # One lane of its own, since this worker answers one trial at a time. Its
-        # key carries the process id, so two workers never share a lane folder.
-        if trial_ctx is not None and trial_ctx.model_from_profiles:
-            trial_ctx.parents = TrialParents.of(trial_ctx, width=1, owner=f"{os.getpid()}-")
-        # A class registered at run time in the parent is not known to a new process.
-        if evaluator_class.evaluator_id not in evaluation_registry.evaluators.names():
-            evaluation_registry.evaluators.register(evaluator_class)
-        evaluator = evaluation_registry.evaluators.create(evaluator_class.evaluator_id, **options)
-        sink = getattr(evaluator, "trial_series_sink", None)
-        # The recharge of two builds is compared inside one worker, not across them.
-        with recharge_session("worker"):
-            while True:
-                request = conn.recv()
-                outcome = evaluator.evaluate(request)
-                rows = sink.drain() if sink is not None else []
-                kept = None
-                if retention is not None:
-                    kept, _ = retention.take(request.trial_id)
-                    retention.promoted(request.trial_id)
-                conn.send((outcome, rows, kept))
+        # The run scratch of the parent is a context variable, so it travels in the payload.
+        with nullcontext() if scratch_key is None else inherit_run_scratch(scratch_key):
+            _answer_trials(conn, evaluator_class, options, keeps_solves)
     except (EOFError, BrokenPipeError):
         return
     except Exception as exc:
         conn.send(exc)
+
+
+def _answer_trials(
+    conn: Connection, evaluator_class: type, options: Mapping[str, Any], keeps_solves: bool
+) -> None:
+    """Build the evaluator on the installed pipeline, then answer one trial after another."""
+    # Keeps every solve of this worker until the parent, which alone sees the
+    # costs of all the workers, has said which ones the session keeps.
+    retention = TrialSolveRetention(None) if keeps_solves else None
+    trial_ctx = options.get("trial_ctx")
+    if keeps_solves and trial_ctx is not None:
+        trial_ctx.kept_solves = retention
+    # One lane of its own, since this worker answers one trial at a time. Its
+    # key carries the process id, so two workers never share a lane folder.
+    if trial_ctx is not None and trial_ctx.model_from_profiles:
+        trial_ctx.parents = TrialParents.of(trial_ctx, width=1, owner=f"{os.getpid()}-")
+    # A class registered at run time in the parent is not known to a new process.
+    if evaluator_class.evaluator_id not in evaluation_registry.evaluators.names():
+        evaluation_registry.evaluators.register(evaluator_class)
+    evaluator = evaluation_registry.evaluators.create(evaluator_class.evaluator_id, **options)
+    sink = getattr(evaluator, "trial_series_sink", None)
+    # The recharge of two builds is compared inside one worker, not across them.
+    with recharge_session("worker"):
+        while True:
+            request = conn.recv()
+            outcome = evaluator.evaluate(request)
+            rows = sink.drain() if sink is not None else []
+            kept = None
+            if retention is not None:
+                kept, _ = retention.take(request.trial_id)
+                retention.promoted(request.trial_id)
+            conn.send((outcome, rows, kept))
 
 
 def _worker_main(conn: Connection) -> None:
@@ -190,7 +204,14 @@ class TrialWorkerPool:
         initializer = trial_pipeline_initializer()
         try:
             self._state = pickle.dumps(
-                (evaluator_class, readable, keeps_solves, current_verbosity(), initializer)
+                (
+                    evaluator_class,
+                    readable,
+                    keeps_solves,
+                    current_verbosity(),
+                    initializer,
+                    active_run_scratch(),
+                )
             )
         except (pickle.PicklingError, AttributeError, TypeError) as exc:
             raise CalibrationError(

@@ -7,7 +7,7 @@ The page ``docs/source/get-started/index.md`` lists the commands of the Quick
 start and shows how a run ends:
 
     Run completed: <name> [<id>] <n>s
-    next: hmp catalog show <name> | hmp catalog diff <name> <other> | hmp export <name> --list
+    next: hmp show <name> | hmp diff <name> <other> | hmp export <name> --list
 
 This tool reads both from the page, so a change to the page is a change to the
 check. It runs each command after the ``pip install`` line, with ``HOME`` and

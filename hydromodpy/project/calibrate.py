@@ -5,12 +5,15 @@
 it declares ``[[calibration.phases]]``, to the CLI runner otherwise
 (:func:`calibrate_a_file`). A declaration held in memory (``parameters=``, a
 ``protocol=``, or the ``[calibration]`` section of the project config) goes to the
-programmatic runner, on the project itself (:func:`calibrate_project`).
+programmatic runner, on the project itself (:func:`calibrate_project`). A dry run
+says what a declaration holds and writes nothing (:func:`calibration_plan`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +23,7 @@ logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
@@ -27,6 +31,123 @@ FROM_FILE = (
     "case= names the session of a calibration held in memory; a file names its "
     "case with [simulation] name."
 )
+
+
+@dataclass(frozen=True, slots=True)
+class CalibrationPlan:
+    """What a calibration declares, with nothing run and nothing written.
+
+    Attributes
+    ----------
+    phases
+        The declared phases, empty for a file with one search. Each names the
+        method it runs, and a phase that names none gets the one its criteria
+        call for, with ``method_reason`` saying why. ``interval_width`` gives the
+        width the phase reads its interval with and where it comes from. A phase
+        that moves again a parameter an earlier phase passes on also names that
+        phase, and says whether its engine starts from the passed value.
+    calibration
+        The whole ``[calibration]`` section a protocol unfolds into, without
+        the ``protocol`` key, so it can be pasted in its place. A file naming no
+        protocol gets its own section back, a configuration its section as it is.
+    protocol
+        ``None`` for a declaration naming no protocol, else ``name``, ``version``,
+        ``citation`` (the first reference, short form) and ``inherited`` (true
+        when the protocol comes from the ``base_config``).
+    plan
+        For a file, what a launch would write: its ``case``, ``session_dir``,
+        ``run_dir``, ``version``, ``phases``, ``solves_in_parallel`` and
+        ``save_runs``. ``None`` for a configuration object.
+    """
+
+    phases: list[dict[str, Any]]
+    calibration: dict[str, Any]
+    protocol: dict[str, Any] | None
+    plan: dict[str, Any] | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the four members as JSON: a path as text, a date as ISO text."""
+        return _plain(
+            {
+                "phases": self.phases,
+                "calibration": self.calibration,
+                "protocol": self.protocol,
+                "plan": self.plan,
+            }
+        )
+
+
+def _plain(value: Any) -> Any:
+    """Return *value* with only what JSON holds: mappings, lists, text, numbers and ``None``."""
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_plain(item) for item in value]
+    if isinstance(value, date):
+        return value.isoformat()
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
+
+
+def calibration_plan(
+    config: str | Path | HydroModPyConfig,
+    *,
+    workspace: str | Path | None = None,
+    check: bool = False,
+) -> CalibrationPlan:
+    """Return what a calibration declares, with nothing run and nothing written.
+
+    Parameters
+    ----------
+    config
+        The calibration TOML file, or a validated
+        :class:`~hydromodpy.config.HydroModPyConfig`.
+    workspace
+        Overrides the project root the ``plan`` of a file names.
+    check
+        Run the checks of ``hmp check`` first, as a launch does. A file they
+        refuse raises.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the calibration file does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the configuration cannot be read, or if ``check`` refuses it.
+    """
+    from hydromodpy.calibration.runners.staged_runner import phase_summaries
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    # A calibration reads its files through the trial pipeline, the one global
+    # the library keeps. Fill it before anything here reads a file.
+    fill_trial_pipeline()
+    if not isinstance(config, (str, Path)):
+        section = getattr(config, "calibration", None)
+        return CalibrationPlan(
+            phases=phase_summaries(section),
+            calibration=section.model_dump(mode="json", exclude_none=True),
+            protocol=_protocol_of_section(section),
+            plan=None,
+        )
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
+
+    target = Path(config).expanduser().resolve()
+    expanded = _expand_calibration_section(target)
+    try:
+        cfg, _raw = load_toml_calibration(target)
+    except Exception as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    if check:
+        preflight_launch(target)
+    return CalibrationPlan(
+        phases=phase_summaries(cfg),
+        calibration=expanded["calibration"],
+        protocol=expanded["protocol"],
+        plan=describe_dry_run(cfg, target, workspace=workspace),
+    )
 
 
 def calibrate_a_file(
@@ -446,3 +567,100 @@ def _preflight_in_memory(project: Project, calibration: Any) -> None:
         # A project with no file anchors its checks on its root, where project.toml would be.
         source = project._ctx.config_path
     preflight_launch(source, config=config, calibration=with_project_defaults(calibration, project))
+
+
+def _protocol_of_section(section: Any) -> dict[str, Any] | None:
+    """Return the protocol a validated ``[calibration]`` section names, or ``None``.
+
+    The same keys as the protocol of a file. A section belongs to a config object,
+    so the protocol is its own: ``inherited`` is false.
+    """
+    from hydromodpy.calibration.protocols import get_protocol
+
+    declared = getattr(section, "protocol", None)
+    if declared is None:
+        return None
+    protocol = get_protocol(declared.name)
+    citation = None
+    if protocol.references:
+        reference = protocol.references[0]
+        citation = (
+            f"{reference.authors.split(',')[0].strip()} et al. {reference.year}, {reference.doi}"
+        )
+    pinned = getattr(declared, "version", None)
+    return {
+        "name": protocol.name,
+        "version": protocol.version if pinned is None else str(pinned),
+        "citation": citation,
+        "inherited": False,
+    }
+
+
+def _expand_calibration_section(target: Path) -> dict[str, Any]:
+    """Return what a protocol unfolds ``target``'s ``[calibration]`` section into.
+
+    Reads through the same ``base_config`` chain :func:`load_toml_calibration`
+    resolves, then hands the document to
+    :func:`hydromodpy.calibration.protocols.expand_calibration_protocol`. A
+    file naming no protocol gets its own section back, ``protocol`` key
+    aside: nothing was unfolded, so there is nothing else to say. A file
+    naming one gets the whole section the protocol unfolds into, ``protocol``
+    key aside: parameters, outputs, the blocks and phases it writes, and every
+    other key the file or its ``base_config`` set. Pasted in place of the
+    protocol, it runs the same stages.
+
+    ``protocol["inherited"]`` says whether the protocol comes from the
+    ``base_config`` rather than from ``target`` itself. A file that pastes the
+    section under that same base then has to drop the inherited protocol.
+    """
+    import tomllib
+
+    from hydromodpy.calibration.protocols import expand_calibration_protocol, get_protocol
+    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    try:
+        raw = load_toml_with_base_config(target, root=ROOT_CONFIG)
+    except Exception as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    calibration = raw.get("calibration")
+    if not isinstance(calibration, dict):
+        raise ConfigError(f"No [calibration] section in {target}")
+
+    declaration = calibration.get("protocol")
+    if declaration is None:
+        section = {key: value for key, value in calibration.items() if key != "protocol"}
+        return {"calibration": section, "protocol": None}
+
+    try:
+        expanded = expand_calibration_protocol(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{target}: {exc}") from exc
+
+    name = declaration if isinstance(declaration, str) else declaration.get("name")
+    protocol = get_protocol(str(name))
+    expanded_calibration = expanded.get("calibration") or {}
+    section = {key: value for key, value in expanded_calibration.items() if key != "protocol"}
+    try:
+        own = tomllib.loads(target.read_text(encoding="utf-8-sig"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    own_calibration = own.get("calibration")
+    inherited = not (isinstance(own_calibration, dict) and "protocol" in own_calibration)
+    citation = None
+    if protocol.references:
+        reference = protocol.references[0]
+        citation = (
+            f"{reference.authors.split(',')[0].strip()} et al. {reference.year}, {reference.doi}"
+        )
+    pinned = declaration.get("version") if isinstance(declaration, dict) else None
+    return {
+        "calibration": section,
+        "protocol": {
+            "name": protocol.name,
+            "version": protocol.version if pinned is None else str(pinned),
+            "citation": citation,
+            "inherited": inherited,
+        },
+    }

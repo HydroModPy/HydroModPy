@@ -604,7 +604,7 @@ class IntroDirective(SphinxDirective):
                 facts.append(
                     f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
                     f'(<a href="{esc(template)}" download>download it</a>), '
-                    f"then <code>hmp config check file.toml</code>. "
+                    f"then <code>hmp check file.toml</code>. "
                     f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
                 )
             else:

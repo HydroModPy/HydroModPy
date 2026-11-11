@@ -1,6 +1,7 @@
-# Builds the HydroModPy Docker image on every push/PR touching the Dockerfile
-# or the package source. The image is not pushed to a registry yet, only built
-# locally inside the runner to validate that the multi-stage build still works.
+# Builds the HydroModPy Docker image on every push/PR touching the Dockerfile,
+# the package source or the HTTP server. The image is not pushed to a registry
+# yet, only built inside the runner to check the build, the hmp entry point and
+# the server it carries.
 
 name: Docker / Build Smoke
 
@@ -11,6 +12,7 @@ on:
       - "Dockerfile"
       - "pyproject.toml"
       - "hydromodpy/**"
+      - "hydromodpy_server/**"
       - ".github/workflows/docker-build.yml"
   pull_request:
     branches: [main, dev]
@@ -18,6 +20,7 @@ on:
       - "Dockerfile"
       - "pyproject.toml"
       - "hydromodpy/**"
+      - "hydromodpy_server/**"
       - ".github/workflows/docker-build.yml"
   workflow_dispatch:
 
@@ -47,6 +50,8 @@ jobs:
           push: false
           load: true
           tags: hydromodpy:ci
+          build-args: |
+            HMP_IMAGE_TAG=ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -54,6 +59,9 @@ jobs:
         run: |
           docker run --rm hydromodpy:ci --help
           docker run --rm hydromodpy:ci --version
+
+      - name: Smoke test the HTTP server inside image
+        run: docker run --rm --entrypoint python hydromodpy:ci -m hydromodpy_server --help
 
       - name: Run hmp doctor inside image (advisory)
         continue-on-error: true

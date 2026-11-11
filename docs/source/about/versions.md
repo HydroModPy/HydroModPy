@@ -56,6 +56,15 @@ does what the new one does. A name, a command or a flag that leaves in 2.1.0 or 
 alias. It is refused, with a message that names its new form, for two minor versions. What
 left before 2.0.0 is refused until 2.2.
 
+In 2.1.0 the top level became the fifteen verbs of `hydromodpy.project.api` and their five
+objects. `hmp.read`, `hmp.index` and `hmp.Catalog` stay beside them, because the runs of 2.0.0
+are read through them. `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`,
+`hmp.example_add`, `hmp.example_list`, `hmp.example_show`, `hmp.Workspace` and seven exceptions of
+`results` and `project` are refused with the call that replaces them, such as
+`hmp.show(ref, what='figure', name=...)` for `hmp.figure`. The reading commands of `hmp catalog`, `hmp viz`, `hmp report`,
+`hmp config check`, `hmp project show` and `hmp project status` are refused the same way, with
+`hmp ls`, `hmp show`, `hmp diff` or `hmp check`.
+
 ### Numbers
 
 A fix that changes the numbers of a run (a head, a flow, a score) is allowed in a minor version
@@ -132,7 +141,7 @@ that writes an old key of `[calibration]` is refused with the new name, and
   HFB barriers, the parameters of the soil reservoir beyond its budget,
   `geographic.domain_extent` and the `custom` backend. The
   {doc}`parameter reference </reference/parameters/index>` marks each key. A run lists the
-  experimental keys its file writes in one line of its log, and `hmp config check` shows them.
+  experimental keys its file writes in one line of its log, and `hmp check` shows them.
 - On the command line: the result of `hmp calibrate --format json`, with the report it reads.
 - In Python: the shape of `CalibrationReport`, and the `solver`, `solver.extractor` and
   `calibration.evaluator` plugin ports, as {doc}`the contracts page

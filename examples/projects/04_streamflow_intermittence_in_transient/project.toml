@@ -109,7 +109,7 @@ time = "2002-10-15"
 
 # The catchment, what enters and leaves it, the gauge, the water table, then
 # the five that answer which reaches dry up, when, and how far from the map.
-# `hmp viz show <name>` renders any other figure on demand,
+# `hmp show <name> --figure NAME` renders any other figure on demand,
 # network_extent_bounds_map among them: the yearly maximal and minimal
 # simulated extents against the map.
 #

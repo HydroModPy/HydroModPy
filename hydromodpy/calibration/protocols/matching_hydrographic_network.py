@@ -838,8 +838,8 @@ def why_the_spin_up_year_is_scored(calibration: Any, time: Any) -> str | None:
     ``time`` is ``[simulation.time]``. ``None`` when the window reached the
     stage, when a window or a warm-up the file declares replaces it, when the
     protocol writes no transient stage, or when no start date is written.
-    The expansion drops the window without a word, so ``hmp config
-    check`` prints what this returns.
+    The expansion drops the window without a word, so ``hmp check``
+    prints what this returns.
     """
     declared = getattr(calibration, "protocol", None)
     if getattr(declared, "name", None) != MatchingHydrographicNetwork.name:
@@ -986,7 +986,7 @@ def options_the_recipe_already_runs(
     and its scoring window to ``[metrics] window``, or to the run's first year
     without one. A file that writes the same thing out, ``sweep_points = 7``
     beside a bisection whose default is seven, has not moved off the recipe, and
-    ``hmp config check`` must not say it has. ``calibration`` is the
+    ``hmp check`` must not say it has. ``calibration`` is the
     validated ``[calibration]`` section, ``time`` ``[simulation.time]`` and
     ``metrics_window`` ``[metrics] window``, a mapping or the validated model.
     """

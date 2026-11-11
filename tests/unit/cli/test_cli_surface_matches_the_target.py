@@ -26,16 +26,14 @@ from tests.unit.cli._tree import leaves
 from ._hmp import run_main as _run
 
 # Families and their actions. A family lists every action the target names,
-# plus the actions it keeps that the target does not retire (``catalog point``,
-# ``viz list``, the ``config`` helpers), so the comparison is exact.
+# plus the actions it keeps that the target does not retire (``config figures``,
+# the ``config`` helpers), so the comparison is exact.
 TARGET_FAMILIES: dict[str, frozenset[str]] = {
     "workspace": frozenset({"init", "list", "clean"}),
     "project": frozenset(
         {
             "new",
             "list",
-            "show",
-            "status",
             "log",
             "plan",
             "delete",
@@ -46,11 +44,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
     "site": frozenset({"add", "import", "ls", "show"}),
     "catalog": frozenset(
         {
-            "ls",
-            "show",
             "query",
-            "point",
-            "rank",
             "reindex",
             "delete",
             "restore",
@@ -59,15 +53,12 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
             "tag",
             "note",
             "rename",
-            "diff",
             "watch",
             "import",
             "rerun",
         }
     ),
-    "report": frozenset({"render", "compare", "catchment"}),
-    "viz": frozenset({"list", "show"}),
-    "config": frozenset({"template", "check", "resolve", "schema", "targets", "wizard"}),
+    "config": frozenset({"template", "figures", "resolve", "schema", "targets", "wizard"}),
     "data": frozenset({"ls", "get", "lock", "remove", "prune", "archive", "restore"}),
     "example": frozenset({"list", "show", "add"}),
     "privacy": frozenset({"purge", "verify"}),
@@ -81,7 +72,10 @@ TARGET_LEAVES: frozenset[str] = frozenset(
         "calibrate",
         "spinup",
         "stop",
+        "ls",
         "show",
+        "diff",
+        "check",
         "export",
         "publish",
         "completion",
@@ -92,10 +86,9 @@ TARGET_LEAVES: frozenset[str] = frozenset(
 
 # What the target retired, by verb, by action and by option.
 REMOVED_VERBS: frozenset[str] = frozenset(
-    {"process", "audit", "compare", "testbed", "init", "test", "dev", "lock"}
+    {"process", "audit", "compare", "testbed", "init", "test", "dev", "lock", "report", "viz"}
 )
 REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
-    ("viz", "gallery"),
     ("workspace", "prune"),
     ("workspace", "search"),
     ("workspace", "register"),
@@ -104,8 +97,15 @@ REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("data", "add"),
     ("project", "run"),
     ("project", "export"),
-    ("viz", "regen"),
     ("site", "report"),
+    ("project", "show"),
+    ("project", "status"),
+    ("catalog", "ls"),
+    ("catalog", "show"),
+    ("catalog", "diff"),
+    ("catalog", "point"),
+    ("catalog", "rank"),
+    ("config", "check"),
 )
 REMOVED_OPTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("calibrate",), "--check"),
@@ -114,7 +114,6 @@ REMOVED_OPTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("doctor",), "--migrate-sessions"),
     (("workspace", "clean"), "--share"),
     (("workspace", "clean"), "--figures"),
-    (("report", "catchment"), "--with-lock"),
 )
 
 
@@ -214,7 +213,7 @@ def home_workspace(tmp_path, monkeypatch) -> Path:
     "argv",
     [
         ["hmp", "project", "list"],
-        ["hmp", "project", "show", "demo"],
+        ["hmp", "show", "demo"],
         ["hmp", "site", "ls"],
         ["hmp", "site", "show", "demo"],
         ["hmp", "data", "ls"],
@@ -240,3 +239,95 @@ def test_doctor_without_a_workspace_says_so_instead_of_probing_home(
     assert workspace["status"] == "WARN"
     assert "-w" in workspace["hint"]
     assert str(home_workspace) not in json.dumps(report)
+
+
+# --- the reads and the commands that call a verb ---------------------------------
+
+
+READ_VERBS: tuple[str, ...] = ("ls", "show", "diff", "export", "publish")
+"""The five commands that read. The maintenance of the index stays under ``catalog``."""
+
+
+@pytest.mark.parametrize("verb", READ_VERBS)
+def test_each_read_is_a_command_of_the_first_level(verb: str) -> None:
+    assert verb in _tree()
+
+
+@pytest.mark.parametrize(
+    ("typed", "names"),
+    [
+        (["catalog", "ls"], "hmp ls"),
+        (["catalog", "show", "x"], "hmp show REF"),
+        (["catalog", "diff", "a", "b"], "hmp diff REF REF"),
+        (["catalog", "point", "x"], "hmp show REF --point"),
+        (["catalog", "rank"], "hmp show PROJECT --rank METRIC"),
+        (["viz", "show", "x", "head_map"], "hmp show REF --figure NAME"),
+        (["viz", "list"], "hmp config figures"),
+        (["report", "render"], "hmp show SESSION --report"),
+        (["report", "catchment", "x"], "hmp show RUN --report"),
+        (["report", "compare", "a", "b"], "hmp diff REF REF --to DIR"),
+        (["config", "check", "f.toml"], "hmp check FILE"),
+        (["project", "status"], "hmp ls --plan"),
+        (["project", "show"], "hmp show PROJECT"),
+    ],
+    ids=lambda value: " ".join(value) if isinstance(value, list) else value,
+)
+def test_a_read_that_moved_is_refused_with_the_command_that_replaces_it(
+    monkeypatch, capsys, typed: list[str], names: str
+) -> None:
+    assert _run(monkeypatch, ["hmp", *typed]) == 2
+    assert f"Write: {names}" in capsys.readouterr().err
+
+
+def test_each_command_of_the_table_imports_the_api_and_calls_its_verb() -> None:
+    """Every command module reads ``hydromodpy.project.api`` and calls the verb it stands for."""
+    import ast
+    import inspect
+
+    verbs_of = {
+        "run": "run",
+        "check": "check",
+        "calibrate": "calibrate",
+        "spinup": "spinup",
+        "replay": "replay",
+        "stop": "stop",
+        "export": "export",
+        "publish": "publish",
+        "doctor": "doctor",
+        "ls": "status",
+        "show": "show",
+        "diff": "compare",
+    }
+    missing = []
+    for command, verb in verbs_of.items():
+        module = importlib.import_module(f"hydromodpy.cli.commands.{command}")
+        tree = ast.parse(inspect.getsource(module))
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module == "hydromodpy.project.api"
+            for alias in node.names
+        }
+        calls = {
+            node.func.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        reads_as = {verb, f"{verb}_verb"}
+        if verb not in imported or not (reads_as & calls or "run_verb" in calls):
+            missing.append(command)
+    assert missing == []
+
+
+def test_no_command_reads_the_root_package() -> None:
+    """A command calls ``hydromodpy.project.api``, never ``import hydromodpy as hmp``."""
+    import pkgutil
+
+    import hydromodpy.cli.commands as commands
+
+    offenders = []
+    for info in pkgutil.walk_packages(commands.__path__, "hydromodpy.cli.commands."):
+        source = Path(importlib.import_module(info.name).__file__).read_text(encoding="utf-8")
+        if "import hydromodpy as" in source or "from hydromodpy import" in source:
+            offenders.append(info.name)
+    assert offenders == []

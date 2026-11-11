@@ -1052,7 +1052,7 @@ def test_a_window_over_a_series_reads_the_same_in_every_reader(
     run = hmp.open(run_dir)
     rebuild_index(tmp_path / "p")
 
-    assert hmp.read(run, "discharge", sel={"period": window}).tolist() == simulated
+    assert run.read("discharge", sel={"period": window}).tolist() == simulated
     assert run.timeseries("discharge", period=window).tolist() == simulated
     with Catalog(tmp_path / "p") as catalog:
         read = catalog.query_timeseries(run.sim_id, "J0014010", "discharge", period=window)
@@ -2283,7 +2283,7 @@ def test_an_old_store_has_no_feet_and_the_redraw_does_not_rebuild_d(
 # A configuration without a ``[mesh]`` section ran on the default engine of its
 # release; the frozen ``config.toml`` then has no ``mesh`` key, but the seal
 # (``geometry.mesh_engine``) says which engine built the mesh. The index reads
-# the seal, so ``hmp catalog ls`` and every listing show it.
+# the seal, so ``hmp ls`` and every listing show it.
 def test_a_config_without_a_mesh_section_lists_the_engine_of_its_seal(tmp_path: Path) -> None:
     root = make_project(tmp_path / "demo")
     seal_run(root, "plain", mesh_engine="regular", config_text="[flow]\nK = 1e-5\n")

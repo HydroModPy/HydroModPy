@@ -5,7 +5,7 @@ Wires the user-facing entry points (``run_simulation``, ``run_overview``,
 :class:`~hydromodpy.project.request.RunRequest` and the ``base`` its relative
 paths are read from, and loads it through :func:`hydromodpy.config.loading.load`.
 Lives under :mod:`hydromodpy.project.dispatch` because it depends on
-:class:`hydromodpy.project.Project`; the lower ``hydromodpy.workflow`` package
+:class:`hydromodpy.project.facade.Project`; the lower ``hydromodpy.workflow`` package
 stays independent from that facade.
 
 The order of a run is the one of the request: load the configuration, check the
@@ -244,7 +244,7 @@ def _calibrate_in_memory(
     ``[simulation] name`` of the document.
     """
     from hydromodpy.calibration.runners.session import calibration_case_name
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     cfg = _changed(_loaded(request, base), request.set)
     # The project root of the configuration, which its sessions/ lives under: a
@@ -637,7 +637,7 @@ def run_single_simulation(
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.state.names import check_name
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     root = Path(base).expanduser().resolve()
     if cfg is None:
@@ -755,7 +755,7 @@ def draft_of_a_file_or_config(
     from hydromodpy.config.sites import is_sites_project
     from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.core.toml_io.paths import assign, parse
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
     from hydromodpy.project.launch.plan import expand_plan, single_case_draft
     from hydromodpy.workflow.dispatch import load_raw_toml
 

@@ -4,13 +4,14 @@
 its sessions from the disk: ``cases`` (the plan joined to the outcomes),
 ``sites``, ``best(metric, by="site")``, ``runs(site=)``, ``sessions[...]``,
 ``proj[ref]``; it launches with ``plan``, ``run``, ``status``, ``collect`` and
-``publish``. ``hmp.index().runs(site=)`` reads across the projects of a
+``publish``. ``hmp.open(<workspace>).runs(site=)`` reads across the projects of a
 workspace. The runs here are sealed the way a run seals itself; the plan is
 written by ``Project.plan``.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 from pathlib import Path
@@ -19,7 +20,8 @@ from typing import Any
 import geopandas as gpd
 import pytest
 
-import hydromodpy as hmp
+from hydromodpy.project import api
+from hydromodpy.project.launch.status import CASE_COLUMNS
 from hydromodpy.results.catalog import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.checks import CalibratedBy
@@ -122,7 +124,7 @@ def _calibrated(session_id: str) -> CalibratedBy:
 
 def _launched(project: Path) -> dict[str, str]:
     """Plan the campaign, seal two cases of nancon, fail one of couesnon."""
-    proj = hmp.open(project)
+    proj = api.open(project)
     draft = proj.plan()
     assert {case.case_id for case in draft.cases} == PLAN_CASES
     sim_ids = {
@@ -166,7 +168,7 @@ def test_cases_join_the_plan_to_the_outcomes(tmp_path: Path) -> None:
     project = _campaign(tmp_path)
     _launched(project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         cases = proj.cases.set_index("case_id")
 
     assert set(cases.index) == PLAN_CASES
@@ -187,7 +189,7 @@ def test_sites_are_the_sites_of_the_plan_with_their_outlet(tmp_path: Path) -> No
     project = _campaign(tmp_path)
     _launched(project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         sites = proj.sites
 
     assert isinstance(sites, gpd.GeoDataFrame)
@@ -200,7 +202,7 @@ def test_best_by_site_ranks_the_calibrated_runs_under_their_rule(tmp_path: Path)
     project = _campaign(tmp_path)
     sim_ids = _launched(project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         best = proj.best_runs("nse", by="site")
         every = proj.best_runs("nse", by="site", label=None)
 
@@ -219,7 +221,7 @@ def test_best_keeps_a_run_with_no_site(tmp_path: Path, caplog) -> None:
     project = make_project(tmp_path / "plain")
     seal_run(project, "alone", site=None, nse=0.6)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         only = proj.best_runs("nse", label=None)
         with caplog.at_level(logging.WARNING):
             calibrated = proj.best_runs("nse")
@@ -235,11 +237,11 @@ def test_best_keeps_a_run_with_no_site(tmp_path: Path, caplog) -> None:
 
 def test_best_names_the_sites_it_leaves_out_and_why(tmp_path: Path, caplog) -> None:
     project = _campaign(tmp_path)
-    hmp.open(project).plan()
+    api.open(project).plan()
     seal_run(project, "nancon-base", site="nancon", recipe="base", nse=None, window=None)
     seal_run(project, "couesnon-base", site="couesnon", recipe="base", nse=0.6)
 
-    with hmp.open(project) as proj, caplog.at_level(logging.WARNING):
+    with api.open(project) as proj, caplog.at_level(logging.WARNING):
         every = proj.best_runs("nse", by="site", label=None)
         calibrated = proj.best_runs("nse", by="site")
 
@@ -258,7 +260,7 @@ def test_best_refuses_two_windows_inside_one_site(tmp_path: Path) -> None:
     other = DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31))
     seal_run(project, "nancon-base.v2", site="nancon", recipe="base", nse=0.9, window=other)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         with pytest.raises(MixedWindowsError, match="different rules"):
             proj.best_runs("nse", by="site", label=None)
         assert len(proj.best_runs("nse", by="site", label=None, mixed_windows=True)) == 1
@@ -268,7 +270,7 @@ def test_runs_of_a_site_carry_their_metrics_without_suffix(tmp_path: Path) -> No
     project = _campaign(tmp_path)
     sim_ids = _launched(project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         runs = proj.runs(site="nancon")
         metrics = runs.metrics.set_index("sim_id")
         named = proj["nancon-base"]
@@ -285,7 +287,7 @@ def test_a_session_reads_its_trials_phases_config_and_best(tmp_path: Path) -> No
     project = _campaign(tmp_path)
     sim_ids = _launched(project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         assert list(proj.sessions) == ["nancon-k2e_5"]
         session = proj.sessions["nancon-k2e_5"]
 
@@ -302,7 +304,7 @@ def test_the_workspace_index_reads_runs_across_projects_by_site(tmp_path: Path) 
     project = _campaign(tmp_path)
     sim_ids = _launched(project)
 
-    runs = hmp.index(tmp_path / "ws").runs(site="nancon")
+    runs = api.open(tmp_path / "ws").runs(site="nancon")
 
     assert set(runs["sim_id"]) == set(sim_ids.values())
 
@@ -356,7 +358,7 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     monkeypatch.setattr(launch, "run_plan", run_plan)
     monkeypatch.setattr(summary, "collect_project", collect_project)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         assert proj.launch(parallel=8, only="failed", site="nancon") == "launched"
         assert proj.collect(write_sites=True) == "collected"
         proj.plan()
@@ -373,12 +375,18 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     assert calls["collect"] == (project.resolve(), {"write_sites": True, "mixed_windows": False})
     assert {row.case_id for row in status.rows} == PLAN_CASES
     assert {row.status for row in status.rows} == {"planned"}
+    document = json.loads(json.dumps(status.to_dict()))
+    assert list(document) == ["plan_hash", "plan_stale", "counts", "cases"]
+    assert document["counts"] == {"planned": len(PLAN_CASES)}
+    assert {case["case_id"] for case in document["cases"]} == PLAN_CASES
+    assert set(document["cases"][0]) == set(CASE_COLUMNS)
+    assert document["cases"][0]["started_at"] == ""
 
 
 def test_publish_copies_the_summary_once_it_is_collected(tmp_path: Path) -> None:
     project = _campaign(tmp_path)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         with pytest.raises(FileNotFoundError, match="collect"):
             proj.publish(tmp_path / "out")
         (project / "summary").mkdir()
@@ -393,6 +401,6 @@ def test_a_sites_project_is_never_configured_as_one_model(tmp_path: Path) -> Non
 
     project = _campaign(tmp_path)
 
-    with hmp.open(project) as proj:
+    with api.open(project) as proj:
         with pytest.raises(SitesProjectError, match="proj.launch"):
             proj.config  # noqa: B018

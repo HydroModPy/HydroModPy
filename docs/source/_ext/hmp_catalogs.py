@@ -196,7 +196,7 @@ def options_table(r: dict, builder, doc: str) -> str:
         if o["name"] == "figsize":
             text = f"{text} For this figure: `{tuple(r['default_figsize'])}`."
         if o.get("python_only"):
-            text = f"{text} Python only: `hmp.figure` takes it, a TOML file cannot write it."
+            text = f"{text} Python only: `Run.figure` takes it, a TOML file cannot write it."
         typ = f"<code>{esc(o['type'])}</code>" if o["type"] else ""
         default = f"<code>{esc(o['default'])}</code>" if o["default"] is not None else ""
         unit = f"<code>{esc(o['unit'])}</code>" if o.get("unit") else ""
@@ -238,7 +238,7 @@ class FiguresDirective(SphinxDirective):
             f'<p class="hmp-cat-count">{len(rows)} figures. A run draws the ones named in '
             f'<a class="hmp-toml-ref" href="{esc(figures_uri)}"><code>display.figures</code></a>; '
             f'<a class="hmp-toml-ref" href="{esc(overrides_uri)}"><code>display.overrides</code></a> '
-            "sets their options. <code>hmp viz show &lt;run&gt; &lt;name&gt;</code> draws one figure of a stored run.</p>",
+            "sets their options. <code>hmp show &lt;run&gt; --figure &lt;name&gt;</code> draws one figure of a stored run.</p>",
             '<div class="hmp-cat-bar" role="search">'
             '<input type="search" class="hmp-filter" data-cards="hmp-figs" '
             'placeholder="Filter by name, title, field or option" aria-label="Filter the figures">'

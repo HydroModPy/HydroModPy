@@ -6,7 +6,7 @@
 #
 #   hmp calibrate run_calibration.toml --list-phases   each stage, before any solve
 #   hmp calibrate run_calibration.toml --expand        the same stages, as TOML
-#   hmp config check run_calibration.toml              every problem at once
+#   hmp check run_calibration.toml              every problem at once
 #   hmp run       run_calibration.toml                 both stages, in order
 
 base_config = "project.toml"

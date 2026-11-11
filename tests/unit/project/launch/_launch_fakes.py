@@ -112,8 +112,7 @@ record = {
     "flags": flags,
     "pid": os.getpid(),
     "env": {key: os.environ.get(key) for key in (
-        "HMP_RUN_SCRATCH", "HMP_THREADS_PER_CASE",
-        "HMP_LAUNCHED_CASE", "HMP_SET_flow__param__K__field__value",
+        "HMP_THREADS_PER_CASE", "HMP_LAUNCHED_CASE", "HMP_SET_flow__param__K__field__value",
     )},
 }
 

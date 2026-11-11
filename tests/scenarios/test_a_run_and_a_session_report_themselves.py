@@ -2,7 +2,7 @@
 
 On the transient island with two piezometry stations, ``hmp run`` draws three figures.
 They are drawn after the seal, so each footer carries the label, its rule and its day.
-``hmp report catchment <run>`` then writes the three-level report, and the one-page
+``hmp show <run> --report`` then writes the three-level report, and the one-page
 sheet in French. ``hmp calibrate`` of three trials writes the report of its session
 by itself, and ``hmp show <session>`` prints the rows of the summary.
 
@@ -39,8 +39,8 @@ SECOND_STATION_RECORD = "datetime,value\n2003-02-28,2.1\n2003-03-31,2.1\n"
 
 COMMANDS = (
     ("run", "run", "project.toml"),
-    ("research", "report", "catchment", "calage_sy"),
-    ("sheet", "report", "catchment", "calage_sy", "--preset", "management", "--lang", "fr"),
+    ("research", "show", "calage_sy", "--report"),
+    ("sheet", "show", "calage_sy", "--report", "--preset", "management", "--lang", "fr"),
     ("calibrate", "calibrate", "calib.toml"),
     ("show", "show", "calage_sy.v2", "--format", "json"),
 )

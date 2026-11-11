@@ -12,7 +12,7 @@ Walks the chain a new user would follow:
    ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
 5. Open the project via ``hmp.open``, read its index through ``.store`` and
-   read a field via ``hmp.read``.
+   read a field via ``Run.read``.
 6. Export the field to NetCDF and check the ACDD / CF attrs are carried.
 
 The test is marked ``e2e`` so it stays out of the fast suite. CLI verbs
@@ -211,10 +211,10 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
-    # ----- Step 7: hmp.open(...).store + hmp.read return a real field -------
+    # ----- Step 7: hmp.open(...).store + Run.read return a real field -------
     with hmp.open(project_dir).store as catalog:
         run = catalog[sim_id]
-        data = np.asarray(hmp.read(run, "head", time=0, layer=0))
+        data = np.asarray(run.read("head", time=0, layer=0))
         assert data.shape[-1] == 4
         assert np.allclose(data, 7.5)
 

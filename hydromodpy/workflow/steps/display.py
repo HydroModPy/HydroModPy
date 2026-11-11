@@ -2,7 +2,7 @@
 
 Runs last, after :class:`SealStep` and the exports that follow it. The
 figures render the sealed run: they open its store on the run directory, as
-``hmp viz show <run>`` does, for their own span. Each figure declared in the
+``hmp show <run> --figure NAME`` does, for their own span. Each figure declared in the
 TOML is written into ``runs/<run>/figures/``, stamped with the identity of
 the run (its label of the day, the rules it follows and the date) and
 recorded in ``figures/index.json``. A session figure draws the calibration
@@ -10,7 +10,7 @@ session that promoted the run.
 
 A figure that fails under ``on_error = "raise"`` leaves the run sealed and
 ``completed``: the step raises :class:`~hydromodpy.core.exceptions.DisplayError`
-naming ``hmp viz show <run> <figure>``, which draws it again.
+naming ``hmp show <run> --figure <figure>``, which draws it again.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
 is empty, when the run is a kept calibration trial (the ``research`` level,
@@ -96,7 +96,7 @@ def _render_figures_tracked(
                 raise
             raise DisplayError(
                 f"run {run_name} is sealed; draw the figure again with "
-                f"hmp viz show {run_name} {figure_name}: {exc}"
+                f"hmp show {run_name} --figure {figure_name}: {exc}"
             ) from exc
         if on_measure is not None:
             on_measure(measure)

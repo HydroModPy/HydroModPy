@@ -4,7 +4,7 @@ Same configuration as ``project.toml`` (Gouville coastal strip, steady,
 MODFLOW 6 with a sea boundary). This script runs it and reads the
 water-table field to report the head gradient from the shore to the inland
 edge. No figure is built here: ``cross_section`` and ``piezometric_map`` are
-named registry figures rendered via ``hmp.figure``.
+named registry figures rendered via ``Run.figure``.
 
 Run it as a plain script, or cell by cell (the ``#%%`` markers) in an IDE::
 
@@ -24,7 +24,7 @@ CONFIG = HERE / "project.toml"
 
 # %% ---- RUN
 
-run = hmp.run(CONFIG, force=True)
+run = hmp.run(CONFIG, force=True).open()
 print(f"sim_id     : {run.sim_id}")
 print(f"grid       : {run.grid.shape} cells of {run.grid.cell_size:g} m")
 print(f"parameters : {run.params}")
@@ -33,13 +33,13 @@ print(f"parameters : {run.params}")
 
 # The sea boundary pins the water table to 0 m where the land is below sea
 # level; recharge lifts it inland. The spread is the coastal head gradient.
-head = np.asarray(hmp.read(run, "watertable_elevation", time=0), dtype="float64")
+head = np.asarray(run.read("watertable_elevation", time=0), dtype="float64")
 finite = head[np.isfinite(head)]
 print(
     f"\nWater-table elevation (active cells): {finite.min():.2f} m (shore) to {finite.max():.2f} m (inland)"
 )
 
-seepage = np.asarray(hmp.read(run, "seepage_mask", time=0))
+seepage = np.asarray(run.read("seepage_mask", time=0))
 print(
     f"Seepage/sea cells at surface       : {int(np.nansum(seepage))} / {int(np.isfinite(head).sum())} active"
 )
@@ -51,6 +51,6 @@ print(
 OUT = run.dir / "figures" / "from_python"
 
 # The west-east section cuts from the sea into the aquifer.
-hmp.figure(run, "cross_section", save=OUT, orientation="we")
-hmp.figure(run, "piezometric_map", save=OUT)
+run.figure("cross_section", save=OUT, orientation="we")
+run.figure("piezometric_map", save=OUT)
 print(f"\nFigures written under {OUT}")

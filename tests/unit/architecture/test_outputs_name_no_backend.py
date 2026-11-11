@@ -32,7 +32,7 @@ _ZONES = {
 }
 
 # The spellings an earlier release gave a backend name. With the aliases of
-# ``hmp catalog ls`` gone, a name is one name; a sentence that carries an old
+# ``hmp ls`` gone, a name is one name; a sentence that carries an old
 # one is a sentence about a backend that no longer listens.
 _OLD_SPELLINGS = ("modflownwt", "mf6", "nwt", "gr4j")
 

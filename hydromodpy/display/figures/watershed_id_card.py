@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_label, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_figure, run_label, run_suffix
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
@@ -92,10 +92,9 @@ class WatershedIdCardFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
 
-        fig = plt.figure(
+        fig = new_figure(
             figsize=figsize or self.spec.default_figsize,
             dpi=dpi,
             constrained_layout=True,

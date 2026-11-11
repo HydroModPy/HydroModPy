@@ -1,15 +1,24 @@
 Build a frontend
 ================
 
-HydroModPy is a Python library. It ships no HTTP server, no FastAPI binding and
-no websocket. It exposes two stable hooks that any frontend (Angular, React, a
-Jupyter widget, a desktop app) can use without importing the package:
+HydroModPy is a Python library. Its wheel ships no HTTP server, no FastAPI binding
+and no websocket. A source checkout carries a thin HTTP layer beside the wheel,
+``hydromodpy_server``, which :doc:`serve-over-http` describes. The library exposes
+two stable hooks that any frontend (Angular, React, a Jupyter widget, a desktop
+app) can use without importing the package:
 
 1. a JSON Schema export of the whole configuration;
 2. a check of the document the form holds, which may still be incomplete.
 
 A third piece plays the run: the run request, one JSON object that ``hmp run`` reads, that the
 Python call ``hmp.run`` takes as a mapping, and that a Docker container receives as a file.
+
+The fifteen verbs of ``hydromodpy.project.api`` are typed for a service. Each parameter is text,
+a number, a boolean, a path, a literal, a mapping or a list of those, and each value a verb
+returns has ``to_dict()``, which ``json.dumps`` writes, or is a path, a list of paths or a list of
+diagnostics. ``hmp.run`` returns the ``RunOutcome`` of the run, ``hmp.status`` the outcomes of a
+project, and ``hmp.show(ref, what=..., save=path)`` writes what it reads to a file. A verb never
+looks for a project above the working directory, so a service passes ``workspace=`` or a path.
 
 The code is in ``hydromodpy/schema/config_schema.py`` and
 ``hydromodpy/config/check.py``. The pattern behind it is a Pydantic model plus
@@ -114,7 +123,7 @@ or to any transport the integrator chooses:
 
 .. code-block:: bash
 
-   hmp config check --partial --format json draft.toml
+   hmp check --partial --format json draft.toml
 
 The output is ``{ok, diagnostics, workspace}``, and each entry of ``diagnostics`` has
 the keys of ``Diagnostic``. There is no check of one field on its own. Send the
@@ -151,7 +160,8 @@ The run request
 
 A request is the unit of work of a run, whether it comes from a TOML file, a Python call, a
 server or a container. It is a JSON object of the schema ``hydromodpy.request.v1``, and
-``RunRequest.model_json_schema()`` of ``hydromodpy.project.request`` describes it.
+``RunRequest.model_json_schema()`` of ``hydromodpy.project.request`` describes it. The site
+publishes that schema as ``_static/hydromodpy-request-schema.json``.
 
 .. code-block:: text
 
@@ -193,15 +203,22 @@ Submission flow
    ``/project``.
 3. The service returns the run name and its ``request_id`` to the frontend, which polls the
    ``outcome.json`` of the run.
-4. Results come back through the project: open it with
-   ``hmp.open(project_dir)`` and read its runs with ``proj.runs()``. Expose the
-   metrics, figures and exports the UI needs.
+
+   The server of :doc:`serve-over-http` does steps 2 and 3 for you. The frontend posts the
+   request to ``/v1/<org>/<project>/run``, the server plays it in its own process and answers
+   with a job, and the job gives the ``RunOutcome`` once the run ends.
+4. Results come back through the verbs: ``hmp.status(workspace=project_dir)`` lists the
+   outcomes, ``hmp.show(name, what=..., workspace=project_dir, save=path)`` writes a summary, a
+   table, a figure or a report, and ``hmp.export`` writes the files. ``hmp.open(project_dir)``
+   gives the ``Project`` for a Python caller. Expose the metrics, figures and exports the UI needs.
 
 What HydroModPy does not ship
 -----------------------------
 
+- No HTTP server in the wheel. The repository keeps ``hydromodpy_server`` beside it, on the
+  Python standard library only, with no authentication of its own.
 - No FastAPI, uvicorn or websocket dependency.
-- No OpenAPI endpoint: the exported JSON Schema is the contract.
+- No OpenAPI endpoint: the exported JSON Schemas are the contract.
 - No server-sent events. Wire one yourself when a stream is needed.
 
 Any HTTP layer written downstream can rely on these hooks without touching the
@@ -220,6 +237,7 @@ Tests to add
 See also
 --------
 
+- :doc:`serve-over-http` for the HTTP layer of the repository.
 - :doc:`../packages/schema` for the schema package map.
 - :doc:`add-a-config-field` for the annotations the frontend reads.
 - :doc:`/reference/parameters/explorer` for the interactive browser of the same

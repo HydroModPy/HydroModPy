@@ -3,8 +3,10 @@
 **Theme.** A :class:`Theme` bundles a few matplotlib ``rcParams`` knobs (palette,
 fonts, grid, background) so the whole figure corpus looks consistent.
 The registry exposes three presets: ``default``, ``print`` and ``dark``.
-Call :func:`apply_theme` at the start of a display session; figures do
-not have to opt-in individually.
+:func:`theme_rc` turns a preset into the ``rcParams`` it sets, and
+:func:`themed` holds those values, under one lock, for the length of one render.
+Nothing writes ``rcParams`` for good, so two renders in two threads of one
+process never see each other's style.
 
 **Colormaps.** A short list of perceptually-broken colormaps is banned across the whole
 display corpus. :func:`get_cmap` is the single entry point - it rejects
@@ -24,6 +26,9 @@ declared number rather than a literal in a figure.
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -37,9 +42,9 @@ __all__ = [
     "LEGEND_BEST_PLACEMENT_LIMIT",
     "LEGEND_DENSE_LOCATION",
     "PREFERRED_CMAPS",
+    "RENDER_LOCK",
     "THEMES",
     "Theme",
-    "apply_theme",
     "axes_element_count",
     "get_cmap",
     "get_theme",
@@ -47,6 +52,8 @@ __all__ = [
     "relative_luminance",
     "neutral",
     "place_legend",
+    "theme_rc",
+    "themed",
 ]
 
 
@@ -136,38 +143,66 @@ def get_theme(name: str) -> Theme:
         raise KeyError(f"unknown theme '{name}' (available: {available})") from exc
 
 
-def apply_theme(name: str) -> Theme:
-    """Configure ``matplotlib.rcParams`` from the named preset.
+RENDER_LOCK = threading.RLock()
+"""Held for the length of one render, because ``rcParams`` is shared by every thread.
 
-    Safe to call repeatedly. Returns the resolved :class:`Theme` so callers
-    can pick up the palette to feed into figure-level color cycles.
+Matplotlib reads its style from ``rcParams`` while an artist is created, so two
+renders can only run one after the other. The lock is reentrant: a figure that
+sets its own style inside a render that already holds the lock does not wait
+for itself.
+"""
+
+
+def theme_rc(name: str) -> dict[str, Any]:
+    """Return the ``rcParams`` values of the preset ``name``.
+
+    The mapping is built fresh on each call and nothing is written to
+    ``rcParams``; :func:`themed` is what puts it in force.
     """
-    import matplotlib as mpl
     from cycler import cycler
 
     theme = get_theme(name)
-    mpl.rcParams.update(
-        {
-            "axes.prop_cycle": cycler(color=theme.palette),
-            "axes.grid": True,
-            "grid.alpha": theme.grid_alpha,
-            "font.family": theme.font_family,
-            "font.size": theme.font_size_base,
-            "axes.titleweight": theme.title_weight,
-            "figure.facecolor": theme.background,
-            "axes.facecolor": theme.background,
-            "axes.edgecolor": theme.foreground,
-            "axes.labelcolor": theme.foreground,
-            "text.color": theme.foreground,
-            "xtick.color": theme.foreground,
-            "ytick.color": theme.foreground,
-            # A legend frame keeps its distance from the background in both themes.
-            "legend.edgecolor": neutral(
-                "#cccccc", background=theme.background, foreground=theme.foreground
-            ),
-        }
-    )
-    return theme
+    return {
+        "axes.prop_cycle": cycler(color=theme.palette),
+        "axes.grid": True,
+        "grid.alpha": theme.grid_alpha,
+        "font.family": theme.font_family,
+        "font.size": theme.font_size_base,
+        "axes.titleweight": theme.title_weight,
+        "figure.facecolor": theme.background,
+        "axes.facecolor": theme.background,
+        "axes.edgecolor": theme.foreground,
+        "axes.labelcolor": theme.foreground,
+        "text.color": theme.foreground,
+        "xtick.color": theme.foreground,
+        "ytick.color": theme.foreground,
+        # A legend frame keeps its distance from the background in both themes.
+        "legend.edgecolor": neutral(
+            "#cccccc", background=theme.background, foreground=theme.foreground
+        ),
+    }
+
+
+@contextmanager
+def themed(
+    name: str | None = None, extra: Mapping[str, Any] | None = None
+) -> Iterator[Theme | None]:
+    """Hold :data:`RENDER_LOCK` and the style of the preset ``name`` for one render.
+
+    ``extra`` adds ``rcParams`` values on top of the preset, for a figure that
+    needs larger fonts. With no ``name`` the style already in force is kept.
+    The previous values come back on the way out, and the resolved
+    :class:`Theme` (``None`` without a name) is what the block receives, so a
+    caller can read its palette.
+    """
+    import matplotlib as mpl
+
+    with RENDER_LOCK:
+        theme = None if name is None else get_theme(name)
+        values = {} if name is None else theme_rc(name)
+        values.update(extra or {})
+        with mpl.rc_context(values):
+            yield theme
 
 
 def _rgb(color: Any) -> tuple[float, float, float]:

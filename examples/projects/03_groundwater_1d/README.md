@@ -37,4 +37,4 @@ The calibration guide of the documentation covers the calibration API.
    (`hydromodpy/cli/commands/run.py`).
 2. Give it a schema, or reuse the `[calibration]` subset of `HydroModPyConfig`.
 3. Rename `project.toml.draft` to `project.toml` and check it with
-   `hmp config check`.
+   `hmp check`.

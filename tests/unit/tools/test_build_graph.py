@@ -205,6 +205,15 @@ def test_a_type_checking_dynamic_target_is_flagged(pkg_root: pathlib.Path) -> No
     assert lazy[0].in_type_checking is True
 
 
+def test_a_dict_comprehension_over_one_module_is_a_lazy_edge(pkg_root: pathlib.Path) -> None:
+    (pkg_root / "core" / "reader.py").write_text(
+        "_NAMES = {n: f'hydromodpy.spatial.engine:{n}' for n in ('a', 'b')}\n",
+        encoding="utf-8",
+    )
+    lazy = _kinds(build_graph.scan_package(pkg_root))["lazy_map"]
+    assert [(e.src_pkg, e.tgt_pkg) for e in lazy] == [("core", "spatial")]
+
+
 def test_the_else_branch_of_a_type_checking_block_is_runtime_code(
     pkg_root: pathlib.Path,
 ) -> None:
@@ -319,13 +328,45 @@ def test_a_file_with_undecodable_bytes_fails_loudly(pkg_root: pathlib.Path) -> N
         build_graph.scan_package(pkg_root)
 
 
-def test_the_annex_direction_is_still_reported(pkg_root: pathlib.Path) -> None:
+def test_the_sibling_direction_is_still_reported(pkg_root: pathlib.Path) -> None:
     (pkg_root / "core" / "reader.py").write_text(
         '_LAZY_IMPORTS = {"X": "hydromodpy_annex.preprocess:X"}\n',
         encoding="utf-8",
     )
     edges = build_graph.scan_package(pkg_root)
-    assert [(e.kind, e.tgt_pkg) for e in edges] == [("lazy_map", "<annex>")]
+    assert [(e.kind, e.tgt_pkg) for e in edges] == [("lazy_map", "<sibling>")]
+
+
+def test_siblings_are_found_on_disk(pkg_root: pathlib.Path) -> None:
+    """A folder ``hydromodpy_*`` that holds Python is a sibling, with or without ``__init__``."""
+    server = pkg_root.parent / "hydromodpy_server"
+    server.mkdir()
+    (server / "app.py").write_text("import hydromodpy_server.app\n", encoding="utf-8")
+    (pkg_root.parent / "hydromodpy_notes").mkdir()
+    (pkg_root.parent / "hydromodpy_notes" / "README.md").write_text("", encoding="utf-8")
+    (pkg_root / "spatial" / "grid.py").write_text(
+        "import hydromodpy_server.app\n", encoding="utf-8"
+    )
+    assert build_graph.sibling_packages(pkg_root) == {"hydromodpy_annex", "hydromodpy_server"}
+    edges = build_graph.scan_package(pkg_root)
+    assert [(e.src_pkg, e.tgt_pkg) for e in edges] == [("spatial", "<sibling>")]
+
+
+def test_a_sibling_scan_names_the_packages_it_reads(pkg_root: pathlib.Path) -> None:
+    (pkg_root.parent / "hydromodpy_annex" / "preprocess.py").write_text(
+        "import hydromodpy\n"
+        "from hydromodpy.core import x\n"
+        "from hydromodpy.spatial.grid import y\n"
+        "from . import other\n",
+        encoding="utf-8",
+    )
+    edges = build_graph.scan_sibling("hydromodpy_annex", pkg_root)
+    assert [(e.src_pkg, e.src_module, e.tgt_pkg) for e in edges] == [
+        ("hydromodpy_annex", "hydromodpy_annex.preprocess", "<root>"),
+        ("hydromodpy_annex", "hydromodpy_annex.preprocess", "core"),
+        ("hydromodpy_annex", "hydromodpy_annex.preprocess", "spatial"),
+        ("hydromodpy_annex", "hydromodpy_annex.preprocess", "<sibling>"),
+    ]
 
 
 def test_the_real_package_declares_every_lazy_edge_it_relies_on() -> None:

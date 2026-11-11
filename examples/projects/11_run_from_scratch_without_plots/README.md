@@ -9,7 +9,7 @@ behind, which is what a machine with no screen needs.
 
 ```bash
 hmp run examples/projects/11_run_from_scratch_without_plots/project.toml
-hmp catalog show canut_headless_mf6
+hmp show canut_headless_mf6
 ```
 
 Runtime: about 20 s, most of it in the delineation over the regional DEM
@@ -19,7 +19,7 @@ Runtime: about 20 s, most of it in the delineation over the regional DEM
 
 Nothing. The run keeps the whole per-cell budget and every derived field is
 rebuilt on read from the stored head and budget, so a headless run needs no `[simulation.results]`
-key. Everything can be read again later, with `hmp export`, `hmp viz show` or
+key. Everything can be read again later, with `hmp export`, `hmp show --figure` or
 the Python API (below).
 
 ## Outputs
@@ -40,7 +40,7 @@ import hydromodpy as hmp
 with hmp.open("examples/projects/11_run_from_scratch_without_plots") as proj:
     run = proj.store.latest()
     print(run.parameters)
-    depth = hmp.read(run, "watertable_depth", time=0)
+    depth = run.read("watertable_depth", time=0)
 ```
 
 ## Differences with the legacy example

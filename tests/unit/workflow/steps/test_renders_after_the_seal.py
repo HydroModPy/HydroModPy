@@ -5,7 +5,7 @@ its directory, so each figure carries the identity block of the run labelled
 the day it is drawn: the label, the rules it follows and the date, in the PNG
 chunk and in the visible footer. A figure that fails under
 ``on_error = "raise"`` leaves the run sealed and raises a ``DisplayError``
-that names ``hmp viz show``.
+that names ``hmp show --figure``.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ class _Breaks(BaseFigure):
         raise RuntimeError("the axes broke")
 
 
-def test_a_figure_that_fails_after_the_seal_names_hmp_viz_show(monkeypatch, sealed) -> None:
+def test_a_figure_that_fails_after_the_seal_names_hmp_show(monkeypatch, sealed) -> None:
     project, run_dir, sim_id = sealed
     monkeypatch.setattr(display_runs, "_get_figure", lambda _name: _Breaks())
     display = DisplayConfig(figures=["water_budget"], on_error="raise")
@@ -93,8 +93,8 @@ def test_a_figure_that_fails_after_the_seal_names_hmp_viz_show(monkeypatch, seal
         _run_display(_ctx(project, run_dir, sim_id, display))
 
     assert str(raised.value).startswith(
-        f"run {RUN_NAME} is sealed; draw the figure again with hmp viz show "
-        f"{RUN_NAME} water_budget: "
+        f"run {RUN_NAME} is sealed; draw the figure again with hmp show {RUN_NAME} "
+        "--figure water_budget: "
     )
     assert "the axes broke" in str(raised.value)
     assert isinstance(raised.value.__cause__, RuntimeError)

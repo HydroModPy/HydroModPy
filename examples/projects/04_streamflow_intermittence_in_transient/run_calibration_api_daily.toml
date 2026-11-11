@@ -9,7 +9,7 @@
 # Needs network access at the first run; the downloads are cached after it.
 # Five daily solves of 2192 steps: a promoted run reuses the solve of its trial.
 #
-#   hmp config check run_calibration_api_daily.toml
+#   hmp check run_calibration_api_daily.toml
 #   hmp calibrate run_calibration_api_daily.toml --list-phases
 #   hmp run       run_calibration_api_daily.toml
 

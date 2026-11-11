@@ -1,4 +1,4 @@
-"""Tests for the ``hmp catalog`` family (ls, query, show, gc, delete)."""
+"""Tests for the ``hmp catalog`` family and for the reads that left it (ls, show, show --rank)."""
 
 from __future__ import annotations
 
@@ -44,13 +44,13 @@ def test_catalog_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "catalog", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    for action in ("ls", "query", "show", "gc", "delete"):
+    for action in ("query", "gc", "delete"):
         assert action in out
 
 
-def test_catalog_ls_empty_workspace(monkeypatch, tmp_path, capsys) -> None:
+def test_ls_of_a_workspace_with_one_run(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_workspace_with_catalog(tmp_path)
-    code = _run(monkeypatch, ["hmp", "catalog", "ls", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "ls", "--workspace", str(workspace)])
     assert code == 0
 
 
@@ -76,12 +76,12 @@ def test_catalog_query_runs_on_existing_catalog(monkeypatch, tmp_path, capsys) -
     assert "one" in out
 
 
-def test_catalog_show_unknown_sim_returns_not_found(monkeypatch, tmp_path) -> None:
+def test_show_unknown_sim_returns_not_found(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace_with_catalog(tmp_path)
     project = workspace / "projects" / "demo"
     code = _run(
         monkeypatch,
-        ["hmp", "catalog", "show", "deadbeef", "--workspace", str(project)],
+        ["hmp", "show", "deadbeef", "--workspace", str(project)],
     )
     assert code == 10
 
@@ -97,14 +97,14 @@ def test_show_prints_the_readme_and_the_annotations(monkeypatch, capsys, tmp_pat
     add_tag(run_dir, "pinned")
     add_note(run_dir, "K hits its upper bound", now=datetime(2026, 10, 16, 8, 0, tzinfo=UTC))
 
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "alpha", "-w", str(project)])
+    code = _run(monkeypatch, ["hmp", "show", "alpha", "-w", str(project)])
 
     assert code == 0
     out = capsys.readouterr().out
     assert out.startswith(README.rstrip())
     assert "tags: pinned" in out
     assert "2026-10-16 08:00 K hits its upper bound" in out
-    assert "hmp catalog show runs/alpha --detail" in out
+    assert "hmp show alpha --detail" in out
     assert not catalog_path_for(project).exists(), "show never builds the index"
 
 
@@ -143,7 +143,7 @@ def test_show_ends_with_the_profile_block(monkeypatch, capsys, tmp_path, view) -
     seal_run(project, "alpha")
     (run_dir / "README.md").write_text(README, encoding="utf-8")
     write_profile(run_dir, _profile_of(*PROFILE_LINES))
-    argv = ["hmp", "catalog", "show", "alpha", "-w", str(project)]
+    argv = ["hmp", "show", "alpha", "-w", str(project)]
     if view == "detail":
         rebuild_index(project)
         argv.append("--detail")
@@ -166,7 +166,7 @@ def test_show_of_a_run_without_a_profile_says_so(monkeypatch, capsys, tmp_path) 
     seal_run(project, "alpha")
     (project / "runs" / "alpha" / "README.md").write_text(README, encoding="utf-8")
 
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "alpha", "-w", str(project)])
+    code = _run(monkeypatch, ["hmp", "show", "alpha", "-w", str(project)])
 
     assert code == 0
     assert "\nProfile\n  no profile.json, solve time from the seal: unknown\n" in (
@@ -180,9 +180,7 @@ def test_show_as_json_carries_the_profile_under_its_key(monkeypatch, capsys, tmp
     write_profile(project / "runs" / "alpha", _profile_of(*PROFILE_LINES))
     rebuild_index(project)
 
-    code = _run(
-        monkeypatch, ["hmp", "catalog", "show", "alpha", "-w", str(project), "--format", "json"]
-    )
+    code = _run(monkeypatch, ["hmp", "show", "alpha", "-w", str(project), "--format", "json"])
 
     assert code == 0
     profile = json.loads(capsys.readouterr().out)["data"]["profile"]
@@ -194,7 +192,7 @@ def test_show_of_a_name_the_project_lacks_exits_not_found(monkeypatch, capsys, t
     project = make_project(tmp_path / "demo")
     seal_run(project, "alpha")
 
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "beta", "-w", str(project)])
+    code = _run(monkeypatch, ["hmp", "show", "beta", "-w", str(project)])
 
     assert code == 10
     assert "beta" in capsys.readouterr().err
@@ -203,7 +201,7 @@ def test_show_of_a_name_the_project_lacks_exits_not_found(monkeypatch, capsys, t
 def test_show_of_last_outside_a_workspace_names_dash_w(monkeypatch, capsys, tmp_path) -> None:
     monkeypatch.chdir(make_project(tmp_path / "demo"))
 
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "@last"])
+    code = _run(monkeypatch, ["hmp", "show", "@last"])
 
     assert code == 10
     err = capsys.readouterr().err
@@ -214,7 +212,7 @@ def test_show_of_last_outside_a_workspace_names_dash_w(monkeypatch, capsys, tmp_
 def test_show_of_last_with_dash_w_does_not_repeat_the_hint(monkeypatch, capsys, tmp_path) -> None:
     project = make_project(tmp_path / "demo")
 
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "@last", "-w", str(project)])
+    code = _run(monkeypatch, ["hmp", "show", "@last", "-w", str(project)])
 
     assert code == 10
     assert "with -w" not in capsys.readouterr().err
@@ -295,8 +293,8 @@ def project(tmp_path) -> Path:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["hmp", "catalog", "ls"],
-        ["hmp", "catalog", "show", "alpha"],
+        ["hmp", "ls"],
+        ["hmp", "show", "alpha"],
         ["hmp", "catalog", "query", "SELECT COUNT(*) FROM simulations"],
     ],
 )
@@ -326,14 +324,14 @@ def test_a_reader_builds_no_index_where_no_run_was_ever_written(tmp_path) -> Non
 
 
 def test_ls_shows_a_dash_for_a_run_with_no_mesh_engine(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "catalog", "ls", "--workspace", str(project)]) == 0
+    assert _run(monkeypatch, ["hmp", "ls", "--workspace", str(project)]) == 0
     lines = [line for line in capsys.readouterr().out.splitlines() if "alpha" in line]
     assert len(lines) == 1
     assert "mesh=-" in lines[0]
 
 
 def test_ls_shows_the_mesh_engine_of_a_run(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "catalog", "ls", "--workspace", str(project)]) == 0
+    assert _run(monkeypatch, ["hmp", "ls", "--workspace", str(project)]) == 0
     lines = [line for line in capsys.readouterr().out.splitlines() if "voronoi_run" in line]
     assert len(lines) == 1
     assert "mesh=voronoi" in lines[0]
@@ -372,19 +370,10 @@ def _names(stdout: str) -> list[str]:
     ],
 )
 def test_top_and_bottom_follow_the_metric(workspace, metric, best_first, worst_first) -> None:
-    common = [
-        "catalog",
-        "rank",
-        "--project",
-        "p",
-        "--metric",
-        metric,
-        "--workspace",
-        str(workspace),
-    ]
+    common = ["show", ".", "--rank", metric, "-n", "3", "--workspace", str(workspace)]
 
-    top = CliRunner().invoke([*common, "--top", "3"])
-    bottom = CliRunner().invoke([*common, "--bottom", "3"])
+    top = CliRunner().invoke(common)
+    bottom = CliRunner().invoke([*common, "--worst"])
 
     assert top.exit_code == 0, top.stderr
     assert _names(top.stdout) == best_first
@@ -394,16 +383,7 @@ def test_top_and_bottom_follow_the_metric(workspace, metric, best_first, worst_f
 
 def test_a_metric_without_direction_is_refused(workspace) -> None:
     result = CliRunner().invoke(
-        [
-            "catalog",
-            "rank",
-            "--project",
-            "p",
-            "--metric",
-            "unknown_score",
-            "--workspace",
-            str(workspace),
-        ]
+        ["show", ".", "--rank", "unknown_score", "--workspace", str(workspace)]
     )
 
     assert result.exit_code == 10
@@ -415,3 +395,34 @@ def test_every_calibration_metric_has_a_direction() -> None:
     for name in METRICS:
         assert METRIC_SENSE.get(name) in {"max", "min"}, name
     assert {name for name in METRICS if METRIC_SENSE[name] == "max"} == HIGHER_IS_BETTER
+
+
+def test_trash_with_a_reference_moves_the_run_and_restore_brings_it_back(
+    monkeypatch, capsys, project
+) -> None:
+    assert _run(monkeypatch, ["hmp", "catalog", "trash", "alpha", "-w", str(project)]) == 0
+    assert "moved runs/alpha to" in capsys.readouterr().out
+    assert not (project / "runs" / "alpha").exists()
+
+    listed = _run(monkeypatch, ["hmp", "catalog", "trash", "-w", str(project)])
+    assert listed == 0
+    trashed = capsys.readouterr().out
+    assert "runs/alpha" in trashed or "runs__alpha" in trashed
+
+    assert _run(monkeypatch, ["hmp", "catalog", "restore", "alpha", "-w", str(project)]) == 0
+    assert "restored runs/alpha" in capsys.readouterr().out
+    assert (project / "runs" / "alpha").is_dir()
+
+
+def test_trash_with_a_reference_and_dry_run_moves_nothing(monkeypatch, capsys, project) -> None:
+    code = _run(monkeypatch, ["hmp", "catalog", "trash", "alpha", "--dry-run", "-w", str(project)])
+
+    assert code == 0
+    assert "would move runs/alpha to trash/" in capsys.readouterr().out
+    assert (project / "runs" / "alpha").is_dir()
+
+
+def test_trash_refuses_a_reference_beside_empty(monkeypatch, project) -> None:
+    code = _run(monkeypatch, ["hmp", "catalog", "trash", "alpha", "--empty", "-w", str(project)])
+
+    assert code == 2

@@ -50,13 +50,15 @@ sys.modules[_BUILD_GRAPH_SPEC.name] = _BUILD_GRAPH_MODULE
 _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
 scan_package = _BUILD_GRAPH_MODULE.scan_package
+scan_sibling = _BUILD_GRAPH_MODULE.scan_sibling
+sibling_packages = _BUILD_GRAPH_MODULE.sibling_packages
 
 
 class Judgement(NamedTuple):
     """What the matrix makes of every edge of the tree."""
 
     violations: list[tuple[str, str, Any]]
-    annex: list[Any]
+    siblings: list[Any]
     edges_used: dict[int, set[str]]
     reads_used: dict[str, set[str]]
 
@@ -85,15 +87,15 @@ def judge(matrix: dict[str, Any], edges) -> Judgement:
     tolerances = {(t["src"], t["tgt"]) for t in matrix.get("tolerances") or []}
     exempt = set(matrix.get("exempt_files") or [])
     violations: list[tuple[str, str, Any]] = []
-    annex: list[Any] = []
+    siblings: list[Any] = []
     edges_used: dict[int, set[str]] = defaultdict(set)
     reads_used: dict[str, set[str]] = defaultdict(set)
     for edge in edges:
         rel = _relative(edge)
         if rel in exempt:
             continue
-        if edge.tgt_pkg == "<annex>":
-            annex.append(edge)
+        if edge.tgt_pkg == "<sibling>":
+            siblings.append(edge)
             continue
         src = MAIN_KEY if rel == MAIN_FILE else edge.src_pkg
         tgt = edge.tgt_pkg
@@ -115,7 +117,7 @@ def judge(matrix: dict[str, Any], edges) -> Judgement:
                 granted = True
         if not granted:
             violations.append((src, tgt, edge))
-    return Judgement(violations, annex, edges_used, reads_used)
+    return Judgement(violations, siblings, edges_used, reads_used)
 
 
 @functools.cache
@@ -244,12 +246,30 @@ def test_every_package_page_has_a_row() -> None:
     assert orphans == [], f"Architecture package pages without a package: {orphans}"
 
 
-def test_annex_one_way() -> None:
-    """``hydromodpy/`` must never import from ``hydromodpy_annex/``."""
-    annex = _judgement().annex
-    assert annex == [], "\n".join(
-        f"{e.src_file}:{e.lineno} imports {e.target_module}" for e in annex
+def test_siblings_one_way() -> None:
+    """``hydromodpy/`` never imports a folder beside it, such as the annex or the server."""
+    siblings = _judgement().siblings
+    assert siblings == [], "\n".join(
+        f"{e.src_file}:{e.lineno} imports {e.target_module}" for e in siblings
     )
+
+
+def test_every_sibling_has_a_row() -> None:
+    """Each ``hydromodpy_*`` folder on disk has its row in ``siblings``, and each row a folder."""
+    rows = set(load_layer_matrix().get("siblings") or {})
+    assert rows == set(sibling_packages(PKG_ROOT))
+
+
+def test_a_sibling_reads_only_its_row() -> None:
+    """A sibling whose row is a list imports only the packages of that list."""
+    outside = [
+        f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
+        for name, row in (load_layer_matrix().get("siblings") or {}).items()
+        if row != "*"
+        for edge in scan_sibling(name, PKG_ROOT)
+        if edge.target_module.split(".")[0] != name and edge.tgt_pkg not in row
+    ]
+    assert outside == [], "\n".join(outside)
 
 
 def _imports_of_tools(path: pathlib.Path) -> list[str]:

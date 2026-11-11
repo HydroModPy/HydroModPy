@@ -394,7 +394,7 @@ class StabilityDirective(SphinxDirective):
             f"{len(names)} names of <code>hydromodpy.__all__</code> ({counts}), the classes they return, "
             "and the exceptions of this reference. A name outside this reference is internal, except the "
             f'modules for extensions on the <a href="{esc(contracts)}">contracts page</a>. So is '
-            "the <code>hydromodpy._api</code> module.</p>"
+            "the <code>hydromodpy.project.api</code> module.</p>"
             f"<p>{esc(stage)} Versions follow semantic versioning with PEP 440 pre-release tags. "
             f'What each kind of version may change is on the <a href="{esc(policy)}">versions page</a>.</p>'
         )
@@ -440,7 +440,7 @@ class RelationsDirective(SphinxDirective):
 
 
 class ReadRulesDirective(SphinxDirective):
-    """What ``hmp.read`` returns for each kind of variable, from its docstring."""
+    """What ``Run.read`` returns for each kind of variable, from its docstring."""
 
     def run(self):
         b, doc = H.current_builder(), self.env.docname
@@ -993,7 +993,7 @@ def class_page(c: dict) -> str:
             f".. autoclass:: {c['qualname']}",
             "   :members:",
             "   :undoc-members:",
-            "   :inherited-members:",
+            "   :inherited-members: BaseModel",
             "   :member-order: groupwise",
             "```",
             "",
@@ -1017,15 +1017,15 @@ def python_index(verbs: list[str], results: list[dict]) -> str:
         "```python",
         "import hydromodpy as hmp",
         "",
-        'run = hmp.run("path/to/config.toml")   # simulate: returns a Run',
-        'head = hmp.read(run, "head")           # an xarray.DataArray',
-        f'hmp.figure(run, "{fig}")   # draw one registered figure',
+        'run = hmp.run("path/to/config.toml").open()   # simulate, then open the Run',
+        'head = run.read("head")           # an xarray.DataArray',
+        f'run.figure("{fig}")   # draw one registered figure',
         "",
         'proj = hmp.open("path/to/project")     # reopen the project later, read only',
         'run = proj["baseline"]                 # one of its runs, by name',
         "```",
         "",
-        "How these objects relate, and what `hmp.read` returns for each kind of variable, is on "
+        "How these objects relate, and what `Run.read` returns for each kind of variable, is on "
         "{doc}`objects`. What can be raised, with the `HMPY.Exxx` codes, is on {doc}`exceptions`.",
         "",
         "## Stability",
@@ -1087,9 +1087,9 @@ rebuilt with `hmp catalog reindex`. The objects below are the ways Python looks 
 `hmp.open` gives what a path stands for: a `Project`, a `Run`, a `Session` or a `Workspace`. A `Run`
 reads the folder it names, and the seal in it says what the run is; the index only finds it.
 
-## What `hmp.read` returns
+## What `Run.read` returns
 
-`hmp.read(run, name)` looks for `name` among the fields of the run, then among its time series, then
+`run.read(name)` looks for `name` among the fields of the run, then among its time series, then
 among its geographic features. Each nature of variable gives one type, and `time=` never changes it:
 
 ```{hmp-api-read}
@@ -1113,13 +1113,13 @@ Each word has one meaning, in every function and every object.
 
 | Word | Means | Where |
 |---|---|---|
-| `run` | A `Run`: one sealed directory under `runs/`. | `hmp.read(run, ...)`, `hmp.figure(run, ...)`, `hmp.export(run, ...)` |
-| `ref` | Text that names a run: an id, a unique prefix, a name or a selector such as `@latest`. | `hmp.compare_pair(ref_a, ref_b)`, `proj[ref]`, `proj.store.read(ref, ...)` |
-| `variable` | The name of a field, a series or a feature. | `hmp.read(run, variable)`, `run.field(variable)`, `run.timeseries(variable)` |
-| `time` | The stress period or periods to read: an index, a date, `"first"`, `"last"`, or for `hmp.read` a slice of indexes. | `hmp.read`, `run.field`, `hmp.figure`, `hmp.export` |
+| `run` | A `Run`: one sealed directory under `runs/`. | `run.read(...)`, `run.figure(...)`, `hmp.export(run, ...)` |
+| `ref` | Text that names a run: an id, a unique prefix, a name or a selector such as `@latest`. | `hmp.compare([a, b]).table`, `proj[ref]`, `proj.store.read(ref, ...)` |
+| `variable` | The name of a field, a series or a feature. | `run.read(variable)`, `run.field(variable)`, `run.timeseries(variable)` |
+| `time` | The stress period or periods to read: an index, a date, `"first"`, `"last"`, or for `Run.read` a slice of indexes. | `Run.read`, `run.field`, `Run.figure`, `hmp.export` |
 | `period` | A window of dates: `(start, end)`, or a year as text. | `run.timeseries`, `run.observed`, `run.budget`, `hmp.export`, `sel={"period": ...}` |
 | `steps` | An inclusive range of period indexes, `(first, last)`. | `run.budget`, `proj.store.query_budget` |
-| `layer` | A layer index, 0 for the top layer. | `hmp.read`, `run.field`, `hmp.export` |
+| `layer` | A layer index, 0 for the top layer. | `Run.read`, `run.field`, `hmp.export` |
 | `set` | Changes of a configuration: a dotted path, the grammar of `--set`, or a name of `hmp config targets`. | `hmp.run`, `proj.simulate`, `proj.plan`, `hmp.Project.rerun` |
 | `from_step`, `until_step` | Names of pipeline steps. The names are frozen: `hydromodpy.core.pipeline_steps.STEP_NAMES`. | `hmp.run`, `proj.simulate` |
 | `best` | One `Run`, the best by a metric. `proj.best_runs` gives the table of the best run of each site. | `runset.best`, `session.best`, `proj.runs().best`, `proj.store.best` |
@@ -1369,7 +1369,7 @@ to stderr, so stdout always parses. The result is written once the command is ov
 is not a number in JSON, NaN or an infinity, is `null`, and a path or a date is a string.
 
 `--format csv` prints the same rows with a header, and an empty listing is the header alone. An
-object is `key,value` lines, or its own table when it holds one: the cases of `hmp project status`,
+object is `key,value` lines, or its own table when it holds one: the cases of `hmp ls --plan`,
 the files of `hmp example show`, the states of `hmp catalog reindex`. A list in a cell is joined
 with `;` and a mapping is written `key=value`, so a cell is always one line.
 
@@ -1421,7 +1421,7 @@ def _machine_output_row(output: dict) -> str:
         "catalog trash empty": "hmp catalog trash --empty",
         "export list": "hmp export --list",
         "publish verify": "hmp publish --verify",
-        "viz list run": "hmp viz list --run",
+        "viz list run": "hmp config figures --run",
         "error": "a failure",
     }.get(verb, f"hmp {verb}")
     shape = "rows" if output["rows"] else "object"

@@ -34,6 +34,7 @@ from hydromodpy.display.report.pages import (
     sheet_blocks,
 )
 from hydromodpy.display.report.presets import PRESETS, ReportTexts, preset_figures
+from hydromodpy.display.style import themed
 from hydromodpy.results.method import label_text, method_text
 from hydromodpy.results.record.label import label_of
 from hydromodpy.results.record.manifest import is_sealed, read_seal
@@ -246,28 +247,26 @@ def _draw(
 ) -> dict[str, Path]:
     """Draw each registered figure of *names* from *subject*; a figure that fails is skipped.
 
-    Each figure is closed once saved, so no figure stays in the pyplot registry.
+    A figure is drawn on its own canvas and freed once saved, so none stays in
+    the ``pyplot`` registry.
     """
-    import matplotlib.pyplot as plt
-
     registered = set(figure_names())
     drawn: dict[str, Path] = {}
-    for name in names:
-        target = figures_dir / f"{prefix}{name}.png"
-        if name not in registered:
-            skipped.append(f"{name}: figure is not registered")
-            continue
-        try:
-            figure = get_figure(name).plot(subject, save_path=target)
-        except Exception as exc:  # the figure says why it does not fit; the report goes on
-            skipped.append(f"{name}: {exc}")
-            continue
-        if figure is not None:
-            plt.close(figure)
-        if target.exists():
-            drawn[name] = target
-        else:
-            skipped.append(f"{name}: no output file was written")
+    with themed():
+        for name in names:
+            target = figures_dir / f"{prefix}{name}.png"
+            if name not in registered:
+                skipped.append(f"{name}: figure is not registered")
+                continue
+            try:
+                get_figure(name).plot(subject, save_path=target)
+            except Exception as exc:  # the figure says why it does not fit; the report goes on
+                skipped.append(f"{name}: {exc}")
+                continue
+            if target.exists():
+                drawn[name] = target
+            else:
+                skipped.append(f"{name}: no output file was written")
     return drawn
 
 

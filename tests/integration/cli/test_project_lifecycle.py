@@ -33,7 +33,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     assert listed.ok, listed.stderr
     assert "demo" in listed.stdout
 
-    shown = runner.invoke(["hmp", "project", "show", "demo", "--workspace", str(workspace)])
+    shown = runner.invoke(["hmp", "show", "demo", "--workspace", str(workspace)])
     assert shown.ok, shown.stderr
     assert "demo" in shown.stdout
     assert PROJECT_MARKER_FILENAME in shown.stdout

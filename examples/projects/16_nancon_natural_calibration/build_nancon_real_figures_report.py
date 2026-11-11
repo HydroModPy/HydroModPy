@@ -1,4 +1,4 @@
-"""Build the Nancon reference catchment report through ``hmp report catchment``."""
+"""Build the Nancon reference catchment report through ``hmp show RUN --report``."""
 
 # ruff: noqa: E402, I001
 

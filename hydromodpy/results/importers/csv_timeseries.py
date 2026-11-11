@@ -46,7 +46,7 @@ def import_csv_timeseries(
     station_id : str, optional
         Keep only rows for this station. ``None`` keeps all stations.
     variable : str, optional
-        Keep only the rows of this series, by the name ``hmp.read`` and
+        Keep only the rows of this series, by the name ``Run.read`` and
         ``[[export]]`` read it: ``discharge``, or ``discharge_obs`` for the
         measurement. ``None`` keeps all the series of the file.
 

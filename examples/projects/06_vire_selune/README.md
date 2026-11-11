@@ -18,7 +18,7 @@ hmp run examples/projects/06_vire_selune/run_vire_nwt.toml                      
 hmp run examples/projects/06_vire_selune/run_selune_nwt.toml
 hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular_steady.toml       # steady, MODFLOW 6, geology+river conformal mesh
 hmp run examples/projects/06_vire_selune/run_selune_mf6_irregular_steady.toml
-hmp report catchment examples/projects/06_vire_selune/catchment_report_vire.toml  # overview + run + HTML report, one command
+hmp run examples/projects/06_vire_selune/catchment_report_vire.toml  # overview + run + HTML report, then hmp show <run> --report
 ```
 
 Unmeasured: the first run of any config downloads DEM-derived delineation,
@@ -52,5 +52,5 @@ set `constraints_mode = "geology_rivers"` under `[mesh_catchment]` so the
 generated mesh follows both river lines and geology interfaces.
 
 `catchment_report_vire.toml` and `catchment_report_selune.toml` drive
-`hmp report catchment`: run the overview, run the transient simulation, then
+`hmp show RUN --report`: run the overview, run the transient simulation, then
 build one HTML report from both.

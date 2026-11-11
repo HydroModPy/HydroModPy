@@ -76,11 +76,11 @@ own `[sites.bind]` lines, which hold for that recipe only.
 ## Check the plan
 
 ```bash
-hmp config check project.toml
+hmp check project.toml
 hmp run project.toml --dry-run
 ```
 
-`hmp config check` resolves every case and reports every error once, with the row and the
+`hmp check` resolves every case and reports every error once, with the row and the
 column it comes from: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet:
 <message>`. The same error on many cases is one line, `100 cases: ...`. `--dry-run` writes
 nothing. It counts the cases, the solves and the peak of solves running together, and
@@ -118,11 +118,11 @@ whether a failed case stops the launch or lets the others go on.
 ## Follow it
 
 ```bash
-hmp project status .
+hmp ls --plan
 hmp project log . --failed
 ```
 
-`hmp project status` reads the `outcome.json` and the heartbeat of each case, never the
+`hmp ls --plan` reads the `outcome.json` and the heartbeat of each case, never the
 index, and counts the cases by state: planned, running, completed, failed, and stale when a
 heartbeat is old. `hmp project log . --failed` prints the error of each failed case, one
 line each. The full log of a case is in `runs/<case>/logs/`.
@@ -148,8 +148,8 @@ changed configuration, not for a second try.
 
 ```bash
 hmp campaign collect .
-hmp catalog ls --by site --best nse
-hmp report compare J0014010-base J0014010-k2e_5
+hmp ls --by site --best nse
+hmp diff J0014010-base J0014010-k2e_5 --to ../k_study
 hmp publish . --to /srv/deliverables/my_project
 ```
 

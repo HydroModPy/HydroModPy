@@ -130,7 +130,6 @@ def test_the_preprocessing_scratch_honours_the_machine_root(
     project = tmp_path / "campaign"
     project.mkdir()
     machine = tmp_path / "node-scratch"
-    monkeypatch.delenv("HMP_RUN_SCRATCH", raising=False)
     monkeypatch.setenv(SCRATCH_ROOT_ENV, str(machine))
 
     assert scratch_root_for(project) == machine / "campaign"

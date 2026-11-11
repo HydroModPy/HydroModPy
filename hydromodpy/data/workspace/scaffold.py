@@ -506,7 +506,7 @@ units = "mm/day"
 [display]
 # Figures rendered at the end of every run in this project. This shortlist
 # only needs the mesh and the steady-state head field, so it renders on the
-# synthetic demo with no observation data. "hmp viz list" shows every
+# synthetic demo with no observation data. "hmp config figures" shows every
 # registered figure and what result each one needs.
 figures = ["mesh_map", "piezometric_map", "watertable_depth_map", "water_budget"]
 on_error = "warn"  # log a figure that fails to render and keep going

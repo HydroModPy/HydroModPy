@@ -1,6 +1,6 @@
 """A read-only catalog holding one run, and a figure that records what it draws.
 
-Shared by the tests of ``hydromodpy.display.catalog_figures`` and of ``hmp viz``.
+Shared by the tests of ``hydromodpy.display.catalog_figures`` and of ``hmp show --figure``.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from hydromodpy.core.state.layout import RUNS_DIRNAME
 
 
 class OneRunCatalog:
-    """A read-only catalog holding one run, the way ``hmp viz show`` opens it."""
+    """A read-only catalog holding one run, the way ``hmp show --figure`` opens it."""
 
     def __init__(self, root: Path) -> None:
         self.root = root

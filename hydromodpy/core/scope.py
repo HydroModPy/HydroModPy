@@ -8,7 +8,7 @@ not the same surface when the mesh takes in a buffer around the catchment.
 
 ``simulated`` and ``observed`` are the values of the ``source`` column of the
 ``timeseries`` table: a series and the measurement it answers to carry the same
-variable name. A reader that asks by one name, ``hmp.read`` and ``[[export]]``,
+variable name. A reader that asks by one name, ``Run.read`` and ``[[export]]``,
 asks for the measurement as ``<variable>_obs``, which no table stores.
 
 A station or a zone a user names cannot be called ``catchment``, because a reader

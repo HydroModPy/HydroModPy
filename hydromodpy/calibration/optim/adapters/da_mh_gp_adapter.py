@@ -29,6 +29,15 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 
+# The optimizer of a GP surrogate fits on few points, and scikit-learn says each time
+# that a kernel parameter ended on one of its bounds. The fit is meant to land there.
+warnings.filterwarnings(
+    "ignore",
+    message="The optimal value found for dimension .* is close to the specified",
+    category=UserWarning,
+    module=r"sklearn\.gaussian_process\.kernels",
+)
+
 _SKLEARN_AVAILABLE = True
 
 
@@ -39,12 +48,10 @@ def _get_sklearn():
             "Install it via `pip install scikit-learn`."
         )
     try:
-        from sklearn.exceptions import ConvergenceWarning
         from sklearn.gaussian_process import GaussianProcessRegressor
         from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 
         return {
-            "ConvergenceWarning": ConvergenceWarning,
             "GaussianProcessRegressor": GaussianProcessRegressor,
             "ConstantKernel": ConstantKernel,
             "RBF": RBF,
@@ -289,7 +296,6 @@ class DaMhGpOptimizer:
         RBF = skl["RBF"]
         WhiteKernel = skl["WhiteKernel"]
         GaussianProcessRegressor = skl["GaussianProcessRegressor"]
-        ConvergenceWarning = skl["ConvergenceWarning"]
 
         if len(self._x_train) < 2:
             return None
@@ -307,11 +313,7 @@ class DaMhGpOptimizer:
             n_restarts_optimizer=0,
         )
         try:
-            with warnings.catch_warnings():
-                if ConvergenceWarning is not None:
-                    warnings.simplefilter("ignore", category=ConvergenceWarning)
-                warnings.simplefilter("ignore", category=UserWarning)
-                gp.fit(x, y)
+            gp.fit(x, y)
         except Exception:  # pragma: no cover - defensive
             return None
         return gp

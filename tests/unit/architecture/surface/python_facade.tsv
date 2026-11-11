@@ -1,20 +1,15 @@
-AmbiguousReferenceError	class	(ref: str, candidates: list[tuple[str, str | None]]) -> None
 BackupFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 CalibrationError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 CapabilityVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-Catalog	class	(project_root: Path | str, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-CatalogError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+Catalog	class	(project_root: Path | str, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None, render: Renderer | None = None) -> None
 CatalogUnreadableError	class	(db_path: str, *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 CommandUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-ComparisonCaseError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-ComparisonReferenceError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ConfigError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ConfigMissingError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 CrossProjectsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 DataError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 DisplayError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 FailedCasesError	class	(message: str = '', *, summary: Mapping[str, Any] | None = None, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
-FieldNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 HydroModPyConfig	class	
 HydroModPyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ImportConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
@@ -27,35 +22,30 @@ PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: st
 Project	class	(config: str | Path | object | dict, *, base: str | Path | None = None, document: Mapping[str, Any] | None = None, source: str | Path | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False, environment: Environment | None = None) -> None
 ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-Run	class	(sim_id: str, catalog: Catalog, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-RunNotSealedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-RunSet	class	(sim_ids: list[str], catalog: Catalog) -> None
+Run	class	(sim_id: str, catalog: Catalog, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None, render: Renderer | None = None) -> None
+RunSet	class	(sim_ids: list[str], catalog: Catalog, *, render: Renderer | None = None) -> None
 SchemaVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-Session	class	(session_dir: str | Path, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None) -> None
-SimulationNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
+Session	class	(session_dir: str | Path, *, read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None, render: Renderer | None = None) -> None
 SolverError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 StepError	class	(step_name: str, cause: BaseException, *, run_id: str | None = None, sim_id: str | None = None, **context: Any) -> None
 StorageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 TerrainError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
-Workspace	class	(root: str | Path) -> None
 WriteConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, details: Iterable[Mapping[str, Any]] = (), diagnostics: Iterable[Diagnostic] = (), **context: Any) -> None
 __version__	str	
-calibrate	function	(config: ConfigLike, *, base: PathLike | None = None, phase: str | None = None, environment: Environment | None = None, report: bool = True, **kwargs: Any) -> CalibrationReport
-calibration_phases	function	(config: str | os.PathLike[str] | HydroModPyConfig, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
+calibrate	function	(source: Source, *, base: PathLike | None = None, phase: str | None = None, dry_run: bool = False, preflight: bool = True, case: str | None = None, method: str | None = None, max_trials: int | None = None, seed: int | None = None, save_runs: str | None = None, objective: str | None = None, project: str | None = None, workspace: PathLike | None = None, resume: bool = False, force: bool = False, report: bool = True, headless: bool = True, environment: Environment | None = None) -> CalibrationReport | CalibrationPlan
 check	function	(source: PathLike | Mapping[str, Any], *, base: PathLike | None = None, partial: bool = True, inputs: bool = False, environment: Environment | None = None) -> list[Diagnostic]
-compare	function	(refs: Sequence[str], *, variables: Sequence[str] | None = None, out: PathLike | None = None, workspace: PathLike | None = None) -> Comparison
-compare_pair	function	(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame
-doctor	function	() -> dict
-example_add	function	(example_id: str, *, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> InstallReport
-example_list	function	() -> tuple[ExampleEntry, ...]
-example_show	function	(example_id: str) -> ExampleEntry
-export	function	(run: Run, variables: str | list[str] | None = None, *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0, deliver: bool = False, environment: Environment | None = None) -> list[Path] | tuple[PublishedLine, ...]
-figure	function	(run: Run | Session | RunSet, name: str, *, save: PathLike | None = None, dpi: int = 150, time: str | date | None = None, **opts: Any) -> Figure
-index	function	(workspace: PathLike | None = None) -> Workspace
+compare	function	(refs: Sequence[Ref], *, variables: Sequence[str] | None = None, out: PathLike | None = None, by: Literal['run', 'site'] = 'run', workspace: PathLike | None = None) -> Comparison | Path
+doctor	function	() -> DoctorReport
+example	function	(name: str | None = None, *, add: bool = False, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> tuple[ExampleEntry, ...] | ExampleEntry | InstallReport
+export	function	(ref: Ref, variables: str | list[str] | None = None, *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0, deliver: bool = False, workspace: PathLike | None = None, environment: Environment | None = None) -> list[Path] | tuple[PublishedLine, ...]
+index	function	(workspace: str | os.PathLike[str] | None = None) -> Workspace
 open	function	(path: PathLike) -> Project | Run | Session | Workspace
-read	function	(run: Run, variable: str, *, time: int | str | date | np.datetime64 | np.integer | slice | None = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Readable
-replay	function	(ref: PathLike, *, strict: bool = False, base: PathLike | None = None, environment: Environment | None = None) -> Run
-report	function	(session: str | None = None, *, workspace: PathLike | None = None) -> Path
-run	function	(config: ConfigLike, *, base: PathLike | None = None, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> Run | OverviewResult | PlanDraft | None
-spinup	function	(config: ConfigLike, *, base: PathLike | None = None, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult
-stop	function	(ref: str, *, workspace: PathLike | None = None) -> Path
+publish	function	(ref: Ref, *, to: PathLike, format: Literal['dir', 'tar'] = 'dir', with_: Sequence[Literal['results', 'inputs']] | None = None, public: bool = False, dry_run: bool = False, workspace: PathLike | None = None) -> Path | PublishedProject
+read	function	(run: Run, variable: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
+replay	function	(ref: Ref, *, workspace: PathLike | None = None, strict: bool = False, environment: Environment | None = None) -> RunOutcome
+run	function	(source: Source, *, base: PathLike | None = None, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False, environment: Environment | None = None) -> RunOutcome | PlanDraft | OverviewResult | None
+show	function	(ref: Ref, *, what: ShowWhat = 'summary', workspace: PathLike | None = None, name: str | Sequence[str] | None = None, metric: str | None = None, limit: int | None = None, best: bool = True, time: str | int | None = None, layer: int | None = None, point: Mapping[str, Any] | None = None, sel: Mapping[str, Any] | None = None, bbox: Sequence[float] | None = None, station: str | None = None, preset: str | None = None, lang: str | None = None, strict: bool = False, detail: bool = False, mixed_windows: bool = False, dpi: int | None = None, options: Mapping[str, Any] | None = None, save: PathLike | None = None) -> Any
+spinup	function	(source: Source, *, base: PathLike | None = None, spinup: SpinupConfig | Mapping[str, Any] | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True, environment: Environment | None = None) -> SpinupResult
+status	function	(ref: Ref | None = None, *, workspace: PathLike | None = None, plan: bool = False, stale_after_s: float | None = None) -> RunOutcome | list[RunOutcome] | StatusReport
+stop	function	(ref: Ref, *, workspace: PathLike | None = None) -> Path
+trash	function	(ref: Ref, *, workspace: PathLike | None = None, restore: bool = False, force: bool = False) -> list[Path]

@@ -277,6 +277,14 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
     """Return ``provenance.json`` of the run: what produced the numbers."""
     env = facts.environment
     frozen = list(env.get("env_packages") or [])
+    environment: dict[str, Any] = {
+        "conda_env_hash": env.get("conda_env_hash"),
+        "rng_seed": env.get("rng_seed"),
+        "packages_frozen": frozen,
+        "binaries": _binaries_of(env),
+    }
+    if env.get("image"):
+        environment["image"] = dict(env["image"])
     return RunProvenance(
         sim_id=facts.sim_id,
         tool={
@@ -312,12 +320,7 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
             "ended_at": ended_at.isoformat(),
             "duration_s": max(0.0, (ended_at - facts.started_at).total_seconds()),
         },
-        environment={
-            "conda_env_hash": env.get("conda_env_hash"),
-            "rng_seed": env.get("rng_seed"),
-            "packages_frozen": frozen,
-            "binaries": _binaries_of(env),
-        },
+        environment=environment,
     )
 
 

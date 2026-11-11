@@ -43,7 +43,8 @@ These run when their inputs change, on a schedule, or on demand.
   branch or tag and publishes it to its own folder of ``docs.hydromodpy.fr``.
 - ``Performance / Benchmarks`` compares pairwise benchmark ratios to the committed
   baseline.
-- ``Docker / Build Smoke`` builds the image and checks the entry points.
+- ``Docker / Build Smoke`` builds the image with the tag ``ci`` and checks the entry points:
+  ``hmp --help``, ``hmp --version`` and ``python -m hydromodpy_server --help``.
 - ``Solver / PETSc Smoke`` validates the conda-forge PETSc stack and the
   Boussinesq smoke suite. It also has a weekly run.
 - ``CI / Workflow Lint`` runs ``actionlint`` on workflow files.

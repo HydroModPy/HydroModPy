@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 import pytest
 
 import hydromodpy.workflow.parallel as parallel_module
@@ -43,3 +45,32 @@ def test_threadpool_cohort_executor_runs_single_item_without_creating_pool(monke
     assert parallel_module.ThreadPoolCohortExecutor(max_workers=4).map(
         lambda item: item + 1, [2]
     ) == [3]
+
+
+def test_threadpool_cohort_executor_runs_each_item_in_a_copy_of_the_callers_context() -> None:
+    marker: ContextVar[str] = ContextVar("marker", default="unset")
+    marker.set("caller")
+
+    def read_and_overwrite(item: int) -> tuple[int, str]:
+        seen = marker.get()
+        marker.set(f"item {item}")
+        return item, seen
+
+    results = parallel_module.ThreadPoolCohortExecutor(max_workers=3).map(
+        read_and_overwrite, [1, 2, 3]
+    )
+
+    assert results == [(1, "caller"), (2, "caller"), (3, "caller")]
+    assert marker.get() == "caller"
+
+
+def test_threadpool_cohort_executor_raises_the_first_failure_in_item_order() -> None:
+    def fail_on_two(item: int) -> int:
+        if item == 2:
+            raise ValueError("item two failed")
+        return item
+
+    executor = parallel_module.ThreadPoolCohortExecutor(max_workers=2)
+
+    with pytest.raises(ValueError, match="item two failed"):
+        executor.map(fail_on_two, [1, 2, 3])

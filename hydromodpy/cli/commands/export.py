@@ -171,11 +171,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli.environment import environment_from_args
+    from hydromodpy.project.api import export
 
     workspace = project_root_of(args)
     if args.deliver:
-        _deliver(hmp, workspace, args)
+        _deliver(workspace, args)
         return
     if args.regen and (args.list or args.variables):
         refuse("--regen writes again what the ledgers record: name no variable.", EXIT_USAGE)
@@ -186,29 +187,27 @@ def run(args: argparse.Namespace) -> None:
             EXIT_USAGE,
         )
     if args.list:
-        _print_list(args, hmp, workspace)
+        _print_list(args, workspace)
         return
     if args.regen:
-        written = _regen(hmp, workspace, args.sim_ref, args.regen)
+        written = _regen(workspace, args.sim_ref, args.regen)
     else:
         folder, file = _destination(args.to)
-        from hydromodpy.cli.environment import environment_from_args
-
-        with hmp.open(workspace).store as catalog:
-            written = hmp.export(
-                catalog[args.sim_ref],
-                args.variables[0] if len(args.variables) == 1 else list(args.variables),
-                time=_time_argument(args.time),
-                period=tuple(args.period) if args.period else None,
-                format=args.file_format,
-                folder=folder,
-                file=file,
-                crs=args.crs,
-                resolution=args.resolution,
-                layer=args.layer,
-                **({} if args.nodata is None else {"nodata": args.nodata}),
-                environment=environment_from_args(args),
-            )
+        written = export(
+            args.sim_ref,
+            args.variables[0] if len(args.variables) == 1 else list(args.variables),
+            time=_time_argument(args.time),
+            period=tuple(args.period) if args.period else None,
+            format=args.file_format,
+            folder=folder,
+            file=file,
+            crs=args.crs,
+            resolution=args.resolution,
+            layer=args.layer,
+            **({} if args.nodata is None else {"nodata": args.nodata}),
+            workspace=workspace,
+            environment=environment_from_args(args),
+        )
 
     def table() -> None:
         for path in written:
@@ -219,15 +218,15 @@ def run(args: argparse.Namespace) -> None:
     emit(args, "export", {"files": written, "regenerated": args.regen}, table=table)
 
 
-def _deliver(hmp: object, workspace: Path, args: argparse.Namespace) -> None:
+def _deliver(workspace: Path, args: argparse.Namespace) -> None:
     """Send again what the sealed run records as not delivered, and say what became of it."""
     _refuse_deliver_with_other_words(args)
     from hydromodpy.cli.environment import environment_from_args
+    from hydromodpy.project.api import export
 
-    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
-        deliveries = hmp.export(  # type: ignore[attr-defined]
-            catalog[args.sim_ref], deliver=True, environment=environment_from_args(args)
-        )
+    deliveries = export(
+        args.sim_ref, deliver=True, workspace=workspace, environment=environment_from_args(args)
+    )
     _emit_deliveries(args, deliveries)
 
 
@@ -302,17 +301,18 @@ def _time_argument(values: list[str] | None) -> str | int | list[str | int] | No
     return instants[0] if len(instants) == 1 else instants
 
 
-def _regen(hmp: object, workspace: Path, sim_ref: str, what: str) -> list[Path]:
+def _regen(workspace: Path, sim_ref: str, what: str) -> list[Path]:
     """Write again what the ledgers of one run record: exports, figures or both.
 
     ``all`` writes what each ledger holds. It stops only on a run with nothing recorded.
     """
     from hydromodpy.display.catalog_figures import regen_figures
+    from hydromodpy.project.api import open as open_path
     from hydromodpy.results.exporters.request import regen_exports, run_export_target
     from hydromodpy.results.ledger import Ledger
     from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME
 
-    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
+    with open_path(workspace).store as catalog:
         sid = catalog.resolve(sim_ref)
         run_dir = Path(catalog.run_dir_for(sid))
         holds = {
@@ -329,11 +329,12 @@ def _regen(hmp: object, workspace: Path, sim_ref: str, what: str) -> list[Path]:
     return written
 
 
-def _print_list(args: argparse.Namespace, hmp: object, workspace: Path) -> None:
+def _print_list(args: argparse.Namespace, workspace: Path) -> None:
     """Say what one run can export, grouped by kind."""
+    from hydromodpy.project.api import open as open_path
     from hydromodpy.results.exporters.vocabulary import describe_exportable, list_exportable
 
-    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
+    with open_path(workspace).store as catalog:
         run = catalog[args.sim_ref]
         names = list_exportable(run)
         label = run.name or run.sim_id[:8]

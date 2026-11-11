@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -247,3 +248,33 @@ def test_an_edited_station_row_is_kept_unless_forced(source_tree, catalog_entry,
     forced = install_example(entry, workspace=workspace, source=str(source_tree), force=True)
     assert forced.stations_written == [f"{_REGISTRY} (station NANCON)"]
     assert "NANCON,389285.910" in registry.read_text(encoding="utf-8")
+
+
+def test_the_report_gives_its_json_form(source_tree, catalog_entry, workspace) -> None:
+    report = install_example(catalog_entry, workspace=workspace, source=str(source_tree))
+    document = json.loads(json.dumps(report.to_dict()))
+    assert document == {
+        "workspace": str(workspace.resolve()),
+        "project_dir": str(report.project_dir),
+        "entry_config": "step1.toml",
+        "source": str(source_tree),
+        "downloaded": report.downloaded,
+        "downloaded_bytes": len(_STEP) + len(_DEM),
+        "written": report.written,
+        "unchanged": [],
+        "kept": [],
+        "stations_written": [],
+    }
+
+
+def test_the_entry_gives_its_json_form(catalog_entry) -> None:
+    station = PayloadStation(dest="data/hydrometry/LOC.csv", row=(("id", "X1"), ("name", "Gauge")))
+    document = json.loads(json.dumps(replace(catalog_entry, stations=(station,)).to_dict()))
+    assert document["id"] == "t1"
+    assert document["total_size"] == len(_STEP) + len(_DEM)
+    assert [item["dest"] for item in document["files"]] == ["projects/tiny/step1.toml"]
+    assert [item["dest"] for item in document["data"]] == ["data/dem/dem.tif"]
+    assert document["data"][0]["sha256"] == hashlib.sha256(_DEM).hexdigest()
+    assert document["stations"] == [
+        {"dest": "data/hydrometry/LOC.csv", "row": {"id": "X1", "name": "Gauge"}}
+    ]

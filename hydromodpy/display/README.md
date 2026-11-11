@@ -10,7 +10,7 @@ the run directory by hand.
 It holds three things of unequal weight:
 
 1. the figure catalog of a run: the contract `figure.py`, the registry
-   `figure_registry.py` and the figures of `figures/` (`hmp viz list` prints
+   `figure_registry.py` and the figures of `figures/` (`hmp config figures` prints
    them);
 2. the report engine `report/` (blocks to static HTML pages, the pages of a
    sealed run, of a data overview and of a calibration session, and the
@@ -18,6 +18,19 @@ It holds three things of unequal weight:
    come from `project/report.py`, never from `display`;
 3. shared plotting tools: `maps/` (map axes, mesh, overlays, sections) and
    `style.py` (theme, colormaps, legend placement).
+
+## What a render writes to the process
+
+Nothing that stays. A figure is drawn on its own Agg canvas (`new_figure` and
+`new_subplots` in `figure.py`), so no backend is chosen or switched and no figure
+sits in the `pyplot` registry. The one thing matplotlib shares between threads is
+`rcParams`, so `themed` in `style.py` holds `RENDER_LOCK` and a `rc_context` for
+the length of one render, and `rendering` in `runs.py` is the same for a list of
+figures. Two renders in two threads of one process run one after the other and each
+meets the style it asked for. `pyplot` is imported by `quicklook/viz.py` and by the
+window `[display] show` opens, the two places a window is the point. Interactive
+`pyplot` is not under `RENDER_LOCK`: it only reads `rcParams`, in the user's own
+process, so at worst a window takes the style of a render running beside it.
 
 ## What a user can rely on
 
@@ -35,8 +48,8 @@ rules.
    lake or a piezometer, a particle that moved) is checked in the figure's own
    `unavailable_reason`. A figure that cannot draw a run is refused with a
    sentence on every surface: skipped with its reason by `[display].figures`,
-   refused by `hmp viz show` and `hmp.figure`, marked as unavailable with its
-   reason by `hmp viz list --run`. It never raises from inside `render` and never
+   refused by `hmp show --figure` and `Run.figure`, marked as unavailable with its
+   reason by `hmp config figures --run`. It never raises from inside `render` and never
    writes a placeholder PNG. A lumped run (GR4J) has no grid, so every map is
    refused and the discharge figures stay offered.
 3. An instant is a date. A figure that draws one instant is asked for it by
@@ -55,7 +68,7 @@ rules.
    the figure does not take is refused at config load, with the list. A new
    figure option therefore needs no declaration beyond its parameter.
 5. A figure has one name, written on every surface:
-   `[display].figures`, `hmp viz show <run> <name>` and `hmp.figure(run, "<name>")`.
+   `[display].figures`, `hmp show <run> --figure <name>` and `run.figure("<name>")`.
    A renamed figure keeps its old name in `former_names`, so project files that
    use it still load. `[display]` fields are `USER` when they choose what to
    show (`figures`, `overrides`), `DEV` when they tune
@@ -123,19 +136,19 @@ hydromodpy/display/
 ├── runs.py                render_figures_for_run (a run, the [display] list), render_figure (one figure),
 │                          figure_options_from_run (the [display] a run was drawn with),
 │                          figure_availability (what a run supports, and why not the rest),
-│                          matplotlib_backend (Agg or interactive for the length of a render);
+│                          rendering (the lock and the theme for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
-├── catalog_figures.py     the verbs of `hmp viz` and `hmp export --figures` on a run found in the index:
+├── catalog_figures.py     the work of `hmp show --figure`, `hmp config figures` and `hmp export --figures` on a run found in the index:
 │                          render one figure, draw again what a run recorded, list what it can feed,
 │                          parse_figure_options
 ├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
-├── run_comparison.py      the series and map figures of `hmp report compare`: draw_series, draw_maps
+├── run_comparison.py      the series and map figures of `hmp diff`: draw_series, draw_maps
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
 │                          identity block of the run and its visible footer, which names the
 │                          label, the rule and the date, or "unlabelled" without a seal)
 │
 │   shared tools
-├── style.py               how every figure looks: default, print and dark themes (apply_theme),
+├── style.py               how every figure looks: default, print and dark themes (theme_rc, themed),
 │                          banned and preferred colormaps (get_cmap), legend placement (place_legend)
 ├── maps/                  map tools, used by the figures; none imports a figure
 │   ├── axes.py                axes in metres or relative km, catchment outline, date axis of time series
@@ -155,7 +168,7 @@ hydromodpy/display/
 │   └── presets.py             ReportTexts, PRESETS (research, management), preset_figures
 ├── overview/              panels of the data before any simulation ([overview])
 │
-└── quicklook/             a quick look at data, outside the catalogue; unrelated to `hmp viz`
+└── quicklook/             a quick look at data, outside the catalogue; unrelated to `hmp show --figure`
     ├── viz.py                 viz.show(data): an xarray array, a series or a GeoDataFrame
     ├── scalable.py            datashader rasterisation for viz.py
     └── animation.py           GIF, MP4 or plotly slider from PNG already rendered
@@ -200,7 +213,7 @@ method that draws on the axes it gets and returns them. Model: `figures/hydrogra
 resolves it once, before any refusal. A session figure asked on a run receives
 `Session.of_run(run)` and `promoted=run`. When the run was not promoted, or the
 subject is of the wrong kind, the figure is refused with `NOT_PROMOTED_REASON`,
-`NOT_A_RUNSET_REASON` or `NOT_A_RUN_REASON`. `hmp viz list` shows the subject.
+`NOT_A_RUNSET_REASON` or `NOT_A_RUN_REASON`. `hmp config figures` shows the subject.
 `BaseFigure.plot` builds the matplotlib figure, calls `render` and writes the PNG
 with its provenance. A figure that lays out its own figure may define its own
 `plot`: `BaseFigure.__init_subclass__` wraps it so that it still takes the common
@@ -254,9 +267,9 @@ the columns they share. `hmp campaign collect` (`project/launch/summary.py`) dra
 under `summary/figures/` for each name of `[sites.summary] figures`.
 
 `hmp export <run> --regen figures` replays `figures/index.json` (`runs.regen_figures`).
-`hmp viz show` and `hmp.figure(...)` go through `runs.render_figure`, which
+`hmp show --figure` and `Run.figure(...)` go through `runs.render_figure`, which
 renders one figure after the same applicability check and stamps a saved PNG
-with the identity of its run. `hmp viz list --run <ref>` calls
+with the identity of its run. `hmp config figures --run <ref>` calls
 `runs.figure_availability(run)`.
 
 The figures are drawn after the seal (step order: derive, export, seal,
@@ -272,13 +285,13 @@ The inventory of the loaded data is written at the seal to
 under `runs/<overview>/report/` by `report.pages.overview_blocks` and
 `report.engine.write_pages`.
 
-Reports. `hmp report catchment RUN` reads a sealed run. `project/report.py`
+Reports. `hmp show RUN --report` reads a sealed run. `project/report.py`
 (`report_run`, `report_session`) is the one place that assembles the texts
 (`results/method.py`, `schema/phrases.py`) and the pages: it hands `display.report`
 the texts and the blocks, and `engine.write_pages` writes
 `runs/<run>/report/index.html`, its review pages under `report/review/`, the
 figures under `report/figures/` and `report.json`. A figure of the preset that
-cannot be drawn is logged with its reason. `hmp report render` and
+cannot be drawn is logged with its reason. `hmp show SESSION --report` and
 `hmp calibrate` call `report_session` for a calibration session.
 
 ## Where to add what
@@ -330,7 +343,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
-| `hydromodpy.display.run_comparison` | the figures of `hmp report compare` (`analysis`) |
+| `hydromodpy.display.run_comparison` | the figures of `hmp diff` (`analysis`) |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by other layers |
 | `hydromodpy.display.report.*` | the report engine, the pages and the presets (`project/report.py`) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
@@ -387,7 +400,7 @@ is the membership: every `BaseFigure` subclass of a public module of
 `figures/` is in the generated table under its `spec.name`, and the registry
 finds the class from it. The list of figures is
 generated from the table into the figures page of the documentation, and
-`hmp viz list` prints the live list. A run reaches data only through `Run`
+`hmp config figures` prints the live list. A run reaches data only through `Run`
 (`run.field`, `run.timeseries`, `run.budget`) or a module function of `results`.
 
 ## Vocabulary

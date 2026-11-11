@@ -2,8 +2,7 @@
 
 Subparsers:
   - ``hmp config template [--to FILE]``  : generate a TOML template
-  - ``hmp config check FILE.toml``       : check a run, a calibration or a [sites] project,
-                                           every diagnostic at once (``--partial`` for a draft)
+  - ``hmp config figures``               : list the figure names ``[display].figures`` accepts
   - ``hmp config resolve FILE.toml``     : print the file its base_config chain resolves to
   - ``hmp config schema ...``            : export the JSON Schema, with ``--editor`` the editor
                                            schema of one TOML file, with ``--bundle`` the files
@@ -37,7 +36,6 @@ from hydromodpy.cli.output import emit
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
-    from hydromodpy.core.diagnostic import Diagnostic
 
 NAME: str = "config"
 HELP: str = "Generate a TOML template, validate a config, or export the JSON Schema"
@@ -78,41 +76,28 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="List available module names and exit",
     )
 
-    chk = sub.add_parser(
-        "check",
-        help="Check a run, a calibration or a whole [sites] project",
+    fig = sub.add_parser(
+        "figures",
+        help="List the figure names accepted by [display].figures",
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog=(
-            "Examples:\n"
-            "  hmp config check run.toml\n"
-            "  hmp config check draft.toml --partial\n"
-            "  hmp config check calibration.toml -v\n"
-            "  hmp config check project.toml --inputs --lang fr\n"
-            "Every fault is listed at once, one line each. A key the file does not write\n"
-            "yet is an error, or with --partial a to_fill that stops nothing.\n"
-            "A calibration is read by its preflight and says which published method it\n"
-            "runs and where it departs from it (-v adds the stages and the references).\n"
-            "The last one expands a [sites] project and checks every case.\n"
-            "-v also says which workspace the file resolves to, with its folders."
-        ),
+        epilog="Examples:\n  hmp config figures\n  hmp config figures --kind balance",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    chk.add_argument("file", help="Path to the TOML configuration")
-    chk.add_argument(
-        "--partial",
-        action="store_true",
-        help="Check a draft: a required key not written yet is to_fill, not an error",
+    fig.add_argument(
+        "--kind",
+        default=None,
+        metavar="KIND",
+        help="Only list figures of this kind (spatial, section, timeseries, ...)",
     )
-    chk.add_argument(
-        "--inputs",
-        action="store_true",
-        help="Also read the header of each input file, local or by its final URL (downloads nothing)",
-    )
-    chk.add_argument(
-        "--lang",
-        choices=("en", "fr"),
-        default="en",
-        help="Language of the phrase of each diagnostic (default: en)",
+    fig.add_argument(
+        "--run",
+        dest="sim_ref",
+        default=None,
+        metavar="SIM_REF",
+        help=(
+            "Say for each figure whether this run supports it, or why not "
+            "(sim_id, unique prefix, name or @-selector)"
+        ),
     )
 
     res = sub.add_parser(
@@ -198,7 +183,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     # A bare ``hmp config`` writes a template.
     handlers = {
-        "check": _cmd_config_check,
+        "figures": _cmd_config_figures,
         "template": _cmd_config_template,
         "resolve": _cmd_config_resolve,
         "schema": _cmd_config_schema,
@@ -207,7 +192,9 @@ def run(args: argparse.Namespace) -> None:
     }
     handler = handlers.get(args.config_command or "template")
     if handler is None:
-        refuse("usage: hmp config {template,check,resolve,schema,targets,wizard} ...", EXIT_CONFIG)
+        refuse(
+            "usage: hmp config {template,figures,resolve,schema,targets,wizard} ...", EXIT_CONFIG
+        )
     handler(args)
 
 
@@ -366,7 +353,7 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
 def _cmd_config_resolve(args: argparse.Namespace) -> None:
     """Print the payload a ``base_config`` chain resolves to.
 
-    This is what ``hmp config check`` validates: every file of the chain
+    This is what ``hmp check`` validates: every file of the chain
     merged, the merge directives applied. Defaults of the model are not
     added, so the output shows only what the files say.
     """
@@ -388,98 +375,71 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
     sys.stdout.write(dumps(payload))
 
 
-def _cmd_config_check(args: argparse.Namespace) -> None:
-    """Check a run, a calibration or a ``[sites]`` project with ``hmp.check``.
+def _cmd_config_figures(args: argparse.Namespace) -> None:
+    """List the registered figures and their requirements, or what a run supports."""
+    if args.sim_ref is not None:
+        _figures_for_run(args)
+        return
+    from hydromodpy.display.figure_registry import list_figures
 
-    ``hmp.check`` gives every diagnostic at once. The file is refused, with the
-    exit code of a configuration, when one of them is an ``error``. ``--partial``
-    keeps a required key not written yet as ``to_fill``, which refuses nothing.
-    """
-    from hydromodpy.cli.commands.doctor import probe_toml_workspace
-    from hydromodpy.config.check import phrase
-    from hydromodpy.core.config_kit.written import experimental_keys_line
-    from hydromodpy.core.logging import current_verbosity
-    from hydromodpy.project.api import check
-
-    path = Path(args.file).expanduser().resolve()
-    if not path.is_file():
-        refuse(f"File not found: {path}", EXIT_NOT_FOUND)
-
-    verbosity = current_verbosity()
-    verbose = verbosity in ("verbose", "debug")
-    base = base_named_by_w(args.workspace)
-    diagnostics = check(path, partial=args.partial, inputs=args.inputs, base=base)
-    if verbosity != "quiet":
-        for line in _calibration_notes(path, verbose=verbose):
-            print(line, file=sys.stderr)
-    where = probe_toml_workspace(path) if verbose or args.format != "table" else []
-    ok = not any(item.severity == "error" for item in diagnostics)
-    experimental = [item.path for item in diagnostics if item.code == "experimental_key"]
-    if experimental and verbosity != "quiet":
-        print(experimental_keys_line(experimental), file=sys.stderr)
-    findings = [item for item in diagnostics if item.code != "experimental_key"]
+    specs = [spec for spec in list_figures() if args.kind in (None, spec.kind)]
 
     def table() -> None:
-        print(
-            f"OK: {path}" if ok else f"Config invalid: {path}",
-            file=sys.stdout if ok else sys.stderr,
-        )
-        for item in findings:
-            print(_diagnostic_text(item, args.lang), file=sys.stderr)
-        for entry in where:
-            print(f"{entry['status']:<4} {entry['name']}: {entry['detail']}", file=sys.stderr)
+        for spec in specs:
+            requirements = []
+            if spec.required_fields:
+                requirements.append("fields " + ", ".join(spec.required_fields))
+            if spec.required_tables:
+                requirements.append("tables " + ", ".join(spec.required_tables))
+            needs = "; ".join(requirements) or "no declared requirement"
+            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {needs}")
+        print(f"\n{len(specs)} figure(s)")
 
     emit(
         args,
-        "config check",
-        {
-            "ok": ok,
-            "diagnostics": [
-                {**item.to_dict(), "phrase": phrase(item.code, args.lang)} for item in diagnostics
-            ],
-            "workspace": where,
-        },
+        "config figures",
+        [
+            {
+                "name": spec.name,
+                "kind": spec.kind,
+                "subject": spec.subject,
+                "required_fields": list(spec.required_fields),
+                "required_tables": list(spec.required_tables),
+            }
+            for spec in specs
+        ],
         table=table,
     )
-    if not ok:
-        sys.exit(EXIT_CONFIG)
 
 
-def _diagnostic_text(diagnostic: Diagnostic, lang: str) -> str:
-    """Return a diagnostic as ``severity path:line: phrase``, its detail on the next line."""
-    from hydromodpy.config.check import phrase
+def _figures_for_run(args: argparse.Namespace) -> None:
+    from hydromodpy.display.catalog_figures import figure_availability
 
-    where = diagnostic.path or "<document>"
-    if diagnostic.line_number is not None:
-        where = f"{where}:{diagnostic.line_number}"
-    text = f"  {diagnostic.severity} {where}: {phrase(diagnostic.code, lang)}"
-    return f"{text}\n    {diagnostic.detail}" if diagnostic.detail else text
+    rows = figure_availability(args.sim_ref, workspace=args.workspace)
+    rows = [(spec, reason) for spec, reason in rows if args.kind in (None, spec.kind)]
 
+    def table() -> None:
+        for spec, reason in rows:
+            state = "available" if reason is None else reason
+            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {state}")
+        supported = sum(reason is None for _, reason in rows)
+        print(f"\n{len(rows)} figure(s), {supported} available for {args.sim_ref}")
 
-def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
-    """Return what a calibration file runs: its published method, its departures, its comparisons.
-
-    These lines inform, they never refuse: a file that does not load prints
-    none, its refusal is already a finding of the check. A file with no
-    ``[calibration]`` prints none either.
-    """
-    import warnings
-
-    from hydromodpy.calibration.preflight import comparison_lines, protocol_lines
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.exceptions import ConfigError
-
-    try:
-        with warnings.catch_warnings():
-            # The warnings of loading are findings of the check already.
-            warnings.simplefilter("ignore")
-            cfg = HydroModPyConfig.from_toml(path)
-    except (ConfigError, ValueError, KeyError, FileNotFoundError):
-        return []
-    if cfg.calibration is None:
-        return []
-    normal, detailed = protocol_lines(cfg)
-    return [*normal, *(detailed if verbose else ()), *comparison_lines(cfg, path)]
+    emit(
+        args,
+        "config figures run",
+        [
+            {
+                "name": spec.name,
+                "kind": spec.kind,
+                "subject": spec.subject,
+                "available": reason is None,
+                "reason": reason,
+            }
+            for spec, reason in rows
+        ],
+        table=table,
+    )
 
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:

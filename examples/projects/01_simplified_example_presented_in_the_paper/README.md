@@ -17,7 +17,7 @@ hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.t
 # residence times from the trajectories, via the Python API
 python examples/projects/01_simplified_example_presented_in_the_paper/run_manual.py
 
-hmp viz regen <run>  # draw the figures of a sealed run again
+hmp export <run> --regen figures  # draw the figures of a sealed run again
 ```
 
 Runtime: about 4 s (catchment ~9300 cells, 5 layers, 300 particles).

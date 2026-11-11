@@ -278,7 +278,7 @@ def _load_optional_calibration_section(
 # ---------------------------------------------------------------------------
 
 ANALYSIS_SECTION_REFUSAL = (
-    "[analysis] was removed: a comparison is hmp report compare over sealed runs, "
+    "[analysis] was removed: a comparison is hmp diff --to DIR over sealed runs, "
     "figures are hmp export <run> --regen figures on a run"
 )
 HYDROMETRY_SECTION_REFUSAL = (

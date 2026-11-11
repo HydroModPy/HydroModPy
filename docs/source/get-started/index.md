@@ -39,7 +39,7 @@ A run ends with this, the name and the first eight characters of the run id bein
 
 ```text
 Run completed: nancon_step1_minimal [3fd2f8e3] 19s
-next: hmp catalog show nancon_step1_minimal | hmp publish nancon_step1_minimal --to <folder> | hmp export nancon_step1_minimal --list
+next: hmp show nancon_step1_minimal | hmp publish nancon_step1_minimal --to <folder> | hmp export nancon_step1_minimal --list
 ```
 
 The figure of that run is `watertable_depth_map`, in `runs/nancon_step1_minimal/figures/`:
@@ -114,6 +114,7 @@ The staircase <staircase/index>
 After the staircase <staircase/next>
 Use your own files <../how-to/use-your-own-files>
 Deliver exports <../how-to/deliver-exports>
+Replay a run <../how-to/replay-a-run>
 Long transient runs in windows <../how-to/long-transient-runs-in-windows>
 Calibrate on a network and a discharge <calibrate-k>
 Many catchments <many-catchments>

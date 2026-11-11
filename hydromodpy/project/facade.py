@@ -64,7 +64,7 @@ from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, summary_dir_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, SUMMARY_DIRNAME
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.state.scratch import run_scratch
 from hydromodpy.core.toml_io.paths import assign, parse
@@ -79,12 +79,14 @@ from hydromodpy.project.accessors import (
     sites_frame,
 )
 from hydromodpy.project.runner import ProjectRunner
+from hydromodpy.project.show import render
 from hydromodpy.project.state import (
     CONFIGURED_STATE_FIELDS,
     PROJECT_ATTR_TO_STATE_FIELD,
     ProjectState,
 )
 from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, DEFAULT_TRIAL_FIELDS_DAYS
+from hydromodpy.results.storage.run_log import project_log
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
@@ -228,9 +230,10 @@ class Project:
         regenerate a mesh that Gmsh does not reproduce run to run.
         """
         if self._phase == "uninitialized":
-            self.build_geographic()
-            self.load_data()
-            self.build_mesh()
+            with project_log(self.root):
+                self.build_geographic()
+                self.load_data()
+                self.build_mesh()
 
     def prepare(self) -> Project:
         """Eagerly build the model phase (geographic, data, mesh). Returns self."""
@@ -467,7 +470,7 @@ class Project:
                 str(exc).rstrip("."),
             )
             if store is None or store.closed:
-                self._store = Catalog(self.root, read_config=read_sealed_config)
+                self._store = Catalog(self.root, read_config=read_sealed_config, render=render)
                 return self._store
             return store
         if (
@@ -479,7 +482,7 @@ class Project:
             return store
         if store is not None:
             store.close()
-        self._store = Catalog(self.root, read_config=read_sealed_config)
+        self._store = Catalog(self.root, read_config=read_sealed_config, render=render)
         return self._store
 
     @property
@@ -604,10 +607,13 @@ class Project:
         return report
 
     def status(self) -> StatusReport:
-        """Return where each case of the plan stands, read from the disk."""
-        from hydromodpy.project.launch import project_status
+        """Return where each case of the plan stands, read from the disk.
 
-        return project_status(self.root)
+        It is ``hydromodpy.status(project, plan=True)``.
+        """
+        from hydromodpy.project.api import status
+
+        return status(self, plan=True)
 
     def collect(self, *, write_sites: bool = False, mixed_windows: bool = False) -> SummaryPaths:
         """Write ``summary/``: one table per case and per site, figures, report, README.
@@ -630,16 +636,12 @@ class Project:
         The words of ``hmp publish summary --to DEST``. A summary carries no
         results and no inputs, so there is nothing to leave out. Returns the
         copy. Raises ``FileNotFoundError`` before :meth:`collect` wrote
-        ``summary/``.
+        ``summary/``. It is ``hydromodpy.publish("summary", ...)`` read in this
+        project.
         """
-        from hydromodpy.results.export.publish import publish
+        from hydromodpy.project.api import publish
 
-        summary = summary_dir_for(self.root)
-        if not summary.is_dir():
-            raise FileNotFoundError(
-                f"{summary} does not exist: write it with proj.collect() before publishing"
-            )
-        return publish(summary, to, project_root=self.root, format=format, public=public)
+        return publish(SUMMARY_DIRNAME, to=to, format=format, public=public, workspace=self.root)
 
     def gc(
         self,
@@ -927,7 +929,7 @@ class Project:
             ``extra["identical_to"]`` naming its folder, and nothing runs.
         dry_run
             Return the plan a launch would follow, a ``dict``, after the checks of
-            ``hmp config check``, and run nothing. A calibration held in memory needs
+            ``hmp check``, and run nothing. A calibration held in memory needs
             a project built from a file to name its case.
         workspace, project, project_label, metric_fn, objective
             Runner options: the project root, the project name written in the session
@@ -950,7 +952,7 @@ class Project:
         ConfigError
             Raised when ``phase`` is given and ``config_path`` cannot be read,
             because the answer is what the file says, and when the preflight,
-            the checks of ``hmp config check``, refuses the calibration, before
+            the checks of ``hmp check``, refuses the calibration, before
             anything is prepared.
         CalibrationError
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
@@ -1011,7 +1013,8 @@ class Project:
         """
         from hydromodpy.project.spinup import run_spinup
 
-        return run_spinup(self, spinup=spinup, name_prefix=name_prefix)
+        with project_log(self.root):
+            return run_spinup(self, spinup=spinup, name_prefix=name_prefix)
 
     # -- Lifecycle --------------------------------------------------------
 

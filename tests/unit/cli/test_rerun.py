@@ -115,7 +115,7 @@ def test_a_rerun_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> None:
     """``rerun_config`` hands ``simulate`` a lineage naming the source."""
     import types
 
-    import hydromodpy.project as project_module
+    import hydromodpy.project.facade as project_module
 
     seen: dict = {}
 

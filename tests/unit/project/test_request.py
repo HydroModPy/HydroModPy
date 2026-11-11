@@ -22,15 +22,20 @@ from hydromodpy.project.request import (
     RunOutcome,
     RunRequest,
     base_of,
+    held,
+    is_a_path,
+    outcome_of_directory,
+    outcomes_under,
     read_request,
     request_of,
     workflow_of,
     write_request_file,
 )
 from hydromodpy.results.outcome import Outcome, write_outcome
-from hydromodpy.results.publication import PublishedLine
+from hydromodpy.results.publication import PublishedLine, append_published
 from hydromodpy.results.storage.contract import RUN_REQUEST_FILENAME
 from hydromodpy.workflow.solution_key import input_digests, planned_request_id
+from tests._helpers.sealed_runs import make_project, write_session_dir
 
 DOCUMENT: dict[str, Any] = {
     "workflow": {"mode": "simulation"},
@@ -309,6 +314,136 @@ def test_the_outcome_of_a_run_carries_the_delivery_lines_it_wrote(tmp_path: Path
 def test_a_directory_without_outcome_is_no_finished_run(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         RunOutcome.read(tmp_path, project_root=tmp_path)
+
+
+def _delivery() -> PublishedLine:
+    return PublishedLine(
+        kind="delivery",
+        published_at=datetime(2026, 11, 10, tzinfo=UTC),
+        file="exports/head_last.tif",
+        destination="ftp://example.org/incoming/head_last.tif",
+        state="delivered",
+        sha256=hashlib.sha256(b"head").hexdigest(),
+        bytes=4,
+        attempts=1,
+    )
+
+
+@pytest.mark.parametrize("kind", ["run", "session"])
+def test_an_outcome_says_its_kind(tmp_path: Path, kind: str) -> None:
+    run_dir = tmp_path / "runs" / "island"
+    _finished(run_dir, request_id="r" * 64)
+
+    assert RunOutcome.read(run_dir, project_root=tmp_path).kind == "run"
+    assert RunOutcome.read(run_dir, project_root=tmp_path, kind=kind).kind == kind
+
+
+def test_an_outcome_goes_to_json_and_back_as_text_and_numbers(tmp_path: Path) -> None:
+    import numpy as np
+
+    run_dir = tmp_path / "runs" / "island"
+    _finished(run_dir, request_id="r" * 64)
+    fresh = RunOutcome.read(run_dir, project_root=tmp_path)
+    outcome = RunOutcome(
+        **{
+            **{name: getattr(fresh, name) for name in fresh.__dataclass_fields__},
+            "mesh_summary": {"n_cells": np.int64(12), "where": tmp_path, "sizes": (1.5, 2)},
+            "deliveries": (_delivery(),),
+        }
+    )
+
+    said = json.loads(json.dumps(outcome.to_dict()))
+
+    assert said["run_dir"] == str(run_dir)
+    assert said["project_root"] == str(tmp_path)
+    assert said["mesh_summary"] == {"n_cells": 12, "where": str(tmp_path), "sizes": [1.5, 2]}
+    assert said["deliveries"][0]["state"] == "delivered"
+    assert (said["kind"], said["sim_id"], said["status"]) == ("run", "s" * 32, "failed")
+
+
+def test_an_outcome_opens_its_directory_by_the_verb(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "runs" / "island"
+    _finished(run_dir, request_id="r" * 64)
+    opened: list[Path] = []
+    monkeypatch.setattr(
+        "hydromodpy.project.api.open", lambda path: opened.append(path) or "the run"
+    )
+
+    assert RunOutcome.read(run_dir, project_root=tmp_path).open() == "the run"
+    assert opened == [run_dir]
+
+
+def test_a_directory_without_outcome_still_has_a_line_and_its_deliveries(tmp_path: Path) -> None:
+    claimed = tmp_path / "runs" / "claimed"
+    claimed.mkdir(parents=True)
+    append_published(claimed, _delivery())
+
+    line = outcome_of_directory(claimed, project_root=tmp_path, kind="run")
+
+    assert (line.name, line.sim_id, line.request_id) == ("claimed", None, None)
+    assert line.status
+    assert [each.state for each in line.deliveries] == ["delivered"]
+
+
+def test_a_session_line_takes_the_status_of_its_descriptor(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "project")
+    write_session_dir(project, "calage", status="completed")
+    write_session_dir(project, "broken", status="completed")
+    (project / "sessions" / "broken" / "session.json").write_text("{not json", encoding="utf-8")
+
+    done = outcome_of_directory(
+        project / "sessions" / "calage", project_root=project, kind="session"
+    )
+    broken = outcome_of_directory(
+        project / "sessions" / "broken", project_root=project, kind="session"
+    )
+
+    assert (done.kind, done.status) == ("session", "completed")
+    assert broken.status == "unreadable"
+
+
+def test_the_outcomes_of_a_project_are_read_from_its_directories_by_name(tmp_path: Path) -> None:
+    _finished(tmp_path / "runs" / "zeta", request_id="r" * 64)
+    _finished(tmp_path / "runs" / "alpha", request_id="r" * 64)
+    _finished(tmp_path / "sessions" / "beta", request_id="r" * 64)
+    (tmp_path / "runs" / "loose.txt").write_text("not a run", encoding="utf-8")
+
+    found = outcomes_under(tmp_path)
+
+    assert [(each.name, each.kind) for each in found] == [
+        ("alpha", "run"),
+        ("beta", "session"),
+        ("zeta", "run"),
+    ]
+    assert outcomes_under(tmp_path / "empty") == []
+
+
+def test_a_request_object_is_a_source_whose_options_the_caller_adds_to(tmp_path: Path) -> None:
+    built = request_of(DOCUMENT, name="first", set={"K": 1.0})
+
+    again = request_of(built, force=True, set={"Sy": 0.1})
+
+    assert (again.name, again.force) == ("first", True)
+    assert again.set == {"K": 1.0, "Sy": 0.1}
+    assert again.config == built.config
+    with pytest.raises(ConfigError, match="needs base="):
+        base_of(built)
+    assert base_of(built, tmp_path) == tmp_path.resolve()
+
+
+def test_a_source_is_a_path_unless_it_is_a_document_or_an_object(tmp_path: Path) -> None:
+    config = tmp_path / "x.toml"
+
+    assert is_a_path(str(config)) and is_a_path(config)
+    assert not is_a_path('{"workflow": {"mode": "simulation"}}')
+    assert not is_a_path(DOCUMENT)
+    assert held(str(config), None) == config.resolve()
+    built = object()
+    assert held(built, None) is built
+    with pytest.raises(ConfigError, match="needs base="):
+        held(DOCUMENT, None)
 
 
 # The identity of a request, told by hydromodpy.workflow.solution_key

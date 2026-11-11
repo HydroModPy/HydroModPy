@@ -21,12 +21,12 @@ from __future__ import annotations
 
 import dataclasses
 import re
-import warnings
 from dataclasses import dataclass
 from typing import Any, Literal
 
 import pandas as pd
 
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
@@ -645,7 +645,7 @@ def _handle_recharge_coverage_violation(policy: str, message: str) -> None:
     if policy == "ignore":
         return
     if policy == "warn":
-        warnings.warn(message, stacklevel=2)
+        say(message, UserWarning, stacklevel=2)
         return
     raise ValueError(message)
 
