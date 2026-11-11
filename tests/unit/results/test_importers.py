@@ -9,15 +9,13 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run
-from hydromodpy.results.importers import (
-    import_csv_timeseries,
-    import_netcdf_fields,
-    import_zarr_field,
-)
+from hydromodpy.results.importers.csv_timeseries import import_csv_timeseries
+from hydromodpy.results.importers.netcdf_fields import import_netcdf_fields
+from hydromodpy.results.importers.zarr_field import import_zarr_field
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store
 

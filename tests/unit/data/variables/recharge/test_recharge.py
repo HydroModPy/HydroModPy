@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.data.variables.recharge.synthetic import generate
 from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window

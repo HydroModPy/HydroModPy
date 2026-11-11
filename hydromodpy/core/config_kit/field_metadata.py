@@ -90,11 +90,6 @@ def field_metadata(**kwargs: Any) -> dict[str, Any]:
     return dict(kwargs)
 
 
-def is_valid_field_metadata(payload: dict[str, Any]) -> bool:
-    """Return True when *payload* only contains canonical keys."""
-    return not unknown_metadata_keys(payload)
-
-
 def unknown_metadata_keys(payload: dict[str, Any]) -> set[str]:
     """Return the set of keys in *payload* that are not canonical.
 
@@ -109,6 +104,5 @@ __all__ = [
     "Stability",
     "WidgetType",
     "field_metadata",
-    "is_valid_field_metadata",
     "unknown_metadata_keys",
 ]

@@ -14,7 +14,7 @@ from hydromodpy.display.figure_options import Opt, Station, Variable
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class RecessionCurveFigure(BaseFigure):

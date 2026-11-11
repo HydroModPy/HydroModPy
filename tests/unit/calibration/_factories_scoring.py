@@ -9,7 +9,8 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString
 
-from hydromodpy.calibration.config import CalibObjectiveBlockDecl, validate_calib_output
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.series import add_runoff_to_discharge
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs

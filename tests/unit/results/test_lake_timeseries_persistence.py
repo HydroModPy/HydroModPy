@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed

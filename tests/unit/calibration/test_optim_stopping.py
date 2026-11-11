@@ -11,7 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.config import CalibPhaseDecl, MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.optim import stopping
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BisectionAdapter,
@@ -40,17 +41,14 @@ from hydromodpy.calibration.optim.stopping import (
     stopping_rule,
 )
 from hydromodpy.calibration.preflight import _check_the_budgets
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.recap import search_line
-from hydromodpy.calibration.runners.search import _search_outcome_extra
+from hydromodpy.calibration.runners.search_record import search_outcome_extra
 from hydromodpy.calibration.runners.session_scope import search_status
-from hydromodpy.calibration.runners.staged_runner import (
-    _frozen_by,
-    _require_result_for_dependents,
-    _settled,
-)
+from hydromodpy.calibration.runners.staged_report import phase_settled
+from hydromodpy.calibration.runners.staged_runner import _frozen_by, _require_result_for_dependents
 from hydromodpy.core.exceptions import CalibrationError, OptimizerError
 from hydromodpy.results.record.checks import BUDGET_RULE, CalibratedBy, stop_text
 from hydromodpy.results.session.descriptor import SessionDescriptor
@@ -178,7 +176,7 @@ def test_only_a_rule_engine_that_spent_its_budget_is_unsettled() -> None:
 def test_the_search_record_carries_the_state() -> None:
     session = _run(build_optimizer("random_search", _space(), seed=3), _bowl, 3)
 
-    search = _search_outcome_extra(session)["search"]
+    search = search_outcome_extra(session)["search"]
 
     assert search["stop_state"] == "budget_spent"
     assert search["converged"] is False
@@ -711,7 +709,7 @@ def test_the_report_records_the_verdict_and_the_open_bracket() -> None:
     adapter = _nancon()
     session = run_engine(adapter.space, adapter, _root_at(5e-11), 16)
 
-    extra = _search_outcome_extra(session)
+    extra = search_outcome_extra(session)
 
     # Four expansions leave the bracket eight halvings wide at 16 evaluations,
     # and eight is exactly half the budget: granted, and closed.
@@ -735,7 +733,7 @@ def test_the_report_publishes_an_open_bracket_when_nothing_was_granted(caplog) -
     with caplog.at_level(logging.WARNING):
         session = run_engine(adapter.space, adapter, _root_at(4e-3), 14)
 
-    extra = _search_outcome_extra(session)
+    extra = search_outcome_extra(session)
 
     assert extra["search"] == {
         "stop_state": "budget_spent",
@@ -757,7 +755,7 @@ def test_the_report_publishes_the_closed_bracket_in_physical_units() -> None:
     adapter = _nancon()
     session = _run__search_that(adapter, 2.09e-4, AUTO_BUDGET)
 
-    bracket = _search_outcome_extra(session)["bracket"]
+    bracket = search_outcome_extra(session)["bracket"]
 
     assert bracket["closed"] is True
     assert bracket["low"] <= 2.09e-4 <= bracket["high"]
@@ -769,7 +767,7 @@ def test_a_minimiser_publishes_no_bracket() -> None:
     optimizer = build_optimizer("random_search", _log_space(), seed=3)
     session = run_engine(_log_space(), optimizer, _root_at(50.0), 3)
 
-    extra = _search_outcome_extra(session)
+    extra = search_outcome_extra(session)
 
     assert "bracket" not in extra
     assert extra["search"]["converged"] is False
@@ -802,12 +800,12 @@ def _report(*, converged: bool | None) -> CalibrationReport:
 
 
 def test_a_phase_that_did_not_converge_is_not_settled() -> None:
-    assert not _settled(_report(converged=False))
-    assert _settled(_report(converged=True))
+    assert not phase_settled(_report(converged=False))
+    assert phase_settled(_report(converged=True))
 
 
 def test_a_report_without_a_search_record_is_judged_on_its_candidate() -> None:
-    assert _settled(_report(converged=None))
+    assert phase_settled(_report(converged=None))
 
 
 def test_nothing_is_frozen_from_a_phase_that_did_not_converge(caplog) -> None:

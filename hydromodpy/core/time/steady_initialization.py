@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.time import build_simulation_time_boundaries
+from hydromodpy.core.time.window import build_simulation_time_boundaries
 
 
 def _positive_period_lengths_seconds(source_time_grid: object) -> np.ndarray:

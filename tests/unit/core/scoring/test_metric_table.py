@@ -10,11 +10,9 @@ from typing import get_args
 
 import pytest
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    MatchingHydrographicNetworkOptions,
-    MetricKind,
-)
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_terms import MetricKind
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
 from hydromodpy.calibration.criteria.hydrographic_network_distance import Estimator
 from hydromodpy.calibration.criteria.series import METRICS

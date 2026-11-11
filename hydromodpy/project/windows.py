@@ -108,7 +108,7 @@ def chain_length(cfg: Any) -> int | None:
     time_config = getattr(getattr(cfg, "simulation", None), "time", None)
     if getattr(time_config, "window_length", None) is None:
         return None
-    from hydromodpy.core.time import require_flow_simulation_time_grid
+    from hydromodpy.core.time.window import require_flow_simulation_time_grid
 
     return len(chain_windows(require_flow_simulation_time_grid(cfg), time_config.window_length))
 

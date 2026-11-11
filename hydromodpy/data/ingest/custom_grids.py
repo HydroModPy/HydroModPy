@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.unit_helpers import convert_array
+from hydromodpy.data.common.units import convert_array
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 
 logger = get_logger(__name__)

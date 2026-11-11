@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 TransectOrientation = Literal["we", "sn"]

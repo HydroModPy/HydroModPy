@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.properties.property_table import K_TENSOR_PROPERTIES
 from hydromodpy.solver.modflow_common.property_mapping import MODFLOW_PROPERTIES
-from hydromodpy.solver.modflow_common.property_mapping import (
-    resolve_flow_property_arrays as resolve_flat_flow_property_arrays,
-)
 
 logger = get_logger(__name__)
 
@@ -21,36 +16,6 @@ MODFLOW6_PROPERTIES = (*MODFLOW_PROPERTIES, *K_TENSOR_PROPERTIES)
 
 K_TENSOR_NPF_NAMES = ("k22", "angle1", "angle2", "angle3")
 """The NPF arrays of the K tensor past ``k`` and ``k33``, named as FloPy names them."""
-
-
-def resolve_flow_property_arrays(
-    *,
-    profiles: Mapping[str, object],
-    domain: object,
-    solver_mesh,
-    required_properties: frozenset[str] | set[str] | None = None,
-    optional_fill_values: Mapping[str, float] | None = None,
-    runtime_property_overrides: Mapping[str, object] | None = None,
-) -> dict[str, np.ndarray]:
-    """Map K, Kv, Sy, Ss, K22 and the three angles onto a MODFLOW 6 solver mesh.
-
-    ``profiles`` is ``Model.properties.profiles``.
-
-    The flat arrays of the shared mapping, in the grid shape of the mesh: a
-    regular grid gives ``(nlay, nrow, ncol)`` and ``(nrow, ncol)``, the shape
-    ``build.py`` reads back through ``SolverMesh.flatten_from_grid``; any other
-    mesh keeps ``(nlay, n_cells)`` and ``(n_cells,)``.
-    """
-    flat = resolve_flat_flow_property_arrays(
-        profiles=profiles,
-        domain=domain,
-        solver_mesh=solver_mesh,
-        required_properties=required_properties,
-        optional_fill_values=optional_fill_values,
-        runtime_property_overrides=runtime_property_overrides,
-        properties=MODFLOW6_PROPERTIES,
-    )
-    return {name: solver_mesh.reshape_to_grid(values) for name, values in flat.items()}
 
 
 _VKA_WARNED: set[float] = set()
@@ -130,6 +95,5 @@ __all__ = [
     "K_TENSOR_NPF_NAMES",
     "MODFLOW6_PROPERTIES",
     "k_tensor_npf_kwargs",
-    "resolve_flow_property_arrays",
     "resolve_k33_field",
 ]

@@ -14,7 +14,7 @@ shipped source writes no host of its own: it reads them from
 :func:`shipped_hosts`, the one table the licence pages also read. The registry
 is :mod:`hydromodpy.data.source.registry`, which this module must not depend
 on, and the check that a declaration matches a real fetch is
-``tests/contract/test_data_source_contract.py``.
+``tests/ports/test_data_source.py``.
 """
 
 from __future__ import annotations

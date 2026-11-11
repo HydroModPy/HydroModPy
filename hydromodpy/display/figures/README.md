@@ -18,7 +18,7 @@ Never edit the table by hand. A test regenerates it in memory and fails on a
 stale file, and validating a `[display]` section loads no figure module.
 
 A figure draws one subject, the one `FigureSpec.subject` names. Most draw a
-finished run (`hydromodpy.results.run.Run`). The calibration figures draw a
+finished run (`hydromodpy.results.run.view.Run`). The calibration figures draw a
 `Session` (`results/session/view.py`), and `ensemble_band` draws a `RunSet`.
 `render`, `plot` and `unavailable_reason` receive that object. A session figure
 asked for on a promoted run receives `Session.of_run(run)` and the run as the

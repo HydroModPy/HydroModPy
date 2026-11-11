@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_transient_residual_with_saturation_excess,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_mixed import _assembly_with_dry_deficit

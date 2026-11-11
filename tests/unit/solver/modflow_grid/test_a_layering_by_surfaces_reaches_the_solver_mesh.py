@@ -23,7 +23,7 @@ from hydromodpy.mesh.request import RasterGridSpec
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.model import Geometry
-from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
 from tests._helpers.mesh_cases import mesh_request

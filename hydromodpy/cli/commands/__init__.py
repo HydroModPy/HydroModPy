@@ -59,4 +59,5 @@ ALL_COMMANDS = (
     install_binaries,
 )
 
+
 __all__ = ("ALL_COMMANDS",)

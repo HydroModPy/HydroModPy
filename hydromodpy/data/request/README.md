@@ -9,8 +9,8 @@ is a box with its CRS, a vector mask or a list of station codes. The answer is a
 1. `model.py` reads the request, a JSON document. It holds the `[data]` sections with the models of
    the TOML, an extent that is exactly one of a box, a mask or station codes, an optional period,
    and plugin sources under `installed`.
-2. `engine.py` (`run_request`) loads each section through its manager over the extent, written as a
-   polygon mask in the CRS of the manager. `hydrography` and the installed sources go through the
+2. `engine.py` (`run_request`) loads each section through its variable over the extent, written as a
+   polygon mask in the CRS of the variable. `hydrography` and the installed sources go through the
    source registry. A source that fails loses its files and is listed with its error. The others
    keep theirs. An empty answer, a box at sea for example, is a success marked `"empty": true`.
 3. `artefacts.py` cuts each answer to the extent and the period, whatever the cache held, and writes

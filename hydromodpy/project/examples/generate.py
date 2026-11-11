@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.payload import PayloadFile
+from hydromodpy.core.payload.index import PayloadFile
 from hydromodpy.core.payload.resolve import authored_files, project_data
 from hydromodpy.project.examples.manifest import ExampleEntry, catalog_path, render_catalog
 

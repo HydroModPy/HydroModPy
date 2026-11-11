@@ -7,7 +7,7 @@ record per component; the others yield a single record.
 
 :func:`fetch_sim2` downloads a product from the GeoSAS EDR service. It takes
 plain values -- the variable, the components, a box in EPSG:2154 and a period
--- and never a variable config, so the managers and the data-source port call
+-- and never a variable config, so the variables and the data-source port call
 it the same way.
 """
 

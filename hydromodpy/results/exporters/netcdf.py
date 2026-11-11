@@ -33,7 +33,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.virtual_fields import field_descriptor
 from hydromodpy.results.exporters.fields import is_timed, resolve_zarr_path
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 logger = get_logger(__name__)
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import boundary_head_edge_flux_from_head
+from hydromodpy.solver.boussinesq.assembly.fluxes import boundary_head_edge_flux_from_head
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 

@@ -4496,12 +4496,12 @@
         }
       }
     },
-    "DataManagersConfig": {
+    "DataConfig": {
       "additionalProperties": false,
-      "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataLoader``.",
+      "description": "Top-level ``[data]`` configuration for the data variables.\n\nThe `types` list declares user-requested data variables. The effective\nactive set can also include planner-inferred variables deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data variables explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -4888,7 +4888,7 @@
           "x-hmp-profile": "user"
         }
       },
-      "title": "DataManagersConfig",
+      "title": "DataConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -26248,7 +26248,7 @@
       "x-hmp-profile": "user"
     },
     "data": {
-      "$ref": "#/$defs/DataManagersConfig",
+      "$ref": "#/$defs/DataConfig",
       "description": "Data-managers configuration. Use `data.types` to declare requested families (for example `geology`). The launcher can also infer extra families from other sections (domain, flow), controlled by `data.inference_mode` ('warn' or 'strict').",
       "x-hmp-profile": "user"
     },

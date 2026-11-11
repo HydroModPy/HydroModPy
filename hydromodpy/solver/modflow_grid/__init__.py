@@ -4,27 +4,3 @@ This package hosts the grid-related primitives consumed by both the
 MODFLOW 6 and MODFLOW-NWT backends. It is independent from each backend
 and from ``solver/modflow_common/`` (which holds non-grid shared helpers).
 """
-
-from .discretization_spatial import (
-    SolverGridContext,
-    build_spatial_discretization,
-    grid_reference_from_solver_mesh,
-    resolve_domain_surfaces,
-)
-from .discretization_temporal import (
-    TemporalDiscretizationResult,
-    build_temporal_discretization_from_time_grid,
-    resolve_first_period_steady,
-)
-from .solver_mesh import SolverMesh
-
-__all__ = [
-    "SolverGridContext",
-    "SolverMesh",
-    "TemporalDiscretizationResult",
-    "build_spatial_discretization",
-    "build_temporal_discretization_from_time_grid",
-    "grid_reference_from_solver_mesh",
-    "resolve_first_period_steady",
-    "resolve_domain_surfaces",
-]

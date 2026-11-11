@@ -26,7 +26,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_of
-from hydromodpy.core.payload import read_index
+from hydromodpy.core.payload.index import read_index
 from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import (
     INPUTS_DIRNAME,

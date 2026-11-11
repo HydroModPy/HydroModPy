@@ -142,6 +142,7 @@ from hydromodpy.results.storage.contract import (
     SESSION_DESCRIPTOR_FILENAME,
 )
 from hydromodpy.results.storage.json_io import readable, write_json_atomic
+from hydromodpy.results.storage.run_log import read_log_tail
 
 logger = get_logger(__name__)
 
@@ -790,6 +791,39 @@ def finish_dead_attempt(
         log_tail=log_tail,
         written_by=written_by,
     )
+
+
+def close_attempt_of_process(project_root: Path, exit_code: int | None, signal: int | None) -> None:
+    """Write ``failed`` for the attempt of this process when it died without writing its outcome.
+
+    The worker of ``hmp run`` is the calling process, so only an outcome that
+    names this host and this pid is closed: a run another worker holds, which
+    refused our claim, is left exactly as it is. The run is found by that
+    claim, never by the name the caller guessed.
+    """
+    runs = runs_dir_for(project_root)
+    if not runs.is_dir():
+        return
+    host, pid = host_name(), os.getpid()
+    for run_dir in sorted(runs.iterdir()):
+        # An outcome that cannot be read (corrupt, or of another schema) is not the
+        # attempt of this process, and reading it must never hide the error of the run.
+        outcome = readable(read_outcome, run_dir) if run_dir.is_dir() else None
+        if (
+            outcome is None
+            or outcome.status != "running"
+            or (outcome.host, outcome.pid) != (host, pid)
+        ):
+            continue
+        finish_dead_attempt(
+            run_dir,
+            host=host,
+            pid=pid,
+            exit_code=exit_code,
+            signal=signal,
+            log_tail=read_log_tail(run_dir),
+            written_by="launcher",
+        )
 
 
 def scratch_dir_for_attempt(project_root: Path, run_dir: Path, attempt: int) -> Path:

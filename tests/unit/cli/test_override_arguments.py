@@ -14,17 +14,11 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.cli import helpers
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_NOT_FOUND,
-    add_override_arguments,
-    base_named_by_w,
-    changes_of_args,
-    profile_output_of,
-    toml_target,
-    with_changes,
-)
+from hydromodpy.cli import conventions, refs
+from hydromodpy.cli.conventions import add_override_arguments, changes_of_args, with_changes
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli.profiling import profile_output_of
+from hydromodpy.cli.refs import base_named_by_w, toml_target
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.config.loading import read_document
 from tests._helpers.cli_runner import CliRunner
@@ -166,7 +160,7 @@ def test_no_command_writes_a_variable_of_the_environment_for_the_base() -> None:
     import ast
     import inspect
 
-    tree = ast.parse(inspect.getsource(helpers))
+    tree = ast.parse(inspect.getsource(conventions) + inspect.getsource(refs))
     written = [
         ast.unparse(target)
         for node in ast.walk(tree)

@@ -79,7 +79,7 @@ def fetch(
             raise ValueError("Either station_ids or bbox required.")
         station_ids = _discover_stations(bbox, is_river=is_river, client=client)
         if not station_ids and fallback_search_radius_km:
-            from hydromodpy.data.common.geo_helpers import expand_bbox
+            from hydromodpy.data.common.geometry import expand_bbox
 
             expanded = expand_bbox(bbox, fallback_search_radius_km)
             logger.info(
@@ -180,7 +180,7 @@ def fetch(
 class HubeauWaterQuality:
     """The river and piezometer analyses of Hub'Eau, behind the data-source port.
 
-    One record per (station, parameter). ``nearest_to`` is what the manager
+    One record per (station, parameter). ``nearest_to`` is what the variable
     resolves when the section asks for the nearest station, and ``parameters``
     keeps only the analyses of the listed parameters. Without a filter the
     provider names its own parameters (and writes them with its own case), so

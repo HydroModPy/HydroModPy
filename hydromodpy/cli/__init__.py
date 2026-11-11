@@ -9,5 +9,3 @@ The entry point is :func:`hydromodpy.cli.main.main`, named there and nowhere
 else: the package imports nothing at import time, so ``python -m
 hydromodpy.cli.main`` runs the module once and warns about nothing.
 """
-
-from __future__ import annotations

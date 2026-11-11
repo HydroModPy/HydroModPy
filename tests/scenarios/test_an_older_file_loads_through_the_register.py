@@ -22,12 +22,16 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import PRERELEASE_FORMS
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.workflow.steps.prepare_solver.resolved import compare_with_sealed
 from tests.characterization.comparator import compare_run_dirs
 from tests.scenarios.factory import island_files
 from tests.scenarios.launcher import Scenario, isolated_env, link_binaries, play
+
+# The module fixture plays the project once, so every test of the file runs
+# on the worker that played it.
+pytestmark = [pytest.mark.xdist_group(name="older_file")]
 
 RUN = "v2_1_forms"
 EXIT_CONFIG = 14

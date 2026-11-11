@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.session.descriptor import BestCase, BestTrial, write_session

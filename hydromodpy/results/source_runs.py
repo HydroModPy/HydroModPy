@@ -22,7 +22,6 @@ reference that names no sealed run has no ``sim_id`` and stays as written.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.results.record.manifest import is_sealed, read_seal
@@ -30,7 +29,7 @@ from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.storage.json_io import readable
 
-__all__ = ["resolve_source_runs", "source_run_id"]
+__all__ = ["source_run_id"]
 
 _MIN_PREFIX = 8
 """Shortest prefix of a ``sim_id`` that names a run."""
@@ -54,31 +53,6 @@ def source_run_id(project_root: Path, reference: str) -> str | None:
     if run_dir is not None:
         return _sealed_id(run_dir)
     return _id_by_prefix(root, text)
-
-
-def resolve_source_runs(payload: dict[str, Any], project_root: Path) -> None:
-    """Write the ``sim_id`` of each source run in place of its reference, in *payload*.
-
-    *payload* is a configuration as a dict. The ``run`` of every
-    ``[[mesh.refinement_zone]]`` and ``[flow] restart_from`` are read. A
-    reference that resolves to no sealed run is left as written.
-    """
-    mesh = payload.get("mesh")
-    zones = mesh.get("refinement_zone") if isinstance(mesh, dict) else None
-    for zone in zones if isinstance(zones, list) else ():
-        if isinstance(zone, dict) and isinstance(zone.get("run"), str):
-            zone["run"] = source_run_id(project_root, zone["run"]) or zone["run"]
-    flow = payload.get("flow")
-    reference = flow.get("restart_from") if isinstance(flow, dict) else None
-    if isinstance(reference, str):
-        flow["restart_from"] = source_run_id(project_root, reference) or reference
-    elif isinstance(reference, dict):
-        path = reference.get("path")
-        sim_id = reference.get("sim_id") or (
-            source_run_id(project_root, path) if isinstance(path, str) else None
-        )
-        if sim_id:
-            flow["restart_from"] = str(sim_id)
 
 
 def _run_dir_of(path: Path) -> Path:

@@ -54,7 +54,7 @@ SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" /
 def _declared_config(root: Path):
     """The narrow slice of a real configuration a dry run reads."""
     from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
 
     return HydroModPyConfig(
@@ -921,3 +921,64 @@ def test_a_run_whose_index_pass_failed_does_not_open_the_index(
 
     assert runner.run() == "V"
     assert opened == []
+
+
+# -- resume_target: the frozen configuration a --resume REF continues ---------------------
+
+
+def _failed_case(workspace: Path, name: str, *, frozen: bool = True) -> Path:
+    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+    from tests._helpers.sealed_runs import make_project, write_attempt
+
+    make_project(workspace)
+    run_dir = write_attempt(workspace, f"runs/{name}", status="failed", attempt=1)
+    if frozen:
+        (run_dir / RUN_CONFIG_FILENAME).write_text("# " + name + "\n", encoding="utf-8")
+    return run_dir
+
+
+def test_a_bare_name_resumes_its_latest_version_and_a_versioned_name_that_one(tmp_path) -> None:
+    from hydromodpy.project.runner import resume_target
+
+    _failed_case(tmp_path, "case")
+    latest = _failed_case(tmp_path, "case.v2")
+
+    assert resume_target("case", tmp_path) == latest / "config.toml"
+    assert resume_target("case.v2", tmp_path) == latest / "config.toml"
+
+
+@pytest.mark.parametrize(
+    ("ref", "frozen", "message"),
+    [
+        ("nope", True, "No case named 'nope'"),
+        ("case", False, "has no frozen config.toml"),
+    ],
+)
+def test_a_case_that_is_not_there_or_not_frozen_is_not_found(
+    tmp_path, ref, frozen, message
+) -> None:
+    from hydromodpy.core.exceptions import NothingThereError
+    from hydromodpy.project.runner import resume_target
+
+    _failed_case(tmp_path, "case", frozen=frozen)
+
+    with pytest.raises(NothingThereError, match=message):
+        resume_target(ref, tmp_path)
+
+
+def test_a_run_out_of_a_calibration_cannot_be_resumed_alone(tmp_path) -> None:
+    from hydromodpy.project.runner import resume_target
+    from hydromodpy.results.record.checks import CalibratedBy
+    from tests._helpers.sealed_runs import make_project, seal_run
+
+    make_project(tmp_path)
+    seal_run(
+        tmp_path,
+        "case",
+        calibrated_by=CalibratedBy(
+            session_id="s" * 32, phase="main", trial=1, session_status="completed"
+        ),
+    )
+
+    with pytest.raises(ConfigError, match=r"hmp run <file>\.toml --resume"):
+        resume_target("case", tmp_path)

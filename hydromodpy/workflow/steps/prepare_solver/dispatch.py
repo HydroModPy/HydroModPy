@@ -72,7 +72,7 @@ def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
 
 def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:
     """Return the dispatch of the built flow model, or None before it exists."""
-    from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
+    from hydromodpy.solver.modflow_common.flow_run import resolve_modflow_runner
 
     execution = getattr(ctx, "execution", None)
     plan = getattr(execution, "simulation_plan", None)
@@ -258,7 +258,7 @@ def bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
 
 def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Walk the config tree and record every InputFile-marked path."""
-    from hydromodpy.core.tracking import collect_input_files
+    from hydromodpy.core.tracking.walker import collect_input_files
 
     # Anchor relative paths on the project, not on the shell's working
     # directory: a bare filename is resolved under <workspace>/data/<family>/

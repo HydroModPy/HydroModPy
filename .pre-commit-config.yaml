@@ -24,11 +24,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # The frozen runs and documents are compared by digest, so nothing edits them.
+      # The frozen runs, documents and replay run are compared by digest, so nothing edits them.
       - id: trailing-whitespace
-        exclude: ^tests/regression/frozen_(runs|documents)/v
+        exclude: ^tests/regression/frozen_(runs|documents|replay)/v
       - id: end-of-file-fixer
-        exclude: ^tests/regression/frozen_(runs|documents)/v
+        exclude: ^tests/regression/frozen_(runs|documents|replay)/v
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files

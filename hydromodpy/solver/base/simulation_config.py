@@ -19,7 +19,8 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.plugin_registry import check_registered_name
 from hydromodpy.core.time.window import parse_window_length, reject_invalid_step_value_spec
-from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.time import normalize_time_unit
 from hydromodpy.solver.base.registry import (
     ENTRY_POINT_GROUP,
     solvers,

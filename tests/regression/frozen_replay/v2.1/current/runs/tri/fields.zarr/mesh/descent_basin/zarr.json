@@ -1,0 +1,47 @@
+{
+  "shape": [
+    434
+  ],
+  "data_type": "bool",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        434
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": false,
+  "codecs": [
+    {
+      "name": "bytes"
+    },
+    {
+      "name": "zstd",
+      "configuration": {
+        "level": 0,
+        "checksum": false
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "Basin of the descent at the catchment outlet",
+    "descent_outlet": 32,
+    "basin_rule": "largest_basin",
+    "basin_area_m2": 13790.370157756213,
+    "basin_seeded_at_outlet": false,
+    "basin_version": 1
+  },
+  "dimension_names": [
+    "face"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

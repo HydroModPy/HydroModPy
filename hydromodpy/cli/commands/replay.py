@@ -16,8 +16,9 @@ from typing import Any
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.environment import add_environment_arguments
-from hydromodpy.cli.helpers import base_named_by_w, exit_code_for, refuse
+from hydromodpy.cli.exit_codes import exit_code_for, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import base_named_by_w
 
 NAME: str = "replay"
 HELP: str = "Play a sealed run or a published copy again, and class the values it computes"

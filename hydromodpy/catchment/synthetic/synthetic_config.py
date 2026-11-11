@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 
 SYNTHETIC_CATCH_DEF = "synthetic"
 """The catchment kind of a synthetic geographic, whose box is its domain and no catchment."""

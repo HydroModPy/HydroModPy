@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from validation_cases.calibration.network_transient_b0.network_transient_truth import (
     mesh_cell_geometry,
 )

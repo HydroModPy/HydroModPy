@@ -9,7 +9,7 @@ One type per nature of variable, whatever the selectors say (no ``lazy`` flag):
 
 The dispatch lives in the ``results`` layer so both the functional facade
 (:meth:`Run.read` and :func:`hydromodpy.project.api.show`) and the catalog facade
-(:class:`hydromodpy.results.catalog.Catalog`) reach it without crossing layers.
+(:class:`hydromodpy.results.catalog.facade.Catalog`) reach it without crossing layers.
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ def read_variable(
     from hydromodpy.results import field_registry
     from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
     from hydromodpy.results.errors import FieldNotFoundError
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.tables import has_rows
+    from hydromodpy.results.run.view import Run
 
     if not isinstance(run, Run):
         raise TypeError(f"read expects a Run object as first argument, got {type(run).__name__}")

@@ -16,7 +16,7 @@ import pytest
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import (
     GROUND_SIDECAR_SUFFIX,
     computational_top,

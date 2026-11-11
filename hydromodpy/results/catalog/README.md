@@ -12,7 +12,7 @@ more. The indexer is the only writer, and `Catalog` builds the index when it is 
    a wait of 120 s), reads every run, session and kept trial into a staging file opened by `index_file.py`, checks
    that it still holds the lock, and publishes that file in one rename. A pass with nothing to do takes no lock. `rebuild_index` does the whole tree and `index_new_runs` does a diff.
 3. `index_schema.py` is the DDL of the index. A change of schema is a full rebuild. `views.py` adds the summary views.
-4. `Catalog` (`facade.py`) opens the index read-only through the `CatalogBackend` port, with its adapter in
+4. `Catalog` (`facade.py`) opens the index read-only through `DuckDBBackend`, the one backend, in
    `adapters/duckdb.py`.
 5. `discovery.py` turns a reference (a name, an id, `@last`, `@best:METRIC`) into a run. `reads.py` holds the queries.
 6. `catalog[ref]` gives a `Run`. `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` delegate to
@@ -43,8 +43,6 @@ catalog/
 ├── privacy.py         purge a run for good and check its certificate
 ├── parquet_views.py   DuckDB views over the Parquet tables of a run
 ├── dataset_loader.py  a catalog-wide dataset for model training
-├── ports.py           CatalogBackend protocol
-├── protocol.py        SimulationStore protocol
 └── adapters/duckdb.py the DuckDB backend
 ```
 
@@ -60,7 +58,7 @@ and mesh topology. Every reader of a run row uses it.
 | a query of the index | `reads.py` |
 | a form of reference | `discovery.py` |
 | a run row read with its codes | start from `SIMULATIONS_FROM` in `constants.py` |
-| another database engine | an adapter of the `CatalogBackend` port in `adapters/` |
+| another database engine | a backend beside `adapters/duckdb.py`, and `Catalog` typed on what both share |
 | a read across projects | `federation.py` |
 | a listing of runs for a command | `listing.py` |
 | a read of running attempts that must not need the index | `liveness.py` |

@@ -1,6 +1,6 @@
 # solver/modflow6/builders
 
-The arguments of each MODFLOW 6 package, built from the `Model` and the solver mesh. `build.py` calls them. A builder does not import another package's builder: SFR and LAK couple only through the mover records of `mvr.py`.
+The arguments of each MODFLOW 6 package, built from the `Model` and the solver mesh. `build.py` calls them. A builder reads another builder only along the build order, never back: `lake.py` reads `sfr.py` for the lake-river exchange, `sfr.py` reads `boundary_conditions.py` and `mvr.py` for the drain-to-river mover, and `wells.py` and `recharge.py` read `boundary_conditions.py`. `period_forcing.py`, `solver_options.py` and `sidecar.py` read no other builder. `sidecar.py` writes the sidecar of the build.
 
 ## Modules
 

@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,

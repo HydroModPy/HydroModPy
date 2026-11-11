@@ -10,3 +10,6 @@ tests/regression/frozen_runs/v*/** -text
 
 # tests/regression/frozen_documents/ is compared by digest with what the generator wrote.
 tests/regression/frozen_documents/v*/** -text
+
+# tests/regression/frozen_replay/ is compared by digest with what the generator wrote.
+tests/regression/frozen_replay/v*/** -text

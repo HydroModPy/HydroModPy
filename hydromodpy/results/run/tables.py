@@ -1,6 +1,6 @@
 """The Parquet tables of one run, read from its directory.
 
-A :class:`~hydromodpy.results.run.Run` reads its own rows (timeseries,
+A :class:`~hydromodpy.results.run.view.Run` reads its own rows (timeseries,
 budgets, mass balance, parameters, declared points ...) from the files of
 its run directory, ``tables.parquet/<name>.parquet``. The handle the run was
 opened on, the project index or the store of a running run, only says where

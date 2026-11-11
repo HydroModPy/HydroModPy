@@ -77,7 +77,7 @@ def test_no_gauge_borrows_the_catchment_series(station) -> None:
 
 
 def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None:
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
     from hydromodpy.results.score import UNSCORED_OBSERVATIONS_CHECK
     from tests._helpers.run_stores import open_run_store

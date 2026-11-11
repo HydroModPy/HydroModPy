@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT, exit_code_for
 from hydromodpy.core.state import host as host_module
 from hydromodpy.core.state.host import host_name
 from hydromodpy.project.launch import lease as lease_module

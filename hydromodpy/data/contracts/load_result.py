@@ -1,4 +1,4 @@
-"""Structured result from a variable manager's load() call."""
+"""Structured result from the load() call of a data variable."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 class LoadResult:
     """Container separating point records, gridded fields, and tables.
 
-    Returned by all variable managers so that the forcing/adapter layer
+    Returned by every data variable so that the forcing/adapter layer
     can consume data without isinstance checks.
     """
 

@@ -30,12 +30,9 @@ from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import (
-    normalize_time_unit,
-    parse_scalar_and_unit,
-    timedelta_to_seconds,
-)
 from hydromodpy.core.units.parse import parse_to_canonical_magnitude
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.time import normalize_time_unit, timedelta_to_seconds
 
 logger = get_logger(__name__)
 

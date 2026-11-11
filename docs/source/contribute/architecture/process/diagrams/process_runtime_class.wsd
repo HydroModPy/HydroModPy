@@ -1,18 +1,7 @@
 @startuml
 title Process - Runtime Class Diagram
 
-package "hydromodpy.model.process_spatial" {
-  abstract class "ProcessSpatial<TInitialConditions>" as ProcessSpatialT {
-    +parameters: dict[str, object]
-    +initial_conditions: TInitialConditions | None
-    +boundary_conditions: dict[str, BoundaryCondition]
-    +sinks_sources: dict[str, object]
-    +set_parameters_from_config(parameters, parameter_ids, context_label)
-    +build_initial_conditions(initial_conditions)
-    +set_boundary_conditions(boundary_conditions)
-    +set_sinks_sources(sinks_sources)
-  }
-
+package "hydromodpy.model.payloads" {
   class InitialCondition
   class BoundaryCondition
   class SinkSource
@@ -22,7 +11,11 @@ package "hydromodpy.model.flow" {
   class Flow {
     +config: FlowConfig
     +flow_regime: str
+    +parameters: dict[str, FieldParam]
     +initial_conditions: FlowInitialConditions | None
+    +boundary_conditions: dict[str, BoundaryCondition]
+    +sinks_sources: dict[str, object]
+    +build_initial_conditions(initial_conditions)
     +set_config(config)
     +set_initial_conditions(initial_conditions)
     +set_boundary_conditions(boundary_conditions)
@@ -55,8 +48,6 @@ package "hydromodpy.model.model" {
   }
 }
 
-ProcessSpatialT <|-- Flow
-
 Flow --> FlowConfig : consumes
 Flow ..> Model : model_from_flow
 
@@ -64,8 +55,8 @@ InitialCondition <|-- FlowInitialCondition
 FlowInitialConditions *-- FlowInitialCondition : h
 Flow --> FlowInitialConditions : initial_conditions
 
-ProcessSpatialT --> BoundaryCondition : boundary_conditions values
-ProcessSpatialT ..> SinkSource : add_sink_source()
+Flow --> BoundaryCondition : boundary_conditions values
+Flow ..> SinkSource : sinks_sources values
 
 Flow --> FlowSinksSourcesConfig : set_sinks_sources input
 @enduml

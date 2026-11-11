@@ -754,18 +754,6 @@ def source_entry(slug: str | None) -> SourceEntry | None:
     return SOURCES.get(str(slug).strip())
 
 
-def sources_by_publisher() -> Mapping[str, tuple[SourceEntry, ...]]:
-    """Group the entries by publisher, for a page that answers "who feeds what".
-
-    A source without a publisher (a user file, a generated value) is left out.
-    """
-    groups: dict[str, list[SourceEntry]] = {}
-    for entry in SOURCES.values():
-        if entry.publisher:
-            groups.setdefault(entry.publisher, []).append(entry)
-    return MappingProxyType({name: tuple(items) for name, items in sorted(groups.items())})
-
-
 def licence_for_source(slug: str | None) -> Licence:
     """Return the licence of *slug*. An unknown slug is undetermined."""
     entry = source_entry(slug)
@@ -918,5 +906,4 @@ __all__ = [
     "sidecar_path",
     "sidecar_source",
     "source_entry",
-    "sources_by_publisher",
 ]

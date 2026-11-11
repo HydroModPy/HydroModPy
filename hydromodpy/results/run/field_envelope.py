@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from hydromodpy.core.budget.flux import DRN_TO_MVR_KEYS, find_drain_budget_key
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.mesh.planning.refinement_zones import RunFieldEnvelope
 from hydromodpy.mesh.refinement_config import RUN_FIELDS, RefinementZoneConfig
 from hydromodpy.results.catalog.registration import run_dir_holding
@@ -37,7 +38,7 @@ __all__ = ["read_run_field", "read_run_fields"]
 STEPS_PER_PASS = 64
 """Time steps read at once, which bounds the memory of a long daily run."""
 
-MM_PER_DAY = 1000.0 * 86400.0
+MM_PER_DAY = 1000.0 * SECONDS_PER_DAY
 """mm/d in one m/s."""
 
 

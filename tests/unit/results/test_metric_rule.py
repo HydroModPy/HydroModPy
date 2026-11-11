@@ -76,7 +76,7 @@ def _config(**sections):
 
 
 def test_the_rule_of_a_configuration_takes_the_gauge_of_the_site():
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from hydromodpy.results.metric_rule import MetricsConfig
 
     config = _config(
@@ -88,7 +88,7 @@ def test_the_rule_of_a_configuration_takes_the_gauge_of_the_site():
 
 
 def test_the_metrics_station_wins_over_the_gauge_of_the_site():
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from hydromodpy.results.metric_rule import MetricsConfig
 
     config = _config(

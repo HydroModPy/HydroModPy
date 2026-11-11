@@ -7,9 +7,9 @@ import pytest
 
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.tables import global_parameters
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed

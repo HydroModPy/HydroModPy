@@ -23,7 +23,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 if TYPE_CHECKING:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.facade import Project
 
@@ -84,10 +84,8 @@ def configure(
     from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.core.time import (
-        require_flow_simulation_time_grid,
-    )
-    from hydromodpy.data import DataPlanner
+    from hydromodpy.core.time.window import require_flow_simulation_time_grid
+    from hydromodpy.data.loading.planner import DataPlanner
     from hydromodpy.model.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
         collect_requested_support_ids,
@@ -302,7 +300,7 @@ def open_catalog(project: Project) -> None:
     stays ``None`` and the read-only views answer empty.
     """
     from hydromodpy.core.state.layout import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     if project._store is not None:
         return

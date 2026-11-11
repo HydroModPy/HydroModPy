@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.cli.main import main
 from hydromodpy.config.loading import load
 from hydromodpy.core.state.run_state import WorkflowContext

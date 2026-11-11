@@ -71,8 +71,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_finalizer import lock_path_for_store
 
 _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)

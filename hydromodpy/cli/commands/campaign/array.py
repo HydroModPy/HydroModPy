@@ -10,7 +10,7 @@ from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.environment import add_environment_arguments
-from hydromodpy.cli.helpers import exit_code_for, refuse
+from hydromodpy.cli.exit_codes import exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 

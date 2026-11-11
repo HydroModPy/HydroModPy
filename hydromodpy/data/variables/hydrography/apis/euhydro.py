@@ -1,6 +1,6 @@
 """Fetch hydrography from the EU-Hydro River Network Database (EEA Discomap).
 
-``fetch`` serves the hydrography manager. :class:`EuHydroSource` puts the
+``fetch`` serves the hydrography variable. :class:`EuHydroSource` puts the
 same function behind the data-source port. Continental where the
 other two ``features`` sources are national, and the one whose request is not a
 single call: the adapter's provider function discovers the feature layers of a

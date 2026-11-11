@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_USAGE, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
 from hydromodpy.core.runtime.bounds import DEFAULT_MAX_DOWNLOAD_BYTES, Bounds
 from hydromodpy.project.environment import Environment
 

@@ -7,16 +7,16 @@ must not be averaged over the period the way a flux is.
 
 from __future__ import annotations
 
-from hydromodpy.core.time.time_method import observable_time_method
+from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD, OBSERVABLE_TIME_METHODS
 
 
 def test_the_soil_storage_is_a_state_at_the_stamp() -> None:
-    assert observable_time_method("soil_storage") == "point"
+    assert OBSERVABLE_TIME_METHODS["soil_storage"] == "point"
 
 
 def test_the_transit_storage_is_a_state_at_the_stamp() -> None:
-    assert observable_time_method("transit_storage") == "point"
+    assert OBSERVABLE_TIME_METHODS["transit_storage"] == "point"
 
 
 def test_the_recharge_stays_a_period_mean() -> None:
-    assert observable_time_method("recharge") == "mean"
+    assert OBSERVABLE_TIME_METHODS.get("recharge", DEFAULT_TIME_METHOD) == "mean"

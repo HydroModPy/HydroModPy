@@ -20,6 +20,7 @@ from hydromodpy.data.provenance.sidecars import (
     write_sidecar,
 )
 from hydromodpy.project.data_cache import (
+    FrozenVerificationError,
     _targets,
     cited_input_digests,
     data_root_for,
@@ -27,6 +28,7 @@ from hydromodpy.project.data_cache import (
     pinned_empty_paths,
     prune_data,
     verify_data_lock,
+    verify_frozen_inputs,
 )
 from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.record.record import InputsDocument
@@ -410,3 +412,28 @@ def test_check_says_when_the_config_schema_moved(
 
     assert found["schema_diverged"] is True
     assert found["current_schema"] == "another schema"
+
+
+def test_a_frozen_run_needs_the_lockfile_and_names_the_way_to_write_it(tmp_path: Path) -> None:
+    _workspace_root, demo = _workspace(tmp_path)
+
+    with pytest.raises(FrozenVerificationError, match="hmp data lock"):
+        verify_frozen_inputs(demo)
+
+
+def test_a_frozen_run_reads_the_lockfile_it_is_given_and_names_the_first_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace, demo = _workspace(tmp_path)
+    _fetched(workspace / "data", "A.csv", "a")
+    mine = demo / "inputs" / "dem.tif"
+    mine.parent.mkdir()
+    mine.write_bytes(b"dem")
+    monkeypatch.setattr("hydromodpy.config.loading.load", lambda path: _config_reading(mine))
+    lock_data(project=str(demo))
+
+    verify_frozen_inputs(demo)
+    mine.write_bytes(b"another dem")
+
+    with pytest.raises(FrozenVerificationError, match=r"1 lockfile mismatch\(es\); first: "):
+        verify_frozen_inputs(demo)

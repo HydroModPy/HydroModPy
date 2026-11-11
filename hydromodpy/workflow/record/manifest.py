@@ -351,7 +351,7 @@ def _state_config_payload(state: PipelineState) -> Any:
 
 def _current_dump(payload: Any) -> Any | None:
     """Return *payload* as this version's model dumps it, or None when it does not load."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     if not isinstance(payload, Mapping):
         return None

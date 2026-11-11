@@ -11,8 +11,9 @@ from hydromodpy.cli.conventions import (
     format_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_CONFIG, confirm, project_root_of, refuse
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, confirm, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "privacy"
 HELP: str = "Remove a run for good with a purge certificate, and verify one"

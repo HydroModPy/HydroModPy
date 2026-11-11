@@ -255,9 +255,9 @@ Then ``[mesh] engine = "myengine"`` selects it. The registry ignores, with a war
 point whose name is not the ``engine_id`` of its class or is the name of a built-in engine. Bump
 ``engine_version`` whenever the mesh for one request changes, because the product store and the run
 identity key on it. The engine raises ``MeshRequestError`` for a request it cannot honor and
-``MeshGenerationError`` for a mesh it cannot build. The contract tests are
-``tests/contract/test_mesh_engine_contract.py`` for every registered engine and
-``tests/contract/test_mesh_conformance_reaches_an_installed_engine.py`` for a plugin. The contract
+``MeshGenerationError`` for a mesh it cannot build. The contract tests are in
+``tests/ports/test_mesh.py``, for every registered engine and for a plugin installed from a
+clone. The contract
 gives ``cell_size`` one meaning: a uniform size gives the area over the square of that size,
 within 10 % (row 182 of ``tests/TOLERANCES.md``), and a plugin meets it too. An engine whose own
 parameter is an edge length converts it, as the ``triangle`` engine does.

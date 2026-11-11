@@ -18,7 +18,7 @@ from hydromodpy.core.budget.terms import (
     kept_budget,
 )
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.extractors import budget as mf6_budget
 from hydromodpy.solver.modflow6.extractors.budget import extract_budget
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord

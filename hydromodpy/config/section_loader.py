@@ -23,7 +23,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.config_migration import _raw_flow_process_solver
 from hydromodpy.config.cross_checks import RuleOutcome, run_cross_rules
@@ -46,7 +46,7 @@ from hydromodpy.core.toml_io.paths import (
     resolve_declared_path,
 )
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
@@ -1183,7 +1183,7 @@ SECTIONS: dict[str, Section] = {
     ),
     "domain": Section(_standard(DomainConfig), default={}),
     "data": Section(
-        lambda data, ctx: DataManagersConfig.from_toml_section(
+        lambda data, ctx: DataConfig.from_toml_section(
             data, base_dir=ctx.base, workspace_data_dir=ctx.workspace_data_dir
         ),
         default={},

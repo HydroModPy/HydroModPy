@@ -13,7 +13,6 @@ from hydromodpy.model.forcing.synthetic import (
     build_recharge_from_reservoir_chronicle,
     enforce_annual_precipitation_total,
     generate_daily_precipitation,
-    make_piecewise_constant_daily_qin,
     precipitation_to_inflow,
 )
 
@@ -105,14 +104,3 @@ def test_build_recharge_from_reservoir_chronicle_returns_consistent_arrays() -> 
     assert result["recharge_m_per_day"].tolist() == pytest.approx(
         (result["qin_mm_day"] * 1.0e-3).tolist()
     )
-
-
-def test_piecewise_constant_qin_clamps_time_to_available_days() -> None:
-    qin = make_piecewise_constant_daily_qin(np.asarray([1.0, 2.0, 3.0]))
-
-    assert qin(-5.0) == 1.0
-    assert qin(0.9) == 1.0
-    assert qin(1.0) == 2.0
-    assert qin(99.0) == 3.0
-    with pytest.raises(ValueError, match="cannot be empty"):
-        make_piecewise_constant_daily_qin(np.asarray([]))

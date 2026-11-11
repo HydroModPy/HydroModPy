@@ -14,7 +14,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.rng import RngManager
 from hydromodpy.core.state.scratch import preprocessing_dir
-from hydromodpy.core.workspace import WorkspaceLayout
+from hydromodpy.core.workspace.workspace import WorkspaceLayout
 from hydromodpy.model.domain.build import (
     build_domain,
     read_layer_base_sources,

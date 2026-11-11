@@ -452,8 +452,8 @@ def outlet_case_toml(
 def delineate_case_toml(path: Path):
     """Delineate the catchment of a project TOML in its workspace, as a run does."""
     from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.workspace import WorkspaceLayout
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
     cfg = HydroModPyConfig.from_toml(path)
     return CatchmentDelineation(

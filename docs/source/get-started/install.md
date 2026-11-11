@@ -238,8 +238,8 @@ Optional. `hmp completion bash` prints a completion script for the shell, and `z
 eval "$(hmp completion bash)"
 ```
 
-{doc}`The command reference <../reference/cli/completion>` gives where to install the script for
-bash, zsh and fish, as `hmp completion --help` does.
+The script asks `hmp` for its commands each time you press TAB, so it follows the commands that
+exist. In fish, pipe it to `source`: `hmp completion fish | source`.
 
 ## Next
 

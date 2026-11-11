@@ -17,14 +17,9 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import (
-    EXIT_NOT_FOUND,
-    EXIT_WRITE_CONFLICT,
-    confirm,
-    refuse,
-    resolve_workspace,
-)
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, EXIT_WRITE_CONFLICT, confirm, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_workspace
 
 NAME: str = "delete"
 HELP: str = "Delete a project directory: its configs, runs, sessions and trash"

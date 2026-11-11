@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import site
-from hydromodpy.cli.helpers import fail
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.cli.exit_codes import fail
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.data.sites.importers import (
     rows_from_hubeau,

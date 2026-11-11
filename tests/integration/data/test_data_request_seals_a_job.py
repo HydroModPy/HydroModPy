@@ -23,7 +23,7 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
@@ -33,8 +33,10 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.data.request.artefacts import FEATURES_LAYER
 from hydromodpy.data.request.job import DATA_REQUEST, REPORT_PATH, run
-from hydromodpy.schema.job import JobDirectory, read_document, verify_job
+from hydromodpy.schema.job.directory import JobDirectory
+from hydromodpy.schema.job.documents import read_document
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
+from hydromodpy.schema.job.seal import verify_job
 from tests._helpers.process_spies import WRITE_SPIES
 
 gpd = pytest.importorskip("geopandas")
@@ -514,8 +516,8 @@ def test_it_writes_nowhere_but_the_job_directory_and_the_tmpdir_it_declares(tmp_
         WRITE_SPIES
         + "import json, sys\n"
         + _STUB_PROVIDER
-        + "from hydromodpy.cli.helpers import exit_code_for\n"
-        "from hydromodpy.schema.job import JobDirectory\n"
+        + "from hydromodpy.cli.exit_codes import exit_code_for\n"
+        "from hydromodpy.schema.job.directory import JobDirectory\n"
         "from hydromodpy.data.request.job import run\n"
         "try:\n"
         "    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
@@ -621,8 +623,8 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
         "names.clear()\n"
         "addrs.clear()\n"
         "spawned.clear()\n"
-        "from hydromodpy.cli.helpers import exit_code_for\n"
-        "from hydromodpy.schema.job import JobDirectory\n"
+        "from hydromodpy.cli.exit_codes import exit_code_for\n"
+        "from hydromodpy.schema.job.directory import JobDirectory\n"
         "from hydromodpy.data.request.job import run\n"
         "outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
         "open(sys.argv[2], 'w').write(json.dumps({'sentinel': sentinel, 'names': names,\n"

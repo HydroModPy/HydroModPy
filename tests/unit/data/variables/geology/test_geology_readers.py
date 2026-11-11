@@ -157,30 +157,6 @@ def test_uniformize_sea_zone(zones, kwargs, reason):
     assert info["count"] == (2 if applied else 0)
 
 
-def test_build_zone_class_index(zones):
-    out, counts = proc.build_zone_class_index_on_dataframe(zones)
-    assert out["class_idx"].tolist() == [0.0, 1.0, 2.0]
-    assert counts.to_dict() == {"a": 1, "b": 1, "c": 1}
-    blank = zones.assign(zone_key=["a", " ", "b"])
-    out, _ = proc.build_zone_class_index_on_dataframe(blank, class_index_column="cls")
-    assert len(out) == 2
-    assert "cls" in out.columns
-
-
-@pytest.mark.parametrize(
-    ("zone_keys", "kwargs", "error", "match"),
-    [
-        (["a", "b", "c"], {"zone_key_column": ""}, ValueError, "cannot be empty"),
-        (["a", "b", "c"], {"zone_key_column": "missing"}, KeyError, "Missing zone key column"),
-        ([" ", " ", " "], {}, ValueError, "No non-empty zone key"),
-        (["x", "x", "x"], {}, ValueError, "Only one geology class"),
-    ],
-)
-def test_build_zone_class_index_errors(zones, zone_keys, kwargs, error, match):
-    with pytest.raises(error, match=match):
-        proc.build_zone_class_index_on_dataframe(zones.assign(zone_key=zone_keys), **kwargs)
-
-
 @pytest.mark.parametrize(
     ("path", "kind", "expected"),
     [

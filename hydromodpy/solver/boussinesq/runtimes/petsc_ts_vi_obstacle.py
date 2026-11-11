@@ -19,11 +19,11 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
+from hydromodpy.solver.boussinesq.assembly.period_mean import period_mean_assembly
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual_with_saturation_excess,
 )
-from hydromodpy.solver.boussinesq.assembly.period_mean import period_mean_assembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )

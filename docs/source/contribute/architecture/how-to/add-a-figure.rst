@@ -35,15 +35,14 @@ dataclass and a ``render`` method, and nothing registers it by hand:
        default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
-   class Figure(Protocol):
+   class BaseFigure(ABC):
+       """Implements ``plot()`` boilerplate (subplots + render + save)."""
+
        spec: FigureSpec
 
        def render(self, subject: Any, ax: "Axes", **opts) -> "Axes": ...
        def plot(self, subject: Any, **opts) -> "Figure": ...
        def unavailable_reason(self, subject: Any) -> str | None: ...
-
-   class BaseFigure(ABC):
-       """Implements ``plot()`` boilerplate (subplots + render + save)."""
 
 Files to create
 ---------------
@@ -86,9 +85,7 @@ gets. Skeleton:
    from matplotlib.axes import Axes
 
    from hydromodpy.display.figure import BaseFigure, FigureSpec
-   from hydromodpy.results.run import Run
-
-
+   from hydromodpy.results.run.view import Run
    class MyFigure(BaseFigure):
        spec = FigureSpec(
            name="my_figure",
@@ -131,6 +128,10 @@ The base ``BaseFigure.plot`` method creates the matplotlib subplots with
 provenance. Whether the figure applies to a run is decided before, by
 ``unavailable_reason``: ``[display].figures`` skips a figure it refuses, and
 ``hmp show --figure`` and ``Run.figure`` refuse it with the same sentence.
+When ``unavailable_reason`` returns ``None``, ``render`` draws or raises
+``FigureNotApplicable`` with a sentence, for what only the data shows, such as a
+run with no observation or a series with no falling limb. Any other exception is
+a defect, and ``tests/ports/test_figure.py`` catches it.
 
 Pick the right ``kind``
 -----------------------
@@ -231,9 +232,12 @@ Tests to add
 
 - Table: run ``python -m tools.figure_table``; the freshness test
   regenerates the table in memory and fails while the file is stale.
-- Refusal: ``tests/unit/display/test_every_figure_refuses_an_empty_run.py``
+- Refusal: ``tests/unit/display/test_figure_registry.py``
   runs on every figure and fails when one accepts a run that holds
   nothing.
+- Port: ``tests/ports/test_figure.py`` plays every figure on the runs, the
+  session and the run set of the frozen example, and fails when one raises
+  anything but ``FigureNotApplicable``.
 - Unit: under ``tests/unit/display/`` against a synthetic ``Run``
   fixture: assert the figure produces a non-empty axes.
 - Image regression (optional): commit a small reference PNG and

@@ -58,7 +58,7 @@ def test_render_figure_defaults_to_the_figures_dir_of_the_run(monkeypatch, tmp_p
     monkeypatch.setattr(
         "hydromodpy.core.state.result_dirs.resolve_project_root", fake_resolve_project_root
     )
-    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", FakeCatalog)
     monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: FakeFigure())
 
     output = catalog_figures.render_figure("abc123", "head_map", workspace=workspace)
@@ -113,7 +113,7 @@ def test_a_redraw_applies_the_display_of_the_run_and_time_replaces_its_instant(
 ) -> None:
     figure = _InstantFigure()
     one_run_workspace(monkeypatch, tmp_path, figure)
-    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", _SealedRunCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", _SealedRunCatalog)
 
     catalog_figures.render_figure("abc123", "cross_section", workspace=tmp_path, time=time)
 

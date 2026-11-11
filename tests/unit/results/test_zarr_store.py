@@ -19,15 +19,14 @@ from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from hydromodpy.results.zarr_store import (
+from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
+from hydromodpy.results.zarr_store.chunks import compute_balanced_chunks_2d, should_use_sharding
+from hydromodpy.results.zarr_store.constants import (
     BALANCED_TARGET_BYTES,
     SHARD_TRIGGER_BYTES,
     ZARR_SCHEMA_VERSION,
-    SimulationZarr,
-    compose_acdd_root_attrs,
-    compute_balanced_chunks_2d,
-    should_use_sharding,
 )
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 
 @pytest.fixture
@@ -258,7 +257,7 @@ def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
     from hydromodpy.results import field_registry
-    from hydromodpy.results.zarr_store import is_cf_standard_name
+    from hydromodpy.results.zarr_store.cf_validation import is_cf_standard_name
 
     head = field_registry.get("head")
     assert head.standard_name == ""

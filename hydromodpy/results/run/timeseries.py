@@ -1,4 +1,4 @@
-"""Tabular and time-aligned accessors for :class:`hydromodpy.results.run.Run`.
+"""Tabular and time-aligned accessors for :class:`hydromodpy.results.run.view.Run`.
 
 Mixin grouping the tabular reads (parameters, metrics, budgets, mass
 balance) and the time-resolved series accessors (``timeseries``,
@@ -16,14 +16,14 @@ from functools import cached_property
 import pandas as pd
 
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
-from hydromodpy.core.time.period_aggregation import period_end_stamps
+from hydromodpy.core.time.period_aggregation import naive_timestamp, period_end_stamps
 from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.derive.downsample import (
     DEFAULT_TARGET_POINTS,
     lttb_downsample,
     should_downsample,
 )
-from hydromodpy.results.derive.time_alignment import naive_utc, solver_time_index
+from hydromodpy.results.derive.time_alignment import solver_time_index
 from hydromodpy.results.record.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
@@ -325,7 +325,7 @@ class RunTimeseriesMixin:
                 "- cannot build a time index."
             )
         return period_end_stamps(
-            naive_utc(start), naive_utc(end), int(n), step_unit=row.get("time_unit")
+            naive_timestamp(start), naive_timestamp(end), int(n), step_unit=row.get("time_unit")
         )
 
     def recharge_forcing(self) -> pd.Series:

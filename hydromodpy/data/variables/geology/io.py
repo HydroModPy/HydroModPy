@@ -569,8 +569,3 @@ class GeologyDataIO:
 
     def normalize_zone_key(self, raw: Any) -> str:
         return normalize_zone_key(raw)
-
-
-def default_geology_data_source() -> GeologyDataIO:
-    """Return the default geology data source backed by ``data.variables.geology``."""
-    return GeologyDataIO()

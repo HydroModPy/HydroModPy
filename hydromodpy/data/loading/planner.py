@@ -1,4 +1,4 @@
-"""Resolve active data-manager types from explicit config plus inference rules.
+"""Resolve the active data variables from explicit config plus inference rules.
 
 Current inference scope (V3)
 ----------------------------
@@ -25,14 +25,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.plan import DataLoadPlan
 
 
 class DataPlanner:
-    """Infer the active data-manager families for one run.
+    """Infer the active data variables for one run.
 
-    The planner starts from ``DataManagersConfig.types`` and appends
+    The planner starts from ``DataConfig.types`` and appends
     dependencies implied by domain supports or flow boundary conditions. The
     output is deterministic and carries human-readable reasons for inferred
     families.
@@ -40,7 +40,7 @@ class DataPlanner:
 
     def build(
         self,
-        config: DataManagersConfig,
+        config: DataConfig,
         *,
         domain_zone_ids: Sequence[str] | None = None,
         domain_support_provider_names: Sequence[str] | None = None,
@@ -49,7 +49,7 @@ class DataPlanner:
         flow_active_bc: Sequence[str] | None = None,
         flow_soil_reservoir: bool = False,
     ) -> DataLoadPlan:
-        """Resolve data-manager types from explicit and inferred declarations.
+        """Resolve data variables from explicit and inferred declarations.
 
         Parameters
         ----------
@@ -182,7 +182,7 @@ class DataPlanner:
 
     @staticmethod
     def _enforce_strict_mode(
-        config: DataManagersConfig,
+        config: DataConfig,
         inferred_types: Sequence[str],
     ) -> None:
         """Raise when strict mode requires explicit ``data.<type>`` sections."""

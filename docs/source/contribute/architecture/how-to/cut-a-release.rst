@@ -110,7 +110,7 @@ The checklist
     example ``2.1.0.dev0`` after ``v2.0.0``. A run seals the version it was made with,
     and a ``[[bug]]`` row covers the released versions, ``versions = "<2.1.0"``. A
     run of ``dev`` that still said ``2.0.0`` would carry for good a bug that ``dev``
-    has fixed. ``tests/unit/architecture/test_changes_register.py`` fails when a row
+    has fixed. ``tests/unit/architecture/test_surfaces.py`` fails when a row
     covers the version of the tree.
 
 Changing a number

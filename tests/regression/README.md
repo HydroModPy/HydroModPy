@@ -235,6 +235,18 @@ frozen run still gives the same numbers. A key that only a pre-release of 2.0 wr
 and the fixtures that hold one are kept to show that refusal. Never edit the folder to make a
 replay pass.
 
+`frozen_documents/` keeps the other documents of 2.0.0. Each one is either read by a reader of
+today or refused by a sentence that names the form of 2.1, and the table `REFUSALS` of its test
+holds every refusal. Its own `README.md` lists them.
+
+## Frozen replay run
+
+`frozen_replay/v2.1/` keeps one run of the transient island on 434 gmsh triangles, solved by
+MODFLOW 6 with XT3D off. `pytest tests/regression/frozen_replay -q` replays a copy with
+`hmp replay`, without gmsh, and asks for the class `bit`. The weekly job replays it on another
+processor. `python -m tools.freeze_replay_run` alone writes the folder, after the version moves to
+2.1.0, and nothing else edits it. Its own `README.md` gives the command.
+
 ## Notes
 
 - `--update-goldens` is a custom pytest option declared in `tests/conftest.py`.

@@ -62,10 +62,11 @@ value = 0.0
 # A planar recharge field breaks the symmetry of the island, so a mirrored or
 # rotated mesh moves the heads: 1 mm/day at the island center, +0.6 mm/day per
 # 305 m towards the north and +0.3 mm/day per 305 m towards the east (10 x 10
-# pixels of 61 m, EPSG:2154, GeoTIFF committed beside this file).
+# pixels of 61 m, EPSG:2154, GeoTIFF committed beside this file and linked
+# under inputs/ by the test helper).
 [[data.recharge.sources]]
 source = "file"
-path = "recharge_gradient.tif"
+path = "inputs/recharge_gradient.tif"
 source_unit = "mm/day"
 
 [flow]
@@ -88,11 +89,11 @@ value = "0.0 m"
 [flow.sinks_sources.recharge]
 first_clim = "mean"
 
-[modflow6.runtime]
+[solver.modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
-[modflow6.process_specific]
+[solver.modflow6.process_specific]
 vka = 1.0
 
 [domain.layers]
@@ -102,7 +103,7 @@ nlay = 1
 engine = "triangle"
 
 [mesh.triangle]
-path = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh"
+path = "inputs/mesh_bundle/mesh_2d.msh"
 
 [display]
 enabled = false

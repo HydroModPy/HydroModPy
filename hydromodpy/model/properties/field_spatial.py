@@ -42,7 +42,7 @@ class Field(ABC):
     Abstract field definition.
 
     Concrete subclasses must implement `on_mesh`, which returns a
-    `FieldDiscretization` containing the fractions/weights needed by
+    `WeightedAverageFieldDiscretization` containing the fractions/weights needed by
     `FieldParam.to_mesh_field(...)`.
     """
 
@@ -75,18 +75,30 @@ class Field(ABC):
 
 
 @dataclass(frozen=True)
-class FieldDiscretization(ABC):
+class WeightedAverageFieldDiscretization:
     """
-    Abstract discretization metadata to project field values onto a mesh.
+    Weighted-average discretization with per-zone fractions on mesh cells.
 
-    Concrete implementations can encode cell-wise contributions in different
-    ways, but must expose:
-    - an aggregation operator name (`aggregation_name` / `aggregation`),
-    - weighted components (`weighted_components`).
+    It projects field values onto a mesh. It exposes an aggregation operator
+    name (`aggregation_name` / `aggregation`) and the weighted components
+    (`weighted_components`) that `FieldParam.to_mesh_field` reads.
+
+    Attributes
+    ----------
+    mesh : PlanarCellMesh
+        Mesh the fractions are defined on.
+    field_id : str
+        Non-empty id of the field.
+    zone_keys : tuple[str, ...]
+        Ordered keys expected in `FieldParam.values_by_key`.
+    fractions_by_zone : dict[str, np.ndarray]
+        Per-zone fractions on cells (same mesh cell shape for each key).
     """
 
     mesh: PlanarCellMesh
     field_id: str
+    zone_keys: tuple[str, ...]
+    fractions_by_zone: dict[str, np.ndarray]
 
     def __post_init__(self):
         if not isinstance(self.mesh, PlanarCellMesh):
@@ -95,47 +107,6 @@ class FieldDiscretization(ABC):
         if ident == "":
             raise ValueError("field_id must be a non-empty string")
         object.__setattr__(self, "field_id", ident)
-
-    @abstractmethod
-    def aggregation_name(self) -> str:
-        """Return aggregation operator name (example: 'weighted_average')."""
-
-    @property
-    def aggregation(self) -> str:
-        """Compatibility accessor for the aggregation operator name."""
-        return str(self.aggregation_name()).strip().lower()
-
-    @abstractmethod
-    def weighted_components(self) -> tuple[tuple[str, ...], Mapping[str, np.ndarray]]:
-        """
-        Return weighted components used by `FieldParam.to_mesh_field`.
-
-        Returns
-        -------
-        tuple
-            `(component_keys, weights_by_key)` where each weight array is
-            cell-shaped on `mesh`.
-        """
-
-
-@dataclass(frozen=True)
-class WeightedAverageFieldDiscretization(FieldDiscretization):
-    """
-    Weighted-average discretization with per-zone fractions on mesh cells.
-
-    Attributes
-    ----------
-    zone_keys : tuple[str, ...]
-        Ordered keys expected in `FieldParam.values_by_key`.
-    fractions_by_zone : dict[str, np.ndarray]
-        Per-zone fractions on cells (same mesh cell shape for each key).
-    """
-
-    zone_keys: tuple[str, ...]
-    fractions_by_zone: dict[str, np.ndarray]
-
-    def __post_init__(self):
-        super().__post_init__()
 
         keys = tuple(str(k).strip() for k in self.zone_keys)
         if len(keys) == 0:
@@ -154,7 +125,14 @@ class WeightedAverageFieldDiscretization(FieldDiscretization):
         object.__setattr__(self, "fractions_by_zone", normalized)
 
     def aggregation_name(self) -> str:
+        """Return the aggregation operator name."""
         return "weighted_average"
 
+    @property
+    def aggregation(self) -> str:
+        """Compatibility accessor for the aggregation operator name."""
+        return str(self.aggregation_name()).strip().lower()
+
     def weighted_components(self) -> tuple[tuple[str, ...], dict[str, np.ndarray]]:
+        """Return `(component_keys, weights_by_key)`, each weight array cell-shaped on `mesh`."""
         return self.zone_keys, self.fractions_by_zone

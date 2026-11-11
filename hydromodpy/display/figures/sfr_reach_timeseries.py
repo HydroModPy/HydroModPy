@@ -13,7 +13,7 @@ from hydromodpy.results.run.sfr import sfr_reach_links
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 STATE_UNITS = {"stage": "m", "depth": "m"}
 

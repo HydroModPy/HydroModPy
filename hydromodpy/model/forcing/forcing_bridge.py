@@ -25,7 +25,7 @@ from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simu
 from hydromodpy.model.forcing.types import InterpolationMethod, SpatialMode
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
 # ── Result container ──────────────────────────────────────────
 

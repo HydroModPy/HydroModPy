@@ -38,17 +38,12 @@ package "hydromodpy.model.properties.field_spatial" {
     +from_toml(toml_path, section="field")
   }
 
-  abstract class FieldDiscretization {
-    +mesh: PlanarCellMesh
-    +field_id: str
-    +aggregation_name()
-    +aggregation
-    +weighted_components()
-  }
 }
 
 package "hydromodpy.model.properties.field_spatial" {
   class WeightedAverageFieldDiscretization {
+    +mesh: PlanarCellMesh
+    +field_id: str
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
     +aggregation_name()
@@ -77,14 +72,13 @@ mesh_cells ..> MeshCell : one per cell
 cell_values ..> PlanarCellMesh : checks the size
 MeshWithValues --> PlanarCellMesh
 
-FieldDiscretization --> PlanarCellMesh
-FieldDiscretization <|-- WeightedAverageFieldDiscretization
+WeightedAverageFieldDiscretization --> PlanarCellMesh
 
 Field ..> mesh_cells : samples the cells
-Field ..> FieldDiscretization : on_mesh(...)
+Field ..> WeightedAverageFieldDiscretization : on_mesh(...)
 
 FieldParam ..> PlanarCellMesh : homogeneous mapping
-FieldParam ..> FieldDiscretization : heterogeneous mapping
+FieldParam ..> WeightedAverageFieldDiscretization : heterogeneous mapping
 FieldParam ..> MeshWithValues : returns
 
 @enduml

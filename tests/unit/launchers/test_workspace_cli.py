@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
 from hydromodpy.cli.main import main
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,

@@ -16,7 +16,7 @@ A step declares the payload keys it touches, ``reads`` and ``writes``:
         def run(self, state: PipelineState) -> PipelineState: ...
 
 Both declarations are exact, not indicative:
-``tests/unit/architecture/test_step_payload_keys.py`` derives the keys from the
+``tests/unit/architecture/test_run_path.py`` derives the keys from the
 step's own source and fails when a declaration and the code disagree in either
 direction. That gate is the whole value of the declaration - the pair it replaced,
 ``tin`` and ``tout``, named eleven payload classes that nothing ever built and no

@@ -15,8 +15,8 @@ from typing import Annotated
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from hydromodpy.core.tracking import collect_input_files
 from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.core.tracking.walker import collect_input_files
 
 
 class _Config(BaseModel):

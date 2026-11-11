@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import exit_code_for, refuse
+from hydromodpy.cli.exit_codes import exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.project.examples.blobs import DEFAULT_BASE_URL, SOURCE_ENV, default_ref
@@ -55,7 +55,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.project.api import example
     from hydromodpy.project.examples.rows import human_size
 

@@ -621,7 +621,7 @@ class EnvDirective(_Generated):
             ),
             para(
                 f"{len(rows)} variables. "
-                "``tests/unit/architecture/test_env_vars_are_registered.py`` fails when the "
+                "``tests/unit/architecture/test_surfaces.py`` fails when the "
                 "code names a ``HMP_*`` variable that has no row in the registry, or when a "
                 "row names a variable nothing reads."
             ),

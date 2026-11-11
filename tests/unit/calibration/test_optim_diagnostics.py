@@ -24,7 +24,7 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSugges
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
-from hydromodpy.calibration.runners.search import calibration_trace
+from hydromodpy.calibration.runners.search_record import calibration_trace
 from tests.unit.calibration._factories_search import make_space, result_of, run_engine, staircase
 
 # From test_correlated_parameters_are_reported.py

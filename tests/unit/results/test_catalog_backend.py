@@ -1,4 +1,4 @@
-"""Unit tests for the :class:`CatalogBackend` Protocol and the DuckDB adapter.
+"""Unit tests for the :class:`DuckDBBackend` Protocol and the DuckDB adapter.
 
 The Protocol is structural; ``DuckDBBackend`` must satisfy it via
 ``isinstance`` checks since the Protocol is ``runtime_checkable``. Each
@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
-from hydromodpy.results.catalog.ports import CatalogBackend
 
 
 @pytest.fixture
@@ -26,7 +25,7 @@ def backend(tmp_path: Path) -> DuckDBBackend:
 
 
 def test_isinstance_protocol(backend: DuckDBBackend) -> None:
-    assert isinstance(backend, CatalogBackend)
+    assert isinstance(backend, DuckDBBackend)
 
 
 def test_query_returns_dataframe(backend: DuckDBBackend) -> None:
@@ -146,7 +145,7 @@ def test_from_connection_does_not_close(tmp_path: Path) -> None:
 
     conn = duckdb.connect(str(tmp_path / "c.duckdb"))
     b = DuckDBBackend.from_connection(conn)
-    assert isinstance(b, CatalogBackend)
+    assert isinstance(b, DuckDBBackend)
     b.execute("CREATE TABLE t (a INT)")
     b.close()  # owns_connection=False, no-op
     conn.execute("INSERT INTO t VALUES (1)")

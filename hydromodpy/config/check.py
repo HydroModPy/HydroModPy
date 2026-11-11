@@ -31,7 +31,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from hydromodpy.config.config_migration import _change_label, migrate_merged_doc
-from hydromodpy.config.cross_checks import deduce_the_mesh_engine, run_cross_rules
+from hydromodpy.config.cross_checks import run_cross_rules
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.section_loader import (
     SECTIONS,
@@ -42,6 +42,7 @@ from hydromodpy.config.section_loader import (
     severity_of,
     validate_sections,
 )
+from hydromodpy.config.solver_supports import deduce_the_mesh_engine
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE, ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.said import Said, collecting
 from hydromodpy.core.config_kit.written import written_experimental_keys

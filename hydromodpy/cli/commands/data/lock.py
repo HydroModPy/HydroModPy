@@ -25,7 +25,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_USAGE, EXIT_VALIDATION, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, EXIT_VALIDATION, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "lock"

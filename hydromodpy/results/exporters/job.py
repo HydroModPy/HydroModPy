@@ -46,7 +46,7 @@ from hydromodpy.results.record.label import identity_of_run_dir
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

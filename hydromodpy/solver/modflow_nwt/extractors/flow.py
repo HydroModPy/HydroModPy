@@ -43,10 +43,7 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar_to_store,
 )
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
-    end_of_last_period,
-    final_state_head,
-)
+from hydromodpy.solver.modflow_common.flow_run import end_of_last_period, final_state_head
 from hydromodpy.solver.modflow_common.period_steps import (
     budget_file_steps,
     group_steps_by_stamp,

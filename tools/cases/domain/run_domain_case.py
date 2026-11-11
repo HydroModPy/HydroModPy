@@ -34,9 +34,9 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 from hydromodpy.catchment.algorithms.derived_features import DomainGeographicContext
 from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
 from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.state.scratch import preprocessing_dir
-from hydromodpy.core.workspace import WorkspaceLayout
+from hydromodpy.core.workspace.workspace import WorkspaceLayout
 from hydromodpy.model.domain.build import (
     build_domain,
     read_layer_base_sources,

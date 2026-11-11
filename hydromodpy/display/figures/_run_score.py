@@ -20,7 +20,7 @@ from hydromodpy.results.derive.time_alignment import time_method_for
 from hydromodpy.results.run.sealed import metrics_of
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 @dataclass(frozen=True)

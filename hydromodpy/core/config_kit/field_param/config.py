@@ -7,7 +7,6 @@ A payload is resolved into one canonical mapping, `ResolvedFieldParam`, which
 from __future__ import annotations
 
 import csv
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, cast
@@ -296,7 +295,6 @@ __all__ = (
     "SUPPORTED_PARAMETER_UNITS",
     "VerticalProfileInterpolation",
     "VerticalProfileMode",
-    "load_field_param_toml",
     "resolve_field_param_config_payload",
     "validate_field_param_toml_data",
     "validate_resolved_field_param_data",
@@ -366,14 +364,3 @@ def validate_field_param_toml_data(config_data: Mapping[str, Any]) -> dict[str, 
     except (ValidationError, TypeError) as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)
-
-
-def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
-    """Load and validate a field-parameter TOML file."""
-    path = Path(config_path)
-    with path.open("rb") as stream:
-        payload = tomllib.load(stream)
-    try:
-        return validate_field_param_toml_data(payload)
-    except ValueError as exc:
-        raise ValueError(f"Invalid field parameter configuration in {path}: {exc}") from exc

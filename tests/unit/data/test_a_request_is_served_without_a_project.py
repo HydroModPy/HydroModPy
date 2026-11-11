@@ -22,15 +22,17 @@ import pytest
 
 from hydromodpy.core.exceptions import JobInputNotFoundError
 from hydromodpy.core.io.file_digest import sha256_and_size
-from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.request.engine import run_request
+from hydromodpy.data.request.model import DataRequest
 from hydromodpy.data.source.port import FetchRequest, FetchResult, extent_for
 from hydromodpy.data.source.registry import data_sources
+from hydromodpy.data.variables.forcing_series import PrecipitationVariable
 from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
-from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BOX_2154 = [320000.0, 6780000.0, 330000.0, 6790000.0]
@@ -350,7 +352,8 @@ from typing import ClassVar
 import geopandas as gpd
 from shapely.geometry import LineString
 
-from hydromodpy.data import DataRequest, run_request
+from hydromodpy.data.request.engine import run_request
+from hydromodpy.data.request.model import DataRequest
 from hydromodpy.data.source.registry import data_sources
 from hydromodpy.data.source.port import FetchResult, extent_for
 

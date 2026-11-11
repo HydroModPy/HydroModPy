@@ -627,7 +627,7 @@ hydromodpy.solver.boussinesq
 | Rewet options, starting heads | `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`resolve_rewet_npf_options`, `build_start_heads`) |
 | Recharge, EVT, drains, constant heads, wells | `hydromodpy/solver/modflow6/builders/` (`recharge.py`: `recharge_to_spd`, `build_soil_evta_payload`, `mask_recharge_on_lake_cells`; `boundary_conditions.py`: `build_drain_stress_period_data`, `assemble_constant_head_stress_period_data`; `wells.py`), `hydromodpy/solver/base/drain_conductance.py` |
 | Lakes, streams, barriers, movers | `hydromodpy/solver/modflow6/builders/` (`lake.py`, `sfr.py`, `flow_barrier.py`, `mvr.py`) |
-| Budget discrepancy | `hydromodpy/solver/modflow_common/flow_adapter_helpers.py` (`model_percent_discrepancies`), `hydromodpy/calibration/runners/verdict.py` (`water_budget_verdict`) |
+| Budget discrepancy | `hydromodpy/solver/modflow_common/listing.py` (`model_percent_discrepancies`), `hydromodpy/calibration/runners/verdict.py` (`water_budget_verdict`) |
 | MODFLOW-NWT: solver and packages | `hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py` (`_build_dis_package`, `_initialize_solver_packages`), `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` (`assemble_flopy_packages`) |
 | Boussinesq: time loop and size limit | `hydromodpy/solver/boussinesq/drivers/transient.py`, `hydromodpy/solver/boussinesq/boussinesq.py` |
 | Transport solvers | the four files that each hold an engine model and its adapter: `hydromodpy/solver/modflow6/transport.py`, `hydromodpy/solver/modflow6/prt.py`, `hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py`, `hydromodpy/solver/modflow_nwt/modpath/modpath.py` |

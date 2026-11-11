@@ -41,7 +41,7 @@ from typing import Final, Literal
 from hydromodpy.core.config_kit.root import RootConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import (
     InstallIndex,
     PayloadBundle,
     PayloadFile,
@@ -52,7 +52,7 @@ from hydromodpy.core.payload import (
 )
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.payload.resolve import authored_files, project_data
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.resolve import locate_workspace_root
@@ -92,9 +92,10 @@ PACKAGE_PRODUCTS_DIRNAME: Final[str] = "products"
 AUTHORED_EXTRAS: Final[tuple[str, ...]] = ("sites.csv", "site_overrides")
 """Files and folders of the project root the author wrote beside the TOML files."""
 
-_USER_PROVIDERS: Final[frozenset[str]] = frozenset(
+USER_PROVIDERS: Final[frozenset[str]] = frozenset(
     {"file", "url", "custom", "constant", "synthetic"}
 )
+"""Providers whose files no cache row serves: a user file, a generated value."""
 _LOC_SUFFIX: Final[str] = "_LOC.csv"
 
 
@@ -243,8 +244,8 @@ def _project_bundle(
             kept = [
                 item
                 for item in bundle.index.files
-                if ("runs" in extras and item.provider in _USER_PROVIDERS)
-                or ("fetched" in extras and item.provider not in _USER_PROVIDERS)
+                if ("runs" in extras and item.provider in USER_PROVIDERS)
+                or ("fetched" in extras and item.provider not in USER_PROVIDERS)
             ]
             for item in kept:
                 located = bundle.blobs[stored_name(item.sha256, item.dest)]
@@ -356,6 +357,7 @@ __all__ = [
     "PACKAGE_PRODUCTS_DIRNAME",
     "PACKAGE_RUNS_DIRNAME",
     "PACKAGE_SESSIONS_DIRNAME",
+    "USER_PROVIDERS",
     "CitedMeshProducts",
     "ProjectExtra",
     "cited_mesh_products",

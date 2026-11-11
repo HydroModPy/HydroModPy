@@ -19,7 +19,7 @@ from hydromodpy.catchment.stream_network.geometry import RECHARGE_MOVE_TOLERANCE
 from hydromodpy.core.time.coverage import calendar_sample_days
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
 from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
-from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.model.forcing.cells import discretize_fields_on_cells
 from hydromodpy.model.forcing.recharge_rates import (

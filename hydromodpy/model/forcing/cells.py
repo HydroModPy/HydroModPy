@@ -35,7 +35,7 @@ from hydromodpy.model.forcing.stations import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
     from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 
 __all__ = [
@@ -61,7 +61,7 @@ def stress_period_bounds(
             bounds.append((pd.Timestamp(raw_start), pd.Timestamp(raw_end)))
         return bounds or None
 
-    from hydromodpy.core.time import build_simulation_time_boundaries
+    from hydromodpy.core.time.window import build_simulation_time_boundaries
 
     boundaries = build_simulation_time_boundaries(simulation_window)
     bounds = []

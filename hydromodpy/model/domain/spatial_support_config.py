@@ -10,7 +10,8 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
-from hydromodpy.core.units import UREG, LengthMeters
+from hydromodpy.core.units.registry import UREG
+from hydromodpy.core.units.types import LengthMeters
 
 
 def _to_meters(value: object, *, label: str) -> float:

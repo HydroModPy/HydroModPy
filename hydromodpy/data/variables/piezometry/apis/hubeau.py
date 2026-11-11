@@ -83,7 +83,7 @@ def fetch(
             client=client,
         )
         if not ids and fallback_search_radius_km:
-            from hydromodpy.data.common.geo_helpers import expand_bbox
+            from hydromodpy.data.common.geometry import expand_bbox
 
             expanded = expand_bbox(bbox, fallback_search_radius_km)
             logger.info(
@@ -165,7 +165,7 @@ def fetch(
 class HubeauPiezometry:
     """The BSS piezometers of Hub'Eau, behind the data-source port.
 
-    ``nearest_to`` is what the manager resolves when the section asks for the
+    ``nearest_to`` is what the variable resolves when the section asks for the
     nearest piezometer: the point it starts from depends on the project
     extent, which a source must not read by itself. The download stays in
     :func:`fetch`, whose body this class does not restate.
@@ -326,7 +326,7 @@ def _download_chronicles(
 ) -> pd.DataFrame:
     import pandas as pd
 
-    from hydromodpy.data.common.io_helpers import parse_datetime_column
+    from hydromodpy.data.common.files import parse_datetime_column
 
     all_records: list[dict] = []
     year = date_start.year

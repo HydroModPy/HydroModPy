@@ -217,7 +217,6 @@ hmp check --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp check --workspace,-w	
 hmp check <file>	required
 hmp completion	command
-hmp completion --argcomplete	nargs=0
 hmp completion --workspace,-w	
 hmp completion <shell>	required choices=['bash', 'fish', 'zsh']
 hmp config	command

@@ -32,7 +32,7 @@ def resolve_bin_path() -> str:
        shared HPC deployments and CI).
     2. The HydroModPy-managed cache (``~/.cache/hydromodpy/bin/`` and
        platform equivalents). Solvers lazily populate it on first use
-       via :func:`hydromodpy.solver.modflow_common.ensure_solver_binary`.
+       via :func:`hydromodpy.solver.modflow_common.binaries.ensure_solver_binary`.
     """
     env = os.environ.get("HMP_BIN")
     if env:

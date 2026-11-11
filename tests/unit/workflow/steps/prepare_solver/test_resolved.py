@@ -10,7 +10,7 @@ import pytest
 
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain import registry as terrain_registry
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig

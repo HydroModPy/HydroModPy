@@ -29,30 +29,25 @@ import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import rasterio
 
 from hydromodpy.catchment.terrain import registry as terrain_registry
-from hydromodpy.catchment.terrain.artifacts import raster_crs, raster_max_near, raster_nodata
+from hydromodpy.catchment.terrain.artifacts import raster_max_near
 from hydromodpy.catchment.terrain.port import (
     LN_FLOAT32_COLLISION_COUNT,
     CappedBreach,
-    CappedBreachReport,
     ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,
-    DrainageDirections,
     FlowAccumulation,
     JensonSnap,
 )
 from hydromodpy.catchment.terrain.undrained import UndrainedCells, undrained_cells
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.crs import ensure_crs
-
-if TYPE_CHECKING:
-    from hydromodpy.schema.job.inputset import InputState
+from hydromodpy.schema.job.inputset import InputState
 
 CORRECTED_DEM_NAMES: dict[str, str] = {
     "fill": "dem_fill.tif",
@@ -235,51 +230,6 @@ def corrected_dem_name(dem_correc_type: str) -> str:
             "Expected 'fill', 'breach' or 'capped_breach'."
         )
     return CORRECTED_DEM_NAMES[dem_correc_type]
-
-
-def flow_products_from_paths(
-    *,
-    dem_out_dir_path: str | Path,
-    dem_correc_type: str,
-    capped_breach: CappedBreach | None = None,
-    breach_report: CappedBreachReport | None = None,
-) -> FlowProducts:
-    """Describe a stack that is already on disk, reading its facts from it.
-
-    ``breach_report`` is what the capped breach that wrote the stack measured,
-    read back from the description stored with it: the rasters alone cannot say
-    what was dug without the raw DEM.
-
-    The CRS and the nodata come from the rasters themselves rather than from
-    whatever the caller believes, which is the only way a reconstruction can
-    describe files it did not write. Every named file has to exist.
-    """
-    out_dir = Path(dem_out_dir_path)
-    correc = out_dir / corrected_dem_name(dem_correc_type)
-    direc = out_dir / DIRECTION_NAME
-    acc = out_dir / ACCUMULATION_NAME
-
-    conditioned = ConditionedDem(
-        path=correc,
-        method=conditioning_method(dem_correc_type, capped_breach),
-        extent=ConditioningExtent.regional(),
-        crs=raster_crs(correc),
-        breach_report=breach_report,
-    )
-    directions = DrainageDirections(
-        path=direc,
-        pointer_convention="d8_wbt",
-        conditioned_dem=conditioned,
-    )
-    return FlowProducts(
-        accumulation=FlowAccumulation(
-            path=acc,
-            units=ACCUMULATION_UNITS,
-            transform=ACCUMULATION_TRANSFORM,
-            directions=directions,
-            nodata=raster_nodata(acc),
-        )
-    )
 
 
 def build_regional_flow_products(

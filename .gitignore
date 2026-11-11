@@ -363,3 +363,6 @@ pyrightconfig.json
 
 # The frozen documents are data the reading test reads, whatever they look like.
 !tests/regression/frozen_documents/v*/**
+
+# The frozen replay run is data the replay test reads, whatever it looks like.
+!tests/regression/frozen_replay/v*/**

@@ -30,7 +30,7 @@ from typing import Any, Final, Literal
 import tomlkit
 
 from hydromodpy.core.io.document_version import VersionWindow, check_version
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 
 INSTALL_SCHEMA: Final[str] = "hydromodpy.install.v1"

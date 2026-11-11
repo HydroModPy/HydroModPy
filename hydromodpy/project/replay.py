@@ -49,7 +49,7 @@ from hydromodpy.results.storage.contract import (
 
 if TYPE_CHECKING:
     from hydromodpy.project.environment import Environment
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 @dataclass(frozen=True, slots=True)

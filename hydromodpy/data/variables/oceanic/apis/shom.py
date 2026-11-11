@@ -23,7 +23,7 @@ one. The flag that used to sit beside them, ``nearest``, was read by nobody --
 
 Which gauge SHOM is asked for
 -----------------------------
-The manager used to hold a ``geographic`` object and hand it whole to
+The variable used to hold a ``geographic`` object and hand it whole to
 ``apis/shom.py``, which read ``centroid_long_lat`` off it. The object is gone
 and the selector is declared:
 

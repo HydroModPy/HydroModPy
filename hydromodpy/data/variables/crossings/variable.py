@@ -173,6 +173,6 @@ class CrossingsVariable(SourceTable):
 
 def cache_file_name(source: str, bbox: tuple[float, float, float, float]) -> str:
     """``crossings_<source>_<bbox hash>.gpkg``, the name of a downloaded file."""
-    from hydromodpy.data.common.geo_helpers import bbox_hash
+    from hydromodpy.data.common.geometry import bbox_hash
 
     return f"{FILE_PREFIX}{source}_{bbox_hash(bbox)}.gpkg"

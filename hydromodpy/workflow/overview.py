@@ -24,7 +24,7 @@ from pathlib import Path
 from statistics import fmean
 from typing import Any
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
@@ -34,13 +34,13 @@ from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.state.run_state import LoadedDataContext, SetupContext, WorkflowContext
-from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.storage.attempt import RunClaim, is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.schema.sources import input_licence
 from hydromodpy.workflow.steps.data_description import (
     iter_loaded_records,
+    record_input_files,
     record_source_path,
     sha256_file_or_none,
 )
@@ -320,7 +320,8 @@ class DataOverviewLauncher:
         from hydromodpy.catchment.algorithms.derived_features import (
             attach_reference_hydrographic_network,
         )
-        from hydromodpy.data import DataLoader, DataLoadPlan
+        from hydromodpy.data.loading.loader import DataLoader
+        from hydromodpy.data.loading.plan import DataLoadPlan
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
@@ -387,7 +388,7 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _generate_report(state: DataOverviewState, inventory: list[dict[str, Any]]) -> list[Path]:
-        from hydromodpy.display.overview import generate_overview_report
+        from hydromodpy.display.overview.report import generate_overview_report
 
         return generate_overview_report(state, inventory)
 
@@ -398,7 +399,7 @@ class DataOverviewLauncher:
 
         from hydromodpy.display.report.engine import write_pages
         from hydromodpy.display.report.pages import overview_blocks
-        from hydromodpy.results.run import open_run_dir
+        from hydromodpy.results.run.view import open_run_dir
         from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
         run = open_run_dir(run_dir)
@@ -687,22 +688,13 @@ def loaded_inputs(state: DataOverviewState, project_root: Path) -> list[InputEnt
     for item in iter_loaded_records(state.loaded_data):
         record = item.record
         source_path = record_source_path(record)
-        for path, provider in _input_files(record, source_path):
+        for path, provider in record_input_files(record, source_path):
             if is_run_product(path, project_root):
                 continue
             entries.append(
                 _input_entry(item.scope, item.variable, record, path, provider, anchor=anchor)
             )
     return entries
-
-
-def _input_files(record: Any, source_path: Path | None) -> list[tuple[Path, str | None]]:
-    """Return the files a record was read from, each with its provider when it names one."""
-    metadata = getattr(record, "metadata", None)
-    listed = metadata.get(INPUT_FILES_KEY) if isinstance(metadata, dict) else None
-    if listed:
-        return [(Path(str(entry["path"])), str(entry["provider"])) for entry in listed]
-    return [] if source_path is None else [(source_path, None)]
 
 
 def _input_entry(

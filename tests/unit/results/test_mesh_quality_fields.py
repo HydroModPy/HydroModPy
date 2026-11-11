@@ -33,8 +33,8 @@ from hydromodpy.results.derive.virtual_fields import (
     derive_field_stack,
     field_descriptor,
 )
-from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.regular_cell_meshes import from_flopy_structured

@@ -1,7 +1,7 @@
 """Strong-typed return contracts for ``Run`` field/raster/mesh accessors.
 
 These dataclasses replace the legacy ``dict`` and ``tuple`` payloads
-returned by :class:`~hydromodpy.results.run.Run`. Frozen + slotted: cheap
+returned by :class:`~hydromodpy.results.run.view.Run`. Frozen + slotted: cheap
 to allocate, immutable for callers, attribute access only.
 """
 

@@ -547,7 +547,7 @@ def test_frozen_matching_reads_the_one_record(
 
 def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
     """A frozen run that meets a refusal exits as a data failure."""
-    from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+    from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 
     project_root = tmp_path / "project"
     project_root.mkdir()
@@ -581,37 +581,36 @@ def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``hmp run --frozen`` resolves the address ``hmp data lock`` writes."""
-    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
-    from hydromodpy.project.data_cache import lock_data
+    from hydromodpy.project.data_cache import lock_data, verify_frozen_inputs
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    _, project_root, config_path = _seed_workspace_project(tmp_path)
-    raw_toml = {"workspace": {"project_root": str(project_root)}}
+    _, project_root, _config_path = _seed_workspace_project(tmp_path)
     lock_data(project=str(project_root))
 
-    assert _verify_frozen_inputs_strict(config_path, raw_toml) == project_root
+    verify_frozen_inputs(project_root, {"project_root": str(project_root)})
 
 
 def test_a_named_project_root_beats_the_declared_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The project a command names moves the lockfile ``--frozen`` reads, as it moves the config."""
-    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
-    from hydromodpy.project.data_cache import lock_data
+    from hydromodpy.project.data_cache import (
+        FrozenVerificationError,
+        lock_data,
+        verify_frozen_inputs,
+    )
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    workspace, declared, config_path = _seed_workspace_project(tmp_path)
+    workspace, declared, _config_path = _seed_workspace_project(tmp_path)
     env_root = workspace / "projects" / "under_test"
     env_root.mkdir()
     lock_data(project=str(env_root))
-    raw_toml = {"workspace": {"project_root": str(declared)}}
 
     assert project_lockfile_path(env_root).is_file()
     assert not project_lockfile_path(declared).exists()
-    assert (
-        _verify_frozen_inputs_strict(config_path, raw_toml, project_root=env_root)
-        == env_root.resolve()
-    )
+    verify_frozen_inputs(env_root.resolve(), {"project_root": str(declared)})
+    with pytest.raises(FrozenVerificationError, match=r"hydromodpy\.lock not found"):
+        verify_frozen_inputs(declared)
 
 
 def test_the_lockfile_records_the_project_commit(
@@ -728,3 +727,54 @@ def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     run_cmd.run(args)
 
     assert not (workspace / LOCKFILE_NAME).exists()
+
+
+# -- a station folder of the user, pinned as a run records it -------------------
+
+
+@pytest.mark.parametrize(
+    ("pins", "lock_name", "edit", "refusal"),
+    [
+        ("series+location", "inputs.json", None, None),
+        ("series", "inputs.json", None, r"absent from inputs\.json.*LOC\.csv.*hmp run"),
+        ("series", LOCKFILE_NAME, None, r"absent from hydromodpy\.lock.*hmp data lock"),
+        ("series+location", "inputs.json", "notes.csv", r"absent from inputs\.json.*notes\.csv"),
+        ("series+location", "inputs.json", "piezometry_custom_LOC.csv", "does not match"),
+    ],
+)
+def test_a_station_folder_replays_frozen_from_the_files_its_records_name(
+    tmp_path: Path, pins: str, lock_name: str, edit: str | None, refusal: str | None
+) -> None:
+    """The series and the location file a record names are the pins a frozen replay checks."""
+    from hydromodpy.data.ingest.custom_points import load_file_points
+    from hydromodpy.data.source.file import FileSource
+    from hydromodpy.data.source.port import FetchRequest
+
+    folder = tmp_path / "data" / "piezometry"
+    folder.mkdir(parents=True)
+    (folder / "piezometry_custom_LOC.csv").write_text("id,x,y\nW1,305.0,305.0\n")
+    (folder / "piezometry_custom_W1_D.csv").write_text("datetime,value\n2003-01-01,2.0\n")
+    (record,) = load_file_points(
+        data_dir=folder, variable_name="piezometry", internal_unit="m", default_unit="m"
+    )
+    named = [record.file_path, *record.location_files]
+    assert [path.name for path in named] == [
+        "piezometry_custom_W1_D.csv",
+        "piezometry_custom_LOC.csv",
+    ]
+    kept = named if pins == "series+location" else named[:1]
+    items = tuple(
+        user_file_input(path, variable="piezometry", project_root=tmp_path, sha256=sha256_of(path))
+        for path in kept
+    )
+    locked = LockedInputs(project_root=tmp_path, path=tmp_path / lock_name, inputs=items)
+    if edit is not None:
+        (folder / edit).write_text("id,x,y\nW1,0.0,0.0\n")
+    source = FileSource(path=folder, locked=locked)
+    source.section = "piezometry"
+
+    if refusal is None:
+        assert len(source.fetch(FetchRequest(out_dir=tmp_path)).files) == 2
+    else:
+        with pytest.raises(FrozenDataError, match=refusal):
+            source.fetch(FetchRequest(out_dir=tmp_path))

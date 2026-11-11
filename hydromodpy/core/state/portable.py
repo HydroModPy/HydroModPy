@@ -70,23 +70,6 @@ def to_workspace_relative(workspace: Path | UPath, target: Path | UPath) -> str:
     return rel.as_posix()
 
 
-def from_workspace_relative(workspace: Path | UPath, rel: str) -> Path:
-    """Return the absolute path of a workspace-relative POSIX string."""
-    ws = Path(workspace).expanduser().resolve()
-    return ws / rel
-
-
-def is_under_workspace(workspace: Path | UPath, target: Path | UPath) -> bool:
-    """Return True when ``target`` resolves under ``workspace``."""
-    ws = Path(workspace).expanduser().resolve()
-    tgt = Path(target).expanduser().resolve()
-    try:
-        tgt.relative_to(ws)
-    except ValueError:
-        return False
-    return True
-
-
 def encode_workspace_path(workspace: Path | UPath, target: Path | UPath) -> str:
     """Encode ``target`` as a portable string anchored at the workspace.
 
@@ -134,12 +117,6 @@ def decode_workspace_path(workspace: Path | UPath, encoded: str) -> Path:
 # Portable workspace URI ----------------------------------------------------
 
 
-def to_workspace_uri(path: Path | UPath) -> str:
-    """Return the ``file://`` URI for a local workspace path."""
-    resolved = Path(path).expanduser().resolve()
-    return resolved.as_uri()
-
-
 def resolve_workspace(uri: str | Path | UPath) -> Path:
     """Resolve a portable root URI to a local :class:`Path`.
 
@@ -183,10 +160,7 @@ __all__ = (
     "decode_workspace_path",
     "display_path",
     "encode_workspace_path",
-    "from_workspace_relative",
-    "is_under_workspace",
     "resolve_workspace",
     "state_dir",
     "to_workspace_relative",
-    "to_workspace_uri",
 )

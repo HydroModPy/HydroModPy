@@ -18,7 +18,7 @@ import pytest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
-from hydromodpy.cli.helpers import EXIT_CALIBRATION, exit_if_session_unfinished
+from hydromodpy.cli.exit_codes import EXIT_CALIBRATION, exit_if_session_unfinished
 from hydromodpy.results.session.descriptor import read_session
 
 

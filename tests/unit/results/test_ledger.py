@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
-import multiprocessing
 import socket
 import time
 from datetime import UTC, datetime
@@ -119,32 +118,6 @@ def test_concurrent_records_of_derived_files_all_survive(tmp_path):
         list(pool.map(record, files))
 
     assert len(Ledger.read(tmp_path).entries) == 8
-
-
-def _record_one(directory: str, name: str) -> None:
-    """Write a file and record it, in a process of its own."""
-    from hydromodpy.results.ledger import record_derived_file
-
-    path = Path(directory) / name
-    path.write_text(name, encoding="utf-8")
-    record_derived_file(
-        directory, path, producer="export.csv", options={}, identity=make_identity()
-    )
-
-
-def test_two_processes_recording_at_once_both_survive(tmp_path):
-    context = multiprocessing.get_context("spawn")
-    workers = [
-        context.Process(target=_record_one, args=(str(tmp_path), name))
-        for name in ("a.csv", "b.csv")
-    ]
-    for worker in workers:
-        worker.start()
-    for worker in workers:
-        worker.join(120)
-
-    assert [worker.exitcode for worker in workers] == [0, 0]
-    assert sorted(entry.file for entry in Ledger.read(tmp_path).entries) == ["a.csv", "b.csv"]
 
 
 def test_the_lock_of_a_dead_process_is_taken_back(tmp_path):

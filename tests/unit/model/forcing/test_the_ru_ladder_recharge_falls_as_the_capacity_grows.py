@@ -15,7 +15,8 @@ import pandas as pd
 import xarray as xr
 
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
-from hydromodpy.data.contracts import FieldRecord, LoadResult
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import RU_LADDER_MM, compute_soil_forcings, ru_ladder
 

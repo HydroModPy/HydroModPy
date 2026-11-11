@@ -16,7 +16,7 @@ from scipy import sparse
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.model.forcing.area_weights import area_mean, area_weights
 from hydromodpy.model.forcing.interpolation import (
     interpolate_points_to_grid,

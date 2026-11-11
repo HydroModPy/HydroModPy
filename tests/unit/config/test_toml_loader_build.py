@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 
 

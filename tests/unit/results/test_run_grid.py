@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.tables import global_parameters
+from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import RunBuilder, runs
 
 __all__ = ["runs"]

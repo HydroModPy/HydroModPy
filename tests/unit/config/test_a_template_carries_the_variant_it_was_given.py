@@ -32,7 +32,7 @@ from hydromodpy.catchment.synthetic.synthetic_config import (
     LinearTopography,
     SyntheticGeographicConfig,
 )
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_param.sections import FieldHeterogeneousSection
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 from hydromodpy.model.domain.depth_model_config import FlatSubstratumDepthModel

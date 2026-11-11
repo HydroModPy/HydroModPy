@@ -33,8 +33,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import flopy
 import numpy as np
 
+from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.quantities import parse_to_m_per_s
 from hydromodpy.model.initial.state import PriorState
@@ -61,11 +63,17 @@ from hydromodpy.solver.modflow6.builders._sfr_period import (
     build_sfr_obs_spec,
     build_sfr_period_data,
 )
-from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    build_drain_stress_period_data,
+    resolve_drainage_conductance_series,
+)
+from hydromodpy.solver.modflow6.builders.mvr import MoverRecord, build_mvr_period_records
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,
 )
+from hydromodpy.solver.modflow6.builders.sidecar import write_sidecar
+from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 
 if TYPE_CHECKING:
     from hydromodpy.catchment.drainage.descent import Descent
@@ -717,3 +725,155 @@ __all__ = [
     "sfr_networks_walk_the_descent",
     "sfr_routes_drainage",
 ]
+
+
+def build_sfr(
+    model,
+    solver_mesh: SolverMesh,
+    sfr_networks,
+    sfr_mover_records,
+    all_mover_rows,
+    n_lakes_built,
+):
+    """SFR, its observations and sidecar; adds its movers to ``all_mover_rows``."""
+    # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
+    # seam can reference an existing lake, and before OC / MVR.
+    if sfr_networks:
+        if sfr_mover_records and getattr(model, "lak", None) is None:
+            raise ValueError(
+                "flow.sinks_sources.sfr declares outflow_to_lake but no lake is "
+                "active; enable the lake boundary or drop the coupling."
+            )
+        for record in sfr_mover_records:
+            if record.receiver == "LAK" and record.receiver_id >= n_lakes_built:
+                raise ValueError(
+                    f"flow.sinks_sources.sfr outflow_to_lake={record.receiver_id + 1} "
+                    f"has no matching lake ({n_lakes_built} lakes declared)."
+                )
+        # A LAK -> SFR spillway or a DRN -> SFR drainage routing makes SFR an MVR
+        # receiver: the package advertises MOVER and the per-reach to/from-mvr
+        # series are observed even with no SFR-owned mover record.
+        sfr_args = build_sfr_package_args(
+            model,
+            networks=sfr_networks,
+            external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
+            has_mover_records=bool(sfr_mover_records),
+            solver_mesh=solver_mesh,
+        )
+        if sfr_args is not None:
+            sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
+            sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
+            sfr_ts_specs = sfr_args.pop("ts_specs", None)
+            sfr = flopy.mf6.ModflowGwfsfr(model.gwf, pname="SFR", **sfr_args)
+            if sfr_ts_specs:
+                attach_time_series(sfr, sfr_ts_specs, filename=f"{model.model_output_name}.sfr.ts")
+            if sfr_obs_continuous:
+                sfr.obs.initialize(
+                    filename=f"{model.model_output_name}.sfr.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=sfr_obs_continuous,
+                )
+            if sfr_obs_meta is not None:
+                write_sidecar(model, ".sfr.meta.json", sfr_obs_meta)
+            model.sfr = sfr
+            if sfr_mover_records:
+                all_mover_rows.extend(build_mvr_period_records(sfr_mover_records))
+
+
+def _drainage_basin_mask(basin: DescentBasin | None) -> np.ndarray:
+    """The DRN cells routed to the streams: the basin of D the build computed.
+
+    A run with neither outlet nor watershed polygon routes the largest basin of
+    the descent, which is an anomaly for a catchment model: a warning.
+    """
+    if basin is None:
+        raise ValueError("drainage routing walks the descent D, and this build has none.")
+    if not basin.is_catchment:
+        logger.warning(
+            "Drainage routing: no outlet and no watershed polygon for this run. The "
+            "hillslope DRN of the largest basin of the descent is routed to the streams."
+        )
+    return basin.mask
+
+
+def build_drains(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+    sfr_networks,
+    descent,
+    basin,
+    lake_cells_by_number,
+):
+    """DRN, and the movers that route the hillslope drainage to the streams."""
+    drainage_cond_series = resolve_drainage_conductance_series(model)
+    model._drainage_cond_series = (
+        None
+        if drainage_cond_series is None
+        else np.asarray(drainage_cond_series, dtype=float).copy()
+    )
+    model._drainage_uses_hk = bool(
+        drainage_cond_series is not None
+        and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
+    )
+    drainage_mover_rows: list[list[object]] = []
+    # The cells whose drain row is dropped, kept so that a rerun drops the same.
+    model._drain_dropped_cells = frozenset()
+    if drainage_cond_series is not None:
+        drn_spd = build_drain_stress_period_data(
+            model,
+            solver_mesh=solver_mesh,
+            drainage_cond_series=np.asarray(drainage_cond_series, dtype=float),
+            ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
+            stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
+        )
+        # Marnage lakebed cells stay active (they carry the LAK connection), but they
+        # are not hillslope: a route_drainage DRN on them would drain the lake's own
+        # leakage straight back to the streams (LAK -> aquifer -> DRN-to-MVR -> SFR ->
+        # lake), an artificial recirculation that inflates the lake-aquifer exchange.
+        # Drop their DRN rows so the under-lake aquifer equilibrates with the stage.
+        marnage_cells = getattr(model, "_marnage_lake_cells", None)
+        dropped: set[int] = set()
+        if marnage_cells:
+            dropped |= {int(cid) for cells in marnage_cells.values() for cid in cells}
+        if sfr_networks:
+            dropped |= {int(cid) for cid in sfr_drain_cells_to_drop(sfr_networks)}
+        drn_spd = remove_drain_cells(drn_spd, cells=dropped)
+        model._drain_dropped_cells = frozenset(dropped)
+        if sfr_networks:
+            # route_drainage: every DRN cell of the basin of D follows the receivers
+            # of D to the FIRST reach or lake it reaches, so the hillslope drainage
+            # joins the water body it physically drains to. Cells outside that basin
+            # drain to a neighboring one and stay plain DRN. The provider ids index
+            # the period-0 rows, hence the static-DRN requirement.
+            drainage_movers = []
+            if sfr_routes_drainage(sfr_networks):
+                drainage_movers = build_drainage_mover_records(
+                    sfr_networks,
+                    drn_spd=drn_spd,
+                    receiver=descent.stopping_receiver,
+                    basin_cell_mask=_drainage_basin_mask(basin),
+                    face_adjacency=solver_mesh.face_adjacency(),
+                    mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
+                    lake_cells_by_number=lake_cells_by_number,
+                )
+            if drainage_movers:
+                drainage_mover_rows = build_mvr_period_records(drainage_movers)
+        model.drn = flopy.mf6.ModflowGwfdrn(
+            model.gwf,
+            pname="DRN",
+            stress_period_data=drn_spd,
+            save_flows=True,
+            mover=bool(drainage_mover_rows),
+        )
+
+    # The SFR walks are done: the model keeps D without its adjacency sets, all
+    # the per-cell discharge needs. An auxiliary model keeps none.
+    model.descent = (
+        None
+        if descent is None or getattr(model, "auxiliary", False)
+        else descent.without_adjacency()
+    )
+    return drainage_mover_rows

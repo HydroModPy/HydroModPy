@@ -19,7 +19,7 @@ import xarray as xr
 from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import ExportError
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run

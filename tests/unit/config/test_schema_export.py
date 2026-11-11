@@ -62,7 +62,7 @@ def test_export_schema_by_section_name():
 
 
 def test_model_json_schema_exposes_profile_metadata():
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     schema = HydroModPyConfig.model_json_schema()
     props = schema["properties"]

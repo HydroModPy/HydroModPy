@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands.show import REFUSED_REPORT_FILE, REPORT_PRESETS
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_USAGE
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_USAGE
 from hydromodpy.display.report.presets import PRESETS
 from hydromodpy.results.run.view import Run
 

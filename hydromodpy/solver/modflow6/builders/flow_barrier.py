@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
+import flopy
 import numpy as np
 import shapely
 from shapely.geometry import LineString, Point
@@ -565,3 +566,29 @@ def _cells_between(
         return 0
     upstream = ~downstream_of_wall(line, cell_mesh.centers[loose])
     return int(np.unique(loose[upstream]).size)
+
+
+def build_flow_barriers(
+    model,
+    solver_mesh: SolverMesh,
+    lake_cell_ids_by_lake,
+    lake_connections,
+):
+    """HFB on the cutoff walls and the flow barriers."""
+    # HFB (horizontal flow barrier): thin vertical low-K walls on shared cell faces
+    # (lake dam cutoff walls + general flow_barriers). Static (period 0), built
+    # after LAK and after NPF (it scales the NPF horizontal conductance) so the
+    # under-dam seepage dives below the wall. No MVR coupling.
+    hfb_rows = resolve_flow_barrier_hfb_rows(model, solver_mesh, lake_cell_ids_by_lake)
+    check_cutoff_wall_seal(model, solver_mesh, lake_cell_ids_by_lake, lake_connections, hfb_rows)
+    if hfb_rows:
+        n_faces = len({(row[0][1], row[1][1]) for row in hfb_rows})
+        logger.info(
+            "HFB cutoff wall: %d barrier rows over %d shared faces.", len(hfb_rows), n_faces
+        )
+        model.hfb = flopy.mf6.ModflowGwfhfb(
+            model.gwf,
+            pname="HFB",
+            maxhfb=len(hfb_rows),
+            stress_period_data={0: hfb_rows},
+        )

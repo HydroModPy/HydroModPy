@@ -18,7 +18,7 @@ from shapely.geometry import LineString, box
 
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.forcing.recharge_rates import criterion_mean_recharge
-from hydromodpy.results.derive.stream.criterion_inputs import (
+from hydromodpy.results.derive.stream_network.criterion_inputs import (
     basin_reference,
     catchment_cells,
     criterion_recharge_of_run,

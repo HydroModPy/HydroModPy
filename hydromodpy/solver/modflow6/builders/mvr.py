@@ -23,6 +23,10 @@ import dataclasses
 from collections.abc import Sequence
 from typing import Any
 
+import flopy
+
+from hydromodpy.solver.modflow6.builders.solver_options import output_control_records
+
 # Transfer rules MF6 accepts on an MVR record (FloPy passes the string straight
 # through). FACTOR = a fraction of the provider flow; UPTO = capped at value;
 # EXCESS = only the part above value; THRESHOLD = all-or-nothing above value.
@@ -101,3 +105,30 @@ __all__ = [
     "build_mvr_period_records",
     "mover_package_count",
 ]
+
+
+def build_mover_and_output(model, all_mover_rows):
+    """MVR, built last, then OC."""
+    # MVR last: it routes provider features to receiver features by package name,
+    # so every package it references must already exist. The packages list is
+    # derived from the record rows so LAK-only, SFR-only and mixed models all
+    # produce a consistent block.
+    if all_mover_rows:
+        mvr_packages = sorted(
+            {(str(row[0]),) for row in all_mover_rows} | {(str(row[2]),) for row in all_mover_rows}
+        )
+        model.mvr = flopy.mf6.ModflowGwfmvr(
+            model.gwf,
+            pname="MVR",
+            maxmvr=len(all_mover_rows),
+            maxpackages=mover_package_count(all_mover_rows),
+            packages=mvr_packages,
+            perioddata={0: all_mover_rows},
+        )
+
+    model.oc = flopy.mf6.ModflowGwfoc(
+        model.gwf,
+        head_filerecord=f"{model.model_output_name}.hds",
+        budget_filerecord=f"{model.model_output_name}.cbc",
+        **output_control_records(print_head=model.modflow_config.runtime.print_head),
+    )

@@ -55,7 +55,10 @@ because the flows between cells are not in `budget/`.
 
 The fields rebuilt from these fluxes say what they hold in their name: `outflow_drain`,
 `release_flux` and the accumulation fluxes are positive outflows. The `budgets` table splits each
-term in `flux_in` and `flux_out`, both positive.
+term in `flux_in` and `flux_out`, both positive. In a budget table, `flux_in` is the water that
+enters the store named by `zone_id`: the aquifer for `DOMAIN`, the stream network for `sfr:<id>`,
+the lake for its station. The exchange between two stores is therefore read with the sign of the
+store its row names.
 
 ## A rate in a TOML file follows the same sign, or its name says the direction
 

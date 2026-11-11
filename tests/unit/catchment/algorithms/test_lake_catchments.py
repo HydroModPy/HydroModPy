@@ -14,7 +14,7 @@ import pytest
 from shapely.geometry import box
 
 from hydromodpy.catchment.algorithms.lake_catchments import lake_contributing_areas_m2
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow

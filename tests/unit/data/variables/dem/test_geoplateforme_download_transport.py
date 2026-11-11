@@ -11,7 +11,6 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     download_file,
     fetch_atom_entries,
     list_files,
-    parse_atom_entries,
 )
 
 ATOM_PAGE_1 = """<?xml version="1.0" encoding="UTF-8"?>
@@ -99,17 +98,6 @@ def public_dns(monkeypatch):
         "hydromodpy.core.io.fetch.socket.getaddrinfo",
         lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))],
     )
-
-
-@pytest.mark.fast
-def test_parse_atom_entries_extracts_links_and_properties():
-    entries = parse_atom_entries(ATOM_FILES)
-
-    assert len(entries) == 1
-    assert entries[0].title.endswith(".7z")
-    assert entries[0].properties["size"] == "123"
-    assert entries[0].properties["md5"] == "abc"
-    assert entries[0].links == ("https://data.geopf.fr/telechargement/download/BDALTI/sub/file.7z",)
 
 
 @pytest.mark.fast

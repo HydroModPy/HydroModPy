@@ -35,7 +35,7 @@ from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 
 class _RecordingStore:
-    """Minimal SimulationStore double capturing the extractor's writes.
+    """Minimal RunStore double capturing the extractor's writes.
 
     ``save_zarr`` is False: the extractor then skips every array-store write
     (spatial mesh, lake restart state), which is out of scope here.

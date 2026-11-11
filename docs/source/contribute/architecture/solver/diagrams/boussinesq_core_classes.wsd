@@ -17,7 +17,7 @@ package "hydromodpy.solver.boussinesq" {
     +runtime_backend_requested: str
     +surface_interaction_model_requested: str
     +surface_interaction_model_resolved: str
-    +runtime_backend: BoussinesqRuntimeBackend
+    +runtime_backend: ResolvedBoussinesqRuntimeBackend
   }
 
   class BoussinesqMesh
@@ -39,7 +39,7 @@ package "hydromodpy.solver.boussinesq" {
   class TransientStepInputs
   class SteadySolveInputs
   class RuntimeSolveResult
-  class BoussinesqRuntimeBackend
+  class ResolvedBoussinesqRuntimeBackend
   class BoussinesqMethodSpec
   class BoussinesqEngineSpec
 }
@@ -47,12 +47,12 @@ package "hydromodpy.solver.boussinesq" {
 Boussinesq --> BoussinesqMesh : uses
 Boussinesq --> BoussinesqState : creates/stores
 Boussinesq --> BoussinesqSolverContract : resolves
-BoussinesqSolverContract --> BoussinesqRuntimeBackend
-BoussinesqRuntimeBackend --> BoussinesqMethodSpec
-BoussinesqRuntimeBackend --> BoussinesqEngineSpec
-BoussinesqRuntimeBackend --> TransientStepInputs : consumes
-BoussinesqRuntimeBackend --> SteadySolveInputs : consumes
-BoussinesqRuntimeBackend --> RuntimeSolveResult : returns
+BoussinesqSolverContract --> ResolvedBoussinesqRuntimeBackend
+ResolvedBoussinesqRuntimeBackend --> BoussinesqMethodSpec
+ResolvedBoussinesqRuntimeBackend --> BoussinesqEngineSpec
+ResolvedBoussinesqRuntimeBackend --> TransientStepInputs : consumes
+ResolvedBoussinesqRuntimeBackend --> SteadySolveInputs : consumes
+ResolvedBoussinesqRuntimeBackend --> RuntimeSolveResult : returns
 RuntimeSolveResult --> BoussinesqAssembly
 
 note bottom of BoussinesqState

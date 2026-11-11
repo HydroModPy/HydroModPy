@@ -19,23 +19,24 @@ to m3/s when they are set. The recharge binder also reads
 solver, in m/s; it stays ``None`` when no source gives one.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from numbers import Real
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import (
+from hydromodpy.core.units.quantities import (
     convert_payload_to_m_per_s,
+    convert_to_m3_per_s,
     convert_to_m_per_s,
+    normalize_m3_per_s_unit,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.native import NativeSeries
 from hydromodpy.model.initial_config import FlowInitialConditions, normalize_flow_initial_conditions
 from hydromodpy.model.payloads import BoundaryCondition
-from hydromodpy.model.process_spatial import ProcessSpatial, _coerce_field_param
+from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
@@ -97,12 +98,30 @@ def flow_profiles(config: FlowConfig, ids: Iterable[str] | None = None) -> dict[
     return profiles
 
 
-class Flow(ProcessSpatial):
+def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
+    """Coerce one raw config value into a runtime parameter object."""
+    if not isinstance(raw_parameter, Mapping):
+        return raw_parameter
+
+    payload = dict(raw_parameter)
+    field_payload = payload.get("field")
+    if isinstance(field_payload, Mapping):
+        payload = dict(field_payload)
+        if "field_vertical_profile" in raw_parameter and "vertical_profile" not in payload:
+            payload["vertical_profile"] = raw_parameter["field_vertical_profile"]
+    payload.setdefault("id", parameter_id)
+    if "kind" not in payload:
+        return raw_parameter
+    return FieldParam.from_dict(payload)
+
+
+class Flow:
     """The flow process of one run, built from a validated ``FlowConfig``.
 
     ``set_config`` fills the members from the configuration, and the data step
     completes ``sinks_sources`` with its ``set_*`` methods and the binders of
-    ``model/boundaries``. Inherits the containers of ``ProcessSpatial``.
+    ``model/boundaries``. Holds the runtime containers ``parameters``, ``initial_conditions``,
+    ``boundary_conditions`` and ``sinks_sources`` with their active ids.
     """
 
     def __init__(self, config: FlowConfig):
@@ -114,13 +133,17 @@ class Flow(ProcessSpatial):
         config : FlowConfig
             Typed flow configuration payload.
         """
-        super().__init__()
         if not isinstance(config, FlowConfig):
             raise TypeError("config must be a FlowConfig instance")
+        self.parameters: dict[str, object] = {}
+        self.boundary_conditions: dict[str, BoundaryCondition] = {}
+        self.sinks_sources: dict[str, object] = {}
+        self.active_sinks_sources: list[str] = []
+        self.active_bc: list[str] = []
         self.config: FlowConfig
         self.flow_regime: str
         self.first_period_steady: bool
-        self.initial_conditions: FlowInitialConditions | None
+        self.initial_conditions: FlowInitialConditions | None = None
         self.native_recharge: NativeSeries | None = None
         self.boundary_condition_bundle: BoundaryConditionBundle = BoundaryConditionBundle(
             conditions={},

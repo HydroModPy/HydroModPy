@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.model.forcing.dated_forcing import PiecewiseForcing, SeasonalForcing
 from hydromodpy.model.forcing.time_forcing import (
     aggregate_forcing_series,

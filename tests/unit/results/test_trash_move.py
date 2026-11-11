@@ -383,7 +383,7 @@ def test_delete_moves_the_named_directory_and_restore_brings_it_back(tmp_path, m
 def test_delete_of_a_bare_name_with_versions_is_refused_with_the_list(
     tmp_path, monkeypatch, capsys
 ):
-    from hydromodpy.cli.helpers import EXIT_AMBIGUOUS_REFERENCE
+    from hydromodpy.cli.exit_codes import EXIT_AMBIGUOUS_REFERENCE
 
     project = _project(tmp_path)
     _make_run(project, "J0014010-base")
@@ -415,7 +415,7 @@ def test_delete_now_leaves_a_tombstone_and_the_name_stays_taken(tmp_path, monkey
 
 
 def test_delete_refuses_a_pinned_run_without_force(tmp_path, monkeypatch, capsys):
-    from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+    from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT
 
     project = _project(tmp_path)
     _make_run(project, "best", sim_id=SIM_ID)
@@ -428,7 +428,7 @@ def test_delete_refuses_a_pinned_run_without_force(tmp_path, monkeypatch, capsys
 
 
 def test_delete_never_moves_a_running_attempt(tmp_path, monkeypatch, capsys):
-    from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+    from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT
 
     project = _project(tmp_path)
     run_dir = _make_run(project, "busy")

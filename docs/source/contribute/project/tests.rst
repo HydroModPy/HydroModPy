@@ -42,6 +42,16 @@ Quality ladder
      - Same, with heavier fixtures.
      - Wider workflow coverage; pre-merge / pre-release.
      - ``python -m tools.dev test regression --extensive``
+   * - ``regression`` (frozen replay)
+     - Does a stored run still replay bit for bit?
+     - One frozen MODFLOW 6 run on triangles, replayed from a copy without
+       gmsh. The weekly job replays it on another processor.
+     - ``pytest tests/regression/frozen_replay -q``
+   * - ``processes``
+     - Do several processes on one folder leave it whole?
+     - Locks, version claims, stores and server jobs tried by real
+       ``spawn`` children, on Linux and Windows.
+     - ``pytest tests/processes -q``
    * - ``validation`` (analytical)
      - Does the numerical result match a trusted reference?
      - Closed-form, semi-analytical, or stress benchmarks.
@@ -65,11 +75,18 @@ Quality ladder
        formats a reader would use. Five strict ``xfail`` cases record claims
        the code makes and does not yet honor.
      - ``pytest tests/characterization -q``
-   * - ``contract``
+   * - ``ports``
      - Do the implementations of a port honor the same behavior?
-     - Compatibility contracts across implementations, such as the catalog
-       backends and the cache backend.
-     - ``pytest tests/contract -q``
+     - One file per port registry, parametrized on its names: solver, data
+       source, terrain, mesh, optimizer, evaluator, figure and export. A case
+       that cannot run here is a skip that says why.
+     - ``pytest tests/ports -q``
+   * - ``refusals``
+     - Is a wrong input refused with its class, its code and a sentence that
+       says what to do?
+     - Tables of refused forms, combinations, sections, seals and data, and the
+       exit code of every error category.
+     - ``pytest tests/refusals -q``
    * - ``performance``
      - Did a benchmark drift against the committed baseline?
      - ``pytest-benchmark`` micro-benchmarks of the storage wrappers.
@@ -91,7 +108,7 @@ Practical notes:
 - ``python -m tools.dev test`` wraps the unit, regression, and validation suites. It runs
   from a source checkout, because ``tools/`` is not in the wheel.
 - ``pytest`` is the direct entry point for the integration, e2e, MMS,
-  characterization, contract and marker-based subsets.
+  characterization, ports, refusals and marker-based subsets.
 - Run in parallel with the rules of :ref:`run-the-tests`.
 - The PETSc subset is Linux-only. On Windows, run it through WSL via
   ``install/enter_wsl_dev.sh``.
@@ -102,6 +119,17 @@ What each family covers
 Unit tests (``tests/unit/``) protect Pydantic schemas, helpers,
 adapters, planners, and small runtime contracts. They do not exercise
 launcher behavior or persisted outputs.
+
+Port tests (``tests/ports/``) hold one file per port registry,
+parametrized on the names the registry serves, so a new backend, engine,
+source or figure is tested without naming it. A case that cannot run on this
+machine is a skip that the object under test declares, such as a missing
+solver binary.
+
+Refusal tests (``tests/refusals/``) are tables. Each row is one wrong input,
+the class it raises, its ``HMPY`` code and a fragment of the sentence that
+says what to do. A table over a closed set, such as the retired keys or the
+error categories, checks that its rows equal that set.
 
 Integration tests (``tests/integration/``) exercise realistic
 workflows without relying on golden datasets, catching boundary
@@ -152,7 +180,9 @@ The family that failed tells you where to look:
 - ``characterization``: a run no longer leaves on disk what a reader expects,
   or a strict ``xfail`` started to pass, which means a claim of the code is now
   honored and the marker must go.
-- ``contract``: an implementation of a port no longer behaves like the others.
+- ``ports``: an implementation of a port no longer behaves like the others.
+- ``refusals``: an input is no longer refused, or its sentence no longer
+  says what to write instead.
 - ``solver_sanity``: the external solver or its bundled binary
   drifted, not the orchestration.
 
@@ -161,6 +191,8 @@ What to run when
 
 - During a local refactor: ``unit`` first.
 - When several layers changed together: ``integration``.
+- When a port, a backend or a refusal sentence changed: ``ports`` or
+  ``refusals``.
 - Before merging workflow-facing changes: ``regression --fast``.
 - Before broader release or benchmark-sensitive changes: add
   ``regression --extensive``.
@@ -222,7 +254,7 @@ Numerical tolerances live in exactly one place, never inline-duplicated:
   tolerance. The single documented scalars are consumed in
   ``validation/`` and ``regression/`` through
   ``tests/_helpers/tolerances.py::tol('<slug>')`` so the number exists in
-  one place. ``tests/unit/architecture/test_tolerances_single_source.py`` guards this:
+  one place. ``tests/unit/architecture/test_surfaces.py`` guards this:
   every ``tol()`` call must resolve to a real row, and every documented
   scalar that is used inline must be referenced through ``tol()``.
 - Per-case envelopes stay in ``validation_cases/**/tolerances*.toml`` and

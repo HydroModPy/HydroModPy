@@ -1,6 +1,6 @@
 """The two crossings sources of the port, on a stubbed provider.
 
-The contract suite (``tests/contract/test_data_source_contract.py``) checks the
+The contract suite (``tests/ports/test_data_source.py``) checks the
 declarations against the port on every source; this table checks what these two
 classes do that only they do: the GeoPackage they write under the request's
 directory, its name, the file record it returns, and what becomes of a box that

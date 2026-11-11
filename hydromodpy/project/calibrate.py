@@ -95,6 +95,8 @@ def calibration_plan(
     *,
     workspace: str | Path | None = None,
     check: bool = False,
+    source: str | Path | None = None,
+    case: str | None = None,
 ) -> CalibrationPlan:
     """Return what a calibration declares, with nothing run and nothing written.
 
@@ -102,12 +104,20 @@ def calibration_plan(
     ----------
     config
         The calibration TOML file, or a validated
-        :class:`~hydromodpy.config.HydroModPyConfig`.
+        :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
     workspace
         Overrides the project root the ``plan`` of a file names.
     check
         Run the checks of ``hmp check`` first, as a launch does. A file they
         refuse raises.
+    source
+        For a configuration held in memory, the file it was read from. The
+        ``plan`` is then what a launch of that configuration would write,
+        anchored to the file, after the preflight of the launch. Without it
+        the ``plan`` of a configuration is ``None``.
+    case
+        With ``source``, the case the user names: the session of that case is
+        the next version of it.
 
     Raises
     ------
@@ -116,7 +126,7 @@ def calibration_plan(
     hydromodpy.core.exceptions.ConfigError
         If the configuration cannot be read, or if ``check`` refuses it.
     """
-    from hydromodpy.calibration.runners.staged_runner import phase_summaries
+    from hydromodpy.calibration.runners.staged_report import phase_summaries
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
@@ -129,7 +139,9 @@ def calibration_plan(
             phases=phase_summaries(section),
             calibration=section.model_dump(mode="json", exclude_none=True),
             protocol=_protocol_of_section(section),
-            plan=None,
+            plan=None
+            if source is None
+            else _plan_of_held(config, section, Path(source), workspace, case),
         )
     from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
@@ -148,6 +160,120 @@ def calibration_plan(
         protocol=expanded["protocol"],
         plan=describe_dry_run(cfg, target, workspace=workspace),
     )
+
+
+def _plan_of_held(
+    config: Any, section: Any, source: Path, workspace: str | Path | None, case: str | None
+) -> dict[str, Any]:
+    """Return what the calibration held in memory would write, anchored to the file *source*.
+
+    The session of a case the user names is the next version of that case.
+    """
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.calibration.runners.document import describe_dry_run
+    from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
+    from hydromodpy.results.catalog.registration import next_version_dirname
+
+    held = config if hasattr(config, "model_copy") else None
+    preflight_launch(source, config=held, calibration=section)
+    plan = describe_dry_run(section, source, workspace=workspace)
+    if case is None or case == plan["case"]:
+        return plan
+    dirname = next_version_dirname(Path(plan["project_root"]), case)
+    return {
+        **plan,
+        "case": case,
+        "session_dir": session_dir_rel(dirname),
+        "run_dir": run_dir_rel(dirname),
+        "version": dirname,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibrationRoute:
+    """Where a calibration file goes: the checked environment, and the runner it calls for."""
+
+    target: Path
+    """The file, absolute."""
+    staged: bool
+    """``True`` when the file declares ``[[calibration.phases]]``: the staged runner. Else one search."""
+    environment: Environment
+    """The environment of the call, checked once against the project root."""
+
+    def completed_session(self) -> Any:
+        """Return the report of a completed session that answers this file, or ``None``."""
+        from hydromodpy.project.dispatch.workflow import identical_session_of_file
+
+        return identical_session_of_file(self.target)
+
+
+def route_calibration(
+    config: str | Path,
+    *,
+    phase: str | None = None,
+    environment: Environment | None = None,
+    project_root: str | Path | None = None,
+) -> CalibrationRoute:
+    """Check what a launch of the calibration file *config* needs, and say which runner it goes to.
+
+    The pipeline of the trials is filled, the environment is checked once
+    (``None`` builds the default of the machine) against *project_root*, else
+    the folder of the file, and the phases the file declares are read. A phase
+    named for a file that declares none is refused, before the preflight, which
+    is the last check made here. Whether a completed session already answers
+    the file is left to :meth:`CalibrationRoute.completed_session`, so a caller
+    can check its destinations first.
+    """
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.project.dispatch.workflow import (
+        _checked_environment,
+        calibration_phases_or_raise,
+        declared_calibration_phases,
+        no_such_phase,
+    )
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    # A calibration reads its files through the trial pipeline, the one global
+    # the library keeps. Fill it before the routing question and the launch read.
+    fill_trial_pipeline()
+
+    target = Path(config).expanduser().resolve()
+    # The closest project root a file calibration has, before its document is
+    # loaded: the workspace it names, else the folder of the TOML. The check
+    # refuses the roots it must and reads the credentials file once.
+    root = Path(project_root).expanduser().resolve() if project_root is not None else target.parent
+    environment = _checked_environment(environment, root)
+    # Routing alone tolerates an unreadable file: the runner that reads it next
+    # reports the failure with its own context. Selecting a phase by name reaches
+    # no runner, so the failure has to surface here, or the user is sent looking
+    # at a phases block that is present and correct.
+    declared = (
+        calibration_phases_or_raise(target)
+        if phase is not None
+        else declared_calibration_phases(target)
+    )
+    if phase is not None and not declared:
+        raise CalibrationError(no_such_phase(target.name, phase))
+    preflight_launch(target)
+    return CalibrationRoute(target=target, staged=bool(declared), environment=environment)
+
+
+def promote_trial(
+    project_root: str | Path, case: str, trial: int, *, as_name: str | None = None
+) -> Path:
+    """Turn one trial of the calibration session *case* into a run, and return its directory.
+
+    A trial the session kept is moved, any other is replayed from the frozen
+    session configuration after its fingerprint is checked. The run lands in
+    ``runs/<case>`` when that name is free, else in the next version, or under
+    *as_name*.
+    """
+    from hydromodpy.calibration.runners.promotion import promote_trial_from_session
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+    fill_trial_pipeline()
+    return promote_trial_from_session(Path(project_root), case, trial, as_name=as_name)
 
 
 def calibrate_a_file(
@@ -175,54 +301,18 @@ def calibrate_a_file(
     A completed session of the case of the file and of the same solution key
     is given back as its report, unless ``force``, ``resume`` or ``phase``.
     """
-    from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
     from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
     from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-    from hydromodpy.core.exceptions import CalibrationError
-    from hydromodpy.core.workspace.resolve import find_data_workspace
-    from hydromodpy.project.dispatch.workflow import (
-        calibration_phases_or_raise,
-        declared_calibration_phases,
-        no_such_phase,
-    )
-    from hydromodpy.project.environment import Environment
-    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
-    # A calibration reads its files through the trial pipeline, the one global
-    # the library keeps. Fill it before the routing question and the launch read.
-    fill_trial_pipeline()
-
-    target = Path(config_path).expanduser().resolve()
-    if environment is None:
-        environment = Environment.default()
-    # The closest project root a file calibration has, before its document is
-    # loaded: the workspace it names, else the folder of the TOML. The check
-    # refuses the roots it must and reads the credentials file once.
-    project_root = (
-        Path(workspace).expanduser().resolve() if workspace is not None else target.parent
+    route = route_calibration(
+        config_path, phase=phase, environment=environment, project_root=workspace
     )
-    environment.check(
-        project_root=project_root,
-        workspace_root=find_data_workspace(project_root) or project_root,
-    )
-    # Routing alone tolerates an unreadable file: the runner that reads it next
-    # reports the failure with its own context. Selecting a phase by name reaches
-    # no runner, so the failure has to surface here, or the user is sent looking
-    # at a phases block that is present and correct.
-    if phase is not None:
-        declared_phases = calibration_phases_or_raise(target)
-    else:
-        declared_phases = declared_calibration_phases(target)
-    if phase is not None and not declared_phases:
-        raise CalibrationError(no_such_phase(target.name, phase))
-    preflight_launch(target)
+    target = route.target
     if dry_run:
         return describe_dry_run(load_toml_calibration(target)[0], target, workspace=workspace)
     if not (force or resume or phase is not None):
-        from hydromodpy.project.dispatch.workflow import identical_session_of_file
-
-        identical = identical_session_of_file(target)
+        identical = route.completed_session()
         if identical is not None:
             return identical
     options = {
@@ -232,12 +322,14 @@ def calibrate_a_file(
         "objective": objective,
         "resume": resume,
     }
-    if declared_phases:
-        result = run_staged_calibration(target, phase=phase, bounds=environment.bounds, **options)
+    if route.staged:
+        result = run_staged_calibration(
+            target, phase=phase, bounds=route.environment.bounds, **options
+        )
     else:
         # Same descent for the search of a calibration without phases: its trials
         # load their data under the bounds of the call, never through os.environ.
-        result = run_calibration_cli(target, bounds=environment.bounds, **options)
+        result = run_calibration_cli(target, bounds=route.environment.bounds, **options)
     return write_session_reports(result) if report else result
 
 
@@ -438,7 +530,7 @@ def _in_memory_runner(
 def _protocol_calibration(proj: Project, protocol: str | dict) -> CalibrationConfig:
     """The calibration a protocol writes over this project's own ``[calibration]``."""
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.calibration.protocols import expand_calibration_protocol
+    from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
     from hydromodpy.calibration.runners.programmatic_runner import project_defaults_on
 
     document = proj.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
@@ -483,19 +575,22 @@ def _calibrate_embedded(
     declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
     source = proj._config_path
     if declared and source is not None:
-        from hydromodpy.calibration.preflight import preflight_launch
         from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         if case is not None:
             raise ConfigError(FROM_FILE)
-        target = Path(source).resolve()
-        preflight_launch(target)
+        route = route_calibration(
+            source,
+            phase=phase,
+            environment=proj._environment,
+            project_root=options["workspace"],
+        )
         if dry_run:
             return describe_dry_run(
-                load_toml_calibration(target)[0], target, workspace=options["workspace"]
+                load_toml_calibration(route.target)[0], route.target, workspace=options["workspace"]
             )
-        return run_staged_calibration(target, phase=phase, project=label, **options)
+        return run_staged_calibration(route.target, phase=phase, project=label, **options)
     if not declared and phase is not None:
         raise CalibrationError(no_such_phase("this configuration", phase))
     # A declaration on a project built in memory has no file to fork
@@ -575,7 +670,7 @@ def _protocol_of_section(section: Any) -> dict[str, Any] | None:
     The same keys as the protocol of a file. A section belongs to a config object,
     so the protocol is its own: ``inherited`` is false.
     """
-    from hydromodpy.calibration.protocols import get_protocol
+    from hydromodpy.calibration.protocols.registry import get_protocol
 
     declared = getattr(section, "protocol", None)
     if declared is None:
@@ -601,7 +696,7 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
 
     Reads through the same ``base_config`` chain :func:`load_toml_calibration`
     resolves, then hands the document to
-    :func:`hydromodpy.calibration.protocols.expand_calibration_protocol`. A
+    :func:`hydromodpy.calibration.protocols.registry.expand_calibration_protocol`. A
     file naming no protocol gets its own section back, ``protocol`` key
     aside: nothing was unfolded, so there is nothing else to say. A file
     naming one gets the whole section the protocol unfolds into, ``protocol``
@@ -615,7 +710,7 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     """
     import tomllib
 
-    from hydromodpy.calibration.protocols import expand_calibration_protocol, get_protocol
+    from hydromodpy.calibration.protocols.registry import expand_calibration_protocol, get_protocol
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config

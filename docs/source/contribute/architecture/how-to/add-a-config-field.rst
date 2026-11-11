@@ -32,7 +32,7 @@ Sections live close to the package they configure:
      - ``DomainConfig``
      - ``hydromodpy/model/domain/domain_config.py``
    * - ``[data]``
-     - ``DataManagersConfig``
+     - ``DataConfig``
      - ``hydromodpy/data/loading/config_schema.py``
    * - ``[flow]``
      - ``FlowConfig``
@@ -172,9 +172,7 @@ Add a field to an existing section
    from typing import Annotated
    from pydantic import Field
    from hydromodpy.core.config_kit.profile import Profile
-   from hydromodpy.core.units import HydraulicConductivity
-
-
+   from hydromodpy.core.units.types import HydraulicConductivity
    class FlowConfig(HydroModelBase):
        # ... existing fields ...
 
@@ -369,7 +367,7 @@ for two minor versions. In one change:
    option is a row with the scope ``display.overrides.{*}``.
 2. List the old key in the ``model_refused_keys`` of the model, so a config built in
    Python is told what to write. Under ``[calibration]``, ``renamed_to(old, new, meaning)``
-   of ``hydromodpy/calibration/config.py`` writes that sentence.
+   of ``hydromodpy/calibration/config_terms.py`` writes that sentence.
 3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
    the rename.
 4. Run ``python -m tools.surface_snapshot``. It refuses a removed stable key that has no

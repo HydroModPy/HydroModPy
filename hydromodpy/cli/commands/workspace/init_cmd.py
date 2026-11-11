@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import WORKSPACE_TOML_FILENAME
 
@@ -58,7 +58,7 @@ def run(args: argparse.Namespace) -> None:
 
 def _print_layout(result: dict[str, str]) -> None:
     """Print where the workspace is, what it holds and how to start."""
-    from hydromodpy.data.workspace.scaffold import EXAMPLE_PROJECT_NAME, VARIABLES
+    from hydromodpy.data.workspace.scaffold import EXAMPLE_PROJECT_NAME, variable_folders
 
     target = result["path"]
     print(f"Workspace: {target}")
@@ -67,7 +67,9 @@ def _print_layout(result: dict[str, str]) -> None:
     print("Layout:")
     print(f"  {target}/{WORKSPACE_TOML_FILENAME}    workspace metadata")
     print(f"  {target}/data/                 input data and the data cache (a sidecar by file)")
-    print(f"  {target}/data/<variable>/      {len(VARIABLES)} folders, drop your files here")
+    print(
+        f"  {target}/data/<variable>/      {len(variable_folders())} folders, drop your files here"
+    )
     print(f"  {target}/projects/             one subfolder per project (work inside them)")
     print(f"  {target}/projects/{EXAMPLE_PROJECT_NAME}/     ready-to-run synthetic demo project")
     print()

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.config_kit.field_param.config import (
-    load_field_param_toml,
     load_values_mapping_csv,
     resolve_field_param_config_payload,
     validate_field_param_toml_data,
@@ -98,17 +97,6 @@ def test_a_field_table_is_normalised(payload, section, expected):
 def test_a_field_table_that_says_nothing_usable_is_refused(payload, match):
     with pytest.raises(ValueError, match=match):
         validate_field_param_toml_data(payload)
-
-
-def test_a_field_file_is_read_and_its_errors_name_it(tmp_path: Path):
-    good = write_text(
-        tmp_path / "good.toml", '[field]\nid = "K"\nkind = "homogeneous"\nvalue = 12.5'
-    )
-    bad = write_text(tmp_path / "bad.toml", '[field]\nid = "K"\nkind = "homogeneous"\nunit = "foo"')
-
-    assert load_field_param_toml(good)["field"]["value"] == 12.5
-    with pytest.raises(ValueError, match=r"Invalid field parameter configuration in .*bad\.toml"):
-        load_field_param_toml(bad)
 
 
 @pytest.mark.parametrize(

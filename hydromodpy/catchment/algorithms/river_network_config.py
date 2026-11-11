@@ -9,7 +9,7 @@ from pydantic import Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 
 __all__ = [
     "RiverNetworkConfig",

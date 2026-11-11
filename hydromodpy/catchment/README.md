@@ -170,18 +170,18 @@ Five more rules hold inside.
 
 1. `terrain/` imports `core` and itself, and one thing more. `WhiteboxTerrainEngine.__init__` imports
    `catchment.delineation` inside the function, and only when it is given no backend. A third-party engine needs
-   nothing of HydroModPy but the port module. `tests/unit/architecture/test_terrain_port_stands_alone.py` checks it.
+   nothing of HydroModPy but the port module. `tests/unit/architecture/test_layers.py` checks it.
 2. `drainage/` imports `core`, itself, `terrain/` and `algorithms/`. `hydromodpy/mesh/planning/height_above_stream.py`
    reads it, and `terrain/` and `preprocess/` do not, because they work on D8 pixels before the mesh exists.
    `channel_tree.py` reads the D8 table of `terrain/` and the pointer name of `algorithms/flow_products.py`.
 3. `algorithms/` reads no configuration of the pipeline. Only `pipeline_steps.py` in `preprocess/` names
    `GeographicConfig`, under `TYPE_CHECKING`, and the other modules take the config as an argument.
 4. A third-party terrain engine joins through the entry-point group `hydromodpy.terrain.engine`. The conformance suite
-   `tests/contract/test_terrain_engine_contract.py` runs on every engine the registry resolves.
+   `tests/ports/test_terrain.py` runs on every engine the registry resolves.
 5. `stream_network/` imports `core`, itself, `drainage/` and `algorithms/`. It is a science folder under rule 6 of the
    repository, and the imports it still needs outside numpy and one neighbour are listed one by one in the table
    `ALLOWED_OUTSIDE` of `tests/unit/architecture/test_science_module_imports.py`. That table can only shrink. The
-   readers of the criterion on a stored run stay in `results/derive/stream/`.
+   readers of the criterion on a stored run stay in `results/derive/stream_network/`.
 
 Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `results`, `calibration`, `config`,
 `project` and `data`. The demos that load a whole project TOML live outside the package, in `tools/cases/`.

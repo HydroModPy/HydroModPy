@@ -117,17 +117,6 @@ def ensure_platform_executable(path: str | Path) -> Path:
     return executable
 
 
-def managed_bin_dir() -> Path:
-    """Return the managed flat ``<cache>/bin/`` directory, creating it on demand.
-
-    Only a download into the managed cache needs it. Every lookup reads
-    :func:`resolve_bin_path`, which gives ``HMP_BIN`` when it is set.
-    """
-    target = cache_dir() / "bin"
-    target.mkdir(parents=True, exist_ok=True)
-    return target
-
-
 _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
     "mf6": {"win": "mf6.exe", "linux": "mf6", "darwin": "mf6"},
     "mfnwt": {"win": "mfnwt.exe", "linux": "mfnwt", "darwin": "mfnwt"},

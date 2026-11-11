@@ -2,7 +2,7 @@
 
 Twin of :mod:`~hydromodpy.data.variables.dem.resolver`, on the linework instead
 of the elevation. The alpha diagnostic runs inside the geographic step, before
-any data manager, so it cannot read what ``LoadDataStep`` later produces: it
+any data variable, so it cannot read what ``LoadDataStep`` later produces: it
 needs a concrete vector file on disk. The map is named once, under
 ``[[data.hydrography.sources]]``, and this resolver hands its path to the step.
 
@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.io_helpers import declared_source_path
+from hydromodpy.data.common.files import declared_source_path
 
 logger = get_logger(__name__)
 
@@ -107,7 +107,7 @@ def _find_vector_file_in_dir(directory: Path) -> Path | None:
     Deliberately not :func:`~hydromodpy.data.variables.hydrography.custom.load_file`'s
     scan, which prefers a raster over a vector: alpha needs the linework.
     """
-    from hydromodpy.data.common.io_helpers import is_scaffold_example
+    from hydromodpy.data.common.files import is_scaffold_example
     from hydromodpy.data.variables.hydrography.custom import _VECTOR_EXTENSIONS
 
     for extension in _VECTOR_EXTENSIONS:

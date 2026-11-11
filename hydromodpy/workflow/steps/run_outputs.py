@@ -18,7 +18,7 @@ from hydromodpy.catchment.stream_network.geometry import open_water_mask
 from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.exceptions import ConfigError, NothingThereError, SolverInputError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.period_aggregation import naive_timestamp, period_edges
 from hydromodpy.mesh.planar.geometry import cell_polygons, padded_rows
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.model.sinks_sources.wells import (
@@ -26,12 +26,12 @@ from hydromodpy.model.sinks_sources.wells import (
     WELLS_PUMPED_CHECK,
     WELLS_PUMPED_METRIC,
 )
-from hydromodpy.results.derive.stream.criterion_inputs import (
+from hydromodpy.results.derive.stream_network.criterion_inputs import (
     catchment_cells,
     criterion_recharge_of_run,
     declared_crs,
 )
-from hydromodpy.results.derive.time_alignment import naive_utc
+from hydromodpy.results.storage.declared import refuse_undeclared, stored_names
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import RunContext, SolverRun
 from hydromodpy.solver.base.registry import solvers
@@ -109,7 +109,8 @@ def extract_run_outputs(*, ctx: RunContext, store: Any, retention: Retention) ->
     The adapter of the backend reads what it needs on the ``SolverRun``: its
     output folder, its ``Model`` and its options. ``retention`` says which
     per-cell budget terms the run keeps. A run with no output folder on disk
-    raises ``NothingThereError``.
+    raises ``NothingThereError``. A field or a table the extractor adds outside
+    ``writes`` of its backend raises ``DataContractViolation``.
     """
     if not ctx.run.is_solver_backed:
         return
@@ -121,7 +122,10 @@ def extract_run_outputs(*, ctx: RunContext, store: Any, retention: Retention) ->
             f"Solver output directory is missing for sim {store.sim_id}: {output_dir}"
         )
 
-    solvers.create(ctx.run.process_type, ctx.run.solver).extract(solver_run, store, retention)
+    adapter = solvers.create(ctx.run.process_type, ctx.run.solver)
+    before = stored_names(store.run_dir)
+    adapter.extract(solver_run, store, retention)
+    refuse_undeclared(stored_names(store.run_dir) - before, adapter.writes, backend=ctx.run.solver)
 
     _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
     _finalize_run_provenance(solver_run=solver_run, sim_id=store.sim_id, store=store)
@@ -144,7 +148,7 @@ def _keep_what_the_criterion_reads(*, ctx: RunContext, sim_id: str, store: Any) 
     That is the mean recharge its seepage threshold is a fraction of, the cells of
     open water that leave its supports, and the cells inside the catchment
     outline. Each comes from the one function a trial calls
-    (:mod:`hydromodpy.results.derive.stream.criterion_inputs`), so a figure scores
+    (:mod:`hydromodpy.results.derive.stream_network.criterion_inputs`), so a figure scores
     the cells the trials scored. Only the flow run keeps them, because the
     trials read its heads and its recharge. A transport run of the same
     simulation would write the stored forcing over the rate the flow model held.
@@ -175,7 +179,7 @@ def _period_edges(store: Any, fields: Any) -> Any:
         return None
     start = getattr(getattr(store, "facts", None), "period_start", None)
     try:
-        return period_edges(stamps, start=None if start is None else naive_utc(start))
+        return period_edges(stamps, start=None if start is None else naive_timestamp(start))
     except ValueError:
         return None
 

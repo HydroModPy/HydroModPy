@@ -23,15 +23,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
     from hydromodpy.project.environment import Environment
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.run.view import Run
 
 
 @dataclass(slots=True)

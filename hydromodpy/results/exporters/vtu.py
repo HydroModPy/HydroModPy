@@ -23,7 +23,7 @@ from hydromodpy.mesh.io.vtu import write_vtu
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.results.exporters.fields import one_layer, read_field_step
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 logger = get_logger(__name__)
 

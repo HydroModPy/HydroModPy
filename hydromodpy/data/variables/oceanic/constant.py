@@ -1,4 +1,4 @@
-"""Constant sea-level source for oceanic data manager."""
+"""Constant sea-level source for the oceanic data variable."""
 
 from __future__ import annotations
 

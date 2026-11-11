@@ -10,15 +10,15 @@ boundary does NOT infer any of them.
 
 from __future__ import annotations
 
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.planner import DataPlanner
 
 _CONSUMED_LAKE_FAMILIES = ("lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal")
 _UNCONSUMED_LAKE_FAMILIES = ("lake_bathymetry", "lake_levels", "lake_outflow")
 
 
-def _empty_config() -> DataManagersConfig:
-    return DataManagersConfig.model_validate({"types": []})
+def _empty_config() -> DataConfig:
+    return DataConfig.model_validate({"types": []})
 
 
 def test_lake_boundary_infers_the_consumed_families() -> None:
@@ -43,7 +43,7 @@ def test_non_lake_boundary_does_not_infer_lake_families() -> None:
 
 
 def test_explicit_lake_family_is_not_re_inferred() -> None:
-    cfg = DataManagersConfig.model_validate({"types": ["lake_abacus"]})
+    cfg = DataConfig.model_validate({"types": ["lake_abacus"]})
     plan = DataPlanner().build(cfg, flow_active_bc=["lake"])
     # Already explicit -> stays out of the inferred set.
     assert "lake_abacus" not in plan.inferred_types

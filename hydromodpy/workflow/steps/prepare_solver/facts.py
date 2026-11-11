@@ -19,7 +19,7 @@ from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.site import site_fingerprint
+from hydromodpy.core.site.config import site_fingerprint
 from hydromodpy.data.sites.gauge import gauge_of_run
 from hydromodpy.results.record.manifest import ManifestSite
 from hydromodpy.results.storage.geo_metadata import epsg_from_crs

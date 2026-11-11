@@ -38,6 +38,9 @@ _LAYER_DIR_NAMES = (
     "regression",
     "e2e",
     "characterization",
+    "processes",
+    "ports",
+    "refusals",
 )
 _LAYER_TIMEOUTS_SECONDS = {
     "unit": 60.0,
@@ -46,6 +49,10 @@ _LAYER_TIMEOUTS_SECONDS = {
     "regression": 300.0,
     "e2e": 1800.0,
     "characterization": 900.0,
+    "processes": 300.0,
+    # Port tests build, solve and extract real runs.
+    "ports": 900.0,
+    "refusals": 60.0,
 }
 _WHITEBOX_XDIST_GROUP = "whitebox_backend"
 _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
@@ -54,13 +61,11 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
         # reaching the real backend: it drives the terrain engine with the
         # double of ``tests/_helpers/whitebox_double.py``, and serializing a
         # file that never calls Whitebox only makes the group slower.
-        "test_capped_breach_on_whitebox.py",
-        "test_crossing_notch_on_whitebox.py",
         "test_run_case_river_network_nancon.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_dem_processing_golden.py",
         "test_run_geographic_river_network_golden.py",
-        "test_terrain_engine_contract.py",
+        "test_terrain.py",
         "test_whitebox_workflows_backend.py",
     }
 )
@@ -284,7 +289,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     Populates the standard layout (``data/``, ``projects/``, one
     ``data/<variable>/`` folder per variable) using the same code path as
     ``hmp workspace init``, so integration tests can open the workspace with
-    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.Catalog`
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.facade.Catalog`
     on top of it.  The catalog itself is opened lazily - this fixture
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.
@@ -297,7 +302,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def minimal_config(tmp_path: Path):
-    """Return a minimal valid :class:`~hydromodpy.config.HydroModPyConfig`.
+    """Return a minimal valid :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
 
     Only the two required sub-configs are populated: ``workspace``
     (``project_root`` pointing at *tmp_path*) and ``geographic``
@@ -307,7 +312,7 @@ def minimal_config(tmp_path: Path):
     should extend the returned instance via ``model_copy(update=...)``.
     """
     from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
 
     return HydroModPyConfig(

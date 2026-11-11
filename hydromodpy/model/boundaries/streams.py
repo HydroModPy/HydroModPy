@@ -11,7 +11,7 @@ from hydromodpy.model.boundaries.climate import watershed_mean_rates
 from hydromodpy.model.contracts import LoadResultProto
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
     from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)

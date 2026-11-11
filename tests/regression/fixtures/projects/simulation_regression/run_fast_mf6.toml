@@ -17,7 +17,7 @@ solvers = ["modflow6"]
 
 # MF6 GWT runs on the SI SECONDS clock: diffu_coeff is m2/s and rate_decay is
 # 1/s. rate_decay below is a 506-day half-life (ln2 / 1.585e-8 s^-1).
-[transport.modflow6gwt.parameters]
+[transport.modflow6]
 sconc_init = 0.1
 sconc_input = 0.05
 diffu_coeff = 1e-10

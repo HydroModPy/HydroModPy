@@ -11,7 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from hydromodpy.data.contracts import LoadResult, PointRecord
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.forcing.soil_budget import gauged_discharge_line
 
 _DAYS = pd.date_range("2015-01-01", periods=10, freq="D").values

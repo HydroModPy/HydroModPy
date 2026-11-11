@@ -19,12 +19,12 @@ from hydromodpy.model.domain.geometry import CatchmentGeometry, RasterGeometry
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.model import Geometry, Model, ModelOptions, ModelTime, model_from_flow
 from hydromodpy.project.facade import Project
-from hydromodpy.solver.modflow_nwt import (
-    ModflowNwt,
+from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,

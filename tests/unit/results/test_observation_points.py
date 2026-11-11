@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.state.layout import catalog_path_for
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.observation_points import sample_observation_points, station_id_for
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
@@ -166,6 +166,32 @@ class TestSampling:
                 ],
             )
         assert written == 0
+
+    @pytest.mark.parametrize(
+        ("unnamed_first", "expected"),
+        [(True, {"obs:piezo_b"}), (False, {"obs:piezo_a", "obs:piezo_b"})],
+        ids=["first point has no descriptor", "every point has one"],
+    )
+    def test_a_variable_without_descriptor_skips_only_its_point(
+        self, tmp_path, monkeypatch, unnamed_first, expected
+    ):
+        import hydromodpy.results.run.observation_points as module
+
+        real = module.read_point
+
+        def read(run, variables, request):
+            frame = real(run, variables, request)
+            if unnamed_first and request.label == "piezo_a":
+                frame["variable"] = "a_name_no_descriptor_holds"
+            return frame
+
+        monkeypatch.setattr(module, "read_point", read)
+        root = tmp_path / "unnamed"
+        store = _open_run(root, "probe_run")
+        sample_observation_points(store, store.sim_id, DECLARATIONS)
+        seal_completed(store)
+        rebuild_index(root)
+        assert set(_series(root)["station_id"]) == expected
 
     def test_no_declaration_writes_nothing(self, tmp_path):
         root = tmp_path / "empty"

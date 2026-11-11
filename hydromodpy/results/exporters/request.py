@@ -226,14 +226,14 @@ def export_request(
         field of several layers in a one-layer format without ``layer``.
     """
     from hydromodpy.results.exporters.job import ExportJob
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     fmt = request.output_format
     if fmt is not None and fmt in run_formats():
         written = [_write_run_format(request, fmt, target)]
     else:
         from hydromodpy.results.exporters.job import ExportJob
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         run = Run(sim_id, catalog)
         label = target.run_dir.name

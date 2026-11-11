@@ -14,7 +14,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.planner import DataPlanner
 
 
@@ -37,7 +37,7 @@ def _write_geotiff(path: Path) -> Path:
 
 def test_a_declared_capacity_map_is_inferred(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
-    cfg = DataManagersConfig.from_toml_section(
+    cfg = DataConfig.from_toml_section(
         {"types": [], "soil_capacity": {"sources": [{"source": "file", "path": str(src)}]}},
         base_dir=tmp_path,
     )
@@ -49,7 +49,7 @@ def test_a_declared_capacity_map_is_inferred(tmp_path: Path) -> None:
 
 
 def test_no_capacity_map_infers_nothing(tmp_path: Path) -> None:
-    cfg = DataManagersConfig.model_validate({"types": []})
+    cfg = DataConfig.model_validate({"types": []})
 
     plan = DataPlanner().build(cfg)
 
@@ -58,7 +58,7 @@ def test_no_capacity_map_infers_nothing(tmp_path: Path) -> None:
 
 def test_a_capacity_map_already_declared_is_not_re_inferred(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "ru.tif")
-    cfg = DataManagersConfig.from_toml_section(
+    cfg = DataConfig.from_toml_section(
         {
             "types": ["soil_capacity"],
             "soil_capacity": {"sources": [{"source": "file", "path": str(src)}]},

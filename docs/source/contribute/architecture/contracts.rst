@@ -19,12 +19,12 @@ categories of the exception hierarchy and ``__version__``, all listed in
 ``hydromodpy.__all__``. A verb takes text, numbers, paths or mappings and returns a
 value with ``to_dict()``, a path or diagnostics, so a server sends it as JSON. A
 command of ``hmp`` calls its verb, and nothing else at the top level reads a lower
-package. ``tests/unit/architecture/test_facade_holds_fifteen_verbs.py`` holds this. The generated :doc:`/reference/python/index` documents every
+package. ``tests/unit/architecture/test_surfaces.py`` holds this. The generated :doc:`/reference/python/index` documents every
 name, so this page does not repeat them. Everything else, the config section of a
 variable or a solver class, stays reachable through ``hydromodpy.<module>`` and is out of
 the contract unless the list below names its module. ``hmp.open(path)`` opens what a path stands for: a ``Project``, a ``Run``, a
 ``Session`` or a ``Workspace``. ``project.store`` is the read-only ``Catalog``
-(``hydromodpy.results.catalog.Catalog``) over
+(``hydromodpy.results.catalog.facade.Catalog``) over
 ``.hmp/index.duckdb``, the index derived from the run directories.
 
 Public import paths
@@ -45,7 +45,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.core.exceptions``: the exception hierarchy.
 - ``hydromodpy.core.logging``: ``get_logger``.
 - ``hydromodpy.core.pipeline_steps``: ``STEP_NAMES``, the frozen names of the steps.
-- ``hydromodpy.core.units``: the quantity types of a config field.
+- ``hydromodpy.core.units.types``: the quantity types of a config field.
 - ``hydromodpy.core.config_kit.profile``: ``Profile``, the level of a config field.
 - ``hydromodpy.core.tracking.input_file``: ``InputFile``, a file a run depends on.
 - ``hydromodpy.core.contracts.observables``: what a solver answers.
@@ -79,8 +79,8 @@ guides imports a module that is neither listed nor in the facade.
   face.
 - ``hydromodpy.display.report.engine``: the report engine with no domain: ``Block``,
   ``Metric``, ``Picture``, ``Table``, ``Link``, ``Prose`` and ``write_pages``.
-- ``hydromodpy.results.run``: ``Run``.
-- ``hydromodpy.results.zarr_store``: ``SimulationZarr``, the field store an exporter reads.
+- ``hydromodpy.results.run.view``: ``Run``.
+- ``hydromodpy.results.zarr_store.simulation_zarr``: ``SimulationZarr``, the field store an exporter reads.
 - ``hydromodpy.results.exporters.fields``: what every field exporter reads the same
   way.
 - ``hydromodpy.results.catalog.indexer``: ``rebuild_index``.
@@ -88,7 +88,8 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.results.trash``: the trash of a run directory.
 - ``hydromodpy.cli.conventions``: the shared argparse grammar.
 - ``hydromodpy.cli.output``: what a command writes for a program.
-- ``hydromodpy.cli.helpers``: exit codes and workspace resolution of a command.
+- ``hydromodpy.cli.exit_codes``: the exit codes of a command and ``fail``.
+- ``hydromodpy.cli.refs``: the workspace and project a command is given.
 - ``hydromodpy.project.api``: the fifteen verbs, which each command of ``hmp`` calls.
 
 .. public-modules-end
@@ -139,16 +140,16 @@ An experimental port can change in any minor version. ``TrialEvaluator`` waits f
 the rework of the calibration, and two of its construction options (``trial_ctx``,
 ``metric_fn``) are internals of the calibration. ``SolverAdapter`` still hands a
 transport adapter ``state.setup`` and ``state.cfg``, so a refactor of either reaches
-it, and ``OutputAdapter`` writes through the 30 methods of ``SimulationStore``. The stored
+it, and ``OutputAdapter`` writes through the methods of ``RunStore``. The stored
 result of a run is not experimental, whichever port wrote it.
 
-``tests/contract/`` holds the conformance suites. They are not in the wheel, so run
+``tests/ports/`` holds the conformance suites, one file per port. They are not in the wheel, so run
 them from a clone with your distribution installed. The suites of the terrain, mesh and evaluator ports run on every engine the registry serves. The suite of the data source port runs its declarations and its refusals on
 every source the registry serves, as :doc:`how-to/add-a-data-source` explains,
 and the suite of the export port holds every format of ``export_formats`` to
 what its declarations say, as :doc:`how-to/add-an-exporter` explains. The suite of the solver port,
-``test_solver_backend_contract.py``, checks the twelve attributes of every backend the
-registry serves.
+``tests/ports/test_solver.py``, checks the twelve attributes of every backend the
+registry serves, and builds, solves and extracts every flow on every mesh engine it accepts.
 
 Changing a contract
 -------------------
@@ -173,7 +174,7 @@ schema needs a bump of the matching
 version constant and a reader for the old version. The constants and where they live
 are in :doc:`data-scopes`.
 
-``tests/unit/architecture/test_public_surfaces_are_frozen.py`` compares the public
+``tests/unit/architecture/test_surfaces.py`` compares the public
 surfaces with the snapshot files of ``tests/unit/architecture/surface/``: the names
 and signatures of ``hmp.__all__``, the public methods of the result objects, the
 command line with its flags, the exit codes, the TOML paths with their types and
@@ -214,42 +215,21 @@ other run needs it, because the manifest of a run records the inputs of that run
 replay <run>`` reads that record. See
 :ref:`artifact-policy` for the sidecar formats that are allowed.
 
-Storage Protocol: ``CatalogBackend``
-------------------------------------
+The index and the run store
+----------------------------
 
-Source: ``hydromodpy/results/catalog/ports.py``. The catalog facade reaches the SQL
-store only through this ``runtime_checkable`` Protocol. The in-tree adapter is
-``DuckDBBackend`` (``results/catalog/adapters/duckdb.py``).
+The catalog facade reaches the SQL index through ``DuckDBBackend``
+(``hydromodpy/results/catalog/adapters/duckdb.py``), the one backend of the
+catalog, with no Protocol in front of it.
+``tests/unit/results/catalog/adapters/test_duckdb.py`` holds its tests.
 
-.. code-block:: python
-
-   class CatalogBackend(Protocol):
-       def query(self, sql, params=None) -> pandas.DataFrame: ...
-       def execute(self, sql, params=None) -> None: ...
-       def fetch_one(self, sql, params=None) -> tuple | None: ...
-       def fetch_all(self, sql, params=None) -> list[tuple]: ...
-       def insert(self, table: str, row: dict[str, Any]) -> None: ...
-       def upsert(...) -> None: ...
-       def transaction(self) -> AbstractContextManager[None]: ...
-       def close(self) -> None: ...
-
-Conformance is structural: there is no base class to inherit.
-``tests/contract/test_catalog_backend_contract.py`` holds the contract tests of the
-backend.
-
-Storage Protocol: ``SimulationStore``
--------------------------------------
-
-Source: ``hydromodpy/results/catalog/protocol.py``. It is the minimal write and
-read surface that workflow steps, solver adapters and post-run extractors call:
-the writes (``write_parameters``, ``write_timeseries``, ``write_budget``,
-``write_field``, ``write_time``, ``write_crs``, ``write_mesh``, ``write_metric``,
-``write_provenance``, ``write_run_environment``, ``register_tracked_files``, and
-more); the reads (``query_field``, ``query_timeseries``, ``list_simulations``,
-``open_zarr``, ``__getitem__``); and ``close`` with the context-manager protocol.
-The writes are implemented by the run store of a run directory
-(``hydromodpy.results.storage.run_store.RunStore``), which never opens an index;
-the reads by ``hydromodpy.results.catalog.Catalog``, from the index.
+Workflow steps, solver adapters and post-run extractors write a run through
+``hydromodpy.results.storage.run_store.RunStore``, the run store of a run
+directory, which never opens an index: ``write_parameters``, ``write_timeseries``,
+``write_budget``, ``write_field``, ``write_time``, ``write_crs``, ``write_mesh``,
+``write_metric``, ``write_provenance``, ``write_run_environment``,
+``register_tracked_files`` and more. The reads go through
+``hydromodpy.results.catalog.facade.Catalog``, from the index.
 
 Field registry
 --------------
@@ -319,7 +299,7 @@ Pipeline step
 ``hydromodpy/workflow/step.py``. A step is a class with a ``name`` and a
 ``run(state: PipelineState) -> PipelineState``. It declares the payload keys it
 reads and writes (``reads``, ``writes``), checked in both directions by
-``test_step_payload_keys.py``, and optionally the TOML subtrees it consumes
+``test_run_path.py``, and optionally the TOML subtrees it consumes
 (``config_sections``), which is how a calibration finds the first step that must
 run again. A persistent step adds ``artifacts`` and ``rebuild_state`` so a resume
 does not repeat it. Pipelines are assembled by ``standard_steps`` in ``workflow/steps/sequence.py``.
@@ -331,7 +311,7 @@ Figure registry
 ~~~~~~~~~~~~~~~
 
 ``hydromodpy/display/figure.py`` defines ``BaseFigure``, ``FigureSpec`` (static
-metadata: the fields and tables the figure reads) and the ``Figure`` Protocol.
+metadata: the fields and tables the figure reads). ``BaseFigure`` is the one figure type.
 A subclass implements ``render(sim, ax)``; the base builds the matplotlib
 figure, applies the style and saves, and takes the name of the figure from its
 ``spec``. Concrete figures live in ``display/figures/`` and are listed by the

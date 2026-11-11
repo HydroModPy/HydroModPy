@@ -531,8 +531,10 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
     """
     from hydromodpy.catchment.stream_network.extent import CHUNK_ELEMENTS, flowing_cells
     from hydromodpy.core.scoring.stream_defaults import parse_visible_flow
-    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream.run_extent import (
+    from hydromodpy.results.derive.stream_network.criterion_settings import (
+        network_criterion_settings,
+    )
+    from hydromodpy.results.derive.stream_network.run_extent import (
         FLOW_FIELD,
         flow_geometry_from_run,
         unavailable_reason_for_flow,
@@ -579,7 +581,7 @@ def _simulated_active_network(store: Any, sim_id: str, timestep: int) -> np.ndar
             f"{SIMULATED_ACTIVE_NETWORK} is rebuilt from the run and its catalog, "
             "not from a field store alone."
         )
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     return simulated_active_network_stack(Run(str(sim_id), store), [int(timestep)])[0]
 
@@ -837,7 +839,7 @@ def _virtual_range(
         # A store that cannot serve the field raises the plan's own error, as a step read does.
         return rows(root, first, last)
     if variable == SIMULATED_ACTIVE_NETWORK and callable(getattr(source, "resolve", None)):
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         return simulated_active_network_stack(Run(sim_id, source), range(first, last))
     raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")

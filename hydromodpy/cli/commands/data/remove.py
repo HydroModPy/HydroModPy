@@ -11,7 +11,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import confirm
+from hydromodpy.cli.exit_codes import confirm
 from hydromodpy.cli.output import emit
 
 NAME: str = "remove"
@@ -50,7 +50,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.request.cache_verbs import remove_data_entries
 
     if not args.dry_run:

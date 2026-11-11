@@ -134,7 +134,7 @@ def test_a_rerun_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> None:
             return types.SimpleNamespace(sim_id=NEW_ID)
 
     monkeypatch.setattr(project_module, "Project", _Project)
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     monkeypatch.setattr(
         HydroModPyConfig,

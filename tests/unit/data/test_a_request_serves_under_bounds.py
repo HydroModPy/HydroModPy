@@ -16,9 +16,11 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.runtime.bounds import Bounds
-from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.request.engine import run_request
+from hydromodpy.data.request.model import DataRequest
 from hydromodpy.data.source.port import FetchRequest, FetchResult
 
 

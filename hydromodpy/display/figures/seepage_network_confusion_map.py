@@ -51,7 +51,7 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.results.derive.stream.comparison import (
+from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.patches import Patch
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 _CLASS_ORDER: tuple[int, ...] = (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
 """The three classes, drawn over the casing in a stable order."""

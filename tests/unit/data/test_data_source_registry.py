@@ -706,9 +706,9 @@ def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> 
 def test_build_from_section_filters_resolved_parameters_not_in_constructor() -> None:
     """Extra resolved keys like date_start/date_end are dropped when not accepted."""
     from hydromodpy.data.common.clients.sim2_products import Sim2Precipitation
+    from hydromodpy.data.variables.forcing_series import PrecipitationConfig
     from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
     from hydromodpy.data.variables.oceanic.constant import ConstantSeaLevel
-    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
 
     cfg = PrecipitationConfig(sources=[{"source": "sim2"}])
     source = registry.build_from_section(

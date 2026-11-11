@@ -26,7 +26,9 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.calibration.runners.state as state
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, validate_calib_output
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_outputs import validate_calib_output
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics import composite
@@ -39,13 +41,14 @@ from hydromodpy.calibration.optim.cost_margin import IntervalWidth, ParameterInt
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersistence, PhaseContext
-from hydromodpy.calibration.preflight import comparison_lines
-from hydromodpy.calibration.protocols import get_protocol, protocol_record
+from hydromodpy.calibration.preflight_report import comparison_lines
+from hydromodpy.calibration.protocols.registry import get_protocol, protocol_record
 from hydromodpy.calibration.report import CalibrationReport, promotion_failures
 from hydromodpy.calibration.runners import (
     cli_runner,
     document,
     search,
+    search_record,
     session_scope,
     staged_runner,
     trial,
@@ -63,14 +66,16 @@ from hydromodpy.calibration.runners.restarts import RestartSpread
 from hydromodpy.calibration.runners.search import (
     _engine_kwargs,
     _first_trial_pairing,
-    _log_parameter_interval,
-    _margin_intervals_or_none,
-    _network_ratios_extra,
-    _r_optim_verdict_extra,
     attach_a_linearized_width,
     parameter_widths,
     run_calibration_core,
     run_one_search,
+)
+from hydromodpy.calibration.runners.search_record import (
+    log_parameter_interval,
+    margin_intervals_or_none,
+    network_ratios_extra,
+    r_optim_verdict_extra,
 )
 from hydromodpy.calibration.runners.session import freeze_session_config, search_windows
 from hydromodpy.calibration.runners.session_scope import (
@@ -78,14 +83,11 @@ from hydromodpy.calibration.runners.session_scope import (
     promote_and_close,
     refuse_a_phase_another_cost_scored,
 )
-from hydromodpy.calibration.runners.staged_runner import (
-    _phase_config,
-    phase_summaries,
-    run_staged_calibration,
-)
+from hydromodpy.calibration.runners.staged_report import phase_summaries
+from hydromodpy.calibration.runners.staged_runner import _phase_config, run_staged_calibration
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.code_fingerprint import (
     clear_fingerprint_cache,
     code_fingerprint,
@@ -1776,7 +1778,7 @@ class TestAnIntervalOfOneTrial:
         )
 
         with caplog.at_level(logging.INFO, logger=search.logger.name):
-            _log_parameter_interval(interval, None)
+            log_parameter_interval(interval, None)
 
         assert "no other trial within the cost margin" in caplog.text
         assert "[1e-06, 1e-06]" not in caplog.text
@@ -2167,7 +2169,7 @@ def _components(
 
 def test_a_returned_trial_inside_the_bound_is_recorded_valid(caplog) -> None:
     with caplog.at_level(logging.WARNING):
-        extra = _r_optim_verdict_extra({"net": _network()}, _components(1.5))
+        extra = r_optim_verdict_extra({"net": _network()}, _components(1.5))
 
     assert extra["r_optim_verdict"]["net"] == {
         "value": 1.5,
@@ -2183,7 +2185,7 @@ def test_a_returned_trial_inside_the_bound_is_recorded_valid(caplog) -> None:
 
 def test_a_returned_trial_past_the_bound_warns_once_by_default(caplog) -> None:
     with caplog.at_level(logging.WARNING):
-        extra = _r_optim_verdict_extra({"net": _network()}, _components(5.31))
+        extra = r_optim_verdict_extra({"net": _network()}, _components(5.31))
 
     verdict = extra["r_optim_verdict"]["net"]
     assert verdict["valid"] is False and verdict["causes"] == ["doptim"]
@@ -2205,7 +2207,7 @@ def test_the_verdict_reads_the_length_the_trial_published_not_a_ratio() -> None:
         "net.validity_length_provenance": VALIDITY_PROVENANCE_CODE["declared_accuracy"],
     }
 
-    verdict = _r_optim_verdict_extra({"net": _network()}, components)["r_optim_verdict"]["net"]
+    verdict = r_optim_verdict_extra({"net": _network()}, components)["r_optim_verdict"]["net"]
 
     assert verdict["valid"] is True
     assert verdict["provenance"] == "declared_accuracy"
@@ -2215,13 +2217,13 @@ def test_strict_mode_raises_a_calibration_error_on_the_returned_trial() -> None:
     output = _network(verdict={"on_invalid": "error"})
 
     with pytest.raises(CalibrationError, match="exceeds the validity length 150 m"):
-        _r_optim_verdict_extra({"net": output}, _components(5.31))
+        r_optim_verdict_extra({"net": output}, _components(5.31))
 
 
 def test_strict_mode_accepts_a_returned_trial_inside_the_bound() -> None:
     output = _network(verdict={"on_invalid": "error", "validity_length": "225 m"})
 
-    extra = _r_optim_verdict_extra(
+    extra = r_optim_verdict_extra(
         {"net": output}, _components(2.5, length=225.0, provenance="user")
     )
 
@@ -2230,13 +2232,13 @@ def test_strict_mode_accepts_a_returned_trial_inside_the_bound() -> None:
 
 
 def test_an_empty_network_at_the_returned_trial_is_not_qualified() -> None:
-    extra = _r_optim_verdict_extra({"net": _network()}, _components(math.nan))
+    extra = r_optim_verdict_extra({"net": _network()}, _components(math.nan))
 
     verdict = extra["r_optim_verdict"]["net"]
     assert verdict["value"] is None and verdict["valid"] is False
     assert verdict["causes"] == ["empty"]
     with pytest.raises(CalibrationError, match="not a number"):
-        _r_optim_verdict_extra(
+        r_optim_verdict_extra(
             {"net": _network(verdict={"on_invalid": "error"})}, _components(math.nan)
         )
 
@@ -2244,7 +2246,7 @@ def test_an_empty_network_at_the_returned_trial_is_not_qualified() -> None:
 def test_a_trial_without_a_published_length_is_not_qualified() -> None:
     components = {"net.r_optim": 1.0, "net.h_obs": 75.0, "net.D_optim": 75.0}
 
-    verdict = _r_optim_verdict_extra({"net": _network()}, components)["r_optim_verdict"]["net"]
+    verdict = r_optim_verdict_extra({"net": _network()}, components)["r_optim_verdict"]["net"]
 
     assert verdict["valid"] is False and verdict["validity_length_m"] is None
 
@@ -2256,14 +2258,14 @@ def test_each_network_output_gets_its_own_verdict() -> None:
         **_components(3.0, name="b", length=750.0, provenance="user"),
     }
 
-    verdicts = _r_optim_verdict_extra(outputs, components)["r_optim_verdict"]
+    verdicts = r_optim_verdict_extra(outputs, components)["r_optim_verdict"]
 
     assert (verdicts["a"]["valid"], verdicts["b"]["valid"]) == (False, True)
 
 
 def test_nothing_is_published_without_a_network_output_or_a_best_trial() -> None:
-    assert _r_optim_verdict_extra({"net": _network()}, None) == {}
-    assert _r_optim_verdict_extra(None, _components(1.0)) == {}
+    assert r_optim_verdict_extra({"net": _network()}, None) == {}
+    assert r_optim_verdict_extra(None, _components(1.0)) == {}
 
 
 class _StrictFirstPhase(FakeRunner):
@@ -3685,7 +3687,7 @@ def _ratios(components=None, **overrides):
         "space": _space(),
         "trial_ctx": None,
     }
-    return _network_ratios_extra(**(arguments | overrides))
+    return network_ratios_extra(**(arguments | overrides))
 
 
 class TestTheRechargeBesideK:
@@ -3798,7 +3800,7 @@ class TestPaperRatios:
 class TestBoundWarning:
     def test_warns_on_a_bound(self, caplog) -> None:
         with caplog.at_level(logging.WARNING):
-            _log_parameter_interval(
+            log_parameter_interval(
                 _interval(reaches_lower=True),
                 result_of(ParamSuggestion(trial_id=0, values={}), 0.42),
             )
@@ -3810,7 +3812,7 @@ class TestBoundWarning:
 
     def test_a_value_inside_its_bounds_is_not_said_to_have_reached_one(self, caplog) -> None:
         with caplog.at_level(logging.WARNING):
-            _log_parameter_interval(
+            log_parameter_interval(
                 _interval(reaches_upper=True),
                 result_of(ParamSuggestion(trial_id=0, values={}), 0.123),
             )
@@ -3820,7 +3822,7 @@ class TestBoundWarning:
 
     def test_stays_informational_inside_the_interval(self, caplog) -> None:
         with caplog.at_level(logging.INFO):
-            _log_parameter_interval(
+            log_parameter_interval(
                 _interval(), result_of(ParamSuggestion(trial_id=0, values={}), 0.123)
             )
 
@@ -3887,7 +3889,7 @@ class TestWhatTheRunReports:
     def test_the_declared_width_is_the_one_used(self) -> None:
         decl = make_config(uncertainty={"cost_margin": "0.1%"}).interval_width_for()
 
-        (interval,) = _margin_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
+        (interval,) = margin_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
 
         assert interval.margin == pytest.approx(0.001)
         assert interval.lower == interval.upper == 2.0
@@ -3895,7 +3897,7 @@ class TestWhatTheRunReports:
     def test_an_absolute_width_reaches_a_criterion_solved_at_zero(self) -> None:
         cfg = make_config(objective="distance_gap", uncertainty={"cost_margin": "15 m"})
 
-        (interval,) = _margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, cfg.interval_width_for())
+        (interval,) = margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, cfg.interval_width_for())
 
         assert interval.kind == "absolute"
         assert interval.lower == 2.0
@@ -3905,7 +3907,7 @@ class TestWhatTheRunReports:
         decl = CalibrationConfig().interval_width_for()
 
         with caplog.at_level("WARNING"):
-            assert _margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl) == []
+            assert margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl) == []
 
         assert "'25 m'" in caplog.text
 
@@ -3999,41 +4001,41 @@ def test_the_calibration_loader_refuses_a_ratio_by_name_and_leaves_the_file(
 )
 def test_two_roots_more_than_half_a_decade_apart_are_warned_about(delta, warned, caplog) -> None:
     with caplog.at_level(logging.WARNING):
-        search._log_the_two_roots({**ROOTS, "delta_log10": delta})
+        search_record._log_the_two_roots({**ROOTS, "delta_log10": delta})
 
     assert ("satisfies neither map" in caplog.text) is warned
 
 
 def test_the_two_roots_line_names_the_parameter_and_the_values(caplog) -> None:
     with caplog.at_level(logging.INFO):
-        search._log_the_two_roots(ROOTS)
+        search_record._log_the_two_roots(ROOTS)
     assert "returned K = 2.4e-05" in caplog.text
     assert "Delta = 1.82 decade(s)" in caplog.text
     assert "weighted 0.5 / 0.5" in caplog.text
     caplog.clear()
     with caplog.at_level(logging.INFO):
-        search._log_the_two_roots({**ROOTS, "delta_log10": None, "value": None})
+        search_record._log_the_two_roots({**ROOTS, "delta_log10": None, "value": None})
     assert "Delta = unknown" in caplog.text and "returned K = not solved" in caplog.text
     caplog.clear()
     with caplog.at_level(logging.WARNING):
-        search._log_the_two_roots({**ROOTS, "delta_log10": -1.82})
+        search_record._log_the_two_roots({**ROOTS, "delta_log10": -1.82})
     assert "lie 1.82 decades apart" in caplog.text
 
 
 def test_a_bound_reached_without_a_best_result_logs_a_nan_cost(caplog) -> None:
     with caplog.at_level(logging.WARNING):
-        _log_parameter_interval(_interval(reaches_lower=True), None)
+        log_parameter_interval(_interval(reaches_lower=True), None)
     assert "Sy = 0.005 reached the lower search bound, at a cost of nan" in caplog.text
 
 
 def test_an_interval_log_names_its_parameter(caplog) -> None:
     with caplog.at_level(logging.INFO):
-        _log_parameter_interval(_interval(), None)
+        log_parameter_interval(_interval(), None)
     assert "Sy = 0.005, and 3 of 20 trials" in caplog.text
     caplog.clear()
     degenerate = dataclasses.replace(_interval(), n_within=1)
     with caplog.at_level(logging.INFO):
-        _log_parameter_interval(degenerate, None)
+        log_parameter_interval(degenerate, None)
     assert "Sy = 0.005: " in caplog.text
 
 
@@ -4073,7 +4075,7 @@ def test_a_width_that_cannot_be_read_gives_no_interval_and_says_why(
     width, trace, message, caplog
 ) -> None:
     with caplog.at_level("WARNING"):
-        assert _margin_intervals_or_none(trace, ["K"], _SPACE, width) == []
+        assert margin_intervals_or_none(trace, ["K"], _SPACE, width) == []
 
     assert message in caplog.text
 
@@ -4083,7 +4085,7 @@ def test_a_root_search_reads_its_interval_on_its_own_curve(root, expected) -> No
     search = Mock(spec=BisectionAdapter)
     search.root_interval.return_value = root
 
-    found = _margin_intervals_or_none(_SHARP, ["K"], _SPACE, _width(25.0), search)
+    found = margin_intervals_or_none(_SHARP, ["K"], _SPACE, _width(25.0), search)
 
     assert found == expected
     search.root_interval.assert_called_once_with(margin=25.0, kind="absolute")
@@ -4100,10 +4102,10 @@ def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
         trial({"net.cell_spacing_m": 30.0}),
         trial({"net.cell_spacing_m": 50.0}),
     ]
-    measured = search._width_read_off_the_trials(_width(None), results[3], results)
+    measured = search_record.width_read_off_the_trials(_width(None), results[3], results)
 
-    assert search._cell_measured_by_the_criterion(results[:3]) is None
-    assert search._cell_measured_by_the_criterion(results) == 30.0
+    assert search_record._cell_measured_by_the_criterion(results[:3]) is None
+    assert search_record._cell_measured_by_the_criterion(results) == 30.0
     assert measured.margin == 30.0
 
 
@@ -4124,7 +4126,7 @@ def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
     ],
 )
 def test_the_r_optim_an_output_reads_follows_its_bounds(found, reads) -> None:
-    assert search._r_optim_reads("q", found) == reads
+    assert search_record._r_optim_reads("q", found) == reads
 
 
 def _line_capture(observed):
@@ -4269,7 +4271,7 @@ def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> N
     )
 
     with caplog.at_level("INFO"):
-        assert (search._closes_two_roots(one), search._closes_two_roots(two)) == (
+        assert (search_record.closes_two_roots(one), search_record.closes_two_roots(two)) == (
             False,
             True,
         )
@@ -4279,7 +4281,7 @@ def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> N
 
 def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
     seen = []
-    monkeypatch.setattr(search, "_log_the_two_roots", seen.append)
+    monkeypatch.setattr(search_record, "_log_the_two_roots", seen.append)
     session = SimpleNamespace(
         optimizer=_bisection(roots_record={"delta_log10": 0.1}),
         stop_state="rule_met",
@@ -4290,7 +4292,7 @@ def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
         history=[],
     )
 
-    extra = search._search_outcome_extra(session)
+    extra = search_record.search_outcome_extra(session)
 
     assert extra["roots"] == {"delta_log10": 0.1}
     assert seen == [{"delta_log10": 0.1}]

@@ -18,7 +18,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config, Modflow6R
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
 )
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+from hydromodpy.solver.modflow_common.listing import (
     last_percent_discrepancy,
     simulation_listing_failure_lines,
 )

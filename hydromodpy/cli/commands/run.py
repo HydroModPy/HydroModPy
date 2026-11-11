@@ -39,33 +39,32 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from hydromodpy.cli.conventions import (
+    add_override_arguments,
+    apply_verbosity,
+    changes_of_args,
     format_parser,
     profile_parser,
     verbosity_parser,
+    with_changes,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_CASES_FAILED,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     EXIT_USAGE,
-    add_override_arguments,
-    apply_verbosity,
-    base_named_by_w,
-    changes_of_args,
     exit_code_for,
     exit_if_session_unfinished,
     fail,
-    profile_arg_from_toml,
-    profile_run,
     refuse,
-    resolve_profile_output,
-    with_changes,
 )
 from hydromodpy.cli.output import emit
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.cli.profiling import profile_arg_from_toml, profile_run, resolve_profile_output
+from hydromodpy.cli.refs import base_named_by_w
+from hydromodpy.core.exceptions import ConfigError, HydroModPyError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
 from hydromodpy.core.toml_io.overrides import set_overrides
@@ -321,40 +320,19 @@ def _base_of_args(args: argparse.Namespace) -> Path | None:
 def _resume_from_ref(ref: str, *, args: argparse.Namespace, base: Path | None = None) -> None:
     """Continue an interrupted case from the config frozen in its own run directory.
 
-    Resolves REF as a case name under ``runs/`` of the project ``-w`` names, else
-    the one around the current directory (``baseline`` is its latest version,
-    ``baseline.v2`` that one) and replays ``runs/<name>/config.toml`` - the resolved configuration
-    the run was executed with - through the same path as
-    ``hmp run config.toml --resume NAME``.
+    REF is read by :func:`~hydromodpy.project.runner.resume_target` under the
+    project ``-w`` names, else the one around the current directory. The frozen
+    file runs through the same path as ``hmp run config.toml --resume NAME``.
     """
     from hydromodpy.cli.environment import environment_from_args
-    from hydromodpy.results.record.manifest import is_sealed, read_seal
-    from hydromodpy.results.storage.attempt import run_dir_for_name
-    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+    from hydromodpy.project.runner import resume_target
 
     workspace = base if base is not None else resolve_project_root(Path.cwd().resolve())
-    run_dir = run_dir_for_name(workspace, ref)
-    if run_dir is None:
-        refuse(
-            f"No case named {ref!r} under {display_path(workspace)}/runs; run --resume REF "
-            "must be invoked from the project, or pass a TOML config explicitly.",
-            EXIT_NOT_FOUND,
-        )
-    config_path = run_dir / RUN_CONFIG_FILENAME
-    if not config_path.is_file():
-        refuse(
-            f"Case '{run_dir.name}' has no frozen {RUN_CONFIG_FILENAME} in "
-            f"{display_path(run_dir)}; pass the TOML config explicitly to resume it.",
-            EXIT_NOT_FOUND,
-        )
-    if is_sealed(run_dir) and read_seal(run_dir).lineage.session_id is not None:
-        refuse(
-            f"{run_dir.name} came out of a calibration, and a run only holds its own solve. "
-            "Reopen the session from the file that launched it: hmp run <file>.toml --resume.",
-            EXIT_CONFIG,
-        )
-
-    args.resume = run_dir.name
+    try:
+        config_path = resume_target(ref, workspace)
+    except HydroModPyError as exc:
+        refuse(str(exc), exit_code_for(exc), cause=exc)
+    args.resume = config_path.parent.name
     # The resume branch reads the same three Environment options the operator
     # named on the command line; None keeps the default of the machine.
     _run_toml(config_path, args=args, environment=environment_from_args(args), base=base)
@@ -591,6 +569,7 @@ def _run_request(
     except ConfigError as exc:
         refuse(str(exc), exit_code_for(exc), cause=exc)
     if request.frozen:
+        from hydromodpy.project.data_cache import FrozenVerificationError, verify_frozen_inputs
         from hydromodpy.workflow.replay_checks import sealed_run_of
 
         # A project TOML answers to its lockfile. The configuration of a sealed run
@@ -600,7 +579,7 @@ def _run_request(
         # releases it around that one run instead of leaving the process frozen.
         if sealed_run_of(config_path) is None:
             try:
-                _verify_frozen_inputs_strict(config_path, raw_toml, project_root=project_root)
+                verify_frozen_inputs(project_root, raw_toml.get("workspace"))
             except FrozenVerificationError as exc:
                 refuse(f"--frozen: {exc}", EXIT_CONFIG, cause=exc)
 
@@ -627,7 +606,9 @@ def _run_request(
     except FileNotFoundError as exc:
         refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
     except BaseException as exc:
-        _close_dead_attempt(project_root, exc)
+        from hydromodpy.results.storage.attempt import close_attempt_of_process, signal_of
+
+        close_attempt_of_process(project_root, exit_code_for(exc), signal_of(exc))
         raise
     finally:
         if workflow in INDEXED_WORKFLOWS and not os.environ.get(LAUNCHED_ENV):
@@ -843,10 +824,6 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
         print(f"  Methods:   {display_path(summary['methods_path'])}", file=sys.stderr)
 
 
-class FrozenVerificationError(ConfigError, RuntimeError):
-    """Raised when ``--frozen`` finds a lockfile drift before running anything."""
-
-
 def _result_of(summary: Any) -> Any:
     """Return what a workflow gave as what a program reads: a mapping, or nothing."""
     if summary is None or isinstance(summary, Mapping):
@@ -856,121 +833,16 @@ def _result_of(summary: Any) -> Any:
     return {key: getattr(summary, key, None) for key in ("sim_id", "name")}
 
 
-def _verify_frozen_inputs_strict(
-    config_path: Path, raw_toml: dict[str, Any], *, project_root: Path | None = None
-) -> Path:
-    """Verify the project lockfile before launching a ``--frozen`` run of a project TOML.
-
-    Resolves the same project root as the lockfile writer and the data folder
-    that :class:`~hydromodpy.core.workspace.config.WorkspaceConfig` resolves, then
-    calls :func:`hydromodpy.data.provenance.lockfile.verify_lockfile` in strict
-    mode against the project's ``hydromodpy.lock``. Any mismatch aborts the run.
-    Returns the project root it verified, so a caller can assert it is the
-    address the post-run write uses.
-    """
-    from hydromodpy.core.toml_io.paths import resolve_declared_path
-    from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.data.provenance.lockfile import project_lockfile_path, verify_lockfile
-
-    workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
-    if project_root is None:
-        project_root = _resolve_project_root(config_path)
-
-    lockfile_path = project_lockfile_path(project_root)
-    if not lockfile_path.is_file():
-        raise FrozenVerificationError(
-            f"hydromodpy.lock not found at {lockfile_path}; --frozen on a project TOML reads "
-            "that file: write it with `hmp data lock`, or play a sealed run again with "
-            "`hmp replay REF`."
-        )
-
-    declared = {
-        key: str(resolve_declared_path(workspace_payload[key], base_dir=project_root))
-        for key in ("root", "data_dir")
-        if isinstance(workspace_payload, dict) and workspace_payload.get(key)
-    }
-    try:
-        data_dir = WorkspaceConfig.model_validate(
-            {**declared, "project_root": str(project_root)}
-        ).data_dir
-        mismatches = verify_lockfile(
-            data_dir, lockfile_path, project_root=project_root, strict=True
-        )
-    except Exception as exc:  # noqa: BLE001 - any lockfile or data folder error aborts the run
-        raise FrozenVerificationError(f"Could not verify lockfile {lockfile_path}: {exc}") from exc
-    if mismatches:
-        first = mismatches[0]
-        raise FrozenVerificationError(
-            f"{len(mismatches)} lockfile mismatch(es); first: "
-            f"{first.kind} on {first.path} (variable={first.variable})"
-        )
-    return project_root
-
-
-def _close_dead_attempt(project_root: Path, exc: BaseException) -> None:
-    """Write ``failed`` for the attempt of this process when it died without writing its outcome.
-
-    The worker of ``hmp run`` is this very process, so only an outcome that
-    names this host and this pid is closed: a run another worker holds, which
-    refused our claim, is left exactly as it is. The run is found by that
-    claim, never by the name the command guessed.
-    """
-    from hydromodpy.core.state.host import host_name
-    from hydromodpy.core.state.layout import runs_dir_for
-    from hydromodpy.results.outcome import read_outcome
-    from hydromodpy.results.storage.attempt import finish_dead_attempt, signal_of
-    from hydromodpy.results.storage.json_io import readable
-    from hydromodpy.results.storage.run_log import read_log_tail
-
-    runs = runs_dir_for(project_root)
-    if not runs.is_dir():
-        return
-    host, pid = host_name(), os.getpid()
-    for run_dir in sorted(runs.iterdir()):
-        # An outcome that cannot be read (corrupt, or of another schema) is not the
-        # attempt of this process, and reading it must never hide the error of the run.
-        outcome = readable(read_outcome, run_dir) if run_dir.is_dir() else None
-        if (
-            outcome is None
-            or outcome.status != "running"
-            or (outcome.host, outcome.pid) != (host, pid)
-        ):
-            continue
-        finish_dead_attempt(
-            run_dir,
-            host=host,
-            pid=pid,
-            exit_code=exit_code_for(exc),
-            signal=signal_of(exc),
-            log_tail=read_log_tail(run_dir),
-            written_by="launcher",
-        )
-
-
 def _index_after_worker(project_root: Path) -> None:
     """Refresh the index of the project from its run directories, after the worker."""
-    from hydromodpy.core.state.layout import runs_dir_for
-    from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.results.catalog.indexer import index_after_run
 
     if not runs_dir_for(project_root).is_dir():
         return
     try:
-        index_new_runs(project_root)
+        index_after_run(project_root)
     except Exception as exc:  # noqa: BLE001 - the run is on disk; the index is derived
         logger.warning("Index not refreshed after the run: %s", exc)
-
-
-def _resolve_project_root(config_path: Path) -> Path:
-    """Return the project root of this config when the command names no base.
-
-    Same rule as :func:`~hydromodpy.config.loading.load`: the folder holding
-    ``project.toml`` above the file, else the folder of the root file of its
-    ``base_config`` chain. ``[workspace] project_root`` is refused in a file, so
-    the file never names it.
-    """
-    from hydromodpy.core.toml_io.loader import config_base_dir
-
-    return resolve_project_root(config_base_dir(config_path))
 
 
 def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None:
@@ -1027,7 +899,7 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace, enviro
     from hydromodpy.core.exceptions import HydroModPyError
     from hydromodpy.core.workspace.resolve import find_data_workspace
     from hydromodpy.project.environment import Environment
-    from hydromodpy.project.launch import plan_project, run_plan
+    from hydromodpy.project.launch.local import plan_project, run_plan
 
     if environment is None:
         environment = Environment.default()

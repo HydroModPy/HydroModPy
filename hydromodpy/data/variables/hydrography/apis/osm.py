@@ -1,6 +1,6 @@
 """Fetch hydrography from OpenStreetMap via Overpass API.
 
-``fetch`` serves the hydrography manager. :class:`OsmSource` puts the same
+``fetch`` serves the hydrography variable. :class:`OsmSource` puts the same
 function behind the data-source port. The third ``features`` source
 and the one that shows what the payload kind does **not** promise: Overpass
 answers with whatever contributors tagged, so two calls a year apart over one

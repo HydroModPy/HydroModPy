@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.banner import print_hydromodpy
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, refuse
 from hydromodpy.core.logging import current_verbosity
 
 NAME: str = "run-script"

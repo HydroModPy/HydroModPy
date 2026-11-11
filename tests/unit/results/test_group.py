@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import UnrankedMetricError
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.sealed import MixedWindowsError

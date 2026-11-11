@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import run as run_cmd
-from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt

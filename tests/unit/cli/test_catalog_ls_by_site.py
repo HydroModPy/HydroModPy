@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, EXIT_VALIDATION
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, EXIT_USAGE, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow

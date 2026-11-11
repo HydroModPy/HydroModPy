@@ -187,25 +187,6 @@ def test_a_raster_crs_reads_as_text_and_its_absence_as_none(tmp_path: Path) -> N
 # ---- coordinate helpers -----------------------------------------------------
 
 
-def test_a_wgs84_point_comes_back_in_the_utm_zone_that_holds_it() -> None:
-    utm, easting, northing = crs_io.reproject_coord(3.0, 47.0)  # lon, lat
-
-    assert utm == "EPSG:32631"
-    assert easting == pytest.approx(500_000.0, abs=1.0)  # on the central meridian of zone 31
-    assert northing == pytest.approx(5_207_000.0, abs=2_000.0)
-
-
-def test_a_shapefile_is_rewritten_in_the_crs_asked(tmp_path: Path) -> None:
-    import geopandas as gpd
-
-    raw = tmp_path / "raw.shp"
-    gpd.GeoDataFrame(geometry=[Point(700_000.0, 6_600_000.0)], crs="EPSG:2154").to_file(raw)
-
-    crs_io.reproject_shp(str(raw), str(tmp_path / "out.shp"), "EPSG:2154")
-
-    assert gpd.read_file(tmp_path / "out.shp").crs.to_epsg() == 2154
-
-
 def test_the_centroid_of_a_layer_is_given_as_longitude_and_latitude() -> None:
     import geopandas as gpd
     from shapely.geometry import box

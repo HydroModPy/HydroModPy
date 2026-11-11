@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "add"
@@ -49,8 +49,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
-    from hydromodpy.core.site import SiteRow
+    from hydromodpy.cli.refs import resolve_workspace
+    from hydromodpy.core.site.row import SiteRow
     from hydromodpy.data.sites.catalog import catalog_path, declare_sites
 
     root = resolve_workspace(args.workspace)

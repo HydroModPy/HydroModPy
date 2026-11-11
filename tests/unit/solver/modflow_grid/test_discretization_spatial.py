@@ -180,3 +180,41 @@ def test_a_support_with_a_negative_cell_size_is_refused(step: str, message: str)
 
     with pytest.raises(ValueError, match=rf"Invalid support cell sizes: {message}"):
         _build(top, _surface_from_array(BOTTOM))
+
+
+# One row per cell state in the top and bottom surfaces: the nodata of the vertical config,
+# the cell values, and whether the cell is inside the domain (idomain 1) or outside it (0).
+_NODATA_CELLS = [
+    pytest.param(-9999.0, 120.0, 20.0, 1, id="a_valid_cell"),
+    pytest.param(-9999.0, -9999.0, 20.0, 0, id="top_is_nodata"),
+    pytest.param(-9999.0, 120.0, -9999.0, 0, id="bottom_is_nodata"),
+    pytest.param(-9999.0, np.nan, 20.0, 0, id="top_is_nan"),
+    pytest.param(-9999.0, 120.0, np.nan, 0, id="bottom_is_nan"),
+    pytest.param(-9999.0, -1.0e30, 20.0, 0, id="top_far_below_the_sentinel"),
+    pytest.param(-32768.0, -32768.0, 20.0, 0, id="a_chosen_nodata_is_read"),
+    pytest.param(
+        -32768.0, -9990.0, -9999.0, 1, id="the_default_value_is_data_under_a_chosen_nodata"
+    ),
+]
+
+
+@pytest.mark.parametrize(("nodata", "top_value", "bottom_value", "idomain"), _NODATA_CELLS)
+def test_a_cell_holding_the_nodata_is_inactive_in_every_layer(
+    nodata, top_value, bottom_value, idomain
+):
+    top = TOP.copy()
+    bottom = BOTTOM.copy()
+    top[0, 1] = top_value
+    bottom[0, 1] = bottom_value
+    config = VerticalGridConfig(genmtd_lay="constant", nlay=2, nodata=nodata)
+
+    sgrid = _build(
+        _surface_from_array(top, nodata=nodata),
+        _surface_from_array(bottom, nodata=nodata),
+        vertical_config=config,
+    )
+
+    assert np.all(sgrid.idomain[:, 0, 1] == idomain)
+    assert np.all(sgrid.idomain[:, 0, 0] == 1)
+    if idomain == 0:
+        assert np.all(sgrid.botm[:, 0, 1] == nodata)

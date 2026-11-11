@@ -34,7 +34,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
-from hydromodpy.core.site import SITE_NAME_PATTERN
+from hydromodpy.core.site.config import SITE_NAME_PATTERN
 from hydromodpy.core.toml_io.paths import parse as parse_dotted_path
 
 RECIPE_NAME_PATTERN = SITE_NAME_PATTERN

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_OK, EXIT_USAGE
+from hydromodpy.cli.exit_codes import EXIT_OK, EXIT_USAGE
 from hydromodpy.results.publication import read_publication, read_published
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.published_runs import (

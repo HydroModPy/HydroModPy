@@ -33,7 +33,7 @@ from hydromodpy.core.state.run_state import (
     SetupContext,
     WorkflowContext,
 )
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.boundaries.streams import apply_sfr_network_to_flow

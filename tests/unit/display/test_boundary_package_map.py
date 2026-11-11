@@ -477,14 +477,14 @@ def test_the_packages_climb_in_lightness_in_the_order_declared() -> None:
 
 def test_every_package_is_a_registered_budget_field() -> None:
     """The figure reads its components by name, like any other field."""
-    from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
+    from hydromodpy.core.budget.terms import budget_terms_for
     from hydromodpy.results.field_registry import get
 
     for name in BOUNDARY_PACKAGES:
         descriptor = get(name)
         assert descriptor.zarr_path == f"budget/{name}"
         assert descriptor.units == "m3 s-1"
-        assert config_option_for(name) == KEEP_BUDGET_OPTION
+        assert budget_terms_for(name)
 
 
 def test_the_whole_run_is_read_in_one_opening_of_the_store() -> None:

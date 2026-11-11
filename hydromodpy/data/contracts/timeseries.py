@@ -38,6 +38,9 @@ class PointRecord:
     file_path: Path | None = None
     source_unit: str | None = None
     quality: dict | None = None
+    # The files the location of the station was read from, beside file_path.
+    # A run records them as inputs, so a frozen replay finds them pinned.
+    location_files: tuple[Path, ...] = ()
 
     def __post_init__(self):
         refusal = station_name_refusal(self.station_id)
@@ -96,4 +99,5 @@ class PointRecord:
             is_constant=self.is_constant,
             file_path=self.file_path,
             source_unit=self.source_unit,
+            location_files=self.location_files,
         )

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.model.boundaries.climate import apply_oceanic_to_flow
 from hydromodpy.model.domain.structure_binders import (
     apply_catchment_zones_to_domain,

@@ -9,7 +9,6 @@ import pytest
 from hydromodpy.data.ingest.tables import (
     TimeSeriesValidationError,
     infer_station_id_from_filename,
-    iter_chronicle_files,
     read_locations_csv,
     read_timeseries_csv,
 )
@@ -97,22 +96,6 @@ def test_read_locations_csv_reports_missing_columns(tmp_path):
     src = _write(tmp_path / "locs.csv", "id,x,y\nA,1.0,2.0\n")
     artifact = read_locations_csv(src)
     assert any("missing columns" in e for e in artifact.errors)
-
-
-def test_iter_chronicle_files_skips_example(tmp_path):
-    # Flat ``data/<variable>/`` layout: custom chronicles are ``<prefix>_custom_*``;
-    # the LOC file, EXAMPLE templates, API files, and ``_`` files are skipped.
-    _write(tmp_path / "hydrometry_custom_LOC.csv", "id,x,y,crs,unit\n")
-    _write(tmp_path / "hydrometry_custom_EXAMPLE_20000101_20000131_D.csv", "datetime,value\n")
-    _write(
-        tmp_path / "hydrometry_custom_P01_20200101_20200103_D.csv",
-        "datetime,value\n2020-01-01,1.0\n",
-    )
-    _write(tmp_path / "_hidden.csv", "datetime,value\n")
-    _write(tmp_path / "hydrometry_hubeau_J01_20200101_20200103_D.csv", "datetime,value\n")
-
-    files = list(iter_chronicle_files(tmp_path, "hydrometry"))
-    assert [p.name for p in files] == ["hydrometry_custom_P01_20200101_20200103_D.csv"]
 
 
 def test_comments_and_blank_lines_are_ignored(tmp_path):

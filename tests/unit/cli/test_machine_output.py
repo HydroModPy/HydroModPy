@@ -15,7 +15,7 @@ import io
 import json
 import math
 import os
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,7 +26,7 @@ import pytest
 from hydromodpy import cli as cli_package
 from hydromodpy.calibration.report import CalibrationReport, CalibrationResult
 from hydromodpy.cli.conventions import FORMAT_CHOICES
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_CALIBRATION,
     EXIT_GENERIC,
     EXIT_NOT_FOUND,
@@ -37,7 +37,15 @@ from hydromodpy.cli.helpers import (
     fail,
 )
 from hydromodpy.cli.main import _build_parser
-from hydromodpy.cli.output import OUTPUTS, emit, output_of, plain, stdout_for_a_program
+from hydromodpy.cli.output import (
+    OUTPUTS,
+    emit,
+    output_of,
+    plain,
+    print_table,
+    stdout_for_a_program,
+    table_cell,
+)
 from hydromodpy.core.exceptions import NothingThereError, SolverDivergedError, StepError
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.project.data_cache import DataLock
@@ -739,3 +747,45 @@ def test_replay_with_no_comparison_says_the_source_keeps_no_basis(capsys) -> Non
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[1] == "  values : no comparison, the source keeps none this replay can read"
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [
+        (None, ""),
+        (3, "3"),
+        (2.0, "2.0"),
+        (1234.5678, "1234.6"),
+        (datetime(2026, 11, 11, 9, 30, 15, 123456), "2026-11-11T09:30:15"),
+        ("text", "text"),
+    ],
+)
+def test_a_table_cell_is_text_with_a_date_to_the_second(value: object, text: str) -> None:
+    assert table_cell(value) == text
+
+
+def test_a_table_takes_its_columns_from_the_declaration_and_pads_them(capsys) -> None:
+    rows = [{"site": "a", "label": "long label", "gauge": None, "x_outlet": 1.25}]
+
+    print_table("site ls", rows, ("site", "label", "gauge", "x_outlet"))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == ["site  label       gauge  x_outlet", "a     long label         1.2"]
+
+
+def test_a_table_of_a_listing_reads_the_fields_and_one_of_an_object_the_row_fields(capsys) -> None:
+    print_table("site ls", [{}])
+    header = capsys.readouterr().out.splitlines()[0].split()
+    assert tuple(header) == output_of("site ls").fields
+
+    print_table("ls plan", [{"case_id": "c1", "status": "completed"}])
+    header = capsys.readouterr().out.splitlines()[0].split()
+    assert tuple(header) == output_of("ls plan").row_fields
+
+
+def test_the_columns_of_the_commands_that_list_are_the_declared_ones() -> None:
+    from hydromodpy.cli.commands.project.log import CSV_COLUMNS
+
+    assert CSV_COLUMNS == tuple(f for f in output_of("project log").fields if f != "log_tail")
+    assert output_of("workspace list").fields[:3] == ("project", "name", "site")
+    assert "case_id" in output_of("ls plan").row_fields

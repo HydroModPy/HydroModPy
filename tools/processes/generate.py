@@ -7,7 +7,7 @@ Three sources, and no JSON is written by hand:
 * the **Pydantic request model**, through ``schema.config_schema``, which
   already emits Draft 2020-12 and already preserves the metadata a frontend
   consumes;
-* the **exit-code mapper**, ``cli.helpers.exit_code_for``, so the description
+* the **exit-code mapper**, ``cli.exit_codes.exit_code_for``, so the description
   cannot claim an exit code the process does not produce.
 
 Lives in ``tools/`` and not in the package: it imports ``config`` and the
@@ -35,7 +35,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.data.request.job import DATA_REQUEST
 from hydromodpy.model.domain.capability import DOMAIN_BUILD
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl

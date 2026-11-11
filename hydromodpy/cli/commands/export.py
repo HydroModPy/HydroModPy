@@ -30,13 +30,9 @@ from hydromodpy.cli.conventions import (
     workspace_parser,
 )
 from hydromodpy.cli.environment import add_environment_arguments
-from hydromodpy.cli.helpers import (
-    EXIT_GENERIC,
-    EXIT_USAGE,
-    project_root_of,
-    refuse,
-)
+from hydromodpy.cli.exit_codes import EXIT_GENERIC, EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 if TYPE_CHECKING:
     from hydromodpy.results.publication import PublishedLine
@@ -190,7 +186,9 @@ def run(args: argparse.Namespace) -> None:
         _print_list(args, workspace)
         return
     if args.regen:
-        written = _regen(workspace, args.sim_ref, args.regen)
+        from hydromodpy.project.report import regen_run
+
+        written = regen_run(args.sim_ref, workspace=workspace, what=args.regen)
     else:
         folder, file = _destination(args.to)
         written = export(
@@ -299,34 +297,6 @@ def _time_argument(values: list[str] | None) -> str | int | list[str | int] | No
         int(value) if value.lstrip("-").isdigit() else value for value in values
     ]
     return instants[0] if len(instants) == 1 else instants
-
-
-def _regen(workspace: Path, sim_ref: str, what: str) -> list[Path]:
-    """Write again what the ledgers of one run record: exports, figures or both.
-
-    ``all`` writes what each ledger holds. It stops only on a run with nothing recorded.
-    """
-    from hydromodpy.display.catalog_figures import regen_figures
-    from hydromodpy.project.api import open as open_path
-    from hydromodpy.results.exporters.request import regen_exports, run_export_target
-    from hydromodpy.results.ledger import Ledger
-    from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME
-
-    with open_path(workspace).store as catalog:
-        sid = catalog.resolve(sim_ref)
-        run_dir = Path(catalog.run_dir_for(sid))
-        holds = {
-            name: bool(Ledger.read(run_dir / folder).entries)
-            for name, folder in (("exports", RUN_EXPORTS_DIRNAME), ("figures", RUN_FIGURES_DIRNAME))
-        }
-        if what == "all" and not any(holds.values()):
-            refuse(f"{run_dir.name} records no export and no figure to write again.", EXIT_GENERIC)
-        written: list[Path] = []
-        if what == "exports" or (what == "all" and holds["exports"]):
-            written += regen_exports(catalog, sid, run_export_target(catalog, sid))
-    if what == "figures" or (what == "all" and holds["figures"]):
-        written += regen_figures(sim_ref, workspace=workspace)
-    return written
 
 
 def _print_list(args: argparse.Namespace, workspace: Path) -> None:

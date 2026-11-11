@@ -8,8 +8,3 @@ into sub-modules:
 - :mod:`solver_extract` : flow adapter resolver and point/boundary/cell extractors.
 - :mod:`composite` : public ``build_metric_extractor`` factory.
 """
-
-from hydromodpy.calibration.metrics.composite import build_metric_extractor
-from hydromodpy.calibration.metrics.series import ObservedSeries
-
-__all__ = ("build_metric_extractor", "ObservedSeries")

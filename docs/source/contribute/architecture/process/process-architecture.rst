@@ -18,9 +18,8 @@ that defines it.
 
 - ``hydromodpy.model.contracts``: explicit import path for generic
   process-layer contracts reused internally.
-- ``hydromodpy.model.process_spatial``, ``hydromodpy.model.payloads`` and
-  ``hydromodpy.model.forcing.dated_forcing``: process-agnostic building
-  blocks (``ProcessSpatial``, ``InitialCondition``, ``BoundaryCondition``,
+- ``hydromodpy.model.payloads`` and ``hydromodpy.model.forcing.dated_forcing``:
+  process-agnostic building blocks (``InitialCondition``, ``BoundaryCondition``,
   ``SinkSource``, ``TimeSeriesForcing``).
 - ``hydromodpy.model.flow``, ``hydromodpy.model.flow_config``,
   ``hydromodpy.model.initial_config`` and the folders ``boundaries`` and
@@ -28,8 +27,8 @@ that defines it.
   models.
 - ``hydromodpy.model.model`` and the folder ``initial``: the frozen ``Model``
   a flow solver reads, its factories, and the five initial states.
-- ``hydromodpy.model.transport``: concrete transport process plus
-  typed config.
+- ``hydromodpy.model.transport``: the typed config of a transport
+  (``TransportConfig``).
 - ``hydromodpy.model.forcing``: helpers that turn loaded data into
   process-ready forcing payloads aligned to simulation time, and put
   gridded forcings on the cells of a mesh.
@@ -51,8 +50,7 @@ Reading paths by concern
 process objects?"):
 
 1. ``hydromodpy/model/contracts.py``
-2. ``hydromodpy/model/process_spatial.py``
-3. ``hydromodpy/model/payloads.py``
+2. ``hydromodpy/model/payloads.py``
 
 **Flow process** ("what does the project materialize before a flow
 solve?"):
@@ -64,11 +62,9 @@ solve?"):
 4. ``hydromodpy/model/model.py``, the frozen ``Model`` that
    ``prepare_solver`` builds from the ``Flow`` and that a solver reads
 
-**Transport process** ("what transport runtime object is passed to
-the adapter?"):
+**Transport process** ("what does a transport adapter read?"):
 
-1. ``hydromodpy/model/transport/transport.py``
-2. ``hydromodpy/model/transport/transport_config.py``
+1. ``hydromodpy/model/transport/transport_config.py``
 
 **Forcing** ("how do loaded data become solver-ready time series?"):
 
@@ -123,30 +119,28 @@ Notes:
 Runtime class diagram
 ---------------------
 
-Runtime inheritance and composition for process objects:
-``ProcessSpatial`` as the abstract runtime base, ``Flow`` and
-``Transport`` as concrete implementations, runtime initial
-conditions, boundary conditions, and sink/source containers. The
+Runtime composition of the flow process: ``Flow`` holds its parameters,
+its initial conditions, its boundary conditions and its sink and source
+containers itself, with no runtime base class. A transport has no runtime
+object: its adapter reads ``TransportConfig`` and the run of its flow. The
 frozen ``Model`` is drawn beside ``Flow``: ``model_from_flow`` builds it.
 
 .. uml:: diagrams/process_runtime_class.wsd
 
 Notes:
 
-- ``Flow`` and ``Transport`` both inherit from ``ProcessSpatial``.
 - ``FlowInitialCondition`` inherits from prototype
   ``InitialCondition``.
-- Runtime boundary conditions stored by ``ProcessSpatial`` use
+- Runtime boundary conditions stored by ``Flow`` use
   prototype ``BoundaryCondition``.
-- Runtime sink/source storage is generic (``dict[str, object]``),
-  with process-specific payloads injected by child classes.
+- Runtime sink/source storage is generic (``dict[str, object]``).
 - Recharge and ETP are bound to the ``Flow`` by the binders, outside this inheritance
   tree.
 
 Lifecycle state machine
 -----------------------
 
-The usual lifecycle of a ``ProcessSpatial``-based runtime object,
+The usual lifecycle of a ``Flow``,
 from creation to solver execution and post-processing.
 
 .. uml:: diagrams/process_spatial_lifecycle_state.wsd

@@ -666,7 +666,7 @@ class FlowConfig(HydroModelBase):
             payload = dict(raw_payload)
             field_payload = payload.get("field")
             if not isinstance(field_payload, Mapping):
-                raise KeyError(
+                raise ValueError(
                     f"flow.param.{param_id} requires section [flow.param.{param_id}.field]"
                 )
             field = dict(field_payload)

@@ -38,11 +38,11 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
 from hydromodpy.calibration.preflight import _check_the_budgets
 from hydromodpy.calibration.runners.document import load_toml_calibration
-from hydromodpy.calibration.runners.search import (
-    _closes_two_roots,
-    _engine_kwargs,
-    _r_optim_verdict_extra,
-    _search_outcome_extra,
+from hydromodpy.calibration.runners.search import _engine_kwargs
+from hydromodpy.calibration.runners.search_record import (
+    closes_two_roots,
+    r_optim_verdict_extra,
+    search_outcome_extra,
 )
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
@@ -832,7 +832,7 @@ def test_the_report_publishes_the_roots_and_no_single_bracket() -> None:
     adapter = _two_root_adapter()
     session = _run__root_search_closes(adapter, _two_bounds())
 
-    extra = _search_outcome_extra(session)
+    extra = search_outcome_extra(session)
 
     assert "bracket" not in extra
     assert extra["roots"] == adapter.roots_record()
@@ -844,8 +844,8 @@ def test_no_interval_of_trials_is_put_around_a_value_between_two_roots() -> None
     two = _two_root_adapter()
     one = BisectionAdapter(_space(*NANCON_BOUNDS), rel_tol=REL_TOL)
 
-    assert _closes_two_roots(_run__root_search_closes(two, _two_bounds())) is True
-    assert _closes_two_roots(_run__root_search_closes(one, _one_bound())) is False
+    assert closes_two_roots(_run__root_search_closes(two, _two_bounds())) is True
+    assert closes_two_roots(_run__root_search_closes(one, _one_bound())) is False
 
 
 class _Output:
@@ -857,7 +857,7 @@ def test_eq4_is_read_on_each_bound_in_the_cost() -> None:
     adapter = _two_root_adapter()
     session = _run__root_search_closes(adapter, _two_bounds())
 
-    extra = _r_optim_verdict_extra({"net": _Output()}, session.best.components)
+    extra = r_optim_verdict_extra({"net": _Output()}, session.best.components)
 
     verdicts = extra["r_optim_verdict"]
     assert set(verdicts) == {"net_minimal", "net_maximal"}
@@ -876,7 +876,7 @@ def test_eq4_skips_a_bound_weighted_zero() -> None:
         _two_bounds(weights=(1.0, 0.0))(ParamSuggestion(trial_id=1, values={"K": 1e-5})).components
     )
 
-    verdicts = _r_optim_verdict_extra({"net": _Output()}, components)["r_optim_verdict"]
+    verdicts = r_optim_verdict_extra({"net": _Output()}, components)["r_optim_verdict"]
 
     assert set(verdicts) == {"net_minimal"}
 

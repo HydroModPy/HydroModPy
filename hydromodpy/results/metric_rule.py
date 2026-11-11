@@ -52,7 +52,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
 from hydromodpy.core.config_kit.types import StationName
-from hydromodpy.core.site import SiteConfig
+from hydromodpy.core.site.config import SiteConfig
 
 METRIC_RULE_VERSION: Final[str] = "2"
 """Version of the scoring rule. Bump it when a score stops being comparable."""

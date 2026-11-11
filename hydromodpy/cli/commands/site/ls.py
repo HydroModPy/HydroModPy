@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.output import emit
+from hydromodpy.cli.output import emit, print_table
 
 NAME: str = "ls"
 HELP: str = "List the sites declared in data/sites/catalog.csv"
@@ -25,7 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.sites.catalog import read_catalog
 
     root = resolve_workspace(args.workspace)
@@ -35,27 +35,9 @@ def run(args: argparse.Namespace) -> None:
     records = [row.to_mapping() for row in rows]
 
     def table() -> None:
-        if not records:
+        if records:
+            print_table("site ls", records)
+        else:
             print("no site declared")
-            return
-        columns = ("site", "label", "gauge", "uri", "x_outlet", "y_outlet", "crs", "tags")
-        rows = [[_cell(record[column]) for column in columns] for record in records]
-        widths = [
-            max(len(column), *(len(line[i]) for line in rows)) for i, column in enumerate(columns)
-        ]
-        for line in [list(columns), *rows]:
-            print(
-                "  ".join(
-                    cell.ljust(width) for cell, width in zip(line, widths, strict=True)
-                ).rstrip()
-            )
 
     emit(args, "site ls", records, table=table)
-
-
-def _cell(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, float):
-        return f"{value:.1f}"
-    return str(value)

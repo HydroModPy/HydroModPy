@@ -15,27 +15,31 @@ import numpy as np
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.calibration.config import (
+from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
+from hydromodpy.calibration.config_network import (
     CalibNetworkExtent,
     CalibNetworkMap,
     CalibNetworkModel,
     CalibNetworkVerdict,
-    CalibObjectiveBlockDecl,
-    CalibOutputCell,
     CalibOutputNetwork,
+)
+from hydromodpy.calibration.config_objective import (
+    CalibObjectiveBlockDecl,
     CalibParameterDecl,
+    CalibrationProtocolDecl,
+)
+from hydromodpy.calibration.config_outputs import CalibOutputCell, validate_calib_output
+from hydromodpy.calibration.config_phases import (
     CalibPhaseDecl,
     CalibPhaseUncertaintyDecl,
-    CalibrationConfig,
-    CalibrationMethod,
-    CalibrationProtocolDecl,
     CalibUncertaintyDecl,
     _same_instant,
-    apply_project_defaults,
-    validate_calib_output,
 )
+from hydromodpy.calibration.config_terms import CalibrationMethod
 from hydromodpy.calibration.optim.optimizer import announced_optimizers, optimizers
-from hydromodpy.calibration.protocols import options_the_recipe_already_runs
+from hydromodpy.calibration.protocols.matching_hydrographic_network import (
+    options_the_recipe_already_runs,
+)
 from hydromodpy.catchment.drainage.distance import build_downslope_metric
 from hydromodpy.catchment.stream_network.extent import (
     dry_steps,
@@ -44,21 +48,21 @@ from hydromodpy.catchment.stream_network.extent import (
 )
 from hydromodpy.catchment.stream_network.geometry import build_network_geometry
 from hydromodpy.catchment.stream_network.network import build_simulated_network
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.scoring.cost_margin import parse_cost_margin
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.site.config import GaugeConflictError
-from hydromodpy.core.time import nominal_step_days
+from hydromodpy.core.time.window import nominal_step_days
 from hydromodpy.display.figures.depression_map import DepressionMap
-from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
-from hydromodpy.results.derive.stream.criterion_settings import (
+from hydromodpy.results.derive.stream_network.comparison import network_comparison_from_run
+from hydromodpy.results.derive.stream_network.criterion_settings import (
     DEFAULT_EXTENT_RULES,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
-from hydromodpy.results.derive.stream.run_extent import network_extents_from_run
+from hydromodpy.results.derive.stream_network.routing_surface import routing_surface_from_run
+from hydromodpy.results.derive.stream_network.run_extent import network_extents_from_run
 from hydromodpy.results.metric_rule import MetricsWindow
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.sealed_runs import sealed_search

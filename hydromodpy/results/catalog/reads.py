@@ -126,7 +126,7 @@ class ReadsMixin:
     """Read-only queries for :class:`Catalog`.
 
     Relies on attributes provided by the facade: ``self._backend``
-    (CatalogBackend port), ``self._workspace`` (the project root) and
+    (a ``DuckDBBackend``), ``self._workspace`` (the project root) and
     ``self._paths`` (StoragePathResolver), plus ``self.open_zarr`` for the
     field reads.
     """

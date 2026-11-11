@@ -33,8 +33,8 @@ Extend the code
       :link: add-a-process
       :link-type: doc
 
-      A new ``ProcessSpatial`` runtime next to ``Flow`` and ``Transport``, on the
-      worked example of ``Transport``.
+      A new process type next to flow and transport, on the worked example
+      of transport.
 
    .. grid-item-card:: Add a data variable
       :link: add-a-data-variable

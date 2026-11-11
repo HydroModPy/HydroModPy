@@ -1,11 +1,12 @@
-"""DuckDB adapter for :class:`CatalogBackend`.
+"""DuckDB backend of the catalog.
 
 Wraps a single :class:`duckdb.DuckDBPyConnection` so the catalog reader
-keeps DuckDB-specific paths (``fetchdf``, ``ATTACH``) while exposing the
-backend-neutral surface of
-:class:`~hydromodpy.results.catalog.ports.CatalogBackend`. ``INSERT`` and
-``UPSERT`` are composed with ANSI syntax so the same call sites stay
-portable across other adapters that implement the same protocol.
+keeps DuckDB-specific paths (``fetchdf``, ``ATTACH``) while the facade reads
+the index through the small surface of one round-trip per method (``query``,
+``execute``, ``fetch_one``, ``fetch_all``, ``insert``, ``upsert``,
+``transaction``, ``close``). ``INSERT`` and ``UPSERT`` are composed with ANSI
+syntax. Every method maps to a single round-trip with the driver and never
+silently swallows exceptions.
 
 The adapter owns no schema: the index DDL lives in
 :mod:`hydromodpy.results.catalog.index_schema` and is applied by the indexer.
@@ -43,7 +44,7 @@ def _identifier(name: str) -> str:
 
 
 class DuckDBBackend:
-    """Concrete :class:`CatalogBackend` backed by a DuckDB file connection.
+    """The catalog storage backend, backed by a DuckDB file connection.
 
     Two construction paths are supported. ``DuckDBBackend(path)`` opens a
     new connection on disk and owns it; ``DuckDBBackend.from_connection(c)``
@@ -241,10 +242,7 @@ class DuckDBBackend:
 
         DuckDB-specific helper used to federate two databases for a
         cross-DB join. The alias is detached on exit, even on failure, so
-        the connection state stays clean. ATTACH is not part
-        of the ``CatalogBackend`` Protocol because the semantics differ
-        widely across SQL engines; future Postgres-flavoured adapters
-        will expose an equivalent via FDW or a dedicated helper.
+        the connection state stays clean.
         """
         with attach_read_only(self._connection, db_path, alias):
             yield

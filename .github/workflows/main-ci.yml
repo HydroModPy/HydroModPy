@@ -165,14 +165,17 @@ jobs:
       - name: Run Whitebox-backed fast tests (serial)
         run: python -m pytest -m fast tests/regression/fast/geographic --timeout=300 -q
 
-      # tests/contract/ is the only coverage of DuckDBCacheBackend and of the
-      # catalog backend compatibility surface. It was in no workflow before.
-      # HMP_REQUIRE_GMSH turns a skipped gmsh engine into a failure: the mesh
-      # engine contract proves nothing on an engine it did not run.
-      - name: Run contract tests
+      # tests/ports/ holds one file per port registry. It runs serially because
+      # tests/ports/test_terrain.py reaches Whitebox. HMP_REQUIRE_GMSH turns a
+      # skipped gmsh engine into a failure: a mesh port test proves nothing on
+      # an engine it did not run.
+      - name: Run port tests
         env:
           HMP_REQUIRE_GMSH: "1"
-        run: python -m pytest tests/contract/ -q
+        run: python -m pytest tests/ports/ -q
+
+      - name: Run refusal tests
+        run: python -m pytest tests/refusals -q -n 2
 
   unit:
     name: Tests / unit py3.13
@@ -227,7 +230,7 @@ jobs:
       # gets its own serial step again.
       - name: Run unit tests in parallel
         run: |
-          python -m pytest tests/unit/ \
+          python -m pytest tests/unit/ tests/processes/ \
             --ignore=tests/unit/architecture \
             --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
@@ -291,7 +294,7 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of catchment/ and mesh/ over the unit tier, the engine contract,
+      # Branch coverage of catchment/ and mesh/ over the unit tier, the mesh port tests,
       # the mesh regression and the domain-build worker, which only its integration
       # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
       - name: Run the tests that reach the catchment package
@@ -299,8 +302,7 @@ jobs:
           HMP_REQUIRE_GMSH: "1"
         run: |
           python -m pytest tests/unit/ \
-            tests/contract/test_mesh_engine_contract.py \
-            tests/contract/test_mesh_conformance_reaches_an_installed_engine.py \
+            tests/ports/test_mesh.py \
             tests/regression/mesh/ \
             tests/integration/domain/test_worker.py \
             --ignore=tests/unit/architecture \
@@ -314,7 +316,7 @@ jobs:
             --cov=hydromodpy/catchment \
             --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
-            --cov=hydromodpy/results/derive/stream \
+            --cov=hydromodpy/results/derive/stream_network \
             --cov-branch \
             --cov-report= \
             --cov-fail-under=0 \
@@ -335,7 +337,7 @@ jobs:
             --cov=hydromodpy/catchment \
             --cov=hydromodpy/mesh \
             --cov=hydromodpy/model \
-            --cov=hydromodpy/results/derive/stream \
+            --cov=hydromodpy/results/derive/stream_network \
             --cov-branch \
             --cov-append \
             --cov-report= \
@@ -352,7 +354,7 @@ jobs:
       # The line before the last gates the modules at the top of catchment/ and the job
       # inputs of model/domain, the old top of spatial. The last one gates the stream
       # criterion as one set, the kernels in catchment/stream_network and the readers of
-      # a run in results/derive/stream. No other job measures them. Their tests run in
+      # a run in results/derive/stream_network. No other job measures them. Their tests run in
       # this unit tier, under tests/unit/catchment/stream_network and tests/unit/results.
       - name: Gate the catchment coverage
         run: |
@@ -368,7 +370,7 @@ jobs:
           coverage report --include='hydromodpy/model/domain/lake_bed_*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/catchment/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/catchment/*.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/results/derive/stream/*,hydromodpy/catchment/stream_network/*' --precision=2 --fail-under=92.66
+          coverage report --include='hydromodpy/results/derive/stream_network/*,hydromodpy/catchment/stream_network/*' --precision=2 --fail-under=92.66
 
   core-coverage:
     name: Coverage / core gate py3.13

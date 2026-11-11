@@ -15,7 +15,7 @@ id = "transport_main"
 kind = "transport"
 solvers = ["mt3dms"]
 
-[transport.mt3dms.parameters]
+[transport.mt3dms]
 spc_name = "NO3"
 sconc_init = 0.1
 sconc_input = 0.05
@@ -26,9 +26,9 @@ rate_decay = 0.00136986301369863
 [simulation.results]
 keep_solver_files = true
 
-[modflownwt.runtime]
+[solver.modflow_nwt.runtime]
 
-[modflownwt.runtime.dis]
+[solver.modflow_nwt.runtime.dis]
 itmuni = 1
 [domain.layers]
 genmtd_lay = "decay"

@@ -37,7 +37,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.exceptions import DataContractViolation, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 from hydromodpy.solver.modflow6.extractors.face_flow import grid_connections
@@ -89,7 +89,7 @@ _RATE_QUANTITIES = frozenset(
         "inflow",
         "withdrawal",
         "ext_outflow",
-        "storage",
+        "lake_storage",
         "outlet",
         "outlet_inflow",
         "to_mvr",
@@ -360,7 +360,20 @@ def build_lake_records(
     A lake with a cutoff wall also gets ``cutoff_wall_flow`` (m3/s, positive from
     the lake side to the downstream side), on ``lake:<id>:layer<k>`` per layer
     (1-based) and on ``lake:<id>`` for their sum (:func:`read_cutoff_wall_flow`).
+
+    A sidecar quantity that is neither a state nor a rate is refused, so a
+    ``storage`` entry written before the lake series was renamed is never
+    stored unscaled under the name of the budget field of the aquifer.
     """
+    unknown = sorted(
+        {entry.quantity for entry in spec.entries} - _STATE_QUANTITIES - _RATE_QUANTITIES
+    )
+    if unknown:
+        raise DataContractViolation(
+            f"The LAK output sidecar names the quantities {unknown}, which no lake series "
+            "holds. A lake writes its storage term as 'lake_storage'. Build the MODFLOW 6 "
+            "files of the run again."
+        )
     if not obs_path.is_file():
         logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
         return [], []

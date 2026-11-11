@@ -3,7 +3,7 @@
 A test writes and seals its runs on disk first, through
 ``tests/_helpers/run_stores.py`` or ``tests/_helpers/sealed_runs.py``. This
 helper then rebuilds the index from the tree, the way ``hmp catalog reindex``
-does, and opens :class:`~hydromodpy.results.catalog.Catalog` over it. The
+does, and opens :class:`~hydromodpy.results.catalog.facade.Catalog` over it. The
 reader writes nothing.
 """
 
@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project
 

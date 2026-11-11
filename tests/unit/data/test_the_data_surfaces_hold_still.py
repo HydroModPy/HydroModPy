@@ -1,9 +1,9 @@
 """The surfaces of ``hydromodpy.data`` that a move must not change.
 
-A reorganisation of the package moves modules, never what a user writes or
-imports. These tests pin that: the JSON schema of
-the ``[data]`` section, every public name, and the data file the wheel
-must ship. The source classes of ``hydromodpy.data.source`` are resolved
+A reorganisation of the package moves modules, never what a user writes. These
+tests pin that: the JSON schema of the ``[data]`` section and the data file the
+wheel must ship. The package re-exports no name, so no public name is pinned
+here. The source classes of ``hydromodpy.data.source`` are resolved
 through its registry and not re-exported by the package, so their names are
 pinned where they are read: at the registry, by ``test_data_source_registry``.
 """
@@ -11,7 +11,6 @@ pinned where they are read: at the registry, by ``test_data_source_registry``.
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
 import tomllib
 from fnmatch import fnmatch
@@ -19,18 +18,16 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy._lazy import LAZY_IMPORTS
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-DATA_SCHEMA_SHA256 = "5d1561e0cf4544d5e668006983e4bb97f52283fcdb1a67d2c3247df4906cfc8e"
+DATA_SCHEMA_SHA256 = "681ea83667fd29e26f247547e7a4d91fdc4246611147fd166cdea6b7b9ce5ea9"
 
 
 def test_the_data_config_schema_keeps_its_fingerprint() -> None:
-    from hydromodpy.data import DataManagersConfig
+    from hydromodpy.data.loading.config_schema import DataConfig
 
     schema = json.dumps(
-        DataManagersConfig.model_json_schema(),
+        DataConfig.model_json_schema(),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
@@ -42,23 +39,6 @@ def test_the_data_config_schema_keeps_its_fingerprint() -> None:
         "`python -m tools.docs.schema_export`, then record the new digest here: "
         f"{digest}"
     )
-
-
-def _public_data_names() -> list[tuple[str, str]]:
-    from hydromodpy import data
-
-    names = [("hydromodpy.data", name) for name in data.__all__]
-    names += [
-        ("hydromodpy", name)
-        for name, target in sorted(LAZY_IMPORTS.items())
-        if target.startswith("hydromodpy.data.")
-    ]
-    return names
-
-
-@pytest.mark.parametrize(("module", "name"), _public_data_names())
-def test_every_public_data_name_resolves(module: str, name: str) -> None:
-    assert getattr(importlib.import_module(module), name) is not None
 
 
 @pytest.mark.parametrize(

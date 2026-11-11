@@ -61,11 +61,11 @@ from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, PREFERRED_CMAPS, get_cmap
 from hydromodpy.results.derive import views
 from hydromodpy.results.derive.run_memo import RunMemo
-from hydromodpy.results.derive.stream.criterion_settings import (
+from hydromodpy.results.derive.stream_network.criterion_settings import (
     NetworkCriterionSettings,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream.run_extent import (
+from hydromodpy.results.derive.stream_network.run_extent import (
     flow_geometry_from_run,
     flowing_share,
     unavailable_reason_for_flow,
@@ -75,7 +75,7 @@ from hydromodpy.results.derive.views import CellFieldActiveMode
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 ACTIVE_COLOR = HIGH_CONTRAST_TRIPLET[0]
 """The color a simulated stream carries across every map of this gallery."""
@@ -417,6 +417,13 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         required_fields=("drain_accumulation_flux",),
         default_figsize=(7.8, 5.8),
     )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the reference network the active cells are drawn against."""
+        reason = super().unavailable_reason(sim)
+        if reason is None and not sim.has_hydrographic_network("reference"):
+            return "run has no 'reference' hydrographic network"
+        return reason
 
     def render(
         self,

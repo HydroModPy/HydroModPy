@@ -13,7 +13,6 @@ from rasterio.errors import RasterioIOError
 
 from hydromodpy.catchment.preprocess.catchment_delineation import (
     CatchmentDelineation,
-    DEM_correcflow_analysis,
 )
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain import registry
@@ -25,8 +24,6 @@ from tests._helpers.geographic_cases import (
     delineation_signature,
     polygon_catchment,
 )
-from tests._helpers.geotiffs import write_geotiff
-from tests._helpers.whitebox_double import FakeWhiteboxBackend
 
 
 @pytest.fixture
@@ -134,15 +131,6 @@ def test_the_notebook_view_names_the_declared_margin_and_what_it_drew(
     assert html.startswith("<div><b>CatchmentDelineation</b>")
     assert f"<th style='text-align:left;padding-right:8px'>buff_area</th><td>{label}</td>" in html
     assert "<td>&mdash;</td>" in html  # the outlet, unset
-
-
-def test_the_three_regional_flow_rasters_are_built_on_the_backend_given(tmp_path) -> None:
-    dem = write_geotiff(tmp_path / "dem.tif", [[3.0, 2.0], [2.0, 1.0]], nodata=-9999.0)
-    products = DEM_correcflow_analysis(
-        str(dem), str(tmp_path / "flow"), "fill", backend=FakeWhiteboxBackend()
-    )
-    assert sorted(products) == ["acc", "correc", "direc"]
-    assert all(Path(path).is_file() for path in products.values())
 
 
 def test_the_runtime_object_carries_the_engine_the_document_named(tmp_path, monkeypatch) -> None:

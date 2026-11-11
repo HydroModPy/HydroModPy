@@ -26,33 +26,35 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model
 from hydromodpy.solver.base.plan import RunSlot
-from hydromodpy.solver.modflow_common import (
-    SolverRoutingContext,
-    build_solver_routing_context,
-    ensure_solver_binary,
-    write_grid_array_to_raster,
-)
+from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
 from hydromodpy.solver.modflow_common.flow_directions import (
     build_solver_mesh_descent,
     channel_exits_for_build,
 )
+from hydromodpy.solver.modflow_common.flow_run import require_cell_mesh
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
 from hydromodpy.solver.modflow_common.progress import run_model_with_progress
+from hydromodpy.solver.modflow_common.raster_export import write_grid_array_to_raster
+from hydromodpy.solver.modflow_common.routing_context import (
+    SolverRoutingContext,
+    build_solver_routing_context,
+)
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
-from hydromodpy.solver.modflow_grid import (
+from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
+from hydromodpy.solver.modflow_grid.discretization_spatial import (
     SolverGridContext,
     build_spatial_discretization,
-    build_temporal_discretization_from_time_grid,
     resolve_domain_surfaces,
+)
+from hydromodpy.solver.modflow_grid.discretization_temporal import (
+    build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
-from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 from ._pre_processing import assemble_flopy_packages

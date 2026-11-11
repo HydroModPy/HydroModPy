@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.catchment.drainage.descent import BASIN_VERSION, DescentBasin
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import (
     descent_sidecar_path,

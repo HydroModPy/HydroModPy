@@ -23,9 +23,9 @@ import pytest
 from pydantic import Field, ValidationError
 from pydantic_core.core_schema import ErrorType
 
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.check import CHECK_CODES, _said_by_the_sections, check, phrase
 from hydromodpy.config.config_migration import migrate_config_doc
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.section_loader import PYDANTIC_CODES, code_of, severity_of
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
 from hydromodpy.core.config_kit.said import Said, collecting

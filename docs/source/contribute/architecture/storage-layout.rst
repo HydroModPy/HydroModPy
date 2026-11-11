@@ -1199,7 +1199,12 @@ mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Thei
 ``observed``, so a series and its gauge carry one variable name. A series of a backend
 (``discharge``, ``reservoir_storage`` of the ``linear_reservoir`` backend) carries the shape
 ``time`` of the field registry: one value per period of the time grid, stored at the
-``catchment`` station. A run also stores the series it
+``catchment`` station. A simulated series carries a name the series registry or the field
+registry describes, and the store refuses any other at write time. The same holds for fields and
+tables: the extract step refuses a name a backend adds that its ``writes`` does not declare. A
+lake writes the storage term of its water balance as ``lake_storage``, with the sign of MODFLOW 6,
+negative when the lake volume rises, so ``storage`` names only the budget field of the
+aquifer. A run also stores the series it
 simulates at each observed gauge, piezometer or lake, under the id of the station. A read with no
 station means ``catchment`` when it has the variable. A table says ``catchment`` for the
 whole catchment and ``domain`` for the whole model (:doc:`/understand/conventions`), and writes every

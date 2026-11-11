@@ -748,9 +748,9 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     # Station series of ``timeseries.parquet``, one value per time step of one
     # station. They are what the catchment aggregation writes (in m3 s-1), the
     # state quantities the LAK and SFR extractors store, and the rates they
-    # scale to m3 s-1. The ``storage`` of a lake is not a series name here: it
-    # would collide with the budget field ``storage`` of the aquifer, and that
-    # conflict is settled where it can be refused at write time.
+    # scale to m3 s-1. A lake writes its storage term as ``lake_storage``, so
+    # ``storage`` names only the budget field of the aquifer, and the store
+    # refuses a simulated series that no descriptor holds.
     "discharge": TimeSeriesDescriptor(
         public_name="discharge",
         long_name="Water leaving the aquifer, summed over the catchment",
@@ -848,6 +848,58 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
         public_name="lak_connection",
         long_name="Exchange between two connected lakes",
         units="m3 s-1",
+    ),
+    "lake_storage": TimeSeriesDescriptor(
+        public_name="lake_storage",
+        long_name=(
+            "Storage term of the lake water balance, negative when the lake volume "
+            "rises and positive when it falls, the sign of the MODFLOW 6 LAK storage "
+            "observation"
+        ),
+        units="m3 s-1",
+    ),
+    "cutoff_wall_flow": TimeSeriesDescriptor(
+        public_name="cutoff_wall_flow",
+        long_name=(
+            "Flow through the cutoff wall of a lake, positive from the lake side to "
+            "the downstream side"
+        ),
+        units="m3 s-1",
+    ),
+    # Station series a calibrated run writes under the variable of the observed
+    # record, because the score pairs a simulated and an observed series by
+    # station and variable.
+    "groundwater_level": TimeSeriesDescriptor(
+        public_name="groundwater_level",
+        long_name=(
+            "Simulated series at a station whose observed record is a groundwater "
+            "level, written under the name of that record"
+        ),
+        units="m",
+    ),
+    "groundwater_depth": TimeSeriesDescriptor(
+        public_name="groundwater_depth",
+        long_name=(
+            "Simulated head at a station whose observed record is a groundwater "
+            "depth, written under the name of that record"
+        ),
+        units="m",
+    ),
+    "water_level": TimeSeriesDescriptor(
+        public_name="water_level",
+        long_name=(
+            "Simulated discharge at a stage gauge, a station whose observed record "
+            "is a river water level, written under the name of that record"
+        ),
+        units="m3 s-1",
+    ),
+    "lake_level": TimeSeriesDescriptor(
+        public_name="lake_level",
+        long_name=(
+            "Simulated series at a station whose observed record is a lake level, "
+            "written under the name of that record"
+        ),
+        units="m",
     ),
     # Stream reach states and rates (the reach station is ``<network>:<number>``).
     "depth": TimeSeriesDescriptor(

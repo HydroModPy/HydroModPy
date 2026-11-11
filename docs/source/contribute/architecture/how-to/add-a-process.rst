@@ -93,7 +93,7 @@ make it a process and not just a package:
        ``_BUILTIN_EXTRACTOR_PATHS``, keyed ``"<process_type>_<name>"``. The
        adapter carries the twelve attributes of the port. The process type
        becomes known to the planner as soon as one adapter is registered.
-   * - ``config/cross_checks.py``
+   * - ``config/solver_supports.py``
      - The refusals derived from what the process declares: every name in
        ``reads`` must be written by the solver of the run before it, and the
        ``requires`` of each solver must hold one run of the plan. A trait of
@@ -126,7 +126,7 @@ Order of work
    planner refuses a transport run that comes before its flow run. The adapter
    is the subject of :doc:`add-a-solver`; the planner reads ``requires`` in
    ``solver/base/planner.py``.
-4. **Refuse impossible combinations** in ``config/cross_checks.py``, from what
+4. **Refuse impossible combinations** in ``config/solver_supports.py``, from what
    the backends declare, without naming a backend: a ``reads`` name the flow
    does not write, a ``requires`` the plan does not hold, a trait of the model
    left out of ``supports``.
@@ -145,7 +145,7 @@ Tests to add
   ``options`` class of a solver, an unknown key is refused.
 - **Unit** for the planner: a ``[[simulation.process]]`` entry of the new type
   expands into one run per solver and respects ``requires``.
-- **Contract** on the port, in ``tests/contract/test_solver_backend_contract.py``:
+- **Contract** on the port, in ``tests/ports/test_solver.py``:
   the new solver answers the members a backend of its process type answers.
 - **Scenario** in ``tests/scenarios/``: one chain of the process behind the
   run it reads, played by ``hmp run``. The transport chains of
@@ -161,7 +161,7 @@ Layer rules
   (``tests/unit/architecture/layer_matrix.yaml``). Solver code is in
   ``solver/<backend>/``, never in ``model/``, and the adapter of a solver is in
   the file of its engine.
-- The shared base in ``model/process_spatial.py`` and ``model/payloads.py`` is
+- The shared models in ``model/payloads.py`` are
   deliberately narrow, and a process whose solvers read options plus upstream
   runs adds nothing to it.
 - Run the architecture gate after the first import you add:

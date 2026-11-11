@@ -33,7 +33,7 @@ from hydromodpy.results.run.contracts import MeshDescent
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

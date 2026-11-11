@@ -1,4 +1,4 @@
-"""Hydrographic-network accessors for :class:`hydromodpy.results.run.Run`.
+"""Hydrographic-network accessors for :class:`hydromodpy.results.run.view.Run`.
 
 Mixin that exposes the canonical hydrographic-network roles persisted with a
 simulation (``reference``, ``reference_permanent``, ``generated``,

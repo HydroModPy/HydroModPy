@@ -1055,7 +1055,7 @@ def test_a_sites_file_drafts_every_case_of_its_plan(
 def test_an_overview_configuration_drafts_one_case_without_steps(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import hydromodpy.display.overview as display_overview
+    import hydromodpy.display.overview.location as display_overview
 
     seen = _draft_collaborators(monkeypatch, is_sites=False)
     monkeypatch.setattr(display_overview, "overview_name", lambda site, name: f"{site}/{name}")
@@ -1399,7 +1399,7 @@ def test_the_code_that_computes_enters_the_key_and_the_release_does_not(monkeypa
 def test_a_key_written_at_its_default_is_another_request(tmp_path: Path) -> None:
     """A validator can tell the two apart, so the request does (``surface_offset`` of an ETP)."""
     from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.data.loading.inputs import ResolvedInputs
     from hydromodpy.workflow.solution_key import request_id_of

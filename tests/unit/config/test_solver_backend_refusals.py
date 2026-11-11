@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.mesh.mesh_config import MeshConfig

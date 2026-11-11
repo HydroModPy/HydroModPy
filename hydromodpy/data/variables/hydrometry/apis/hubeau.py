@@ -160,7 +160,7 @@ def fetch(
             client=client,
         )
         if not ids and fallback_search_radius_km:
-            from hydromodpy.data.common.geo_helpers import expand_bbox
+            from hydromodpy.data.common.geometry import expand_bbox
 
             expanded = expand_bbox(bbox, fallback_search_radius_km)
             logger.info(

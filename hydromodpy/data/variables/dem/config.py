@@ -11,7 +11,7 @@ from hydromodpy.catchment.administrative.regions import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
+from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.source.url import UrlSourceOptions
 from hydromodpy.schema.job.inputset import InputState
 

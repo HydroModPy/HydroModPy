@@ -24,7 +24,7 @@ from validation_cases.calibration.network_transient_b0.network_transient_truth i
     score_network_transient_candidate,
     score_network_transient_candidate_from_runs,
 )
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 
 
 REQUIRED_COLUMNS = ("steady_catalog", "steady_ref", "transient_ref")

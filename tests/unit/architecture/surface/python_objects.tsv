@@ -1,5 +1,5 @@
 Catalog.attempts	method	(self, rel_dir: str) -> pd.DataFrame
-Catalog.backend	property	CatalogBackend
+Catalog.backend	property	DuckDBBackend
 Catalog.best	method	(self, project: str, metric: str = 'nse', *, site: str | None = None, mixed_windows: bool = False) -> Run
 Catalog.calibration_iterations	method	(self, session_id: str | UUID) -> pd.DataFrame
 Catalog.calibration_phases	method	(self, session_id: str) -> pd.DataFrame

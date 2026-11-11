@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from hydromodpy.data.contracts import LoadResult, TableRecord
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.table import TableRecord
 
 
 def _abacus_frame() -> pd.DataFrame:

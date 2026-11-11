@@ -23,19 +23,18 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.scope import DOMAIN
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = [
     "BOUSSINESQ_LATE_TIME_CONSTANT",
-    "SECONDS_PER_DAY",
     "brutsaert_nieber_coefficient",
     "budget_outflow_per_day",
     "recession_cloud",
 ]
 
-SECONDS_PER_DAY = 86400.0
 BOUSSINESQ_LATE_TIME_CONSTANT = 4.804
 """Brutsaert-Nieber coefficient of the late-time non-linear Boussinesq solution."""
 

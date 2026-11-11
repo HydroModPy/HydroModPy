@@ -6,7 +6,7 @@ import duckdb
 import pyarrow as pa
 import pytest
 
-from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.index_file import open_index
 from hydromodpy.results.catalog.index_schema import (
     ARROW_TO_DUCKDB,
@@ -18,6 +18,7 @@ from hydromodpy.results.catalog.index_schema import (
     read_index_schema_version,
     table_ddl,
 )
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.views import VIEW_NAMES
 from tests._helpers.sealed_runs import make_project, seal_run
 

@@ -25,14 +25,9 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_NOT_FOUND,
-    EXIT_USAGE,
-    base_named_by_w,
-    refuse,
-)
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import base_named_by_w
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
@@ -513,7 +508,7 @@ def _write_editor_schema(out_path: str | None, *, section: str | None, profile: 
 
 def _cmd_config_wizard(args: argparse.Namespace) -> None:
     """Minimal stdin-based wizard to scaffold a TOML config."""
-    from hydromodpy.cli.helpers import EXIT_SIGINT
+    from hydromodpy.cli.exit_codes import EXIT_SIGINT
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.config.toml_examples import flow_examples
     from hydromodpy.core.toml_io.generator import generate_toml

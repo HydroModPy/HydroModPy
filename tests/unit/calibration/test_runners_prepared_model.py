@@ -10,7 +10,8 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import CalibOutputNetwork, CalibrationConfig
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import CalibOutputNetwork
 from hydromodpy.calibration.metrics import solver_extract
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.runners import prepared_model, trial
@@ -28,7 +29,7 @@ from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.base.runner import solve_one
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+from hydromodpy.solver.modflow_common.flow_run import (
     build_flow_model,
     build_preprocess_options,
     run_flow_model,

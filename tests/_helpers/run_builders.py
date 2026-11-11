@@ -18,7 +18,7 @@ import pytest
 
 from hydromodpy.core.toml_io.writer import dumps as dump_toml
 from hydromodpy.results.annotations import add_tag
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.manifest import MetricRow

@@ -82,7 +82,7 @@ A new format called ``myfmt``:
 - ``results/exporters/formats.py``: the writer class, on the model of the
   six file formats that live there;
 - ``results/exporters/registry.py``: the dotted path in ``_BUILTIN_PATHS``;
-- ``tests/contract/test_export_format_contract.py``: a case that writes what
+- ``tests/ports/test_export.py``: a case that writes what
   the declarations say, on the copy of a sealed run.
 
 A plugin format, out of tree, is the same class published on the
@@ -180,7 +180,7 @@ Tests to add
   test per kind the format holds, through ``Catalog.export`` with an
   ``ExportRequest``, asserting the file name, the format and a value.
 - Contract: a case in
-  ``tests/contract/test_export_format_contract.py`` that the formats of the
+  ``tests/ports/test_export.py`` that the formats of the
   wheel and of the annex pass, on the copy of a sealed run; the conformance
   suite of an installed distribution runs from a clone of this repository.
 - CLI in ``tests/unit/cli/test_export_command.py``: a ``--as`` unknown

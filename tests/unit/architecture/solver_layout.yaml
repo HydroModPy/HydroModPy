@@ -43,4 +43,4 @@ public:
   - hydromodpy.solver.base.*
   # Read by cli and workflow to find the binaries and run the flow adapter.
   - hydromodpy.solver.modflow_common.binaries
-  - hydromodpy.solver.modflow_common.flow_adapter_helpers
+  - hydromodpy.solver.modflow_common.flow_run

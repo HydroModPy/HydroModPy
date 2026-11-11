@@ -18,7 +18,7 @@ import pytest
 
 from hydromodpy.core.exceptions import IncompatibleMeshError, MeshError
 from hydromodpy.results.storage.prior_state import reoriented_rows, written_step
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.extractors.grid_check import (
     grb_rings,
     verify_disv_grid,

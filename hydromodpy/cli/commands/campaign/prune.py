@@ -16,8 +16,9 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import confirm, resolve_project
+from hydromodpy.cli.exit_codes import confirm
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_project
 
 NAME: str = "prune"
 HELP: str = "Move the kept trials of a calibration session to the trash, all but the best"

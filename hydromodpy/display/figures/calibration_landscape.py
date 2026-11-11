@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
+from hydromodpy.display.figure import (
+    BaseFigure,
+    FigureNotApplicable,
+    FigureSpec,
+    new_subplots,
+    run_suffix,
+)
 from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -69,7 +75,10 @@ class CalibrationLandscapeFigure(BaseFigure):
         table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
         if len(names) < 2:
-            raise ValueError(
+            # The session decides when no parameter is named; a short
+            # `parameters=` is a fault of the caller.
+            refusal = ValueError if parameters is not None else FigureNotApplicable
+            raise refusal(
                 "calibration_landscape: need at least two parameter columns; the session "
                 f"sampled {', '.join(names) or '<none>'}"
             )

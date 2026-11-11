@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
+from hydromodpy.data.common.geometry import bbox_hash as _bbox_hash
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.grids import GridVariable

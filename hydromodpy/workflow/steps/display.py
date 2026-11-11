@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -177,7 +177,7 @@ class DisplayStep:
                     len(display_cfg.figures),
                 )
             else:
-                from hydromodpy.results.run import Run
+                from hydromodpy.results.run.view import Run
                 from hydromodpy.workflow.steps.export import sealed_run_name, sealed_run_store
 
                 run_dir = Path(ctx.run_dir)

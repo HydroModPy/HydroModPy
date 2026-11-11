@@ -18,22 +18,18 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.calibration as calibration
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    CalibOutputNetwork,
-    CalibParameterDecl,
-    CalibrationConfig,
-    CalibWindow,
-    validate_calib_output,
-    window_bounds,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import CalibOutputNetwork
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl, CalibParameterDecl
+from hydromodpy.calibration.config_outputs import validate_calib_output
+from hydromodpy.calibration.config_terms import CalibWindow, window_bounds
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
 )
 from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
-from hydromodpy.calibration.metrics import build_metric_extractor
+from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.composite import (
     build_metric_extractor as build_metric_extractor__log_nse,
 )
@@ -57,7 +53,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.search import phase_cost_block_fractions
 from hydromodpy.calibration.runners.staged_runner import _reused_phase_cost_block_fractions
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.contracts.observables import ObservableResult
@@ -783,14 +779,14 @@ def test_composite_has_name_and_evaluate() -> None:
 
 def test_the_package_exports_no_objective_beside_the_blocks() -> None:
     for name in ("ScalarObjective", "ObservationSet"):
-        assert name not in calibration.__all__
+        assert name not in vars(calibration).get("__all__", ())
         assert not hasattr(calibration, name)
         assert not hasattr(objective, name)
 
 
 def test_the_blocks_and_their_sum_remain() -> None:
-    assert "ConfigBlockObjective" in calibration.__all__
-    assert "CompositeObjective" in calibration.__all__
+    assert hasattr(objective, "ConfigBlockObjective")
+    assert hasattr(objective, "CompositeObjective")
 
 
 # From test_log_nse_and_scoring_window.py

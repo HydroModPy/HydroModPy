@@ -354,7 +354,7 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     counted in validity lengths adds to an efficiency as a pure number. Any
     other criterion with no observations has no scale to divide by.
     """
-    from hydromodpy.calibration.criteria import criterion_for
+    from hydromodpy.calibration.criteria.registry import criterion_for
 
     needs = criterion_for(metric).requirements()
     if needs.cost_is_dimensionless:
@@ -399,7 +399,7 @@ class ConfigBlockObjective:
         cost_transform: str = "identity",
         distance_scales: Mapping[str, Sequence[float]] | None = None,
     ) -> None:
-        from hydromodpy.calibration.criteria import criterion_for
+        from hydromodpy.calibration.criteria.registry import criterion_for
 
         metric_key = str(metric).strip().lower()
         if metric_key not in METRICS:

@@ -94,12 +94,12 @@ def test_is_run_directory_recognises_fields_or_tables(tmp_path):
 
 
 def test_doctor_probe_returns_cli_check_shape(tmp_path):
-    from hydromodpy.cli.commands.doctor import _probe_result_storage
+    from hydromodpy.project.doctor import probe_result_storage
 
     project = tmp_path / "project"
     rebuild_index(project)
 
-    checks = {check["name"]: check for check in _probe_result_storage(project)}
+    checks = {check["name"]: check for check in probe_result_storage(project)}
 
     assert checks["results:layout"]["status"] == "OK"
     assert checks["results:layout"]["hint"] is None

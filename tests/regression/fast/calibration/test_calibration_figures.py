@@ -149,6 +149,11 @@ class _RunStub:
         self.name = f"brutsaert-{session_id}"
         self.calibration_iterations = iterations
 
+    @property
+    def trials(self) -> pd.DataFrame:
+        """The journal of the session, one row per trial, as ``Session.trials`` gives it."""
+        return pd.DataFrame(self.calibration_iterations)
+
     def timeseries(self, variable: str, station: str) -> pd.DataFrame:  # noqa: ARG002
         values = [row["cost"] for row in self.calibration_iterations]
         idx = pd.date_range("2024-01-01", periods=len(values), freq="D", name="datetime")
@@ -205,7 +210,7 @@ def _check_convergence_figure(fig, arrays: dict[str, np.ndarray]) -> None:
     np.testing.assert_allclose(_series(ax, 0), arrays["objective"])
     np.testing.assert_allclose(_series(ax, 1), np.minimum.accumulate(arrays["objective"]))
     assert ax.get_xlabel() == "Iteration"
-    assert ax.get_ylabel() == "objective"
+    assert ax.get_ylabel() == "cost"
 
 
 def _check_trace_figure(fig, arrays: dict[str, np.ndarray]) -> None:

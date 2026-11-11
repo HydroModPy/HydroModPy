@@ -178,7 +178,8 @@ class TestWhatTheRunKeptDecidesTheMessage:
     """A missing field is actionable only when the run did not keep what it reads."""
 
     def test_the_only_option_is_the_budget_switch(self):
-        from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
+        from hydromodpy.core.budget.terms import budget_terms_for
+        from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION
 
         assert KEEP_BUDGET_OPTION == "keep_per_cell_budget"
         assert KEEP_BUDGET_OPTION in ResultsConfig.model_fields
@@ -189,14 +190,13 @@ class TestWhatTheRunKeptDecidesTheMessage:
             "recharge",
             "drain",
         ):
-            assert config_option_for(field) == KEEP_BUDGET_OPTION
+            assert budget_terms_for(field)
         # A head or a static parameter reads no budget term: no option keeps it.
-        assert config_option_for("head") is None
-        assert config_option_for("lake_stage") is None
+        assert not budget_terms_for("head")
+        assert not budget_terms_for("lake_stage")
 
     def test_every_raw_budget_field_of_the_registry_has_the_option(self):
-        from hydromodpy.core.budget.terms import PER_CELL_BUDGET_TERMS
-        from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
+        from hydromodpy.core.budget.terms import PER_CELL_BUDGET_TERMS, budget_terms_for
         from hydromodpy.results.field_registry import FIELD_REGISTRY
 
         registered = {
@@ -205,19 +205,19 @@ class TestWhatTheRunKeptDecidesTheMessage:
             if descriptor.zarr_path.startswith("budget/")
         }
         assert registered
-        assert {name for name in registered if config_option_for(name) == KEEP_BUDGET_OPTION} == (
+        assert {name for name in registered if budget_terms_for(name)} == (
             registered & PER_CELL_BUDGET_TERMS
         )
 
     def test_a_consumers_run_that_left_a_term_out_is_actionable(self):
         from hydromodpy.results.derive.config_flags import (
+            diagnose_missing,
             missing_field_explanation,
-            missing_field_options,
         )
 
         run = _run(terms={"consumers": ("drain",)})
 
-        assert missing_field_options(["release_flux", "head"], run) == ["keep_per_cell_budget"]
+        assert diagnose_missing(["release_flux", "head"], run) is not None
         text = missing_field_explanation(["release_flux"], run)
         assert "kept only the per-cell budget terms its consumers read (drain)" in text
         assert "recharge" in text
@@ -231,31 +231,31 @@ class TestWhatTheRunKeptDecidesTheMessage:
         # The terms are kept and no array is there: the model does not produce them.
         from hydromodpy.core.budget.terms import budget_terms_for
         from hydromodpy.results.derive.config_flags import (
+            diagnose_missing,
             missing_field_explanation,
-            missing_field_options,
         )
 
         run = _run(terms={"consumers": budget_terms_for("release_flux")})
 
-        assert missing_field_options(["release_flux"], run) == []
+        assert diagnose_missing(["release_flux"], run) is None
         assert missing_field_explanation(["release_flux"], run) == ""
 
     def test_a_run_that_kept_the_whole_budget_is_quiet(self):
-        from hydromodpy.results.derive.config_flags import missing_field_options
+        from hydromodpy.results.derive.config_flags import diagnose_missing
 
         run = _run(terms={"all": ("drain",)})
 
-        assert missing_field_options(["release_flux", "recharge"], run) == []
+        assert diagnose_missing(["release_flux", "recharge"], run) is None
 
     def test_a_store_without_attributes_was_written_before_the_budget_was_kept(self):
         from hydromodpy.results.derive.config_flags import (
+            diagnose_missing,
             missing_field_explanation,
-            missing_field_options,
         )
 
         run = _run(terms=None)
 
-        assert missing_field_options(["drain_accumulation_flux"], run) == ["keep_per_cell_budget"]
+        assert diagnose_missing(["drain_accumulation_flux"], run) is not None
         text = missing_field_explanation(["drain_accumulation_flux"], run)
         assert "written before the per-cell budget was kept by default" in text
         assert "run the simulation again" in text
@@ -263,18 +263,18 @@ class TestWhatTheRunKeptDecidesTheMessage:
     def test_a_store_without_attributes_and_without_head_is_quiet(self):
         # A lumped run (GR4J) writes no budget group and no head: no run can fix that.
         from hydromodpy.results.derive.config_flags import (
+            diagnose_missing,
             missing_field_explanation,
-            missing_field_options,
         )
 
         run = _run(terms=None, head=False)
 
-        assert missing_field_options(["release_flux"], run) == []
+        assert diagnose_missing(["release_flux"], run) is None
         assert missing_field_explanation(["release_flux"], run) == ""
 
     def test_a_field_that_is_present_or_reads_no_term_is_never_actionable(self):
-        from hydromodpy.results.derive.config_flags import missing_field_options
+        from hydromodpy.results.derive.config_flags import diagnose_missing
 
         run = _run(terms={"consumers": ()}, present=("head", "release_flux"))
 
-        assert missing_field_options(["release_flux", "head", "lake_stage"], run) == []
+        assert diagnose_missing(["release_flux", "head", "lake_stage"], run) is None

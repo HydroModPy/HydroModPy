@@ -5,7 +5,7 @@ criterion graph draw the rest (:mod:`hydromodpy.catchment.stream_network.heads`)
 map carried on the page is not the mapped linework but the trace: the cells
 a head's descent actually walked. This figure exists to show that trace,
 never the rule the run happened to be scored under, so it always redraws
-under ``"heads"`` (:mod:`hydromodpy.results.derive.stream.heads_view`).
+under ``"heads"`` (:mod:`hydromodpy.results.derive.stream_network.heads_view`).
 
 The foot of each dam of the run is a forced head: the stream below a dam has
 no free end, so the model gives the cell. It is marked apart (a diamond) from
@@ -38,8 +38,8 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.results.derive.stream.comparison import unavailable_reason_for_comparison
-from hydromodpy.results.derive.stream.heads_view import (
+from hydromodpy.results.derive.stream_network.comparison import unavailable_reason_for_comparison
+from hydromodpy.results.derive.stream_network.heads_view import (
     MapHeads,
     NetworkHeadsView,
     network_heads_view_from_run,
@@ -48,7 +48,7 @@ from hydromodpy.results.derive.stream.heads_view import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 TRACE_COLOR = "#1A1A1A"
 """Fill of the cells the heads traced down the criterion graph."""

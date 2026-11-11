@@ -7,8 +7,8 @@ from datetime import datetime
 
 import numpy as np
 
-from hydromodpy.core.time import SIMULATION_TIME_UNIT
-from hydromodpy.core.units import to_modflow_itmuni
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
+from hydromodpy.core.units.time import to_modflow_itmuni
 from hydromodpy.model.forcing.steady_periods import steady_flags
 from hydromodpy.model.time.regime import normalize_flow_regime
 

@@ -15,10 +15,13 @@ import rasterio
 from pydantic import ValidationError
 from rasterio.transform import from_origin
 
-from hydromodpy.data.contracts import FieldRecord
-from hydromodpy.data.loading.config_schema import DataManagersConfig
-from hydromodpy.data.variables.substratum.config import FileSubstratumSource, SubstratumConfig
-from hydromodpy.data.variables.substratum.variable import SubstratumVariable
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.loading.config_schema import DataConfig
+from hydromodpy.data.variables.user_rasters import (
+    FileSubstratumSource,
+    SubstratumConfig,
+    SubstratumVariable,
+)
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 42.0) -> Path:
@@ -95,7 +98,7 @@ def test_from_toml_section_builds_substratum_even_when_not_in_types(tmp_path: Pa
         "substratum": {"sources": [{"source": "file", "path": str(src)}]},
     }
 
-    cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+    cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
 
     assert isinstance(cfg.substratum, SubstratumConfig)
     assert cfg.substratum.sources[0].path == src
@@ -116,7 +119,7 @@ def test_a_bare_filename_is_refused_and_names_where_the_file_used_to_live(tmp_pa
     }
 
     with pytest.raises(ConfigError, match="is a bare name"):
-        DataManagersConfig.from_toml_section(
+        DataConfig.from_toml_section(
             section, base_dir=tmp_path, workspace_data_dir=workspace_data_dir
         )
     former = former_bare_name_location(src.name, workspace_data_dir, role="substratum")

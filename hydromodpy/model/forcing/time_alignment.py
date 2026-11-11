@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
 
 def align_forcing_series_to_simulation_window(
@@ -32,8 +32,8 @@ def align_forcing_series_to_simulation_window(
     (:mod:`hydromodpy.core.time.coverage`). ``checked_periods`` limits that
     check to the periods flagged True, the ones a caller keeps; None checks all.
     """
-    from hydromodpy.core.time import build_simulation_time_boundaries
     from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
+    from hydromodpy.core.time.window import build_simulation_time_boundaries
 
     if series.empty:
         raise ValueError(f"{label} series is empty and cannot be aligned to simulation.time.")

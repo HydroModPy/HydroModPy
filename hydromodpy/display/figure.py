@@ -1,8 +1,8 @@
-"""Figure protocol and base class shared by every HydroModPy figure.
+"""Base class shared by every HydroModPy figure.
 
 A figure is a class with a ``spec`` (static metadata) and a
 ``render(subject, ax)`` method (the only thing subclasses must implement). The
-ABC provides ``plot()`` which builds the matplotlib Figure, applies styling and
+base class provides ``plot()`` which builds the matplotlib Figure, applies styling and
 handles saving.
 
 A figure draws one subject, named by ``FigureSpec.subject``: a ``Run``, the
@@ -23,7 +23,7 @@ from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.display.figure_options import (
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 FigureSubject = Literal["run", "session", "runset"]
@@ -285,23 +285,6 @@ def _titled(plot: Callable[..., MplFigure]) -> Callable[..., MplFigure]:
         return fig
 
     return wrapper
-
-
-@runtime_checkable
-class Figure(Protocol):
-    """The unique figure contract.
-
-    ``subject`` is the object ``spec.subject`` names: a ``Run``, a
-    ``Session`` or a ``RunSet``.
-    """
-
-    spec: FigureSpec
-
-    def render(self, subject: Any, ax: Axes, **opts) -> Axes: ...
-
-    def plot(self, subject: Any, **opts) -> MplFigure: ...
-
-    def unavailable_reason(self, subject: Any) -> str | None: ...
 
 
 _SUBPLOTS_KEYWORDS = frozenset(

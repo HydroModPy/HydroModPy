@@ -290,6 +290,15 @@ def test_hmp_dev_manage_names_the_server(capsys: pytest.CaptureFixture[str]) -> 
     assert "Write: python -m hydromodpy_server --root ROOT" in capsys.readouterr().err
 
 
+def test_the_static_completion_scripts_left_with_their_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as refused:
+        _parse(["completion", "--argcomplete", "bash"])
+    assert refused.value.code == 2
+    assert "Write: hmp completion SHELL" in capsys.readouterr().err
+
+
 def test_a_bare_old_group_names_each_of_its_new_forms(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         _parse(["dev", "lock"])

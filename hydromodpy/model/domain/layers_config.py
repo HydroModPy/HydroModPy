@@ -22,7 +22,7 @@ from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     VERTICAL_LAYOUT_SURFACES,
 )
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 
 
 def _require_positive_int(value, *, name: str) -> int:

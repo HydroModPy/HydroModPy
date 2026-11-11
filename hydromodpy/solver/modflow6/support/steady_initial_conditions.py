@@ -26,7 +26,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
     read_final_lake_stages,
 )
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
-from hydromodpy.solver.modflow_common import ModflowRunOptions
+from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 
 logger = get_logger(__name__)
 

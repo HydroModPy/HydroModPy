@@ -15,8 +15,14 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy as hmp
-from hydromodpy.calibration import preflight
-from hydromodpy.calibration.config import CalibNetworkExtent, CalibrationConfig
+from hydromodpy.calibration import (
+    preflight,
+    preflight_network,
+    preflight_report,
+    preflight_searches,
+)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import CalibNetworkExtent
 from hydromodpy.calibration.metrics.solver_extract import context_step_days
 from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter
@@ -36,25 +42,28 @@ from hydromodpy.calibration.preflight import (
     _check_the_budgets,
     preflight_calibration,
 )
-from hydromodpy.calibration.runners import document, search, staged_runner
+from hydromodpy.calibration.runners import document, search, staged_report, staged_runner
 from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.catchment.stream_network.extent import (
     dry_steps,
     flowing_steps,
     parse_extent_duration,
 )
-from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError, OptimizerError
-from hydromodpy.core.time import nominal_step_days
+from hydromodpy.core.time.window import nominal_step_days
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project.facade import Project
-from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-from hydromodpy.results.derive.stream.run_extent import network_extents_from_run, run_step_days
+from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream_network.run_extent import (
+    network_extents_from_run,
+    run_step_days,
+)
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_runs import sealed_search
@@ -882,21 +891,21 @@ def test_the_preflight_refuses_a_duration_the_timestep_cannot_read(monkeypatch) 
         simulation=SimpleNamespace(time=SimpleNamespace(step_value=1, step_unit="day"))
     )
     extent = SimpleNamespace(flowing_at_least="2 years", dry_at_most=None)
-    monkeypatch.setattr(preflight, "_search_candidates", lambda _c: [(None, "w", [])])
-    monkeypatch.setattr(preflight, "_config_of", lambda _s, _p: config)
+    monkeypatch.setattr(preflight_network, "search_candidates", lambda _c: [(None, "w", [])])
+    monkeypatch.setattr(preflight_network, "config_of", lambda _s, _p: config)
     monkeypatch.setattr(
-        preflight,
-        "_outputs_scored_by_search",
+        preflight_network,
+        "outputs_scored_by_search",
         lambda _c, _p: {
             "net": SimpleNamespace(support="network", model=SimpleNamespace(extent=extent))
         },
     )
 
-    findings = preflight._check_the_extent_durations_fit_the_timestep(object(), {})
+    findings = preflight_network.check_the_extent_durations_fit_the_timestep(object(), {})
     assert len(findings) == 1 and "exceeds" in findings[0].detail
 
     extent.flowing_at_least = "30 d"
-    assert preflight._check_the_extent_durations_fit_the_timestep(object(), {}) == []
+    assert preflight_network.check_the_extent_durations_fit_the_timestep(object(), {}) == []
 
 
 # From test_preflight.py
@@ -2085,7 +2094,7 @@ def _protocol_cfg(tmp_path: Path, options: str = ""):
 
 
 def test_a_file_without_protocol_has_nothing_to_say_of_one() -> None:
-    assert preflight.protocol_lines(SimpleNamespace()) == ([], [])
+    assert preflight_report.protocol_lines(SimpleNamespace()) == ([], [])
 
 
 def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its_recipe(
@@ -2094,7 +2103,7 @@ def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its
     window = 'window = { start = "2001-01-01", end = "2002-12-31" }'
     cfg = _protocol_cfg(tmp_path, f", steady_max_trials = 33, {window}")
 
-    normal, verbose = preflight.protocol_lines(cfg)
+    normal, verbose = preflight_report.protocol_lines(cfg)
 
     assert (
         normal[0]
@@ -2136,7 +2145,7 @@ def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend,
         solver=SimpleNamespace(backend_name=backend),
     )
 
-    normal, _ = preflight.protocol_lines(shown)
+    normal, _ = preflight_report.protocol_lines(shown)
 
     # The backend says why itself: Boussinesq serves no per-cell saturation excess.
     said = [line for line in normal if line.startswith("  on boussinesq: unsupported - ")]
@@ -2158,7 +2167,7 @@ def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend,
 def test_a_finding_is_a_diagnostic_of_the_calibration_preflight(
     where: str, path: str, detail: str
 ) -> None:
-    found = preflight._finding("error", where, "bad")
+    found = preflight_report.finding("error", where, "bad")
 
     assert found == Diagnostic(
         path=path, code="calibration_preflight", severity="error", detail=detail
@@ -2166,14 +2175,17 @@ def test_a_finding_is_a_diagnostic_of_the_calibration_preflight(
 
 
 def test_a_finding_prints_as_one_line() -> None:
-    assert preflight._finding("error", "[calibration]", "bad").line() == "ERROR   calibration: bad"
+    assert (
+        preflight_report.finding("error", "[calibration]", "bad").line()
+        == "ERROR   calibration: bad"
+    )
 
 
 def test_a_protocol_run_of_a_single_year_says_its_spin_up_year_is_scored(tmp_path: Path) -> None:
     section = _PROTOCOL_SECTION.format(options="")
     cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, section))
 
-    normal, _ = preflight.protocol_lines(cfg)
+    normal, _ = preflight_report.protocol_lines(cfg)
 
     assert normal[1].startswith(
         "  stage 2 scores the whole run, spin-up year included: [simulation.time] ends on "
@@ -2185,7 +2197,7 @@ def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
     tmp_path: Path, monkeypatch, caplog
 ) -> None:
     cfg = _protocol_cfg(tmp_path)
-    warning = preflight._finding("warning", "[calibration]", "twice written")
+    warning = preflight_report.finding("warning", "[calibration]", "twice written")
     monkeypatch.setattr(preflight, "preflight_calibration", lambda *_a, **_k: [warning, warning])
 
     with caplog.at_level(logging.INFO):
@@ -2199,9 +2211,9 @@ def test_the_refusal_of_a_launch_carries_every_error_as_a_diagnostic(
     tmp_path: Path, monkeypatch
 ) -> None:
     cfg = _protocol_cfg(tmp_path)
-    error = preflight._finding("error", "[calibration.parameters.K]", "bounds are reversed")
-    other = preflight._finding("error", "[[calibration.phases]] 'k'", "names nothing")
-    warning = preflight._finding("warning", "[calibration]", "twice written")
+    error = preflight_report.finding("error", "[calibration.parameters.K]", "bounds are reversed")
+    other = preflight_report.finding("error", "[[calibration.phases]] 'k'", "names nothing")
+    warning = preflight_report.finding("warning", "[calibration]", "twice written")
     monkeypatch.setattr(
         preflight, "preflight_calibration", lambda *_a, **_k: [error, warning, other]
     )
@@ -2224,17 +2236,17 @@ def test_the_refusal_of_a_launch_carries_every_error_as_a_diagnostic(
     ("value", "shown"), [(None, "unset"), (3, "3"), ("auto", "'auto'")], ids=str
 )
 def test_an_option_is_shown_as_the_file_wrote_it(value: object, shown: str) -> None:
-    assert preflight._rendered(value) == shown
+    assert preflight_report._rendered(value) == shown
 
 
 def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_adds_no_block(
     monkeypatch,
 ) -> None:
-    assert preflight.comparison_lines(SimpleNamespace(), Path("calib.toml")) == []
+    assert preflight_report.comparison_lines(SimpleNamespace(), Path("calib.toml")) == []
     monkeypatch.setattr(document, "resolve_stream_geometry_paths", lambda *_a: None)
-    monkeypatch.setattr(staged_runner, "objective_comparison_table", lambda *_a: [])
+    monkeypatch.setattr(staged_report, "objective_comparison_table", lambda *_a: [])
 
-    lines = preflight.comparison_lines(
+    lines = preflight_report.comparison_lines(
         SimpleNamespace(calibration=SimpleNamespace(phases=None)), Path("calib.toml")
     )
 
@@ -2246,8 +2258,11 @@ def test_a_relative_source_is_printed_as_written_and_an_absolute_one_outside_the
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
-    assert preflight._shortened_if_under_cwd("streams.gpkg") == "streams.gpkg"
-    assert preflight._shortened_if_under_cwd("/elsewhere/streams.gpkg") == "/elsewhere/streams.gpkg"
+    assert preflight_report._shortened_if_under_cwd("streams.gpkg") == "streams.gpkg"
+    assert (
+        preflight_report._shortened_if_under_cwd("/elsewhere/streams.gpkg")
+        == "/elsewhere/streams.gpkg"
+    )
 
 
 @pytest.mark.parametrize(
@@ -2310,13 +2325,13 @@ def test_a_phase_regime_that_cannot_be_read_leaves_its_search_on_the_file_as_it_
 def test_a_configuration_held_in_memory_is_its_own_raw_document(tmp_path: Path) -> None:
     held = SimpleNamespace(model_dump=lambda **_kw: {"flow": {}})
 
-    assert preflight._raw_document(held, tmp_path / "gone.toml") == {"flow": {}}
+    assert preflight_searches.raw_document(held, tmp_path / "gone.toml") == {"flow": {}}
 
 
 def test_only_the_criteria_that_close_on_a_residual_are_offered_to_a_root_search() -> None:
     assert preflight._signed_residual_metrics() == ["distance_gap"]
-    assert preflight._publishes_a_signed_residual("distance_gap")
-    assert not preflight._publishes_a_signed_residual("distance_mean")
+    assert preflight_searches.publishes_a_signed_residual("distance_gap")
+    assert not preflight_searches.publishes_a_signed_residual("distance_mean")
 
 
 @pytest.mark.parametrize(
@@ -2393,7 +2408,7 @@ def test_a_backend_that_cannot_serve_an_output_is_named_once(tmp_path: Path, mon
     adapter = SimpleNamespace(declared_observables=lambda _active: [unserved])
     monkeypatch.setattr(preflight, "_flow_adapter_for", lambda _cfg: adapter)
     twice = [(None, "", []), (None, "", [])]
-    monkeypatch.setattr(preflight, "_search_candidates", lambda _calibration: twice)
+    monkeypatch.setattr(preflight, "search_candidates", lambda _calibration: twice)
 
     found = preflight._check_the_backend_can_serve_the_outputs(cfg.calibration, {None: cfg})
 
@@ -2413,10 +2428,11 @@ def test_an_extent_the_timestep_cannot_read_is_left_to_the_refusal_of_its_own_ch
 ) -> None:
     cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
     odd = SimpleNamespace(flowing_at_least="soon", dry_at_most="1 d")
-    monkeypatch.setattr(preflight, "_extents_scored_by", lambda *_a: [("net", odd)])
+    monkeypatch.setattr(preflight_network, "_extents_scored_by", lambda *_a: [("net", odd)])
 
     assert (
-        preflight._check_the_extent_durations_fit_the_timestep(cfg.calibration, {None: cfg}) == []
+        preflight_network.check_the_extent_durations_fit_the_timestep(cfg.calibration, {None: cfg})
+        == []
     )
 
 
@@ -2427,7 +2443,7 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
     where = tmp_path / "gone.toml"
     held: list = []
 
-    assert preflight._search_edges(SimpleNamespace(), steady, where, held) is None
+    assert preflight_network._search_edges(SimpleNamespace(), steady, where, held) is None
     assert held == [None]
 
     from hydromodpy.calibration.runners import phase_regime
@@ -2436,8 +2452,8 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
         raise ValueError("backwards")
 
     monkeypatch.setattr(phase_regime, "regime_overrides", _refused)
-    assert preflight._search_edges(SimpleNamespace(), steady, where, [{}]) is None
-    assert preflight._search_edges(SimpleNamespace(), None, where, []) is None
+    assert preflight_network._search_edges(SimpleNamespace(), steady, where, [{}]) is None
+    assert preflight_network._search_edges(SimpleNamespace(), None, where, []) is None
 
     from hydromodpy.core.time import window
 
@@ -2445,7 +2461,7 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
         raise ValueError("no grid")
 
     monkeypatch.setattr(window, "resolve_simulation_time_grid", _unreadable)
-    assert preflight._search_edges(SimpleNamespace(), None, where, []) is None
+    assert preflight_network._search_edges(SimpleNamespace(), None, where, []) is None
 
 
 def test_two_parameters_that_move_no_declared_output_form_no_ridge(tmp_path: Path) -> None:

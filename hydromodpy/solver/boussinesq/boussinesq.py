@@ -35,18 +35,14 @@ from hydromodpy.model.initial.heads import summarize_head_initial_condition_boun
 from hydromodpy.model.initial.state import SteadyStart
 from hydromodpy.model.model import Model, steady_variant
 from hydromodpy.solver.base.registry import solvers
-from hydromodpy.solver.boussinesq.assembly import (
-    saturated_thickness_from_head,
-)
+from hydromodpy.solver.boussinesq.assembly.fluxes import saturated_thickness_from_head
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
     resolve_surface_interaction_model_token,
 )
-from hydromodpy.solver.boussinesq.drivers import (
-    run_steady_runtime,
-    run_transient_runtime,
-)
+from hydromodpy.solver.boussinesq.drivers.steady import run_steady_runtime
+from hydromodpy.solver.boussinesq.drivers.transient import run_transient_runtime
 from hydromodpy.solver.boussinesq.export_payload import (
     build_state_history_export_payload,
 )

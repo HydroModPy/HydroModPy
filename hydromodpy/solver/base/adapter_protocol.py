@@ -11,7 +11,7 @@ naming it.
 Three members are optional and live outside the body of the Protocol, because
 the registry requires every member of the body. ``rerun`` is present if and
 only if ``mutable`` is not empty. ``observables`` and ``declared_observables``
-come together or not at all. The conformance suite of ``tests/contract`` reads
+come together or not at all. The conformance suite of ``tests/ports/test_solver.py`` reads
 ``RERUN_MEMBERS`` and ``OPTIONAL_MEMBERS`` to check both rules. A flow backend
 also answers :class:`CellLocator`. The extractor a backend registers apart
 answers :class:`OutputAdapter`.

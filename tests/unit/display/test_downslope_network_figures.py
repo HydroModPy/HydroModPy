@@ -30,7 +30,7 @@ from hydromodpy.display.figures.downslope_distance_crossing import (
 )
 from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetworkConfusionMap
 from hydromodpy.display.style import relative_luminance
-from hydromodpy.results.derive.stream.comparison import (
+from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,

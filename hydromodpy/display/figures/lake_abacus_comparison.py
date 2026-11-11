@@ -3,31 +3,27 @@
 A diagnostic for the bathymetry bed reconstruction: it overlays the user abacus
 (stage-volume and stage-area, the storage source of truth) on the abacus the
 carved grid actually represents (the cells flooded at each stage). A good carve
-makes the two curves overlap. Arrays in, PNG out; the function never touches the
-solver or the catalog, so any caller can feed it the two abacus tables.
+makes the two curves overlap. The fit metrics take plain arrays.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
 from hydromodpy.core.scoring.metrics import nse, rmse
-from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = [
     "LakeAbacusComparison",
     "lake_abacus_fit_metrics",
-    "plot_lake_abacus_comparison",
 ]
 
 
@@ -49,96 +45,6 @@ def lake_abacus_fit_metrics(
         "max_abs_error": float(np.max(np.abs(sim - real))),
         "n": float(real.size),
     }
-
-
-def plot_lake_abacus_comparison(
-    stage: Any,
-    real_volume: Any,
-    real_sarea: Any,
-    simulated_volume: Any,
-    simulated_sarea: Any,
-    *,
-    out_path: str | Path,
-    lake_id: str = "lake",
-    stage_unit: str = "m",
-    volume_unit: str = "m3",
-    area_unit: str = "m2",
-    title: str | None = None,
-) -> dict[str, float]:
-    """Render the abacus comparison figure and return the storage-curve metrics.
-
-    Left panel: stage-volume (real vs simulated). Right panel: stage-area (real
-    vs simulated). Storage NSE/RMSE are annotated on the volume panel. The
-    returned mapping mirrors :func:`lake_abacus_fit_metrics`.
-    """
-    out_path = Path(out_path)
-    stage = np.asarray(stage, dtype=float)
-    real_volume = np.asarray(real_volume, dtype=float)
-    real_sarea = np.asarray(real_sarea, dtype=float)
-    sim_volume = np.asarray(simulated_volume, dtype=float)
-    sim_sarea = np.asarray(simulated_sarea, dtype=float)
-
-    metrics = lake_abacus_fit_metrics(real_volume, sim_volume)
-
-    fig, (ax_v, ax_a) = new_subplots(1, 2, figsize=(11, 4), dpi=150)
-
-    ax_v.plot(
-        stage, real_volume, color="black", lw=1.6, marker="o", ms=3, label="Abacus (reference)"
-    )
-    ax_v.plot(
-        stage,
-        sim_volume,
-        color="firebrick",
-        lw=1.6,
-        marker="s",
-        ms=3,
-        label="Simulated (carved bed)",
-    )
-    ax_v.set_xlabel(f"Stage [{stage_unit}]")
-    ax_v.set_ylabel(f"Volume [{volume_unit}]")
-    ax_v.set_title(title or f"Lake abacus - {lake_id}")
-    place_legend(ax_v, fontsize=9)
-    ax_v.grid(alpha=0.3)
-    if metrics:
-        text = (
-            f"storage NSE = {metrics['nse']:.4f}\n"
-            f"storage RMSE = {metrics['rmse']:.3g} {volume_unit}\n"
-            f"max |dV| = {metrics['max_abs_error']:.3g} {volume_unit}"
-        )
-        ax_v.text(
-            0.015,
-            0.97,
-            text,
-            transform=ax_v.transAxes,
-            va="top",
-            ha="left",
-            fontsize=9,
-            family="monospace",
-            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8, "edgecolor": "#ccc"},
-        )
-
-    ax_a.plot(
-        stage, real_sarea, color="black", lw=1.6, marker="o", ms=3, label="Abacus (reference)"
-    )
-    ax_a.plot(
-        stage,
-        sim_sarea,
-        color="steelblue",
-        lw=1.6,
-        marker="s",
-        ms=3,
-        label="Simulated (carved bed)",
-    )
-    ax_a.set_xlabel(f"Stage [{stage_unit}]")
-    ax_a.set_ylabel(f"Wetted area [{area_unit}]")
-    ax_a.set_title("Stage - area")
-    place_legend(ax_a, fontsize=9)
-    ax_a.grid(alpha=0.3)
-
-    fig.tight_layout()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, bbox_inches="tight")
-    return metrics
 
 
 class LakeAbacusComparison(BaseFigure):

@@ -14,10 +14,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import PayloadFile, PayloadStation
+from hydromodpy.core.payload.install import (
     PayloadConflictError,
-    PayloadFile,
-    PayloadStation,
     plan_files,
     plan_stations,
     refuse_conflicts,

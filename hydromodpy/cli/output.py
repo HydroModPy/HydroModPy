@@ -59,6 +59,9 @@ class Output:
     experimental: bool = False
     """Its shape may still change in a minor version, see ``about/versions.md``."""
 
+    row_fields: tuple[str, ...] = ()
+    """The columns of the rows that one field of an object holds, as ``cases`` of ``ls plan``."""
+
     version: int = 1
     """Goes up when a field changes its meaning or leaves. A new field keeps it."""
 
@@ -72,8 +75,14 @@ def _rows(verb: str, *fields: str, open_fields: bool = False, version: int = 1) 
     return Output(verb, fields, rows=True, open_fields=open_fields, version=version)
 
 
-def _object(verb: str, *fields: str, experimental: bool = False, version: int = 1) -> Output:
-    return Output(verb, fields, experimental=experimental, version=version)
+def _object(
+    verb: str,
+    *fields: str,
+    experimental: bool = False,
+    row_fields: tuple[str, ...] = (),
+    version: int = 1,
+) -> Output:
+    return Output(verb, fields, experimental=experimental, row_fields=row_fields, version=version)
 
 
 _RUN_LISTING = (
@@ -101,6 +110,21 @@ _RUN_LISTING = (
     "score_window_start",
     "score_window_end",
     "metric_rule_version",
+)
+
+_PLAN_CASE = (
+    "case_id",
+    "site",
+    "recipe",
+    "status",
+    "rel_dir",
+    "attempt",
+    "step",
+    "started_at",
+    "ended_at",
+    "host",
+    "pid",
+    "error",
 )
 
 _SITE_ROW = ("site", "label", "gauge", "uri", "x_outlet", "y_outlet", "crs", "tags")
@@ -264,7 +288,7 @@ OUTPUTS: tuple[Output, ...] = (
         "mesh_summary",
         "deliveries",
     ),
-    _object("ls plan", "plan_hash", "plan_stale", "counts", "cases"),
+    _object("ls plan", "plan_hash", "plan_stale", "counts", "cases", row_fields=_PLAN_CASE),
     _rows("catalog query", open_fields=True),
     _object(
         "show run",
@@ -591,6 +615,36 @@ def _cell(value: Any) -> str:
     return str(value)
 
 
+def table_cell(value: Any) -> str:
+    """Return one cell of a table for people: nothing for a missing value, a date to the second."""
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.1f}"
+    if hasattr(value, "isoformat"):
+        return value.isoformat(timespec="seconds")
+    return str(value)
+
+
+def print_table(
+    verb: str, rows: Sequence[Mapping[str, Any]], columns: Sequence[str] | None = None
+) -> None:
+    """Print *rows* for people, one line each under a header, each column as wide as its widest cell.
+
+    The columns are the ones :data:`OUTPUTS` declares for *verb* (the fields of
+    a listing, else the ``row_fields`` of the field that holds the rows), or the
+    *columns* named, which must be some of them.
+    """
+    output = output_of(verb)
+    names = list(columns or (output.fields if output.rows else output.row_fields))
+    lines = [[table_cell(row.get(name)) for name in names] for row in rows]
+    widths = [max([len(name), *(len(line[i]) for line in lines)]) for i, name in enumerate(names)]
+    for line in [names, *lines]:
+        print(
+            "  ".join(cell.ljust(width) for cell, width in zip(line, widths, strict=True)).rstrip()
+        )
+
+
 def _write_csv(columns: list[str], rows: list[Mapping[str, Any]]) -> None:
     class _Buffer:
         def write(self, text: str) -> None:
@@ -707,6 +761,8 @@ __all__ = (
     "failed",
     "output_of",
     "plain",
+    "print_table",
     "records",
     "stdout_for_a_program",
+    "table_cell",
 )

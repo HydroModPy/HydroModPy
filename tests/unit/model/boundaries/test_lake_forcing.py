@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.lakes import (
     apply_lake_flux_forcings_to_flow,

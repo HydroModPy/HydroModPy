@@ -176,9 +176,8 @@ def test_a_path_the_refusals_do_not_name_is_untouched(declaration: dict, name: s
 # fresh ``model_copy(deep=True)`` of the base config, then one ``set_by_path``
 # per sampled parameter). The runtime ``FieldParam`` the solver actually reads
 # is then rebuilt from that typed config through ``FlowParam.resolved_payload``
-# and the registered ``FieldParamLike`` factory, exactly as
-# ``ProcessSpatial.set_parameters_from_config`` does when a trial resets
-# ``flow = None`` and the next pipeline step rebuilds it. Each trial forks a
+# and the registered ``FieldParamLike`` factory, the typed route a trial takes
+# when it resets ``flow = None`` and the next pipeline step rebuilds it. Each trial forks a
 # deep copy, so concurrent trials (``TrialSandbox`` runs them in parallel) never
 # share the mutable ``FieldVerticalProfileSection`` instance.
 

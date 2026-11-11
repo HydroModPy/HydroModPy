@@ -133,7 +133,7 @@ def test_short_recharge_stays_internal(tmp_path: Path) -> None:
 
 def _recharge_files_of(model: object, root: Path) -> set[Path]:
     """The folders the RCHA file of ``model`` names, per-model names read under ``root``."""
-    from hydromodpy.solver.modflow6.build import _shared_forcing_dir
+    from hydromodpy.solver.modflow6.builders.recharge import _shared_forcing_dir
 
     spec = externalize_recharge_spd(_spd(), basename="m", shared_dir=_shared_forcing_dir(model))
     return {(root / record["filename"]).parent for record in spec.values()}

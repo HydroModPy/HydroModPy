@@ -19,7 +19,7 @@ import pytest
 from hydromodpy.calibration.preflight import preflight_launch
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.trial import prepare_trials
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.written import (
     experimental_keys_line,
     log_experimental_keys,
@@ -32,7 +32,8 @@ from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.project.facade import Project
 from hydromodpy.project.request import request_of
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.workflow.steps import ResolveStep, ValidateStep
+from hydromodpy.workflow.steps.resolve import ResolveStep
+from hydromodpy.workflow.steps.validate import ValidateStep
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.fake_solvers import fake_adapter
 from tests.unit.project.launch.test_plan import write_sites_project

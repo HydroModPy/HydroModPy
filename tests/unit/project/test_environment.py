@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for
 from hydromodpy.core.exceptions import BoundsError, CredentialsError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.project.environment import Environment

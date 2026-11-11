@@ -6,7 +6,7 @@ from disk rather than from the in-memory model because they also run detached
 from the build that produced the run.
 
 When a run declares nothing readable, the unit is
-:data:`~hydromodpy.core.time.SIMULATION_TIME_UNIT`. The launcher builds every
+:data:`~hydromodpy.core.time.window.SIMULATION_TIME_UNIT`. The launcher builds every
 run in that unit, so falling back to days instead would rescale fluxes and
 travel times by 86400 without a single error. A declaration that is present but
 not a MODFLOW unit raises instead: the run wrote that file itself, so the value
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.time import SIMULATION_TIME_UNIT
-from hydromodpy.core.units import factor_to_seconds, normalize_time_unit
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
+from hydromodpy.core.units.time import factor_to_seconds, normalize_time_unit
 
 # MODFLOW 6 accepts UNKNOWN to mean "no declared unit", and MODFLOW spells the
 # same thing as ITMUNI 0. Both land on the launcher unit.
@@ -72,6 +72,22 @@ def read_itmuni_from_dis(dis_path: Path) -> int | None:
     return None
 
 
+def declared_tdis_unit(token: str) -> str | None:
+    """Canonical unit of a TDIS ``TIME_UNITS`` token, or None when it declares none.
+
+    A token that is present but no time unit raises ``ValueError``.
+    """
+    token = str(token).strip().upper()
+    if token in _UNDECLARED_TOKENS:
+        return None
+    return normalize_time_unit(token)
+
+
+def seconds_per_tdis_token(token: str) -> float:
+    """Seconds per TDIS ``TIME_UNITS`` token; an undeclared one means the launcher unit."""
+    return factor_to_seconds(declared_tdis_unit(token) or SIMULATION_TIME_UNIT)
+
+
 def resolve_solver_time_unit(solver_output_dir: Path, model_name: str) -> str:
     """Canonical time unit of one run, read from its own TDIS or DIS file.
 
@@ -84,8 +100,9 @@ def resolve_solver_time_unit(solver_output_dir: Path, model_name: str) -> str:
         tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
 
     token = read_time_units_from_tdis(tdis_path)
-    if token is not None and token not in _UNDECLARED_TOKENS:
-        return normalize_time_unit(token)
+    unit = None if token is None else declared_tdis_unit(token)
+    if unit is not None:
+        return unit
 
     itmuni = read_itmuni_from_dis(solver_output_dir / f"{model_name}.dis")
     if itmuni is not None and itmuni != 0:

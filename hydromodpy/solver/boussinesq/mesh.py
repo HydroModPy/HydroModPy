@@ -22,7 +22,7 @@ import numpy as np
 from hydromodpy.mesh.cells.boundary import SIDE_IDS, label_cells, side_cells
 from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.mesh.io.bundle import CatchmentMeshBundle, cell_mesh_from_bundle
-from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.model.domain.domain import Domain
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
     family_edge_indices,
@@ -204,7 +204,7 @@ class BoussinesqMesh:
         cls,
         cell_mesh: PlanarCellMesh,
         *,
-        domain: DomainLike,
+        domain: Domain,
         hydraulic_conductivity_m_s,
         storage_coefficient,
         source_path: Path | None = None,

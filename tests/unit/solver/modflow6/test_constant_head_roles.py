@@ -246,7 +246,7 @@ def test_the_output_stem_is_settled_before_any_file_is_named_after_it() -> None:
         for node in ast.walk(driver)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id.startswith("_")
+        and node.func.id.startswith(("_", "build_"))
     )
     tree = ast.parse("\n".join(inspect.getsource(getattr(build_module, name)) for _, name in steps))
     settled = [

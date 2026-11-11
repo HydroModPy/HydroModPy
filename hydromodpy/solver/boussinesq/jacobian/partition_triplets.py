@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
+from hydromodpy.solver.boussinesq.assembly.fluxes import (
     accumulate_internal_flux_residual,
     boundary_head_edge_flux_from_head,
     internal_edge_flux_from_head,
-    resolve_boundary_head_inputs,
 )
+from hydromodpy.solver.boussinesq.assembly.inputs import resolve_boundary_head_inputs
 from hydromodpy.solver.boussinesq.assembly.surface import partition_release_share
 from hydromodpy.solver.boussinesq.jacobian.common import (
     as_cell_vector,

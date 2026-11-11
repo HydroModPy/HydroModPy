@@ -64,9 +64,9 @@ def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
     monkeypatch.setattr(sys, "argv", ["hmp", "completion", shell])
     main()
     out = capsys.readouterr().out
-    assert "hmp" in out
-    # Each completion script should mention at least one of our subcommands.
-    assert any(name in out for name in ("run", "workspace", "doctor"))
+    assert "hmp" in out and "hydromodpy" in out
+    # The script asks hmp for the commands, so it holds the variable argcomplete reads.
+    assert "_ARGCOMPLETE" in out
 
 
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
@@ -137,7 +137,7 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
 
 
 def test_new_project_scaffold_writes_valid_run_config(monkeypatch, tmp_path) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     (tmp_path / "data").mkdir()
     monkeypatch.setattr(

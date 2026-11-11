@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from hydromodpy.calibration.config import CalibOutputDecl
+from hydromodpy.calibration.config_outputs import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
 from hydromodpy.results.derive.time_alignment import time_method_for

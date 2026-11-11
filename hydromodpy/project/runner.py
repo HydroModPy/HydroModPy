@@ -3,7 +3,7 @@
 Holds the run-phase entry points backing the facade: :meth:`ProjectRunner.execute`
 runs one attempt of a case through the workflow Pipeline and returns what its
 directory says; :meth:`ProjectRunner.run` is the same followed by the index
-refresh and the :class:`~hydromodpy.results.run.Run` view ``Project.simulate``
+refresh and the :class:`~hydromodpy.results.run.view.Run` view ``Project.simulate``
 returns; :meth:`ProjectRunner.draft` says what a run would do and runs nothing.
 The worker side (``hmp run``) stops at ``execute``: it never opens the index, the
 launcher indexes after it.
@@ -34,18 +34,23 @@ from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.exceptions import (
     CatalogError,
     ConfigError,
+    NothingThereError,
     ResumeError,
     SchemaVersionMismatchError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.portable import display_path
 from hydromodpy.project.request import RunOutcome, RunRequest, write_request_file
 from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.results.catalog.registration import check_name_free
+from hydromodpy.results.record.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import (
     record_request_id,
     refuse_resume_if_changed,
+    run_dir_for_name,
     scratch_dir_for_attempt,
 )
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.workflow.record.attempt import AttemptHandle, run_attempt
 from hydromodpy.workflow.record.manifest import config_sections_moved_since
 from hydromodpy.workflow.record.resume import resolve_resume_step_index
@@ -66,7 +71,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.project.facade import Project
     from hydromodpy.project.launch.plan import PlanDraft
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -130,6 +135,36 @@ def _attempt_bracket(workspace_path: Path, name: str, cfg_run: Any, *, fresh: bo
         force=force,
         if_exists="version",
     )
+
+
+def resume_target(ref: str, workspace: Path) -> Path:
+    """Return the frozen configuration a ``--resume REF`` continues.
+
+    REF is a case name under ``runs/`` of *workspace* (a bare name is its
+    latest version, ``baseline.v2`` is that one). The file is the resolved
+    configuration the run was executed with, ``runs/<name>/config.toml``.
+    Raises :class:`NothingThereError` when the case or its frozen file is not
+    there, and :class:`ConfigError` for a run that came out of a calibration,
+    which only holds its own solve.
+    """
+    run_dir = run_dir_for_name(workspace, ref)
+    if run_dir is None:
+        raise NothingThereError(
+            f"No case named {ref!r} under {display_path(workspace)}/runs; run --resume REF "
+            "must be invoked from the project, or pass a TOML config explicitly."
+        )
+    config_path = run_dir / RUN_CONFIG_FILENAME
+    if not config_path.is_file():
+        raise NothingThereError(
+            f"Case '{run_dir.name}' has no frozen {RUN_CONFIG_FILENAME} in "
+            f"{display_path(run_dir)}; pass the TOML config explicitly to resume it."
+        )
+    if is_sealed(run_dir) and read_seal(run_dir).lineage.session_id is not None:
+        raise ConfigError(
+            f"{run_dir.name} came out of a calibration, and a run only holds its own solve. "
+            "Reopen the session from the file that launched it: hmp run <file>.toml --resume."
+        )
+    return config_path
 
 
 def _refuse_resume_of_nothing(handle: AttemptHandle, resume: str, name: str) -> None:

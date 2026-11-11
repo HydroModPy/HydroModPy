@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from validation_cases.calibration.network_transient_b0.network_transient_truth import (
     mesh_cell_geometry,
     write_network_transient_truth_package,

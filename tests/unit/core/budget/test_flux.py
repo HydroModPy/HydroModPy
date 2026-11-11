@@ -14,7 +14,9 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.budget.flux import (
+    _NO_FLUX_BELOW,
     RELEASE_BUDGET_KEYS,
+    _outflow_from_signed,
     budget_outflow,
     budget_outflow_stack,
     drain_band_depth,
@@ -28,7 +30,18 @@ from hydromodpy.core.budget.flux import (
     seepage_mask,
     select_budget_zone,
 )
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
+from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
+from hydromodpy.solver.modflow6.extractors import lake as mf6_lake
+from hydromodpy.solver.modflow6.extractors.budget import _period_mean_record
+from hydromodpy.solver.modflow6.extractors.lake import AppliedExchange, LakeObsSpec
+from hydromodpy.solver.modflow6.extractors.sfr import SfrObsSpec, build_sfr_columns
+from hydromodpy.solver.modflow_common.calibration_extractors import (
+    _drain_outflow_on_mask,
+    _positive_release_by_cell,
+)
+from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 
 # ------------------------------------------------------------------ zones
 
@@ -425,3 +438,204 @@ def test_the_net_does_not_move_when_layers_are_split() -> None:
 
     assert inflow[0] - outflow[0] == pytest.approx(stack.sum())
     assert (inflow[0], outflow[0]) == pytest.approx((3.0, 3.4))
+
+
+# ------------------------------------------------------------------ sentinel and sign agreement
+
+# One row per value of a budget element: whether it holds a flux. An element at or below the
+# sentinel -9000 is no-data, never a flux, and so are NaN and the infinities.
+_FLUX_ELEMENTS = [
+    pytest.param(-2.0, True, id="a_loss"),
+    pytest.param(3.0, True, id="a_gain"),
+    pytest.param(0.0, True, id="zero_is_a_flux"),
+    pytest.param(-8999.999, True, id="just_above_the_sentinel"),
+    pytest.param(-9000.0, False, id="at_the_sentinel"),
+    pytest.param(-9999.0, False, id="the_raster_nodata"),
+    pytest.param(-1.0e30, False, id="a_modflow_sentinel"),
+    pytest.param(np.nan, False, id="nan"),
+    pytest.param(np.inf, False, id="infinite"),
+]
+
+
+@pytest.mark.parametrize(("value", "holds_flux"), _FLUX_ELEMENTS)
+def test_an_element_at_or_below_the_sentinel_is_no_flux(value, holds_flux) -> None:
+    stack = np.array([[[value]]])
+
+    inflow, outflow = inflow_outflow(stack)
+
+    assert _NO_FLUX_BELOW == -9000.0
+    assert bool(np.isfinite(inflow[0])) is holds_flux
+    assert bool(np.isfinite(outflow[0])) is holds_flux
+    expected = max(-value, 0.0) if holds_flux else 0.0
+    assert _outflow_from_signed(stack)[0, 0] == expected
+
+
+# The signed values of the agreement table, in the sign of the aquifer: negative leaves it. The
+# water that leaves is the magnitude of the negative part, and a signed zero leaves nothing.
+_SIGNED = [-2.0, -0.0, 0.0, 3.0, -1.0e-12]
+_OUTFLOW = [2.0, 0.0, 0.0, 0.0, 1.0e-12]
+
+
+def _from_flux_module(signed, **_):
+    return float(_outflow_from_signed(np.array([[[signed]]]))[0, 0])
+
+
+def _from_mf6_budget(signed, **_):
+    class _Cbb:
+        def read_record(self, _index):
+            return np.array([[[signed]]], dtype=float)
+
+    record = _period_mean_record(
+        _Cbb(),
+        [(0, 1.0)],
+        component="drain",
+        t=0,
+        nlay=1,
+        n_cells=1,
+        seconds_per_time_unit=1.0,
+        catchment_cells=None,
+    )
+    return abs(record.flux_out)
+
+
+def _from_sfr(signed, *, tmp_path, **_):
+    # MODFLOW 6 writes the exchange positive when the stream loses water, that is when the aquifer
+    # gains it, so the value is already in the sign of the aquifer. The aquifer loses what the reach gains.
+    spec = SfrObsSpec.from_mapping(
+        {
+            "obs_csv": "s.csv",
+            "network_id": "n",
+            "reach_count": 1,
+            "entries": [
+                {"obsname": "r0_gw", "network_id": "n", "reach": 0, "quantity": "gw_exchange"}
+            ],
+        }
+    )
+    obs = tmp_path / "s.csv"
+    obs.write_text(f"time,R0_GW\n1.0,{signed}\n", encoding="utf-8")
+    _, budgets = build_sfr_columns(spec, obs, times=[1.0], seconds_per_time_unit=1.0)
+    return budgets[0]["flux_in"]
+
+
+def _from_lake(signed, *, tmp_path, monkeypatch, **_):
+    # The lake exchange is positive when the lake gains water, which the aquifer loses.
+    spec = LakeObsSpec.from_mapping(
+        {
+            "obs_csv": "l.csv",
+            "entries": [{"obsname": "l_stage", "lake_id": "l", "quantity": "stage"}],
+        }
+    )
+    obs = tmp_path / "l.csv"
+    obs.write_text("TIME,L_STAGE\n1.0,90.0\n", encoding="utf-8")
+    applied = {"l": AppliedExchange(total=[-signed], under_dam=None)}
+    monkeypatch.setattr(mf6_lake, "read_applied_exchange", lambda *_a, **_k: applied)
+    _, budgets = mf6_lake.build_lake_records(spec, obs, times=[1.0], seconds_per_time_unit=1.0)
+    return budgets[0]["flux_in"]
+
+
+def _from_nwt(signed, *, tmp_path, monkeypatch, **_):
+    class _File:
+        def __init__(self, _path, precision="double"):
+            self.recordarray = np.array(
+                [(1, 1, b"          DRAINS", 1, 1.0, 1.0)],
+                dtype=[
+                    ("kstp", "<i4"),
+                    ("kper", "<i4"),
+                    ("text", "S16"),
+                    ("imeth", "<i4"),
+                    ("delt", "<f4"),
+                    ("totim", "<f4"),
+                ],
+            )
+
+        def get_unique_record_names(self):
+            return [b"DRAINS"]
+
+        def get_record(self, _idx, full3D=False):
+            return np.array([signed], dtype=float).reshape(1, 1, 1)
+
+        def close(self):
+            return None
+
+    class _Store:
+        budgets: list = []
+
+        def write_budgets(self, _sim, records):
+            self.budgets = records
+
+        def write_field_stack(self, *_a, **_k):
+            return None
+
+        def open_zarr(self, _sim):
+            return self
+
+        def write_budget_policy(self, *_a):
+            return None
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _File)
+    store = _Store()
+    ModflowNwtOutputAdapter()._extract_budget(
+        "sim",
+        store,
+        tmp_path / "r.cbc",
+        [1.0],
+        [(0, 0)],
+        1,
+        1,
+        1,
+        budget_terms=BudgetKeep.everything(),
+        flux_scale_to_m3_s=1.0,
+    )
+    return next(row for row in store.budgets if row["zone_id"] != CATCHMENT)["flux_out"]
+
+
+def _from_boussinesq(signed, **_):
+    # The solver counts a drain flux positive when water leaves, so the aquifer sign is turned once.
+    payload = {"drainage_flux_history_m3_s": np.array([[-signed]])}
+    components = BoussinesqOutputAdapter._budget_components(
+        payload, n_timesteps=1, n_cells=1, cell_area_m2=None
+    )
+    rows: list[dict] = []
+
+    class _Store:
+        def write_budgets(self, _sim, records):
+            rows.extend(records)
+
+    BoussinesqOutputAdapter._write_budget_table("sim", _Store(), components, n_timesteps=1)
+    return rows[0]["flux_out"]
+
+
+def _from_calibration_drain(signed, **_):
+    return _drain_outflow_on_mask(np.array([[signed]]), np.array([True]))
+
+
+def _from_calibration_release(signed, **_):
+    return float(_positive_release_by_cell(np.array([signed]), n_cells=None)[0])
+
+
+# One row per site that applies the sign again. Each is called with a signed value in the sign of
+# the aquifer and answers the water that leaves the aquifer.
+_SITES = [
+    pytest.param(_from_flux_module, id="core_budget_flux"),
+    pytest.param(_from_mf6_budget, id="modflow6_budget"),
+    pytest.param(_from_sfr, id="modflow6_sfr_exchange"),
+    pytest.param(_from_lake, id="modflow6_lake_exchange"),
+    pytest.param(_from_nwt, id="modflow_nwt_budget"),
+    pytest.param(_from_boussinesq, id="boussinesq_budget"),
+    pytest.param(_from_calibration_drain, id="calibration_drain_outflow"),
+    pytest.param(_from_calibration_release, id="calibration_release"),
+]
+
+
+@pytest.mark.parametrize("site", _SITES)
+@pytest.mark.parametrize(("signed", "outflow"), list(zip(_SIGNED, _OUTFLOW, strict=True)))
+def test_every_site_gives_the_outflow_of_the_core_budget_rule(
+    site, signed, outflow, tmp_path, monkeypatch
+) -> None:
+    result = site(signed, tmp_path=tmp_path, monkeypatch=monkeypatch)
+
+    assert result == pytest.approx(outflow, abs=1e-18)
+    assert result == pytest.approx(_from_flux_module(signed), abs=1e-18)

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.point import (
     POINT_COLUMNS,

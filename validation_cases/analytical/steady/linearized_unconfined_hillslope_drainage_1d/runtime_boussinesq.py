@@ -71,7 +71,6 @@ def run_boussinesq_linearized_unconfined_hillslope_drainage_case(
             "east_side": {"value": east_head_m},
             "drainage": {
                 "application_domain": "top",
-                "kind": "cauchy",
                 "value": drain_conductance_m2_s,
             },
         },

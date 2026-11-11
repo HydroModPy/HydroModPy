@@ -24,7 +24,7 @@ from hydromodpy.solver.base.plan import (
     SolverRun,
 )
 from hydromodpy.solver.modflow6.support.names import mf6_output_name, mf6_safe_name
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+from hydromodpy.solver.modflow_common.flow_run import (
     build_flow_model,
     build_preprocess_options,
     end_of_last_period,
@@ -39,7 +39,7 @@ from tests._helpers.model_factory import make_model, small_geometry, time_grid
 def test_build_preprocess_options_returns_defaults() -> None:
     """A model built with the defaults of ``[solver]`` gives the defaults of the options."""
     from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
+    from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 
     options = build_preprocess_options(
         make_model(options=ModelOptions.from_settings(SolverConfig()))

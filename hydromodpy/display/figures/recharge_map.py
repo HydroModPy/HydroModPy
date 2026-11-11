@@ -10,7 +10,7 @@ from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class RechargeMap(ScalarFaceMap):

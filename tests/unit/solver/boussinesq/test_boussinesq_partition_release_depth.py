@@ -18,7 +18,11 @@ from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
     build_sparse_semianalytic_partition_saturation_triplets,
 )
 from hydromodpy.solver.boussinesq.options import DEFAULT_PARTITION_RELEASE_DEPTH_M
-from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    NonlinearRuntimeOptions,
+    TransientStepInputs,
+)
+from hydromodpy.solver.boussinesq.runtimes.local import solve_transient_step
 from hydromodpy.solver.boussinesq.solver_contract import build_runtime_options
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
@@ -179,13 +183,16 @@ def test_recharge_on_a_water_table_far_below_the_ground_is_all_stored() -> None:
     head0 = np.full(5, 50.0)
     recharge = np.asarray([0.0, 0.0, 2.0e-7, 0.0, 0.0])
     dt = 86400.0
-    result = solve_backward_euler_step(
-        mesh,
-        head_prev_m=head0,
-        dt_seconds=dt,
-        recharge_rate_m_s=recharge,
-        regularization_radius=DEPTH_M,
-        tol_residual_inf=1e-14,
+    result = solve_transient_step(
+        TransientStepInputs(
+            mesh=mesh,
+            head_prev_m=head0,
+            dt_seconds=dt,
+            recharge_rate_m_s=recharge,
+            options=NonlinearRuntimeOptions(
+                regularization_radius=DEPTH_M, max_iterations=20, tol_residual_inf=1e-14
+            ),
+        )
     )
 
     stored = np.sum(mesh.storage_coefficient * mesh.cell_area_m2 * (result.head_m - head0))

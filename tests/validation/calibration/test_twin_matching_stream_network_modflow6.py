@@ -405,7 +405,7 @@ def _project_as_the_criterion_does(
     """
     from types import SimpleNamespace
 
-    from hydromodpy.calibration.config import CalibOutputNetwork
+    from hydromodpy.calibration.config_network import CalibOutputNetwork
     from hydromodpy.calibration.observations.network_source import resolve_observed_network
     from hydromodpy.calibration.observations.observed_network import observed_network_mask
 

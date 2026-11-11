@@ -33,7 +33,6 @@ from hydromodpy.schema.results import (
     read_schema_text,
     render_schema,
     schema_filename,
-    write_schemas,
 )
 
 MODELS: dict[str, type[BaseModel]] = {
@@ -56,7 +55,12 @@ REFRESH = "python tests/unit/schema/test_results_schemas_match_models.py"
 
 def refresh() -> list[Path]:
     """Rewrite the committed files from the models."""
-    return write_schemas(SCHEMAS_DIR, MODELS)
+    written = []
+    for schema_id, model in MODELS.items():
+        path = SCHEMAS_DIR / schema_filename(schema_id)
+        path.write_text(render_schema(model), encoding="utf-8")
+        written.append(path)
+    return written
 
 
 def test_the_shipped_files_are_the_models_in_order():
@@ -113,12 +117,6 @@ def test_a_schema_id_maps_to_one_file_name():
         schema_filename("outcome.v1")
     with pytest.raises(KeyError, match="not a shipped schema"):
         read_schema_text("manifest.v2.json")
-
-
-def test_write_schemas_writes_one_file_per_model(tmp_path):
-    written = write_schemas(tmp_path, MODELS)
-    assert sorted(p.name for p in written) == sorted(SCHEMA_FILENAMES)
-    assert (tmp_path / "checks.v2.json").read_text(encoding="utf-8") == render_schema(Checks)
 
 
 if __name__ == "__main__":

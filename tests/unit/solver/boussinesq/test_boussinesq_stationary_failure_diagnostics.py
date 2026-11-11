@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
+from hydromodpy.solver.boussinesq.assembly.residuals import assemble_steady_residual
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,

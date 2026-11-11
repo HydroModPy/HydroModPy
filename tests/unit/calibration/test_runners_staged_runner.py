@@ -14,13 +14,10 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
-from hydromodpy.calibration.config import (
-    CalibOutputPoint,
-    CalibPhaseDecl,
-    CalibrationConfig,
-    MatchingHydrographicNetworkOptions,
-    validate_calib_output,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optim.objective import CompositeObjective, build_objective_from_config
 from hydromodpy.calibration.optim.optimizer import (
@@ -31,9 +28,9 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace, set_by_path
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.preflight import preflight_calibration
-from hydromodpy.calibration.protocols import protocol_record
+from hydromodpy.calibration.protocols.registry import protocol_record
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import document, staged_runner
+from hydromodpy.calibration.runners import document, staged_report, staged_runner
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import search as search_module
 from hydromodpy.calibration.runners import trial as trial_module
@@ -42,23 +39,25 @@ from hydromodpy.calibration.runners.recap import staged_result_lines
 from hydromodpy.calibration.runners.resume import best_parameters_of, reusable_stage
 from hydromodpy.calibration.runners.search import _engine_kwargs
 from hydromodpy.calibration.runners.session import open_session_dir
+from hydromodpy.calibration.runners.staged_report import (
+    _observed_source,
+    methods_paragraph_for,
+    objective_comparison_table,
+    phase_summaries,
+)
 from hydromodpy.calibration.runners.staged_runner import (
     _frozen_by,
     _injected_paths,
-    _methods_paragraph_for,
-    _observed_source,
     _phase_config,
     _require_result_for_dependents,
     _why_unsettled,
-    objective_comparison_table,
-    phase_summaries,
     run_staged_calibration,
 )
 from hydromodpy.calibration.runners.state import preload_hash_cache
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.cli.commands.calibrate import _phase_line
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.cli.commands.calibrate import phase_line
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
 from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.run_state import ExecutionRegistry
@@ -841,8 +840,8 @@ def test_list_phases_prints_the_bounds_of_a_phase() -> None:
 
     assert "bounds" not in wide
     assert narrow["bounds"] == {"K": [1e-6, 1e-4]}
-    assert "bounds K [1e-06, 0.0001]" in _phase_line(1, narrow)
-    assert "bounds" not in _phase_line(0, wide)
+    assert "bounds K [1e-06, 0.0001]" in phase_line(1, narrow)
+    assert "bounds" not in phase_line(0, wide)
 
 
 # From test_a_single_metric_phase_keeps_the_output_it_names.py
@@ -2579,7 +2578,7 @@ def test_a_reused_single_metric_phase_gets_the_structural_note_not_the_reuse_one
     ],
 )
 def test_the_methods_paragraph_names_the_solver_the_trials_run(document, backend) -> None:
-    assert staged_runner._backend_name(document) == backend
+    assert staged_report.backend_name(document) == backend
 
 
 def _steady_phase(**overrides):
@@ -2598,7 +2597,7 @@ _DOCUMENT = {"simulation": {"time": {"start_datetime": "1995-01-01", "end_dateti
 
 def _window(phases=None, runs=(), document=_DOCUMENT):
     cfg = SimpleNamespace(phases=[_steady_phase()] if phases is None else phases)
-    return staged_runner._steady_window_summary(cfg, list(runs), document)
+    return staged_report.steady_window_summary(cfg, list(runs), document)
 
 
 class TestSteadyWindowSummary:
@@ -2615,7 +2614,7 @@ class TestSteadyWindowSummary:
     )
     def test_no_window_is_none(self, phases, document) -> None:
         cfg = SimpleNamespace(phases=phases)
-        assert staged_runner._steady_window_summary(cfg, [], document) is None
+        assert staged_report.steady_window_summary(cfg, [], document) is None
 
     def test_the_window_reads_back_from_regime_overrides(self) -> None:
         window = _window()
@@ -2689,7 +2688,7 @@ def _paragraph() -> str:
             },
         ),
     ]
-    text = _methods_paragraph_for(cfg, runs, [])
+    text = methods_paragraph_for(cfg, runs, [])
     assert text is not None
     return text
 
@@ -2813,7 +2812,7 @@ def test_a_phase_without_a_method_says_which_one_it_runs(caplog) -> None:
 
 
 def test_a_settled_phase_without_its_value_has_nothing_to_freeze(monkeypatch) -> None:
-    monkeypatch.setattr(staged_runner, "_settled", lambda report: True)
+    monkeypatch.setattr(staged_runner, "phase_settled", lambda report: True)
     monkeypatch.setattr(staged_runner, "_froze_budget_only", lambda report: False)
     decl = CalibPhaseDecl.model_validate({"name": "stage", "parameters": ["K"]})
 
@@ -2840,11 +2839,11 @@ def test_a_phase_the_calibration_does_not_declare_cannot_be_replayed() -> None:
     ],
 )
 def test_an_output_says_where_it_reads_its_simulated_value(output, where) -> None:
-    assert staged_runner._output_where(output) == where
+    assert staged_report._output_where(output) == where
 
 
 def test_a_missing_coordinate_reads_as_unknown() -> None:
-    assert staged_runner._length_text(None) == "?"
+    assert staged_report._length_text(None) == "?"
 
 
 def test_a_block_less_selection_has_no_comparison_row() -> None:
@@ -2852,7 +2851,7 @@ def test_a_block_less_selection_has_no_comparison_row() -> None:
         objective_blocks=["declared"], objective_blocks_for=lambda phase: [], outputs=None
     )
 
-    assert staged_runner.objective_comparison_table(cfg) == []
+    assert staged_report.objective_comparison_table(cfg) == []
 
 
 @pytest.mark.parametrize(
@@ -2870,11 +2869,11 @@ def test_a_block_less_selection_has_no_comparison_row() -> None:
     ],
 )
 def test_the_backend_is_the_first_solver_of_the_first_flow_process(document, backend) -> None:
-    assert staged_runner._backend_name(document) == backend
+    assert staged_report.backend_name(document) == backend
 
 
 def test_a_calibration_without_a_protocol_has_no_methods_paragraph() -> None:
-    assert staged_runner._methods_paragraph_for(_staged_cfg(), [], []) is None
+    assert staged_report.methods_paragraph_for(_staged_cfg(), [], []) is None
 
 
 def test_a_stage_that_counted_no_pair_reads_its_declared_window() -> None:
@@ -2887,8 +2886,8 @@ def test_a_stage_that_counted_no_pair_reads_its_declared_window() -> None:
         stage("b", cost_metric="nse", cost_window="calibration"),
     ]
 
-    assert staged_runner._scoring_sentence(runs) == (
+    assert staged_report._scoring_sentence(runs) == (
         "Scoring: stage 2 (a) minimised rmse over the window 2001-2002, pairs not counted; "
         "stage 3 (b) minimised nse."
     )
-    assert staged_runner._scoring_sentence(runs[:1]) is None
+    assert staged_report._scoring_sentence(runs[:1]) is None

@@ -30,7 +30,7 @@ from hydromodpy.calibration.parameter_resolution import (
 )
 from hydromodpy.calibration.targets import calibration_targets, targets_by_name
 from hydromodpy.cli.commands import config as config_cmd
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata

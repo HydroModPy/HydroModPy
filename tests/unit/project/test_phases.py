@@ -129,7 +129,7 @@ def test_the_mesh_summary_goes_with_the_mesh(drop) -> None:
 def test_the_catalog_a_project_reads_is_given_the_config_reader_and_the_renderer(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    import hydromodpy.results.catalog as catalogs
+    import hydromodpy.results.catalog.facade as catalogs
     from hydromodpy.core.state.layout import catalog_path_for
     from hydromodpy.project.facade import read_sealed_config
     from hydromodpy.project.show import render

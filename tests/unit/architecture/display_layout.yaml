@@ -49,5 +49,6 @@ public:
   - hydromodpy.display.overview
   - hydromodpy.display.overview.config
   - hydromodpy.display.overview.location
+  - hydromodpy.display.overview.report
   - hydromodpy.display.report.*
   - hydromodpy.display.figures.lake_level_fit

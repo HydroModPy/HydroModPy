@@ -20,7 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import ConfigError, DataRequestError
-from hydromodpy.data import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import Extent, FetchRequest
 from hydromodpy.data.variables.crossings import records
@@ -102,7 +102,7 @@ def _extent() -> Extent:
 
 
 def test_the_section_validates_the_three_sources() -> None:
-    cfg = DataManagersConfig.from_toml_section(
+    cfg = DataConfig.from_toml_section(
         {
             "types": ["crossings"],
             "crossings": {

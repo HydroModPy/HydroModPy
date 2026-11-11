@@ -20,7 +20,9 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, window_bounds
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
+from hydromodpy.calibration.config_terms import window_bounds
 from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.catalog.registration import reserve_version_dirname

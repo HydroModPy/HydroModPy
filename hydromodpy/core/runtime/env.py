@@ -3,7 +3,7 @@
 The code keeps reading its variables where it needs them. This module does not
 read any of them: it declares each one once, with what happens when it is
 unset, who it is for and what it does. The contributor documentation renders
-this table, and ``tests/unit/architecture/test_env_vars_are_registered.py``
+this table, and ``tests/unit/architecture/test_surfaces.py``
 fails when a ``HMP_*`` name appears in the code without a row here, or when a
 row names a variable nothing reads any more.
 
@@ -250,11 +250,26 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "without changing a tracked file.",
     ),
     EnvVar(
+        "HMP_REPLAY_REPORT",
+        "unset, the frozen replay writes no report",
+        "test",
+        "A file path: the frozen MODFLOW 6 replay test writes there the class and the gaps "
+        "it measured, before any assertion.",
+    ),
+    EnvVar(
+        "HMP_REQUIRE_BINARIES",
+        "unset, a port test whose solver binary is absent is skipped",
+        "test",
+        "Set in CI or on a machine with the solver binaries: a port test whose solver "
+        "binary is absent fails instead of skipping (tests/ports/conftest.py).",
+    ),
+    EnvVar(
         "HMP_REQUIRE_GMSH",
         "unset, an engine that needs gmsh is skipped without it",
         "test",
-        "Any non-empty value makes the mesh engine contract fail, instead of skipping, "
-        "when gmsh is missing or a built-in engine cannot be loaded.",
+        "Any non-empty value makes the mesh port tests, and the solver port tests whose "
+        "mesh engine needs gmsh, fail instead of skipping when gmsh is missing or a "
+        "built-in engine cannot be loaded.",
     ),
     EnvVar(
         "HMP_REQUIRE_SYBIL",

@@ -25,14 +25,13 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration import (
-    CalibParameter,
-    CalibrationEngine,
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
-    ParameterSpace,
     ParamSuggestion,
     build_optimizer,
 )
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.core.scoring.metrics import kge as _kge_metric
 from hydromodpy.core.scoring.metrics import log_nse as _log_nse_metric
 from hydromodpy.core.scoring.metrics import nse as _nse_metric

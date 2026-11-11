@@ -1,0 +1,18 @@
+{
+  "schema": "hydromodpy.inputs.v1",
+  "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+  "inputs": [
+    {
+      "variable": "mesh",
+      "provider": "store",
+      "product": "mesh",
+      "product_version": null,
+      "request": {},
+      "fetched_at": null,
+      "path": "mesh",
+      "sha256": "e6ef72fa6c12997edf83f015b471f3a696fb1f29c1a18206a0a3545280bd905a",
+      "bytes": 30497,
+      "license": null
+    }
+  ]
+}

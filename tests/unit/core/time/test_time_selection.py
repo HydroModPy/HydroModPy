@@ -14,17 +14,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import (
-    ResolvedSteadySimulationTimeGrid,
+from hydromodpy.core.time.selection import (
     TimeSelectionError,
     grid_edges,
+    in_series_window,
     period_label,
     resolve_instant,
     resolve_instants,
     resolve_period,
+)
+from hydromodpy.core.time.window import (
+    ResolvedSteadySimulationTimeGrid,
     resolve_simulation_time_grid,
 )
-from hydromodpy.core.time.selection import in_series_window
 
 MONTHLY = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
 DAILY = pd.date_range("2000-01-01", "2003-01-01", freq="D")

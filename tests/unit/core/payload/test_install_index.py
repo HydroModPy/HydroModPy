@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import (
     INSTALL_FILENAME,
     INSTALL_SCHEMA,
     InstallIndex,
@@ -22,7 +22,7 @@ from hydromodpy.core.payload import (
     stored_name,
     write_index,
 )
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 
 STATION_FILE = PayloadFile(
     dest="data/hydrometry/hydrometry_hubeau_J0014010_20000101_20021231_D.csv",

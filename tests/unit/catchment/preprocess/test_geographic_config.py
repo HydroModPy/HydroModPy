@@ -8,7 +8,7 @@ from hydromodpy.catchment.algorithms import ground_corrections, ground_inputs
 from hydromodpy.catchment.preprocess import pipeline
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain import registry
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from tests._helpers.geographic_cases import BENCH_RIVER, OUTLET_CATCHMENT, outlet_document
 
 _RETIRED_LAKE_KEYS = (

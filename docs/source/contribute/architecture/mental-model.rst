@@ -270,7 +270,7 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 
 **Where backend-specific logic starts**
 
-1. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``, the lifecycle
+1. ``hydromodpy/solver/modflow_common/flow_run.py``, the lifecycle
    shared by the MODFLOW adapters;
 2. ``hydromodpy/solver/modflow6/adapter.py`` or
    ``hydromodpy/solver/modflow_nwt/adapter.py``;

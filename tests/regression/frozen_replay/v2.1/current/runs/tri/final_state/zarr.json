@@ -1,0 +1,8 @@
+{
+  "attributes": {
+    "schema": "hydromodpy.final_state.v1",
+    "at": "2003-04-01T00:00:00"
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

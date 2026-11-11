@@ -19,11 +19,10 @@ import pytest
 import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.core.time import SIMULATION_TIME_UNIT
-from hydromodpy.core.units import to_modflow_itmuni
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
+from hydromodpy.core.units.time import to_modflow_itmuni
 from hydromodpy.model.domain.geometry import CatchmentGeometry
 from hydromodpy.model.model import Geometry, ModelTime
-from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
 from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
 from hydromodpy.solver.modflow6.builders.recharge import empty_recharge_aux
@@ -34,6 +33,7 @@ from hydromodpy.solver.modflow6.extractors.flow import (
     _read_start_datetime,
     _write_time_coordinate,
 )
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.time_units import (

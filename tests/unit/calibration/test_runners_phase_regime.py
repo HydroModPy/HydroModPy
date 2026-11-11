@@ -13,15 +13,15 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import (
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_outputs import CalibOutputPoint
+from hydromodpy.calibration.config_phases import (
     PHASE_REGIME_PATHS,
-    CalibOutputPoint,
     CalibPhaseDecl,
-    CalibrationConfig,
-    MatchingHydrographicNetworkOptions,
     fold_a_legacy_regime,
 )
-from hydromodpy.calibration.protocols import (
+from hydromodpy.calibration.protocols.registry import (
     available_protocols,
     expand_calibration_protocol,
     get_protocol,
@@ -35,7 +35,7 @@ from hydromodpy.calibration.runners.phase_regime import (
 )
 from hydromodpy.calibration.runners.staged_runner import _phase_plans
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, SolverDivergedError
 from hydromodpy.solver.base.plan import (
     WATER_BUDGET_METRIC,
@@ -44,7 +44,7 @@ from hydromodpy.solver.base.plan import (
     SolverRun,
 )
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import model_percent_discrepancies
+from hydromodpy.solver.modflow_common.listing import model_percent_discrepancies
 from tests.unit.calibration._factories_runners import FakePipeline
 
 # From test_calibration_protocols.py

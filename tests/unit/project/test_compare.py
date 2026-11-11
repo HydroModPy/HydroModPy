@@ -498,3 +498,24 @@ def test_a_comparison_gives_its_table_and_a_json_form(monkeypatch) -> None:
 def test_a_steady_comparison_says_steady_in_its_json_form() -> None:
     comparison = c.compare([make_run(regime="steady", n=1), make_run("b", regime="steady", n=1)])
     assert comparison.to_dict()["end"] == "steady"
+
+
+@pytest.mark.parametrize(
+    ("refs", "name"),
+    [
+        (["runs/a", "b c"], "a-vs-b_c"),
+        (["a", "b"], "a-vs-b"),
+        (["a" * 100, "b"], None),
+    ],
+)
+def test_the_comparison_folder_is_named_by_its_references(tmp_path, refs, name) -> None:
+    """A long name becomes a hash of twelve characters."""
+    folder = c.compare_folder(refs, tmp_path)
+
+    assert folder.parent == tmp_path / "summary" / "report" / "compare"
+    assert folder.name == name if name else len(folder.name) == 12
+
+
+def test_a_comparison_folder_needs_a_project() -> None:
+    with pytest.raises(c.ComparisonCaseError, match="pass --to"):
+        c.compare_folder(["a", "b"], None)

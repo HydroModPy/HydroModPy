@@ -19,7 +19,7 @@ import pytest
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.data.sites.catalog import write_catalog
 from hydromodpy.project.launch.plan import (
@@ -353,7 +353,7 @@ def test_a_fault_of_one_row_is_an_issue_of_the_plan_with_its_cell(
 
 @pytest.mark.allow_subprocess
 def test_plan_case_replays_from_another_cwd(tmp_path: Path) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")

@@ -26,7 +26,8 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverInputError
 from hydromodpy.core.time.window import time_grid_start
-from hydromodpy.core.units import factor_to_m_per_s, factor_to_seconds
+from hydromodpy.core.units.quantities import factor_to_m_per_s
+from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.model.forcing.steady_periods import steady_rate
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -42,24 +43,6 @@ from hydromodpy.solver.linear_reservoir.options import LinearReservoirOptions
 
 SERIES_FILE = "linear_reservoir_series.csv"
 STATE_FILE = "linear_reservoir_final_state.json"
-
-
-def rate_of(recharge: Any) -> float:
-    """The scalar rate of one recharge payload, in SI from its unit."""
-    if recharge is None:
-        return 0.0
-    values = getattr(recharge, "values", 0.0)
-    if isinstance(values, Mapping):
-        if not values:
-            return 0.0
-        values = next(iter(values.values()))
-    if isinstance(values, (list, tuple)) or hasattr(values, "iloc"):
-        raise SolverInputError(
-            "the steady state of the run needs one recharge rate, and the "
-            "payload carries a series: give the rate itself, or let the "
-            "binder fold one series on the periods."
-        )
-    return float(values) * factor_to_m_per_s(str(getattr(recharge, "units", "m/s") or "m/s"))
 
 
 def pieces_of(model: Any) -> tuple[tuple[float, ...], tuple[float, ...], tuple[int, ...]]:
@@ -594,6 +577,5 @@ __all__ = [
     "LinearReservoirFlowAdapter",
     "pieces_of",
     "pieces_of_native_series",
-    "rate_of",
     "steady_rate_m_per_s",
 ]

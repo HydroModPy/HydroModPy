@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.calibration.config import validate_calib_output
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.optimizer import EvaluationResult

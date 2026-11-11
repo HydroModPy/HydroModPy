@@ -14,7 +14,7 @@ from hydromodpy.catchment.synthetic.synthetic_config import (
     RadialIslandTopography,
     SyntheticGridConfig,
 )
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.model.domain.depth_model_config import ConstantThicknessDepthModel
 from hydromodpy.model.domain.spatial_support_config import GeneratedRingsSupportConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowProcessSpecificConfig

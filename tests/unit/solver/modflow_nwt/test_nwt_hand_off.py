@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
+from hydromodpy.solver.modflow_common.flow_run import run_flow_model
 from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 from hydromodpy.solver.modflow_nwt import adapter as nwt_adapter
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter

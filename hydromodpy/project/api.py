@@ -3,7 +3,7 @@
 Each verb resolves its source or its reference, calls the function of the
 package that does the work, and returns a typed value. A parameter is text, a
 number, a boolean, a path, a mapping or a sequence of those, plus three Python
-conveniences: a :class:`~hydromodpy.config.HydroModPyConfig` or a
+conveniences: a :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig` or a
 :class:`~hydromodpy.project.request.RunRequest` as a source, the object itself
 as a reference, and the :class:`~hydromodpy.project.environment.Environment`
 a server builds. A value returned carries ``to_dict()``, or is a path, a list
@@ -207,7 +207,7 @@ def run(
     ----------
     source
         A TOML file, a JSON run request, a document as a mapping or JSON text,
-        a :class:`~hydromodpy.config.HydroModPyConfig`, or a
+        a :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`, or a
         :class:`~hydromodpy.project.request.RunRequest`.
     base
         The folder the relative paths of the document are read from, and the
@@ -479,7 +479,7 @@ def calibrate(
     ----------
     source
         A calibration TOML file, a document as a mapping or JSON text, or a
-        validated :class:`~hydromodpy.config.HydroModPyConfig`.
+        validated :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
     base
         The folder the relative paths of the document are read from, and the
         project the sessions are written in.
@@ -624,7 +624,7 @@ def spinup(
     ----------
     source
         A TOML file, a document as a mapping or JSON text, or a validated
-        :class:`~hydromodpy.config.HydroModPyConfig`.
+        :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
     base
         The folder the relative paths of the document are read from.
     spinup
@@ -841,7 +841,7 @@ def status(
     directory = _root_of(workspace) if ref is None else _directory_of(ref, workspace)
     root = _project_of(directory)
     if plan:
-        from hydromodpy.project.launch import project_status
+        from hydromodpy.project.launch.status import project_status
 
         if stale_after_s is None:
             return project_status(root)

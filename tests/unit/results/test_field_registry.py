@@ -212,6 +212,8 @@ _RATES = (
     "to_mvr",
     "from_mvr",
     "lak_connection",
+    "lake_storage",
+    "cutoff_wall_flow",
     "downstream_flow",
     "ext_inflow",
     "gw_exchange",
@@ -241,8 +243,9 @@ class TestSeriesRegistry:
 
     def test_storage_is_not_a_series_name(self):
         # A lake's storage and the budget field storage of the aquifer are two
-        # volumes of control; the collision is settled where it is refused.
+        # volumes of control, so the lake writes its term as lake_storage.
         assert "storage" not in TIME_SERIES_REGISTRY
+        assert "lake_storage" in TIME_SERIES_REGISTRY
 
     def test_every_series_names_itself(self):
         for name, descriptor in TIME_SERIES_REGISTRY.items():

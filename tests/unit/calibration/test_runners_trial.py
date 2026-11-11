@@ -29,7 +29,7 @@ from hydromodpy.calibration.runners.trial import (
     run_trial_light,
 )
 from hydromodpy.calibration.targets import calibration_targets, targets_by_name
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, StepError
@@ -47,8 +47,9 @@ from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
-    resolve_flow_property_arrays,
+    MODFLOW6_PROPERTIES,
 )
+from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
@@ -640,13 +641,14 @@ def _built_model(trial: TrialContext, mesh: SolverMesh) -> SimpleNamespace:
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
         required_properties=frozenset({"K"}),
+        properties=MODFLOW6_PROPERTIES,
     )
     runtime = SimpleNamespace(mf6_enable_xt3d=None)
     model = SimpleNamespace(modflow_config=SimpleNamespace(runtime=runtime))
-    model.hk = mesh.flatten_from_grid(mapped["hk"])
+    model.hk = mapped["hk"]
     for name in K_TENSOR_NPF_NAMES:
         values = mapped.get(name)
-        setattr(model, name, None if values is None else mesh.flatten_from_grid(values))
+        setattr(model, name, values)
     return model
 
 

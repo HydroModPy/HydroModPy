@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.common.io_helpers import is_scaffold_example
+from hydromodpy.data.common.files import is_scaffold_example
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.workspace.scaffold import (
-    VARIABLES,
     create_project,
     scaffold,
 )
@@ -35,10 +35,10 @@ class TestScaffold:
         assert list(ws.glob("*_custom")) == []
 
     def test_creates_readme_per_variable(self, ws):
-        for spec in VARIABLES:
-            readme = ws / "data" / spec.name / "README.md"
-            assert readme.exists(), f"Missing README for {spec.name}"
-            assert spec.name in readme.read_text()
+        for name in VARIABLE_SPECS:
+            readme = ws / "data" / name / "README.md"
+            assert readme.exists(), f"Missing README for {name}"
+            assert name in readme.read_text()
 
     def test_loc_template_for_point_and_grid(self, ws):
         loc = ws / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
@@ -203,8 +203,8 @@ def ws(tmp_path_factory):
 
 
 def test_creates_one_folder_per_variable_under_data(ws):
-    for spec in VARIABLES:
-        var_dir = ws / "data" / spec.name
+    for name in VARIABLE_SPECS:
+        var_dir = ws / "data" / name
         assert var_dir.is_dir()
         assert (var_dir / "README.md").exists()
 

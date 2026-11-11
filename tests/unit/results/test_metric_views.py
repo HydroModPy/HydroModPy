@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
-from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
 from hydromodpy.core.exceptions import DataError
@@ -31,7 +31,6 @@ from hydromodpy.model.sinks_sources.wells import (
 from hydromodpy.project.accessors import ProjectRunsAccessor
 from hydromodpy.project.compare import headline_table
 from hydromodpy.results import field_registry
-from hydromodpy.results.catalog import Catalog, SimulationNotFoundError
 from hydromodpy.results.catalog.constants import (
     RETIRED_METRIC_NAMES,
     UnrankedMetricError,
@@ -39,6 +38,8 @@ from hydromodpy.results.catalog.constants import (
     metric_rank_sql,
     score_of,
 )
+from hydromodpy.results.catalog.discovery import SimulationNotFoundError
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import rank_simulations
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
@@ -57,8 +58,9 @@ from hydromodpy.results.metric_rule import (
     MetricRule,
 )
 from hydromodpy.results.record.manifest import MetricRow, ParameterRow
-from hydromodpy.results.run import Run, ranking
+from hydromodpy.results.run import ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.score import score_metric, score_timeseries
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed

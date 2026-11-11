@@ -10,8 +10,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "note"
 HELP: str = "Append a timestamped note to a run"

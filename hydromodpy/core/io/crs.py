@@ -25,8 +25,6 @@ import rasterio as rio
 import shapely
 import xarray as xr
 from pyproj import CRS, Transformer
-from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
 from pyproj.exceptions import CRSError
 from shapely.geometry import Point
 
@@ -40,32 +38,6 @@ logger = get_logger(__name__)
 
 CrsLike = str | int | CRS
 """A CRS as a caller names it: an EPSG code, a WKT or PROJ string, or a ``pyproj.CRS``."""
-
-
-def reproject_coord(x_wgs: float, y_wgs: float) -> tuple[str, float, float]:
-    """Reproject WGS-84 coordinates to the local UTM zone."""
-    lon, lat = x_wgs, y_wgs
-    utm_crs_list = query_utm_crs_info(
-        datum_name="WGS 84",
-        area_of_interest=AreaOfInterest(
-            west_lon_degree=lon,
-            south_lat_degree=lat,
-            east_lon_degree=lon,
-            north_lat_degree=lat,
-        ),
-    )
-    utm_crs = CRS.from_epsg(utm_crs_list[0].code).srs
-    transformer = Transformer.from_crs("epsg:4326", utm_crs)
-    x_utm, y_utm = transformer.transform(lat, lon)
-    return utm_crs, x_utm, y_utm
-
-
-def reproject_shp(raw_shp_path: str, out_shp_path: str, utm_crs: str) -> None:
-    """Reproject a shapefile to *utm_crs* (e.g. ``'EPSG:2154'``)."""
-    crs_code = utm_crs[5:]
-    shp = gpd.read_file(raw_shp_path)
-    shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
-    shp.to_file(out_shp_path)
 
 
 def get_centroid_coordinates(gdf: gpd.GeoDataFrame) -> tuple:
@@ -330,8 +302,6 @@ __all__ = [
     "same_crs",
     "require_crs",
     "to_mesh_crs",
-    "reproject_coord",
-    "reproject_shp",
     "get_centroid_coordinates",
     "transform_coordinates",
     "filter_coordinates_by_shape",

@@ -14,11 +14,15 @@ from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.boussinesq.forcing.dirichlet_support_resolution import (
     DirichletSupportResolutionMixin,
 )
-from hydromodpy.solver.boussinesq.forcing.drainage_resolution import DrainageResolutionMixin
+from hydromodpy.solver.boussinesq.forcing.drainage_resolution import (
+    DrainageResolutionMixin,
+)
 from hydromodpy.solver.boussinesq.forcing.initial_conditions import (
     InitialConditionResolutionMixin,
 )
-from hydromodpy.solver.boussinesq.forcing.recharge_resolution import RechargeResolutionMixin
+from hydromodpy.solver.boussinesq.forcing.recharge_resolution import (
+    RechargeResolutionMixin,
+)
 from hydromodpy.solver.boussinesq.forcing.well_resolution import WellResolutionMixin
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
@@ -41,4 +45,4 @@ class BoussinesqForcingResolver(
     inputs: Model
 
 
-__all__ = ["BoussinesqForcingResolver"]
+__all__ = ("BoussinesqForcingResolver",)

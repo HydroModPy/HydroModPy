@@ -10,7 +10,7 @@ import hydromodpy.workflow.steps.prepare_solver.step as prepare_solver_module
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState

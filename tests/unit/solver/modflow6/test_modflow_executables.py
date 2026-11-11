@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.runtime.interrupts import StopRequested
 from hydromodpy.core.workspace.workspace import resolve_bin_path
@@ -17,8 +17,9 @@ from hydromodpy.solver.modflow6.builders.recharge import build_evt_stress_period
 from hydromodpy.solver.modflow6.extractors.flow import _listing_path
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
-from hydromodpy.solver.modflow_common import binaries, ensure_platform_executable
+from hydromodpy.solver.modflow_common import binaries
 from hydromodpy.solver.modflow_common.binaries import (
+    ensure_platform_executable,
     ensure_solver_library,
     exe_filename,
     locate_solver_binary,

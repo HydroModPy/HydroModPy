@@ -15,8 +15,9 @@ from hydromodpy.catchment.algorithms.catchment_domain import SQRT_AREA_FORM
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.core.units import UREG, LengthMeters
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.core.units.registry import UREG
+from hydromodpy.core.units.types import LengthMeters
 
 __all__ = [
     "CatchDef",

@@ -1,4 +1,4 @@
-"""Where a variable manager gets the box it asks a provider for.
+"""Where a variable gets the box it asks a provider for.
 
 The mechanism this module replaces
 ----------------------------------
@@ -6,7 +6,7 @@ The mechanism this module replaces
 for byte: a ``_resolve_bbox`` that fell back on ``self.geographic`` when the
 source config named no mask, and a ``_resolve_bbox_2154`` that reprojected the
 result using the CRS it read off ``geographic.watershed_shp``. Both are gone,
-and with them the ``geographic`` parameter of the two managers.
+and with them the ``geographic`` parameter of the two variables.
 
 Two things were wrong with that pair, and only the first is the campaign's
 subject.
@@ -17,7 +17,7 @@ capability that has one is a capability that has a workspace. The seam that
 replaces it already existed and nobody had named it:
 ``data/loading/loader.py`` sets ``src.mask_path = Path(geographic.watershed_shp)``
 before handing the config to the store, so the path where "the watershed" is a
-**file** was already the one a project run took. The two managers read
+**file** was already the one a project run took. The two variables read
 ``self.geographic`` *in addition to* that injection, never instead of it. What
 the port calls a mask, the loader was already filling in.
 
@@ -42,8 +42,8 @@ the type that makes that unrepresentable, and it is F5b's, not a new one.
 Why ``project_extent`` carries a declared CRS and not a measured one
 -------------------------------------------------------------------
 ``project_extent`` is a bare tuple with no CRS anywhere in its plumbing, and
-its value **is not in one CRS**: the DEM manager reads it in Lambert-93 and
-the observation managers in WGS84 (``_project_extent`` in
+its value **is not in one CRS**: the DEM variable reads it in Lambert-93 and
+the observation variables in WGS84 (``_project_extent`` in
 ``data/request/engine.py``). So the constant is what the DEM side actually receives, measured on
 that path and on the unit tests that pin it --
 ``tests/unit/data/variables/dem/test_dem_variable.py`` passes ``(650000.0,
@@ -59,7 +59,7 @@ that F5c's declaration tests exist against.
 Declaring it is strictly better than what stood here before, where the answer
 lived in no file at all. It is not the end state: the end state is a
 ``project_extent`` that is an :class:`Extent`, and that change touches the
-store and the timeseries managers, neither of which this phase needs.
+store and the timeseries variables, neither of which this phase needs.
 ``test_the_project_extent_crs_reads_a_department_box`` pins it against
 ``bbox_for_departments``.
 """
@@ -73,14 +73,14 @@ from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.data.source.port import Extent
 
 PROJECT_EXTENT_CRS = "EPSG:2154"
-"""The CRS of the ``project_extent`` tuple as the raster managers receive it.
+"""The CRS of the ``project_extent`` tuple as the raster variables receive it.
 
 See the module docstring: the tuple carries no CRS of its own, and the value
-here is the one its only producer builds for these managers.
+here is the one its only producer builds for these variables.
 """
 
 STATION_EXTENT_CRS = "EPSG:4326"
-"""The CRS of the ``project_extent`` tuple as the station managers receive it.
+"""The CRS of the ``project_extent`` tuple as the station variables receive it.
 
 It reaches them in WGS84, the frame Hub'Eau is asked in.
 """
@@ -191,7 +191,7 @@ def mask_geometry_wgs84(path: str | Path) -> Any:
 
     The features are reprojected before their union, and a raster hull vertex
     by vertex; a mask that declares no CRS is taken as already in WGS84. This
-    is the output the station managers have always filtered with, kept as is:
+    is the output the station variables have always filtered with, kept as is:
     building it as ``mask_geometry`` then one reprojection would move the
     polygon's edges, and with them which stations fall inside.
     """

@@ -9,7 +9,7 @@ import pytest
 from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
+from hydromodpy.solver.boussinesq.assembly.residuals import assemble_steady_residual
 from hydromodpy.solver.boussinesq.extractors import flow as flow_extractor
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh

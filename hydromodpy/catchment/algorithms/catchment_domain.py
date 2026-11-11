@@ -58,7 +58,7 @@ from shapely.geometry import box
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import UREG
+from hydromodpy.core.units.registry import UREG
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry

@@ -5,7 +5,7 @@ observed network one of two ways: the network the data layer already loaded
 and clipped to the catchment (``map.complete = "data.hydrography"``), or an
 explicit file (``map.complete`` as a path). A network the DEM derives is no
 observation, so it is not offered.
-:class:`hydromodpy.calibration.config.CalibNetworkMap` holds one field
+:class:`hydromodpy.calibration.config_network.CalibNetworkMap` holds one field
 for it, so exactly one of the two is declared; this module turns that
 declaration into geometry, or refuses by naming why it cannot.
 

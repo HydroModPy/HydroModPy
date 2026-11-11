@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CASES_FAILED, EXIT_CONFIG, EXIT_USAGE
-from hydromodpy.core.site import SiteRow
+from hydromodpy.cli.exit_codes import EXIT_CASES_FAILED, EXIT_CONFIG, EXIT_USAGE
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.sites.catalog import write_catalog
 from hydromodpy.project.launch.plan import expand_plan, write_plan_draft
 from tests._helpers.cli_runner import CliRunner

@@ -94,16 +94,12 @@ package "hydromodpy.model.properties.field_spatial" {
     +on_mesh(mesh, cell_samples_per_axis)
   }
 
-  abstract class FieldDiscretization {
-    +mesh
-    +field_id
-    +aggregation
-    +weighted_components()
-  }
 }
 
 package "hydromodpy.model.properties.field_spatial" {
   class WeightedAverageFieldDiscretization {
+    +mesh: PlanarCellMesh
+    +field_id: str
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
   }
@@ -147,10 +143,9 @@ Field <|-- GeneratedBandsSupportField
 Field <|-- GeneratedRingsSupportField
 Field <|-- GeologyField
 
-FieldDiscretization <|-- WeightedAverageFieldDiscretization
 Field --> WeightedAverageFieldDiscretization : on_mesh(...)
 FieldParam ..> Field : support selected by field_spatial_id
-FieldParam ..> FieldDiscretization : heterogeneous mapping
+FieldParam ..> WeightedAverageFieldDiscretization : heterogeneous mapping
 
 Domain o-- "0..*" Field : stores Field-compatible supports in zones
 Domain o-- "0..*" CatchmentZonesField : may store source zonations

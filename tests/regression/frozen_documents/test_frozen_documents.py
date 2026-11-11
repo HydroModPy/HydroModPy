@@ -7,22 +7,29 @@ holds what the raw files say, read without these readers when the tree was writt
 ``python -m tools.freeze_documents``. The job comes from a capability ``demo`` that the
 generator declares. No test writes under ``v2.0.0/``: every test reads a copy.
 
-HydroModPy 2.1 reads three of these forms no more. The lockfile is schema v1 and is
-refused with the sentence that names ``hmp data lock``. The published journal of the
-run is schema v1 and is refused with the sentence that names its new form, since a
-line now says ``kind``; the next copy or delivery starts a new journal. The data
-cache database of the island is refused by the scan of its data folder with the
-sentence that names ``hmp workspace clean --data-cache``. The database of a launched
-case, kept under ``jobs/*/caches/``, held a capability that is gone, since a case
-writes its files and sidecars into the shared data folder. See ``README.md`` beside it.
+HydroModPy 2.1 reads four of these forms no more, and the table ``REFUSALS`` holds
+one row for each. The lockfile is schema v1 and is refused with the sentence that
+names ``hmp data lock``. The plan is schema v1 and is refused with the sentence that
+names ``hmp project plan``. The published journal of the run is schema v1 and is
+refused with the sentence that names its new form, since a line now says ``kind``;
+the next copy or delivery starts a new journal. The data cache database of the island
+is refused by the scan of its data folder with the sentence that names
+``hmp workspace clean --data-cache``. A test reads ``cli_tree.tsv`` and fails if a
+sentence of the table names a command or a flag that the CLI no longer has. The
+database of a launched case, kept under ``jobs/*/caches/``, held a capability that is
+gone, since a case writes its files and sidecars into the shared data folder. See
+``README.md`` beside it.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import tomllib
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -101,24 +108,6 @@ def test_the_corpus_names_no_machine() -> None:
 # ----------------------------------------------------------------- one test per document
 
 
-def test_published_lines(corpus: Path) -> None:
-    """The journal of 2.0.0 is schema v1, which 2.1 refuses and tells how to write again."""
-    expected = EXPECTED["published"]
-    path = corpus / "island" / "runs" / "calage" / "published.jsonl"
-    raw = [
-        json.loads(text) for text in path.read_text(encoding="utf-8").splitlines() if text.strip()
-    ]
-    assert [
-        {"schema": line["schema"], "to": line["to"], "format": line["format"]} for line in raw
-    ] == expected
-    with pytest.raises(SchemaVersionMismatchError) as caught:
-        read_published(path.parent)
-    message = str(caught.value)
-    assert expected[0]["schema"] in message
-    assert "hydromodpy.published.v2" in message
-    assert PUBLISHED_REMEDY in message
-
-
 def test_publication(corpus: Path) -> None:
     expected = EXPECTED["publication"]
     publication = read_publication(corpus / "publication")
@@ -138,33 +127,6 @@ def test_install_index(corpus: Path, folder: str) -> None:
     assert [item.site for item in index.sites] == expected["sites"]
 
 
-def test_a_plan_of_2_0_is_refused_with_the_command_that_rewrites_it(corpus: Path) -> None:
-    """The plan of 2.0.0 is schema v1, with sites.parquet and cases.parquet, which 2.1 does not read."""
-    expected = EXPECTED["plan"]
-    project = corpus / "campaign"
-    assert current_plan_hash(project) == expected["plan_hash"]
-    with pytest.raises(SchemaVersionMismatchError) as caught:
-        read_plan(project)
-    message = str(caught.value)
-    assert expected["schema"] in message
-    assert "hydromodpy.plan.v2" in message
-    assert "cases.csv" in message
-    assert "hmp project plan" in message
-
-
-def test_lockfile(corpus: Path) -> None:
-    """The lockfile of 2.0.0 is schema v1, which 2.1 refuses and tells how to write again."""
-    expected = EXPECTED["lockfile"]
-    lockfile = corpus / "island" / "hydromodpy.lock"
-    assert tomllib.loads(lockfile.read_text(encoding="utf-8"))["schema"] == expected["schema"]
-    with pytest.raises(SchemaVersionMismatchError) as caught:
-        read_lockfile_inputs(lockfile)
-    message = str(caught.value)
-    assert expected["schema"] in message
-    assert "hydromodpy.lock.v2" in message
-    assert "hmp data lock" in message
-
-
 @pytest.mark.parametrize("sidecar", sorted(EXPECTED["sidecar"]))
 def test_sidecar(corpus: Path, sidecar: str) -> None:
     data_file = corpus / sidecar.removesuffix(".json")
@@ -178,19 +140,149 @@ def test_sidecar(corpus: Path, sidecar: str) -> None:
     assert {key: value for key, value in read.items() if value is not None} == expected
 
 
+# ------------------------------------------------------------- the documents 2.1 refuses
+
 ISLAND_CACHE = f"island/data/{FORMER_CACHE_DATABASE}"
 """The one data cache database of the corpus that a data folder holds."""
 
 
-def test_the_database_of_a_data_folder_is_refused_by_the_scan(corpus: Path) -> None:
-    """The scan names the database and the command that removes it, and reads nothing else."""
+@dataclass(frozen=True)
+class Refusal:
+    """One document of 2.0.0 that 2.1 reads no more, and the sentence that refuses it.
+
+    ``document`` is the id of ``documents-2.0.0``, ``path`` the file in the corpus,
+    ``read`` the reader of today called with that file, and ``fragments`` what the
+    sentence must hold. ``{doc}`` stands for the path of the file in the copy. ``raw``
+    states what the raw file says, read without the readers of HydroModPy.
+    """
+
+    document: str
+    path: str
+    read: Callable[[Path], object]
+    raised: type[Exception]
+    fragments: tuple[str, ...]
+    raw: Callable[[Path], None]
+
+
+def _raw_published(path: Path) -> None:
+    lines = [json.loads(text) for text in path.read_text("utf-8").splitlines() if text.strip()]
+    assert [
+        {"schema": line["schema"], "to": line["to"], "format": line["format"]} for line in lines
+    ] == EXPECTED["published"]
+
+
+def _raw_plan(path: Path) -> None:
+    assert json.loads(path.read_text("utf-8"))["schema"] == EXPECTED["plan"]["schema"]
+    assert current_plan_hash(path.parents[2]) == EXPECTED["plan"]["plan_hash"]
+
+
+def _raw_lockfile(path: Path) -> None:
+    assert tomllib.loads(path.read_text("utf-8"))["schema"] == EXPECTED["lockfile"]["schema"]
+
+
+def _raw_data_cache(path: Path) -> None:
     assert ISLAND_CACHE in EXPECTED["data_cache"]
-    assert (corpus / ISLAND_CACHE).name == FORMER_CACHE_DATABASE
-    with pytest.raises(DataCacheError) as caught:
-        scan(corpus / "island" / "data")
-    message = str(caught.value)
-    assert str(corpus / ISLAND_CACHE) in message
-    assert "hmp workspace clean --data-cache" in message
+    assert path.name == FORMER_CACHE_DATABASE
+
+
+REFUSALS = (
+    Refusal(
+        document="published",
+        path="island/runs/calage/published.jsonl",
+        read=lambda path: read_published(path.parent),
+        raised=SchemaVersionMismatchError,
+        fragments=(EXPECTED["published"][0]["schema"], "hydromodpy.published.v2", PUBLISHED_REMEDY),
+        raw=_raw_published,
+    ),
+    Refusal(
+        document="plan",
+        path=f"campaign/plan/{EXPECTED['plan']['plan_hash']}/plan.json",
+        read=lambda path: read_plan(path.parents[2]),
+        raised=SchemaVersionMismatchError,
+        fragments=(
+            EXPECTED["plan"]["schema"],
+            "hydromodpy.plan.v2",
+            "cases.csv",
+            "hmp project plan",
+        ),
+        raw=_raw_plan,
+    ),
+    Refusal(
+        document="lockfile",
+        path="island/hydromodpy.lock",
+        read=read_lockfile_inputs,
+        raised=SchemaVersionMismatchError,
+        fragments=(EXPECTED["lockfile"]["schema"], "hydromodpy.lock.v2", "hmp data lock"),
+        raw=_raw_lockfile,
+    ),
+    Refusal(
+        document="data_cache",
+        path=ISLAND_CACHE,
+        read=lambda path: scan(path.parent),
+        raised=DataCacheError,
+        fragments=("{doc}", "hmp workspace clean --data-cache"),
+        raw=_raw_data_cache,
+    ),
+)
+
+
+def _refusal_message(row: Refusal, corpus: Path) -> str:
+    """Read the document of *row* in the copy and return the sentence that refuses it."""
+    document = corpus / row.path
+    row.raw(document)
+    with pytest.raises(row.raised) as caught:
+        row.read(document)
+    return str(caught.value)
+
+
+@pytest.mark.parametrize("row", REFUSALS, ids=lambda row: row.document)
+def test_a_document_of_2_0_0_is_refused_with_the_form_of_2_1(corpus: Path, row: Refusal) -> None:
+    """The sentence names the version it read and what to do, and the raw file says that version."""
+    message = _refusal_message(row, corpus)
+    for fragment in row.fragments:
+        assert fragment.replace("{doc}", str(corpus / row.path)) in message
+
+
+COMMAND_TREE = (
+    Path(__file__).resolve().parents[2] / "unit" / "architecture" / "surface" / "cli_tree.tsv"
+)
+NAMED_COMMAND = re.compile(r"(?<![\w/.-])hmp((?: +(?:--)?[a-z][a-z-]*)+)")
+
+
+def _command_tree() -> tuple[set[tuple[str, ...]], dict[tuple[str, ...], set[str]]]:
+    """Return the commands of ``hmp`` and the flags of each, from the surface snapshot."""
+    rows = [line.split("\t") for line in COMMAND_TREE.read_text("utf-8").splitlines()]
+    commands = {tuple(first.split()) for first, kind in rows if kind == "command"}
+    flags: dict[tuple[str, ...], set[str]] = {command: set() for command in commands}
+    for first, kind in rows:
+        if kind == "command":
+            continue
+        words = tuple(first.split())
+        owner = max((c for c in commands if words[: len(c)] == c), key=len)
+        flags[owner].update(words[len(owner)].split(","))
+    return commands, flags
+
+
+def test_every_refusal_names_a_command_that_exists(corpus: Path) -> None:
+    """A sentence that names a command the CLI retired fails here, with the sentence."""
+    commands, flags = _command_tree()
+    named: set[str] = set()
+    for row in REFUSALS:
+        message = _refusal_message(row, corpus)
+        for found in NAMED_COMMAND.finditer(message):
+            words = ["hmp"]
+            given = []
+            for token in found.group(1).split():
+                (given if token.startswith("--") else words).append(token)
+            command = max(
+                (c for c in commands if tuple(words[: len(c)]) == c), key=len, default=None
+            )
+            assert command is not None, f"{row.document}: no command {' '.join(words)}: {message}"
+            is_group = any(c[: len(command)] == command and c != command for c in commands)
+            assert not is_group, f"{row.document}: {' '.join(command)} is a group: {message}"
+            assert set(given) <= flags[command], f"{row.document}: no such flag in: {message}"
+            named.add(" ".join(command))
+    assert {"hmp project plan", "hmp data lock", "hmp workspace clean"} <= named
 
 
 def test_the_island_sidecars_sort_into_rows_user_files_and_the_unnamed(

@@ -68,7 +68,7 @@ Two edits.
    import argparse
 
    from hydromodpy.cli.conventions import format_parser, workspace_parser
-   from hydromodpy.cli.helpers import project_root_of
+   from hydromodpy.cli.refs import project_root_of
    from hydromodpy.cli.output import emit
 
 
@@ -135,7 +135,7 @@ Conventions
   and ends with ``exit_code_for``, which reads the ``category`` of the
   exception class in ``EXIT_CODE_OF``. A new exception sets its category
   once on its class, and the command line needs no new line. A refusal of
-  the verb itself is ``hydromodpy.cli.helpers.refuse(message, EXIT_...)``.
+  the verb itself is ``hydromodpy.cli.exit_codes.refuse(message, EXIT_...)``.
   Exit codes are 0 success, 1 generic, 2 usage, 10..23 specific failure
   categories, 130 SIGINT.
 

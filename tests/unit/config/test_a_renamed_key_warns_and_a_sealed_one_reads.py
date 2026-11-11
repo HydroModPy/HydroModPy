@@ -16,8 +16,7 @@ from pathlib import Path
 import pytest
 import tomlkit
 
-from hydromodpy.calibration.config import renamed_to
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.calibration.config_terms import renamed_to
 from hydromodpy.config import config_migration as migration
 from hydromodpy.config.config_migration import (
     PRERELEASE_FORMS,
@@ -29,7 +28,7 @@ from hydromodpy.config.config_migration import (
     moved_paths,
     rewrite_dotted_path,
 )
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,

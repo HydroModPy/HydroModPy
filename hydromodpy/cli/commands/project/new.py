@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import resolve_workspace
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_workspace
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 NAME: str = "new"

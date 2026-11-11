@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.time import validate_recharge_coverage
+from hydromodpy.core.time.window import validate_recharge_coverage
 from hydromodpy.model.forcing.steady_periods import apply_first_clim, one_period_rate, steady_flags
 from hydromodpy.model.forcing.validation import (
     complete_period_table,

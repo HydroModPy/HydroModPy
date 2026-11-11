@@ -12,7 +12,7 @@ A reference names a result directory the way the project tree names it:
   ``@running``. A selector can be narrowed to one site.
 
 Two resolvers read these forms. :class:`DiscoveryMixin` answers for a
-:class:`~hydromodpy.results.catalog.Catalog`, from the index, and returns a
+:class:`~hydromodpy.results.catalog.facade.Catalog`, from the index, and returns a
 ``sim_id``. :func:`resolve_rel_dir` answers from the project tree, returns a
 relative directory, and opens the index only for an id or a selector: a verb
 that moves a directory (delete, rename, rerun, tag) needs no index to find it.
@@ -41,8 +41,8 @@ from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.trash import TrashedEntry, list_trash
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.group import RunSet
+    from hydromodpy.results.run.view import Run
 
 
 def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
@@ -278,7 +278,7 @@ def resolve_trashed(project_root: Path, ref: str) -> TrashedEntry:
 class DiscoveryMixin:
     """Reference-resolution and view-builder methods for :class:`Catalog`.
 
-    Relies on the facade attribute ``self._backend`` (CatalogBackend port).
+    Relies on the facade attribute ``self._backend`` (a ``DuckDBBackend``).
     """
 
     def resolve(
@@ -532,7 +532,7 @@ class DiscoveryMixin:
         return f"Reference '{ref}' not found{context}. Run `hmp ls` to list known runs.{suggestion}"
 
     def __getitem__(self, ref: str | UUID) -> Run:
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         sid = self.resolve(ref)
         return Run(sid, self)
@@ -707,7 +707,7 @@ class DiscoveryMixin:
         --------
         >>> run = hmp.open("~/ws/projects/my_project").latest()  # doctest: +SKIP
         """
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         scope_sql, scope_params = _scope_clause(project, site)
         row = self._backend.fetch_one(

@@ -23,7 +23,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from hydromodpy.core.exceptions import ImportConflictError
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.core.workspace.workspace_toml import near_site_m
 
 SITE_CATALOG_RELPATH = "data/sites/catalog.csv"

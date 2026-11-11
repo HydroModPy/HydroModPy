@@ -1,7 +1,7 @@
 # `hydromodpy/display`
 
 `display` draws. It takes a run that is already computed
-(`hydromodpy.results.run.Run`) or data that is already loaded, and writes PNG
+(`hydromodpy.results.run.view.Run`) or data that is already loaded, and writes PNG
 figures and HTML pages. It never runs a solver, never reads a raw solver file and
 never writes into the storage of a run (Zarr, Parquet, DuckDB). Everything a
 figure reads from a run goes through the public API of `results`. No module of `display` queries
@@ -49,8 +49,10 @@ rules.
    `unavailable_reason`. A figure that cannot draw a run is refused with a
    sentence on every surface: skipped with its reason by `[display].figures`,
    refused by `hmp show --figure` and `Run.figure`, marked as unavailable with its
-   reason by `hmp config figures --run`. It never raises from inside `render` and never
-   writes a placeholder PNG. A lumped run (GR4J) has no grid, so every map is
+   reason by `hmp config figures --run`. It never writes a placeholder PNG. When
+   `unavailable_reason` returns `None`, `render` draws or raises `FigureNotApplicable`
+   with a sentence, for what only the data shows (no observation, no falling limb).
+   Any other exception is a defect that `tests/ports/test_figure.py` catches. A lumped run (GR4J) has no grid, so every map is
    refused and the discharge figures stay offered.
 3. An instant is a date. A figure that draws one instant is asked for it by
    `time`: a date, `"first"` or `"last"`, in `[display] time` for the whole
@@ -303,7 +305,7 @@ cannot be drawn is logged with its reason. `hmp show SESSION --report` and
    `hydrograph.py`: `spec`, `render`. Dates on the x axis:
    `maps.axes.style_date_axis`. Regenerate the table. If the figure
    needs something `spec` cannot declare, override `unavailable_reason`;
-   `tests/unit/display/test_every_figure_refuses_an_empty_run.py` fails otherwise.
+   `tests/unit/display/test_figure_registry.py` fails otherwise.
 3. Rename a figure: change `spec.name`, put the old name in
    `spec.former_names`, regenerate the table. Project files that write the
    old name still load, with a warning.
@@ -440,7 +442,7 @@ generated from the table into the figures page of the documentation, and
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `model`,
 `solver`, `calibration` or `catchment`. A figure of the stream criterion or of the routing surface only draws:
 the network, the extents, the routing surface and the depression floods are computed in
-`results/derive/stream/`. The root facade, `config`, `analysis`,
+`results/derive/stream_network/`. The root facade, `config`, `analysis`,
 `workflow`, `project` and `cli` import it, each through the modules of the
 `public` list of `display_layout.yaml`.
 

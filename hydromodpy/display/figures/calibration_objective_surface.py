@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, no_trial_reason, trial_table
 
@@ -29,7 +29,7 @@ def _pair(table: TrialTable, parameters: tuple[str, ...] | list[str] | None) -> 
     if parameters is None:
         sampled = table.parameters
         if len(sampled) != 2:
-            raise ValueError(
+            raise FigureNotApplicable(
                 "calibration_objective_surface: a surface spans exactly two parameters, "
                 f"and the session sampled {', '.join(sampled) or '<none>'}. Use the "
                 "`parameters=` kwarg to pick two."
@@ -104,7 +104,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         finite = np.isfinite(px) & np.isfinite(py) & np.isfinite(pz)
         px, py, pz = px[finite], py[finite], pz[finite]
         if px.size < 4:
-            raise ValueError(
+            raise FigureNotApplicable(
                 "calibration_objective_surface: need at least 4 finite evaluations "
                 f"(have {px.size})"
             )
@@ -114,7 +114,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         # all-NaN grid that draws as an empty panel with a color bar.
         spread = np.column_stack([px - px.mean(), py - py.mean()])
         if np.linalg.matrix_rank(spread) < 2:
-            raise ValueError(
+            raise FigureNotApplicable(
                 f"calibration_objective_surface: the trials of {first!r} and {second!r} are "
                 "collinear, so they span no surface to interpolate. A one-dimensional search "
                 "is read on calibration_trace or parameter_cost_profile."

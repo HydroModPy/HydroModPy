@@ -313,7 +313,7 @@ def test_status_lists_the_directories_of_a_project_and_reads_one(tmp_path: Path)
 
 def test_status_of_the_plan_reads_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
-    calls = _recorder(monkeypatch, "hydromodpy.project.launch.project_status", "report")
+    calls = _recorder(monkeypatch, "hydromodpy.project.launch.status.project_status", "report")
 
     assert api.status(workspace=project, plan=True) == "report"
     assert calls[0][0] == (project.resolve(),)
@@ -324,7 +324,7 @@ def test_status_of_the_plan_passes_the_stale_age(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     project = make_project(tmp_path / "p")
-    calls = _recorder(monkeypatch, "hydromodpy.project.launch.project_status", "report")
+    calls = _recorder(monkeypatch, "hydromodpy.project.launch.status.project_status", "report")
 
     assert api.status(workspace=project, plan=True, stale_after_s=90.0) == "report"
     assert calls[0][1] == {"stale_after_s": 90.0}

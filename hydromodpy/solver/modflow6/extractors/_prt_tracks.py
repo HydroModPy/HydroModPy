@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.time import SIMULATION_TIME_UNIT
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
 from hydromodpy.solver.modflow_common.time_units import factor_to_tracking_unit
 
 

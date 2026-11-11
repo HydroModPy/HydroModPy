@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.common.geo_helpers import require_declared_crs
+from hydromodpy.data.common.geometry import require_declared_crs
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.provenance.derived import derived_path
 
@@ -82,7 +82,7 @@ def load_custom_geology(
 
 def _find_geology_file_in_dir(directory: Path) -> Path:
     """Find a single geology file in a directory, skipping scaffold examples."""
-    from hydromodpy.data.common.io_helpers import is_scaffold_example
+    from hydromodpy.data.common.files import is_scaffold_example
 
     for ext in (".gpkg", ".shp", ".geojson", ".tif", ".tiff", ".csv"):
         candidates = [p for p in sorted(directory.glob(f"*{ext}")) if not is_scaffold_example(p)]

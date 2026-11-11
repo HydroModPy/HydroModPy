@@ -25,6 +25,7 @@ from hydromodpy.solver.modflow6.build import (
     FLOW_PROPERTY_SIDECAR_SUFFIX,
     _save_flow_property_sidecar,
 )
+from hydromodpy.solver.modflow6.builders import period_forcing
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.builders.solver_options import (
     k_tensor_is_tilted,
@@ -32,16 +33,11 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
 )
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
+    MODFLOW6_PROPERTIES,
     k_tensor_npf_kwargs,
-    resolve_flow_property_arrays,
     resolve_k33_field,
 )
-from hydromodpy.solver.modflow6.support.property_mapping import (
-    resolve_flow_property_arrays as resolve_modflow6_arrays,
-)
-from hydromodpy.solver.modflow_common.property_mapping import (
-    resolve_flow_property_arrays as resolve_modflow_arrays,
-)
+from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import regular_solver_mesh
 from tests._helpers.model_factory import make_model
@@ -49,11 +45,11 @@ from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A trial's characteristic_depth reaches the built MODFLOW 6 NPF k array.
 #
-# ``resolve_flow_property_arrays`` (``hydromodpy/solver/modflow6/support/
-# property_mapping.py``) is what ``build.py`` calls to produce ``model.hk``,
-# which is then passed verbatim as ``k=model.hk`` to ``flopy.mf6.ModflowGwfnpf``
-# (``solver_mesh.flatten_from_grid`` only reshapes it, it never changes a
-# value). Proving the ratio on this function's output is proving it on the NPF
+# ``resolve_flow_property_arrays`` (``hydromodpy/solver/modflow_common/
+# property_mapping.py``, with ``properties=MODFLOW6_PROPERTIES``) is what
+# ``build.py`` calls to produce ``model.hk``, one value per layer and cell,
+# which is then passed verbatim as ``k=model.hk`` to ``flopy.mf6.ModflowGwfnpf``.
+# Proving the ratio on this function's output is proving it on the NPF
 # package's own k array.
 #
 # Evaluation depth: the layer-center depth below the model top, exactly what
@@ -103,6 +99,7 @@ def _hk(characteristic_depth: float) -> np.ndarray:
         domain=domain,
         solver_mesh=solver_mesh,
         required_properties=frozenset({"K"}),
+        properties=MODFLOW6_PROPERTIES,
     )
     hk = out["hk"]
     assert hk.shape[0] == 2
@@ -162,14 +159,15 @@ def _profiles() -> dict[str, FieldParam]:
 
 def _modflow6(properties: dict[str, object]) -> dict[str, np.ndarray]:
     mesh = _mesh()
-    mapped = resolve_modflow6_arrays(
+    mapped = resolve_flow_property_arrays(
         profiles=_profiles(),
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
         required_properties=frozenset({"K"}),
         runtime_property_overrides={"source": "project_run", "properties": properties},
+        properties=MODFLOW6_PROPERTIES,
     )
-    return {name: mesh.flatten_from_grid(values) for name, values in mapped.items()}
+    return dict(mapped)
 
 
 def _model(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
@@ -240,7 +238,7 @@ def test_an_unknown_property_name_is_refused() -> None:
 
 def test_a_solver_without_the_tensor_refuses_a_k22_override() -> None:
     with pytest.raises(ValueError, match="sets K22, which this solver does not read"):
-        resolve_modflow_arrays(
+        resolve_flow_property_arrays(
             profiles=_profiles(),
             domain=SimpleNamespace(zones={}),
             solver_mesh=_mesh(),
@@ -309,6 +307,7 @@ def _mapped(**values: float) -> dict[str, np.ndarray]:
         domain=SimpleNamespace(zones={}),
         solver_mesh=_mesh(),
         required_properties=frozenset({"K"}),
+        properties=MODFLOW6_PROPERTIES,
     )
 
 
@@ -324,7 +323,7 @@ def _model_2(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespa
 def test_k22_and_the_angles_are_mapped_on_every_cell_of_every_layer() -> None:
     mapped = _mapped(K22=2e-5, angle1=30.0, angle2=-15.0, angle3=5.0)
     for name, value in (("k22", 2e-5), ("angle1", 30.0), ("angle2", -15.0), ("angle3", 5.0)):
-        assert np.asarray(mapped[name]).shape == (2, 2, 2)
+        assert np.asarray(mapped[name]).shape == (2, N_CELLS)
         assert np.all(np.asarray(mapped[name]) == value)
 
 
@@ -500,7 +499,7 @@ def test_modflow6_reads_the_storage_on_the_grid_the_lake_leaves(monkeypatch, dry
     )
     monkeypatch.setattr(mf6_build.flopy.mf6, "ModflowGwfsto", lambda gwf, **kwargs: kwargs)
     with pytest.raises(DataContractViolation, match=match) if match else nullcontext():
-        mf6_build._build_storage_package(model, mesh)
+        period_forcing.build_storage_package(model, mesh)
 
 
 # Vertical anisotropy resolution for the MF6 k33 field.

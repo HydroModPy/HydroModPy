@@ -15,7 +15,7 @@ import numpy as np
 
 from hydromodpy.core.console import progress
 from hydromodpy.model.model import steady_variant
-from hydromodpy.solver.modflow_common import ModflowRunOptions
+from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 
 
 def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.ndarray:

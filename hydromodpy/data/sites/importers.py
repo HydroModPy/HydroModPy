@@ -18,7 +18,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 
 if TYPE_CHECKING:
     import geopandas as gpd

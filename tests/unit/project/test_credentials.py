@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for
 from hydromodpy.core.exceptions import CredentialsError
 from hydromodpy.project.credentials import HostCredential, credential_for, load_credentials
 

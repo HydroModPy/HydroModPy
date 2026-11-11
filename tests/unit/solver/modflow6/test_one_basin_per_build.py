@@ -27,6 +27,7 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6 import build
+from hydromodpy.solver.modflow6.builders import sfr as sfr_builder
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
@@ -109,7 +110,7 @@ def test_a_build_computes_the_basin_once_and_its_consumers_read_it(tmp_path, mon
     descent, basin, _ = build._build_descent_and_dam_feet(
         model, mesh, {}, np.zeros(mesh.n_cells, dtype=bool), None
     )
-    routed = build._drainage_basin_mask(basin)
+    routed = sfr_builder._drainage_basin_mask(basin)
     observed = [catchment_cell_mask(model) for _ in range(3)]
 
     assert descent is not None and basin is not None
@@ -135,7 +136,7 @@ def _stored_basin(n_cells: int) -> DescentBasin:
             lambda basin: catchment_cell_mask(SimpleNamespace(model_name="m", descent_basin=basin)),
             id="discharge_observable",
         ),
-        pytest.param(build._drainage_basin_mask, id="drainage_routing"),
+        pytest.param(sfr_builder._drainage_basin_mask, id="drainage_routing"),
     ],
 )
 def test_no_consumer_computes_the_basin_again(consumer, monkeypatch) -> None:

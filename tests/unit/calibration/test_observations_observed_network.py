@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, box
 
-from hydromodpy.calibration.config import validate_calib_output
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.metrics.solver_extract import catchment_area_the_discharge_sums
 from hydromodpy.calibration.observations import observed_network
 from hydromodpy.calibration.observations import observed_network as observed_module

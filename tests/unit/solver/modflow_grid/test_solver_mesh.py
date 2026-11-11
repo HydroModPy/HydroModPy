@@ -26,7 +26,7 @@ from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from tests._helpers.mesh_cases import regular_mesh, voronoi_lake_mesh

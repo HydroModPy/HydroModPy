@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.time import (
+from hydromodpy.core.time.window import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )

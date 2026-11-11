@@ -17,9 +17,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.request.engine import run_request
+from hydromodpy.data.request.model import DataRequest
 from hydromodpy.data.variables.hydrometry.apis import hubeau as hubeau_api
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 

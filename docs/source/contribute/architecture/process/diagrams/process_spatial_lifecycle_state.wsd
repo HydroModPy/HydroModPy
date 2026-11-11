@@ -1,5 +1,5 @@
 @startuml
-title ProcessSpatial - Lifecycle State Machine
+title Flow - Lifecycle State Machine
 
 [*] --> Created
 

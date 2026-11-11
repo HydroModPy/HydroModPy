@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.workspace.workspace_toml import NEAR_SITE_M_DEFAULT
 from hydromodpy.core.workspace.workspace_toml import near_site_m as workspace_near_site_m
 

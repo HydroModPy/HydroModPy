@@ -6,8 +6,8 @@ import argparse
 import sys
 from collections.abc import Sequence
 
-from hydromodpy.cli.conventions import HmpParser, verbosity_parser
-from hydromodpy.cli.helpers import apply_verbosity, fail
+from hydromodpy.cli.conventions import HmpParser, apply_verbosity, verbosity_parser
+from hydromodpy.cli.exit_codes import fail
 from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 from tools.dev import examples, run_script, test
 

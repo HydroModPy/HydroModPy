@@ -31,7 +31,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import link_or_copy
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import (
     INSTALL_FILENAME,
     InstallIndex,
     PayloadFile,
@@ -39,7 +39,7 @@ from hydromodpy.core.payload import (
     stored_name,
 )
 from hydromodpy.core.payload.install import plan_stations, sha256_of, write_stations
-from hydromodpy.core.tracking import rewrite_input_paths
+from hydromodpy.core.tracking.walker import rewrite_input_paths
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import INPUTS_DIRNAME
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME

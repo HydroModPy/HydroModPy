@@ -1005,7 +1005,7 @@ class IgnGeoplateformeDem:
     The port class over the same assembly this module has always served:
     ``fetch`` asks :func:`fetch_ign_dem` for the whole product of a box, from
     the department archives of BD ALTI or the WMS-Raster tiles of RGE ALTI.
-    The raster is the provider's answer as the manager caches it, so its
+    The raster is the provider's answer as the variable caches it, so its
     ``state`` is ``"raw"`` and its ``nodata`` is read from the header the file
     carries (``-9999`` once this module has written it).
     """

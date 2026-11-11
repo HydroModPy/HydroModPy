@@ -19,21 +19,21 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, new_figure, run_label, run_suffix
-from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_map_axes,
     watershed_of,
 )
 from hydromodpy.display.style import neutral, place_legend
+from hydromodpy.results.derive.time_alignment import run_period_edges
 from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.contracts import RasterField
+    from hydromodpy.results.run.view import Run
 
 
 # Raster keys written by ``persist_geographic_to_store``. The historical
@@ -310,7 +310,7 @@ def _text(value) -> str | None:
 
 def _period_text(sim: Run) -> str | None:
     """Return the simulated period, first and last day included."""
-    edges = run_edges(sim)
+    edges = run_period_edges(sim)
     if edges is None:
         return None
     first, end = edges[0], edges[-1]
@@ -323,7 +323,7 @@ def _steps_text(sim: Run) -> str | None:
     count = _as_int_str(sim.n_timesteps)
     if count == "-":
         return None
-    edges = run_edges(sim)
+    edges = run_period_edges(sim)
     if edges is None or len(edges) < 2:
         return count
     days = np.diff(edges.asi8) / 8.64e13

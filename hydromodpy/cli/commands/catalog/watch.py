@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, project_root_of, refuse
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "watch"
 HELP: str = "Show the running attempts with the age of their heartbeat"

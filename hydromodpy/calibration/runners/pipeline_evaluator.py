@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from hydromodpy.calibration.config import window_bounds
+from hydromodpy.calibration.config_terms import window_bounds
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink

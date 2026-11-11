@@ -1,7 +1,7 @@
 # One row per os.environ / os.getenv site in hydromodpy/, and one per network client.
 #
 # The scan is an AST walk of the working tree at gate time; the gate
-# test_environment_reads.py refuses a site the table does not carry and a row
+# test_run_path.py refuses a site the table does not carry and a row
 # no site matches, so rows leave only with the code that read them.
 #
 # Classes. machine, the one reader of an installation variable; process, once
@@ -82,7 +82,7 @@ rows:
   kind: pass
   class: cli
   why: the command layer folds the HMP_SET_* overrides of the environment into the request
-- file: hydromodpy/cli/helpers.py
+- file: hydromodpy/cli/refs.py
   variable: HMP_WORKSPACE
   kind: read
   lifted_by: 4.19

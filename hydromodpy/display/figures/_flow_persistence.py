@@ -9,7 +9,7 @@ the counting lives here and each figure keeps its own map.
 in the downstream closure of the cells releasing above ``tau * R * A`` on the
 criterion graph and, unless the visible flow is ``"0 L/s"``, when the routed
 release reaching it is at least the visible flow. The counts are rebuilt by
-:mod:`hydromodpy.results.derive.stream.run_extent`, per calendar year, and kept per
+:mod:`hydromodpy.results.derive.stream_network.run_extent`, per calendar year, and kept per
 run so the two maps of one gallery read the stack once.
 """
 
@@ -28,8 +28,8 @@ from hydromodpy.core.scoring.stream_defaults import (
 )
 from hydromodpy.display.figures._stream_comparison import flowing_words
 from hydromodpy.results.derive.run_memo import RunMemo
-from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-from hydromodpy.results.derive.stream.run_extent import (
+from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream_network.run_extent import (
     FLOW_FIELD,
     block_flow_counts,
     flow_geometry_from_run,
@@ -40,7 +40,7 @@ from hydromodpy.results.derive.stream.run_extent import (
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = (
     "FLOW_FIELD",
@@ -112,7 +112,7 @@ def flow_geometry(
 
     The rasterization of the map, the positional accuracy and,
     under the heads rule, its radius and area, are the run's sealed network
-    output (:func:`hydromodpy.results.derive.stream.criterion_settings.network_criterion_settings`),
+    output (:func:`hydromodpy.results.derive.stream_network.criterion_settings.network_criterion_settings`),
     or the criterion's defaults when it sealed none: a persistence map redrawn
     on the defaults instead would count the timesteps a cell flows down a map
     the trial never scored. ``tau_specific_ratio`` and ``diagonal_neighbors``

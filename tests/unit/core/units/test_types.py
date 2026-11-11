@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from hydromodpy.core.units import UREG
+from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.types import (
     AreaSquareMeters,
     DurationDays,

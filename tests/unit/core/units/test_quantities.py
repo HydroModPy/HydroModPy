@@ -7,6 +7,7 @@ were merged into one table. A change to any factor must fail here.
 from __future__ import annotations
 
 import datetime as dt
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -438,3 +439,36 @@ def test_displaying_in_a_length_and_converting_back_gives_the_same_length() -> N
     for unit in ("m", "km", "cm", "mm"):
         value, shown_unit = format_length_from_m(123.456, unit=unit, precision=9).split()
         assert q.convert_to_m(float(value), unit=shown_unit) == pytest.approx(123.456)
+
+
+@pytest.mark.parametrize(
+    ("values", "units", "expected"),
+    [
+        (2.0, "m", [2.0]),
+        ([100.0, 250.0], "cm", [1.0, 2.5]),
+        (np.array([1000.0]), "mm", [1.0]),
+        ([3.0], "  ", [3.0]),
+    ],
+)
+def test_a_length_series_comes_back_in_meters_as_floats(values, units, expected) -> None:
+    out = q.coerce_length_series_to_m(values=values, units=units, label="forcing")
+    assert out.dtype == float
+    np.testing.assert_allclose(np.atleast_1d(out), expected)
+
+
+def test_a_length_series_in_an_unknown_unit_is_refused() -> None:
+    with pytest.raises(ValueError, match="furlong"):
+        q.coerce_length_series_to_m(values=[1.0], units="furlong", label="forcing")
+
+
+@pytest.mark.parametrize(
+    ("forcing", "expected"),
+    [
+        ({"units": "cm"}, "cm"),
+        ({}, "fallback"),
+        (SimpleNamespace(units="mm"), "mm"),
+        (SimpleNamespace(), "fallback"),
+    ],
+)
+def test_the_units_of_a_forcing_are_read_from_a_mapping_or_an_object(forcing, expected) -> None:
+    assert q.forcing_units(forcing, fallback="fallback") == expected

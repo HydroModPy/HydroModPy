@@ -24,7 +24,7 @@ from hydromodpy.core.state.run_state import RunState
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.model.model import ModelOptions
-from hydromodpy.results.derive.stream.criterion_inputs import catchment_cells
+from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
@@ -52,6 +52,7 @@ class _Store:
 
     sim_id = "sim-12345678"
     project_path = Path(".")
+    run_dir = Path("no-run-dir-on-disk")
 
     def __init__(self) -> None:
         self.zarr = _Zarr()

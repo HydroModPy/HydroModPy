@@ -42,7 +42,7 @@ from hydromodpy.config.config_migration import migrate_sealed_config_doc
 from hydromodpy.core.config_kit.introspect import child_of
 from hydromodpy.core.toml_io.paths import assign, portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
-from hydromodpy.core.tracking import rewrite_input_paths
+from hydromodpy.core.tracking.walker import rewrite_input_paths
 from hydromodpy.results.metric_rule import MetricRule
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,

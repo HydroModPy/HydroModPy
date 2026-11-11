@@ -38,7 +38,7 @@
       true
     ],
     "has_numerical_solution": true,
-    "model_name": "flow_main__boussinesq",
+    "model_name": "simulation_regression_fast_boussinesq",
     "n_cells": 240,
     "n_edges": 403,
     "n_nodes": 164,
@@ -85,13 +85,13 @@
     "final_recharge_rate_m_s": {
       "count": 240,
       "nodata_count": 0,
-      "mean": 3.4722222222222227e-08,
+      "mean": 3.385416666666667e-08,
       "p50": 3.472222222222222e-08,
       "p95": 3.472222222222222e-08,
       "shape": [
         240
       ],
-      "sum": 8.333333333333334e-06
+      "sum": 8.125000000000001e-06
     },
     "final_saturated_thickness_m": {
       "count": 240,

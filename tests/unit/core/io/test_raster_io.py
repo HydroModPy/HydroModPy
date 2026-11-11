@@ -44,39 +44,6 @@ def _dem(path: Path, *, crs: str | None = "EPSG:2154") -> np.ndarray:
     return values
 
 
-# ---- mask_by_dem -----------------------------------------------------------
-
-DEM_VALUES = np.array([[1.0, 2.0], [3.0, 4.0]])
-TARGET = np.array([[10.0, 20.0], [30.0, 40.0]])
-
-
-@pytest.mark.parametrize(
-    ("symbol", "threshold", "masked_cells"),
-    [
-        ("==", 2.0, [[False, True], [False, False]]),
-        ("!=", 2.0, [[True, False], [True, True]]),
-        ("<=", 2.0, [[True, True], [False, False]]),
-        ("<", 2.0, [[True, False], [False, False]]),
-        (">=", 3.0, [[False, False], [True, True]]),
-        (">", 3.0, [[False, False], [False, True]]),
-    ],
-)
-def test_a_dem_condition_masks_exactly_the_cells_that_satisfy_it(
-    symbol, threshold, masked_cells
-) -> None:
-    result = raster_io.mask_by_dem(TARGET, DEM_VALUES, symbol, threshold)
-
-    assert np.ma.getmaskarray(result).tolist() == masked_cells
-
-
-def test_an_equality_mask_returns_the_dem_values_and_an_order_mask_the_target_values() -> None:
-    equal = raster_io.mask_by_dem(TARGET, DEM_VALUES, "==", 2.0)
-    order = raster_io.mask_by_dem(TARGET, DEM_VALUES, ">", 3.0)
-
-    assert equal.compressed().tolist() == [1.0, 3.0, 4.0]
-    assert order.compressed().tolist() == [10.0, 20.0, 30.0]
-
-
 # ---- write_band ------------------------------------------------------------
 
 
@@ -495,19 +462,3 @@ def test_a_file_of_an_unsupported_kind_is_refused_with_none(tmp_path: Path) -> N
     (tmp_path / "notes.txt").write_text("x", encoding="utf-8")
 
     assert raster_io.load_to_xarray(str(tmp_path / "notes.txt")) is None
-
-
-# ---- reproject_tif ---------------------------------------------------------
-
-
-def test_a_dem_is_reprojected_to_wgs84_then_to_the_utm_zone_of_its_centre(tmp_path: Path) -> None:
-    _dem(tmp_path / "raw.tif")
-
-    utm = raster_io.reproject_tif(
-        str(tmp_path / "raw.tif"), str(tmp_path / "wgs.tif"), str(tmp_path / "utm.tif")
-    )
-
-    with rasterio.open(tmp_path / "wgs.tif") as wgs, rasterio.open(tmp_path / "utm.tif") as out:
-        assert wgs.crs.to_epsg() == 4326
-        assert out.crs.to_epsg() == 32631  # centre near 3 E, 47 N is UTM zone 31 N
-    assert utm == "EPSG:32631"

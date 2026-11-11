@@ -41,6 +41,7 @@ from hydromodpy.results.storage.attempt import (
     CaseAliveError,
     claim_reserved_directory,
     claim_run_directory,
+    close_attempt_of_process,
     finish_attempt,
     record_request_id,
     refuse_resume_if_changed,
@@ -722,3 +723,37 @@ def test_the_same_long_folder_is_claimed_on_linux(tmp_path):
     claim = claim_run_directory(project, "case", case_id="case", project="p")
 
     assert claim.run_dir.is_dir()
+
+
+def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) -> None:
+    """The attempt of this process is still closed, past a folder whose outcome cannot be read."""
+    from tests._helpers.sealed_runs import write_attempt
+
+    broken = tmp_path / "runs" / "a_broken"
+    broken.mkdir(parents=True)
+    (broken / "outcome.json").write_text("{not json", encoding="utf-8")
+    run_dir = write_attempt(
+        tmp_path, "runs/case", status="running", host=socket.gethostname(), pid=os.getpid()
+    )
+
+    close_attempt_of_process(tmp_path, 1, None)
+
+    assert read_outcome(run_dir).status == "failed"
+
+
+def test_an_attempt_of_another_process_is_left_as_it_is(tmp_path: Path) -> None:
+    from tests._helpers.sealed_runs import write_attempt
+
+    run_dir = write_attempt(
+        tmp_path, "runs/case", status="running", host=socket.gethostname(), pid=os.getpid() + 1
+    )
+
+    close_attempt_of_process(tmp_path, 1, None)
+
+    assert read_outcome(run_dir).status == "running"
+
+
+def test_a_project_without_runs_has_no_attempt_to_close(tmp_path: Path) -> None:
+    close_attempt_of_process(tmp_path, 1, None)
+
+    assert not (tmp_path / "runs").exists()

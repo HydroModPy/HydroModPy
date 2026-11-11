@@ -401,7 +401,7 @@ class MeshRequestError(MeshError):
 
 
 # -- Terrain -------------------------------------------------------------------
-# ``cli.helpers.exit_code_for`` maps the family to EXIT_SOLVER_ERROR: the
+# ``cli.exit_codes.exit_code_for`` maps the family to EXIT_SOLVER_ERROR: the
 # geospatial backend failing is what code 15 means at a process boundary.
 
 

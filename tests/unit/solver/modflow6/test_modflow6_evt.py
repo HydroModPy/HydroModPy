@@ -12,6 +12,7 @@ import pytest
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.solver.modflow6 import build as build_module
+from hydromodpy.solver.modflow6.builders import recharge
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
@@ -259,7 +260,7 @@ def _soil_evta_guard(tree: ast.AST) -> ast.If:
 
 
 def test_both_payloads_present_raises_before_either_package_is_built() -> None:
-    tree = ast.parse(inspect.getsource(build_module._build_recharge_and_evt))
+    tree = ast.parse(inspect.getsource(recharge.build_recharge_and_evt))
     outer = _soil_evta_guard(tree)
 
     inner = outer.body[0]

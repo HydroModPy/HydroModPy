@@ -11,13 +11,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import geopandas as gpd
 from shapely.geometry import LineString, MultiLineString
 from shapely.geometry.base import BaseMultipartGeometry
-from shapely.ops import unary_union
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -115,98 +113,6 @@ class RiverMeshTrace:
     def as_multilinestring(self) -> MultiLineString:
         """Return the trace as one ``MultiLineString``."""
         return MultiLineString(list(self.lines))
-
-
-def build_river_mesh_trace_from_vector(
-    *,
-    vector_path: str | Path,
-    source_kind: RiverMeshTraceSourceKind,
-    target_crs: str | None = None,
-    clip_polygon_path: str | Path | None = None,
-) -> RiverMeshTrace | None:
-    """Build one in-memory river trace from a vector dataset.
-
-    Returns ``None`` when no valid line segment remains after optional clipping.
-    """
-    src_path = Path(vector_path)
-    if not src_path.exists():
-        raise FileNotFoundError(f"River network vector not found: {src_path}")
-
-    rivers = gpd.read_file(src_path)
-    if rivers.empty:
-        return None
-    target_crs_token = None if target_crs is None else str(target_crs).strip()
-    if target_crs_token == "":
-        target_crs_token = None
-
-    if rivers.crs is None:
-        if target_crs_token is not None:
-            rivers = rivers.set_crs(target_crs_token, allow_override=True)
-        elif clip_polygon_path is not None:
-            clip_path = Path(clip_polygon_path)
-            if clip_path.exists():
-                clip_polygons = gpd.read_file(clip_path)
-                if clip_polygons.crs is not None:
-                    rivers = rivers.set_crs(clip_polygons.crs, allow_override=True)
-        if rivers.crs is None:
-            raise ValueError(
-                f"River network vector has no CRS and no target CRS provided: {src_path}"
-            )
-
-    geometries = [
-        geometry for geometry in rivers.geometry if geometry is not None and not geometry.is_empty
-    ]
-    if not geometries:
-        return None
-
-    if clip_polygon_path is not None:
-        clip_path = Path(clip_polygon_path)
-        if not clip_path.exists():
-            raise FileNotFoundError(f"Clip polygon not found: {clip_path}")
-        clip_polygons = gpd.read_file(clip_path)
-        if clip_polygons.empty:
-            return None
-        if clip_polygons.crs is None:
-            raise ValueError(f"Clip polygon has no CRS: {clip_path}")
-        clip_polygons = clip_polygons.to_crs(rivers.crs)
-        clip_union = unary_union(
-            [
-                geometry
-                for geometry in clip_polygons.geometry
-                if geometry is not None and not geometry.is_empty
-            ]
-        )
-        if clip_union is None or clip_union.is_empty:
-            return None
-        clipped: list[object] = []
-        for geometry in geometries:
-            intersection = geometry.intersection(clip_union)
-            if intersection is None or intersection.is_empty:
-                continue
-            clipped.append(intersection)
-        geometries = clipped
-        if not geometries:
-            return None
-
-    if target_crs_token is not None:
-        if target_crs_token:
-            rivers = gpd.GeoDataFrame(geometry=geometries, crs=rivers.crs).to_crs(target_crs_token)
-            crs_wkt = rivers.crs.to_wkt() if rivers.crs is not None else target_crs_token
-            geometries = list(rivers.geometry)
-        else:
-            crs_wkt = rivers.crs.to_wkt()
-    else:
-        crs_wkt = rivers.crs.to_wkt()
-
-    lines = linear_parts(geometries)
-    if not lines:
-        return None
-
-    return RiverMeshTrace.from_geometries(
-        source_kind=source_kind,
-        crs_wkt=crs_wkt,
-        geometries=lines,
-    )
 
 
 def build_river_mesh_trace_from_network_gdf(

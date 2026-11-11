@@ -55,7 +55,7 @@ def test_hmp_read_gives_the_particle_frame(monkeypatch) -> None:
 
     import hydromodpy as hmp
     import hydromodpy.results.run.particles as particles
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     frame = pd.DataFrame(columns=list(PARTICLE_COLUMNS))
     monkeypatch.setattr(particles, "particle_frame", lambda run: frame)

@@ -75,7 +75,7 @@ kind = "top"
 
 def _prepare(root: Path, *, transient: bool) -> Any:
     """Run the steps of an island run up to the ``Model`` of its flow, and return the context."""
-    from hydromodpy.core.time import require_flow_simulation_time_grid
+    from hydromodpy.core.time.window import require_flow_simulation_time_grid
     from hydromodpy.workflow.state import PipelineState
     from hydromodpy.workflow.steps.sequence import standard_steps
 

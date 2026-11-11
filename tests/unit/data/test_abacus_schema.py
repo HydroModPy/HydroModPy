@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.data.schemas import validate_abacus
+from hydromodpy.data.schemas.abacus import validate_abacus
 
 
 def _good() -> pd.DataFrame:

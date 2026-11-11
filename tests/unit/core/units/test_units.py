@@ -76,11 +76,7 @@ def test_temperature_and_viscosity_supported():
 def _build_model():
     from pydantic import BaseModel, ConfigDict
 
-    from hydromodpy.core.units import (
-        HydraulicConductivity,
-        SpecificStorage,
-        SpecificYield,
-    )
+    from hydromodpy.core.units.types import HydraulicConductivity, SpecificStorage, SpecificYield
 
     class Aquifer(BaseModel):
         model_config = ConfigDict(arbitrary_types_allowed=True)

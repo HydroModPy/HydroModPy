@@ -13,9 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from numbers import Real
 
+import flopy
 import numpy as np
 
 from hydromodpy.core.units.quantities import parse_to_m3_per_s, parse_to_m_per_s
+from hydromodpy.model.properties.property_table import require_positive_storage
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 
 def _attr(payload: object, name: str) -> object:
@@ -170,3 +173,31 @@ __all__ = [
     "sto_period_settings",
     "ts6_times_and_values",
 ]
+
+
+def build_storage_package(model, solver_mesh: SolverMesh) -> None:
+    """Build STO on ``solver_mesh``, the grid DISV writes, lake footprint included.
+
+    Every layer is convertible. A storage a transient period reads is checked
+    on the active cells of that grid only, since the solver reads none on an
+    inactive cell (``require_positive_storage``).
+    """
+    steady_flags = [bool(model.steady[i]) for i in range(int(model.nper))]
+    steady_state_spd, transient_spd = sto_period_settings(steady_flags)
+    iconvert = np.ones((model.nlay,), dtype=int)
+    require_positive_storage(
+        model.sy,
+        model.ss,
+        active_mask=solver_mesh.idomain > 0,
+        iconvert=iconvert,
+        steady=steady_flags,
+        profiles=model.inputs.properties.profiles,
+    )
+    model.sto = flopy.mf6.ModflowGwfsto(
+        model.gwf,
+        sy=model.sy,
+        ss=model.ss,
+        iconvert=iconvert,
+        steady_state=steady_state_spd or None,
+        transient=transient_spd or None,
+    )

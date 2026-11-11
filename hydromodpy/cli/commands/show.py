@@ -21,9 +21,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -31,16 +30,13 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_NOT_FOUND,
-    EXIT_USAGE,
-    exit_code_for,
-    project_root_of,
-    refuse,
-)
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 from hydromodpy.schema.phrases import LANGS
+
+if TYPE_CHECKING:
+    from hydromodpy.project.show import Target
 
 NAME: str = "show"
 HELP: str = "Show a run, a session or a project: summary, profile, point, rank, figure, report"
@@ -208,14 +204,6 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-@dataclass(frozen=True, slots=True)
-class Target:
-    """What a reference names: the directory, and whether it is a run, a session or the project."""
-
-    directory: Path
-    kind: str
-
-
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.exceptions import CommandUsageError
 
@@ -258,73 +246,21 @@ def _refuse_a_selector_that_cannot_hold(args: argparse.Namespace, refs: list[str
             raise CommandUsageError("--point needs the cell: --xy X Y, or --cell N.")
 
 
-def _as_path(ref: str) -> str:
-    """Return a reference that is a folder written with a slash as an absolute path."""
-    given = Path(ref).expanduser()
-    return str(given.resolve()) if "/" in ref and given.is_dir() else ref
-
-
 def _target(
     args: argparse.Namespace, root: Path, ref: str, *, session_first: bool = False
 ) -> Target:
-    """Return what *ref* names, read from the directories of the project, never from the index.
-
-    ``.`` is the project of ``-w`` or of the current directory, and a bare name that is
-    no run and no session may be a project under ``projects/`` of the workspace. With
-    ``session_first``, a bare name that a session and a run both carry is the session.
-    """
-    from hydromodpy.cli.helpers import resolve_project
-    from hydromodpy.core.exceptions import ConfigMissingError, HydroModPyError
-    from hydromodpy.project.api import status
+    """Return what *ref* names, or end the command: ``.`` is the project of ``-w`` or of the cwd."""
+    from hydromodpy.cli.refs import resolve_project
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.project.show import Target, show_target
 
     if ref == ".":
         return Target(resolve_project(args.workspace), "project")
-    if session_first and "/" not in ref and not ref.startswith("@"):
-        from hydromodpy.results.session.descriptor import resolve_session_dir
-
-        try:
-            return Target(resolve_session_dir(root, ref), "session")
-        except ConfigMissingError:
-            pass
     try:
-        found = status(_as_path(ref), workspace=root)
+        return show_target(ref, root, args.workspace, session_first=session_first)
     except (HydroModPyError, FileNotFoundError) as exc:
-        named = _project_named(args, ref)
-        if named is not None:
-            return Target(named, "project")
         hint = "" if args.workspace else " Name the workspace or the project with -w."
         refuse(f"{exc}{hint}", exit_code_for(exc), cause=exc)
-    if isinstance(found, list):
-        directory = Path(_as_path(ref)).expanduser().resolve()
-        if _is_a_project(directory):
-            return Target(directory, "project")
-        # A run copied out of its project sits in no project: it is its own folder.
-        return Target(directory, "run")
-    return Target(found.run_dir, found.kind)
-
-
-def _project_named(args: argparse.Namespace, ref: str) -> Path | None:
-    """Return ``projects/<ref>`` of the workspace, when *ref* names one."""
-    from hydromodpy.core.state.layout import PROJECTS_DIRNAME
-    from hydromodpy.core.workspace.resolve import find_workspace
-
-    if "/" in ref:
-        return None
-    workspace = find_workspace(args.workspace)
-    if workspace is None:
-        return None
-    candidate = workspace / PROJECTS_DIRNAME / ref
-    return candidate if candidate.is_dir() else None
-
-
-def _is_a_project(directory: Path) -> bool:
-    from hydromodpy.core.state.layout import RUNS_DIRNAME, SESSIONS_DIRNAME, is_project_root
-
-    return (
-        is_project_root(directory)
-        or (directory / RUNS_DIRNAME).is_dir()
-        or (directory / SESSIONS_DIRNAME).is_dir()
-    )
 
 
 def _summary(args: argparse.Namespace, root: Path, target: Target) -> None:
@@ -398,11 +334,14 @@ def _by_status(counts: dict[str, int]) -> str:
 def _run_summary(args: argparse.Namespace, root: Path, directory: Path) -> None:
     """Print the README of a run, or the facts the index holds, and end on the profile."""
     from hydromodpy.project.api import show
+    from hydromodpy.results.record.manifest import replay_of_run
 
     if args.format == "table" and not args.detail and _print_readme(directory):
         return
     payload = show(directory, what="summary", workspace=root, detail=args.detail)
-    _replay_block(root, payload)
+    replay = replay_of_run(root / payload["rel_dir"]) if payload.get("rel_dir") else None
+    if replay is not None:
+        payload["replay"] = replay
     emit(args, "show run", payload, table=lambda: _print_facts(root, payload, args))
 
 
@@ -432,26 +371,6 @@ def _print_readme(directory: Path) -> bool:
     _print_profile(profile_of_run(directory))
     print(f"\nnext: hmp show {directory.name} --detail | hmp diff {directory.name} <other>")
     return True
-
-
-def _replay_block(project_root: Path, payload: dict[str, Any]) -> None:
-    """Fill ``payload["replay"]`` from the seal of a run that played another one again.
-
-    The index holds no class; the seal of the run holds it. A run with no seal
-    to read keeps no replay block.
-    """
-    from hydromodpy.core.exceptions import HydroModPyError
-    from hydromodpy.results.record.manifest import read_seal
-
-    rel_dir = payload.get("rel_dir")
-    if not rel_dir:
-        return
-    try:
-        replay = read_seal(Path(project_root) / rel_dir).lineage.replay
-    except (HydroModPyError, OSError, ValueError):
-        return
-    if replay is not None:
-        payload["replay"] = replay.model_dump(mode="json", by_alias=True)
 
 
 def _seconds(value: float | None) -> str:
@@ -502,7 +421,8 @@ def _print_profile(profile: dict[str, Any]) -> None:
 
 def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Namespace) -> None:
     """Print what the index holds about one run, for people."""
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.catalog.listing import simulation_facts
 
     if payload.get("rel_dir") is None:
         # A run copied out of its project has no index: its folder says the rest.
@@ -564,26 +484,19 @@ def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Nam
         _print_copies(copies)
 
     with Catalog(project_root) as catalog:
-        sim = catalog[payload["sim_id"]]
-        tags = sim.tags or []
-        if tags:
-            print(f"  tags      : {', '.join(tags)}")
-        notes = catalog.backend.fetch_all(
-            "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
-            [payload["sim_id"]],
-        )
-        if notes:
-            print("Notes:")
-            for (note,) in notes:
-                print(f"  - {note}")
-        metrics = sim.metrics
-        if not metrics.empty:
-            print("Metrics:")
-            print(metrics.to_string(index=False))
-        params = sim.parameters
-        if not params.empty:
-            print("Parameters:")
-            print(params.to_string())
+        facts = simulation_facts(catalog, payload["sim_id"])
+    if facts.tags:
+        print(f"  tags      : {', '.join(facts.tags)}")
+    if facts.notes:
+        print("Notes:")
+        for note in facts.notes:
+            print(f"  - {note}")
+    if not facts.metrics.empty:
+        print("Metrics:")
+        print(facts.metrics.to_string(index=False))
+    if not facts.parameters.empty:
+        print("Parameters:")
+        print(facts.parameters.to_string())
 
     _print_profile(payload["profile"])
     ref = payload.get("rel_dir") or payload["sim_id"][:8]
@@ -781,6 +694,7 @@ def _report(args: argparse.Namespace, root: Path, refs: list[str]) -> None:
         target = _target(args, root, refs[0])
     else:
         # Without a reference, the report of the most recent session of the project.
+        from hydromodpy.project.show import Target
         from hydromodpy.results.session.descriptor import resolve_session_dir
 
         try:

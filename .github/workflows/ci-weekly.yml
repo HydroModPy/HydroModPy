@@ -67,7 +67,7 @@ jobs:
       # lazily, once per xdist worker.
       - name: Install solver binaries
         shell: bash
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
+        run: python -m hydromodpy install-binaries --subset mf6,libmf6,mfnwt,mp6,mt3dusgs --quiet
 
       # Split whitebox backend out of the parallel run; the native library
       # segfaults under pytest-xdist.
@@ -76,7 +76,7 @@ jobs:
       - name: Run unit tests (parallel, without whitebox backend)
         shell: bash
         run: |
-          python -m pytest tests/unit/ \
+          python -m pytest tests/unit/ tests/processes/ \
             --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
             --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
@@ -268,6 +268,6 @@ jobs:
 
       - name: Run the stored-format tiers
         run: |
-          python -m pytest tests/unit/core tests/unit/results tests/unit/config \
+          python -m pytest tests/unit/core tests/unit/results tests/processes/results tests/unit/config \
             tests/regression/frozen_runs tests/regression/frozen_documents \
             -n auto --dist loadgroup -q

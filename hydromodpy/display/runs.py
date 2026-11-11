@@ -1,6 +1,6 @@
 """Per-run figure rendering helpers.
 
-Bridges :class:`~hydromodpy.results.run.Run` and the figure registry in
+Bridges :class:`~hydromodpy.results.run.view.Run` and the figure registry in
 :mod:`hydromodpy.display`. Saving and showing are driven by
 ``DisplayConfig`` (TOML ``[display]`` section).
 
@@ -71,7 +71,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.figure import BaseFigure, FigureSpec
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

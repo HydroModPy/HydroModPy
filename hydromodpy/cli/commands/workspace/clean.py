@@ -19,8 +19,9 @@ from hydromodpy.cli.conventions import (
     format_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_CONFIG, refuse, resolve_workspace
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_workspace
 
 NAME: str = "clean"
 HELP: str = "Trash the results of a workspace and remove its rebuildable caches"

@@ -52,12 +52,12 @@ from hydromodpy.display.maps.axes import style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
-from hydromodpy.results.derive.stream.comparison import unavailable_reason_for_comparison
+from hydromodpy.results.derive.stream_network.comparison import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 NETWORK_COLORS: dict[str, str] = {
     "observed": HIGH_CONTRAST_TRIPLET[0],

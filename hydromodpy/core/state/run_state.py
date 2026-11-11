@@ -34,7 +34,7 @@ from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.rng import RngManager
 
 if TYPE_CHECKING:
-    from hydromodpy.core.workspace import WorkspaceLayout
+    from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

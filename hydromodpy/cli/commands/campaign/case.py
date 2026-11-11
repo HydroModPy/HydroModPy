@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_USAGE, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "case"

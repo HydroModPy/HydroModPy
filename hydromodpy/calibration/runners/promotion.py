@@ -39,7 +39,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from hydromodpy.calibration.config import CalibOutputDecl, CalibrationConfig
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_outputs import CalibOutputDecl
 from hydromodpy.calibration.metrics.composite import series_at_the_stations
 from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST, dated_series
 from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members

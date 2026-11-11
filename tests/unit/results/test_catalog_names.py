@@ -10,19 +10,19 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.cli.helpers import EXIT_AMBIGUOUS_REFERENCE, EXIT_NOT_FOUND
+from hydromodpy.cli.exit_codes import EXIT_AMBIGUOUS_REFERENCE, EXIT_NOT_FOUND
 from hydromodpy.core.state.layout import RUNS_DIRNAME
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.discovery import (
     SimulationNotFoundError,
     resolve_rel_dir,
     resolve_trashed,
 )
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.registration import NameTakenError, reserve_version_dirname
 from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.attempt import (
     RunClaim,
     claim_run_directory,

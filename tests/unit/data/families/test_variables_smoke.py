@@ -27,30 +27,36 @@ from hydromodpy.data.variables.dem.config import (
     FileDemSource,
     IgnGeoplateformeDemSource,
 )
-from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-from hydromodpy.data.variables.etp.variable import EtpVariable
-from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
-from hydromodpy.data.variables.humidity.variable import HumidityVariable
-from hydromodpy.data.variables.precipitation.config import (
+from hydromodpy.data.variables.forcing_series import (
+    EtpConfig,
+    EtpSourceConfig,
+    EtpVariable,
     PrecipitationConfig,
     PrecipitationSourceConfig,
+    PrecipitationVariable,
+    RadiationConfig,
+    RadiationSourceConfig,
+    RadiationVariable,
 )
-from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
-from hydromodpy.data.variables.radiation.config import RadiationConfig, RadiationSourceConfig
-from hydromodpy.data.variables.radiation.variable import RadiationVariable
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.recharge.variable import RechargeVariable
-from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
-from hydromodpy.data.variables.runoff.variable import RunoffVariable
-from hydromodpy.data.variables.soil_moisture.config import (
+from hydromodpy.data.variables.sim2_series import (
+    HumidityConfig,
+    HumiditySourceConfig,
+    HumidityVariable,
+    RunoffConfig,
+    RunoffSourceConfig,
+    RunoffVariable,
     SoilMoistureConfig,
     SoilMoistureSourceConfig,
+    SoilMoistureVariable,
+    TemperatureConfig,
+    TemperatureSourceConfig,
+    TemperatureVariable,
+    WindConfig,
+    WindSourceConfig,
+    WindVariable,
 )
-from hydromodpy.data.variables.soil_moisture.variable import SoilMoistureVariable
-from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
-from hydromodpy.data.variables.temperature.variable import TemperatureVariable
-from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
-from hydromodpy.data.variables.wind.variable import WindVariable
 
 # ── Shared helpers ────────────────────────────────────────────────────
 

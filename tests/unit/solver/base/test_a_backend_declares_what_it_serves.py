@@ -23,7 +23,7 @@ LAKES = {"lakes": {"cheze": {"bedleak": 1e-6, "initial_stage": "10 m"}}}
 
 
 def _config(tmp_path, backend: str, **flow: object):
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.mesh.mesh_config import MeshConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
 

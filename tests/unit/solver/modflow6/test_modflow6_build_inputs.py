@@ -42,12 +42,6 @@ def test_a_model_without_a_dem_grid_is_refused_by_name() -> None:
 
     with pytest.raises(ValueError, match=r"Model\.geometry\.raster"):
         build.select_active_dem(model, box=True)
-    with pytest.raises(ValueError, match=r"Model\.geometry\.raster"):
-        build.ensure_solver_routing_context(
-            SimpleNamespace(
-                inputs=model.inputs, routing_ctx=None, grid_ctx=object(), full_path=".", sink=None
-            )
-        )
 
 
 VALIDATION_CASES = (

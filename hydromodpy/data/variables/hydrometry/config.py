@@ -9,7 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.tracking import InputFile
+from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.families.base_config import BaseVariableConfig
 from hydromodpy.data.families.timeseries_config import (
     SparseStationFallbackMixin,

@@ -39,6 +39,81 @@ class Shown:
     gives: str
 
 
+@dataclass(frozen=True, slots=True)
+class Target:
+    """What a reference names: the directory, and whether it is a run, a session or the project."""
+
+    directory: Path
+    kind: str
+
+
+def _as_path(ref: str) -> str:
+    """Return a reference that is a folder written with a slash as an absolute path."""
+    given = Path(ref).expanduser()
+    return str(given.resolve()) if "/" in ref and given.is_dir() else ref
+
+
+def _project_named(workspace: str | None, ref: str) -> Path | None:
+    """Return ``projects/<ref>`` of the workspace, when *ref* names one."""
+    from hydromodpy.core.state.layout import PROJECTS_DIRNAME
+    from hydromodpy.core.workspace.resolve import find_workspace
+
+    if "/" in ref:
+        return None
+    found = find_workspace(workspace)
+    if found is None:
+        return None
+    candidate = found / PROJECTS_DIRNAME / ref
+    return candidate if candidate.is_dir() else None
+
+
+def _is_a_project(directory: Path) -> bool:
+    from hydromodpy.core.state.layout import RUNS_DIRNAME, SESSIONS_DIRNAME, is_project_root
+
+    return (
+        is_project_root(directory)
+        or (directory / RUNS_DIRNAME).is_dir()
+        or (directory / SESSIONS_DIRNAME).is_dir()
+    )
+
+
+def show_target(
+    ref: str, root: Path, workspace: str | None = None, *, session_first: bool = False
+) -> Target:
+    """Return what *ref* names, read from the directories of the project *root*, never from the index.
+
+    A bare name that is no run and no session may be a project under ``projects/``
+    of the workspace *workspace* names (the ``-w`` of a command). With
+    ``session_first``, a bare name that a session and a run both carry is the
+    session. Raises what :func:`hydromodpy.project.api.status` raises when the
+    reference names nothing.
+    """
+    from hydromodpy.core.exceptions import ConfigMissingError, HydroModPyError
+    from hydromodpy.project.api import status
+
+    if session_first and "/" not in ref and not ref.startswith("@"):
+        from hydromodpy.results.session.descriptor import resolve_session_dir
+
+        try:
+            return Target(resolve_session_dir(root, ref), "session")
+        except ConfigMissingError:
+            pass
+    try:
+        found = status(_as_path(ref), workspace=root)
+    except (HydroModPyError, FileNotFoundError):
+        named = _project_named(workspace, ref)
+        if named is not None:
+            return Target(named, "project")
+        raise
+    if isinstance(found, list):
+        directory = Path(_as_path(ref)).expanduser().resolve()
+        if _is_a_project(directory):
+            return Target(directory, "project")
+        # A run copied out of its project sits in no project: it is its own folder.
+        return Target(directory, "run")
+    return Target(found.run_dir, found.kind)
+
+
 def kind_of(subject: object) -> str:
     """Return what *subject* is for :data:`SHOWN`: run, session, set, project or its type."""
     from hydromodpy.project.facade import Project

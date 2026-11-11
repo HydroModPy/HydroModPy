@@ -13,16 +13,16 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.site import GaugeConflictError, SiteConfig
-from hydromodpy.data import DataManagersConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.site.config import GaugeConflictError, SiteConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.sites.gauge import apply_site_gauge, gauge_of_run
 
 NANCON = SiteConfig(name="nancon", gauge="NANCON")
 
 
-def _data(**sources: list[dict]) -> DataManagersConfig:
-    return DataManagersConfig.model_validate(
+def _data(**sources: list[dict]) -> DataConfig:
+    return DataConfig.model_validate(
         {variable: {"sources": entries} for variable, entries in sources.items()}
     )
 

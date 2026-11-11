@@ -152,7 +152,7 @@ def collect_project(
     hydromodpy.results.run.sealed.MixedWindowsError
         For scores under different rules, without ``mixed_windows``.
     """
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.catalog.indexer import index_new_runs
 
     root = Path(project_root).expanduser().resolve()

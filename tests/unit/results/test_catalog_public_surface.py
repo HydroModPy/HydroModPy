@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 
 # Ceiling, not an exact count: the surface may shrink freely but a rising number
 # means new methods were stapled onto the reader instead of living elsewhere.

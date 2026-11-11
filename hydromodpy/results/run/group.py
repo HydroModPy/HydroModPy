@@ -26,8 +26,8 @@ Public API
 
 Cross-refs
 ----------
-- ``hydromodpy.results.catalog.Catalog`` is the upstream owner.
-- ``hydromodpy.results.run.Run`` is the unit element of the group.
+- ``hydromodpy.results.catalog.facade.Catalog`` is the upstream owner.
+- ``hydromodpy.results.run.view.Run`` is the unit element of the group.
 - ``to_xarray`` opens each per-sim Zarr lazily (dask-backed concat).
 """
 
@@ -54,9 +54,8 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.run import Run
-    from hydromodpy.results.run.view import Renderer
+    from hydromodpy.results.catalog.facade import Catalog
+    from hydromodpy.results.run.view import Renderer, Run
 
 
 RUNSET_SHOWS: Final[tuple[str, ...]] = ("table", "figure")
@@ -156,9 +155,9 @@ class RunSet:
 
     See Also
     --------
-    hydromodpy.results.run.Run
+    hydromodpy.results.run.view.Run
         Per-simulation view yielded during iteration.
-    hydromodpy.results.catalog.Catalog
+    hydromodpy.results.catalog.facade.Catalog
         Catalog that creates simulation groups.
     """
 
@@ -201,13 +200,13 @@ class RunSet:
         return len(self._sim_ids)
 
     def __iter__(self):
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         for sid in self._sim_ids:
             yield Run(sid, self._catalog)
 
     def __getitem__(self, index: int) -> Run:
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         return Run(self._sim_ids[index], self._catalog)
 
@@ -262,7 +261,7 @@ class RunSet:
         cached = self._score_rows.get(sim_id)
         if cached is not None:
             return cached
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         run = Run(sim_id, self._catalog)
         row: dict[str, Any] = dict.fromkeys(RULE_COLUMNS)
@@ -370,7 +369,7 @@ class RunSet:
 
     def _extreme(self, metric: str, *, best: bool, mixed_windows: bool) -> Run:
         """Return the run holding the best or worst value of ``metric``."""
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationNotFoundError
-from hydromodpy.results.run import Run
+from hydromodpy.results.catalog.discovery import SimulationNotFoundError
+from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import runs, score, write_plain_metric
 from tests._helpers.sealed_runs import write_attempt
 

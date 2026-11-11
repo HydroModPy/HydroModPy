@@ -27,7 +27,7 @@ from hydromodpy.display.style import place_legend
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def top_active_values(sim: Run, values: np.ndarray) -> np.ndarray:

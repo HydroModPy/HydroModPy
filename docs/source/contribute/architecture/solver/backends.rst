@@ -54,7 +54,7 @@ once by ``prepare_solver`` in SI units and handed to the adapter by the runner, 
 the validated options of ``[solver.<name>]`` and a ``RunSlot``. A backend does not read
 the ``Flow``, the configuration or the geographic object, it does not change the
 ``Model``, and it never opens the Zarr store of a prior run. The contract is the README
-of ``solver/base``, and ``tests/unit/architecture/test_backends_read_the_model.py`` holds
+of ``solver/base``, and ``tests/unit/architecture/test_run_path.py`` holds
 it. The auxiliary solves of the starting head are variants of the ``Model``
 (``steady_variant``, ``cycle_variant``). Each runs in a slot of its own, which has the
 folder and the binaries of the run, and each backend builds them from the top.
@@ -71,7 +71,7 @@ A start from a steady or a cyclic solve, a change that turns XT3D on or off, and
 of the drain cells still build.
 
 Backend adapters stay thin. The shared lifecycle is in
-``solver/modflow_common/flow_adapter_helpers.py``: ``build_flow_model`` and
+``solver/modflow_common/flow_run.py``: ``build_flow_model`` and
 ``run_flow_model`` are the two halves of the build and the solve, and
 ``resolve_solver_run_output`` finds the folder a solver wrote in. The rest of
 ``solver/modflow_common/`` centralizes temporal discretization units, routing helpers,
@@ -82,7 +82,7 @@ each other. No gate checks that independence: the import scanner of
 
 The shortest reading path for one flow run is the one of
 :doc:`../simulation/toml-to-solver-walkthrough`, then the adapter of the backend, then
-``flow_adapter_helpers.py``, then the model class of the table above. Configuration is
+``flow_run.py``, then the model class of the table above. Configuration is
 validated by ``modflow6_config.py`` (``[solver.modflow6.*]``) and ``nwt/nwt_config.py``
 (``[solver.modflow_nwt.*]``). MODFLOW 6 reads the output back through
 ``solver/modflow6/extractors/``, and resolves HydroModPy properties into
@@ -149,7 +149,7 @@ Required invariants:
 - ``nper > 0``
 - ``itmuni`` and ``time_units`` denote the same unit
 
-Launcher runs are built in ``hydromodpy.core.time.SIMULATION_TIME_UNIT``, that
+Launcher runs are built in ``hydromodpy.core.time.window.SIMULATION_TIME_UNIT``, that
 is SI seconds: ``ResolvedSimulationTimeGrid`` carries period lengths in
 seconds, so declaring anything else would rescale every extracted flux. Both
 backends take the declaration from this single field rather than restating it,

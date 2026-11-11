@@ -73,9 +73,9 @@ itself included: `core`, `schema`, `catchment`, `mesh`, `model`, `data`,
    `runner.py` imports `dag`, `parallel`, `state`, `step` and `record`. `record/`
    imports `state` and `step` and never `steps`. `replay_checks.py` imports
    `steps.prepare_solver.resolved`, which is why it is not in `record/`.
-3. A step's `reads` and `writes` are exact. `tests/unit/architecture/test_step_payload_keys.py`
+3. A step's `reads` and `writes` are exact. `tests/unit/architecture/test_run_path.py`
    derives both from the source of the step and fails when a declaration and the
-   code disagree in either direction. `test_workflow_context_members_have_a_reader.py`
+   code disagree in either direction. `test_run_path.py`
    requires every member of `WorkflowContext` to have a reader.
 4. `Step` is a runtime-checkable Protocol of `name` and `run`. `reads`, `writes`
    and `config_sections` are class variables of each step, and

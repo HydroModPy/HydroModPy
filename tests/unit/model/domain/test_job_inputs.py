@@ -8,12 +8,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
 from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.model.domain import job_inputs
 from hydromodpy.model.domain.capability import DOMAIN_BUILD
-from hydromodpy.schema.job import JobDirectory
+from hydromodpy.schema.job.directory import JobDirectory
 
 pytestmark = pytest.mark.fast
 

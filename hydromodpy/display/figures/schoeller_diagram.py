@@ -12,7 +12,7 @@ from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_sampl
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 _IONS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")

@@ -19,7 +19,7 @@ allowed:
   variables:  [contracts, schemas, source, common, ingest, provenance, families]
   sites:      [variables, source]
   loading:    [contracts, schemas, source, common, ingest, provenance, families, variables]
-  workspace:  [schemas, common, ingest, provenance]
+  workspace:  [schemas, common, ingest, provenance, loading]
   request:    [contracts, schemas, source, common, ingest, provenance, families, variables, loading, workspace]
   "<init>":   [loading, request]
 
@@ -33,8 +33,8 @@ text_paths:
 # Rule 2: what another layer of hydromodpy may import from hydromodpy/data.
 # A pattern ending in ".*" names a package and every module under it; a "*"
 # anywhere else stands for exactly one name. Everything else is private to
-# hydromodpy/data: families, common, schemas, and the inside of loading and of
-# the variables.
+# hydromodpy/data: families, common, schemas, the registry and the store of loading, and
+# the inside of the variables.
 public:
   - hydromodpy.data
   - hydromodpy.data.contracts.*
@@ -46,6 +46,10 @@ public:
   - hydromodpy.data.sites.*
   - hydromodpy.data.variables.*.config
   - hydromodpy.data.variables.*.variable
+  - hydromodpy.data.variables.sim2_series
+  - hydromodpy.data.variables.forcing_series
+  - hydromodpy.data.variables.lake_series
+  - hydromodpy.data.variables.user_rasters
   - hydromodpy.data.variables.dem.resolver
   - hydromodpy.data.variables.hydrography.resolver
   - hydromodpy.data.variables.crossings.resolver
@@ -53,3 +57,7 @@ public:
   - hydromodpy.data.variables.geology.io
   - hydromodpy.data.variables.*.read
   - hydromodpy.data.loading.inputs
+  - hydromodpy.data.loading.config_schema
+  - hydromodpy.data.loading.loader
+  - hydromodpy.data.loading.plan
+  - hydromodpy.data.loading.planner

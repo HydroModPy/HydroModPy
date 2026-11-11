@@ -13,7 +13,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from hydromodpy.calibration.runners import materialize as materialize_module
 from hydromodpy.calibration.runners.materialize import materialize_candidate, write_overlay_toml
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
 # From test_materialize_candidate.py

@@ -21,7 +21,6 @@ This file is the map of the package. Each folder has its own `README.md`, except
 | `supports.py` | The closed set of names a solver backend lists in `supports`: the boundaries, the fields of `ModelOptions`, the initial states a TOML can choose, the sinks and sources, the soil reservoir, the K tensor and the layering. Each name is read from the module that owns it |
 | `initial_config.py` | `[flow.ic]` and `[spinup]`: the payloads of the starting head and the readers of its strategies |
 | `payloads.py` | The generic initial-condition, boundary-condition and sink/source models, and their normalizers |
-| `process_spatial.py` | `ProcessSpatial`, the runtime parent of `Flow` and `Transport` |
 
 | folder | answers |
 |---|---|
@@ -44,10 +43,9 @@ itself. Two more rules hold in the code.
    and `FieldRecordProto` of `contracts.py`, and it builds its field parameters with the `FieldParam`
    of `properties/field_param.py`.
 2. Inside the package, `boundaries/` reads `contracts`, `forcing`, `payloads` and `sinks_sources`, and
-   reads `flow.py` for annotations only. `sinks_sources/` reads `forcing`. `forcing/` and
-   `process_spatial.py` read `contracts`, and `forcing/soil_*.py` read `soil/kernel.py`. `process_spatial.py`
-   reads `payloads`. `domain/` reads `properties/`, `properties/` reads `time/`, and `transport/` reads
-   `process_spatial.py`. `flow_config.py`, `flow.py`, `initial_config.py` and `model.py` read the folders.
+   reads `flow.py` for annotations only. `sinks_sources/` reads `forcing`. `forcing/` reads
+   `contracts`, and `forcing/soil_*.py` read `soil/kernel.py`. `flow.py` reads `payloads`. `domain/` reads
+   `properties/` and `properties/` reads `time/`. `flow_config.py`, `flow.py`, `initial_config.py` and `model.py` read the folders.
    The only cycle is the annotation of `Flow` in `boundaries/`, which stays under `TYPE_CHECKING`.
 3. `soil/` and `initial/` follow rule 6. A module there imports the standard library, numpy and at most one
    neighbour of its folder, and `tests/unit/architecture/test_science_module_imports.py` holds it.
@@ -60,8 +58,8 @@ Who imports the model: `solver` (most of it), `workflow`, `calibration`, `config
 1. Read. `HydroModPyConfig.from_toml` hands the `[flow]` table to `FlowConfig.from_toml_section` in
    `flow_config.py`. It canonicalizes the boundary ids, resolves the forcing paths and validates the table
    into a `FlowConfig`.
-2. Build. `Flow(config=cfg.flow)` runs `set_config`. It fills `parameters` (`FieldParam` objects, through
-   `process_spatial.py`), `initial_conditions`, `boundary_conditions` and `sinks_sources`. Well
+2. Build. `Flow(config=cfg.flow)` runs `set_config`. It fills `parameters` (`FieldParam` objects),
+   `initial_conditions`, `boundary_conditions` and `sinks_sources`. Well
    fluxes and recharge are converted to SI there. `ensure_flow` in `workflow/steps/data.py` builds it at
    setup.
 3. Bind data. After the data step, `workflow/steps/data.py` calls the `apply_*_to_flow` functions of
@@ -93,6 +91,6 @@ A soil reservoir (`[flow.sinks_sources.recharge.soil]`) is read by the recharge 
 | a way to bring loaded data into a `Flow` | an `apply_*_to_flow` function in the module of `boundaries/` it belongs to, called from `workflow/steps/data.py` |
 | an initial-condition type | a model in `initial_config.py`, added to `_IC_VARIANTS` and to the union, and a state in `initial/state.py` |
 | a field the solvers read | a member of `Model` in `model.py`, filled by `model_from_flow` |
-| a new process | a subpackage that subclasses `ProcessSpatial`, with a config on `HydroModelBase`, see `docs/source/contribute/architecture/how-to/add-a-process.rst` |
+| a new process | a subpackage with its own runtime class and a config on `HydroModelBase`, as `flow.py` and `flow_config.py` do, see `docs/source/contribute/architecture/how-to/add-a-process.rst` |
 | a depth model or a support kind | `domain/`, see its README |
 | a soil-reservoir option | a field on `SoilReservoirConfig` (`forcing/soil_config.py`), its bound in `_RANGE_RULES`, its use in `soil/kernel.py` or `forcing/soil_forcing.py` |

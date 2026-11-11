@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_SCHEMA_MISMATCH, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_SCHEMA_MISMATCH, exit_code_for
 from hydromodpy.core.exceptions import CapabilityVersionMismatchError, ConfigValidationError
 from hydromodpy.schema.capability import CapabilityDecl
-from hydromodpy.schema.job import JobDirectory
+from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.request import (
     check_process,
     content_address,

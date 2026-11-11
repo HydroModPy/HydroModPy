@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import csv
 import re
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -25,11 +24,9 @@ from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
-from hydromodpy.data.schemas import (
-    StationCollectionSchema,
-    validate_abacus,
-    validate_warn_only,
-)
+from hydromodpy.data.schemas.abacus import validate_abacus
+from hydromodpy.data.schemas.stations import StationCollectionSchema
+from hydromodpy.data.schemas.validation import validate_warn_only
 
 _WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 
@@ -370,26 +367,3 @@ def convert_locations_csv_to_geoparquet(
         raise
     os.replace(tmp_io, native_io_path(dest))
     return dest
-
-
-def iter_chronicle_files(data_dir: Path, prefix: str) -> Iterable[Path]:
-    """Yield custom chronicle CSV paths in ``data_dir`` (flat).
-
-    Matches ``<prefix>_custom_*.csv`` directly in the variable folder,
-    excluding the ``_LOC`` location file, EXAMPLE templates shipped by
-    ``hmp workspace init``, and files starting with ``_``.
-    """
-    from hydromodpy.data.common.io_helpers import is_scaffold_example
-
-    data_dir = Path(data_dir)
-    if not data_dir.is_dir():
-        return []
-    loc_name = f"{prefix}_custom_LOC.csv"
-    out: list[Path] = []
-    for p in sorted(data_dir.glob(f"{prefix}_custom_*.csv")):
-        if not p.is_file() or p.name.startswith("_"):
-            continue
-        if p.name == loc_name or is_scaffold_example(p):
-            continue
-        out.append(p)
-    return out

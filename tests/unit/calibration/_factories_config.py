@@ -11,7 +11,7 @@ import textwrap
 from pathlib import Path
 
 from hydromodpy.calibration.preflight import preflight_calibration
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig

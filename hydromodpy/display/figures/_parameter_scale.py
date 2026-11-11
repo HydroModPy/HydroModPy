@@ -20,7 +20,7 @@ from hydromodpy.results import field_registry
 if TYPE_CHECKING:
     from matplotlib.colors import Normalize
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 CONDUCTIVITY_FIELDS = (
     "hydraulic_conductivity",

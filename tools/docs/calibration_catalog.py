@@ -175,7 +175,7 @@ def metrics() -> list[dict[str, Any]]:
 
 def _normalisation(metric: str) -> str:
     """What ``normalize_cost = true`` divides this metric by, or why it is refused."""
-    from hydromodpy.calibration.criteria import criterion_for
+    from hydromodpy.calibration.criteria.registry import criterion_for
     from hydromodpy.calibration.optim.objective import (
         refuse_a_normalisation_that_means_nothing,
         scores_network_distances,

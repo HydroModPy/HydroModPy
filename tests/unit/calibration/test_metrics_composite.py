@@ -10,13 +10,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    CalibPhaseDecl,
-    CalibrationConfig,
-    validate_calib_output,
-    window_bounds,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_outputs import validate_calib_output
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
+from hydromodpy.calibration.config_terms import window_bounds
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.composite import (
@@ -36,7 +34,7 @@ from hydromodpy.calibration.metrics.observed_pairing import (
 )
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.calibration.runners import promotion
 from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult

@@ -66,6 +66,7 @@ import dataclasses
 import io
 import json
 import os
+import shlex
 import shutil
 import tarfile
 import tomllib
@@ -82,7 +83,7 @@ from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
+from hydromodpy.core.payload.index import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
 from hydromodpy.core.state.host import host_name
 from hydromodpy.core.state.layout import (
@@ -523,6 +524,33 @@ def _publish_one(
 def _source_rel_dir(source_dir: Path, manifest: Any) -> str:
     """Return ``source.rel_dir`` of a copy: ``summary`` or ``runs/<run>``."""
     return SUMMARY_DIRNAME if manifest is None else run_dir_rel(source_dir.name)
+
+
+def campaign_members(folder: Path) -> tuple[list[Path], list[str]]:
+    """Return the copies a campaign folder holds, and the names of its other entries."""
+    members: list[Path] = []
+    strays: list[str] = []
+    for entry in sorted(folder.iterdir()):
+        if (entry.is_dir() and (entry / PUBLICATION_FILENAME).is_file()) or (
+            entry.is_file() and tarfile.is_tarfile(entry)
+        ):
+            members.append(entry)
+        else:
+            strays.append(entry.name)
+    return members, strays
+
+
+def replay_line(source: Path, copy: Path, project_root: Path) -> tuple[str, str] | None:
+    """Return the line that replays a copy and the version the run was sealed with.
+
+    A copy of a run with its inputs replays from its own bytes by ``hmp
+    replay``. A summary, or a run without a frozen configuration, has no such line.
+    """
+    seal = read_sealed_manifest(source)
+    if seal is None or not (source / RUN_CONFIG_FILENAME).is_file():
+        return None
+    line = f"hmp replay {shlex.quote(str(copy.resolve()))} -w {shlex.quote(str(project_root))}"
+    return line, seal.identity.hydromodpy_version
 
 
 def verify(copy: str | Path) -> list[str]:
@@ -971,8 +999,10 @@ __all__ = [
     "InputsOf",
     "MissingInputError",
     "RUN_COPY_ENTRIES",
+    "campaign_members",
     "project_members",
     "publish",
     "publish_project",
+    "replay_line",
     "verify",
 ]

@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.results import field_registry
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 N_CELLS = 12
 N_LAYERS = 3

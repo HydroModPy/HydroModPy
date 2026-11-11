@@ -247,6 +247,8 @@ source = [
     "hydromodpy.cli",
 ]
 parallel = true
+# Measure every Python child a test starts: scenario, pool worker, server.
+patch = ["subprocess"]
 omit = [
     "examples/*",
     "validation_cases/*",
@@ -306,7 +308,7 @@ ignore = [
 # of another. The rest of the repository is not held to it yet.
 "!hydromodpy/{data,display}/**" = ["SLF001"]
 # Package __init__ files commonly re-export symbols and set up paths.
-"__init__.py" = ["F401", "E402", "TID251"]
+"__init__.py" = ["E402", "TID251"]
 # Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
 "hydromodpy/core/logging.py" = ["TID251"]
 # core/console/progress is imported by core/logging (console handler); importing

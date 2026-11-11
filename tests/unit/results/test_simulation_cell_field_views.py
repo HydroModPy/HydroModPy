@@ -9,7 +9,7 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
 from hydromodpy.results.derive import views
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import runs
 
 __all__ = ["runs"]
@@ -269,60 +269,3 @@ class TestSimulationCellFieldViews:
         assert metrics["bidirectional_distance_absolute_difference_m"] == pytest.approx(0.25)
         assert metrics["planar_distance_ratio"] is None
         assert metrics["planar_distance_log10_ratio"] is None
-
-    def test_release_flux_network_overlap_metrics_use_release_flux(
-        self,
-        runs,
-    ):
-        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_release_flux_case(runs, sid, write_plot_mesh=True)
-        reference = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
-            crs="EPSG:2154",
-        )
-        runs.store(sid).write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
-        )
-
-        sim = Run(sid, runs.reader())
-        metrics = views.release_flux_network_overlap_metrics(
-            sim,
-            threshold=0.5,
-            mode="persistent",
-            persistence_threshold=0.5,
-        )
-
-        assert metrics["source_variable"] == "release_flux"
-        assert metrics["active_cell_count"] == 1
-        assert metrics["network_cell_count"] == 2
-        assert metrics["overlap_cell_count"] == 1
-        assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
-
-    def test_release_flux_network_distance_metrics_have_no_buffer_parameter(
-        self,
-        runs,
-    ):
-        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_release_flux_case(runs, sid, write_plot_mesh=True)
-        reference = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
-            crs="EPSG:2154",
-        )
-        runs.store(sid).write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
-        )
-
-        sim = Run(sid, runs.reader())
-        metrics = views.release_flux_network_distance_metrics(
-            sim,
-            threshold=0.5,
-            mode="persistent",
-            persistence_threshold=0.5,
-        )
-
-        assert metrics["source_variable"] == "release_flux"
-        assert metrics["network_buffer_m"] == 0.0
-        assert metrics["active_cell_count"] == 1
-        assert metrics["sim_to_network_distance_mean_m"] == pytest.approx(0.0)

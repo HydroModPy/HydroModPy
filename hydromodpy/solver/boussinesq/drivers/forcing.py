@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 
+if TYPE_CHECKING:
+    from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
+
 logger = get_logger(__name__)
-
-
-class BoussinesqForcingSolver(Protocol):
-    """Minimal solver contract required to build one forcing resolver."""
-
-    def _forcing_resolver(self) -> BoussinesqForcingResolver: ...
 
 
 @dataclass(frozen=True)
@@ -34,13 +31,13 @@ class ResolvedRuntimeForcing:
     drainage_conductance_series_m2_s: np.ndarray
 
 
-def _forcing_resolver_for(solver: BoussinesqForcingSolver) -> BoussinesqForcingResolver:
+def _forcing_resolver_for(solver: Boussinesq) -> BoussinesqForcingResolver:
     """Build one forcing resolver from the current solver state."""
     return solver._forcing_resolver()
 
 
 def resolve_runtime_forcing_by_period(
-    solver: BoussinesqForcingSolver,
+    solver: Boussinesq,
     *,
     nper: int,
 ) -> ResolvedRuntimeForcing:

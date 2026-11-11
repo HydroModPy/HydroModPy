@@ -17,7 +17,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
-from hydromodpy.core.time import (
+from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
 )
@@ -71,7 +71,7 @@ from hydromodpy.workflow.steps.data_description import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.data import DataLoadPlan
+    from hydromodpy.data.loading.plan import DataLoadPlan
 
 logger = get_logger(__name__)
 
@@ -87,7 +87,7 @@ def _log_soil_budget(lines: tuple[str, ...]) -> None:
 
 def _build_data_runtime_loader(*args, **kwargs):
     """Import runtime loader lazily to avoid importing the full data stack at module import."""
-    from hydromodpy.data import DataLoader
+    from hydromodpy.data.loading.loader import DataLoader
 
     return DataLoader(*args, **kwargs)
 

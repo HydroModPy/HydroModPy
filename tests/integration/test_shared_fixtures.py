@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project
 

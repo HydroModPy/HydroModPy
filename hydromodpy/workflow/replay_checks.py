@@ -70,7 +70,7 @@ def sealed_run_of(config_path: Path) -> Path | None:
     return None
 
 
-USER_PROVIDERS = frozenset({"file", "url"})
+REPLAYED_FILE_PROVIDERS = frozenset({"file", "url"})
 """The providers of ``inputs.json`` whose bytes the request id already holds."""
 
 USER_FILE_PROVIDERS = frozenset({USER_FILE_SOURCE, "custom"})
@@ -94,7 +94,7 @@ def api_inputs_intact(run_dir: Path, project_root: Path) -> bool:
     root = Path(project_root).resolve()
     workspace = locate_workspace_root(root) or root
     for entry in document.inputs:
-        if entry.provider in USER_PROVIDERS or not entry.path or not entry.sha256:
+        if entry.provider in REPLAYED_FILE_PROVIDERS or not entry.path or not entry.sha256:
             continue
         if sealed_in_run(entry):
             continue

@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-import numpy as np
-import rasterio
-
 from hydromodpy.core.exceptions import ConfigError, ExtractError
-from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
@@ -77,38 +72,6 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunSto
 # ---------------------------------------------------------------------------
 # Modpath ingestion helper
 # ---------------------------------------------------------------------------
-
-
-def restore_seepage_raster_from_store(
-    run_dir: str | Path,
-    base_raster_path: str | Path,
-    seepage_tif_path: str | Path,
-) -> bool:
-    """Rebuild the seepage GeoTIFF from the store of the run in *run_dir*.
-
-    Returns ``True`` when the raster has been written, ``False`` otherwise.
-    """
-    base_raster = Path(base_raster_path)
-    if not base_raster.is_file():
-        return False
-
-    seepage_tif = Path(seepage_tif_path)
-    try:
-        with RunStore.open(run_dir) as store:
-            arr = store.query_field(store.sim_id, "seepage_mask", 0)
-
-        seepage_flat = np.asarray(arr, dtype=float).ravel()
-        with rasterio.open(base_raster) as src:
-            seepage_array = seepage_flat.reshape(src.height, src.width)
-
-        os.makedirs(seepage_tif.parent, exist_ok=True)
-        export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
-    except Exception as exc:
-        # The raster is an optional product: any failure means it is not rebuilt.
-        logger.debug("Failed to rebuild seepage from the run store: %s", exc)
-        return False
-
-    return seepage_tif.is_file()
 
 
 # ---------------------------------------------------------------------------

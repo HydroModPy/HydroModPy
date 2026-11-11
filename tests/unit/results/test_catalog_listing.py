@@ -10,15 +10,17 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
-from hydromodpy.results.catalog import rebuild_index
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import (
     NO_PROFILE_TEXT,
     SEALED_SOLVE_METRIC,
     diff_simulations,
+    list_runs,
     list_simulations,
     profile_of_run,
     query_catalog,
     show_simulation,
+    simulation_facts,
     solve_seconds,
 )
 from hydromodpy.results.publication import PublishedLine, append_published
@@ -312,3 +314,62 @@ def test_the_solve_time_is_the_first_solve_line_of_the_last_attempt_that_solved(
 def test_the_solve_time_of_a_folder_without_a_profile_is_none(tmp_path: Path) -> None:
     assert solve_seconds(tmp_path) is None
     assert profile_of_run(tmp_path)["present"] is False
+
+
+def test_the_facts_of_a_run_hold_its_tags_notes_metrics_and_parameters(tmp_path: Path) -> None:
+    from hydromodpy.results.annotations import add_note
+    from hydromodpy.results.catalog.facade import Catalog
+
+    _workspace, project, sim_id = _seed_workspace(tmp_path)
+    add_note(project / "runs" / "baseline", "first")
+    add_note(project / "runs" / "baseline", "second")
+    rebuild_index(project)
+
+    with Catalog(project) as catalog:
+        facts = simulation_facts(catalog, sim_id)
+        bare = simulation_facts(catalog, catalog.resolve("variant"))
+
+    assert facts.tags == ["pinned"]
+    assert facts.notes == ["first", "second"]
+    assert not facts.metrics.empty
+    assert bare.tags == [] and bare.notes == []
+    assert "K" in set(bare.parameters.reset_index().astype(str).to_numpy().ravel())
+
+
+def test_the_runs_of_a_workspace_carry_the_facts_of_their_seal(tmp_path: Path) -> None:
+    workspace, _project, _sim_id = _seed_workspace(tmp_path)
+
+    frame, reasons = list_runs(workspace)
+
+    assert set(frame["name"]) == {"baseline", "variant"}
+    assert reasons == []
+    assert {"overrides", "score_station", "metric_rule_version"} <= set(frame.columns)
+
+
+def test_no_run_gives_an_empty_frame_and_no_reason(tmp_path: Path) -> None:
+    workspace, _project, _sim_id = _seed_workspace(tmp_path)
+
+    frame, reasons = list_runs(workspace, site="nowhere", best="nse")
+
+    assert frame.empty
+    assert reasons == []
+
+
+def test_limit_counts_the_ranked_rows_when_best_is_asked(tmp_path: Path) -> None:
+    workspace, _project, _sim_id = _seed_workspace(tmp_path)
+
+    unranked, _ = list_runs(workspace, limit=1)
+    ranked, reasons = list_runs(workspace, best="nse", limit=1)
+
+    assert len(unranked) == 1
+    assert len(ranked) <= 1
+    assert isinstance(reasons, list)
+
+
+def test_an_unknown_metric_is_refused_by_name(tmp_path: Path) -> None:
+    from hydromodpy.results.catalog.constants import UnrankedMetricError
+
+    workspace, _project, _sim_id = _seed_workspace(tmp_path)
+
+    with pytest.raises(UnrankedMetricError):
+        list_runs(workspace, best="no_such_metric")

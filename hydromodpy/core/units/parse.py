@@ -3,7 +3,7 @@
 The normalizers that live alongside flow configs receive raw user input such as
 ``12.5``, ``"12.5 m"`` or ``"12.5"`` paired with an explicit ``unit=`` field.
 This module converts them into a canonical magnitude using the shared
-:data:`hydromodpy.core.units.UREG`, so that call sites stop depending on the
+:data:`hydromodpy.core.units.registry.UREG`, so that call sites stop depending on the
 per-quantity factor tables (``parse_to_m`` / ``parse_to_m2_per_s`` / ...).
 """
 

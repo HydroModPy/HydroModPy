@@ -1,7 +1,7 @@
-"""Config validation tests for the hydrography variable manager.
+"""Config validation tests for the hydrography variable.
 
 Covers HydrographySourceConfig / HydrographyConfig validation, Profile
-annotations, DataManagersConfig integration, TOML acceptance, documented
+annotations, DataConfig integration, TOML acceptance, documented
 public surface, and the force_refresh field.
 """
 
@@ -186,22 +186,22 @@ class TestHydrographyConfigContainer:
 
 
 # =====================================================================
-# 4. DataManagersConfig integration
+# 4. DataConfig integration
 # =====================================================================
 
 
 @pytest.mark.fast
-class TestDataManagersConfigIntegration:
+class TestDataConfigIntegration:
     def test_hydrography_field_is_typed(self):
-        """The hydrography field on DataManagersConfig should be HydrographyConfig."""
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        """The hydrography field on DataConfig should be HydrographyConfig."""
+        from hydromodpy.data.loading.config_schema import DataConfig
 
-        info = DataManagersConfig.model_fields["hydrography"]
+        info = DataConfig.model_fields["hydrography"]
         # The annotation is Annotated[HydrographyConfig | None, ...]
         assert "HydrographyConfig" in str(info.annotation)
 
     def test_model_validate_with_hydrography(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         payload = {
             "types": ["hydrography"],
@@ -209,7 +209,7 @@ class TestDataManagersConfigIntegration:
                 "sources": [{"source": "bdtopage"}],
             },
         }
-        cfg = DataManagersConfig.model_validate(payload)
+        cfg = DataConfig.model_validate(payload)
         assert cfg.hydrography is not None
         assert isinstance(cfg.hydrography, HydrographyConfig)
         assert cfg.hydrography.sources[0].source == "bdtopage"
@@ -218,7 +218,7 @@ class TestDataManagersConfigIntegration:
         """Relative paths in nested source configs are kept as-is by the
         top-level resolver (only top-level Path fields are resolved).
         The Pydantic model still accepts the relative string."""
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
@@ -228,42 +228,42 @@ class TestDataManagersConfigIntegration:
                 ],
             },
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
         assert cfg.hydrography is not None
         assert cfg.hydrography.sources[0].path is not None
 
     def test_hydrography_in_typed_sections(self):
         """HydrographyConfig is validated as a typed section."""
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         # from_toml_section validates hydrography as typed - just check it doesn't error
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
+        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
         assert cfg.hydrography is not None
 
     def test_hydrography_not_in_types_but_section_present(self, tmp_path):
         """If hydrography is not in types but section is present, it should still validate."""
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["geology"],
             "hydrography": {"sources": [{"source": "osm"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
         assert cfg.hydrography is not None
         assert "hydrography" not in cfg.types
 
     def test_with_resolved_types_adds_hydrography(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": [],
             "hydrography": {"sources": [{"source": "osm"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
         resolved = cfg.with_resolved_types(["hydrography"])
         assert "hydrography" in resolved.types
 
@@ -278,7 +278,7 @@ class TestTomlFormatAcceptance:
     """Verify various TOML layouts produce valid configs."""
 
     def test_minimal_custom(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
@@ -286,41 +286,41 @@ class TestTomlFormatAcceptance:
                 "sources": [{"source": "file", "path": str(tmp_path / "s.shp")}],
             },
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
         assert cfg.hydrography.sources[0].source == "file"
 
     def test_minimal_osm(self):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
+        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
         assert cfg.hydrography.sources[0].waterway_types == ["river", "stream"]
 
     def test_minimal_bdtopage(self):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "bdtopage"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
+        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
         assert cfg.hydrography.sources[0].page_size == 50_000
 
     def test_minimal_euhydro(self):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "euhydro"}]},
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
+        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
         assert cfg.hydrography.sources[0].group_name == "River_Net_lines"
 
     def test_multi_source_toml(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
@@ -337,18 +337,18 @@ class TestTomlFormatAcceptance:
                 ],
             },
         }
-        cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
         assert len(cfg.hydrography.sources) == 4
 
     def test_invalid_source_in_toml(self):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "invalid_api"}]},
         }
         with pytest.raises((ValidationError, ValueError)):
-            DataManagersConfig.from_toml_section(section, base_dir=Path("/tmp"))
+            DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
 
 
 # =====================================================================
@@ -427,15 +427,18 @@ class TestDocumentedContracts:
 
         assert not dataclasses.is_dataclass(HydrographyConfig)
 
-    def test_manager_variable_name(self):
+    def test_variable_name(self):
         from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
 
         assert HydrographyVariable.VARIABLE_NAME == "hydrography"
 
-    def test_package_exports(self):
+    def test_package_exports_nothing(self):
+        """A name is read from the module that defines it (rule 8), not from the package."""
         import hydromodpy.data.variables.hydrography as pkg
 
-        assert set(pkg.__all__) == {"HydrographyConfig", "HydrographySourceConfig"}
+        assert not hasattr(pkg, "__all__")
+        assert not hasattr(pkg, "HydrographyConfig")
+        assert not hasattr(pkg, "HydrographySourceConfig")
 
 
 # =====================================================================

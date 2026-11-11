@@ -58,7 +58,7 @@ def test_sfr_figures_render_from_the_real_store(sfr_run: Path, tmp_path: Path) -
     matplotlib.use("Agg")
 
     from hydromodpy.display.figure_registry import get as get_figure
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     store = _open_result_store(sfr_run)
     try:
@@ -102,7 +102,7 @@ def test_sfr_figures_render_from_the_real_store(sfr_run: Path, tmp_path: Path) -
 @pytest.mark.binary
 @pytest.mark.slow
 def test_sfr_longitudinal_profile_accumulates_downstream(sfr_run: Path) -> None:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     store = _open_result_store(sfr_run)
     try:

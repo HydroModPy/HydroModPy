@@ -13,7 +13,7 @@ from hydromodpy.display.maps.ugrid import render_face_field
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def _top_surface(run: Run) -> np.ndarray:

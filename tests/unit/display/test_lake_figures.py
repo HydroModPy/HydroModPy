@@ -10,14 +10,13 @@ import pytest
 
 from hydromodpy.display.figures.lake_abacus_comparison import (
     lake_abacus_fit_metrics,
-    plot_lake_abacus_comparison,
 )
 from hydromodpy.display.figures.lake_level_fit import (
     lake_level_fit_metrics,
     plot_lake_level_fit,
 )
 
-# Lake abacus comparison figure: arrays in, PNG out, storage metrics returned.
+# Lake abacus fit metrics: arrays in, storage metrics returned.
 
 
 def test_metrics_perfect_match_is_nse_one():
@@ -26,21 +25,6 @@ def test_metrics_perfect_match_is_nse_one():
     assert metrics["nse"] == 1.0
     assert metrics["rmse"] == 0.0
     assert metrics["max_abs_error"] == 0.0
-
-
-def test_plot_writes_png_and_returns_metrics(tmp_path):
-    stage = [20.0, 30.0, 40.0, 50.0]
-    real_vol = [0.0, 1000.0, 4000.0, 9000.0]
-    sim_vol = [0.0, 1010.0, 3980.0, 9050.0]
-    real_area = [0.0, 100.0, 200.0, 300.0]
-    sim_area = [0.0, 100.0, 200.0, 300.0]
-    out = tmp_path / "abacus.png"
-    metrics = plot_lake_abacus_comparison(
-        stage, real_vol, real_area, sim_vol, sim_area, out_path=out, lake_id="lac0"
-    )
-    assert out.exists()
-    assert out.stat().st_size > 0
-    assert metrics["nse"] > 0.999
 
 
 class _FakeRun:

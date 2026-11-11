@@ -22,7 +22,7 @@ import pytest
 
 from hydromodpy.project import api
 from hydromodpy.project.launch.status import CASE_COLUMNS
-from hydromodpy.results.catalog import rebuild_index
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.run.sealed import MixedWindowsError
@@ -313,7 +313,7 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``run``, ``status`` and ``collect`` call the launcher and the summary with the CLI words."""
-    import hydromodpy.project.launch as launch
+    import hydromodpy.project.launch.local as launch
     import hydromodpy.project.launch.summary as summary
 
     project = _campaign(tmp_path)

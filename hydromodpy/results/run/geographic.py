@@ -1,4 +1,4 @@
-"""Geographic and mesh accessors for :class:`hydromodpy.results.run.Run`.
+"""Geographic and mesh accessors for :class:`hydromodpy.results.run.view.Run`.
 
 Mixin that bundles persisted geographic features, raster reads, the scalar
 grid metadata, the catchment mask, DEM, outlet, unstructured mesh and the
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.results.grid import Grid
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

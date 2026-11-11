@@ -295,7 +295,7 @@ def _field_store(run_dir):
     """Write a small field store with one array, and return a chunk file of it."""
     import numpy as np
 
-    from hydromodpy.results.zarr_store import SimulationZarr
+    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
     store = SimulationZarr.create(run_dir / "fields.zarr", n_cells=4, n_layers=1)
     store.write_static_field("hydraulic_conductivity", np.full((1, 4), 1.0e-5), subgroup="derived")
@@ -330,7 +330,7 @@ def test_the_field_store_carries_the_digest_of_its_tree_and_a_rewritten_chunk_is
 
 def test_reading_the_field_store_of_a_sealed_run_leaves_its_seal_whole(run_dir):
     from hydromodpy.results.record.manifest import seal_problems
-    from hydromodpy.results.zarr_store import SimulationZarr
+    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
     _field_store(run_dir)
     make_record().write(run_dir)

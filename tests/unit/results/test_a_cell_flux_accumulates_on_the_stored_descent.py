@@ -18,7 +18,7 @@ import numpy as np
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
 from hydromodpy.results.derive.accumulation import drain_accumulation_flux_rows
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 

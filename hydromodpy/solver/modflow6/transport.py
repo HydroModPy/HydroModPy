@@ -20,19 +20,17 @@ from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.base.protocols import FlowModelLike
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6.builders.solver_options import optional_ims_kwargs
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
-from hydromodpy.solver.modflow_common import (
-    build_concentration_runtime_overrides,
-)
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
 )
+from hydromodpy.solver.modflow_common.runtime_arrays import build_concentration_runtime_overrides
 
 # The suffix of the transport model name a MODFLOW 6 GWT run writes, constant
 # for this adapter: one concentration transport per run, so the index of the
@@ -55,7 +53,7 @@ class Modflow6Transport:
     def __init__(
         self,
         model: Model,
-        model_modflow: FlowModelLike,
+        model_modflow: Modflow6,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = _MT_S1,

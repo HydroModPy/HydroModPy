@@ -16,7 +16,7 @@ from hydromodpy.model.contracts import LoadResultProto
 from hydromodpy.model.forcing.time_forcing import aggregate_forcing_series
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
     from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)

@@ -9,7 +9,7 @@ from pydantic import Field
 from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 
 __all__ = [
     "CappedBreachConfig",

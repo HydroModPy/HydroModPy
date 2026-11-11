@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import crs_of_a_user_file
+from hydromodpy.data.common.geometry import crs_of_a_user_file
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.families.common import SourceTable
@@ -78,7 +78,7 @@ class RasterFileVariable(FileVariable):
         """Read a GeoTIFF or ASC raster into a cached COG."""
         import rasterio
 
-        from hydromodpy.data.ingest import convert_asc_to_geotiff
+        from hydromodpy.data.ingest.raster import convert_asc_to_geotiff
 
         path = Path(str(source_cfg.path)).resolve()
         if not path.exists():

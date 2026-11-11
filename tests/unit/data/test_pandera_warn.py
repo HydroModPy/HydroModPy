@@ -10,8 +10,8 @@ import pandera.pandas as pa
 import pytest
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.schemas import STRICT_ENV_VAR, validate_warn_only
 from hydromodpy.data.schemas.timeseries import TimeSeriesSchema
+from hydromodpy.data.schemas.validation import STRICT_ENV_VAR, validate_warn_only
 
 
 def _invalid_timeseries_df() -> pd.DataFrame:

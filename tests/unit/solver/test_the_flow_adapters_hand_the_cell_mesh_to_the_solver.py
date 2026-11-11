@@ -19,7 +19,7 @@ from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, Simulat
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import require_cell_mesh
+from hydromodpy.solver.modflow_common.flow_run import require_cell_mesh
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
 _ADAPTERS = {

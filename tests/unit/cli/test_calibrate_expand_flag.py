@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.cli.helpers import EXIT_USAGE
+from hydromodpy.cli.exit_codes import EXIT_USAGE
 
 _PROTOCOL = textwrap.dedent(
     """

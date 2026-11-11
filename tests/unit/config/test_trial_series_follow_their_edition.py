@@ -16,12 +16,12 @@ import pytest
 import tomlkit
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import (
     migrate_merged_doc,
     migrate_sealed_config_doc,
     optional_root_sections,
 )
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.schema.changes import read
 
 ROW = (

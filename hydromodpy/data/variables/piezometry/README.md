@@ -1,4 +1,4 @@
-# Piezometry Data Manager
+# Piezometry data variable
 
 `hydromodpy.data.variables.piezometry` loads groundwater level time series
 from custom CSV files or from the Hub'Eau API.

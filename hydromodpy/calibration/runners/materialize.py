@@ -12,7 +12,7 @@ so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
 TOML file on disk or an in-memory
-:class:`~hydromodpy.config.HydroModPyConfig` instance; the latter is
+:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig` instance; the latter is
 useful when the calibration loop is driven from Python code.
 """
 
@@ -211,7 +211,7 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        :class:`~hydromodpy.config.HydroModPyConfig` instance. When a
+        :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig` instance. When a
         config object is passed, the overlay is built from
         ``model_dump`` and ``base_config`` in the overlay falls back to
         ``base_dir`` (when supplied) so the file remains rechargeable.

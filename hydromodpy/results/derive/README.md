@@ -15,13 +15,13 @@ directory.
    `drainage_density`, `persistence`, `catchment_mean`), and `budget_over` totals a per-cell budget term over the
    catchment or a polygon.
 5. `time_alignment.py` puts observed and simulated series on the same time axis. `run_period_edges` gives the
-   edges of the periods of a run and `naive_utc` gives a timestamp in UTC without a time zone.
+   edges of the periods of a run. A timestamp in UTC without a time zone is `naive_timestamp` of `core/time/period_aggregation.py`.
 6. `config_flags.py` tells a reader which option to switch on when a field is missing.
 7. `catchment_aggregation.py` writes the discharge and well_pumping series of one run, each term from the catchment row,
    its per-cell field or the domain row. The `derive` step of the workflow calls it.
    It reads the stored basin through `basin_of_group` of `results/run/descent.py`, the one reader the run views use too.
-8. `stream/` reads the stream criterion on a finished run. The kernels on arrays live in `catchment/stream_network`,
-   and `stream/criterion_inputs.py` holds the inputs a trial and a redrawn figure both read. It has its own `README.md`.
+8. `stream_network/` reads the stream criterion on a finished run. The kernels on arrays live in `catchment/stream_network`,
+   and `stream_network/criterion_inputs.py` holds the inputs a trial and a redrawn figure both read. It has its own `README.md`.
 
 ## The folder map
 
@@ -39,7 +39,7 @@ derive/
 ├── mesh_quality.py     quality of the stored mesh, one value per cell
 ├── config_flags.py     what a run kept of the budget, and the hint for a missing field
 ├── run_memo.py         per-run memo for heavy rebuilds shared by figures
-└── stream/             the stream criterion read on a finished run, and its inputs
+└── stream_network/     the stream criterion read on a finished run, and its inputs
 ```
 
 ## Where to add what
@@ -51,5 +51,5 @@ derive/
 | a formula on stored arrays | `derived.py` |
 | a rule to align two series in time | `time_alignment.py` |
 | a message about a missing option | `config_flags.py` |
-| a reader of the stream criterion on a run | `stream/` |
+| a reader of the stream criterion on a run | `stream_network/` |
 | a kernel of the stream criterion on arrays | `catchment/stream_network` |

@@ -16,21 +16,21 @@ from hydromodpy.catchment.preprocess.capped_breach_config import (
 )
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.terrain.port import CappedBreach
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES, DataManagersConfig
+from hydromodpy.data.loading.config_schema import DATA_VARIABLES, DataConfig
 from hydromodpy.data.variables.lake_abacus.config import FileLakeAbacusSource, LakeAbacusConfig
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
@@ -1230,7 +1230,7 @@ def _base_kwargs(tmp_path) -> dict:
 
 
 def test_data_inference_strict_without_types_is_rejected(tmp_path) -> None:
-    bad_data = DataManagersConfig(types=[], inference_mode="strict")
+    bad_data = DataConfig(types=[], inference_mode="strict")
     with pytest.raises(ValidationError) as excinfo:
         HydroModPyConfig(
             **_base_kwargs(tmp_path),
@@ -1240,7 +1240,7 @@ def test_data_inference_strict_without_types_is_rejected(tmp_path) -> None:
 
 
 def test_data_inference_strict_with_types_is_accepted(tmp_path) -> None:
-    ok_data = DataManagersConfig(types=["geology"], inference_mode="strict")
+    ok_data = DataConfig(types=["geology"], inference_mode="strict")
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
         data=ok_data,
@@ -1249,7 +1249,7 @@ def test_data_inference_strict_with_types_is_accepted(tmp_path) -> None:
 
 
 def test_data_inference_warn_without_types_is_accepted(tmp_path) -> None:
-    empty_data = DataManagersConfig(types=[], inference_mode="warn")
+    empty_data = DataConfig(types=[], inference_mode="warn")
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
         data=empty_data,
@@ -1266,14 +1266,14 @@ def test_a_raster_depth_model_without_a_substratum_is_rejected(tmp_path) -> None
 
 
 def test_a_raster_depth_model_with_a_substratum_is_accepted(tmp_path) -> None:
-    from hydromodpy.data.variables.substratum.config import SubstratumConfig
+    from hydromodpy.data.variables.user_rasters import SubstratumConfig
 
     raster = tmp_path / "substratum.tif"
     raster.write_bytes(b"")
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
         domain={"depth_model": {"kind": "raster_thickness", "scale": 1.5}},
-        data=DataManagersConfig(substratum=SubstratumConfig.from_raster(raster)),
+        data=DataConfig(substratum=SubstratumConfig.from_raster(raster)),
     )
 
     assert cfg.domain.depth_model.scale == 1.5
@@ -1381,13 +1381,13 @@ def test_the_description_names_the_three_methods_and_what_each_changes() -> None
 # [data] TOML wiring for the lake families: typed sections + path resolution.
 #
 # Guards that ``[data.lake_*]`` sections validate into the
-# dedicated typed configs through ``DataManagersConfig.from_toml_section`` and
+# dedicated typed configs through ``DataConfig.from_toml_section`` and
 # that ``InputFile``-annotated paths are resolved relative to the TOML dir.
 
 
 def test_lake_families_are_supported_manager_types() -> None:
     for name in ("lake_abacus", "lake_bathymetry", "lake_geometry", "lake_levels"):
-        assert name in SUPPORTED_DATA_MANAGER_TYPES
+        assert name in DATA_VARIABLES
 
 
 def test_lake_sections_validate_into_typed_configs(tmp_path) -> None:
@@ -1410,7 +1410,7 @@ def test_lake_sections_validate_into_typed_configs(tmp_path) -> None:
         "lake_geometry": {"sources": [{"source": "file", "path": "lac0.gpkg"}]},
     }
 
-    cfg = DataManagersConfig.from_toml_section(section, base_dir=tmp_path)
+    cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
 
     assert isinstance(cfg.lake_abacus, LakeAbacusConfig)
     assert isinstance(cfg.lake_geometry, LakeGeometryConfig)

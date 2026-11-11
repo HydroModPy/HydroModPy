@@ -17,31 +17,31 @@ import pytest
 from pydantic import ValidationError
 from shapely.geometry import LineString
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import CalibOutputNetwork
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_outputs import (
     CalibOutputCell,
     CalibOutputLake,
-    CalibOutputNetwork,
     CalibOutputPoint,
-    CalibrationConfig,
     validate_calib_output,
 )
-from hydromodpy.calibration.criteria import criterion_for
-from hydromodpy.calibration.metrics import ObservedSeries as ObservedSeries__metrics_extractors
-from hydromodpy.calibration.metrics import (
-    build_metric_extractor,
-    composite,
-    observable_scoring,
-    solver_extract,
-)
+from hydromodpy.calibration.criteria.registry import criterion_for
+from hydromodpy.calibration.metrics import composite, observable_scoring, solver_extract
 from hydromodpy.calibration.metrics import composite as _composite_module
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract_module
-from hydromodpy.calibration.metrics.composite import _build_composite_metric_extractor  # noqa: F401
+from hydromodpy.calibration.metrics.composite import (
+    _build_composite_metric_extractor,  # noqa: F401
+    build_metric_extractor,
+)
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer, StationBlockScorer
 from hydromodpy.calibration.metrics.observable_scoring import slice_time as _slice_time
 from hydromodpy.calibration.metrics.series import ObservedSeries, load_observed
+from hydromodpy.calibration.metrics.series import (
+    ObservedSeries as ObservedSeries__metrics_extractors,
+)
 from hydromodpy.calibration.metrics.solver_extract import (
     _coerce_length_to_m,
     _saturated_thickness_or_none,
@@ -1505,7 +1505,7 @@ def test_solver_extract_module_exposes_extractors() -> None:
 
 
 # From test_metrics_extractors.py
-# Tests for :func:`hydromodpy.calibration.metrics.build_metric_extractor`.
+# Tests for :func:`hydromodpy.calibration.metrics.composite.build_metric_extractor`.
 #
 # Covers Phase 3 of the calibration integration:
 #

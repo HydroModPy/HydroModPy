@@ -24,11 +24,12 @@ from hydromodpy.calibration.optim.cost_margin import (
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.document import load_toml_calibration
-from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_summaries
+from hydromodpy.calibration.runners.staged_report import phase_summaries
+from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.catchment.stream_network.geometry import neighbour_spacing_m
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.results.session.descriptor import read_session
 from tests.unit.calibration._factories_runners import write_document
 

@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.results.catalog import Catalog  # noqa: E402
+from hydromodpy.results.catalog.facade import Catalog  # noqa: E402
 from validation_cases.calibration.network_transient_b0.network_transient_truth import (  # noqa: E402
     score_network_transient_candidate_from_runs,
 )

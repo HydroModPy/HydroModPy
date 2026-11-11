@@ -11,16 +11,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import (
-    CalibPhaseDecl,
-    CalibrationConfig,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
 )
-from hydromodpy.calibration.protocols import (
-    expand_calibration_protocol,
-)
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.calibration.runners.session import (
     calibration_case_name,
     case_named_by,
