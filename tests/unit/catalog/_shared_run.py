@@ -71,7 +71,7 @@ def make_shared_run(root: Path) -> Path:
             ),
             InputEntry(
                 variable="hydrometry:discharge",
-                provider="custom",
+                provider="file",
                 request={"station": "NANCON"},
                 path=f"data/hydrometry/{CUSTOM_FILE}",
                 sha256=sha256_of(custom),

@@ -242,11 +242,13 @@ def _station_row(item: PayloadFile, located: Path, workspace: Path) -> PayloadSt
     station = (item.request or {}).get("station")
     if station is None or item.variable is None or item.provider is None:
         return None
-    marker = f"_{item.provider}_"
+    # A user file is sealed with provider "file" but named after the "custom" contract.
+    provider = "custom" if item.provider in CUSTOM_PROVIDERS else item.provider
+    marker = f"_{provider}_"
     if marker not in located.name:
         return None
     prefix = located.name.split(marker, 1)[0]
-    registry = located.with_name(f"{prefix}_{item.provider}{_LOC_SUFFIX}")
+    registry = located.with_name(f"{prefix}_{provider}{_LOC_SUFFIX}")
     _, rows = read_registry(registry)
     row = next((row for row in rows if row.get("id") == str(station)), None)
     if row is None:

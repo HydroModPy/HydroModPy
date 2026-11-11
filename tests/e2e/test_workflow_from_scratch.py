@@ -290,8 +290,19 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
             f"required solver binaries missing: {missing}. Run `hmp install-binaries` first."
         )
 
-    out_path = tmp_path / "run_out"
-    out_path.mkdir(parents=True, exist_ok=True)
+    # The fixture names ``../../data/...`` and ``../../../../../examples/data/...``
+    # from the project folder, so the project sits five levels below a root that
+    # holds ``examples/data``, and two levels below a folder that holds ``data``.
+    example_data = Path(__file__).resolve().parents[2] / "examples" / "data"
+    regional_dem = example_data / "dem" / "regional_dem_naizin.tif"
+    if not regional_dem.is_file():
+        pytest.skip(f"example data missing: {regional_dem}")
+    root = tmp_path / "root"
+    (root / "examples").mkdir(parents=True)
+    (root / "examples" / "data").symlink_to(example_data, target_is_directory=True)
+    out_path = root / "a" / "b" / "c" / "d" / "run_out"
+    out_path.mkdir(parents=True)
+    (out_path.parents[1] / "data").symlink_to(example_data, target_is_directory=True)
     env = {"MPLBACKEND": "Agg"}
     # Filter out any env that would lock to a host-bound output, then merge.
     import os

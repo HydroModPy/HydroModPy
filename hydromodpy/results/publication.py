@@ -413,7 +413,7 @@ def read_published(source_dir: str | Path) -> list[PublishedLine]:
     ]
 
 
-_POSIX_ABSOLUTE = re.compile(r"(?<![\w:/])/(?:[^\s\"'<>|/]+)(?:/[^\s\"'<>|/]*)*")
+_POSIX_ABSOLUTE = re.compile(r"(?<![\w:/.])/(?:[^\s\"'<>|/]+)(?:/[^\s\"'<>|/]*)*")
 _WINDOWS_ABSOLUTE = re.compile(r"(?<!\w)[A-Za-z]:[\\/][^\s\"'<>|]*")
 
 

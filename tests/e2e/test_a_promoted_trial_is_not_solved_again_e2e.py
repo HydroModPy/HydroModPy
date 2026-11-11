@@ -11,7 +11,7 @@ run must come out the same both ways:
   the configuration snapshot apart from the ``[workspace]`` paths, which name
   the scratch folder of the process;
 * the metrics, apart from the solve time of the run;
-* the list of figures.
+* the list of figures of the run in ``runs/``, a kept trial drawing none.
 
 The model is example 04 (the Nancon catchment) cut to one monthly transient
 year on a 30 x 30 grid, with K on two fixed values and every trial promoted:
@@ -237,9 +237,14 @@ def test_a_promoted_trial_is_the_run_a_replay_writes(
 
         _assert_same_tables(kept_run / "tables.parquet", replay_run / "tables.parquet")
 
-        figures = sorted(path.name for path in (kept_run / "figures").iterdir())
-        assert figures
-        assert figures == sorted(path.name for path in (replay_run / "figures").iterdir())
+        # Only the run of the project draws figures. A kept trial is research and draws none.
+        if kept_run.parent.name == "runs":
+            figures = sorted(path.name for path in (kept_run / "figures").iterdir())
+            assert figures
+            assert figures == sorted(path.name for path in (replay_run / "figures").iterdir())
+        else:
+            assert not (kept_run / "figures").exists()
+            assert not (replay_run / "figures").exists()
 
     # Nothing of the session is left in the run scratch.
     assert not (kept_project / ".hmp" / "scratch").exists()

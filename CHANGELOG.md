@@ -708,6 +708,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- A published run whose document names its data by a relative path such as `../../data/rain.nc` keeps that
+  path. The redaction of absolute paths took the `/` after `..` for a root and wrote `..<absolute path>`, so
+  `hmp catalog rerun` of the shared copy refused the document.
+- A shared run that reads its stations from a user file brings the station row in `INSTALL.toml` again. The row
+  was looked up under the provider name `file` while the data file carries `custom`, so the copy failed on a
+  missing station.
 - `hmp replay` of a published copy that was killed once no longer makes every later replay of that copy fail with
   `FileExistsError`. The folder it left in `.hmp/replay/` is removed once its process is gone, and a second replay of
   the same copy into the same project while the first one runs is refused with a write conflict.

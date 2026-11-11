@@ -278,6 +278,24 @@ def test_redact_leaves_urls_dates_relative_paths_and_numbers_alone(tmp_path):
     assert redact(payload, project_root=tmp_path) == payload
 
 
+def test_redact_does_not_take_the_slash_of_a_dotted_relative_path_for_a_root(tmp_path):
+    payload = {
+        "up": "../../data/dem/x.tif",
+        "here": "./x.tif",
+        "inner": "a/b",
+        "url": "https://example.org/a/b.tif",
+        "note": "reads ../data/x.tif and ./y.tif",
+    }
+    assert redact(payload, project_root=tmp_path) == payload
+
+
+def test_redact_still_hides_an_absolute_path_after_a_space_or_a_quote(tmp_path):
+    redacted = redact(
+        {"text": "see /etc/hosts and '/var/log/x' or C:/Users/me/x"}, project_root=tmp_path
+    )
+    assert redacted["text"] == f"see {REDACTED_PATH} and '{REDACTED_PATH}' or {REDACTED_PATH}"
+
+
 def test_redact_without_a_project_root_hides_every_absolute_path(tmp_path):
     payload = {"config": str(tmp_path / "config.toml")}
     assert redact(payload, project_root=None) == {"config": REDACTED_PATH}
